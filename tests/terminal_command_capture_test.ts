@@ -11,6 +11,7 @@ import {
   type TerminalCommandCapture,
 } from "./fixtures/terminal_command_capture.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -72,38 +73,61 @@ realPtyTest({
   },
 });
 
-Deno.test("PTY line normalization preserves rows and rejects live repaint", () => {
-  assertEquals(normalizePtyLineEndings("one\r\ntwo\r\n"), "one\ntwo\n");
-  assertEquals(
-    normalizePtyLineEndings("complete frame\r\r\nnext row\r\r\n"),
-    "complete frame\nnext row\n",
-  );
-  assertThrows(
-    () => normalizePtyLineEndings("progress\rcomplete"),
-    Error,
-    "live carriage-return repaint",
-  );
+Deno.test("terminal command capture: captured frame normalization", () => {
+  assertNamedCases({
+    "PTY line normalization preserves rows and rejects live repaint": () => {
+      assertEquals(normalizePtyLineEndings("one\r\ntwo\r\n"), "one\ntwo\n");
+      assertEquals(
+        normalizePtyLineEndings("complete frame\r\r\nnext row\r\r\n"),
+        "complete frame\nnext row\n",
+      );
+      assertThrows(
+        () => normalizePtyLineEndings("progress\rcomplete"),
+        Error,
+        "live carriage-return repaint",
+      );
+    },
+    "interactive capture extracts the last settled package frame": () => {
+      const transcript = "prior\r\n\x1b[?25lfirst\r\n" +
+        "\x1b[1G\x1b[2A\x1b[J\x1b]11;?\x1b\\\x1b[?25l" +
+        "\x1b[1msettled\x1b[0m\r\n\x1b[?25h";
+      assertEquals(
+        settledInteractiveTerminalFrame(transcript),
+        "\x1b[1msettled\x1b[0m\n",
+      );
+    },
+    "interactive capture extracts a complete alternate-screen repaint": () => {
+      const transcript = "\x1b[?1049h\x1b[?1000h\x1b[2J\x1b[H" +
+        "complete frame\r\r\nsecond row    ";
+      assertEquals(
+        settledInteractiveTerminalFrame(transcript, { columns: 14, rows: 2 }),
+        "complete frame\nsecond row    ",
+      );
+    },
+    "complete-frame capture refuses missing geometry, partial and overflowing frames":
+      () => {
+        const frame = "\x1b[?1049h\x1b[2J\x1b[H";
+        for (
+          const output of [
+            frame + "x",
+            frame + "12345\n1234",
+            frame + "1234\n1234\n1234",
+          ]
+        ) {
+          assertThrows(
+            () =>
+              settledInteractiveTerminalFrame(output, { columns: 4, rows: 2 }),
+            TypeError,
+          );
+        }
+        assertThrows(
+          () => settledInteractiveTerminalFrame(frame + "1234\n1234"),
+          TypeError,
+          "requires terminal geometry",
+        );
+      },
+  });
 });
-
-Deno.test("interactive capture extracts the last settled package frame", () => {
-  const transcript = "prior\r\n\x1b[?25lfirst\r\n" +
-    "\x1b[1G\x1b[2A\x1b[J\x1b]11;?\x1b\\\x1b[?25l" +
-    "\x1b[1msettled\x1b[0m\r\n\x1b[?25h";
-  assertEquals(
-    settledInteractiveTerminalFrame(transcript),
-    "\x1b[1msettled\x1b[0m\n",
-  );
-});
-
-Deno.test("interactive capture extracts a complete alternate-screen repaint", () => {
-  const transcript = "\x1b[?1049h\x1b[?1000h\x1b[2J\x1b[H" +
-    "complete frame\r\r\nsecond row    ";
-  assertEquals(
-    settledInteractiveTerminalFrame(transcript, { columns: 14, rows: 2 }),
-    "complete frame\nsecond row    ",
-  );
-});
-
 Deno.test("captured package styling projects to stable self-contained HTML", () => {
   const capture: TerminalCommandCapture = {
     schemaVersion: 1,
@@ -133,26 +157,5 @@ Deno.test("captured package styling projects to stable self-contained HTML", () 
     serializeTerminalCapture({
       ...capture,
     }),
-  );
-});
-
-Deno.test("complete-frame capture refuses missing geometry, partial and overflowing frames", () => {
-  const frame = "\x1b[?1049h\x1b[2J\x1b[H";
-  for (
-    const output of [
-      frame + "x",
-      frame + "12345\n1234",
-      frame + "1234\n1234\n1234",
-    ]
-  ) {
-    assertThrows(
-      () => settledInteractiveTerminalFrame(output, { columns: 4, rows: 2 }),
-      TypeError,
-    );
-  }
-  assertThrows(
-    () => settledInteractiveTerminalFrame(frame + "1234\n1234"),
-    TypeError,
-    "requires terminal geometry",
   );
 });

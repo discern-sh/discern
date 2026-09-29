@@ -49,6 +49,7 @@ import {
   type CliResultForCommand,
   decodeCliResult,
 } from "./decode_cli_result.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 type DocsResult = CliResultForCommand<"docs">;
 type DocsData = Exclude<NonNullable<DocsResult["data"]>, { issues: unknown }>;
@@ -91,80 +92,84 @@ Deno.test("docs browser offers its online manual without adding it to map", () =
   );
 });
 
-Deno.test("docs browser resolves fragments and admitted Markdown paths from its in-memory corpus", () => {
-  const availableDocuments = [
-    { id: "root", name: "Welcome", path: "README.md" },
-    { id: "start", name: "Start", path: "00-start/start.md" },
-    { id: "other", name: "Other", path: "00-start/other.md" },
-    { id: "next", name: "Next", path: "10-next/README.md" },
-    { id: "target", name: "Target", path: "10-next/target.md" },
-  ] as const;
-  const resolve = (destination: string) =>
-    resolveDocsBrowserLink({
-      sourceDocumentId: "start",
-      sourcePath: "00-start/start.md",
-      destination,
-      availableDocuments,
-    });
+Deno.test("docs: resolveDocsBrowserLink cases", () => {
+  assertNamedCases({
+    "docs browser resolves fragments and admitted Markdown paths from its in-memory corpus":
+      () => {
+        const availableDocuments = [
+          { id: "root", name: "Welcome", path: "README.md" },
+          { id: "start", name: "Start", path: "00-start/start.md" },
+          { id: "other", name: "Other", path: "00-start/other.md" },
+          { id: "next", name: "Next", path: "10-next/README.md" },
+          { id: "target", name: "Target", path: "10-next/target.md" },
+        ] as const;
+        const resolve = (destination: string) =>
+          resolveDocsBrowserLink({
+            sourceDocumentId: "start",
+            sourcePath: "00-start/start.md",
+            destination,
+            availableDocuments,
+          });
 
-  assertEquals(resolve("#details"), {
-    kind: "fragment",
-    fragment: "#details",
-  });
-  for (const destination of ["other.md", "./other.md"]) {
-    assertEquals(resolve(destination), {
-      kind: "document",
-      documentId: "other",
-    });
-  }
-  assertEquals(resolve("../10-next/target.md#result"), {
-    kind: "document",
-    documentId: "target",
-    fragment: "#result",
-  });
-  assertEquals(resolve("/README.md"), {
-    kind: "document",
-    documentId: "root",
-  });
-  assertEquals(resolve("../10-next/"), {
-    kind: "document",
-    documentId: "next",
+        assertEquals(resolve("#details"), {
+          kind: "fragment",
+          fragment: "#details",
+        });
+        for (const destination of ["other.md", "./other.md"]) {
+          assertEquals(resolve(destination), {
+            kind: "document",
+            documentId: "other",
+          });
+        }
+        assertEquals(resolve("../10-next/target.md#result"), {
+          kind: "document",
+          documentId: "target",
+          fragment: "#result",
+        });
+        assertEquals(resolve("/README.md"), {
+          kind: "document",
+          documentId: "root",
+        });
+        assertEquals(resolve("../10-next/"), {
+          kind: "document",
+          documentId: "next",
+        });
+      },
+    "docs browser leaves unadmitted, unsafe, and malformed destinations inert":
+      () => {
+        const availableDocuments = [
+          { id: "start", name: "Start", path: "00-start/start.md" },
+        ] as const;
+        for (
+          const destination of [
+            "../../outside.md",
+            "../src/main.ts",
+            "../_private/hidden.md",
+            "missing.md",
+            "file:///etc/passwd",
+            "mailto:hello@example.com",
+            "javascript:alert(1)",
+            "//example.com/docs",
+            "%ZZ.md",
+            "../%2e%2e/outside.md",
+            "..\\outside.md",
+            "#%ZZ",
+          ]
+        ) {
+          const result = resolveDocsBrowserLink({
+            sourceDocumentId: "start",
+            sourcePath: "00-start/start.md",
+            destination,
+            availableDocuments,
+          });
+          assertEquals(result.kind, "unresolved", destination);
+          if (result.kind === "unresolved") {
+            assertStringIncludes(result.message ?? "", "Choose a document");
+          }
+        }
+      },
   });
 });
-
-Deno.test("docs browser leaves unadmitted, unsafe, and malformed destinations inert", () => {
-  const availableDocuments = [
-    { id: "start", name: "Start", path: "00-start/start.md" },
-  ] as const;
-  for (
-    const destination of [
-      "../../outside.md",
-      "../src/main.ts",
-      "../_private/hidden.md",
-      "missing.md",
-      "file:///etc/passwd",
-      "mailto:hello@example.com",
-      "javascript:alert(1)",
-      "//example.com/docs",
-      "%ZZ.md",
-      "../%2e%2e/outside.md",
-      "..\\outside.md",
-      "#%ZZ",
-    ]
-  ) {
-    const result = resolveDocsBrowserLink({
-      sourceDocumentId: "start",
-      sourcePath: "00-start/start.md",
-      destination,
-      availableDocuments,
-    });
-    assertEquals(result.kind, "unresolved", destination);
-    if (result.kind === "unresolved") {
-      assertStringIncludes(result.message ?? "", "Choose a document");
-    }
-  }
-});
-
 Deno.test("docs browser admits only absolute HTTP and HTTPS effects", () => {
   for (
     const destination of ["https://example.com/docs", "http://example.com"]
@@ -196,97 +201,103 @@ Deno.test("docs browser admits only absolute HTTP and HTTPS effects", () => {
   }
 });
 
-Deno.test("docs headers preserve exact facts at narrow and wide TTY widths", () => {
-  const directory = "/a/long/grapheme-safe/café-🙂/manual";
-  for (const width of [24, 80]) {
-    const terminal = resolveTerminalContext({
-      noColor: false,
-      env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
-      isTerminal: () => true,
-      consoleSize: () => ({ columns: width, rows: 24 }),
-    });
-    const rendered = stripAnsi(
-      renderDocsCorpusHeader("docs", 17, directory, width, terminal),
-    );
-    for (const line of rendered.split("\n")) {
-      assert(
-        measureText(line) <= width,
-        `${width}-column docs header overflowed: ${JSON.stringify(line)}`,
+Deno.test("docs: resolveTerminalContext cases", () => {
+  assertNamedCases({
+    "docs headers preserve exact facts at narrow and wide TTY widths": () => {
+      const directory = "/a/long/grapheme-safe/café-🙂/manual";
+      for (const width of [24, 80]) {
+        const terminal = resolveTerminalContext({
+          noColor: false,
+          env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+          isTerminal: () => true,
+          consoleSize: () => ({ columns: width, rows: 24 }),
+        });
+        const rendered = stripAnsi(
+          renderDocsCorpusHeader("docs", 17, directory, width, terminal),
+        );
+        for (const line of rendered.split("\n")) {
+          assert(
+            measureText(line) <= width,
+            `${width}-column docs header overflowed: ${JSON.stringify(line)}`,
+          );
+        }
+        assertStringIncludes(rendered, "DISCERN DOCS");
+        assertStringIncludes(rendered, DISCERN_MARK);
+        assertEquals(
+          rendered.split("\n").slice(1).join("").replaceAll(/\s+/gu, ""),
+          `— 17 documents in ${directory}`.replaceAll(/\s+/gu, ""),
+        );
+      }
+    },
+    "docs headers keep the original one-line fact for pipes": () => {
+      const terminal = resolveTerminalContext({
+        noColor: true,
+        env: fakeEnv({}),
+        isTerminal: () => false,
+        consoleSize: () => ({ columns: 24, rows: 24 }),
+      });
+      assertEquals(
+        renderDocsCorpusHeader("docs", 17, "manual", 24, terminal),
+        "discern docs — 17 documents in manual",
       );
-    }
-    assertStringIncludes(rendered, "DISCERN DOCS");
-    assertStringIncludes(rendered, DISCERN_MARK);
-    assertEquals(
-      rendered.split("\n").slice(1).join("").replaceAll(/\s+/gu, ""),
-      `— 17 documents in ${directory}`.replaceAll(/\s+/gu, ""),
-    );
-  }
-});
+    },
+    "docs headers make hostile directory facts inert before rendering": () => {
+      const width = 48;
+      const terminal = resolveTerminalContext({
+        noColor: false,
+        env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+        isTerminal: () => true,
+        consoleSize: () => ({ columns: width, rows: 24 }),
+      });
+      const rendered = stripAnsi(
+        renderDocsCorpusHeader(
+          "docs",
+          3,
+          "/tmp/café-👩‍💻\x1b\u0085\u202E\r\nmanual",
+          width,
+          terminal,
+        ),
+      );
 
-Deno.test("docs headers keep the original one-line fact for pipes", () => {
-  const terminal = resolveTerminalContext({
-    noColor: true,
-    env: fakeEnv({}),
-    isTerminal: () => false,
-    consoleSize: () => ({ columns: 24, rows: 24 }),
+      assertEquals(unexpectedTerminalControls(rendered), []);
+      assert(!/[\p{Cc}\p{Cf}]/u.test(rendered.replaceAll("\n", "")));
+      for (
+        const visible of ["<U+200D>", "␛", "<U+0085>", "<U+202E>", "␍", "␊"]
+      ) {
+        assertStringIncludes(rendered, visible);
+      }
+      for (const line of rendered.split("\n")) {
+        assert(measureText(line) <= width);
+      }
+    },
+    "installed decision redirects use a TTY Callout and one pipe-safe line":
+      () => {
+        const width = 56;
+        const tty = resolveTerminalContext({
+          noColor: true,
+          env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+          isTerminal: () => true,
+          consoleSize: () => ({ columns: width, rows: 24 }),
+        });
+        const rendered = renderExternalDecisionsNotice(tty, width);
+        assertStringIncludes(rendered, "Decision records live online");
+        assertStringIncludes(rendered, "https://discern.sh/docs/decisions");
+        for (const line of rendered.split("\n")) {
+          assert(measureText(line) <= width);
+        }
+
+        const pipe = resolveTerminalContext({
+          noColor: true,
+          env: fakeEnv({}),
+          isTerminal: () => false,
+          consoleSize: () => ({ columns: width, rows: 24 }),
+        });
+        const plain = renderExternalDecisionsNotice(pipe, width);
+        assert(!plain.includes("Decision records live online"));
+        assertStringIncludes(plain, "not bundled with installed binaries");
+        assertStringIncludes(plain, "https://discern.sh/docs/decisions");
+      },
   });
-  assertEquals(
-    renderDocsCorpusHeader("docs", 17, "manual", 24, terminal),
-    "discern docs — 17 documents in manual",
-  );
-});
-
-Deno.test("docs headers make hostile directory facts inert before rendering", () => {
-  const width = 48;
-  const terminal = resolveTerminalContext({
-    noColor: false,
-    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
-    isTerminal: () => true,
-    consoleSize: () => ({ columns: width, rows: 24 }),
-  });
-  const rendered = stripAnsi(
-    renderDocsCorpusHeader(
-      "docs",
-      3,
-      "/tmp/café-👩‍💻\x1b\u0085\u202E\r\nmanual",
-      width,
-      terminal,
-    ),
-  );
-
-  assertEquals(unexpectedTerminalControls(rendered), []);
-  assert(!/[\p{Cc}\p{Cf}]/u.test(rendered.replaceAll("\n", "")));
-  for (const visible of ["<U+200D>", "␛", "<U+0085>", "<U+202E>", "␍", "␊"]) {
-    assertStringIncludes(rendered, visible);
-  }
-  for (const line of rendered.split("\n")) {
-    assert(measureText(line) <= width);
-  }
-});
-
-Deno.test("installed decision redirects use a TTY Callout and one pipe-safe line", () => {
-  const width = 56;
-  const tty = resolveTerminalContext({
-    noColor: true,
-    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
-    isTerminal: () => true,
-    consoleSize: () => ({ columns: width, rows: 24 }),
-  });
-  const rendered = renderExternalDecisionsNotice(tty, width);
-  assertStringIncludes(rendered, "Decision records live online");
-  assertStringIncludes(rendered, "https://discern.sh/docs/decisions");
-  for (const line of rendered.split("\n")) assert(measureText(line) <= width);
-
-  const pipe = resolveTerminalContext({
-    noColor: true,
-    env: fakeEnv({}),
-    isTerminal: () => false,
-    consoleSize: () => ({ columns: width, rows: 24 }),
-  });
-  const plain = renderExternalDecisionsNotice(pipe, width);
-  assert(!plain.includes("Decision records live online"));
-  assertStringIncludes(plain, "not bundled with installed binaries");
-  assertStringIncludes(plain, "https://discern.sh/docs/decisions");
 });
 
 /** Build one strict manual source used by the focused delivery fixtures. */

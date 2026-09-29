@@ -14,6 +14,7 @@ import {
 } from "../scripts/complexity_lib.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const DenoFtaImportSchema = z.object({
   imports: z.object({ "fta-cli": z.literal("npm:fta-cli@3.0.1") }),
@@ -66,94 +67,98 @@ Deno.test("FTA parsing and enrollment reject silent source omissions", () => {
   );
 });
 
-Deno.test("complexity context keeps ownership lanes and rankings independent", () => {
-  const metrics = contextualizeComplexity(
-    [
-      { file: "src/slow.ts", score: 20, cyclo: 5, lines: 90 },
-      { file: "src/branchy.ts", score: 10, cyclo: 30, lines: 60 },
-      { file: "scripts/tool.ts", score: 15, cyclo: 10, lines: 70 },
-      { file: "tests/generated.ts", score: 1000, cyclo: 1000, lines: 1000 },
-    ],
-    new Set(["tests/generated.ts"]),
-    new Map([["src/slow.ts", 12], ["src/branchy.ts", 20]]),
-  );
-  assertEquals(metrics.map((metric) => metric.area), [
-    "production",
-    "production",
-    "tooling",
-    "generated",
-  ]);
-  assertEquals(
-    rankComplexity(metrics, "production", "score").map((metric) => metric.file),
-    ["src/slow.ts", "src/branchy.ts"],
-  );
-  assertEquals(
-    rankComplexity(metrics, "production", "touches").map((metric) =>
-      metric.file
-    ),
-    ["src/branchy.ts", "src/slow.ts"],
-  );
-});
-
-Deno.test("hotspot budgets reject additions and regressions but ignore generated projections", () => {
-  const budget = {
-    file: "src/legacy.ts",
-    maxScore: 110.25,
-    maxCyclo: 220,
-    owner: "legacy owner",
-    reason: "A reviewed legacy responsibility remains concentrated.",
-    recovery: "Extract one coherent responsibility and remeasure it.",
-  } as const;
-  const baseline = contextualizeComplexity(
-    [
-      { file: "src/legacy.ts", score: 110.254, cyclo: 220, lines: 500 },
-      { file: "src/generated.ts", score: 500, cyclo: 500, lines: 500 },
-    ],
-    new Set(["src/generated.ts"]),
-    new Map(),
-  );
-  assertEquals(complexityHotspotFindings(baseline, [budget]), []);
-
-  const findings = complexityHotspotFindings([
-    ...baseline,
-    {
-      file: "src/new.ts",
-      score: 101,
-      cyclo: 10,
-      lines: 40,
-      area: "production",
-      touches: 1,
+Deno.test("complexity: contextualizeComplexity cases", () => {
+  assertNamedCases({
+    "complexity context keeps ownership lanes and rankings independent": () => {
+      const metrics = contextualizeComplexity(
+        [
+          { file: "src/slow.ts", score: 20, cyclo: 5, lines: 90 },
+          { file: "src/branchy.ts", score: 10, cyclo: 30, lines: 60 },
+          { file: "scripts/tool.ts", score: 15, cyclo: 10, lines: 70 },
+          { file: "tests/generated.ts", score: 1000, cyclo: 1000, lines: 1000 },
+        ],
+        new Set(["tests/generated.ts"]),
+        new Map([["src/slow.ts", 12], ["src/branchy.ts", 20]]),
+      );
+      assertEquals(metrics.map((metric) => metric.area), [
+        "production",
+        "production",
+        "tooling",
+        "generated",
+      ]);
+      assertEquals(
+        rankComplexity(metrics, "production", "score").map((metric) =>
+          metric.file
+        ),
+        ["src/slow.ts", "src/branchy.ts"],
+      );
+      assertEquals(
+        rankComplexity(metrics, "production", "touches").map((metric) =>
+          metric.file
+        ),
+        ["src/branchy.ts", "src/slow.ts"],
+      );
     },
-  ], [{ ...budget, maxCyclo: 219 }]);
-  assertStringIncludes(
-    findings.join("\n"),
-    "new extreme complexity hotspot src/new.ts",
-  );
-  assertStringIncludes(
-    findings.join("\n"),
-    "src/legacy.ts cyclomatic complexity 220 exceeds 219",
-  );
-});
+    "hotspot budgets reject additions and regressions but ignore generated projections":
+      () => {
+        const budget = {
+          file: "src/legacy.ts",
+          maxScore: 110.25,
+          maxCyclo: 220,
+          owner: "legacy owner",
+          reason: "A reviewed legacy responsibility remains concentrated.",
+          recovery: "Extract one coherent responsibility and remeasure it.",
+        } as const;
+        const baseline = contextualizeComplexity(
+          [
+            { file: "src/legacy.ts", score: 110.254, cyclo: 220, lines: 500 },
+            { file: "src/generated.ts", score: 500, cyclo: 500, lines: 500 },
+          ],
+          new Set(["src/generated.ts"]),
+          new Map(),
+        );
+        assertEquals(complexityHotspotFindings(baseline, [budget]), []);
 
-Deno.test("hotspot budgets become stale once a file leaves the extreme tail", () => {
-  const metrics = contextualizeComplexity(
-    [{ file: "src/improved.ts", score: 99, cyclo: 200, lines: 100 }],
-    new Set(),
-    new Map(),
-  );
-  const findings = complexityHotspotFindings(metrics, [{
-    file: "src/improved.ts",
-    maxScore: 120,
-    maxCyclo: 250,
-    owner: "engine maintainers",
-    reason: "This was a reviewed legacy hotspot before decomposition.",
-    recovery: "Remove this registry row and lower the Standard limit.",
-  }]);
-  assertEquals(findings, [
-    "stale complexity hotspot budget src/improved.ts",
-  ]);
+        const findings = complexityHotspotFindings([
+          ...baseline,
+          {
+            file: "src/new.ts",
+            score: 101,
+            cyclo: 10,
+            lines: 40,
+            area: "production",
+            touches: 1,
+          },
+        ], [{ ...budget, maxCyclo: 219 }]);
+        assertStringIncludes(
+          findings.join("\n"),
+          "new extreme complexity hotspot src/new.ts",
+        );
+        assertStringIncludes(
+          findings.join("\n"),
+          "src/legacy.ts cyclomatic complexity 220 exceeds 219",
+        );
+      },
+    "hotspot budgets become stale once a file leaves the extreme tail": () => {
+      const metrics = contextualizeComplexity(
+        [{ file: "src/improved.ts", score: 99, cyclo: 200, lines: 100 }],
+        new Set(),
+        new Map(),
+      );
+      const findings = complexityHotspotFindings(metrics, [{
+        file: "src/improved.ts",
+        maxScore: 120,
+        maxCyclo: 250,
+        owner: "engine maintainers",
+        reason: "This was a reviewed legacy hotspot before decomposition.",
+        recovery: "Remove this registry row and lower the Standard limit.",
+      }]);
+      assertEquals(findings, [
+        "stale complexity hotspot budget src/improved.ts",
+      ]);
+    },
+  });
 });
-
 Deno.test("FTA configuration pins the qualified analyzer and exact extensions", async () => {
   const denoConfig = decodeWith(
     DenoFtaImportSchema,

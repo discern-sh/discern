@@ -21,6 +21,7 @@ import { withTempDir } from "./helpers.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { z } from "@zod/zod";
 import { object } from "../src/shared/result_markdown_values.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Every reported work field has a text obligation or an explicit state assertion. */
 const WORK = {
@@ -85,13 +86,25 @@ function assertWorkFieldCoverage(
   return expected;
 }
 
-Deno.test("every producer work field has a readable evidence obligation", () => {
-  const expected = assertWorkFieldCoverage(
-    z.toJSONSchema(ProgressWorkSchema),
-    WORK,
-  );
-  const rendered = producerWorkSentence(WORK);
-  for (const fact of expected) assertStringIncludes(rendered, fact);
+Deno.test("progress readable evidence: producerWorkSentence cases", () => {
+  assertNamedCases({
+    "every producer work field has a readable evidence obligation": () => {
+      const expected = assertWorkFieldCoverage(
+        z.toJSONSchema(ProgressWorkSchema),
+        WORK,
+      );
+      const rendered = producerWorkSentence(WORK);
+      for (const fact of expected) assertStringIncludes(rendered, fact);
+    },
+    "a complete unit count never supplies a producer verdict": () => {
+      const unknown = producerWorkSentence({
+        producer: "future-obligation",
+        units: { kind: "bundles", completed: 19, total: 19 },
+      });
+      assert(!unknown.includes("passed"));
+      assert(!unknown.includes("finished"));
+    },
+  });
 });
 
 Deno.test("protocol active-only changes reach live MCP text", async () => {
@@ -178,16 +191,6 @@ Deno.test("reconnect merges each producer once, preserves lifecycle, and clears 
     assertEquals(read.data?.producers?.[0]?.partial, undefined);
   });
 });
-
-Deno.test("a complete unit count never supplies a producer verdict", () => {
-  const unknown = producerWorkSentence({
-    producer: "future-obligation",
-    units: { kind: "bundles", completed: 19, total: 19 },
-  });
-  assert(!unknown.includes("passed"));
-  assert(!unknown.includes("finished"));
-});
-
 Deno.test("live producer terminal facts carry the engine verdict independently of counts", async () => {
   const messages: string[] = [];
   await withMcpCompletionProgress(

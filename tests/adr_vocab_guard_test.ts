@@ -36,6 +36,7 @@ import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { QUESTIONS } from "../src/shared/questions.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const ACTIVE_ADR_FILES = await structuralGuardScope({
   guard: "tests/adr_vocab_guard_test.ts#active-adr-vocabulary",
@@ -208,96 +209,106 @@ Deno.test("active ADRs that retain Recipe history carry an ADR 0137 amendment", 
   );
 });
 
-Deno.test("shipped question vocabulary and checkpoint seeds carry no ADR citations", () => {
-  // The src/ literal scan above already covers both registry modules; this
-  // guard reads the registry VALUES, so interpolated prose is covered too,
-  // and the shipped judgment text stays in the guard's scan set even if a
-  // registry is ever relocated or its prose assembled at runtime.
-  const offenders: string[] = [];
-  for (const question of QUESTIONS) {
-    const texts = [question.question, question.teach, question.reference];
-    for (const text of texts) {
-      for (const hit of citationsIn(text ?? "")) {
-        offenders.push(`question '${question.id}' carries "${hit}"`);
-      }
-    }
-  }
-  for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
-    const values = [
-      seed.question,
-      seed.scope,
-      ...(seed.paths ?? []),
-      ...(seed.unless_changed ?? []),
-    ];
-    for (const value of values) {
-      for (const hit of citationsIn(value ?? "")) {
-        offenders.push(`built-in checkpoint '${id}' carries "${hit}"`);
-      }
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    "shipped question text must stand alone for other projects:\n  " +
-      offenders.join("\n  "),
-  );
+Deno.test("adr vocab guard: contracts", () => {
+  assertNamedCases({
+    "shipped question vocabulary and checkpoint seeds carry no ADR citations":
+      () => {
+        // The src/ literal scan above already covers both registry modules; this
+        // guard reads the registry VALUES, so interpolated prose is covered too,
+        // and the shipped judgment text stays in the guard's scan set even if a
+        // registry is ever relocated or its prose assembled at runtime.
+        const offenders: string[] = [];
+        for (const question of QUESTIONS) {
+          const texts = [question.question, question.teach, question.reference];
+          for (const text of texts) {
+            for (const hit of citationsIn(text ?? "")) {
+              offenders.push(`question '${question.id}' carries "${hit}"`);
+            }
+          }
+        }
+        for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
+          const values = [
+            seed.question,
+            seed.scope,
+            ...(seed.paths ?? []),
+            ...(seed.unless_changed ?? []),
+          ];
+          for (const value of values) {
+            for (const hit of citationsIn(value ?? "")) {
+              offenders.push(`built-in checkpoint '${id}' carries "${hit}"`);
+            }
+          }
+        }
+        assertEquals(
+          offenders,
+          [],
+          "shipped question text must stand alone for other projects:\n  " +
+            offenders.join("\n  "),
+        );
+      },
+    "adr guard: the lexer finds citations in strings but not comments": () => {
+      const seeded = [
+        'const a = "kept for compatibility (ADR 0034)"; // ADR 0035 is fine here',
+        "/* ADR 0036 is fine here too */ const b = `see adr-12 for why ${x} holds`;",
+        "const c = 'docs/_adr/0110-landing.md';",
+      ].join("\n");
+      const hits = stringLiterals(seeded).flatMap((l) => citationsIn(l.text));
+      assertEquals(hits, ["ADR 0034", "adr-12", "_adr/0"]);
+    },
+    "adr guard: sanctioned forms stay legal": () => {
+      const legal = [
+        'const a = "Record decisions as ADRs under docs/_adr/.";',
+        'const b = "Copy _adr/0000-template.md to start a new record.";',
+        "const re = /[\"']quadrant/; const c = 'ADR discipline';",
+      ].join("\n");
+      const hits = stringLiterals(legal).flatMap((l) => citationsIn(l.text));
+      assertEquals(hits, []);
+    },
+    "adr guard: the seeded record may cite its own number, nothing else, nowhere else":
+      () => {
+        const seeded =
+          "templates/setup/skeleton/map/_adr/0001-adopt-discern.md";
+        assertEquals(
+          shippedOffendersIn(
+            seeded,
+            "# ADR 0001: Adopt discern as the practice",
+          ),
+          [],
+        );
+        assertEquals(
+          shippedOffendersIn(seeded, "kept for parity (ADR 0034)"),
+          ["ADR 0034"],
+        );
+        assertEquals(
+          shippedOffendersIn("templates/instructions/base.md", "see ADR 0001"),
+          ["ADR 0001"],
+        );
+        // The seeded record's path is referenceable anywhere; other numbers stay leaks.
+        assertEquals(
+          citationsIn("complete docs/_adr/0001-adopt-discern.md first"),
+          [],
+        );
+        assertEquals(citationsIn("see docs/_adr/0002-example.md"), ["_adr/0"]);
+      },
+    "adr guard: template interpolation and regex hazards don't desync the lexer":
+      () => {
+        const tricky =
+          "const re = /[\"`]/; const t = `x ${a ? `${b}` : '(ADR 0042)'} y`;";
+        const hits = stringLiterals(tricky).flatMap((l) => citationsIn(l.text));
+        assert(
+          hits.includes("ADR 0042"),
+          `expected the nested leak, got: ${hits}`,
+        );
+      },
+    "adr guard: a retired pointer wrapped across a line break still matches":
+      () => {
+        assertEquals(
+          ("call setup\nland now").match(RETIRED_ADR_POINTER),
+          ["setup\nland"],
+        );
+      },
+  });
 });
 
 // Positive controls: prove the detector detects, so the guard can't rot into
 // a test that passes because it sees nothing.
-
-Deno.test("adr guard: the lexer finds citations in strings but not comments", () => {
-  const seeded = [
-    'const a = "kept for compatibility (ADR 0034)"; // ADR 0035 is fine here',
-    "/* ADR 0036 is fine here too */ const b = `see adr-12 for why ${x} holds`;",
-    "const c = 'docs/_adr/0110-landing.md';",
-  ].join("\n");
-  const hits = stringLiterals(seeded).flatMap((l) => citationsIn(l.text));
-  assertEquals(hits, ["ADR 0034", "adr-12", "_adr/0"]);
-});
-
-Deno.test("adr guard: sanctioned forms stay legal", () => {
-  const legal = [
-    'const a = "Record decisions as ADRs under docs/_adr/.";',
-    'const b = "Copy _adr/0000-template.md to start a new record.";',
-    "const re = /[\"']quadrant/; const c = 'ADR discipline';",
-  ].join("\n");
-  const hits = stringLiterals(legal).flatMap((l) => citationsIn(l.text));
-  assertEquals(hits, []);
-});
-
-Deno.test("adr guard: the seeded record may cite its own number, nothing else, nowhere else", () => {
-  const seeded = "templates/setup/skeleton/map/_adr/0001-adopt-discern.md";
-  assertEquals(
-    shippedOffendersIn(seeded, "# ADR 0001: Adopt discern as the practice"),
-    [],
-  );
-  assertEquals(
-    shippedOffendersIn(seeded, "kept for parity (ADR 0034)"),
-    ["ADR 0034"],
-  );
-  assertEquals(
-    shippedOffendersIn("templates/instructions/base.md", "see ADR 0001"),
-    ["ADR 0001"],
-  );
-  // The seeded record's path is referenceable anywhere; other numbers stay leaks.
-  assertEquals(
-    citationsIn("complete docs/_adr/0001-adopt-discern.md first"),
-    [],
-  );
-  assertEquals(citationsIn("see docs/_adr/0002-example.md"), ["_adr/0"]);
-});
-
-Deno.test("adr guard: template interpolation and regex hazards don't desync the lexer", () => {
-  const tricky =
-    "const re = /[\"`]/; const t = `x ${a ? `${b}` : '(ADR 0042)'} y`;";
-  const hits = stringLiterals(tricky).flatMap((l) => citationsIn(l.text));
-  assert(hits.includes("ADR 0042"), `expected the nested leak, got: ${hits}`);
-});
-
-Deno.test("adr guard: a retired pointer wrapped across a line break still matches", () => {
-  assertEquals(
-    ("call setup\nland now").match(RETIRED_ADR_POINTER),
-    ["setup\nland"],
-  );
-});

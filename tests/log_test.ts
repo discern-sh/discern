@@ -16,6 +16,7 @@ import {
   terminalMultiline,
 } from "../src/lib/terminal.ts";
 import { fakeEnv, pinnedTerminal } from "./helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** A human-mode Logger whose terminal context is pinned, so glyph capability
  * comes from the test instead of the ambient locale. */
@@ -111,14 +112,23 @@ Deno.test("group writes exactly one boundary between populated groups", async ()
   assertEquals(err, ["▸ first", "", "▸ second", "", "  ── Third", "▸ third"]);
 });
 
-Deno.test("Logger exposes package presentation facts without inline style wrappers", () => {
-  const log = plainLogger();
-  assertEquals(log.terminal.role("x", "strong"), "x");
-  assertEquals(log.terminal.role("y", "muted"), "y");
-  assertEquals("bold" in log, false);
-  assertEquals("dim" in log, false);
-  assertEquals("cyan" in log, false);
-  assertEquals("green" in log, false);
+Deno.test("log: plainLogger cases", () => {
+  assertNamedCases({
+    "Logger exposes package presentation facts without inline style wrappers":
+      () => {
+        const log = plainLogger();
+        assertEquals(log.terminal.role("x", "strong"), "x");
+        assertEquals(log.terminal.role("y", "muted"), "y");
+        assertEquals("bold" in log, false);
+        assertEquals("dim" in log, false);
+        assertEquals("cyan" in log, false);
+        assertEquals("green" in log, false);
+      },
+    "the json flag is exposed on the logger": () => {
+      assertEquals(new Logger({ json: true, noColor: true }).json, true);
+      assertEquals(plainLogger().json, false);
+    },
+  });
 });
 
 Deno.test("Logger narration styles come from injected package Token roles", async () => {
@@ -218,12 +228,6 @@ Deno.test("Logger multiline errors require the branded safe-text boundary", () =
   };
   assertEquals(typeof rejectsArbitraryStrings, "function");
 });
-
-Deno.test("the json flag is exposed on the logger", () => {
-  assertEquals(new Logger({ json: true, noColor: true }).json, true);
-  assertEquals(plainLogger().json, false);
-});
-
 Deno.test("JSON mode silences every human method", async () => {
   const log = new Logger({ json: true, noColor: true });
   const { err, out } = await capture(() => {

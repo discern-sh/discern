@@ -53,6 +53,7 @@ import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
@@ -453,87 +454,100 @@ Deno.test("[generated.codegen] declares exactly the whole-file codegen targets",
 
 // --- Enrolments: every reference names a live member of the enrolling registry.
 
-Deno.test("enrolments reference live glossary terms, surface sets, and canon nodes", () => {
-  const terms = new Set(GLOSSARY.map((entry) => entry.term));
-  const nodeIds = new Set(allFeatureNodes().map((flat) => flat.node.id));
-  const surfaceClaims = new Map<string, string>();
-  const offenders: string[] = [];
-  for (const entry of CANONICAL_SETS) {
-    const glossary = entry.enrolledIn.glossary;
-    if ("term" in glossary && !terms.has(glossary.term)) {
-      offenders.push(
-        `${entry.id}: glossary enrolment names "${glossary.term}", not a ` +
-          "live term",
-      );
-    }
-    if ("perMember" in glossary && !entry.guards.includes(glossary.perMember)) {
-      offenders.push(
-        `${entry.id}: per-member glossary enrolment cites ` +
-          `${glossary.perMember}, which the entry does not declare as a guard`,
-      );
-    }
-    const canon = entry.enrolledIn.featureCanon;
-    if ("surfaceSet" in canon) {
-      if (!(SURFACE_SETS as readonly string[]).includes(canon.surfaceSet)) {
-        offenders.push(
-          `${entry.id}: canon enrolment names surface set ` +
-            `"${canon.surfaceSet}", which the canon does not define`,
+Deno.test("canonical sets enrolment: registry contracts", () => {
+  assertNamedCases({
+    "enrolments reference live glossary terms, surface sets, and canon nodes":
+      () => {
+        const terms = new Set(GLOSSARY.map((entry) => entry.term));
+        const nodeIds = new Set(allFeatureNodes().map((flat) => flat.node.id));
+        const surfaceClaims = new Map<string, string>();
+        const offenders: string[] = [];
+        for (const entry of CANONICAL_SETS) {
+          const glossary = entry.enrolledIn.glossary;
+          if ("term" in glossary && !terms.has(glossary.term)) {
+            offenders.push(
+              `${entry.id}: glossary enrolment names "${glossary.term}", not a ` +
+                "live term",
+            );
+          }
+          if (
+            "perMember" in glossary &&
+            !entry.guards.includes(glossary.perMember)
+          ) {
+            offenders.push(
+              `${entry.id}: per-member glossary enrolment cites ` +
+                `${glossary.perMember}, which the entry does not declare as a guard`,
+            );
+          }
+          const canon = entry.enrolledIn.featureCanon;
+          if ("surfaceSet" in canon) {
+            if (
+              !(SURFACE_SETS as readonly string[]).includes(canon.surfaceSet)
+            ) {
+              offenders.push(
+                `${entry.id}: canon enrolment names surface set ` +
+                  `"${canon.surfaceSet}", which the canon does not define`,
+              );
+            } else if (surfaceClaims.has(canon.surfaceSet)) {
+              offenders.push(
+                `${entry.id}: surface set "${canon.surfaceSet}" is already ` +
+                  `enrolled by ${surfaceClaims.get(canon.surfaceSet)}`,
+              );
+            } else {
+              surfaceClaims.set(canon.surfaceSet, entry.id);
+            }
+          }
+          if ("nodeId" in canon && !nodeIds.has(canon.nodeId)) {
+            offenders.push(
+              `${entry.id}: canon enrolment names node "${canon.nodeId}", not a ` +
+                "live node",
+            );
+          }
+        }
+        for (const set of SURFACE_SETS) {
+          if (!surfaceClaims.has(set)) {
+            offenders.push(
+              `the canon's "${set}" surface set is enrolled by no canonical-set ` +
+                "entry — the two registries have drifted apart",
+            );
+          }
+        }
+        assertEquals(
+          offenders,
+          [],
+          `enrolment references out of step:\n  ${offenders.join("\n  ")}`,
         );
-      } else if (surfaceClaims.has(canon.surfaceSet)) {
-        offenders.push(
-          `${entry.id}: surface set "${canon.surfaceSet}" is already ` +
-            `enrolled by ${surfaceClaims.get(canon.surfaceSet)}`,
+      },
+    "the meta-registry enrols itself": () => {
+      const self = CANONICAL_SETS.find((entry) =>
+        entry.id === "canonical-sets"
+      );
+      assert(self !== undefined, "the meta-registry must declare itself");
+      assert(
+        self.guards.includes("tests/canonical_sets_enrolment_test.ts"),
+        "the self entry must declare this guard",
+      );
+      assert(
+        self.artifacts.some((artifact) =>
+          artifact.path.endsWith(REGISTRY_ATLAS_PAGE_REL)
+        ),
+        "the self entry must declare the registry atlas as its artifact",
+      );
+    },
+    "every generated inventory declares its framing, renderer, documentation, and tests":
+      () => {
+        assertEquals(
+          inventoryProjectionOffenders(
+            CANONICAL_SETS,
+            GENERATED_INVENTORY_POLICIES,
+          ),
+          [],
         );
-      } else {
-        surfaceClaims.set(canon.surfaceSet, entry.id);
-      }
-    }
-    if ("nodeId" in canon && !nodeIds.has(canon.nodeId)) {
-      offenders.push(
-        `${entry.id}: canon enrolment names node "${canon.nodeId}", not a ` +
-          "live node",
-      );
-    }
-  }
-  for (const set of SURFACE_SETS) {
-    if (!surfaceClaims.has(set)) {
-      offenders.push(
-        `the canon's "${set}" surface set is enrolled by no canonical-set ` +
-          "entry — the two registries have drifted apart",
-      );
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    `enrolment references out of step:\n  ${offenders.join("\n  ")}`,
-  );
+      },
+  });
 });
 
 // --- Self-enrolment and the atlas.
-
-Deno.test("the meta-registry enrols itself", () => {
-  const self = CANONICAL_SETS.find((entry) => entry.id === "canonical-sets");
-  assert(self !== undefined, "the meta-registry must declare itself");
-  assert(
-    self.guards.includes("tests/canonical_sets_enrolment_test.ts"),
-    "the self entry must declare this guard",
-  );
-  assert(
-    self.artifacts.some((artifact) =>
-      artifact.path.endsWith(REGISTRY_ATLAS_PAGE_REL)
-    ),
-    "the self entry must declare the registry atlas as its artifact",
-  );
-});
-
-Deno.test("every generated inventory declares its framing, renderer, documentation, and tests", () => {
-  assertEquals(
-    inventoryProjectionOffenders(CANONICAL_SETS, GENERATED_INVENTORY_POLICIES),
-    [],
-  );
-});
-
 Deno.test("every generated inventory policy resolves its renderer, documentation, and tests", async () => {
   for (const [id, policy] of Object.entries(GENERATED_INVENTORY_POLICIES)) {
     const renderer = await fileText(policy.renderer.module);
@@ -554,27 +568,121 @@ Deno.test("every generated inventory policy resolves its renderer, documentation
   }
 });
 
-Deno.test("control: a future inventory without a renderer policy fails enrollment", () => {
-  const future: CanonicalSetEntry = {
-    ...CONTROL_ENTRY,
-    id: "future",
-    artifacts: [{
-      path: "project/map/_internal/future-inventory.md",
-      kind: "generated-file",
-      banner: true,
-    }],
-  };
-  assert(
-    inventoryProjectionOffenders([future], GENERATED_INVENTORY_POLICIES).some(
-      (offender) =>
-        offender.includes("future-inventory.md") &&
-        offender.includes("no declared framing policy"),
-    ),
-  );
+Deno.test("canonical sets enrolment: enrollment controls", () => {
+  assertNamedCases({
+    "control: a future inventory without a renderer policy fails enrollment":
+      () => {
+        const future: CanonicalSetEntry = {
+          ...CONTROL_ENTRY,
+          id: "future",
+          artifacts: [{
+            path: "project/map/_internal/future-inventory.md",
+            kind: "generated-file",
+            banner: true,
+          }],
+        };
+        assert(
+          inventoryProjectionOffenders([future], GENERATED_INVENTORY_POLICIES)
+            .some(
+              (offender) =>
+                offender.includes("future-inventory.md") &&
+                offender.includes("no declared framing policy"),
+            ),
+        );
+      },
+    "control: semantic scans ignore member names and keep atlas prose": () => {
+      const retired = ["`", "in", "it", "`"].join("");
+      const skillLike = "discern-future-token";
+      const doc = [
+        "## `control` — Control",
+        "",
+        `Prose still names ${skillLike}.`,
+        "",
+        "- Members: 2",
+        `  - ${retired}`,
+        `  - \`${skillLike}\``,
+        "- Guards: `tests/control_test.ts`",
+      ].join("\n");
+      assertEquals(
+        withoutRegistryAtlasMembers(REGISTRY_ATLAS_REL, doc),
+        [
+          "## `control` — Control",
+          "",
+          `Prose still names ${skillLike}.`,
+          "",
+          "- Members: 2",
+          "",
+          "",
+          "- Guards: `tests/control_test.ts`",
+        ].join("\n"),
+      );
+      assertEquals(
+        withoutRegistryAtlasMembers("project/map/elsewhere.md", doc),
+        doc,
+        "the projection must leave every other file byte-for-byte unchanged",
+      );
+    },
+    "control: an unclaimed conventional test and a stale record both fail the sweep":
+      () => {
+        const strays = guardSweepOffenders(
+          ["tests/future_enrolment_test.ts"],
+          [CONTROL_ENTRY],
+          {},
+        );
+        assertEquals(
+          strays.length,
+          1,
+          "an unclaimed conventional test must offend",
+        );
+        const stale = guardSweepOffenders(
+          ["tests/control_parity_test.ts"],
+          [CONTROL_ENTRY],
+          { "tests/control_parity_test.ts": "also recorded" },
+        );
+        assertEquals(stale.length, 1, "claimed-and-recorded must offend");
+      },
+    "control: a bannerless artifact and a markerless block both offend": () => {
+      assertEquals(
+        artifactOffenders(
+          { path: "x.md", kind: "generated-file", banner: true },
+          "no banner here",
+        ).length,
+        1,
+        "a missing banner must offend",
+      );
+      assertEquals(
+        artifactOffenders(
+          { path: "x.md", kind: "maintained-block" },
+          "plain page",
+        )
+          .length,
+        1,
+        "missing block markers must offend",
+      );
+      assertEquals(
+        artifactOffenders(
+          { path: "x.md", kind: "generated-file", banner: true },
+          undefined,
+        ).length,
+        1,
+        "an uncommitted artifact must offend",
+      );
+    },
+  });
 });
 
 Deno.test("the registry atlas lists every resolvable member in source order", async () => {
   const doc = await renderRegistryAtlasDoc();
+  const rel = join(REPO_AUTHORED_PATHS.mapRel, REGISTRY_ATLAS_PAGE_REL);
+  const path = join(REPO_ROOT, rel);
+  const committed = await fileText(rel);
+  assert(committed !== undefined, "the registry atlas page is not committed");
+  assertEquals(
+    committed,
+    await canonicalGeneratedMarkdown(path, doc),
+    "the committed registry atlas has drifted from the meta-registry — run " +
+      "`deno task codegen` and commit the result",
+  );
   for (const entry of CANONICAL_SETS) {
     const section = atlasSetSection(doc, entry);
     const members = await resolveSetMembers(entry);
@@ -603,53 +711,6 @@ Deno.test("the registry atlas lists every resolvable member in source order", as
     );
   }
 });
-
-Deno.test("control: semantic scans ignore member names and keep atlas prose", () => {
-  const retired = ["`", "in", "it", "`"].join("");
-  const skillLike = "discern-future-token";
-  const doc = [
-    "## `control` — Control",
-    "",
-    `Prose still names ${skillLike}.`,
-    "",
-    "- Members: 2",
-    `  - ${retired}`,
-    `  - \`${skillLike}\``,
-    "- Guards: `tests/control_test.ts`",
-  ].join("\n");
-  assertEquals(
-    withoutRegistryAtlasMembers(REGISTRY_ATLAS_REL, doc),
-    [
-      "## `control` — Control",
-      "",
-      `Prose still names ${skillLike}.`,
-      "",
-      "- Members: 2",
-      "",
-      "",
-      "- Guards: `tests/control_test.ts`",
-    ].join("\n"),
-  );
-  assertEquals(
-    withoutRegistryAtlasMembers("project/map/elsewhere.md", doc),
-    doc,
-    "the projection must leave every other file byte-for-byte unchanged",
-  );
-});
-
-Deno.test("the committed registry atlas matches the renderer", async () => {
-  const rel = join(REPO_AUTHORED_PATHS.mapRel, REGISTRY_ATLAS_PAGE_REL);
-  const path = join(REPO_ROOT, rel);
-  const committed = await fileText(rel);
-  assert(committed !== undefined, "the registry atlas page is not committed");
-  assertEquals(
-    committed,
-    await canonicalGeneratedMarkdown(path, await renderRegistryAtlasDoc()),
-    "the committed registry atlas has drifted from the meta-registry — run " +
-      "`deno task codegen` and commit the result",
-  );
-});
-
 // --- Positive controls: prove the predicates discriminate, so the guard
 // cannot rot into a sweep that passes because nothing looks enrolled.
 
@@ -671,43 +732,3 @@ const CONTROL_ENTRY: CanonicalSetEntry = {
     featureCanon: { absent: "a fixture" },
   },
 };
-
-Deno.test("control: an unclaimed conventional test and a stale record both fail the sweep", () => {
-  const strays = guardSweepOffenders(
-    ["tests/future_enrolment_test.ts"],
-    [CONTROL_ENTRY],
-    {},
-  );
-  assertEquals(strays.length, 1, "an unclaimed conventional test must offend");
-  const stale = guardSweepOffenders(
-    ["tests/control_parity_test.ts"],
-    [CONTROL_ENTRY],
-    { "tests/control_parity_test.ts": "also recorded" },
-  );
-  assertEquals(stale.length, 1, "claimed-and-recorded must offend");
-});
-
-Deno.test("control: a bannerless artifact and a markerless block both offend", () => {
-  assertEquals(
-    artifactOffenders(
-      { path: "x.md", kind: "generated-file", banner: true },
-      "no banner here",
-    ).length,
-    1,
-    "a missing banner must offend",
-  );
-  assertEquals(
-    artifactOffenders({ path: "x.md", kind: "maintained-block" }, "plain page")
-      .length,
-    1,
-    "missing block markers must offend",
-  );
-  assertEquals(
-    artifactOffenders(
-      { path: "x.md", kind: "generated-file", banner: true },
-      undefined,
-    ).length,
-    1,
-    "an uncommitted artifact must offend",
-  );
-});

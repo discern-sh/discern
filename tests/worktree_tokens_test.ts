@@ -13,6 +13,7 @@ import {
   WORKTREE_TOKENS,
   type WorktreeToken,
 } from "../src/engine/worktree/tokens.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** A resolver mapping each token to a fixed value, recording which were asked for. */
 function fixedResolver(
@@ -25,22 +26,27 @@ function fixedResolver(
   };
 }
 
-Deno.test("replaceAll replaces every occurrence verbatim", () => {
-  assertEquals(replaceAll("a@x@b@x@c", "@x@", "Z"), "aZbZc");
-  assertEquals(replaceAll("no token here", "@x@", "Z"), "no token here");
-  assertEquals(replaceAll("", "@x@", "Z"), "");
+Deno.test("worktree tokens: replaceAll cases", () => {
+  assertNamedCases({
+    "replaceAll replaces every occurrence verbatim": () => {
+      assertEquals(replaceAll("a@x@b@x@c", "@x@", "Z"), "aZbZc");
+      assertEquals(replaceAll("no token here", "@x@", "Z"), "no token here");
+      assertEquals(replaceAll("", "@x@", "Z"), "");
+    },
+    "replaceAll inserts a value containing regex metacharacters literally":
+      () => {
+        // A replacement with $&, \1, etc. must not be interpreted (no regex backref).
+        assertEquals(
+          replaceAll("v=@db@", "@db@", "$&\\1[a-z]+"),
+          "v=$&\\1[a-z]+",
+        );
+      },
+    "replaceAll does not loop when the replacement contains the needle": () => {
+      // The shell guards against a token whose replacement re-contains the token.
+      assertEquals(replaceAll("@x@", "@x@", "(@x@)"), "(@x@)");
+    },
+  });
 });
-
-Deno.test("replaceAll inserts a value containing regex metacharacters literally", () => {
-  // A replacement with $&, \1, etc. must not be interpreted (no regex backref).
-  assertEquals(replaceAll("v=@db@", "@db@", "$&\\1[a-z]+"), "v=$&\\1[a-z]+");
-});
-
-Deno.test("replaceAll does not loop when the replacement contains the needle", () => {
-  // The shell guards against a token whose replacement re-contains the token.
-  assertEquals(replaceAll("@x@", "@x@", "(@x@)"), "(@x@)");
-});
-
 Deno.test("expandTokens resolves only the tokens that appear", async () => {
   const asked: WorktreeToken[] = [];
   const resolver = fixedResolver(

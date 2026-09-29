@@ -37,6 +37,7 @@ import { join } from "@std/path";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { runGit } from "../src/shared/subprocess.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const NAMESPACE_FILES = await structuralGuardScope({
   guard: "tests/project_scripts_namespace_test.ts#command-namespace",
@@ -149,55 +150,57 @@ Deno.test("every file in the Project Script namespace is a runnable command", as
 
 const VALID_SCRIPT = "#!/usr/bin/env sh\n# desc: does the thing\nexit 0\n";
 
-Deno.test("the namespace predicate accepts a well-formed command", () => {
-  assertEquals(
-    commandViolations({
-      rel: "d/ok",
-      source: VALID_SCRIPT,
-      indexMode: "100755",
-      executableOnDisk: true,
-    }),
-    [],
-  );
-});
+Deno.test("project scripts namespace: commandViolations cases", () => {
+  assertNamedCases({
+    "the namespace predicate accepts a well-formed command": () => {
+      assertEquals(
+        commandViolations({
+          rel: "d/ok",
+          source: VALID_SCRIPT,
+          indexMode: "100755",
+          executableOnDisk: true,
+        }),
+        [],
+      );
+    },
+    "the namespace predicate names each missing clause": () => {
+      const module = commandViolations({
+        rel: "d/matcher.ts",
+        source: "import { thing } from './other.ts';\n",
+        indexMode: "100644",
+        executableOnDisk: false,
+      });
+      assertEquals(module.length, 3);
 
-Deno.test("the namespace predicate names each missing clause", () => {
-  const module = commandViolations({
-    rel: "d/matcher.ts",
-    source: "import { thing } from './other.ts';\n",
-    indexMode: "100644",
-    executableOnDisk: false,
-  });
-  assertEquals(module.length, 3);
+      // The Desk's own remedy for a disabled entry, applied to a module: the bit is
+      // now set, and the file is still not a command.
+      const chmodded = commandViolations({
+        rel: "d/matcher.ts",
+        source: "import { thing } from './other.ts';\n",
+        indexMode: "100755",
+        executableOnDisk: true,
+      });
+      assertEquals(chmodded.length, 2);
+      assert(chmodded.every((failure) => !failure.includes("chmod +x")));
 
-  // The Desk's own remedy for a disabled entry, applied to a module: the bit is
-  // now set, and the file is still not a command.
-  const chmodded = commandViolations({
-    rel: "d/matcher.ts",
-    source: "import { thing } from './other.ts';\n",
-    indexMode: "100755",
-    executableOnDisk: true,
+      const undescribed = commandViolations({
+        rel: "d/quiet",
+        source: "#!/usr/bin/env sh\nexit 0\n",
+        indexMode: "100755",
+        executableOnDisk: true,
+      });
+      assertEquals(undescribed.length, 1);
+      assert(undescribed[0]?.includes("# desc:"));
+    },
+    "a locally executable file still fails on the mode Git records": () => {
+      const failures = commandViolations({
+        rel: "d/shim",
+        source: VALID_SCRIPT,
+        indexMode: "100644",
+        executableOnDisk: true,
+      });
+      assertEquals(failures.length, 1);
+      assert(failures[0]?.includes("git add --chmod=+x"));
+    },
   });
-  assertEquals(chmodded.length, 2);
-  assert(chmodded.every((failure) => !failure.includes("chmod +x")));
-
-  const undescribed = commandViolations({
-    rel: "d/quiet",
-    source: "#!/usr/bin/env sh\nexit 0\n",
-    indexMode: "100755",
-    executableOnDisk: true,
-  });
-  assertEquals(undescribed.length, 1);
-  assert(undescribed[0]?.includes("# desc:"));
-});
-
-Deno.test("a locally executable file still fails on the mode Git records", () => {
-  const failures = commandViolations({
-    rel: "d/shim",
-    source: VALID_SCRIPT,
-    indexMode: "100644",
-    executableOnDisk: true,
-  });
-  assertEquals(failures.length, 1);
-  assert(failures[0]?.includes("git add --chmod=+x"));
 });

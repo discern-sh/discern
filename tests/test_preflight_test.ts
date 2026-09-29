@@ -7,38 +7,44 @@ import {
   testPreflightFailureMessage,
 } from "../scripts/test_preflight.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const DECODER = new TextDecoder();
 
-Deno.test("test preflight exercises and closes a temporary listener", () => {
-  let opened = 0;
-  let closed = 0;
-  const result = preflightTestRuntime(() => {
-    opened++;
-    return { close: () => closed++ };
+Deno.test("test preflight: preflightTestRuntime cases", () => {
+  assertNamedCases({
+    "test preflight exercises and closes a temporary listener": () => {
+      let opened = 0;
+      let closed = 0;
+      const result = preflightTestRuntime(() => {
+        opened++;
+        return { close: () => closed++ };
+      });
+
+      assertEquals(result, { ok: true });
+      assertEquals(opened, 1);
+      assertEquals(closed, 1);
+    },
+    "test preflight reports any future loopback denial without vendor assumptions":
+      () => {
+        const result = preflightTestRuntime(() => {
+          throw new Deno.errors.PermissionDenied(
+            "future sandbox refused this bind",
+          );
+        });
+
+        assert(!result.ok);
+        const message = testPreflightFailureMessage(result);
+        assertStringIncludes(message, "127.0.0.1");
+        assertStringIncludes(message, "future sandbox refused this bind");
+        assertStringIncludes(
+          message,
+          "permission to bind loopback network listeners",
+        );
+        assertStringIncludes(message, "No tests were started");
+      },
   });
-
-  assertEquals(result, { ok: true });
-  assertEquals(opened, 1);
-  assertEquals(closed, 1);
 });
-
-Deno.test("test preflight reports any future loopback denial without vendor assumptions", () => {
-  const result = preflightTestRuntime(() => {
-    throw new Deno.errors.PermissionDenied("future sandbox refused this bind");
-  });
-
-  assert(!result.ok);
-  const message = testPreflightFailureMessage(result);
-  assertStringIncludes(message, "127.0.0.1");
-  assertStringIncludes(message, "future sandbox refused this bind");
-  assertStringIncludes(
-    message,
-    "permission to bind loopback network listeners",
-  );
-  assertStringIncludes(message, "No tests were started");
-});
-
 Deno.test("test preflight CLI refuses immediately when Deno denies network access", async () => {
   const output = await new Deno.Command("deno", {
     args: ["run", join(REPO_ROOT, "scripts", "test_preflight.ts")],

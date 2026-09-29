@@ -46,6 +46,7 @@ import { join } from "@std/path";
 import { extractSourceComments } from "../scripts/source_comments.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** TypeScript scanned for backward-looking `//` and block comments: the
  * authored universe minus `tests/`, the one documented exclusion above. */
@@ -380,101 +381,96 @@ Deno.test("comments describe current behaviour, not the codebase's past", async 
 
 // --- self-tests: the detector's own contract -------------------------------
 
-Deno.test("detector flags a backward-looking comment", () => {
-  const v = scanSource(`// it used to live in manifest.json\nconst x = 1;\n`);
-  assertEquals(v.length, 1);
-  assert(v[0]?.text.includes("used to"));
+Deno.test("comment currency: scanSource cases", () => {
+  assertNamedCases({
+    "detector flags a backward-looking comment": () => {
+      const v = scanSource(
+        `// it used to live in manifest.json\nconst x = 1;\n`,
+      );
+      assertEquals(v.length, 1);
+      assert(v[0]?.text.includes("used to"));
+    },
+    "detector ignores markers inside string literals": () => {
+      // A user-facing message may legitimately contain these words.
+      assertEquals(scanSource(`const msg = "this previously failed";\n`), []);
+      assertEquals(scanSource(`const url = "https://x/the old/y";\n`), []);
+    },
+    "detector flags `no longer` — it usually marks a change": () => {
+      assertEquals(
+        scanSource(`// the nudge no longer fires from main\n`).length,
+        1,
+      );
+    },
+    "detector does not ban genuinely live-state / structural words": () => {
+      assertEquals(
+        scanSource(`// fall back to a legacy .discern/config.toml\n`),
+        [],
+      );
+      assertEquals(scanSource(`// test BEFORE the trailing-slash kind\n`), []);
+    },
+    "suppression with a reason exempts a comment": () => {
+      const src =
+        `/**\n * Mirrors the shell port_for_id.\n * discern-allow-retrospective: pins a byte-compat invariant\n */\n`;
+      assertEquals(scanSource(src), []);
+    },
+    "suppression without a matching marker is rejected": () => {
+      const src =
+        `// Describes the current behavior.\n// discern-allow-retrospective: mistaken exemption\n`;
+      assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
+    },
+    "a marker in the suppression reason does not justify it": () => {
+      const src =
+        `// Describes the current behavior.\n// discern-allow-retrospective: "no longer matching" is live drift\n`;
+      assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
+    },
+    "suppression without a reason does NOT exempt": () => {
+      const src = `// it used to be eager. discern-allow-retrospective:\n`;
+      assertEquals(scanSource(src).map((v) => v.rule), [
+        "suppression-requires-reason",
+      ]);
+    },
+    "suppression without a reason is rejected on a current comment": () => {
+      const src = `// current behavior. discern-allow-retrospective:\n`;
+      assertEquals(scanSource(src).map((v) => v.rule), [
+        "suppression-requires-reason",
+      ]);
+    },
+    "each extra suppression on one comment is rejected": () => {
+      const src =
+        `// it used to be eager.\n// discern-allow-retrospective: needed\n// discern-allow-retrospective: redundant\n`;
+      assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
+    },
+    "comments after a backtick regex remain enrolled": () => {
+      const src =
+        "const fence = /^```/;\n// current behavior. discern-allow-retrospective: mistaken exemption\n";
+      assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
+    },
+    "a run of // lines reads as one comment, catching a wrapped marker": () => {
+      const src =
+        `// an install carried a committed shell\n// engine tree no fresh one has\nconst x = 1;\n`;
+      assertEquals(scanSource(src).length, 1);
+    },
+  });
 });
-
-Deno.test("detector ignores markers inside string literals", () => {
-  // A user-facing message may legitimately contain these words.
-  assertEquals(scanSource(`const msg = "this previously failed";\n`), []);
-  assertEquals(scanSource(`const url = "https://x/the old/y";\n`), []);
-});
-
-Deno.test("detector flags `no longer` — it usually marks a change", () => {
-  assertEquals(
-    scanSource(`// the nudge no longer fires from main\n`).length,
-    1,
-  );
-});
-
-Deno.test("detector does not ban genuinely live-state / structural words", () => {
-  assertEquals(
-    scanSource(`// fall back to a legacy .discern/config.toml\n`),
-    [],
-  );
-  assertEquals(scanSource(`// test BEFORE the trailing-slash kind\n`), []);
-});
-
-Deno.test("suppression with a reason exempts a comment", () => {
-  const src =
-    `/**\n * Mirrors the shell port_for_id.\n * discern-allow-retrospective: pins a byte-compat invariant\n */\n`;
-  assertEquals(scanSource(src), []);
-});
-
-Deno.test("suppression without a matching marker is rejected", () => {
-  const src =
-    `// Describes the current behavior.\n// discern-allow-retrospective: mistaken exemption\n`;
-  assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
-});
-
-Deno.test("a marker in the suppression reason does not justify it", () => {
-  const src =
-    `// Describes the current behavior.\n// discern-allow-retrospective: "no longer matching" is live drift\n`;
-  assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
-});
-
-Deno.test("suppression without a reason does NOT exempt", () => {
-  const src = `// it used to be eager. discern-allow-retrospective:\n`;
-  assertEquals(scanSource(src).map((v) => v.rule), [
-    "suppression-requires-reason",
-  ]);
-});
-
-Deno.test("suppression without a reason is rejected on a current comment", () => {
-  const src = `// current behavior. discern-allow-retrospective:\n`;
-  assertEquals(scanSource(src).map((v) => v.rule), [
-    "suppression-requires-reason",
-  ]);
-});
-
-Deno.test("each extra suppression on one comment is rejected", () => {
-  const src =
-    `// it used to be eager.\n// discern-allow-retrospective: needed\n// discern-allow-retrospective: redundant\n`;
-  assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
-});
-
-Deno.test("comments after a backtick regex remain enrolled", () => {
-  const src =
-    "const fence = /^```/;\n// current behavior. discern-allow-retrospective: mistaken exemption\n";
-  assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
-});
-
-Deno.test("a run of // lines reads as one comment, catching a wrapped marker", () => {
-  const src =
-    `// an install carried a committed shell\n// engine tree no fresh one has\nconst x = 1;\n`;
-  assertEquals(scanSource(src).length, 1);
-});
-
-Deno.test("hash scan flags a backward-looking config comment", () => {
-  assertEquals(scanHashSource(`root = ""  # the old default\n`).length, 1);
-});
-
-Deno.test("hash scan reads the comment, not the quoted value", () => {
-  // "the old" sits in the value and the # inside it is not a comment opener.
-  assertEquals(scanHashSource(`name = "the old value"  # current\n`), []);
-});
-
-Deno.test("hash scan reads a run of # lines as one comment (wrap)", () => {
-  const src = `# the worktree used\n# to live nested in the repo\n`;
-  assertEquals(scanHashSource(src).length, 1);
-});
-
-Deno.test("hash scan rejects a suppression without a matching marker", () => {
-  const src =
-    `# Describes the current behavior.\n# discern-allow-retrospective: mistaken exemption\n`;
-  assertEquals(scanHashSource(src).map((v) => v.rule), [
-    "unused-suppression",
-  ]);
+Deno.test("comment currency: scanHashSource cases", () => {
+  assertNamedCases({
+    "hash scan flags a backward-looking config comment": () => {
+      assertEquals(scanHashSource(`root = ""  # the old default\n`).length, 1);
+    },
+    "hash scan reads the comment, not the quoted value": () => {
+      // "the old" sits in the value and the # inside it is not a comment opener.
+      assertEquals(scanHashSource(`name = "the old value"  # current\n`), []);
+    },
+    "hash scan reads a run of # lines as one comment (wrap)": () => {
+      const src = `# the worktree used\n# to live nested in the repo\n`;
+      assertEquals(scanHashSource(src).length, 1);
+    },
+    "hash scan rejects a suppression without a matching marker": () => {
+      const src =
+        `# Describes the current behavior.\n# discern-allow-retrospective: mistaken exemption\n`;
+      assertEquals(scanHashSource(src).map((v) => v.rule), [
+        "unused-suppression",
+      ]);
+    },
+  });
 });

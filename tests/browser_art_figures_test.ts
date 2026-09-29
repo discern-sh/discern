@@ -1,5 +1,7 @@
 /** Series-wide metre laws for every figure-series browser artwork. */
 
+import { assertCasesAsync } from "./assert_cases.ts";
+
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { FIGURE_SERIES_SLUGS } from "../art/browser/registry.ts";
@@ -219,68 +221,77 @@ Deno.test("unit-dash guard catches a fresh artwork sibling", () => {
   ]);
 });
 
-for (const slug of FIGURE_SERIES_SLUGS) {
-  Deno.test(`figure '${slug}' obeys the series metre`, async () => {
-    const css = effectiveCss(await artSource(`${slug}.css`));
-    const tsx = await artSource(`${slug}.tsx`);
+Deno.test("every figure artwork obeys the series metre", async () => {
+  await assertCasesAsync(
+    FIGURE_SERIES_SLUGS,
+    (slug) => `figure '${slug}' obeys the series metre`,
+    async (slug) => {
+      const css = effectiveCss(await artSource(`${slug}.css`));
+      const tsx = await artSource(`${slug}.tsx`);
 
-    for (const pattern of RAW_COLOR_PATTERNS) {
-      assert(
-        !pattern.test(css) && !pattern.test(tsx),
-        `${slug} must take every color from the shared tokens ` +
-          `(${pattern.source} found)`,
-      );
-    }
-
-    assert(!/@import\b/.test(css), `${slug} must not import stylesheets`);
-    assert(!/<animate/i.test(tsx), `${slug} must animate with CSS, not SMIL`);
-    assert(!/<text/i.test(tsx), `${slug} must stay free of text elements`);
-    assert(
-      tsx.includes('viewBox="0 0 760 540"'),
-      `${slug} must keep the shared plate size`,
-    );
-
-    const rules = keyframesRules(css);
-    assert(rules.length > 0, `${slug} must choreograph at least one keyframes`);
-    for (const { name, body } of rules) {
-      assert(
-        name.startsWith(`fig-${slug}-`),
-        `keyframes '${name}' must carry the fig-${slug}- namespace`,
-      );
-      for (const { declarations } of keyframeChunks(body)) {
-        for (const property of declarationMap(declarations).keys()) {
-          assert(
-            ALLOWED_KEYFRAME_PROPERTIES.has(property),
-            `keyframes '${name}' may not animate '${property}'`,
-          );
-        }
+      for (const pattern of RAW_COLOR_PATTERNS) {
+        assert(
+          !pattern.test(css) && !pattern.test(tsx),
+          `${slug} must take every color from the shared tokens ` +
+            `(${pattern.source} found)`,
+        );
       }
-      assertEquals(
-        Object.fromEntries(offsetState(body, ["0%", "from"])),
-        Object.fromEntries(offsetState(body, ["100%", "to"])),
-        `keyframes '${name}' must close its loop where it opened`,
-      );
-    }
 
-    const durations = animationDurations(css);
-    assert(durations.length > 0, `${slug} must declare its phrase duration`);
-    const distinct = [...new Set(durations)];
-    assertEquals(
-      distinct.length,
-      1,
-      `${slug} must run one shared phrase clock, found ${distinct.join(", ")}`,
-    );
-    const phrase = distinct[0] ?? 0;
-    assert(
-      phrase >= PHRASE_RANGE.min && phrase <= PHRASE_RANGE.max,
-      `${slug} phrase must sit between ${PHRASE_RANGE.min}s and ` +
-        `${PHRASE_RANGE.max}s, found ${phrase}s`,
-    );
-    const beats = phrase / BEAT_SECONDS;
-    assert(
-      Math.abs(beats - Math.round(beats)) < 1e-9,
-      `${slug} phrase must be a whole multiple of the ${BEAT_SECONDS}s beat, ` +
-        `found ${phrase}s`,
-    );
-  });
-}
+      assert(!/@import\b/.test(css), `${slug} must not import stylesheets`);
+      assert(!/<animate/i.test(tsx), `${slug} must animate with CSS, not SMIL`);
+      assert(!/<text/i.test(tsx), `${slug} must stay free of text elements`);
+      assert(
+        tsx.includes('viewBox="0 0 760 540"'),
+        `${slug} must keep the shared plate size`,
+      );
+
+      const rules = keyframesRules(css);
+      assert(
+        rules.length > 0,
+        `${slug} must choreograph at least one keyframes`,
+      );
+      for (const { name, body } of rules) {
+        assert(
+          name.startsWith(`fig-${slug}-`),
+          `keyframes '${name}' must carry the fig-${slug}- namespace`,
+        );
+        for (const { declarations } of keyframeChunks(body)) {
+          for (const property of declarationMap(declarations).keys()) {
+            assert(
+              ALLOWED_KEYFRAME_PROPERTIES.has(property),
+              `keyframes '${name}' may not animate '${property}'`,
+            );
+          }
+        }
+        assertEquals(
+          Object.fromEntries(offsetState(body, ["0%", "from"])),
+          Object.fromEntries(offsetState(body, ["100%", "to"])),
+          `keyframes '${name}' must close its loop where it opened`,
+        );
+      }
+
+      const durations = animationDurations(css);
+      assert(durations.length > 0, `${slug} must declare its phrase duration`);
+      const distinct = [...new Set(durations)];
+      assertEquals(
+        distinct.length,
+        1,
+        `${slug} must run one shared phrase clock, found ${
+          distinct.join(", ")
+        }`,
+      );
+      const phrase = distinct[0] ?? 0;
+      assert(
+        phrase >= PHRASE_RANGE.min && phrase <= PHRASE_RANGE.max,
+        `${slug} phrase must sit between ${PHRASE_RANGE.min}s and ` +
+          `${PHRASE_RANGE.max}s, found ${phrase}s`,
+      );
+      const beats = phrase / BEAT_SECONDS;
+      assert(
+        Math.abs(beats - Math.round(beats)) < 1e-9,
+        `${slug} phrase must be a whole multiple of the ${BEAT_SECONDS}s beat, ` +
+          `found ${phrase}s`,
+      );
+    },
+  );
+});

@@ -12,6 +12,7 @@ import {
   runningMarkdownProse,
   stringLiterals,
 } from "./vocab_scan.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const CAPITALIZED_PRODUCT = /\bDiscern\b(?!-(?:owned|authored)\b|\$\{)/g;
 const DOTTED_IDENTIFIER =
@@ -148,14 +149,161 @@ Deno.test("the product name remains lowercase across every shipped surface", asy
   );
 });
 
-Deno.test("the product-name detector preserves exact allowed compounds", () => {
-  assertEquals("Discern checks".match(CAPITALIZED_PRODUCT)?.[0], "Discern");
-  assertEquals(
-    "Discern-owned Discern-authored DiscernResult Discern${Type}".match(
-      CAPITALIZED_PRODUCT,
-    ),
-    null,
-  );
+Deno.test("product name case: contracts", () => {
+  assertNamedCases({
+    "the product-name detector preserves exact allowed compounds": () => {
+      assertEquals("Discern checks".match(CAPITALIZED_PRODUCT)?.[0], "Discern");
+      assertEquals(
+        "Discern-owned Discern-authored DiscernResult Discern${Type}".match(
+          CAPITALIZED_PRODUCT,
+        ),
+        null,
+      );
+    },
+    "lowercase glossary terms stay lowercase after capitalized lead-ins":
+      () => {
+        const misses = runningProseCaseRules()
+          .filter((rule) =>
+            rule.expected ===
+              rule.term.charAt(0).toLowerCase() + rule.term.slice(1)
+          )
+          .flatMap((rule) =>
+            [
+              `The ${rule.term} remains visible.`,
+              `_The ${rule.term} remains visible._`,
+            ].filter((text) => !new RegExp(rule.pattern).test(text))
+              .map((text) => `${rule.term}: ${text}`)
+          );
+        assertEquals(
+          misses,
+          [],
+          `capitalized lead-ins escaped the running-prose detector: ${
+            misses.join(", ")
+          }`,
+        );
+      },
+    "lowercase glossary terms retain case at true prose starts": () => {
+      const falseHits = runningProseCaseRules()
+        .filter((rule) =>
+          rule.expected ===
+            rule.term.charAt(0).toLowerCase() + rule.term.slice(1)
+        )
+        .flatMap((rule) =>
+          [
+            `${rule.term} remains visible.`,
+            `Proof: ${rule.term} remains visible.`,
+            `Proof: _${rule.term} remains visible._`,
+          ].filter((text) => new RegExp(rule.pattern).test(text))
+            .map((text) => `${rule.term}: ${text}`)
+        );
+      assertEquals(
+        falseHits,
+        [],
+        `true prose starts were rejected: ${falseHits.join(", ")}`,
+      );
+    },
+    "the glossary case detector leaves dotted contract fields alone": () => {
+      const prose = "Return data.proof and data.proof.line to the caller."
+        .replace(
+          DOTTED_IDENTIFIER,
+          "",
+        );
+      const hits = runningProseCaseRules().filter((rule) =>
+        new RegExp(rule.pattern).test(prose)
+      );
+      assertEquals(hits, []);
+    },
+    "the glossary case detector leaves relay placeholders alone": () => {
+      const prose = runningMarkdownProse(
+        "Carry <proof> as a named relay fact, not running product prose.",
+      );
+      const hits = runningProseCaseRules().filter((rule) =>
+        new RegExp(rule.pattern).test(prose)
+      );
+      assertEquals(hits, []);
+    },
+    "canonical casing respects Markdown structure and ordinary proof": () => {
+      const cases = [
+        {
+          text: "This is not proof that another file must change.",
+          expected: [],
+        },
+        { text: "Several proofs explain the result.", expected: [] },
+        { text: "Read [Practice and roles](page.md).", expected: [] },
+        {
+          text: "See [Gate and Proof troubleshooting](page.md).",
+          expected: [],
+        },
+        { text: "Read [Worktrees and the trunk](page.md).", expected: [] },
+        {
+          text:
+            "For a closer look at the everyday relationship between you, the agent, and the project, read [Practice and roles](../10-understand/practice-and-roles.md).",
+          expected: [],
+        },
+        {
+          text:
+            "For a specific evidence or output problem, see [Gate and Proof troubleshooting](../40-troubleshooting/gate-and-proof.md). The [result reference](../30-reference/mcp-and-results.md) explains diagnostic fields.",
+          expected: [],
+        },
+        {
+          text:
+            "Status requires a discern project. Linked-worktree lifecycle fields require a Git repository with at least one commit. For a practical introduction, read [Worktrees and the trunk](../10-understand/worktrees-and-trunk.md).",
+          expected: [],
+        },
+        {
+          text: "Read [**Standard** examples][guide].\n\n[guide]: /the-Gate",
+          expected: [],
+        },
+        { text: "[Read the Gate](page.md).", expected: ["Gate"] },
+        {
+          text: "Read [Review the **Standard**][guide].\n\n[guide]: page.md",
+          expected: ["Standard"],
+        },
+        { text: "Run the **Gate**.", expected: ["Gate"] },
+        { text: "The _Worktrees_ remain visible.", expected: ["Worktree"] },
+        {
+          text: "Run the Gate and inspect the proof line.",
+          expected: ["Gate", "Proof"],
+        },
+        { text: "Read the proof notes.", expected: ["Proof"] },
+        { text: "Read the Proof notes.", expected: [] },
+        { text: "# Read the Gate\n\nGate remains visible.", expected: [] },
+        { text: "A label\n\nGate remains visible.", expected: [] },
+        {
+          text: "Read ``the Gate and `proof note` `` before continuing.",
+          expected: [],
+        },
+        { text: "    Read the Gate and proof note.\n", expected: [] },
+        {
+          text: "Read <https://example.test/the-Gate> for details.",
+          expected: [],
+        },
+      ];
+      for (const { text, expected } of cases) {
+        const prose = runningMarkdownProse(text).replace(DOTTED_IDENTIFIER, "");
+        const actual = runningProseCaseRules().filter((rule) =>
+          new RegExp(rule.pattern).test(prose)
+        ).map((rule) => rule.term).sort();
+        assertEquals(actual, expected, text);
+      }
+    },
+    "Markdown casing findings retain authored line numbers": () => {
+      const source =
+        "---\ntitle: Metadata\n---\n\n# Read the Gate\n\nRead [the **Gate**](page.md).\n";
+      const rule = runningProseCaseRules().find((entry) =>
+        entry.term === "Gate"
+      );
+      if (rule === undefined) {
+        throw new Error("Gate is missing from the glossary");
+      }
+      const findings = bannedPhraseLines(
+        "fixture.md",
+        runningMarkdownProse(source),
+        new RegExp(rule.pattern, "g"),
+      );
+      assertEquals(findings, ['fixture.md:7 contains "the Gate"']);
+    },
+  });
 });
 
 Deno.test("glossary case choices govern shipped running prose", async () => {
@@ -198,137 +346,4 @@ Deno.test("glossary case choices govern shipped running prose", async () => {
       offenders.join("\n  ")
     }`,
   );
-});
-Deno.test("lowercase glossary terms stay lowercase after capitalized lead-ins", () => {
-  const misses = runningProseCaseRules()
-    .filter((rule) =>
-      rule.expected ===
-        rule.term.charAt(0).toLowerCase() + rule.term.slice(1)
-    )
-    .flatMap((rule) =>
-      [
-        `The ${rule.term} remains visible.`,
-        `_The ${rule.term} remains visible._`,
-      ].filter((text) => !new RegExp(rule.pattern).test(text))
-        .map((text) => `${rule.term}: ${text}`)
-    );
-  assertEquals(
-    misses,
-    [],
-    `capitalized lead-ins escaped the running-prose detector: ${
-      misses.join(", ")
-    }`,
-  );
-});
-
-Deno.test("lowercase glossary terms retain case at true prose starts", () => {
-  const falseHits = runningProseCaseRules()
-    .filter((rule) =>
-      rule.expected ===
-        rule.term.charAt(0).toLowerCase() + rule.term.slice(1)
-    )
-    .flatMap((rule) =>
-      [
-        `${rule.term} remains visible.`,
-        `Proof: ${rule.term} remains visible.`,
-        `Proof: _${rule.term} remains visible._`,
-      ].filter((text) => new RegExp(rule.pattern).test(text))
-        .map((text) => `${rule.term}: ${text}`)
-    );
-  assertEquals(
-    falseHits,
-    [],
-    `true prose starts were rejected: ${falseHits.join(", ")}`,
-  );
-});
-
-Deno.test("the glossary case detector leaves dotted contract fields alone", () => {
-  const prose = "Return data.proof and data.proof.line to the caller.".replace(
-    DOTTED_IDENTIFIER,
-    "",
-  );
-  const hits = runningProseCaseRules().filter((rule) =>
-    new RegExp(rule.pattern).test(prose)
-  );
-  assertEquals(hits, []);
-});
-
-Deno.test("the glossary case detector leaves relay placeholders alone", () => {
-  const prose = runningMarkdownProse(
-    "Carry <proof> as a named relay fact, not running product prose.",
-  );
-  const hits = runningProseCaseRules().filter((rule) =>
-    new RegExp(rule.pattern).test(prose)
-  );
-  assertEquals(hits, []);
-});
-
-Deno.test("canonical casing respects Markdown structure and ordinary proof", () => {
-  const cases = [
-    { text: "This is not proof that another file must change.", expected: [] },
-    { text: "Several proofs explain the result.", expected: [] },
-    { text: "Read [Practice and roles](page.md).", expected: [] },
-    { text: "See [Gate and Proof troubleshooting](page.md).", expected: [] },
-    { text: "Read [Worktrees and the trunk](page.md).", expected: [] },
-    {
-      text:
-        "For a closer look at the everyday relationship between you, the agent, and the project, read [Practice and roles](../10-understand/practice-and-roles.md).",
-      expected: [],
-    },
-    {
-      text:
-        "For a specific evidence or output problem, see [Gate and Proof troubleshooting](../40-troubleshooting/gate-and-proof.md). The [result reference](../30-reference/mcp-and-results.md) explains diagnostic fields.",
-      expected: [],
-    },
-    {
-      text:
-        "Status requires a discern project. Linked-worktree lifecycle fields require a Git repository with at least one commit. For a practical introduction, read [Worktrees and the trunk](../10-understand/worktrees-and-trunk.md).",
-      expected: [],
-    },
-    {
-      text: "Read [**Standard** examples][guide].\n\n[guide]: /the-Gate",
-      expected: [],
-    },
-    { text: "[Read the Gate](page.md).", expected: ["Gate"] },
-    {
-      text: "Read [Review the **Standard**][guide].\n\n[guide]: page.md",
-      expected: ["Standard"],
-    },
-    { text: "Run the **Gate**.", expected: ["Gate"] },
-    { text: "The _Worktrees_ remain visible.", expected: ["Worktree"] },
-    {
-      text: "Run the Gate and inspect the proof line.",
-      expected: ["Gate", "Proof"],
-    },
-    { text: "Read the proof notes.", expected: ["Proof"] },
-    { text: "Read the Proof notes.", expected: [] },
-    { text: "# Read the Gate\n\nGate remains visible.", expected: [] },
-    { text: "A label\n\nGate remains visible.", expected: [] },
-    {
-      text: "Read ``the Gate and `proof note` `` before continuing.",
-      expected: [],
-    },
-    { text: "    Read the Gate and proof note.\n", expected: [] },
-    { text: "Read <https://example.test/the-Gate> for details.", expected: [] },
-  ];
-  for (const { text, expected } of cases) {
-    const prose = runningMarkdownProse(text).replace(DOTTED_IDENTIFIER, "");
-    const actual = runningProseCaseRules().filter((rule) =>
-      new RegExp(rule.pattern).test(prose)
-    ).map((rule) => rule.term).sort();
-    assertEquals(actual, expected, text);
-  }
-});
-
-Deno.test("Markdown casing findings retain authored line numbers", () => {
-  const source =
-    "---\ntitle: Metadata\n---\n\n# Read the Gate\n\nRead [the **Gate**](page.md).\n";
-  const rule = runningProseCaseRules().find((entry) => entry.term === "Gate");
-  if (rule === undefined) throw new Error("Gate is missing from the glossary");
-  const findings = bannedPhraseLines(
-    "fixture.md",
-    runningMarkdownProse(source),
-    new RegExp(rule.pattern, "g"),
-  );
-  assertEquals(findings, ['fixture.md:7 contains "the Gate"']);
 });

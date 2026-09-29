@@ -22,6 +22,7 @@ import {
 } from "../scripts/feature_registry.ts";
 import { TIP_COVERAGE_DELIBERATELY_ABSENT, TIPS } from "../src/shared/tips.ts";
 import { KNOWN_VERBS } from "../src/shared/verbs.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 interface TipFeatureClaim {
   readonly id: string;
@@ -86,15 +87,90 @@ function liveFixture(): TipCoverageFixture {
   };
 }
 
-Deno.test("every feature node and known verb is tipped or deliberately absent", () => {
-  const offenders = coverageOffenders(liveFixture());
-  assertEquals(
-    offenders,
-    [],
-    `the desk curriculum must account for every human-discoverable member:\n  ${
-      offenders.join("\n  ")
-    }`,
-  );
+Deno.test("tip canon enrolment: coverageOffenders cases", () => {
+  assertNamedCases({
+    "every feature node and known verb is tipped or deliberately absent":
+      () => {
+        const offenders = coverageOffenders(liveFixture());
+        assertEquals(
+          offenders,
+          [],
+          `the desk curriculum must account for every human-discoverable member:\n  ${
+            offenders.join("\n  ")
+          }`,
+        );
+      },
+    "tip enrolment catches a newly added unclaimed verb": () => {
+      const tree: FeatureNode[] = [
+        {
+          id: "taught",
+          title: "Taught",
+          what: "A fixture.",
+          plain: { title: "Taught", what: "A fixture." },
+          surfaces: ["verb:known"],
+        },
+      ];
+      const offenders = coverageOffenders({
+        tree,
+        verbs: new Set(["known", "new"]),
+        tips: [{ id: "tip", features: ["taught"] }],
+        absences: {},
+      });
+      assertEquals(offenders.length, 1);
+      assert(
+        offenders[0]?.startsWith("verb:new ships dark"),
+        `the new verb must be the offender: ${offenders.join(", ")}`,
+      );
+    },
+    "tip enrolment catches a newly added unclaimed feature node": () => {
+      const tree: FeatureNode[] = [
+        {
+          id: "taught",
+          title: "Taught",
+          what: "A fixture.",
+          plain: { title: "Taught", what: "A fixture." },
+          children: [
+            {
+              id: "new",
+              title: "New",
+              what: "A fixture.",
+              plain: { title: "New", what: "A fixture." },
+            },
+          ],
+        },
+      ];
+      const offenders = coverageOffenders({
+        tree,
+        verbs: new Set(),
+        tips: [{ id: "tip", features: ["taught"] }],
+        absences: {},
+      });
+      assertEquals(offenders.length, 1);
+      assert(
+        offenders[0]?.startsWith("feature:new ships dark"),
+        `the new feature must be the offender: ${offenders.join(", ")}`,
+      );
+    },
+    "tip enrolment rejects an absence after a member gains a tip": () => {
+      const tree: FeatureNode[] = [
+        {
+          id: "taught",
+          title: "Taught",
+          what: "A fixture.",
+          plain: { title: "Taught", what: "A fixture." },
+        },
+      ];
+      const offenders = coverageOffenders({
+        tree,
+        verbs: new Set(),
+        tips: [{ id: "tip", features: ["taught"] }],
+        absences: { "feature:taught": "A stale fixture." },
+      });
+      assertEquals(offenders, [
+        "feature:taught is tipped and recorded absent — delete the stale absence",
+      ]);
+    },
+  });
 });
 
 Deno.test("every tip-coverage absence names a live member and gives a reason", () => {
@@ -123,77 +199,4 @@ Deno.test("every tip-coverage absence names a live member and gives a reason", (
       `${key}: a deliberate absence carries its reason`,
     );
   }
-});
-
-Deno.test("tip enrolment catches a newly added unclaimed verb", () => {
-  const tree: FeatureNode[] = [
-    {
-      id: "taught",
-      title: "Taught",
-      what: "A fixture.",
-      plain: { title: "Taught", what: "A fixture." },
-      surfaces: ["verb:known"],
-    },
-  ];
-  const offenders = coverageOffenders({
-    tree,
-    verbs: new Set(["known", "new"]),
-    tips: [{ id: "tip", features: ["taught"] }],
-    absences: {},
-  });
-  assertEquals(offenders.length, 1);
-  assert(
-    offenders[0]?.startsWith("verb:new ships dark"),
-    `the new verb must be the offender: ${offenders.join(", ")}`,
-  );
-});
-
-Deno.test("tip enrolment catches a newly added unclaimed feature node", () => {
-  const tree: FeatureNode[] = [
-    {
-      id: "taught",
-      title: "Taught",
-      what: "A fixture.",
-      plain: { title: "Taught", what: "A fixture." },
-      children: [
-        {
-          id: "new",
-          title: "New",
-          what: "A fixture.",
-          plain: { title: "New", what: "A fixture." },
-        },
-      ],
-    },
-  ];
-  const offenders = coverageOffenders({
-    tree,
-    verbs: new Set(),
-    tips: [{ id: "tip", features: ["taught"] }],
-    absences: {},
-  });
-  assertEquals(offenders.length, 1);
-  assert(
-    offenders[0]?.startsWith("feature:new ships dark"),
-    `the new feature must be the offender: ${offenders.join(", ")}`,
-  );
-});
-
-Deno.test("tip enrolment rejects an absence after a member gains a tip", () => {
-  const tree: FeatureNode[] = [
-    {
-      id: "taught",
-      title: "Taught",
-      what: "A fixture.",
-      plain: { title: "Taught", what: "A fixture." },
-    },
-  ];
-  const offenders = coverageOffenders({
-    tree,
-    verbs: new Set(),
-    tips: [{ id: "tip", features: ["taught"] }],
-    absences: { "feature:taught": "A stale fixture." },
-  });
-  assertEquals(offenders, [
-    "feature:taught is tipped and recorded absent — delete the stale absence",
-  ]);
 });

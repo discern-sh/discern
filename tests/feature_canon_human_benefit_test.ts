@@ -23,163 +23,206 @@ import {
 } from "../scripts/feature_registry.ts";
 import { CLAIMS, type ClaimSlug } from "../scripts/brand/claims.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-Deno.test("human-benefit ids are unique across the Human Benefit Canon and the feature tree, and every statement is complete", () => {
-  const featureIds = new Set(allFeatureNodes().map(({ node }) => node.id));
-  const seen = new Set<string>();
-  for (
-    const [id, sentence] of [
-      ["human-benefit-canon-category", HUMAN_BENEFIT_CANON_CATEGORY],
-      ["human-benefit-canon-promise", HUMAN_BENEFIT_CANON_PROMISE],
-      [
-        "human-benefit-canon-commercial-value",
-        HUMAN_BENEFIT_CANON_COMMERCIAL_VALUE,
-      ],
-    ] as const
-  ) {
-    assert(
-      /[.!?]$/u.test(sentence.trim()),
-      `${id} is not a complete sentence`,
-    );
-    assert(!sentence.includes("`"), `${id} contains product-code markup`);
-  }
-  const claim = (id: string): void => {
-    assert(!seen.has(id), `duplicate human-benefit-canon id: ${id}`);
-    assert(
-      !featureIds.has(id),
-      `human-benefit-canon id collides with a feature node: ${id}`,
-    );
-    assert(KEBAB.test(id), `human-benefit-canon id is not kebab-case: ${id}`);
-    seen.add(id);
-  };
-  for (const cluster of HUMAN_BENEFIT_CANON) {
-    claim(cluster.id);
-    assert(cluster.title.trim().length > 0, `empty title for: ${cluster.id}`);
-    assert(
-      !cluster.title.endsWith("."),
-      `cluster title carries a trailing period: ${cluster.id}`,
-    );
-    assert(
-      /[.!?]$/u.test(cluster.promise.trim()),
-      `cluster "promise" is not a complete sentence for: ${cluster.id}`,
-    );
-    assert(
-      /[.!?]$/u.test(cluster.commercialValue.trim()),
-      `cluster "commercialValue" is not a complete sentence for: ${cluster.id}`,
-    );
-    assert(
-      !cluster.promise.includes("`") &&
-        !cluster.commercialValue.includes("`"),
-      `cluster ${cluster.id} mixes product-code markup into human value`,
-    );
-    assert(
-      cluster.primaryFor.length > 0,
-      `cluster ${cluster.id} names no primary reader`,
-    );
-    assertEquals(
-      new Set(cluster.primaryFor).size,
-      cluster.primaryFor.length,
-      `cluster ${cluster.id} names a primary reader twice`,
-    );
-    assert(
-      cluster.benefits.length > 0,
-      `cluster ${cluster.id} has no benefits — a cluster is a grouping, not a leaf`,
-    );
-  }
-  for (const { entry } of allHumanBenefitEntries()) {
-    claim(entry.id);
-    assert(entry.title.trim().length > 0, `empty title for: ${entry.id}`);
-    assert(
-      !entry.title.endsWith("."),
-      `benefit title carries a trailing period: ${entry.id}`,
-    );
-    assert(
-      /[.!?]$/u.test(entry.value.trim()),
-      `benefit "value" is not a complete sentence for: ${entry.id}`,
-    );
-    assert(
-      /[.!?]$/u.test(entry.whyItFollows.trim()),
-      `benefit "whyItFollows" is not a complete sentence for: ${entry.id}`,
-    );
-    assert(
-      !entry.value.includes("`"),
-      `benefit value contains product-code markup instead of human value: ${entry.id}`,
-    );
-    assert(entry.drawsOn.length > 0, `benefit cites no features: ${entry.id}`);
-    assertEquals(
-      new Set(entry.drawsOn).size,
-      entry.drawsOn.length,
-      `benefit cites a feature twice: ${entry.id}`,
-    );
-  }
+Deno.test("feature canon human benefit: canonical memberships", () => {
+  assertNamedCases({
+    "human-benefit ids are unique across the Human Benefit Canon and the feature tree, and every statement is complete":
+      () => {
+        const featureIds = new Set(
+          allFeatureNodes().map(({ node }) => node.id),
+        );
+        const seen = new Set<string>();
+        for (
+          const [id, sentence] of [
+            ["human-benefit-canon-category", HUMAN_BENEFIT_CANON_CATEGORY],
+            ["human-benefit-canon-promise", HUMAN_BENEFIT_CANON_PROMISE],
+            [
+              "human-benefit-canon-commercial-value",
+              HUMAN_BENEFIT_CANON_COMMERCIAL_VALUE,
+            ],
+          ] as const
+        ) {
+          assert(
+            /[.!?]$/u.test(sentence.trim()),
+            `${id} is not a complete sentence`,
+          );
+          assert(!sentence.includes("`"), `${id} contains product-code markup`);
+        }
+        const claim = (id: string): void => {
+          assert(!seen.has(id), `duplicate human-benefit-canon id: ${id}`);
+          assert(
+            !featureIds.has(id),
+            `human-benefit-canon id collides with a feature node: ${id}`,
+          );
+          assert(
+            KEBAB.test(id),
+            `human-benefit-canon id is not kebab-case: ${id}`,
+          );
+          seen.add(id);
+        };
+        for (const cluster of HUMAN_BENEFIT_CANON) {
+          claim(cluster.id);
+          assert(
+            cluster.title.trim().length > 0,
+            `empty title for: ${cluster.id}`,
+          );
+          assert(
+            !cluster.title.endsWith("."),
+            `cluster title carries a trailing period: ${cluster.id}`,
+          );
+          assert(
+            /[.!?]$/u.test(cluster.promise.trim()),
+            `cluster "promise" is not a complete sentence for: ${cluster.id}`,
+          );
+          assert(
+            /[.!?]$/u.test(cluster.commercialValue.trim()),
+            `cluster "commercialValue" is not a complete sentence for: ${cluster.id}`,
+          );
+          assert(
+            !cluster.promise.includes("`") &&
+              !cluster.commercialValue.includes("`"),
+            `cluster ${cluster.id} mixes product-code markup into human value`,
+          );
+          assert(
+            cluster.primaryFor.length > 0,
+            `cluster ${cluster.id} names no primary reader`,
+          );
+          assertEquals(
+            new Set(cluster.primaryFor).size,
+            cluster.primaryFor.length,
+            `cluster ${cluster.id} names a primary reader twice`,
+          );
+          assert(
+            cluster.benefits.length > 0,
+            `cluster ${cluster.id} has no benefits — a cluster is a grouping, not a leaf`,
+          );
+        }
+        for (const { entry } of allHumanBenefitEntries()) {
+          claim(entry.id);
+          assert(entry.title.trim().length > 0, `empty title for: ${entry.id}`);
+          assert(
+            !entry.title.endsWith("."),
+            `benefit title carries a trailing period: ${entry.id}`,
+          );
+          assert(
+            /[.!?]$/u.test(entry.value.trim()),
+            `benefit "value" is not a complete sentence for: ${entry.id}`,
+          );
+          assert(
+            /[.!?]$/u.test(entry.whyItFollows.trim()),
+            `benefit "whyItFollows" is not a complete sentence for: ${entry.id}`,
+          );
+          assert(
+            !entry.value.includes("`"),
+            `benefit value contains product-code markup instead of human value: ${entry.id}`,
+          );
+          assert(
+            entry.drawsOn.length > 0,
+            `benefit cites no features: ${entry.id}`,
+          );
+          assertEquals(
+            new Set(entry.drawsOn).size,
+            entry.drawsOn.length,
+            `benefit cites a feature twice: ${entry.id}`,
+          );
+        }
+      },
+    "every drawsOn citation names a live feature node": () => {
+      const featureIds = new Set(allFeatureNodes().map(({ node }) => node.id));
+      for (const { entry } of allHumanBenefitEntries()) {
+        for (const id of entry.drawsOn) {
+          assert(
+            featureIds.has(id),
+            `benefit ${entry.id} cites unknown feature node: ${id}`,
+          );
+        }
+      }
+    },
+    "every feature node is cited by a benefit or recorded absent — exactly one of the two":
+      () => {
+        const cited = new Set(
+          allHumanBenefitEntries().flatMap(({ entry }) => [...entry.drawsOn]),
+        );
+        const featureIds = new Set(
+          allFeatureNodes().map(({ node }) => node.id),
+        );
+        const uncovered: string[] = [];
+        const stale: string[] = [];
+        for (const id of featureIds) {
+          const absent = id in HUMAN_BENEFIT_COVERAGE_ABSENCES;
+          if (!cited.has(id) && !absent) uncovered.push(id);
+          if (cited.has(id) && absent) stale.push(id);
+        }
+        assertEquals(
+          uncovered,
+          [],
+          "state what each buys a person in a benefit's drawsOn, or record the absence with its reason in HUMAN_BENEFIT_COVERAGE_ABSENCES",
+        );
+        assertEquals(
+          stale,
+          [],
+          "these features are cited by a benefit — remove their stale absence records",
+        );
+        for (
+          const [id, reason] of Object.entries(
+            HUMAN_BENEFIT_COVERAGE_ABSENCES,
+          )
+        ) {
+          assert(
+            featureIds.has(id),
+            `absence record names an unknown feature node: ${id}`,
+          );
+          assert(
+            reason.trim().length > 0,
+            `absence record carries no reason: ${id}`,
+          );
+        }
+      },
+    "every public claim in the ledger is carried by at least one benefit":
+      () => {
+        const carried = new Set(
+          allHumanBenefitEntries().flatMap((
+            { entry },
+          ) => [...(entry.claims ?? [])]),
+        );
+        const uncarried = (Object.keys(CLAIMS) as ClaimSlug[]).filter((slug) =>
+          !carried.has(slug)
+        );
+        assertEquals(
+          uncarried,
+          [],
+          "every public claim needs a benefit-shaped home — cite it from the benefit it backs",
+        );
+      },
+    "every discern command mentioned in benefit prose is a live verb": () => {
+      const texts: Array<[string, string]> = [];
+      for (const cluster of HUMAN_BENEFIT_CANON) {
+        texts.push([cluster.id, cluster.promise]);
+        texts.push([cluster.id, cluster.commercialValue]);
+      }
+      for (const { entry } of allHumanBenefitEntries()) {
+        texts.push([entry.id, entry.value]);
+        texts.push([entry.id, entry.whyItFollows]);
+      }
+      for (const [id, text] of texts) {
+        for (const verb of mentionedVerbs(text)) {
+          assert(
+            KNOWN_VERBS.has(verb),
+            `${id} mentions \`discern ${verb}\`, which is not a live verb`,
+          );
+        }
+      }
+    },
+    "control: command-mention extraction discriminates": () => {
+      assertEquals(mentionedVerbs("run `discern done`, read `discern.toml`"), [
+        "done",
+      ]);
+    },
+  });
 });
-
-Deno.test("every drawsOn citation names a live feature node", () => {
-  const featureIds = new Set(allFeatureNodes().map(({ node }) => node.id));
-  for (const { entry } of allHumanBenefitEntries()) {
-    for (const id of entry.drawsOn) {
-      assert(
-        featureIds.has(id),
-        `benefit ${entry.id} cites unknown feature node: ${id}`,
-      );
-    }
-  }
-});
-
-Deno.test("every feature node is cited by a benefit or recorded absent — exactly one of the two", () => {
-  const cited = new Set(
-    allHumanBenefitEntries().flatMap(({ entry }) => [...entry.drawsOn]),
-  );
-  const featureIds = new Set(allFeatureNodes().map(({ node }) => node.id));
-  const uncovered: string[] = [];
-  const stale: string[] = [];
-  for (const id of featureIds) {
-    const absent = id in HUMAN_BENEFIT_COVERAGE_ABSENCES;
-    if (!cited.has(id) && !absent) uncovered.push(id);
-    if (cited.has(id) && absent) stale.push(id);
-  }
-  assertEquals(
-    uncovered,
-    [],
-    "state what each buys a person in a benefit's drawsOn, or record the absence with its reason in HUMAN_BENEFIT_COVERAGE_ABSENCES",
-  );
-  assertEquals(
-    stale,
-    [],
-    "these features are cited by a benefit — remove their stale absence records",
-  );
-  for (
-    const [id, reason] of Object.entries(
-      HUMAN_BENEFIT_COVERAGE_ABSENCES,
-    )
-  ) {
-    assert(
-      featureIds.has(id),
-      `absence record names an unknown feature node: ${id}`,
-    );
-    assert(
-      reason.trim().length > 0,
-      `absence record carries no reason: ${id}`,
-    );
-  }
-});
-
-Deno.test("every public claim in the ledger is carried by at least one benefit", () => {
-  const carried = new Set(
-    allHumanBenefitEntries().flatMap(({ entry }) => [...(entry.claims ?? [])]),
-  );
-  const uncarried = (Object.keys(CLAIMS) as ClaimSlug[]).filter((slug) =>
-    !carried.has(slug)
-  );
-  assertEquals(
-    uncarried,
-    [],
-    "every public claim needs a benefit-shaped home — cite it from the benefit it backs",
-  );
-});
-
 const COMMAND_MENTION = /`discern ([a-z][a-z-]*)/g;
 
 /** Extract backticked discern command names from Human Benefit Canon prose. */
@@ -187,110 +230,92 @@ function mentionedVerbs(text: string): string[] {
   return [...text.matchAll(COMMAND_MENTION)].map((m) => m[1] ?? "");
 }
 
-Deno.test("every discern command mentioned in benefit prose is a live verb", () => {
-  const texts: Array<[string, string]> = [];
-  for (const cluster of HUMAN_BENEFIT_CANON) {
-    texts.push([cluster.id, cluster.promise]);
-    texts.push([cluster.id, cluster.commercialValue]);
-  }
-  for (const { entry } of allHumanBenefitEntries()) {
-    texts.push([entry.id, entry.value]);
-    texts.push([entry.id, entry.whyItFollows]);
-  }
-  for (const [id, text] of texts) {
-    for (const verb of mentionedVerbs(text)) {
-      assert(
-        KNOWN_VERBS.has(verb),
-        `${id} mentions \`discern ${verb}\`, which is not a live verb`,
-      );
-    }
-  }
-});
-
-Deno.test("control: command-mention extraction discriminates", () => {
-  assertEquals(mentionedVerbs("run `discern done`, read `discern.toml`"), [
-    "done",
-  ]);
-});
-
-Deno.test("the rendered page carries the banner, every cluster, every benefit, and the coverage appendix", () => {
-  const doc = renderFeatureCanonHumanBenefitsDoc();
-  assertStringIncludes(doc, "<!-- GENERATED by `deno task codegen`");
-  assertStringIncludes(doc, "# Human Benefit Canon");
-  for (const cluster of HUMAN_BENEFIT_CANON) {
-    assertStringIncludes(
-      doc,
-      `## ${cluster.title}`,
-      `no rendering for cluster: ${cluster.id}`,
-    );
-  }
-  for (const { entry } of allHumanBenefitEntries()) {
-    assertStringIncludes(
-      doc,
-      `### ${entry.title}`,
-      `no rendering for benefit: ${entry.id}`,
-    );
-  }
-  for (const slug of Object.keys(CLAIMS)) {
-    assertStringIncludes(
-      doc,
-      `- \`${slug}\` — `,
-      `claims appendix misses ledger claim: ${slug}`,
-    );
-  }
-  assertStringIncludes(doc, "### Recorded absences");
-  assertStringIncludes(doc, "### Claim homes");
-});
-
-Deno.test("the rendered commercial account uses the short scan labels", () => {
-  const doc = renderFeatureCanonHumanBenefitsDoc();
-  const count = (label: string): number =>
-    doc.match(new RegExp(`^\\* \\*\\*${label}:\\*\\*`, "gm"))?.length ?? 0;
-  for (const label of ["Role", "Promise", "Commercial value", "Audience"]) {
-    assertEquals(
-      count(label),
-      HUMAN_BENEFIT_CANON.length,
-      `${label} cluster labels`,
-    );
-  }
-  const benefitCount = allHumanBenefitEntries().length;
-  for (const label of ["Value", "Mechanism", "Product basis"]) {
-    assertEquals(count(label), benefitCount, `${label} benefit labels`);
-  }
-  for (
-    const retired of ["Commercial role", "Primary readers", "Why it follows"]
-  ) {
-    assertEquals(count(retired), 0, `${retired} label should stay retired`);
-  }
-});
-
-Deno.test("the commercial account is not interrupted by claim-review qualifications", () => {
-  const doc = renderFeatureCanonHumanBenefitsDoc();
-  const [commercialBody = doc] = doc.split(
-    "## Coverage and claim traceability",
-  );
-  assert(
-    !commercialBody.includes("Caveat:"),
-    "commercial body renders an inline caveat",
-  );
-  for (
-    const evidenceClass of [
-      "(structural)",
-      "(demonstrated)",
-      "(observational)",
-      "(anecdotal)",
-      "(hypothesis)",
-    ]
-  ) {
-    assert(
-      !commercialBody.includes(evidenceClass),
-      `commercial body renders an evidence-class qualification: ${evidenceClass}`,
-    );
-  }
-  for (const slug of Object.keys(CLAIMS)) {
-    assert(
-      !commercialBody.includes(`\`${slug}\``),
-      `commercial body renders a claim-ledger slug: ${slug}`,
-    );
-  }
+Deno.test("feature canon human benefit: rendering", () => {
+  assertNamedCases({
+    "the rendered page carries the banner, every cluster, every benefit, and the coverage appendix":
+      () => {
+        const doc = renderFeatureCanonHumanBenefitsDoc();
+        assertStringIncludes(doc, "<!-- GENERATED by `deno task codegen`");
+        assertStringIncludes(doc, "# Human Benefit Canon");
+        for (const cluster of HUMAN_BENEFIT_CANON) {
+          assertStringIncludes(
+            doc,
+            `## ${cluster.title}`,
+            `no rendering for cluster: ${cluster.id}`,
+          );
+        }
+        for (const { entry } of allHumanBenefitEntries()) {
+          assertStringIncludes(
+            doc,
+            `### ${entry.title}`,
+            `no rendering for benefit: ${entry.id}`,
+          );
+        }
+        for (const slug of Object.keys(CLAIMS)) {
+          assertStringIncludes(
+            doc,
+            `- \`${slug}\` — `,
+            `claims appendix misses ledger claim: ${slug}`,
+          );
+        }
+        assertStringIncludes(doc, "### Recorded absences");
+        assertStringIncludes(doc, "### Claim homes");
+      },
+    "the rendered commercial account uses the short scan labels": () => {
+      const doc = renderFeatureCanonHumanBenefitsDoc();
+      const count = (label: string): number =>
+        doc.match(new RegExp(`^\\* \\*\\*${label}:\\*\\*`, "gm"))?.length ?? 0;
+      for (const label of ["Role", "Promise", "Commercial value", "Audience"]) {
+        assertEquals(
+          count(label),
+          HUMAN_BENEFIT_CANON.length,
+          `${label} cluster labels`,
+        );
+      }
+      const benefitCount = allHumanBenefitEntries().length;
+      for (const label of ["Value", "Mechanism", "Product basis"]) {
+        assertEquals(count(label), benefitCount, `${label} benefit labels`);
+      }
+      for (
+        const retired of [
+          "Commercial role",
+          "Primary readers",
+          "Why it follows",
+        ]
+      ) {
+        assertEquals(count(retired), 0, `${retired} label should stay retired`);
+      }
+    },
+    "the commercial account is not interrupted by claim-review qualifications":
+      () => {
+        const doc = renderFeatureCanonHumanBenefitsDoc();
+        const [commercialBody = doc] = doc.split(
+          "## Coverage and claim traceability",
+        );
+        assert(
+          !commercialBody.includes("Caveat:"),
+          "commercial body renders an inline caveat",
+        );
+        for (
+          const evidenceClass of [
+            "(structural)",
+            "(demonstrated)",
+            "(observational)",
+            "(anecdotal)",
+            "(hypothesis)",
+          ]
+        ) {
+          assert(
+            !commercialBody.includes(evidenceClass),
+            `commercial body renders an evidence-class qualification: ${evidenceClass}`,
+          );
+        }
+        for (const slug of Object.keys(CLAIMS)) {
+          assert(
+            !commercialBody.includes(`\`${slug}\``),
+            `commercial body renders a claim-ledger slug: ${slug}`,
+          );
+        }
+      },
+  });
 });

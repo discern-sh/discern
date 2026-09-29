@@ -18,6 +18,7 @@ import { buildCliManifest } from "../scripts/contract_manifests.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Build the one live command model used by help, suggestions, and generation. */
 function liveModel(): CliCommand {
@@ -40,150 +41,166 @@ function contractedPaths(): Set<string> {
   );
 }
 
-Deno.test("every enum positional publishes its type and choices in the CLI manifest", () => {
-  const manifest = buildCliManifest();
-  let enumPositionals = 0;
-  for (const command of walkCliCommands(liveModel())) {
-    const record = manifest.commands.find((entry) =>
-      entry.path.join(" ") === command.path.join(" ")
-    );
-    assert(
-      record !== undefined,
-      `manifest lost ${command.path.join(" ") || "root"}`,
-    );
-    for (const argument of command.args) {
-      if (argument.choices === undefined) continue;
-      enumPositionals += 1;
-      const positional = record.positionals.find((entry) =>
-        entry.name === argument.name
-      );
-      assert(
-        positional !== undefined,
-        `manifest lost ${command.path.join(" ")} ${argument.name}`,
-      );
-      assertEquals(positional.value_types, argument.value_types);
-      assertEquals(positional.choices, argument.choices);
-    }
-  }
+Deno.test("v1 cli grammar: contracts", () => {
+  assertNamedCases({
+    "every enum positional publishes its type and choices in the CLI manifest":
+      () => {
+        const manifest = buildCliManifest();
+        let enumPositionals = 0;
+        for (const command of walkCliCommands(liveModel())) {
+          const record = manifest.commands.find((entry) =>
+            entry.path.join(" ") === command.path.join(" ")
+          );
+          assert(
+            record !== undefined,
+            `manifest lost ${command.path.join(" ") || "root"}`,
+          );
+          for (const argument of command.args) {
+            if (argument.choices === undefined) continue;
+            enumPositionals += 1;
+            const positional = record.positionals.find((entry) =>
+              entry.name === argument.name
+            );
+            assert(
+              positional !== undefined,
+              `manifest lost ${command.path.join(" ")} ${argument.name}`,
+            );
+            assertEquals(positional.value_types, argument.value_types);
+            assertEquals(positional.choices, argument.choices);
+          }
+        }
 
-  assert(
-    enumPositionals > 0,
-    "the live grammar must exercise enum positionals",
-  );
-  const accept = manifest.commands.find((entry) =>
-    entry.path.join(" ") === "accept"
-  );
-  assert(accept !== undefined);
-  assertEquals(accept.positionals[0]?.choices, [...ACCEPT_ACTIONS]);
+        assert(
+          enumPositionals > 0,
+          "the live grammar must exercise enum positionals",
+        );
+        const accept = manifest.commands.find((entry) =>
+          entry.path.join(" ") === "accept"
+        );
+        assert(accept !== undefined);
+        assertEquals(accept.positionals[0]?.choices, [...ACCEPT_ACTIONS]);
+      },
+    "the live command and result models expose only the settled v1 names":
+      () => {
+        const paths = new Set(
+          [...walkCliCommands(liveModel())].map((command) =>
+            command.path.join(" ")
+          ),
+        );
+        const contracts = contractedPaths();
+
+        for (
+          const retained of [
+            "setup",
+            "setup begin",
+            "enter",
+            "worktree",
+            "triangle",
+            "patterns seal",
+            "patterns archives",
+            "worktree ensure",
+          ]
+        ) {
+          assert(paths.has(retained), `live model lost ${retained}`);
+        }
+        for (
+          const retired of [
+            "preset",
+            "worktrees",
+            "patterns archive",
+            "remove-worktree-safely",
+            "inherit-main-env-vars",
+            "with-gotchas",
+            "init",
+            "install",
+          ]
+        ) {
+          assert(!paths.has(retired), `retired command re-entered: ${retired}`);
+          assert(
+            !contracts.has(retired),
+            `retired result contract re-entered: ${retired}`,
+          );
+        }
+
+        assert(contracts.has("help"));
+        assert(contracts.has("worktree ensure"));
+        assert(!contracts.has("worktree hook create"));
+        assert(!contracts.has("worktree hook remove"));
+      },
+    "setup is read-only and setup begin exclusively owns scaffold options":
+      () => {
+        const model = liveModel();
+        const setup = commandAt(model, "setup");
+        const begin = commandAt(model, "setup begin");
+        const localFlags = (command: CliCommand): string[] =>
+          command.options.filter((option) => !option.global).flatMap((option) =>
+            option.flags
+          );
+
+        assertEquals(localFlags(setup), []);
+        const beginFlags = new Set(localFlags(begin));
+        for (
+          const flag of [
+            "--slug",
+            "--config",
+            "--dry-run",
+            "--reseed",
+            "--allow-dirty",
+            "--confirmed",
+          ]
+        ) {
+          assert(beginFlags.has(flag), `setup begin does not own ${flag}`);
+        }
+        assert(
+          !beginFlags.has("--yes"),
+          "the private setup --yes input returned",
+        );
+      },
+    "status and doctor share both verbose spellings": () => {
+      const model = liveModel();
+      for (const path of ["status", "doctor"]) {
+        const verbose = commandAt(model, path).options.find((option) =>
+          option.flags.includes("--verbose")
+        );
+        assert(verbose !== undefined, `${path} lost its verbose option`);
+        assertEquals(verbose.flags, ["-v", "--verbose"]);
+      }
+    },
+    "every command describes itself and its manifest lists each flag spelling once":
+      () => {
+        const commands = [...walkCliCommands(liveModel())];
+        assertEquals(
+          commands.filter((command) =>
+            command.path.length > 0 && command.description.trim() === ""
+          ).map((command) => command.path.join(" ")),
+          [],
+        );
+
+        const manifest = buildCliManifest();
+        for (const command of manifest.commands) {
+          const spellings = command.flags.flatMap((flag) => flag.spellings);
+          assertEquals(
+            spellings.length,
+            new Set(spellings).size,
+            `${command.path.join(" ") || "root"} repeats a flag spelling`,
+          );
+          assertEquals(
+            spellings.filter((spelling) => spelling === "--json").length,
+            command.path.join(" ") === "queue" ? 0 : 1,
+            `${
+              command.path.join(" ") || "root"
+            } must list its JSON surface once`,
+          );
+        }
+      },
+    "MCP transport timeout flags are visible in the live help model": () => {
+      const mcp = commandAt(liveModel(), "mcp");
+      const flags = new Set(mcp.options.flatMap((option) => option.flags));
+      assert(flags.has("--strict-tool-calls"));
+      assert(flags.has("--long-tool-calls"));
+    },
+  });
 });
-
-Deno.test("the live command and result models expose only the settled v1 names", () => {
-  const paths = new Set(
-    [...walkCliCommands(liveModel())].map((command) => command.path.join(" ")),
-  );
-  const contracts = contractedPaths();
-
-  for (
-    const retained of [
-      "setup",
-      "setup begin",
-      "enter",
-      "worktree",
-      "triangle",
-      "patterns seal",
-      "patterns archives",
-      "worktree ensure",
-    ]
-  ) {
-    assert(paths.has(retained), `live model lost ${retained}`);
-  }
-  for (
-    const retired of [
-      "preset",
-      "worktrees",
-      "patterns archive",
-      "remove-worktree-safely",
-      "inherit-main-env-vars",
-      "with-gotchas",
-      "init",
-      "install",
-    ]
-  ) {
-    assert(!paths.has(retired), `retired command re-entered: ${retired}`);
-    assert(
-      !contracts.has(retired),
-      `retired result contract re-entered: ${retired}`,
-    );
-  }
-
-  assert(contracts.has("help"));
-  assert(contracts.has("worktree ensure"));
-  assert(!contracts.has("worktree hook create"));
-  assert(!contracts.has("worktree hook remove"));
-});
-
-Deno.test("setup is read-only and setup begin exclusively owns scaffold options", () => {
-  const model = liveModel();
-  const setup = commandAt(model, "setup");
-  const begin = commandAt(model, "setup begin");
-  const localFlags = (command: CliCommand): string[] =>
-    command.options.filter((option) => !option.global).flatMap((option) =>
-      option.flags
-    );
-
-  assertEquals(localFlags(setup), []);
-  const beginFlags = new Set(localFlags(begin));
-  for (
-    const flag of [
-      "--slug",
-      "--config",
-      "--dry-run",
-      "--reseed",
-      "--allow-dirty",
-      "--confirmed",
-    ]
-  ) {
-    assert(beginFlags.has(flag), `setup begin does not own ${flag}`);
-  }
-  assert(!beginFlags.has("--yes"), "the private setup --yes input returned");
-});
-
-Deno.test("status and doctor share both verbose spellings", () => {
-  const model = liveModel();
-  for (const path of ["status", "doctor"]) {
-    const verbose = commandAt(model, path).options.find((option) =>
-      option.flags.includes("--verbose")
-    );
-    assert(verbose !== undefined, `${path} lost its verbose option`);
-    assertEquals(verbose.flags, ["-v", "--verbose"]);
-  }
-});
-
-Deno.test("every command describes itself and its manifest lists each flag spelling once", () => {
-  const commands = [...walkCliCommands(liveModel())];
-  assertEquals(
-    commands.filter((command) =>
-      command.path.length > 0 && command.description.trim() === ""
-    ).map((command) => command.path.join(" ")),
-    [],
-  );
-
-  const manifest = buildCliManifest();
-  for (const command of manifest.commands) {
-    const spellings = command.flags.flatMap((flag) => flag.spellings);
-    assertEquals(
-      spellings.length,
-      new Set(spellings).size,
-      `${command.path.join(" ") || "root"} repeats a flag spelling`,
-    );
-    assertEquals(
-      spellings.filter((spelling) => spelling === "--json").length,
-      command.path.join(" ") === "queue" ? 0 : 1,
-      `${command.path.join(" ") || "root"} must list its JSON surface once`,
-    );
-  }
-});
-
 Deno.test("nested help has one typed result in every JSON flag position", async () => {
   await withTempDir(async (dir) => {
     const invocations = [
@@ -363,11 +380,4 @@ Deno.test("config get distinguishes a missing value from an empty value", async 
     assertEquals(envelope.error, "unknown_key");
     assertStringIncludes(envelope.message ?? "", "discern config has");
   });
-});
-
-Deno.test("MCP transport timeout flags are visible in the live help model", () => {
-  const mcp = commandAt(liveModel(), "mcp");
-  const flags = new Set(mcp.options.flatMap((option) => option.flags));
-  assert(flags.has("--strict-tool-calls"));
-  assert(flags.has("--long-tool-calls"));
 });

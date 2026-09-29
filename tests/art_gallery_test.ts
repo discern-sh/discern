@@ -54,14 +54,8 @@ Deno.test("the art gallery enrolls both registries in stable order", () => {
     .map(([name, variant]) => `[${name}]\n${variant.render()}`)
     .join("\n\n");
 
-  assertEquals(renderArtGallery(), expected);
-  assertEquals(
-    artGalleryEntries().map(({ name }) => name),
-    EXPECTED_ENTRIES.map(([name]) => name),
-  );
-});
-
-Deno.test("gallery labels and composed output stay terminal-safe", () => {
+  const gallery = renderArtGallery();
+  assertEquals(gallery, expected);
   for (const [name] of EXPECTED_ENTRIES) {
     assertMatch(name, /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/);
   }
@@ -70,7 +64,6 @@ Deno.test("gallery labels and composed output stay terminal-safe", () => {
     EXPECTED_ENTRIES.length,
   );
 
-  const gallery = renderArtGallery();
   for (const character of gallery) {
     assert(
       character === "\n" || !/[\p{Cc}\p{Cf}]/u.test(character),
@@ -83,6 +76,10 @@ Deno.test("gallery labels and composed output stay terminal-safe", () => {
       `gallery line has trailing whitespace: ${JSON.stringify(line)}`,
     );
   }
+  assertEquals(
+    artGalleryEntries().map(({ name }) => name),
+    EXPECTED_ENTRIES.map(([name]) => name),
+  );
 });
 
 Deno.test("the animated gallery enrolls both registries in stable order", () => {

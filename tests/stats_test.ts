@@ -10,6 +10,8 @@
  * Guards: boundary:worker-neutral-measurement, claim:patterns-compare-cohorts
  */
 
+import { assertCases } from "./assert_cases.ts";
+
 import { assert, assertEquals } from "@std/assert";
 import { computeStats } from "../src/engine/logbook/stats.ts";
 import { buildStreamFacts } from "../src/engine/logbook/detectors.ts";
@@ -148,723 +150,993 @@ function stats(events: LogbookEvent[]): PatternsStats {
   return computeStats(buildStreamFacts(events, "main"));
 }
 
-Deno.test("stats: accepted counts successful accepts and sums their recorded scale", () => {
-  const b = stats(run([
-    {
-      verb: "accept",
-      branch: "agent/a",
-      change: { files: 3, insertions: 100, deletions: 20, commits: 2 },
-    },
-    // An accept recorded without a change scale still counts, adding zero.
-    { verb: "accept", branch: "agent/b" },
-    // A red accept is never an accepted change.
-    { verb: "accept", branch: "agent/c", outcome: "failed" },
-  ]));
-  assertEquals(b.accepted.count, 2);
-  assertEquals(b.accepted.branches, 2);
-  assertEquals(b.accepted.insertions, 100);
-  assertEquals(b.accepted.deletions, 20);
-  assertEquals(b.accepted.files, 3);
-  assertEquals(b.accepted.commits, 2);
-  assertEquals(b.accepted.biggest, {
-    branch: "agent/a",
-    lines: 120,
-    files: 3,
-    day: "2026-07-01",
-  });
-});
-
-Deno.test("stats: cleanups count accepted changes that removed more lines than they added", () => {
-  const b = stats(run([
-    {
-      verb: "accept",
-      branch: "agent/prune",
-      change: { files: 2, insertions: 5, deletions: 40, commits: 1 },
-    },
-    {
-      verb: "accept",
-      branch: "agent/grow",
-      change: { files: 2, insertions: 40, deletions: 5, commits: 1 },
-    },
-    // A wash is not a cleanup.
-    {
-      verb: "accept",
-      branch: "agent/even",
-      change: { files: 1, insertions: 7, deletions: 7, commits: 1 },
-    },
-  ]));
-  assertEquals(b.accepted.cleanups, 1);
-});
-
-Deno.test("stats: the biggest accepted change is by changed lines, and a branch-less event carries no branch", () => {
-  const b = stats(run([
-    {
-      verb: "accept",
-      branch: "agent/small",
-      change: { files: 1, insertions: 10, deletions: 0, commits: 1 },
-    },
-    {
-      verb: "accept",
-      branch: null,
-      change: { files: 9, insertions: 400, deletions: 100, commits: 4 },
-    },
-  ]));
-  assertEquals(b.accepted.count, 2);
-  assertEquals(b.accepted.branches, 1, "a null branch never mints a branch");
-  assertEquals(b.accepted.biggest, {
-    lines: 500,
-    files: 9,
-    day: "2026-07-01",
-  });
-});
-
-Deno.test("stats: the best day and the acceptance streak read UTC calendar days, ties to the earliest", () => {
-  const accept = (hours: number): Partial<VerbEvent> => ({
-    verb: "accept",
-    at: t(hours),
-  });
-  const b = stats(run([
-    accept(1),
-    accept(2), // 2026-07-01 × 2
-    accept(25),
-    accept(26), // 2026-07-02 × 2 — a tie the earliest day wins
-    accept(73), // 2026-07-04 — the gap ends the streak
-  ]));
-  assertEquals(b.accepted.best_day, { day: "2026-07-01", accepted: 2 });
-  assertEquals(b.accepted.longest_streak, 2);
-});
-
-Deno.test("stats: gate streaks run in stream order and the current streak reads from the tail", () => {
-  const streaky = stats(run([
-    {},
-    {},
-    { outcome: "failed", failed_stage: "check/test" },
-    {},
-    {},
-    {},
-  ]));
-  assertEquals(streaky.gate.runs, 6);
-  assertEquals(streaky.gate.greens, 5);
-  assertEquals(streaky.gate.longest_green_streak, 3);
-  assertEquals(streaky.gate.current_green_streak, 3);
-
-  const redTail = stats(run([
-    {},
-    {},
-    { outcome: "failed", failed_stage: "check/test" },
-  ]));
-  assertEquals(redTail.gate.longest_green_streak, 2);
-  assertEquals(redTail.gate.current_green_streak, 0);
-});
-
-Deno.test("stats: first-try green counts branches whose first `done` came back green", () => {
-  const b = stats(run([
-    { branch: "agent/first-try" },
-    { branch: "agent/first-try", outcome: "failed" },
-    { branch: "agent/thrash", outcome: "failed" },
-    { branch: "agent/thrash" },
-    { branch: "agent/clean" },
-  ]));
-  assertEquals(b.gate.gated_branches, 3);
-  assertEquals(b.gate.first_try_green_branches, 2);
-});
-
-Deno.test("stats: check hours sum done, prepare, and test wall clocks and nothing else", () => {
-  const b = stats(run([
-    { verb: "done", duration_ms: 3_600_000, waited_ms: 1_800_000 },
-    { verb: "prepare", duration_ms: 1_800_000, waited_ms: 600_000 },
-    { verb: "test", duration_ms: 1_800_000, waited_ms: 900_000 },
-    // A slow read-only verb is not a check.
-    { verb: "status", duration_ms: 7_200_000 },
-  ]));
-  assertEquals(b.gate.check_hours, 2);
-});
-
-Deno.test("stats: dirty validation bridges its commit into the later clean Gate cycle", () => {
-  const b = stats(run([
-    {
-      verb: "test",
-      branch: "agent/test-first",
-      head: "working-head",
-      clean: false,
-      outcome: "failed",
-      validation: validation({ tracked: 1, outcome: "failed" }),
-    },
-    {
-      verb: "test",
-      branch: "agent/test-first",
-      head: "working-head",
-      clean: false,
-      validation: validation({ tracked: 1 }),
-    },
-    {
-      verb: "done",
-      branch: "agent/test-first",
-      head: "committed-head",
-      clean: true,
-      validation: validation(),
-    },
-    {
-      verb: "done",
-      branch: "agent/commit-first",
-      head: "already-committed",
-      clean: true,
-      validation: validation(),
-    },
-  ]));
-
-  assertEquals(b.validation_workflows.cycles.total, 2);
-  assertEquals(b.validation_workflows.cycles.branches, 2);
-  assertEquals(b.validation_workflows.cycles.routes, [
-    {
-      route: "test-first",
-      cycles: 1,
-      branches: 1,
-      runs: 3,
-      successful_cycles: 1,
-      successful_runs: 2,
-      failed_cycles: 1,
-      failed_runs: 1,
-      retried_cycles: 1,
-      retry_runs: 2,
-    },
-    {
-      route: "commit-first",
-      cycles: 1,
-      branches: 1,
-      runs: 1,
-      successful_cycles: 1,
-      successful_runs: 1,
-      failed_cycles: 0,
-      failed_runs: 0,
-      retried_cycles: 0,
-      retry_runs: 0,
-    },
-    {
-      route: "unattributed",
-      cycles: 0,
-      branches: 0,
-      runs: 0,
-      successful_cycles: 0,
-      successful_runs: 0,
-      failed_cycles: 0,
-      failed_runs: 0,
-      retried_cycles: 0,
-      retry_runs: 0,
-    },
-  ]);
-  assertEquals(b.validation_workflows.cycles.precommit_to_clean_gate, {
-    cycles: 1,
-    branches: 1,
-    runs: 3,
-    retry_runs: 2,
-  });
-  assertEquals(
-    b.validation_workflows.runs.by_verb.find((row) => row.verb === "test"),
-    {
-      verb: "test",
-      runs: 2,
-      branches: 1,
-      clean: 0,
-      dirty: 2,
-      unknown: 0,
-      successes: 1,
-      failures: 1,
-      retries: 1,
-    },
-  );
-});
-
-Deno.test("stats: workflow failures require completed validation rather than coordination or recovery refusals", () => {
-  const events = run([
-    { error: "awaiting_consent", outcome: "failed", gate_ran: false },
-    { error: "incomplete", outcome: "failed", gate_ran: false },
-    {
-      outcome: "failed",
-      steps: [{ label: "test", kind: "job", outcome: "cancelled" }],
-    },
-    {
-      outcome: "failed",
-      steps: [{ label: "test", kind: "job", outcome: "skipped" }],
-    },
-    { outcome: "failed" },
-    { outcome: "failed", failed_stage: "test" },
-  ]);
-  const result = stats(events).validation_workflows;
-  assertEquals(
-    result.runs.by_verb.find((row) => row.verb === "done")?.failures,
-    1,
-  );
-  assertEquals(
-    result.cycles.routes.find((row) => row.route === "commit-first")
-      ?.failed_runs,
-    1,
-  );
-});
-
-Deno.test("stats: workflow readers deduplicate delivery and do not join across contradictory invocations", () => {
-  const first = verb({
-    invocation: "first",
-    at: t(0),
-    clean: false,
-    outcome: "failed",
-    failed_stage: "test",
-  });
-  const middle = verb({ invocation: "middle", at: t(1) });
-  const last = verb({ invocation: "last", at: t(2), head: "later-head" });
-  const result =
-    stats([first, first, middle, { ...middle, outcome: "failed" }, last])
-      .validation_workflows;
-  assertEquals(result.runs.total, 2);
-  assertEquals(result.cycles.precommit_to_clean_gate.cycles, 0);
-  assertEquals(result.cycles.total, 2);
-});
-
-Deno.test("stats: a failed standard remains a validation failure when its producer passed", () => {
-  const result = stats(run([{
-    outcome: "failed",
-    validation: validation(),
-    steps: [{ label: "coverage", kind: "standard", outcome: "failed" }],
-  }])).validation_workflows;
-  assertEquals(
-    result.runs.by_verb.find((row) => row.verb === "done")?.failures,
-    1,
-  );
-});
-
-Deno.test("stats: workflow evidence and current dirty shapes retain their denominators", () => {
-  const b = stats(run([
-    {
-      verb: "test",
-      branch: "agent/tracked",
-      clean: false,
-      tree: "tracked-diff",
-      validation: validation({ tracked: 1 }),
-    },
-    {
-      verb: "test",
-      branch: "agent/untracked",
-      clean: false,
-      tree: EMPTY_TREE_DIFF_FINGERPRINT,
-      validation: validation({ untracked: 2 }),
-    },
-    {
-      verb: "test",
-      branch: "agent/mixed",
-      clean: false,
-      tree: "tracked-diff",
-      validation: validation({ tracked: 1, untracked: 1 }),
-    },
-    {
-      verb: "test",
-      branch: "agent/incomplete",
-      clean: false,
-      validation: validation({ complete: false }),
-    },
-    { verb: "test", branch: "agent/historical", clean: true },
-    { verb: "prepare", branch: "agent/prepare", clean: false },
-    { verb: "test", branch: "agent/unknown", clean: null },
-  ]));
-
-  assertEquals(b.validation_workflows.runs.evidence, {
-    denominator: 7,
-    complete: 3,
-    incomplete: 1,
-    unattributed: 3,
-  });
-  assertEquals(b.validation_workflows.runs.dirty_state, {
-    denominator: 3,
-    tracked_only: 1,
-    untracked_only: 1,
-    mixed: 1,
-    unclassified: 0,
-  });
-  assertEquals(b.validation_workflows.runs.total, 7);
-  assertEquals(b.validation_workflows.runs.branches, 7);
-  assert(
-    !JSON.stringify(b.validation_workflows).includes("tracked-diff"),
-    "workflow Stats expose counts, never recorded tree or path evidence",
-  );
-});
-
-Deno.test("stats: branch reuse and config changes close conservative workflow cycles", () => {
-  const b = stats(run([
-    {
-      verb: "test",
-      branch: "agent/reused",
-      head: "h1",
-      clean: false,
-    },
-    {
-      verb: "done",
-      branch: "agent/reused",
-      head: "h2",
-      clean: true,
-    },
-    {
-      verb: "start",
-      branch: "main",
-      target: "agent/reused",
-      head: "main-head",
-    },
-    {
-      verb: "test",
-      branch: "agent/reused",
-      head: "h3",
-      clean: false,
-    },
-    {
-      verb: "test",
-      branch: "agent/reused",
-      head: "h3",
-      clean: false,
-      epoch: "e2",
-    },
-  ]));
-
-  assertEquals(b.validation_workflows.cycles.total, 3);
-  assertEquals(
-    b.validation_workflows.cycles.routes.find((row) =>
-      row.route === "test-first"
-    )?.cycles,
-    3,
-  );
-  assertEquals(b.validation_workflows.cycles.precommit_to_clean_gate.cycles, 1);
-});
-
-Deno.test("stats: an unsuccessful accept does not close live workflow work", () => {
-  const b = stats(run([
-    { verb: "test", branch: "agent/open", clean: false },
-    { verb: "accept", branch: "agent/open", outcome: "refused" },
-    { verb: "done", branch: "agent/open", clean: true },
-  ]));
-  assertEquals(b.validation_workflows.cycles.total, 1);
-  assertEquals(
-    b.validation_workflows.cycles.routes.find((route) =>
-      route.route === "test-first"
-    )?.runs,
-    2,
-  );
-});
-
-Deno.test("stats: unknown entry state stays unattributed and a green retry stays in its cycle", () => {
-  const b = stats(run([
-    {
-      verb: "test",
-      branch: "agent/unknown-entry",
-      head: "h1",
-      clean: null,
-    },
-    {
-      verb: "done",
-      branch: "agent/unknown-entry",
-      head: "h1",
-      clean: true,
-    },
-    {
-      verb: "done",
-      branch: "agent/unknown-entry",
-      head: "h1",
-      clean: true,
-    },
-  ]));
-  const route = b.validation_workflows.cycles.routes.find((row) =>
-    row.route === "unattributed"
-  );
-  assertEquals(route?.cycles, 1);
-  assertEquals(route?.retry_runs, 2);
-});
-
-Deno.test("stats: cycles match a start's created branch to the first later accept on it", () => {
-  const b = stats(run([
-    { verb: "start", branch: "main", target: "agent/quick" }, // t(0)
-    { verb: "start", branch: "main", target: "agent/slow" }, // t(1)
-    { verb: "accept", branch: "agent/quick" }, // t(2) → 2h
-    // An accept that predates its start can never complete the cycle.
-    { verb: "accept", branch: "agent/orphan" }, // t(3)
-    { verb: "start", branch: "main", target: "agent/orphan" }, // t(4)
-    { verb: "accept", branch: "agent/slow" }, // t(5) → 4h
-    { verb: "start", branch: "main", target: "agent/marathon", at: t(6) },
-    // 30h later — a completed cycle, but not one inside a day.
-    { verb: "accept", branch: "agent/marathon", at: t(36) },
-  ]));
-  assertEquals(b.cycles, {
-    started: 4,
-    completed: 3,
-    under_day: 2,
-    median_hours: 4,
-    fastest_hours: 2,
-  });
-});
-
-Deno.test("stats: no completed cycle means no cycles section, not zeros", () => {
-  const b = stats(run([
-    { verb: "start", branch: "main", target: "agent/open" },
-    { verb: "done", branch: "agent/open" },
-  ]));
-  assertEquals(b.cycles, undefined);
-});
-
-Deno.test("stats: the ratchet counts pins and the distinct standards they tightened", () => {
-  const b = stats([
-    ...run([{ verb: "done" }]),
-    pin(t(1), "coverage", 80, 85),
-    pin(t(2), "coverage", 85, 88),
-    pin(t(3), "lint_suppressions", 5, 4),
-  ]);
-  assertEquals(b.standards, { pins: 3, standards: 2 });
-});
-
-Deno.test("stats: breadth counts branches, active days, and the busiest day", () => {
-  const b = stats(run([
-    { branch: "agent/a", at: t(1) },
-    { branch: "agent/b", at: t(2) },
-    { branch: "agent/a", at: t(25) }, // 2026-07-02
-    { branch: "agent/a", at: t(73) }, // 2026-07-04
-    { branch: "agent/b", at: t(74) },
-    { branch: "agent/c", at: t(75) },
-  ]));
-  assertEquals(b.breadth.branches, 3);
-  assertEquals(b.breadth.active_days, 3);
-  assertEquals(b.breadth.span_days, 4, "the span is inclusive calendar days");
-  assertEquals(b.breadth.first_day, "2026-07-01");
-  assertEquals(b.breadth.last_day, "2026-07-04");
-  assertEquals(b.breadth.busiest_day, { day: "2026-07-04", branches: 3 });
-});
-
-Deno.test("stats: cadence series cover the span's calendar days, zero-filled", () => {
-  const b = stats(run([
-    { verb: "accept", at: t(1) },
-    { verb: "accept", at: t(2) },
-    { verb: "done", at: t(3) },
-    { verb: "accept", at: t(49) }, // 2026-07-03 — day 2 stays an honest zero
-    {
-      verb: "done",
-      at: t(50),
-      outcome: "failed",
-      failed_stage: "check/test",
-    },
-  ]));
-  assertEquals(b.series_days_per_point, 1);
-  assertEquals(b.accepted.per_day, [2, 0, 1]);
-  assertEquals(b.gate.greens_per_day, [1, 0, 0], "a red day is not a green");
-  assertEquals(b.breadth.branches_per_day, [1, 0, 1]);
-});
-
-Deno.test("stats: a one-day span carries no cadence series", () => {
-  const b = stats(run([{ verb: "accept" }, { verb: "done" }]));
-  assertEquals(b.series_days_per_point, undefined);
-  assertEquals(b.accepted.per_day, undefined);
-  assertEquals(b.gate.greens_per_day, undefined);
-  assertEquals(b.breadth.branches_per_day, undefined);
-});
-
-Deno.test("stats: a span past the wire cap folds whole days per point — sums for counts, the peak for branches", () => {
-  const b = stats(run([
-    { verb: "accept", branch: "agent/a", at: t(0) },
-    { verb: "accept", branch: "agent/b", at: t(24) },
-    // Day 47 anchors a 48-day span: 2 whole days per point, 24 points.
-    { verb: "done", branch: "agent/x", at: t(24 * 47) },
-  ]));
-  assertEquals(b.series_days_per_point, 2);
-  assertEquals(b.accepted.per_day?.length, 24);
-  assertEquals(b.accepted.per_day?.[0], 2, "a point sums its days' ships");
-  assertEquals(
-    b.breadth.branches_per_day?.[0],
-    1,
-    "a point keeps its peak day's distinct branches, never a cross-day sum",
-  );
-});
-
-Deno.test("stats: CI runs, previews, and setup-era events never reach a feat", () => {
-  const b = stats(run([
-    {
-      verb: "accept",
-      driver: { session: "ci:1", json: true, tty: false, ci: true },
-    },
-    { verb: "accept", dry_run: true },
-    { verb: "done", branch: SETUP_BRANCH },
-  ]));
-  assertEquals(b.accepted.count, 0);
-  assertEquals(b.gate.runs, 0);
-  assertEquals(b.breadth.branches, 0);
-});
-
-Deno.test("stats: an empty stream produces a card of zeros, not an error", () => {
-  const b = stats([]);
-  assertEquals(b.accepted, {
-    count: 0,
-    branches: 0,
-    insertions: 0,
-    deletions: 0,
-    files: 0,
-    commits: 0,
-    cleanups: 0,
-    longest_streak: 0,
-  });
-  assertEquals(b.gate, {
-    runs: 0,
-    greens: 0,
-    first_try_green_branches: 0,
-    gated_branches: 0,
-    longest_green_streak: 0,
-    current_green_streak: 0,
-    check_hours: 0,
-  });
-  assertEquals(b.validation_workflows, {
-    runs: {
-      total: 0,
-      branches: 0,
-      by_verb: [
-        {
-          verb: "prepare",
-          runs: 0,
-          branches: 0,
-          clean: 0,
-          dirty: 0,
-          unknown: 0,
-          successes: 0,
-          failures: 0,
-          retries: 0,
+Deno.test("stats: acceptance counts, scale, cleanup, and calendar streaks", () => {
+  assertCases(
+    [
+      {
+        name:
+          "stats: accepted counts successful accepts and sums their recorded scale",
+        check: (): void => {
+          const b = stats(run([
+            {
+              verb: "accept",
+              branch: "agent/a",
+              change: { files: 3, insertions: 100, deletions: 20, commits: 2 },
+            },
+            // An accept recorded without a change scale still counts, adding zero.
+            { verb: "accept", branch: "agent/b" },
+            // A red accept is never an accepted change.
+            { verb: "accept", branch: "agent/c", outcome: "failed" },
+          ]));
+          assertEquals(b.accepted.count, 2);
+          assertEquals(b.accepted.branches, 2);
+          assertEquals(b.accepted.insertions, 100);
+          assertEquals(b.accepted.deletions, 20);
+          assertEquals(b.accepted.files, 3);
+          assertEquals(b.accepted.commits, 2);
+          assertEquals(b.accepted.biggest, {
+            branch: "agent/a",
+            lines: 120,
+            files: 3,
+            day: "2026-07-01",
+          });
         },
-        {
-          verb: "test",
-          runs: 0,
-          branches: 0,
-          clean: 0,
-          dirty: 0,
-          unknown: 0,
-          successes: 0,
-          failures: 0,
-          retries: 0,
-        },
-        {
-          verb: "done",
-          runs: 0,
-          branches: 0,
-          clean: 0,
-          dirty: 0,
-          unknown: 0,
-          successes: 0,
-          failures: 0,
-          retries: 0,
-        },
-      ],
-      evidence: {
-        denominator: 0,
-        complete: 0,
-        incomplete: 0,
-        unattributed: 0,
       },
-      dirty_state: {
-        denominator: 0,
-        tracked_only: 0,
-        untracked_only: 0,
-        mixed: 0,
-        unclassified: 0,
+      {
+        name:
+          "stats: cleanups count accepted changes that removed more lines than they added",
+        check: (): void => {
+          const b = stats(run([
+            {
+              verb: "accept",
+              branch: "agent/prune",
+              change: { files: 2, insertions: 5, deletions: 40, commits: 1 },
+            },
+            {
+              verb: "accept",
+              branch: "agent/grow",
+              change: { files: 2, insertions: 40, deletions: 5, commits: 1 },
+            },
+            // A wash is not a cleanup.
+            {
+              verb: "accept",
+              branch: "agent/even",
+              change: { files: 1, insertions: 7, deletions: 7, commits: 1 },
+            },
+          ]));
+          assertEquals(b.accepted.cleanups, 1);
+        },
       },
-    },
-    cycles: {
-      total: 0,
-      branches: 0,
-      routes: [
-        {
-          route: "test-first",
-          cycles: 0,
-          branches: 0,
-          runs: 0,
-          successful_cycles: 0,
-          successful_runs: 0,
-          failed_cycles: 0,
-          failed_runs: 0,
-          retried_cycles: 0,
-          retry_runs: 0,
+      {
+        name:
+          "stats: the biggest accepted change is by changed lines, and a branch-less event carries no branch",
+        check: (): void => {
+          const b = stats(run([
+            {
+              verb: "accept",
+              branch: "agent/small",
+              change: { files: 1, insertions: 10, deletions: 0, commits: 1 },
+            },
+            {
+              verb: "accept",
+              branch: null,
+              change: { files: 9, insertions: 400, deletions: 100, commits: 4 },
+            },
+          ]));
+          assertEquals(b.accepted.count, 2);
+          assertEquals(
+            b.accepted.branches,
+            1,
+            "a null branch never mints a branch",
+          );
+          assertEquals(b.accepted.biggest, {
+            lines: 500,
+            files: 9,
+            day: "2026-07-01",
+          });
         },
-        {
-          route: "commit-first",
-          cycles: 0,
-          branches: 0,
-          runs: 0,
-          successful_cycles: 0,
-          successful_runs: 0,
-          failed_cycles: 0,
-          failed_runs: 0,
-          retried_cycles: 0,
-          retry_runs: 0,
-        },
-        {
-          route: "unattributed",
-          cycles: 0,
-          branches: 0,
-          runs: 0,
-          successful_cycles: 0,
-          successful_runs: 0,
-          failed_cycles: 0,
-          failed_runs: 0,
-          retried_cycles: 0,
-          retry_runs: 0,
-        },
-      ],
-      precommit_to_clean_gate: {
-        cycles: 0,
-        branches: 0,
-        runs: 0,
-        retry_runs: 0,
       },
+      {
+        name:
+          "stats: the best day and the acceptance streak read UTC calendar days, ties to the earliest",
+        check: (): void => {
+          const accept = (hours: number): Partial<VerbEvent> => ({
+            verb: "accept",
+            at: t(hours),
+          });
+          const b = stats(run([
+            accept(1),
+            accept(2), // 2026-07-01 × 2
+            accept(25),
+            accept(26), // 2026-07-02 × 2 — a tie the earliest day wins
+            accept(73), // 2026-07-04 — the gap ends the streak
+          ]));
+          assertEquals(b.accepted.best_day, { day: "2026-07-01", accepted: 2 });
+          assertEquals(b.accepted.longest_streak, 2);
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
     },
-  });
-  assertEquals(b.cycles, undefined);
-  assertEquals(b.standards, { pins: 0, standards: 0 });
-  assertEquals(b.agents, {
-    detected: 0,
-    identities: [],
-    unattributed_runs: 0,
-  });
-  assertEquals(b.breadth, {
-    branches: 0,
-    active_days: 0,
-    span_days: 0,
-  });
-  assert(!("busiest_day" in b.breadth));
-  assert(!("peak_in_flight" in b.breadth));
+  );
 });
 
-Deno.test("stats: peak in flight counts overlapping branch windows, pauses included", () => {
-  const b = stats(run([
-    { branch: "agent/a", at: t(0) },
-    // b's whole life falls inside a's overnight pause — still 2 in flight.
-    { branch: "agent/b", at: t(10) },
-    { branch: "agent/a", at: t(30) },
-  ]));
-  assertEquals(b.breadth.peak_in_flight, { branches: 2, day: "2026-07-01" });
+Deno.test("stats: gate success, first attempts, and execution duration", () => {
+  assertCases(
+    [
+      {
+        name:
+          "stats: gate streaks run in stream order and the current streak reads from the tail",
+        check: (): void => {
+          const streaky = stats(run([
+            {},
+            {},
+            { outcome: "failed", failed_stage: "check/test" },
+            {},
+            {},
+            {},
+          ]));
+          assertEquals(streaky.gate.runs, 6);
+          assertEquals(streaky.gate.greens, 5);
+          assertEquals(streaky.gate.longest_green_streak, 3);
+          assertEquals(streaky.gate.current_green_streak, 3);
+
+          const redTail = stats(run([
+            {},
+            {},
+            { outcome: "failed", failed_stage: "check/test" },
+          ]));
+          assertEquals(redTail.gate.longest_green_streak, 2);
+          assertEquals(redTail.gate.current_green_streak, 0);
+        },
+      },
+      {
+        name:
+          "stats: first-try green counts branches whose first `done` came back green",
+        check: (): void => {
+          const b = stats(run([
+            { branch: "agent/first-try" },
+            { branch: "agent/first-try", outcome: "failed" },
+            { branch: "agent/thrash", outcome: "failed" },
+            { branch: "agent/thrash" },
+            { branch: "agent/clean" },
+          ]));
+          assertEquals(b.gate.gated_branches, 3);
+          assertEquals(b.gate.first_try_green_branches, 2);
+        },
+      },
+      {
+        name:
+          "stats: check hours sum done, prepare, and test wall clocks and nothing else",
+        check: (): void => {
+          const b = stats(run([
+            { verb: "done", duration_ms: 3_600_000, waited_ms: 1_800_000 },
+            { verb: "prepare", duration_ms: 1_800_000, waited_ms: 600_000 },
+            { verb: "test", duration_ms: 1_800_000, waited_ms: 900_000 },
+            // A slow read-only verb is not a check.
+            { verb: "status", duration_ms: 7_200_000 },
+          ]));
+          assertEquals(b.gate.check_hours, 2);
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
+  );
 });
 
-Deno.test("stats: a branch stops counting toward the peak after its last event", () => {
-  const b = stats(run([
-    { branch: "agent/abandoned", at: t(0) },
-    { branch: "agent/abandoned", at: t(1) },
-    // Opens 4h after the abandoned branch's last event: never concurrent.
-    { branch: "agent/later", at: t(5) },
-    { branch: "agent/later", at: t(6) },
-  ]));
-  assertEquals(b.breadth.peak_in_flight?.branches, 1);
+Deno.test("stats: validation workflow evidence and conservative cycles", () => {
+  assertCases(
+    [
+      {
+        name:
+          "stats: dirty validation bridges its commit into the later clean Gate cycle",
+        check: (): void => {
+          const b = stats(run([
+            {
+              verb: "test",
+              branch: "agent/test-first",
+              head: "working-head",
+              clean: false,
+              outcome: "failed",
+              validation: validation({ tracked: 1, outcome: "failed" }),
+            },
+            {
+              verb: "test",
+              branch: "agent/test-first",
+              head: "working-head",
+              clean: false,
+              validation: validation({ tracked: 1 }),
+            },
+            {
+              verb: "done",
+              branch: "agent/test-first",
+              head: "committed-head",
+              clean: true,
+              validation: validation(),
+            },
+            {
+              verb: "done",
+              branch: "agent/commit-first",
+              head: "already-committed",
+              clean: true,
+              validation: validation(),
+            },
+          ]));
+
+          assertEquals(b.validation_workflows.cycles.total, 2);
+          assertEquals(b.validation_workflows.cycles.branches, 2);
+          assertEquals(b.validation_workflows.cycles.routes, [
+            {
+              route: "test-first",
+              cycles: 1,
+              branches: 1,
+              runs: 3,
+              successful_cycles: 1,
+              successful_runs: 2,
+              failed_cycles: 1,
+              failed_runs: 1,
+              retried_cycles: 1,
+              retry_runs: 2,
+            },
+            {
+              route: "commit-first",
+              cycles: 1,
+              branches: 1,
+              runs: 1,
+              successful_cycles: 1,
+              successful_runs: 1,
+              failed_cycles: 0,
+              failed_runs: 0,
+              retried_cycles: 0,
+              retry_runs: 0,
+            },
+            {
+              route: "unattributed",
+              cycles: 0,
+              branches: 0,
+              runs: 0,
+              successful_cycles: 0,
+              successful_runs: 0,
+              failed_cycles: 0,
+              failed_runs: 0,
+              retried_cycles: 0,
+              retry_runs: 0,
+            },
+          ]);
+          assertEquals(b.validation_workflows.cycles.precommit_to_clean_gate, {
+            cycles: 1,
+            branches: 1,
+            runs: 3,
+            retry_runs: 2,
+          });
+          assertEquals(
+            b.validation_workflows.runs.by_verb.find((row) =>
+              row.verb === "test"
+            ),
+            {
+              verb: "test",
+              runs: 2,
+              branches: 1,
+              clean: 0,
+              dirty: 2,
+              unknown: 0,
+              successes: 1,
+              failures: 1,
+              retries: 1,
+            },
+          );
+        },
+      },
+      {
+        name:
+          "stats: workflow failures require completed validation rather than coordination or recovery refusals",
+        check: (): void => {
+          const events = run([
+            { error: "awaiting_consent", outcome: "failed", gate_ran: false },
+            { error: "incomplete", outcome: "failed", gate_ran: false },
+            {
+              outcome: "failed",
+              steps: [{ label: "test", kind: "job", outcome: "cancelled" }],
+            },
+            {
+              outcome: "failed",
+              steps: [{ label: "test", kind: "job", outcome: "skipped" }],
+            },
+            { outcome: "failed" },
+            { outcome: "failed", failed_stage: "test" },
+          ]);
+          const result = stats(events).validation_workflows;
+          assertEquals(
+            result.runs.by_verb.find((row) => row.verb === "done")?.failures,
+            1,
+          );
+          assertEquals(
+            result.cycles.routes.find((row) => row.route === "commit-first")
+              ?.failed_runs,
+            1,
+          );
+        },
+      },
+      {
+        name:
+          "stats: workflow readers deduplicate delivery and do not join across contradictory invocations",
+        check: (): void => {
+          const first = verb({
+            invocation: "first",
+            at: t(0),
+            clean: false,
+            outcome: "failed",
+            failed_stage: "test",
+          });
+          const middle = verb({ invocation: "middle", at: t(1) });
+          const last = verb({
+            invocation: "last",
+            at: t(2),
+            head: "later-head",
+          });
+          const result = stats([
+            first,
+            first,
+            middle,
+            { ...middle, outcome: "failed" },
+            last,
+          ])
+            .validation_workflows;
+          assertEquals(result.runs.total, 2);
+          assertEquals(result.cycles.precommit_to_clean_gate.cycles, 0);
+          assertEquals(result.cycles.total, 2);
+        },
+      },
+      {
+        name:
+          "stats: a failed standard remains a validation failure when its producer passed",
+        check: (): void => {
+          const result = stats(run([{
+            outcome: "failed",
+            validation: validation(),
+            steps: [{ label: "coverage", kind: "standard", outcome: "failed" }],
+          }])).validation_workflows;
+          assertEquals(
+            result.runs.by_verb.find((row) => row.verb === "done")?.failures,
+            1,
+          );
+        },
+      },
+      {
+        name:
+          "stats: workflow evidence and current dirty shapes retain their denominators",
+        check: (): void => {
+          const b = stats(run([
+            {
+              verb: "test",
+              branch: "agent/tracked",
+              clean: false,
+              tree: "tracked-diff",
+              validation: validation({ tracked: 1 }),
+            },
+            {
+              verb: "test",
+              branch: "agent/untracked",
+              clean: false,
+              tree: EMPTY_TREE_DIFF_FINGERPRINT,
+              validation: validation({ untracked: 2 }),
+            },
+            {
+              verb: "test",
+              branch: "agent/mixed",
+              clean: false,
+              tree: "tracked-diff",
+              validation: validation({ tracked: 1, untracked: 1 }),
+            },
+            {
+              verb: "test",
+              branch: "agent/incomplete",
+              clean: false,
+              validation: validation({ complete: false }),
+            },
+            { verb: "test", branch: "agent/historical", clean: true },
+            { verb: "prepare", branch: "agent/prepare", clean: false },
+            { verb: "test", branch: "agent/unknown", clean: null },
+          ]));
+
+          assertEquals(b.validation_workflows.runs.evidence, {
+            denominator: 7,
+            complete: 3,
+            incomplete: 1,
+            unattributed: 3,
+          });
+          assertEquals(b.validation_workflows.runs.dirty_state, {
+            denominator: 3,
+            tracked_only: 1,
+            untracked_only: 1,
+            mixed: 1,
+            unclassified: 0,
+          });
+          assertEquals(b.validation_workflows.runs.total, 7);
+          assertEquals(b.validation_workflows.runs.branches, 7);
+          assert(
+            !JSON.stringify(b.validation_workflows).includes("tracked-diff"),
+            "workflow Stats expose counts, never recorded tree or path evidence",
+          );
+        },
+      },
+      {
+        name:
+          "stats: branch reuse and config changes close conservative workflow cycles",
+        check: (): void => {
+          const b = stats(run([
+            {
+              verb: "test",
+              branch: "agent/reused",
+              head: "h1",
+              clean: false,
+            },
+            {
+              verb: "done",
+              branch: "agent/reused",
+              head: "h2",
+              clean: true,
+            },
+            {
+              verb: "start",
+              branch: "main",
+              target: "agent/reused",
+              head: "main-head",
+            },
+            {
+              verb: "test",
+              branch: "agent/reused",
+              head: "h3",
+              clean: false,
+            },
+            {
+              verb: "test",
+              branch: "agent/reused",
+              head: "h3",
+              clean: false,
+              epoch: "e2",
+            },
+          ]));
+
+          assertEquals(b.validation_workflows.cycles.total, 3);
+          assertEquals(
+            b.validation_workflows.cycles.routes.find((row) =>
+              row.route === "test-first"
+            )?.cycles,
+            3,
+          );
+          assertEquals(
+            b.validation_workflows.cycles.precommit_to_clean_gate.cycles,
+            1,
+          );
+        },
+      },
+      {
+        name: "stats: an unsuccessful accept does not close live workflow work",
+        check: (): void => {
+          const b = stats(run([
+            { verb: "test", branch: "agent/open", clean: false },
+            { verb: "accept", branch: "agent/open", outcome: "refused" },
+            { verb: "done", branch: "agent/open", clean: true },
+          ]));
+          assertEquals(b.validation_workflows.cycles.total, 1);
+          assertEquals(
+            b.validation_workflows.cycles.routes.find((route) =>
+              route.route === "test-first"
+            )?.runs,
+            2,
+          );
+        },
+      },
+      {
+        name:
+          "stats: unknown entry state stays unattributed and a green retry stays in its cycle",
+        check: (): void => {
+          const b = stats(run([
+            {
+              verb: "test",
+              branch: "agent/unknown-entry",
+              head: "h1",
+              clean: null,
+            },
+            {
+              verb: "done",
+              branch: "agent/unknown-entry",
+              head: "h1",
+              clean: true,
+            },
+            {
+              verb: "done",
+              branch: "agent/unknown-entry",
+              head: "h1",
+              clean: true,
+            },
+          ]));
+          const route = b.validation_workflows.cycles.routes.find((row) =>
+            row.route === "unattributed"
+          );
+          assertEquals(route?.cycles, 1);
+          assertEquals(route?.retry_runs, 2);
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
+  );
 });
 
-Deno.test("stats: the trunk is not a change, and same-instant handover still overlaps", () => {
-  const trunkOnly = stats(run([
-    { branch: "main", verb: "status" },
-    { branch: "main", verb: "status", at: t(1) },
-  ]));
-  assertEquals(trunkOnly.breadth.peak_in_flight, undefined);
+Deno.test("stats: start-to-accept cycle completion", () => {
+  assertCases(
+    [
+      {
+        name:
+          "stats: cycles match a start's created branch to the first later accept on it",
+        check: (): void => {
+          const b = stats(run([
+            { verb: "start", branch: "main", target: "agent/quick" }, // t(0)
+            { verb: "start", branch: "main", target: "agent/slow" }, // t(1)
+            { verb: "accept", branch: "agent/quick" }, // t(2) → 2h
+            // An accept that predates its start can never complete the cycle.
+            { verb: "accept", branch: "agent/orphan" }, // t(3)
+            { verb: "start", branch: "main", target: "agent/orphan" }, // t(4)
+            { verb: "accept", branch: "agent/slow" }, // t(5) → 4h
+            {
+              verb: "start",
+              branch: "main",
+              target: "agent/marathon",
+              at: t(6),
+            },
+            // 30h later — a completed cycle, but not one inside a day.
+            { verb: "accept", branch: "agent/marathon", at: t(36) },
+          ]));
+          assertEquals(b.cycles, {
+            started: 4,
+            completed: 3,
+            under_day: 2,
+            median_hours: 4,
+            fastest_hours: 2,
+          });
+        },
+      },
+      {
+        name: "stats: no completed cycle means no cycles section, not zeros",
+        check: (): void => {
+          const b = stats(run([
+            { verb: "start", branch: "main", target: "agent/open" },
+            { verb: "done", branch: "agent/open" },
+          ]));
+          assertEquals(b.cycles, undefined);
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
+  );
+});
 
-  const handover = stats(run([
-    { branch: "agent/first", at: t(0) },
-    // Both branches carry an event at the same instant: 2 in flight.
-    { branch: "agent/first", at: t(2) },
-    { branch: "agent/second", at: t(2) },
-    { branch: "agent/second", at: t(3) },
-  ]));
-  assertEquals(handover.breadth.peak_in_flight?.branches, 2);
+Deno.test("stats: standard pins and normalized improvement", () => {
+  assertCases(
+    [
+      {
+        name:
+          "stats: the ratchet counts pins and the distinct standards they tightened",
+        check: (): void => {
+          const b = stats([
+            ...run([{ verb: "done" }]),
+            pin(t(1), "coverage", 80, 85),
+            pin(t(2), "coverage", 85, 88),
+            pin(t(3), "lint_suppressions", 5, 4),
+          ]);
+          assertEquals(b.standards, { pins: 3, standards: 2 });
+        },
+      },
+      {
+        name:
+          "stats: the most improved standard is percent-normalized, so scales compare like-for-like",
+        check: (): void => {
+          const b = stats(run([
+            measured({ at: t(0) }, [
+              { name: "big_ceiling", direction: "down", value: 1_000_000 },
+              { name: "small_ceiling", direction: "down", value: 10 },
+            ]),
+            measured({ at: t(1) }, [
+              // −100,000 lines is a 10% improvement…
+              { name: "big_ceiling", direction: "down", value: 900_000 },
+              // …but −2 from 10 is 20%: the small standard wins like-for-like.
+              { name: "small_ceiling", direction: "down", value: 8 },
+            ]),
+          ]));
+          assertEquals(b.standards.most_improved, {
+            standard: "small_ceiling",
+            from: 10,
+            to: 8,
+            better_percent: 20,
+          });
+        },
+      },
+      {
+        name:
+          "stats: improvement is direction-adjusted — a rising floor and a falling ceiling both read positive",
+        check: (): void => {
+          const b = stats(run([
+            measured({ at: t(0) }, [
+              { name: "ceiling", direction: "down", value: 100 },
+              { name: "floor", direction: "up", value: 50 },
+            ]),
+            measured({ at: t(1) }, [
+              { name: "ceiling", direction: "down", value: 90 },
+              { name: "floor", direction: "up", value: 60 },
+            ]),
+          ]));
+          assertEquals(b.standards.most_improved?.standard, "floor");
+          assertEquals(b.standards.most_improved?.better_percent, 20);
+        },
+      },
+      {
+        name:
+          "stats: a standard that only worsened is never most improved, and a zero first reading is set aside",
+        check: (): void => {
+          const b = stats(run([
+            measured({ at: t(0) }, [
+              { name: "worsening", direction: "down", value: 100 },
+              { name: "zero_start", direction: "up", value: 0 },
+            ]),
+            measured({ at: t(1) }, [
+              { name: "worsening", direction: "down", value: 120 },
+              { name: "zero_start", direction: "up", value: 5 },
+            ]),
+          ]));
+          assertEquals(b.standards.most_improved, undefined);
+        },
+      },
+      {
+        name:
+          "stats: the ratchet trend averages per-day improvement, carrying unmeasured days forward",
+        check: (): void => {
+          const b = stats(run([
+            measured({ at: t(0) }, [
+              { name: "ceiling", direction: "down", value: 100 },
+            ]),
+            // Day 1 goes unmeasured: the day-0 reading carries forward at 0%.
+            measured({ at: t(49) }, [
+              { name: "ceiling", direction: "down", value: 90 },
+            ]),
+          ]));
+          assertEquals(b.standards.trend, [0, 0, 10]);
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
+  );
+});
+
+Deno.test("stats: branch breadth and bounded calendar series", () => {
+  assertCases(
+    [
+      {
+        name:
+          "stats: breadth counts branches, active days, and the busiest day",
+        check: (): void => {
+          const b = stats(run([
+            { branch: "agent/a", at: t(1) },
+            { branch: "agent/b", at: t(2) },
+            { branch: "agent/a", at: t(25) }, // 2026-07-02
+            { branch: "agent/a", at: t(73) }, // 2026-07-04
+            { branch: "agent/b", at: t(74) },
+            { branch: "agent/c", at: t(75) },
+          ]));
+          assertEquals(b.breadth.branches, 3);
+          assertEquals(b.breadth.active_days, 3);
+          assertEquals(
+            b.breadth.span_days,
+            4,
+            "the span is inclusive calendar days",
+          );
+          assertEquals(b.breadth.first_day, "2026-07-01");
+          assertEquals(b.breadth.last_day, "2026-07-04");
+          assertEquals(b.breadth.busiest_day, {
+            day: "2026-07-04",
+            branches: 3,
+          });
+        },
+      },
+      {
+        name:
+          "stats: cadence series cover the span's calendar days, zero-filled",
+        check: (): void => {
+          const b = stats(run([
+            { verb: "accept", at: t(1) },
+            { verb: "accept", at: t(2) },
+            { verb: "done", at: t(3) },
+            { verb: "accept", at: t(49) }, // 2026-07-03 — day 2 stays an honest zero
+            {
+              verb: "done",
+              at: t(50),
+              outcome: "failed",
+              failed_stage: "check/test",
+            },
+          ]));
+          assertEquals(b.series_days_per_point, 1);
+          assertEquals(b.accepted.per_day, [2, 0, 1]);
+          assertEquals(
+            b.gate.greens_per_day,
+            [1, 0, 0],
+            "a red day is not a green",
+          );
+          assertEquals(b.breadth.branches_per_day, [1, 0, 1]);
+        },
+      },
+      {
+        name: "stats: a one-day span carries no cadence series",
+        check: (): void => {
+          const b = stats(run([{ verb: "accept" }, { verb: "done" }]));
+          assertEquals(b.series_days_per_point, undefined);
+          assertEquals(b.accepted.per_day, undefined);
+          assertEquals(b.gate.greens_per_day, undefined);
+          assertEquals(b.breadth.branches_per_day, undefined);
+        },
+      },
+      {
+        name:
+          "stats: a span past the wire cap folds whole days per point — sums for counts, the peak for branches",
+        check: (): void => {
+          const b = stats(run([
+            { verb: "accept", branch: "agent/a", at: t(0) },
+            { verb: "accept", branch: "agent/b", at: t(24) },
+            // Day 47 anchors a 48-day span: 2 whole days per point, 24 points.
+            { verb: "done", branch: "agent/x", at: t(24 * 47) },
+          ]));
+          assertEquals(b.series_days_per_point, 2);
+          assertEquals(b.accepted.per_day?.length, 24);
+          assertEquals(
+            b.accepted.per_day?.[0],
+            2,
+            "a point sums its days' ships",
+          );
+          assertEquals(
+            b.breadth.branches_per_day?.[0],
+            1,
+            "a point keeps its peak day's distinct branches, never a cross-day sum",
+          );
+        },
+      },
+      {
+        name:
+          "stats: peak in flight counts overlapping branch windows, pauses included",
+        check: (): void => {
+          const b = stats(run([
+            { branch: "agent/a", at: t(0) },
+            // b's whole life falls inside a's overnight pause — still 2 in flight.
+            { branch: "agent/b", at: t(10) },
+            { branch: "agent/a", at: t(30) },
+          ]));
+          assertEquals(b.breadth.peak_in_flight, {
+            branches: 2,
+            day: "2026-07-01",
+          });
+        },
+      },
+      {
+        name:
+          "stats: a branch stops counting toward the peak after its last event",
+        check: (): void => {
+          const b = stats(run([
+            { branch: "agent/abandoned", at: t(0) },
+            { branch: "agent/abandoned", at: t(1) },
+            // Opens 4h after the abandoned branch's last event: never concurrent.
+            { branch: "agent/later", at: t(5) },
+            { branch: "agent/later", at: t(6) },
+          ]));
+          assertEquals(b.breadth.peak_in_flight?.branches, 1);
+        },
+      },
+      {
+        name:
+          "stats: the trunk is not a change, and same-instant handover still overlaps",
+        check: (): void => {
+          const trunkOnly = stats(run([
+            { branch: "main", verb: "status" },
+            { branch: "main", verb: "status", at: t(1) },
+          ]));
+          assertEquals(trunkOnly.breadth.peak_in_flight, undefined);
+
+          const handover = stats(run([
+            { branch: "agent/first", at: t(0) },
+            // Both branches carry an event at the same instant: 2 in flight.
+            { branch: "agent/first", at: t(2) },
+            { branch: "agent/second", at: t(2) },
+            { branch: "agent/second", at: t(3) },
+          ]));
+          assertEquals(handover.breadth.peak_in_flight?.branches, 2);
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
+  );
+});
+
+Deno.test("stats: empty and excluded populations", () => {
+  assertCases(
+    [
+      {
+        name:
+          "stats: CI runs, previews, and setup-era events never reach a feat",
+        check: (): void => {
+          const b = stats(run([
+            {
+              verb: "accept",
+              driver: { session: "ci:1", json: true, tty: false, ci: true },
+            },
+            { verb: "accept", dry_run: true },
+            { verb: "done", branch: SETUP_BRANCH },
+          ]));
+          assertEquals(b.accepted.count, 0);
+          assertEquals(b.gate.runs, 0);
+          assertEquals(b.breadth.branches, 0);
+        },
+      },
+      {
+        name: "stats: an empty stream produces a card of zeros, not an error",
+        check: (): void => {
+          const b = stats([]);
+          assertEquals(b.accepted, {
+            count: 0,
+            branches: 0,
+            insertions: 0,
+            deletions: 0,
+            files: 0,
+            commits: 0,
+            cleanups: 0,
+            longest_streak: 0,
+          });
+          assertEquals(b.gate, {
+            runs: 0,
+            greens: 0,
+            first_try_green_branches: 0,
+            gated_branches: 0,
+            longest_green_streak: 0,
+            current_green_streak: 0,
+            check_hours: 0,
+          });
+          assertEquals(b.validation_workflows, {
+            runs: {
+              total: 0,
+              branches: 0,
+              by_verb: [
+                {
+                  verb: "prepare",
+                  runs: 0,
+                  branches: 0,
+                  clean: 0,
+                  dirty: 0,
+                  unknown: 0,
+                  successes: 0,
+                  failures: 0,
+                  retries: 0,
+                },
+                {
+                  verb: "test",
+                  runs: 0,
+                  branches: 0,
+                  clean: 0,
+                  dirty: 0,
+                  unknown: 0,
+                  successes: 0,
+                  failures: 0,
+                  retries: 0,
+                },
+                {
+                  verb: "done",
+                  runs: 0,
+                  branches: 0,
+                  clean: 0,
+                  dirty: 0,
+                  unknown: 0,
+                  successes: 0,
+                  failures: 0,
+                  retries: 0,
+                },
+              ],
+              evidence: {
+                denominator: 0,
+                complete: 0,
+                incomplete: 0,
+                unattributed: 0,
+              },
+              dirty_state: {
+                denominator: 0,
+                tracked_only: 0,
+                untracked_only: 0,
+                mixed: 0,
+                unclassified: 0,
+              },
+            },
+            cycles: {
+              total: 0,
+              branches: 0,
+              routes: [
+                {
+                  route: "test-first",
+                  cycles: 0,
+                  branches: 0,
+                  runs: 0,
+                  successful_cycles: 0,
+                  successful_runs: 0,
+                  failed_cycles: 0,
+                  failed_runs: 0,
+                  retried_cycles: 0,
+                  retry_runs: 0,
+                },
+                {
+                  route: "commit-first",
+                  cycles: 0,
+                  branches: 0,
+                  runs: 0,
+                  successful_cycles: 0,
+                  successful_runs: 0,
+                  failed_cycles: 0,
+                  failed_runs: 0,
+                  retried_cycles: 0,
+                  retry_runs: 0,
+                },
+                {
+                  route: "unattributed",
+                  cycles: 0,
+                  branches: 0,
+                  runs: 0,
+                  successful_cycles: 0,
+                  successful_runs: 0,
+                  failed_cycles: 0,
+                  failed_runs: 0,
+                  retried_cycles: 0,
+                  retry_runs: 0,
+                },
+              ],
+              precommit_to_clean_gate: {
+                cycles: 0,
+                branches: 0,
+                runs: 0,
+                retry_runs: 0,
+              },
+            },
+          });
+          assertEquals(b.cycles, undefined);
+          assertEquals(b.standards, { pins: 0, standards: 0 });
+          assertEquals(b.agents, {
+            detected: 0,
+            identities: [],
+            unattributed_runs: 0,
+          });
+          assertEquals(b.breadth, {
+            branches: 0,
+            active_days: 0,
+            span_days: 0,
+          });
+          assert(!("busiest_day" in b.breadth));
+          assert(!("peak_in_flight" in b.breadth));
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
+  );
 });
 
 /** A verb event carrying standard readings, as the gate records them. */
@@ -878,69 +1150,6 @@ function measured(
   };
 }
 
-Deno.test("stats: the most improved standard is percent-normalized, so scales compare like-for-like", () => {
-  const b = stats(run([
-    measured({ at: t(0) }, [
-      { name: "big_ceiling", direction: "down", value: 1_000_000 },
-      { name: "small_ceiling", direction: "down", value: 10 },
-    ]),
-    measured({ at: t(1) }, [
-      // −100,000 lines is a 10% improvement…
-      { name: "big_ceiling", direction: "down", value: 900_000 },
-      // …but −2 from 10 is 20%: the small standard wins like-for-like.
-      { name: "small_ceiling", direction: "down", value: 8 },
-    ]),
-  ]));
-  assertEquals(b.standards.most_improved, {
-    standard: "small_ceiling",
-    from: 10,
-    to: 8,
-    better_percent: 20,
-  });
-});
-
-Deno.test("stats: improvement is direction-adjusted — a rising floor and a falling ceiling both read positive", () => {
-  const b = stats(run([
-    measured({ at: t(0) }, [
-      { name: "ceiling", direction: "down", value: 100 },
-      { name: "floor", direction: "up", value: 50 },
-    ]),
-    measured({ at: t(1) }, [
-      { name: "ceiling", direction: "down", value: 90 },
-      { name: "floor", direction: "up", value: 60 },
-    ]),
-  ]));
-  assertEquals(b.standards.most_improved?.standard, "floor");
-  assertEquals(b.standards.most_improved?.better_percent, 20);
-});
-
-Deno.test("stats: a standard that only worsened is never most improved, and a zero first reading is set aside", () => {
-  const b = stats(run([
-    measured({ at: t(0) }, [
-      { name: "worsening", direction: "down", value: 100 },
-      { name: "zero_start", direction: "up", value: 0 },
-    ]),
-    measured({ at: t(1) }, [
-      { name: "worsening", direction: "down", value: 120 },
-      { name: "zero_start", direction: "up", value: 5 },
-    ]),
-  ]));
-  assertEquals(b.standards.most_improved, undefined);
-});
-
-Deno.test("stats: the ratchet trend averages per-day improvement, carrying unmeasured days forward", () => {
-  const b = stats(run([
-    measured({ at: t(0) }, [
-      { name: "ceiling", direction: "down", value: 100 },
-    ]),
-    // Day 1 goes unmeasured: the day-0 reading carries forward at 0%.
-    measured({ at: t(49) }, [
-      { name: "ceiling", direction: "down", value: 90 },
-    ]),
-  ]));
-  assertEquals(b.standards.trend, [0, 0, 10]);
-});
-
 /** An invocation-scoped identity signal naming one agent. */
 function signals(agent: string): NonNullable<VerbEvent["driver"]> {
   return {
@@ -952,109 +1161,136 @@ function signals(agent: string): NonNullable<VerbEvent["driver"]> {
   };
 }
 
-Deno.test("stats: agents ride the cohort seam — below-minimum identities are counted, never listed", () => {
-  const b = stats(run([
-    // Six attributed runs clear the reporting minimums…
-    { driver: signals("claude") },
-    { driver: signals("claude") },
-    { driver: signals("claude"), outcome: "failed", failed_stage: "check" },
-    { driver: signals("claude") },
-    { driver: signals("claude"), verb: "status" },
-    { driver: signals("claude"), verb: "status" },
-    // …one run does not…
-    { driver: signals("codex") },
-    // …and a signal-less run stays unattributed.
-    { verb: "status" },
-  ]));
-  assertEquals(b.agents.detected, 2);
-  assertEquals(b.agents.identities.length, 1);
-  const [claude] = b.agents.identities;
-  assertEquals(claude?.agent, "claude");
-  assertEquals(claude?.runs, 6);
-  assertEquals(claude?.done_runs, 4);
-  assertEquals(claude?.greens, 3);
-  assertEquals(b.agents.below_minimum, { agents: 1, runs: 1 });
-  assertEquals(b.agents.unattributed_runs, 1);
-});
-
-Deno.test("stats: workflow cohorts use shared minimums and keep every remainder", () => {
-  const cohortRuns = (
-    agent: string,
-    branch: string,
-    clean: boolean,
-  ): Partial<VerbEvent>[] =>
-    Array.from({ length: 5 }, (_, index) => ({
-      verb: clean ? "done" : "test",
-      branch,
-      clean,
-      outcome: index === 0 ? "failed" : "ok",
-      ...(index === 0 ? { failed_stage: "test" } : {}),
-      driver: signals(agent),
-    }));
-  const b = stats(run([
-    ...cohortRuns("claude", "agent/claude", false),
-    ...cohortRuns("cursor", "agent/cursor", true),
-    {
-      verb: "test",
-      branch: "agent/below",
-      clean: false,
-      driver: signals("codex"),
-    },
-    { verb: "test", branch: "agent/unattributed", clean: null },
-  ]));
-
-  assertEquals(b.validation_workflows.cohorts, {
-    denominator_cycles: 4,
-    denominator_runs: 12,
-    identities: [
+Deno.test("stats: attributed identity cohorts and usage series", () => {
+  assertCases(
+    [
       {
-        agent: "claude",
-        label: "Claude Code",
-        cycles: 1,
-        runs: 5,
-        test_first_cycles: 1,
-        commit_first_cycles: 0,
-        successful_cycles: 0,
-        failed_cycles: 1,
-        retried_cycles: 1,
+        name:
+          "stats: agents ride the cohort seam — below-minimum identities are counted, never listed",
+        check: (): void => {
+          const b = stats(run([
+            // Six attributed runs clear the reporting minimums…
+            { driver: signals("claude") },
+            { driver: signals("claude") },
+            {
+              driver: signals("claude"),
+              outcome: "failed",
+              failed_stage: "check",
+            },
+            { driver: signals("claude") },
+            { driver: signals("claude"), verb: "status" },
+            { driver: signals("claude"), verb: "status" },
+            // …one run does not…
+            { driver: signals("codex") },
+            // …and a signal-less run stays unattributed.
+            { verb: "status" },
+          ]));
+          assertEquals(b.agents.detected, 2);
+          assertEquals(b.agents.identities.length, 1);
+          const [claude] = b.agents.identities;
+          assertEquals(claude?.agent, "claude");
+          assertEquals(claude?.runs, 6);
+          assertEquals(claude?.done_runs, 4);
+          assertEquals(claude?.greens, 3);
+          assertEquals(b.agents.below_minimum, { agents: 1, runs: 1 });
+          assertEquals(b.agents.unattributed_runs, 1);
+        },
       },
       {
-        agent: "cursor",
-        label: "Cursor",
-        cycles: 1,
-        runs: 5,
-        test_first_cycles: 0,
-        commit_first_cycles: 1,
-        successful_cycles: 1,
-        failed_cycles: 1,
-        retried_cycles: 1,
+        name:
+          "stats: workflow cohorts use shared minimums and keep every remainder",
+        check: (): void => {
+          const cohortRuns = (
+            agent: string,
+            branch: string,
+            clean: boolean,
+          ): Partial<VerbEvent>[] =>
+            Array.from({ length: 5 }, (_, index) => ({
+              verb: clean ? "done" : "test",
+              branch,
+              clean,
+              outcome: index === 0 ? "failed" : "ok",
+              ...(index === 0 ? { failed_stage: "test" } : {}),
+              driver: signals(agent),
+            }));
+          const b = stats(run([
+            ...cohortRuns("claude", "agent/claude", false),
+            ...cohortRuns("cursor", "agent/cursor", true),
+            {
+              verb: "test",
+              branch: "agent/below",
+              clean: false,
+              driver: signals("codex"),
+            },
+            { verb: "test", branch: "agent/unattributed", clean: null },
+          ]));
+
+          assertEquals(b.validation_workflows.cohorts, {
+            denominator_cycles: 4,
+            denominator_runs: 12,
+            identities: [
+              {
+                agent: "claude",
+                label: "Claude Code",
+                cycles: 1,
+                runs: 5,
+                test_first_cycles: 1,
+                commit_first_cycles: 0,
+                successful_cycles: 0,
+                failed_cycles: 1,
+                retried_cycles: 1,
+              },
+              {
+                agent: "cursor",
+                label: "Cursor",
+                cycles: 1,
+                runs: 5,
+                test_first_cycles: 0,
+                commit_first_cycles: 1,
+                successful_cycles: 1,
+                failed_cycles: 1,
+                retried_cycles: 1,
+              },
+            ],
+            below_minimum: { cohorts: 1, cycles: 1, runs: 1 },
+            unattributed: { cycles: 1, runs: 1 },
+          });
+        },
+      },
+      {
+        name:
+          "stats: one eligible workflow identity never produces a comparison",
+        check: (): void => {
+          const b = stats(run(
+            Array.from({ length: 5 }, () => ({
+              verb: "test",
+              clean: false,
+              driver: signals("claude"),
+            })),
+          ));
+          assertEquals(b.validation_workflows.cohorts, undefined);
+        },
+      },
+      {
+        name:
+          "stats: each listed identity carries its own usage series across the span",
+        check: (): void => {
+          const b = stats(run([
+            { driver: signals("claude"), at: t(0) },
+            { driver: signals("claude"), at: t(1) },
+            { driver: signals("claude"), at: t(2) },
+            { driver: signals("claude"), at: t(3) },
+            // Day 1 is quiet for this identity; day 2 holds its fifth run.
+            { driver: signals("claude"), at: t(49) },
+          ]));
+          assertEquals(b.agents.identities[0]?.per_day, [4, 0, 1]);
+          assertEquals(b.agents.per_day, [4, 0, 1]);
+        },
       },
     ],
-    below_minimum: { cohorts: 1, cycles: 1, runs: 1 },
-    unattributed: { cycles: 1, runs: 1 },
-  });
-});
-
-Deno.test("stats: one eligible workflow identity never produces a comparison", () => {
-  const b = stats(run(
-    Array.from({ length: 5 }, () => ({
-      verb: "test",
-      clean: false,
-      driver: signals("claude"),
-    })),
-  ));
-  assertEquals(b.validation_workflows.cohorts, undefined);
-});
-
-Deno.test("stats: each listed identity carries its own usage series across the span", () => {
-  const b = stats(run([
-    { driver: signals("claude"), at: t(0) },
-    { driver: signals("claude"), at: t(1) },
-    { driver: signals("claude"), at: t(2) },
-    { driver: signals("claude"), at: t(3) },
-    // Day 1 is quiet for this identity; day 2 holds its fifth run.
-    { driver: signals("claude"), at: t(49) },
-  ]));
-  assertEquals(b.agents.identities[0]?.per_day, [4, 0, 1]);
-  assertEquals(b.agents.per_day, [4, 0, 1]);
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
+  );
 });

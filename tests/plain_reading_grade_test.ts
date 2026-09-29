@@ -13,6 +13,7 @@ import {
   plainRegisterCorpus,
   syllables,
 } from "../scripts/plain_reading_grade_lib.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 Deno.test("syllable heuristic: positive controls", () => {
   assertEquals(syllables("cat"), 1);
@@ -25,40 +26,45 @@ Deno.test("syllable heuristic: positive controls", () => {
   assertEquals(syllables(""), 0);
 });
 
-Deno.test("prose counting reads code spans as names and splits sentences", () => {
-  const counts = countProse(
-    "Run `discern done` first. It checks the work.",
-  );
-  assertEquals(counts.sentences, 2);
-  // "Run first It checks the work" — six readable words.
-  assertEquals(counts.words, 6);
-  assert(counts.syllables >= counts.words, "every word has a syllable");
+Deno.test("plain reading grade: countProse cases", () => {
+  assertNamedCases({
+    "prose counting reads code spans as names and splits sentences": () => {
+      const counts = countProse(
+        "Run `discern done` first. It checks the work.",
+      );
+      assertEquals(counts.sentences, 2);
+      // "Run first It checks the work" — six readable words.
+      assertEquals(counts.words, 6);
+      assert(counts.syllables >= counts.words, "every word has a syllable");
+    },
+    "a sentence ends before closing quotes, brackets, and emphasis": () => {
+      for (const close of ['"', "'", "”", "’", ")", "]", "**", "_"]) {
+        for (const end of [".", "?", "!"]) {
+          const text = `Say land it${end}${close} Then wait for the result.`;
+          assertEquals(countProse(text).sentences, 2, text);
+        }
+      }
+      // A terminator inside a word or number never splits a sentence.
+      assertEquals(
+        countProse("It takes 3.5 seconds on v1.2 here.").sentences,
+        1,
+      );
+    },
+    "the grade discriminates: plain prose grades lower than dense prose":
+      () => {
+        const plain = countProse(
+          "The check runs every time. It names each failure. The fix starts at the cause.",
+        );
+        const dense = countProse(
+          "Comprehensive verification methodologies systematically enumerate diagnostic irregularities, facilitating remediation prioritisation across heterogeneous organisational infrastructures.",
+        );
+        assert(
+          fleschKincaidGrade(plain) < fleschKincaidGrade(dense),
+          "simple sentences must grade lower than jargon-dense ones",
+        );
+      },
+  });
 });
-
-Deno.test("a sentence ends before closing quotes, brackets, and emphasis", () => {
-  for (const close of ['"', "'", "”", "’", ")", "]", "**", "_"]) {
-    for (const end of [".", "?", "!"]) {
-      const text = `Say land it${end}${close} Then wait for the result.`;
-      assertEquals(countProse(text).sentences, 2, text);
-    }
-  }
-  // A terminator inside a word or number never splits a sentence.
-  assertEquals(countProse("It takes 3.5 seconds on v1.2 here.").sentences, 1);
-});
-
-Deno.test("the grade discriminates: plain prose grades lower than dense prose", () => {
-  const plain = countProse(
-    "The check runs every time. It names each failure. The fix starts at the cause.",
-  );
-  const dense = countProse(
-    "Comprehensive verification methodologies systematically enumerate diagnostic irregularities, facilitating remediation prioritisation across heterogeneous organisational infrastructures.",
-  );
-  assert(
-    fleschKincaidGrade(plain) < fleschKincaidGrade(dense),
-    "simple sentences must grade lower than jargon-dense ones",
-  );
-});
-
 Deno.test("the live plain register measures deterministically and non-trivially", () => {
   const corpus = plainRegisterCorpus();
   assert(corpus.length > 0, "the plain register is never empty");

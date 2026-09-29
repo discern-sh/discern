@@ -35,6 +35,7 @@ import {
   ruleResultSchema,
 } from "../src/shared/result_schemas.ts";
 import { completedConfigFixture } from "./helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Build a full {@link ImprovementContext} from config TOML plus fact overrides. */
 function ctx(
@@ -91,43 +92,264 @@ run = "echo"
   );
 }
 
-Deno.test("improve wire schema's rule status enum equals the RuleStatus SSOT", () => {
-  // ruleResultSchema lives in shared/result_schemas.ts, which can't import the engine
-  // RuleStatus type — so this is a tie-by-test (not a compile-time derive): the wire
-  // enum must list EXACTLY RULE_STATUSES. A status added to one but not the other (or
-  // the enum weakened to z.string()) red-lights here.
-  assertEquals(
-    [...ruleResultSchema.shape.status.options].sort(),
-    [...RULE_STATUSES].sort(),
-  );
-});
+Deno.test("improve catalog: contracts", () => {
+  assertNamedCases({
+    "improve wire schema's rule status enum equals the RuleStatus SSOT": () => {
+      // ruleResultSchema lives in shared/result_schemas.ts, which can't import the engine
+      // RuleStatus type — so this is a tie-by-test (not a compile-time derive): the wire
+      // enum must list EXACTLY RULE_STATUSES. A status added to one but not the other (or
+      // the enum weakened to z.string()) red-lights here.
+      assertEquals(
+        [...ruleResultSchema.shape.status.options].sort(),
+        [...RULE_STATUSES].sort(),
+      );
+    },
+    "improve presentation exhaustively adapts every RuleStatus": () => {
+      assertEquals(
+        Object.keys(IMPROVEMENT_RULE_RESULT_STATE).sort(),
+        [...RULE_STATUSES].sort(),
+      );
+    },
+    "improve wire schema's next-action kinds equal the NEXT_ACTION_KINDS SSOT":
+      () => {
+        assertEquals(
+          [...nextActionSchema.shape.kind.options].sort(),
+          [...NEXT_ACTION_KINDS].sort(),
+        );
+      },
+    "improve wire schema's recommendation ids equal the CHECKPOINT_RECOMMENDATION_IDS SSOT":
+      () => {
+        assertEquals(
+          [...checkpointRecommendationSchema.shape.id.options].sort(),
+          [...CHECKPOINT_RECOMMENDATION_IDS].sort(),
+        );
+      },
+    "improve catalog: CATEGORY_NAMES is derived from the catalog, in order (SSOT)":
+      () => {
+        // The CLI help and the MCP tool's --category description interpolate this list,
+        // so it must stay derived from CATEGORIES rather than hand-listed.
+        assertEquals(CATEGORY_NAMES, CATEGORIES.map((c) => c.name));
+        assert(CATEGORY_NAMES.length > 0);
+      },
+    "every deterministic rule discriminates: passes on a perfect project, fails on a barren one":
+      () => {
+        // The score-100 test proves the catalog CAN reach 100, but not that each rule's
+        // own evaluate() actually decides anything — an always-pass (or inverted) rule
+        // scores 100 on `perfect()` all the same, and its verdict was only ever pinned for
+        // a hand-picked subset in engine_improve_test. Assert every deterministic rule
+        // separates a perfect project from a barren one, so a new rule's evaluate() can't
+        // ship as a no-op. Derived from CATEGORIES, so a new rule auto-enrols.
+        const p = perfect();
+        const b = barren();
+        for (const category of CATEGORIES) {
+          for (const rule of category.rules.filter(isDeterministic)) {
+            assertEquals(
+              rule.evaluate(p).status,
+              "pass",
+              `${rule.id}: must PASS on a perfect project`,
+            );
+            assert(
+              rule.evaluate(b).status !== "pass",
+              `${rule.id}: must NOT pass on a barren project (got "${
+                rule.evaluate(b).status
+              }") — its evaluate() doesn't discriminate`,
+            );
+          }
+        }
+      },
+    "improve catalog: rule ids are unique and namespaced by their category":
+      () => {
+        const seen = new Set<string>();
+        const catNames = new Set<string>();
+        for (const category of CATEGORIES) {
+          assert(
+            !catNames.has(category.name),
+            `duplicate category '${category.name}'`,
+          );
+          catNames.add(category.name);
+          assert(
+            category.rules.length > 0,
+            `category '${category.name}' has no rules`,
+          );
+          for (const rule of category.rules) {
+            assert(!seen.has(rule.id), `duplicate rule id '${rule.id}'`);
+            seen.add(rule.id);
+            assertEquals(
+              rule.id.split(".")[0],
+              category.name,
+              `rule '${rule.id}' should be namespaced by its category '${category.name}'`,
+            );
+            assert(
+              rule.title.trim().length > 0,
+              `rule '${rule.id}' needs a title`,
+            );
+          }
+        }
+      },
+    "improve catalog: every rule carries the fields its kind needs": () => {
+      for (const category of CATEGORIES) {
+        for (const rule of category.rules) {
+          assert(rule.teach.trim().length > 0, `${rule.id} needs a teach`);
+          if (rule.kind === "deterministic") {
+            assert(rule.weight > 0, `${rule.id} needs a positive weight`);
+            assert(rule.fix.trim().length > 0, `${rule.id} needs a fix`);
+          } else {
+            assert(rule.ask.trim().length > 0, `${rule.id} needs an ask`);
+          }
+        }
+      }
+    },
+    "improve catalog: every category teaches beyond mechanically checked presence":
+      () => {
+        for (const category of CATEGORIES) {
+          const reviews = category.rules.filter((rule) =>
+            rule.kind === "subjective"
+          );
+          assert(
+            reviews.length > 0,
+            `${category.name} needs a qualitative review that teaches what good looks like`,
+          );
+        }
+      },
+    "improve scoring: 100 baseline still prioritizes an open review": () => {
+      const report = evaluateReport(perfect());
+      assertEquals(report.score, 100);
+      assertEquals(report.weak, 0);
+      // Every subjective rule still surfaces as an open review even at a perfect score.
+      assert(
+        report.reviews > 0,
+        "subjective rules are reviews regardless of score",
+      );
+      assertEquals(report.nextAction.kind, "review");
+      assertEquals(report.nextAction.id, "gate.fast-feedback");
+    },
+    "improve scoring: a bare project leads with the largest weighted gap":
+      () => {
+        const report = evaluateReport(ctx("")); // all defaults, all facts falsy
+        assert(report.score < 25, `expected a low score, got ${report.score}`);
+        assert(report.weak > 0);
+        assertEquals(report.nextAction.kind, "fix");
+        assertEquals(report.nextAction.id, "gate.test");
+        // Weakest-first: the worst category leads. The gate (3 failing rules at score 0)
+        // outranks the other score-0 categories on the weak-count tiebreak.
+        assertEquals(report.categories[0]?.name, "gate");
+        // Ranking is monotonic non-decreasing in score.
+        for (let i = 1; i < report.categories.length; i++) {
+          assert(
+            (report.categories[i]?.score ?? 0) >=
+              (report.categories[i - 1]?.score ?? 0),
+            "categories must be sorted weakest-first",
+          );
+        }
+      },
+    "improve scoring: partial credit moves the score between fail and pass":
+      () => {
+        // Only the gotchas doc differs: unset (fail) vs set-but-missing (partial) vs
+        // set-and-present (pass). Restrict to `setup` to isolate the effect.
+        const base = `[meta]\nbootstrapped = true\n[project]\n`;
+        const fail = evaluateReport(ctx(base), "setup").categories[0]?.score ??
+          -1;
+        const partial = evaluateReport(
+          ctx(`${base}gotchas_doc = "x.md"\n`, { gotchasDocSet: true }),
+          "setup",
+        ).categories[0]?.score ?? -1;
+        const pass = evaluateReport(
+          ctx(`${base}gotchas_doc = "x.md"\n`, {
+            gotchasDocSet: true,
+            gotchasDocExists: true,
+          }),
+          "setup",
+        ).categories[0]?.score ?? -1;
+        assert(
+          fail < partial && partial < pass,
+          `expected fail<partial<pass, got ${fail},${partial},${pass}`,
+        );
+      },
+    "improve scoring: every catalog category is always reviewed (ADR 0101)":
+      () => {
+        const report = evaluateReport(ctx(""));
+        const names = report.categories.map((c) => c.name);
+        assert(
+          names.includes("standards"),
+          "standards category is always reviewed",
+        );
+        assert(names.includes("skills"), "skills category is always reviewed");
+        assert(names.includes("gate") && names.includes("setup"));
+      },
+    "improve scoring: `only` restricts evaluation to one category": () => {
+      const report = evaluateReport(perfect(), "instructions");
+      assertEquals(report.categories.length, 1);
+      assertEquals(report.categories[0]?.name, "instructions");
+    },
+    "the checkpoints category audits a configured checkpoint project-wide":
+      () => {
+        const report = evaluateReport(ctx(CHECKPOINT_TOML), "checkpoints");
+        const category = report.categories[0];
+        assertEquals(category?.name, "checkpoints");
+        // The standing placement review plus one audit row for the checkpoint.
+        const ids = category?.reviews.map((review) => review.id) ?? [];
+        assertEquals(ids, ["checkpoints.opportunity", "api-review"]);
+        const audited = category?.reviews.find((review) =>
+          review.id === "api-review"
+        );
+        assertEquals(
+          audited?.ask,
+          "A changed interface is described before it lands.",
+        );
+        assertEquals(audited?.boundary, [{
+          checkpoint: "api-review",
+          mode: "stop",
+        }]);
+        // The placement review cites the configured membership.
+        const placement = category?.reviews.find(
+          (review) => review.id === "checkpoints.opportunity",
+        );
+        assertEquals(placement?.against?.excerpt, "configured: api-review");
+      },
+    "an evidence-backed owner decision leads once the baseline is clear":
+      () => {
+        const varied = {
+          id: "api-review",
+          landed: 4,
+          variedLandings: 3,
+          variances: 5,
+        };
+        const clear = evaluateReport(ctx(CHECKPOINT_TOML, {
+          instructionPresent: true,
+          instructionText: "x".repeat(1000),
+          instructionChars: 1000,
+          gotchasDocSet: true,
+          gotchasDocExists: true,
+          mapTree: true,
+          adrCount: 3,
+          agentFilePresent: true,
+          authoredSkills: 1,
+          variedCheckpoints: [varied],
+        }));
+        assertEquals(clear.score, 100);
+        assertEquals(clear.recommendations.length, 1);
+        assertEquals(clear.nextAction.kind, "decide");
+        assertEquals(clear.nextAction.id, "checkpoints.review");
+        assertEquals(clear.nextAction.category, "checkpoints");
+        assert(
+          (clear.nextAction.against?.excerpt ?? "").includes("3 of 4"),
+          "the decision carries its project-local counts",
+        );
 
-Deno.test("improve presentation exhaustively adapts every RuleStatus", () => {
-  assertEquals(
-    Object.keys(IMPROVEMENT_RULE_RESULT_STATE).sort(),
-    [...RULE_STATUSES].sort(),
-  );
-});
-
-Deno.test("improve wire schema's next-action kinds equal the NEXT_ACTION_KINDS SSOT", () => {
-  assertEquals(
-    [...nextActionSchema.shape.kind.options].sort(),
-    [...NEXT_ACTION_KINDS].sort(),
-  );
-});
-
-Deno.test("improve wire schema's recommendation ids equal the CHECKPOINT_RECOMMENDATION_IDS SSOT", () => {
-  assertEquals(
-    [...checkpointRecommendationSchema.shape.id.options].sort(),
-    [...CHECKPOINT_RECOMMENDATION_IDS].sort(),
-  );
-});
-
-Deno.test("improve catalog: CATEGORY_NAMES is derived from the catalog, in order (SSOT)", () => {
-  // The CLI help and the MCP tool's --category description interpolate this list,
-  // so it must stay derived from CATEGORIES rather than hand-listed.
-  assertEquals(CATEGORY_NAMES, CATEGORIES.map((c) => c.name));
-  assert(CATEGORY_NAMES.length > 0);
+        // An objective gap still outranks the recommendation.
+        const weak = evaluateReport(
+          ctx(CHECKPOINT_TOML.replace('test = "true"\n', ""), {
+            variedCheckpoints: [varied],
+          }),
+        );
+        assertEquals(weak.nextAction.kind, "fix");
+        assertEquals(
+          weak.recommendations.length,
+          1,
+          "the decision stays reported",
+        );
+      },
+  });
 });
 
 /** A config + facts where every fact a rule reads is at its worst (the ctx()
@@ -135,150 +357,6 @@ Deno.test("improve catalog: CATEGORY_NAMES is derived from the catalog, in order
 function barren(): ImprovementContext {
   return ctx(`[project]\nslug = "demo"\n`);
 }
-
-Deno.test("every deterministic rule discriminates: passes on a perfect project, fails on a barren one", () => {
-  // The score-100 test proves the catalog CAN reach 100, but not that each rule's
-  // own evaluate() actually decides anything — an always-pass (or inverted) rule
-  // scores 100 on `perfect()` all the same, and its verdict was only ever pinned for
-  // a hand-picked subset in engine_improve_test. Assert every deterministic rule
-  // separates a perfect project from a barren one, so a new rule's evaluate() can't
-  // ship as a no-op. Derived from CATEGORIES, so a new rule auto-enrols.
-  const p = perfect();
-  const b = barren();
-  for (const category of CATEGORIES) {
-    for (const rule of category.rules.filter(isDeterministic)) {
-      assertEquals(
-        rule.evaluate(p).status,
-        "pass",
-        `${rule.id}: must PASS on a perfect project`,
-      );
-      assert(
-        rule.evaluate(b).status !== "pass",
-        `${rule.id}: must NOT pass on a barren project (got "${
-          rule.evaluate(b).status
-        }") — its evaluate() doesn't discriminate`,
-      );
-    }
-  }
-});
-
-Deno.test("improve catalog: rule ids are unique and namespaced by their category", () => {
-  const seen = new Set<string>();
-  const catNames = new Set<string>();
-  for (const category of CATEGORIES) {
-    assert(
-      !catNames.has(category.name),
-      `duplicate category '${category.name}'`,
-    );
-    catNames.add(category.name);
-    assert(
-      category.rules.length > 0,
-      `category '${category.name}' has no rules`,
-    );
-    for (const rule of category.rules) {
-      assert(!seen.has(rule.id), `duplicate rule id '${rule.id}'`);
-      seen.add(rule.id);
-      assertEquals(
-        rule.id.split(".")[0],
-        category.name,
-        `rule '${rule.id}' should be namespaced by its category '${category.name}'`,
-      );
-      assert(rule.title.trim().length > 0, `rule '${rule.id}' needs a title`);
-    }
-  }
-});
-
-Deno.test("improve catalog: every rule carries the fields its kind needs", () => {
-  for (const category of CATEGORIES) {
-    for (const rule of category.rules) {
-      assert(rule.teach.trim().length > 0, `${rule.id} needs a teach`);
-      if (rule.kind === "deterministic") {
-        assert(rule.weight > 0, `${rule.id} needs a positive weight`);
-        assert(rule.fix.trim().length > 0, `${rule.id} needs a fix`);
-      } else {
-        assert(rule.ask.trim().length > 0, `${rule.id} needs an ask`);
-      }
-    }
-  }
-});
-
-Deno.test("improve catalog: every category teaches beyond mechanically checked presence", () => {
-  for (const category of CATEGORIES) {
-    const reviews = category.rules.filter((rule) => rule.kind === "subjective");
-    assert(
-      reviews.length > 0,
-      `${category.name} needs a qualitative review that teaches what good looks like`,
-    );
-  }
-});
-
-Deno.test("improve scoring: 100 baseline still prioritizes an open review", () => {
-  const report = evaluateReport(perfect());
-  assertEquals(report.score, 100);
-  assertEquals(report.weak, 0);
-  // Every subjective rule still surfaces as an open review even at a perfect score.
-  assert(
-    report.reviews > 0,
-    "subjective rules are reviews regardless of score",
-  );
-  assertEquals(report.nextAction.kind, "review");
-  assertEquals(report.nextAction.id, "gate.fast-feedback");
-});
-
-Deno.test("improve scoring: a bare project leads with the largest weighted gap", () => {
-  const report = evaluateReport(ctx("")); // all defaults, all facts falsy
-  assert(report.score < 25, `expected a low score, got ${report.score}`);
-  assert(report.weak > 0);
-  assertEquals(report.nextAction.kind, "fix");
-  assertEquals(report.nextAction.id, "gate.test");
-  // Weakest-first: the worst category leads. The gate (3 failing rules at score 0)
-  // outranks the other score-0 categories on the weak-count tiebreak.
-  assertEquals(report.categories[0]?.name, "gate");
-  // Ranking is monotonic non-decreasing in score.
-  for (let i = 1; i < report.categories.length; i++) {
-    assert(
-      (report.categories[i]?.score ?? 0) >=
-        (report.categories[i - 1]?.score ?? 0),
-      "categories must be sorted weakest-first",
-    );
-  }
-});
-
-Deno.test("improve scoring: partial credit moves the score between fail and pass", () => {
-  // Only the gotchas doc differs: unset (fail) vs set-but-missing (partial) vs
-  // set-and-present (pass). Restrict to `setup` to isolate the effect.
-  const base = `[meta]\nbootstrapped = true\n[project]\n`;
-  const fail = evaluateReport(ctx(base), "setup").categories[0]?.score ?? -1;
-  const partial = evaluateReport(
-    ctx(`${base}gotchas_doc = "x.md"\n`, { gotchasDocSet: true }),
-    "setup",
-  ).categories[0]?.score ?? -1;
-  const pass = evaluateReport(
-    ctx(`${base}gotchas_doc = "x.md"\n`, {
-      gotchasDocSet: true,
-      gotchasDocExists: true,
-    }),
-    "setup",
-  ).categories[0]?.score ?? -1;
-  assert(
-    fail < partial && partial < pass,
-    `expected fail<partial<pass, got ${fail},${partial},${pass}`,
-  );
-});
-
-Deno.test("improve scoring: every catalog category is always reviewed (ADR 0101)", () => {
-  const report = evaluateReport(ctx(""));
-  const names = report.categories.map((c) => c.name);
-  assert(names.includes("standards"), "standards category is always reviewed");
-  assert(names.includes("skills"), "skills category is always reviewed");
-  assert(names.includes("gate") && names.includes("setup"));
-});
-
-Deno.test("improve scoring: `only` restricts evaluation to one category", () => {
-  const report = evaluateReport(perfect(), "instructions");
-  assertEquals(report.categories.length, 1);
-  assertEquals(report.categories[0]?.name, "instructions");
-});
 
 /** The perfect fixture's config plus one authored checkpoint. */
 const CHECKPOINT_TOML = `
@@ -298,64 +376,3 @@ run = "echo"
 paths = ["src/api/**"]
 question = "A changed interface is described before it lands."
 `;
-
-Deno.test("the checkpoints category audits a configured checkpoint project-wide", () => {
-  const report = evaluateReport(ctx(CHECKPOINT_TOML), "checkpoints");
-  const category = report.categories[0];
-  assertEquals(category?.name, "checkpoints");
-  // The standing placement review plus one audit row for the checkpoint.
-  const ids = category?.reviews.map((review) => review.id) ?? [];
-  assertEquals(ids, ["checkpoints.opportunity", "api-review"]);
-  const audited = category?.reviews.find((review) =>
-    review.id === "api-review"
-  );
-  assertEquals(
-    audited?.ask,
-    "A changed interface is described before it lands.",
-  );
-  assertEquals(audited?.boundary, [{ checkpoint: "api-review", mode: "stop" }]);
-  // The placement review cites the configured membership.
-  const placement = category?.reviews.find(
-    (review) => review.id === "checkpoints.opportunity",
-  );
-  assertEquals(placement?.against?.excerpt, "configured: api-review");
-});
-
-Deno.test("an evidence-backed owner decision leads once the baseline is clear", () => {
-  const varied = {
-    id: "api-review",
-    landed: 4,
-    variedLandings: 3,
-    variances: 5,
-  };
-  const clear = evaluateReport(ctx(CHECKPOINT_TOML, {
-    instructionPresent: true,
-    instructionText: "x".repeat(1000),
-    instructionChars: 1000,
-    gotchasDocSet: true,
-    gotchasDocExists: true,
-    mapTree: true,
-    adrCount: 3,
-    agentFilePresent: true,
-    authoredSkills: 1,
-    variedCheckpoints: [varied],
-  }));
-  assertEquals(clear.score, 100);
-  assertEquals(clear.recommendations.length, 1);
-  assertEquals(clear.nextAction.kind, "decide");
-  assertEquals(clear.nextAction.id, "checkpoints.review");
-  assertEquals(clear.nextAction.category, "checkpoints");
-  assert(
-    (clear.nextAction.against?.excerpt ?? "").includes("3 of 4"),
-    "the decision carries its project-local counts",
-  );
-
-  // An objective gap still outranks the recommendation.
-  const weak = evaluateReport(
-    ctx(CHECKPOINT_TOML.replace('test = "true"\n', ""), {
-      variedCheckpoints: [varied],
-    }),
-  );
-  assertEquals(weak.nextAction.kind, "fix");
-  assertEquals(weak.recommendations.length, 1, "the decision stays reported");
-});

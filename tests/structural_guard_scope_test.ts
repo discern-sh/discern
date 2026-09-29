@@ -15,6 +15,7 @@ import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { fileExists } from "../src/shared/fs_presence.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 interface ScopeFinding {
   readonly line: number;
@@ -471,8 +472,11 @@ Deno.test("a specialized Git universe includes executable fixture source without
   });
 });
 
-Deno.test("the syntax-aware detector rejects planted hand-rooted and local-list guards", () => {
-  const planted = `
+Deno.test("structural guard scope: scopeFindings cases", () => {
+  assertNamedCases({
+    "the syntax-aware detector rejects planted hand-rooted and local-list guards":
+      () => {
+        const planted = `
 import { walk } from "@std/fs";
 import { join } from "@std/path";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -488,19 +492,19 @@ structuralGuardScope({
   universe: { kind: "specialized", files: FILES, reason: "a fake list" },
 });
 `;
-  assertEquals(
-    scopeFindings("tests/planted_guard_test.ts", planted).map((finding) =>
-      finding.message
-    ),
-    [
-      "hand-roots an authored-source walk scan; declare its Git-derived universe",
-      "specialized universes name extensions for Git to enumerate, never a hand-maintained file list",
-    ],
-  );
-});
-
-Deno.test("the syntax-aware detector follows a planted local root list through its walker", () => {
-  const planted = `
+        assertEquals(
+          scopeFindings("tests/planted_guard_test.ts", planted).map((finding) =>
+            finding.message
+          ),
+          [
+            "hand-roots an authored-source walk scan; declare its Git-derived universe",
+            "specialized universes name extensions for Git to enumerate, never a hand-maintained file list",
+          ],
+        );
+      },
+    "the syntax-aware detector follows a planted local root list through its walker":
+      () => {
+        const planted = `
 import { join } from "@std/path";
 const ROOTS = ["src", "tests"];
 async function filesUnder(path: string): Promise<string[]> {
@@ -518,15 +522,18 @@ Deno.test("all known roots reject a token", async () => {
   }
 });
 `;
-  assert(
-    scopeFindings("tests/planted_roots_test.ts", planted).some((finding) =>
-      finding.message.includes("hand-root") ||
-      finding.message.includes("hand-maintained")
-    ),
-    "a local root list that omits a future source tree must be rejected",
-  );
+        assert(
+          scopeFindings("tests/planted_roots_test.ts", planted).some((
+            finding,
+          ) =>
+            finding.message.includes("hand-root") ||
+            finding.message.includes("hand-maintained")
+          ),
+          "a local root list that omits a future source tree must be rejected",
+        );
+      },
+  });
 });
-
 Deno.test("every live structural guard obtains its scan set from a declaration", async () => {
   const files = await structuralGuardScope({
     guard: "tests/structural_guard_scope_test.ts#live-guard-enrollment",

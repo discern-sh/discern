@@ -8,6 +8,7 @@ import { join } from "@std/path";
 import functionDocblockPlugin from "../scripts/function_docblock_lint.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const RULE_ID = "discern/require-function-docblock";
 
@@ -27,8 +28,10 @@ function diagnosticLine(
   return source.slice(0, diagnostic.range[0]).split("\n").length;
 }
 
-Deno.test("function docblocks accept documented declaration forms", () => {
-  const source = `
+Deno.test("function docblock lint: diagnostics cases", () => {
+  assertNamedCases({
+    "function docblocks accept documented declaration forms": () => {
+      const source = `
 /** Supply the scalar used by the local-declaration fixture. */
 function localValue(): number { return 1; }
 
@@ -43,11 +46,11 @@ export default function (): number { return 3; }
 function suppressedFixture(): any { return {}; }
 `;
 
-  assertEquals(diagnostics(source), []);
-});
-
-Deno.test("function docblocks reject identifier paraphrases under fresh names", () => {
-  const source = `
+      assertEquals(diagnostics(source), []);
+    },
+    "function docblocks reject identifier paraphrases under fresh names":
+      () => {
+        const source = `
 /** Return the calibrate quasar. */
 function calibrateQuasar(): string { return "ready"; }
 
@@ -55,17 +58,16 @@ function calibrateQuasar(): string { return "ready"; }
 function processNebulaValue(): string { return "ready"; }
 `;
 
-  assertEquals(
-    diagnostics(source).map((diagnostic) => diagnostic.message),
-    [
-      "Function 'calibrateQuasar' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
-      "Function 'processNebulaValue' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
-    ],
-  );
-});
-
-Deno.test("function docblocks reject the backfill's known filler shapes", () => {
-  const source = `
+        assertEquals(
+          diagnostics(source).map((diagnostic) => diagnostic.message),
+          [
+            "Function 'calibrateQuasar' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
+            "Function 'processNebulaValue' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
+          ],
+        );
+      },
+    "function docblocks reject the backfill's known filler shapes": () => {
+      const source = `
 /** Walk into. */
 function walkInto(): void {}
 
@@ -79,32 +81,30 @@ function namedBy(): void {}
 function at(): void {}
 `;
 
-  assertEquals(
-    diagnostics(source).map((diagnostic) => diagnostic.message),
-    ["walkInto", "land", "namedBy", "at"].map((name) =>
-      `Function '${name}' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.`
-    ),
-  );
-});
-
-Deno.test("function docblocks require prose before JSDoc tags", () => {
-  const source = `
+      assertEquals(
+        diagnostics(source).map((diagnostic) => diagnostic.message),
+        ["walkInto", "land", "namedBy", "at"].map((name) =>
+          `Function '${name}' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.`
+        ),
+      );
+    },
+    "function docblocks require prose before JSDoc tags": () => {
+      const source = `
 /**
  * @returns the value
  */
 function taggedOnly(): string { return "ready"; }
 `;
 
-  assertEquals(
-    diagnostics(source).map((diagnostic) => diagnostic.message),
-    [
-      "Function 'taggedOnly' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
-    ],
-  );
-});
-
-Deno.test("function docblocks accept concise behavioral information", () => {
-  const source = `
+      assertEquals(
+        diagnostics(source).map((diagnostic) => diagnostic.message),
+        [
+          "Function 'taggedOnly' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
+        ],
+      );
+    },
+    "function docblocks accept concise behavioral information": () => {
+      const source = `
 /** Escape regex metacharacters so the value is matched literally. */
 function escapeRegExp(value: string): string { return value; }
 
@@ -112,11 +112,10 @@ function escapeRegExp(value: string): string { return value; }
 function isFile(path: string): boolean { return path.length > 0; }
 `;
 
-  assertEquals(diagnostics(source), []);
-});
-
-Deno.test("function docblocks reject an unrelated nested future sibling", () => {
-  const source = `
+      assertEquals(diagnostics(source), []);
+    },
+    "function docblocks reject an unrelated nested future sibling": () => {
+      const source = `
 /** Assemble telemetry into the orbital-report fixture. */
 function buildOrbitalReport(): string {
   function calibrateQuasar(): string { return "ready"; }
@@ -124,27 +123,25 @@ function buildOrbitalReport(): string {
 }
 `;
 
-  const found = diagnostics(source);
-  assertEquals(found.length, 1);
-  assertEquals(found[0]?.id, RULE_ID);
-  assertEquals(
-    found[0]?.message,
-    "Function 'calibrateQuasar' must have a JSDoc block immediately above its declaration.",
-  );
-});
+      const found = diagnostics(source);
+      assertEquals(found.length, 1);
+      assertEquals(found[0]?.id, RULE_ID);
+      assertEquals(
+        found[0]?.message,
+        "Function 'calibrateQuasar' must have a JSDoc block immediately above its declaration.",
+      );
+    },
+    "function docblocks reject anonymous default exports": () => {
+      const found = diagnostics("export default function (): void {}\n");
 
-Deno.test("function docblocks reject anonymous default exports", () => {
-  const found = diagnostics("export default function (): void {}\n");
-
-  assertEquals(found.length, 1);
-  assertEquals(
-    found[0]?.message,
-    "Function 'default export' must have a JSDoc block immediately above its declaration.",
-  );
-});
-
-Deno.test("function docblocks reject non-JSDoc and stale comments", () => {
-  const source = `
+      assertEquals(found.length, 1);
+      assertEquals(
+        found[0]?.message,
+        "Function 'default export' must have a JSDoc block immediately above its declaration.",
+      );
+    },
+    "function docblocks reject non-JSDoc and stale comments": () => {
+      const source = `
 /* This block is not JSDoc. */
 function ordinaryBlock(): void {}
 
@@ -153,15 +150,16 @@ const marker = true;
 function staleBlock(): boolean { return marker; }
 `;
 
-  assertEquals(
-    diagnostics(source).map((diagnostic) => diagnostic.message),
-    [
-      "Function 'ordinaryBlock' must have a JSDoc block immediately above its declaration.",
-      "Function 'staleBlock' must have a JSDoc block immediately above its declaration.",
-    ],
-  );
+      assertEquals(
+        diagnostics(source).map((diagnostic) => diagnostic.message),
+        [
+          "Function 'ordinaryBlock' must have a JSDoc block immediately above its declaration.",
+          "Function 'staleBlock' must have a JSDoc block immediately above its declaration.",
+        ],
+      );
+    },
+  });
 });
-
 Deno.test("every authored Deno function declaration has informative JSDoc", async () => {
   const missing: string[] = [];
   for (

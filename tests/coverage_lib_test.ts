@@ -17,6 +17,7 @@ import {
   srcLineCoverage,
 } from "../scripts/coverage_lib.ts";
 import { fromFileUrl, join, toFileUrl } from "@std/path";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const ROOT = "/repo/checkout";
 
@@ -99,202 +100,214 @@ Deno.test("the LCOV report filter admits only this checkout's src tree", () => {
   assertEquals(args.slice(0, 3), ["coverage", "profile-dir", "--lcov"]);
 });
 
-Deno.test("the LCOV join gives an unloaded executable module an explicit zero", () => {
-  const cov = srcLineCoverage(LCOV, ROOT, MODULES);
-  assertEquals(cov.files, [
-    {
-      path: "src/empty.ts",
-      hit: 0,
-      found: 0,
-      pct: null,
-      status: "no-executable-lines",
-    },
-    {
-      path: "src/engine/dispatch.ts",
-      hit: 9,
-      found: 10,
-      pct: 90,
-      status: "measured",
-    },
-    {
-      path: "src/engine/unloaded.ts",
-      hit: 0,
-      found: 0,
-      pct: 0,
-      status: "unloaded",
-    },
-    {
-      path: "src/shared/config.ts",
-      hit: 8,
-      found: 10,
-      pct: 80,
-      status: "measured",
-    },
-    {
-      path: "src/shared/types.ts",
-      hit: 0,
-      found: 0,
-      pct: null,
-      status: "type-only",
-    },
-  ]);
-  assertEquals(cov.hit, 17);
-  assertEquals(cov.found, 20);
-  assertEquals(cov.pct, 85);
-  assertEquals(cov.issues, []);
-});
+Deno.test("coverage lib: coverage joining and evaluation", () => {
+  assertNamedCases({
+    "the LCOV join gives an unloaded executable module an explicit zero":
+      () => {
+        const cov = srcLineCoverage(LCOV, ROOT, MODULES);
+        assertEquals(cov.files, [
+          {
+            path: "src/empty.ts",
+            hit: 0,
+            found: 0,
+            pct: null,
+            status: "no-executable-lines",
+          },
+          {
+            path: "src/engine/dispatch.ts",
+            hit: 9,
+            found: 10,
+            pct: 90,
+            status: "measured",
+          },
+          {
+            path: "src/engine/unloaded.ts",
+            hit: 0,
+            found: 0,
+            pct: 0,
+            status: "unloaded",
+          },
+          {
+            path: "src/shared/config.ts",
+            hit: 8,
+            found: 10,
+            pct: 80,
+            status: "measured",
+          },
+          {
+            path: "src/shared/types.ts",
+            hit: 0,
+            found: 0,
+            pct: null,
+            status: "type-only",
+          },
+        ]);
+        assertEquals(cov.hit, 17);
+        assertEquals(cov.found, 20);
+        assertEquals(cov.pct, 85);
+        assertEquals(cov.issues, []);
+      },
+    "canonical LCOV records union per line while foreign and mismatched paths diagnose":
+      () => {
+        const lcov = [
+          record(`${ROOT}/src/engine/dispatch.ts`, 5, 4),
+          record(`file://${ROOT}/src/engine/dispatch.ts`, 5, 5),
+          record(`${ROOT}/src/engine/lcov-only.ts`, 3, 2),
+          record("src/shared/config.ts", 10, 8),
+          record("/elsewhere/src/other.ts", 4, 4),
+        ].join("\n");
+        const cov = srcLineCoverage(lcov, `${ROOT}/`, MODULES);
+        assertEquals(
+          cov.files.find((file) => file.path === "src/engine/dispatch.ts"),
+          {
+            path: "src/engine/dispatch.ts",
+            hit: 5,
+            found: 5,
+            pct: 100,
+            status: "measured",
+          },
+        );
+        assertEquals(cov.issues.map((issue) => issue.kind), [
+          "lcov-outside-universe",
+          "lcov-path-mismatch",
+          "lcov-outside-universe",
+        ]);
+        assertStringIncludes(cov.issues[0]?.message ?? "", "lcov-only.ts");
+        assertStringIncludes(cov.issues[1]?.message ?? "", "absolute");
+        assertStringIncludes(cov.issues[2]?.message ?? "", "/elsewhere");
+      },
+    "shard reports union per line so a line hit in any pass counts hit once":
+      () => {
+        const shardA = [
+          recordWithLines(`${ROOT}/src/engine/dispatch.ts`, [
+            [1, 1],
+            [2, 1],
+            [3, 0],
+            [4, 0],
+            [5, 0],
+            [6, 0],
+          ]),
+          record(`${ROOT}/src/shared/config.ts`, 10, 8),
+        ].join("\n");
+        const shardB = recordWithLines(`${ROOT}/src/engine/dispatch.ts`, [
+          [1, 0],
+          [2, 0],
+          [3, 1],
+          [4, 1],
+          [5, 0],
+          [6, 0],
+        ]);
+        const cov = srcLineCoverage([shardA, shardB], ROOT, MODULES);
+        assertEquals(
+          cov.files.find((file) => file.path === "src/engine/dispatch.ts"),
+          {
+            path: "src/engine/dispatch.ts",
+            hit: 4,
+            found: 6,
+            pct: 66.7,
+            status: "measured",
+          },
+        );
+        assertEquals(
+          cov.files.find((file) => file.path === "src/shared/config.ts"),
+          {
+            path: "src/shared/config.ts",
+            hit: 8,
+            found: 10,
+            pct: 80,
+            status: "measured",
+          },
+        );
+        assertEquals(cov.issues, []);
+      },
+    "records whose DA lines disagree with their summary diagnose instead of counting":
+      () => {
+        const forged = [
+          `SF:${ROOT}/src/engine/dispatch.ts`,
+          "DA:1,1",
+          "DA:2,0",
+          "LF:5",
+          "LH:4",
+          "end_of_record",
+        ].join("\n");
+        const duplicated = [
+          `SF:${ROOT}/src/engine/dispatch.ts`,
+          "DA:1,1",
+          "DA:1,0",
+          "LF:2",
+          "LH:1",
+          "end_of_record",
+        ].join("\n");
+        const unterminated = [
+          `SF:${ROOT}/src/engine/dispatch.ts`,
+          "DA:1,1",
+          "LF:1",
+          "LH:1",
+        ].join("\n");
+        for (
+          const [lcov, detail] of [
+            [forged, "disagrees"],
+            [duplicated, "twice"],
+            [unterminated, "end_of_record"],
+          ] as const
+        ) {
+          const cov = srcLineCoverage(lcov, ROOT, MODULES);
+          assertEquals(cov.issues.map((issue) => issue.kind), ["invalid-lcov"]);
+          assertStringIncludes(cov.issues[0]?.message ?? "", detail);
+          assertEquals(
+            cov.files.find((file) => file.path === "src/engine/dispatch.ts")
+              ?.status,
+            "unloaded",
+          );
+        }
+      },
+    "a new low module, exact exception, regression, and stale exception are distinct":
+      () => {
+        const cov = srcLineCoverage(LCOV, ROOT, MODULES);
+        const base = {
+          path: "src/shared/config.ts",
+          measuredPct: 80,
+          owner: "configuration runtime",
+          reason: "failure branches require filesystem seams",
+          recovery: "cover the remaining parse and permission outcomes",
+        } as const;
 
-Deno.test("canonical LCOV records union per line while foreign and mismatched paths diagnose", () => {
-  const lcov = [
-    record(`${ROOT}/src/engine/dispatch.ts`, 5, 4),
-    record(`file://${ROOT}/src/engine/dispatch.ts`, 5, 5),
-    record(`${ROOT}/src/engine/lcov-only.ts`, 3, 2),
-    record("src/shared/config.ts", 10, 8),
-    record("/elsewhere/src/other.ts", 4, 4),
-  ].join("\n");
-  const cov = srcLineCoverage(lcov, `${ROOT}/`, MODULES);
-  assertEquals(
-    cov.files.find((file) => file.path === "src/engine/dispatch.ts"),
-    {
-      path: "src/engine/dispatch.ts",
-      hit: 5,
-      found: 5,
-      pct: 100,
-      status: "measured",
-    },
-  );
-  assertEquals(cov.issues.map((issue) => issue.kind), [
-    "lcov-outside-universe",
-    "lcov-path-mismatch",
-    "lcov-outside-universe",
-  ]);
-  assertStringIncludes(cov.issues[0]?.message ?? "", "lcov-only.ts");
-  assertStringIncludes(cov.issues[1]?.message ?? "", "absolute");
-  assertStringIncludes(cov.issues[2]?.message ?? "", "/elsewhere");
-});
+        const newlyLow = evaluateModuleCoverage(cov, 85, []);
+        assertEquals(newlyLow.failureCount, 2);
+        assertStringIncludes(
+          newlyLow.failures.join("\n"),
+          "src/engine/unloaded.ts",
+        );
+        assertStringIncludes(
+          newlyLow.failures.join("\n"),
+          "src/shared/config.ts",
+        );
 
-Deno.test("shard reports union per line so a line hit in any pass counts hit once", () => {
-  const shardA = [
-    recordWithLines(`${ROOT}/src/engine/dispatch.ts`, [
-      [1, 1],
-      [2, 1],
-      [3, 0],
-      [4, 0],
-      [5, 0],
-      [6, 0],
-    ]),
-    record(`${ROOT}/src/shared/config.ts`, 10, 8),
-  ].join("\n");
-  const shardB = recordWithLines(`${ROOT}/src/engine/dispatch.ts`, [
-    [1, 0],
-    [2, 0],
-    [3, 1],
-    [4, 1],
-    [5, 0],
-    [6, 0],
-  ]);
-  const cov = srcLineCoverage([shardA, shardB], ROOT, MODULES);
-  assertEquals(
-    cov.files.find((file) => file.path === "src/engine/dispatch.ts"),
-    {
-      path: "src/engine/dispatch.ts",
-      hit: 4,
-      found: 6,
-      pct: 66.7,
-      status: "measured",
-    },
-  );
-  assertEquals(
-    cov.files.find((file) => file.path === "src/shared/config.ts"),
-    {
-      path: "src/shared/config.ts",
-      hit: 8,
-      found: 10,
-      pct: 80,
-      status: "measured",
-    },
-  );
-  assertEquals(cov.issues, []);
-});
+        const exact = evaluateModuleCoverage(cov, 85, [base]);
+        assertEquals(exact.failureCount, 1);
+        assertStringIncludes(exact.failures[0] ?? "", "unloaded");
 
-Deno.test("records whose DA lines disagree with their summary diagnose instead of counting", () => {
-  const forged = [
-    `SF:${ROOT}/src/engine/dispatch.ts`,
-    "DA:1,1",
-    "DA:2,0",
-    "LF:5",
-    "LH:4",
-    "end_of_record",
-  ].join("\n");
-  const duplicated = [
-    `SF:${ROOT}/src/engine/dispatch.ts`,
-    "DA:1,1",
-    "DA:1,0",
-    "LF:2",
-    "LH:1",
-    "end_of_record",
-  ].join("\n");
-  const unterminated = [
-    `SF:${ROOT}/src/engine/dispatch.ts`,
-    "DA:1,1",
-    "LF:1",
-    "LH:1",
-  ].join("\n");
-  for (
-    const [lcov, detail] of [
-      [forged, "disagrees"],
-      [duplicated, "twice"],
-      [unterminated, "end_of_record"],
-    ] as const
-  ) {
-    const cov = srcLineCoverage(lcov, ROOT, MODULES);
-    assertEquals(cov.issues.map((issue) => issue.kind), ["invalid-lcov"]);
-    assertStringIncludes(cov.issues[0]?.message ?? "", detail);
-    assertEquals(
-      cov.files.find((file) => file.path === "src/engine/dispatch.ts")?.status,
-      "unloaded",
-    );
-  }
-});
+        const regressed = evaluateModuleCoverage(cov, 85, [{
+          ...base,
+          measuredPct: 81,
+        }]);
+        assertStringIncludes(regressed.failures.join("\n"), "regressed");
 
-Deno.test("a new low module, exact exception, regression, and stale exception are distinct", () => {
-  const cov = srcLineCoverage(LCOV, ROOT, MODULES);
-  const base = {
-    path: "src/shared/config.ts",
-    measuredPct: 80,
-    owner: "configuration runtime",
-    reason: "failure branches require filesystem seams",
-    recovery: "cover the remaining parse and permission outcomes",
-  } as const;
-
-  const newlyLow = evaluateModuleCoverage(cov, 85, []);
-  assertEquals(newlyLow.failureCount, 2);
-  assertStringIncludes(newlyLow.failures.join("\n"), "src/engine/unloaded.ts");
-  assertStringIncludes(newlyLow.failures.join("\n"), "src/shared/config.ts");
-
-  const exact = evaluateModuleCoverage(cov, 85, [base]);
-  assertEquals(exact.failureCount, 1);
-  assertStringIncludes(exact.failures[0] ?? "", "unloaded");
-
-  const regressed = evaluateModuleCoverage(cov, 85, [{
-    ...base,
-    measuredPct: 81,
-  }]);
-  assertStringIncludes(regressed.failures.join("\n"), "regressed");
-
-  const stale = evaluateModuleCoverage(cov, 80, [base]);
-  assertStringIncludes(stale.failures.join("\n"), "stale");
-});
-
-Deno.test("renderTable exposes module states and derives its total from one analysis", () => {
-  const table = renderTable(srcLineCoverage(LCOV, ROOT, MODULES));
-  assertStringIncludes(table, "src/engine/dispatch.ts");
-  assertStringIncludes(table, "src/engine/unloaded.ts");
-  assertStringIncludes(table, "unloaded");
-  assertStringIncludes(table, "src/shared/types.ts");
-  assertStringIncludes(table, "type-only");
-  assertStringIncludes(table, "src/empty.ts");
-  assertStringIncludes(table, "no executable lines");
-  assertStringIncludes(table, "All measured src/ files");
-  assertStringIncludes(table, "85.0%");
+        const stale = evaluateModuleCoverage(cov, 80, [base]);
+        assertStringIncludes(stale.failures.join("\n"), "stale");
+      },
+    "renderTable exposes module states and derives its total from one analysis":
+      () => {
+        const table = renderTable(srcLineCoverage(LCOV, ROOT, MODULES));
+        assertStringIncludes(table, "src/engine/dispatch.ts");
+        assertStringIncludes(table, "src/engine/unloaded.ts");
+        assertStringIncludes(table, "unloaded");
+        assertStringIncludes(table, "src/shared/types.ts");
+        assertStringIncludes(table, "type-only");
+        assertStringIncludes(table, "src/empty.ts");
+        assertStringIncludes(table, "no executable lines");
+        assertStringIncludes(table, "All measured src/ files");
+        assertStringIncludes(table, "85.0%");
+      },
+  });
 });

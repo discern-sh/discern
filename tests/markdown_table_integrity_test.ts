@@ -31,6 +31,7 @@ import {
 } from "../src/lib/table_integrity.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const MARKDOWN_TABLE_FILES = await structuralGuardScope({
   guard: "tests/markdown_table_integrity_test.ts#markdown-table-shapes",
@@ -65,137 +66,134 @@ const NODE_ROW_ESCAPED =
 
 // ── bite proofs ───────────────────────────────────────────────────────────────
 
-Deno.test("the unescaped in-span pipes that caused the loss are a violation (the guard bites)", () => {
-  const found = scanMarkdownTables(
-    table(STACK_HEADER, STACK_DELIMITER, NODE_ROW_UNESCAPED),
-  );
-  // The raw `||` splits the row into five cells and tears the command's code
-  // span open — both kinds fire on the same row.
-  assertEquals(at(found), ["3:extra_cells", "3:unclosed_span"]);
-  assert(
-    found.some((v) => v.reason.includes('"\\|"')),
-    "the diagnostic must carry the escape remedy",
-  );
+Deno.test("markdown table integrity: scanMarkdownTables cases", () => {
+  assertNamedCases({
+    "the unescaped in-span pipes that caused the loss are a violation (the guard bites)":
+      () => {
+        const found = scanMarkdownTables(
+          table(STACK_HEADER, STACK_DELIMITER, NODE_ROW_UNESCAPED),
+        );
+        // The raw `||` splits the row into five cells and tears the command's code
+        // span open — both kinds fire on the same row.
+        assertEquals(at(found), ["3:extra_cells", "3:unclosed_span"]);
+        assert(
+          found.some((v) => v.reason.includes('"\\|"')),
+          "the diagnostic must carry the escape remedy",
+        );
+      },
+    "the wreckage a lossy format leaves is a violation the cell count alone would miss":
+      () => {
+        const found = scanMarkdownTables(
+          table(STACK_HEADER, STACK_DELIMITER, NODE_ROW_WRECKED),
+        );
+        // The formatter re-normalized the count to the header's, so only the torn
+        // span betrays the loss.
+        assertEquals(at(found), ["3:unclosed_span"]);
+        assert(
+          found[0]?.reason.includes("version control"),
+          "the diagnostic must point at recovering the dropped text",
+        );
+      },
+    "an in-span pipe that lands back on the header count still bites": () => {
+      const found = scanMarkdownTables(table(
+        "| flag | meaning |",
+        "| --- | --- |",
+        "| `x | y` |",
+      ));
+      // Two phantom cells equal the two-column header, so no overflow — the torn
+      // span is the only witness.
+      assertEquals(at(found), ["3:unclosed_span"]);
+    },
+    "a torn span in the header row itself is a violation": () => {
+      const found = scanMarkdownTables(table(
+        "| a | `b | c |",
+        "| --- | --- | --- |",
+        "| one | two | three |",
+      ));
+      assertEquals(at(found), ["1:unclosed_span"]);
+    },
+    "adversarial future sibling: unrelated vocabulary in another table shape still bites":
+      () => {
+        // Nothing here shares wording with the row that motivated the guard: a
+        // two-column pattern table whose alternation pipe is unescaped.
+        const found = scanMarkdownTables(table(
+          "| pattern | matches |",
+          "| ------- | ------- |",
+          "| `cat|dog` | either word |",
+        ));
+        assertEquals(at(found), ["3:extra_cells", "3:unclosed_span"]);
+      },
+    "the cured row — in-span pipes escaped — is clean": () => {
+      assertEquals(
+        scanMarkdownTables(
+          table(STACK_HEADER, STACK_DELIMITER, NODE_ROW_ESCAPED),
+        ),
+        [],
+      );
+    },
+    "example tables inside fences are inert and skipped": () => {
+      assertEquals(
+        scanMarkdownTables([
+          "```",
+          STACK_HEADER,
+          STACK_DELIMITER,
+          NODE_ROW_UNESCAPED,
+          "```",
+          "",
+        ].join("\n")),
+        [],
+      );
+    },
+    "a longer-run span carrying a literal backtick is clean": () => {
+      assertEquals(
+        scanMarkdownTables(table(
+          "| character | meaning |",
+          "| --- | --- |",
+          "| `` ` `` | a literal backtick |",
+        )),
+        [],
+      );
+    },
+    "a backslash-escaped backtick outside any span is clean": () => {
+      assertEquals(
+        scanMarkdownTables(table(
+          "| a \\` b | c |",
+          "| --- | --- |",
+          "| one | two |",
+        )),
+        [],
+      );
+    },
+    "a row with fewer cells than its header is legal — padding loses nothing":
+      () => {
+        assertEquals(
+          scanMarkdownTables(table(
+            "| a | b | c |",
+            "| --- | --- | --- |",
+            "| one | two |",
+          )),
+          [],
+        );
+      },
+    "a header/delimiter count mismatch is not a table and is skipped": () => {
+      assertEquals(
+        scanMarkdownTables(table(
+          "| a | b |",
+          "| --- | --- | --- |",
+          "| `x | y | z | w |",
+        )),
+        [],
+      );
+    },
+    "pipes in prose without a delimiter row are not a table": () => {
+      assertEquals(
+        scanMarkdownTables("either `a | b` or `c || d` reads fine in prose\n"),
+        [],
+      );
+    },
+  });
 });
-
-Deno.test("the wreckage a lossy format leaves is a violation the cell count alone would miss", () => {
-  const found = scanMarkdownTables(
-    table(STACK_HEADER, STACK_DELIMITER, NODE_ROW_WRECKED),
-  );
-  // The formatter re-normalized the count to the header's, so only the torn
-  // span betrays the loss.
-  assertEquals(at(found), ["3:unclosed_span"]);
-  assert(
-    found[0]?.reason.includes("version control"),
-    "the diagnostic must point at recovering the dropped text",
-  );
-});
-
-Deno.test("an in-span pipe that lands back on the header count still bites", () => {
-  const found = scanMarkdownTables(table(
-    "| flag | meaning |",
-    "| --- | --- |",
-    "| `x | y` |",
-  ));
-  // Two phantom cells equal the two-column header, so no overflow — the torn
-  // span is the only witness.
-  assertEquals(at(found), ["3:unclosed_span"]);
-});
-
-Deno.test("a torn span in the header row itself is a violation", () => {
-  const found = scanMarkdownTables(table(
-    "| a | `b | c |",
-    "| --- | --- | --- |",
-    "| one | two | three |",
-  ));
-  assertEquals(at(found), ["1:unclosed_span"]);
-});
-
-Deno.test("adversarial future sibling: unrelated vocabulary in another table shape still bites", () => {
-  // Nothing here shares wording with the row that motivated the guard: a
-  // two-column pattern table whose alternation pipe is unescaped.
-  const found = scanMarkdownTables(table(
-    "| pattern | matches |",
-    "| ------- | ------- |",
-    "| `cat|dog` | either word |",
-  ));
-  assertEquals(at(found), ["3:extra_cells", "3:unclosed_span"]);
-});
-
 // ── tolerance proofs: the corpus's legal idioms stay legal ────────────────────
-
-Deno.test("the cured row — in-span pipes escaped — is clean", () => {
-  assertEquals(
-    scanMarkdownTables(table(STACK_HEADER, STACK_DELIMITER, NODE_ROW_ESCAPED)),
-    [],
-  );
-});
-
-Deno.test("example tables inside fences are inert and skipped", () => {
-  assertEquals(
-    scanMarkdownTables([
-      "```",
-      STACK_HEADER,
-      STACK_DELIMITER,
-      NODE_ROW_UNESCAPED,
-      "```",
-      "",
-    ].join("\n")),
-    [],
-  );
-});
-
-Deno.test("a longer-run span carrying a literal backtick is clean", () => {
-  assertEquals(
-    scanMarkdownTables(table(
-      "| character | meaning |",
-      "| --- | --- |",
-      "| `` ` `` | a literal backtick |",
-    )),
-    [],
-  );
-});
-
-Deno.test("a backslash-escaped backtick outside any span is clean", () => {
-  assertEquals(
-    scanMarkdownTables(table(
-      "| a \\` b | c |",
-      "| --- | --- |",
-      "| one | two |",
-    )),
-    [],
-  );
-});
-
-Deno.test("a row with fewer cells than its header is legal — padding loses nothing", () => {
-  assertEquals(
-    scanMarkdownTables(table(
-      "| a | b | c |",
-      "| --- | --- | --- |",
-      "| one | two |",
-    )),
-    [],
-  );
-});
-
-Deno.test("a header/delimiter count mismatch is not a table and is skipped", () => {
-  assertEquals(
-    scanMarkdownTables(table(
-      "| a | b |",
-      "| --- | --- | --- |",
-      "| `x | y | z | w |",
-    )),
-    [],
-  );
-});
-
-Deno.test("pipes in prose without a delimiter row are not a table", () => {
-  assertEquals(
-    scanMarkdownTables("either `a | b` or `c || d` reads fine in prose\n"),
-    [],
-  );
-});
-
 // ── the live sweep the gate runs ──────────────────────────────────────────────
 
 Deno.test("the tracked-Markdown universe covers the row that motivated the guard", () => {

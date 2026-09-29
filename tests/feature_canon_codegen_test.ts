@@ -17,6 +17,7 @@ import {
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 // These prove the committed canon page stays in lockstep with the feature
 // registry (the same drift-guard discipline as the glossary and the CLI and
@@ -138,74 +139,123 @@ Deno.test("the configured map's Agent Benefit Canon matches the generator (run `
   );
 });
 
-Deno.test("every id is unique and kebab-case, and every node states a complete sentence", () => {
-  const seen = new Set<string>();
-  for (const { node } of allFeatureNodes()) {
-    assert(!seen.has(node.id), `duplicate feature id: ${node.id}`);
-    seen.add(node.id);
-    assert(
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(node.id),
-      `feature id is not kebab-case: ${node.id}`,
-    );
-    assert(node.title.trim().length > 0, `empty title for: ${node.id}`);
-    assert(
-      !node.title.endsWith("."),
-      `title carries a trailing period: ${node.id}`,
-    );
-    assert(
-      /[.!?]$/u.test(node.what.trim()),
-      `"what" is not a complete sentence for: ${node.id}`,
-    );
-    if (node.why !== undefined) {
-      assert(
-        /[.!?]$/u.test(node.why.trim()),
-        `"why" is not a complete sentence for: ${node.id}`,
+Deno.test("feature canon codegen: contracts", () => {
+  assertNamedCases({
+    "every id is unique and kebab-case, and every node states a complete sentence":
+      () => {
+        const seen = new Set<string>();
+        for (const { node } of allFeatureNodes()) {
+          assert(!seen.has(node.id), `duplicate feature id: ${node.id}`);
+          seen.add(node.id);
+          assert(
+            /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(node.id),
+            `feature id is not kebab-case: ${node.id}`,
+          );
+          assert(node.title.trim().length > 0, `empty title for: ${node.id}`);
+          assert(
+            !node.title.endsWith("."),
+            `title carries a trailing period: ${node.id}`,
+          );
+          assert(
+            /[.!?]$/u.test(node.what.trim()),
+            `"what" is not a complete sentence for: ${node.id}`,
+          );
+          if (node.why !== undefined) {
+            assert(
+              /[.!?]$/u.test(node.why.trim()),
+              `"why" is not a complete sentence for: ${node.id}`,
+            );
+          }
+        }
+      },
+    "every plain account is complete and in parity with its technical twin":
+      () => {
+        for (const { node } of allFeatureNodes()) {
+          assert(
+            node.plain.title.trim().length > 0,
+            `empty plain title for: ${node.id}`,
+          );
+          assert(
+            !node.plain.title.endsWith("."),
+            `plain title carries a trailing period: ${node.id}`,
+          );
+          assert(
+            /[.!?]$/u.test(node.plain.what.trim()),
+            `plain "what" is not a complete sentence for: ${node.id}`,
+          );
+          assertEquals(
+            node.plain.why !== undefined,
+            node.why !== undefined,
+            `plain "why" must exist exactly when the technical "why" does: ${node.id}`,
+          );
+          if (node.plain.why !== undefined) {
+            assert(
+              /[.!?]$/u.test(node.plain.why.trim()),
+              `plain "why" is not a complete sentence for: ${node.id}`,
+            );
+          }
+        }
+      },
+    "every pillar states its benefit and decomposes at least one level": () => {
+      for (const pillar of FEATURE_CANON) {
+        assert(
+          pillar.why !== undefined && pillar.why.trim().length > 0,
+          `pillar ${pillar.id} has no "why" — every pillar states its benefit`,
+        );
+        assert(
+          (pillar.children ?? []).length > 0,
+          `pillar ${pillar.id} has no children — a pillar is a category, not a leaf`,
+        );
+      }
+    },
+    "every discern command mentioned in canon prose is a live verb": () => {
+      for (const { node } of allFeatureNodes()) {
+        const texts = [
+          node.what,
+          node.why ?? "",
+          node.plain.title,
+          node.plain.what,
+          node.plain.why ?? "",
+        ];
+        for (const text of texts) {
+          for (const verb of mentionedVerbs(text)) {
+            assert(
+              KNOWN_VERBS.has(verb),
+              `node ${node.id} mentions \`discern ${verb}\`, which is not a live verb`,
+            );
+          }
+        }
+      }
+    },
+    "command-mention extraction discriminates (positive controls)": () => {
+      assertEquals(mentionedVerbs("run `discern done` then `discern accept`"), [
+        "done",
+        "accept",
+      ]);
+      assertEquals(mentionedVerbs("`discern worktree prune` reclaims"), [
+        "worktree",
+      ]);
+      assertEquals(
+        mentionedVerbs(
+          "bare `discern` opens the desk; `discern.toml` is config",
+        ),
+        [],
       );
-    }
-  }
-});
-
-Deno.test("every plain account is complete and in parity with its technical twin", () => {
-  for (const { node } of allFeatureNodes()) {
-    assert(
-      node.plain.title.trim().length > 0,
-      `empty plain title for: ${node.id}`,
-    );
-    assert(
-      !node.plain.title.endsWith("."),
-      `plain title carries a trailing period: ${node.id}`,
-    );
-    assert(
-      /[.!?]$/u.test(node.plain.what.trim()),
-      `plain "what" is not a complete sentence for: ${node.id}`,
-    );
-    assertEquals(
-      node.plain.why !== undefined,
-      node.why !== undefined,
-      `plain "why" must exist exactly when the technical "why" does: ${node.id}`,
-    );
-    if (node.plain.why !== undefined) {
+    },
+    "surface keys parse and malformed keys fail loudly": () => {
+      assertEquals(parseSurfaceKey("verb:done"), {
+        set: "verb",
+        member: "done",
+      });
+      assertEquals(parseSurfaceKey("no-colon"), undefined);
+      // The tree's own claims all parse — allSurfaceClaims throws otherwise.
       assert(
-        /[.!?]$/u.test(node.plain.why.trim()),
-        `plain "why" is not a complete sentence for: ${node.id}`,
+        allSurfaceClaims().length > 0,
+        "the canon claims surfaces by design",
       );
-    }
-  }
+    },
+  });
 });
-
-Deno.test("every pillar states its benefit and decomposes at least one level", () => {
-  for (const pillar of FEATURE_CANON) {
-    assert(
-      pillar.why !== undefined && pillar.why.trim().length > 0,
-      `pillar ${pillar.id} has no "why" — every pillar states its benefit`,
-    );
-    assert(
-      (pillar.children ?? []).length > 0,
-      `pillar ${pillar.id} has no children — a pillar is a category, not a leaf`,
-    );
-  }
-});
-
 // Every `discern <verb>` mention in canon prose must name a live verb — the
 // same command-reference discipline the hint corpus and the map's fenced
 // examples are held to, so a rename fails the canon mechanically.
@@ -216,44 +266,3 @@ const COMMAND_MENTION = /`discern ([a-z][a-z-]*)/g;
 function mentionedVerbs(text: string): string[] {
   return [...text.matchAll(COMMAND_MENTION)].map((m) => m[1] ?? "");
 }
-
-Deno.test("every discern command mentioned in canon prose is a live verb", () => {
-  for (const { node } of allFeatureNodes()) {
-    const texts = [
-      node.what,
-      node.why ?? "",
-      node.plain.title,
-      node.plain.what,
-      node.plain.why ?? "",
-    ];
-    for (const text of texts) {
-      for (const verb of mentionedVerbs(text)) {
-        assert(
-          KNOWN_VERBS.has(verb),
-          `node ${node.id} mentions \`discern ${verb}\`, which is not a live verb`,
-        );
-      }
-    }
-  }
-});
-
-Deno.test("command-mention extraction discriminates (positive controls)", () => {
-  assertEquals(mentionedVerbs("run `discern done` then `discern accept`"), [
-    "done",
-    "accept",
-  ]);
-  assertEquals(mentionedVerbs("`discern worktree prune` reclaims"), [
-    "worktree",
-  ]);
-  assertEquals(
-    mentionedVerbs("bare `discern` opens the desk; `discern.toml` is config"),
-    [],
-  );
-});
-
-Deno.test("surface keys parse and malformed keys fail loudly", () => {
-  assertEquals(parseSurfaceKey("verb:done"), { set: "verb", member: "done" });
-  assertEquals(parseSurfaceKey("no-colon"), undefined);
-  // The tree's own claims all parse — allSurfaceClaims throws otherwise.
-  assert(allSurfaceClaims().length > 0, "the canon claims surfaces by design");
-});

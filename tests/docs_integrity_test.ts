@@ -18,49 +18,52 @@ import {
   headingAnchors,
   validateFencedCommand,
 } from "../src/lib/docs_integrity.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const model = cliCommandModel(buildCli(false) as unknown as Command);
 
 // ── link extraction follows the renderer ──────────────────────────────────────
 
-Deno.test("extractDocLinks finds rendered links with their source lines", () => {
-  const md = [
-    "# Title",
-    "",
-    "See [the gate](../20-quality-gate/README.md) and",
-    "[worktrees](../30-worktrees/README.md#lifecycle).",
-  ].join("\n");
-  assertEquals(extractDocLinks(md), [
-    { target: "../20-quality-gate/README.md", line: 3 },
-    { target: "../30-worktrees/README.md#lifecycle", line: 4 },
-  ]);
+Deno.test("docs integrity: extractDocLinks cases", () => {
+  assertNamedCases({
+    "extractDocLinks finds rendered links with their source lines": () => {
+      const md = [
+        "# Title",
+        "",
+        "See [the gate](../20-quality-gate/README.md) and",
+        "[worktrees](../30-worktrees/README.md#lifecycle).",
+      ].join("\n");
+      assertEquals(extractDocLinks(md), [
+        { target: "../20-quality-gate/README.md", line: 3 },
+        { target: "../30-worktrees/README.md#lifecycle", line: 4 },
+      ]);
+    },
+    "extractDocLinks ignores link syntax that never renders as a link": () => {
+      const md = [
+        "---",
+        "redirect_from:",
+        "  - /docs/old-route",
+        "---",
+        "",
+        "# Title",
+        "",
+        "Write links as `[some module](../../src/path/Thing.ext)`.",
+        "",
+        "```md",
+        "[fenced](dead.md)",
+        "```",
+        "",
+        "<!-- [commented](gone.md) -->",
+        "",
+        "A real [link](real.md), twice: [link](real.md).",
+      ].join("\n");
+      assertEquals(extractDocLinks(md), [
+        { target: "real.md", line: 16 },
+        { target: "real.md", line: 16 },
+      ]);
+    },
+  });
 });
-
-Deno.test("extractDocLinks ignores link syntax that never renders as a link", () => {
-  const md = [
-    "---",
-    "redirect_from:",
-    "  - /docs/old-route",
-    "---",
-    "",
-    "# Title",
-    "",
-    "Write links as `[some module](../../src/path/Thing.ext)`.",
-    "",
-    "```md",
-    "[fenced](dead.md)",
-    "```",
-    "",
-    "<!-- [commented](gone.md) -->",
-    "",
-    "A real [link](real.md), twice: [link](real.md).",
-  ].join("\n");
-  assertEquals(extractDocLinks(md), [
-    { target: "real.md", line: 16 },
-    { target: "real.md", line: 16 },
-  ]);
-});
-
 Deno.test("headingAnchors are the renderer's ids, duplicate-suffixed and GitHub-compatible", () => {
   const md = [
     "# The gate!",
@@ -109,120 +112,126 @@ Deno.test("extractFencedCommands finds commands only inside fences, joining cont
 
 // ── command validation bites ──────────────────────────────────────────────────
 
-Deno.test("a bogus verb fails validation (the guard bites)", () => {
-  const reason = validateFencedCommand("discern frobnicate", model);
-  assert(reason !== undefined && reason.includes("frobnicate"), reason);
+Deno.test("docs integrity: validateFencedCommand cases", () => {
+  assertNamedCases({
+    "a bogus verb fails validation (the guard bites)": () => {
+      const reason = validateFencedCommand("discern frobnicate", model);
+      assert(reason !== undefined && reason.includes("frobnicate"), reason);
+    },
+    "a removed or misspelled flag fails validation (the guard bites)": () => {
+      const reason = validateFencedCommand(
+        "discern done --no-such-flag",
+        model,
+      );
+      assert(reason !== undefined && reason.includes("--no-such-flag"), reason);
+      const sub = validateFencedCommand(
+        "discern worktree drop demo --confirmed",
+        model,
+      );
+      assert(sub !== undefined && sub.includes("--confirmed"), sub);
+    },
+    "a stale subcommand fails validation (the guard bites)": () => {
+      // `set-slot` was a real `config` subcommand once — the retired spelling must
+      // fail even with no flag on the line, because `config` is a pure command
+      // group (subcommands, no positionals).
+      const reason = validateFencedCommand(
+        "discern config set-slot gate",
+        model,
+      );
+      assert(reason !== undefined && reason.includes("set-slot"), reason);
+    },
+    "a word after a command that takes no arguments fails validation (the guard bites)":
+      () => {
+        // `worktree setup` declares no positionals, so the CLI rejects a retired
+        // subcommand spelled after it, with or without flags; so must the guard.
+        for (
+          const stale of [
+            "discern worktree setup begin --dry-run",
+            "discern status bogus",
+          ]
+        ) {
+          const reason = validateFencedCommand(stale, model);
+          assert(
+            reason !== undefined && reason.includes("takes no arguments"),
+            `${stale}: ${reason}`,
+          );
+        }
+      },
+    "real commands from the map's conventions validate": () => {
+      const fine = [
+        "discern",
+        "discern --help",
+        "discern --version",
+        "discern status",
+        "discern done --json",
+        "discern done     # or: deno task gate",
+        "discern improvement --min-score 70",
+        "discern docs --adr --json",
+        "discern worktree drop <id> --force",
+        "discern config set <dotted.key> <value> [--number | --bool | --string]",
+        "discern config set-standard <name> --direction <up|down> --limit <n> [--metric <m>]",
+        "discern skills list",
+        "discern setup begin --config - --confirmed",
+        "discern <command> --json",
+        "discern map -- --weird-positional",
+        "discern done --json && echo landed",
+        "discern status --json | head -3",
+        "discern status [--json]",
+        "discern skills list          the effective set, and your overrides",
+      ];
+      for (const command of fine) {
+        assertEquals(
+          validateFencedCommand(command, model),
+          undefined,
+          `expected valid: ${command}`,
+        );
+      }
+    },
+    "project-script names validate only when enrolled as extra verbs": () => {
+      assert(validateFencedCommand("discern self-audit", model) !== undefined);
+      assertEquals(
+        validateFencedCommand(
+          "discern self-audit",
+          model,
+          new Set(["self-audit"]),
+        ),
+        undefined,
+      );
+    },
+  });
 });
-
-Deno.test("a removed or misspelled flag fails validation (the guard bites)", () => {
-  const reason = validateFencedCommand("discern done --no-such-flag", model);
-  assert(reason !== undefined && reason.includes("--no-such-flag"), reason);
-  const sub = validateFencedCommand(
-    "discern worktree drop demo --confirmed",
-    model,
-  );
-  assert(sub !== undefined && sub.includes("--confirmed"), sub);
-});
-
-Deno.test("a stale subcommand fails validation (the guard bites)", () => {
-  // `set-slot` was a real `config` subcommand once — the retired spelling must
-  // fail even with no flag on the line, because `config` is a pure command
-  // group (subcommands, no positionals).
-  const reason = validateFencedCommand(
-    "discern config set-slot gate",
-    model,
-  );
-  assert(reason !== undefined && reason.includes("set-slot"), reason);
-});
-
-Deno.test("a word after a command that takes no arguments fails validation (the guard bites)", () => {
-  // `worktree setup` declares no positionals, so the CLI rejects a retired
-  // subcommand spelled after it, with or without flags; so must the guard.
-  for (
-    const stale of [
-      "discern worktree setup begin --dry-run",
-      "discern status bogus",
-    ]
-  ) {
-    const reason = validateFencedCommand(stale, model);
-    assert(
-      reason !== undefined && reason.includes("takes no arguments"),
-      `${stale}: ${reason}`,
-    );
-  }
-});
-
-Deno.test("real commands from the map's conventions validate", () => {
-  const fine = [
-    "discern",
-    "discern --help",
-    "discern --version",
-    "discern status",
-    "discern done --json",
-    "discern done     # or: deno task gate",
-    "discern improvement --min-score 70",
-    "discern docs --adr --json",
-    "discern worktree drop <id> --force",
-    "discern config set <dotted.key> <value> [--number | --bool | --string]",
-    "discern config set-standard <name> --direction <up|down> --limit <n> [--metric <m>]",
-    "discern skills list",
-    "discern setup begin --config - --confirmed",
-    "discern <command> --json",
-    "discern map -- --weird-positional",
-    "discern done --json && echo landed",
-    "discern status --json | head -3",
-    "discern status [--json]",
-    "discern skills list          the effective set, and your overrides",
-  ];
-  for (const command of fine) {
-    assertEquals(
-      validateFencedCommand(command, model),
-      undefined,
-      `expected valid: ${command}`,
-    );
-  }
-});
-
-Deno.test("project-script names validate only when enrolled as extra verbs", () => {
-  assert(validateFencedCommand("discern self-audit", model) !== undefined);
-  assertEquals(
-    validateFencedCommand(
-      "discern self-audit",
-      model,
-      new Set(["self-audit"]),
-    ),
-    undefined,
-  );
-});
-
 // ── skill-citation extraction ─────────────────────────────────────────────────
 
-Deno.test("extractSkillCitations finds exact backticked tokens outside fences", () => {
-  const md = [
-    "# Page",
-    "",
-    "Use the `discern-cure-a-bug` skill, or **`discern-write-adr`** bolded.",
-    "",
-    "```json",
-    '"discern-design-system": "jsr:@example/pkg@1.0.0"',
-    "```",
-    "",
-    "A span with more than the token: `discern-allow-retrospective: <reason>`.",
-    "Bare prose discern-cure-a-bug is not a citation, nor is `discern-results`.",
-  ].join("\n");
-  assertEquals(extractSkillCitations(md), [
-    { line: 3, name: "discern-cure-a-bug" },
-    { line: 3, name: "discern-write-adr" },
-  ]);
-});
-
-Deno.test("extractSkillCitations survives an unclosed fence", () => {
-  const md = [
-    "`discern-cure-a-bug` before the fence.",
-    "```",
-    "`discern-write-adr` inside the never-closed fence.",
-  ].join("\n");
-  assertEquals(extractSkillCitations(md), [
-    { line: 1, name: "discern-cure-a-bug" },
-  ]);
+Deno.test("docs integrity: extractSkillCitations cases", () => {
+  assertNamedCases({
+    "extractSkillCitations finds exact backticked tokens outside fences":
+      () => {
+        const md = [
+          "# Page",
+          "",
+          "Use the `discern-cure-a-bug` skill, or **`discern-write-adr`** bolded.",
+          "",
+          "```json",
+          '"discern-design-system": "jsr:@example/pkg@1.0.0"',
+          "```",
+          "",
+          "A span with more than the token: `discern-allow-retrospective: <reason>`.",
+          "Bare prose discern-cure-a-bug is not a citation, nor is `discern-results`.",
+        ].join("\n");
+        assertEquals(extractSkillCitations(md), [
+          { line: 3, name: "discern-cure-a-bug" },
+          { line: 3, name: "discern-write-adr" },
+        ]);
+      },
+    "extractSkillCitations survives an unclosed fence": () => {
+      const md = [
+        "`discern-cure-a-bug` before the fence.",
+        "```",
+        "`discern-write-adr` inside the never-closed fence.",
+      ].join("\n");
+      assertEquals(extractSkillCitations(md), [
+        { line: 1, name: "discern-cure-a-bug" },
+      ]);
+    },
+  });
 });

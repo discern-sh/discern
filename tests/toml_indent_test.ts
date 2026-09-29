@@ -6,6 +6,8 @@
  * changes nothing. The exact-output cases pin the convention itself.
  */
 
+import { assertCases } from "./assert_cases.ts";
+
 import { assertEquals } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
 import { indentToml } from "../src/lib/toml_indent.ts";
@@ -124,18 +126,22 @@ name = "env"
 `,
 };
 
-for (const [name, input] of Object.entries(FIXTURES)) {
-  Deno.test(`indentToml: ${name}`, () => {
-    const output = indentToml(input);
-    assertEquals(output, EXPECTED[name]);
-    assertEquals(
-      parseToml(output),
-      parseToml(input),
-      "indentation must never change what the document says",
-    );
-    assertEquals(indentToml(output), output, "the pass must be idempotent");
-  });
-}
+Deno.test("indentToml preserves meaning and its exact formatting corpus", () => {
+  assertCases(
+    Object.entries(FIXTURES),
+    ([name]) => `indentToml: ${name}`,
+    ([name, input]) => {
+      const output = indentToml(input);
+      assertEquals(output, EXPECTED[name]);
+      assertEquals(
+        parseToml(output),
+        parseToml(input),
+        "indentation must never change what the document says",
+      );
+      assertEquals(indentToml(output), output, "the pass must be idempotent");
+    },
+  );
+});
 
 Deno.test("indentToml: array-of-tables headers indent like table headers", () => {
   const input = `[[fruit]]
@@ -333,15 +339,19 @@ fail_fast = true
   },
 };
 
-for (const [name, { input, expected }] of Object.entries(EXAMPLE_FIXTURES)) {
-  Deno.test(`indentToml: ${name}`, () => {
-    const output = indentToml(input);
-    assertEquals(output, expected);
-    assertEquals(
-      parseToml(output),
-      parseToml(input),
-      "indentation must never change what the document says",
-    );
-    assertEquals(indentToml(output), output, "the pass must be idempotent");
-  });
-}
+Deno.test("indentToml preserves meaning and formatting for commented examples", () => {
+  assertCases(
+    Object.entries(EXAMPLE_FIXTURES),
+    ([name]) => `indentToml: ${name}`,
+    ([, { input, expected }]) => {
+      const output = indentToml(input);
+      assertEquals(output, expected);
+      assertEquals(
+        parseToml(output),
+        parseToml(input),
+        "indentation must never change what the document says",
+      );
+      assertEquals(indentToml(output), output, "the pass must be idempotent");
+    },
+  );
+});

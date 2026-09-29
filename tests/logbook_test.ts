@@ -13,6 +13,8 @@
  *    round-trips and tolerates corruption.
  */
 
+import { assertCases } from "./assert_cases.ts";
+
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -80,6 +82,18 @@ Deno.test("logbook begin policy: effectful and mixed verb forms are classified a
   assertEquals(logbookVerbIsEffectful("map"), false);
   assertEquals(logbookVerbIsEffectful("map", ["output"]), true);
 });
+
+/** Seed ordered month files with exact newline-terminated event lines. */
+async function seedLogbookMonths(
+  root: string,
+  months: readonly (readonly [name: string, lines: readonly string[]])[],
+): Promise<void> {
+  const dir = logbookDir(root);
+  await Deno.mkdir(dir, { recursive: true });
+  for (const [name, lines] of months) {
+    await Deno.writeTextFile(join(dir, name), lines.join("\n") + "\n");
+  }
+}
 
 /** A representative verb event exercising every field. */
 function sampleEvent(): VerbEvent {
@@ -151,173 +165,231 @@ function sampleEvent(): VerbEvent {
   };
 }
 
-Deno.test("logbook schema: a substrate-era minimal line still parses (fields only accrete)", () => {
-  // The first recorded events carried none of the enrichment fields; readers
-  // must parse them forever — the additive-only compatibility promise.
-  const parsed = parseLogbookLine(JSON.stringify({
-    schema: LOGBOOK_SCHEMA_VERSION,
-    at: "2026-07-19T12:00:00.000Z",
-    kind: "verb",
-    verb: "status",
-    surface: "cli",
-    branch: "main",
-    head: "abc1234",
-    clean: true,
-    outcome: "ok",
-    duration_ms: 42,
-    epoch: null,
-  }));
-  assert(parsed.kind === "event", "a minimal substrate-era line must parse");
-  assert(parsed.event.kind === "verb");
-  assertEquals(parsed.event.waited_ms, undefined);
-  assertEquals(
-    executionDurationMs(parsed.event),
-    42,
-    "an event from before wait accounting reads as zero wait",
+Deno.test("logbook schema preserves compatible metadata and identifies unsupported lines", () => {
+  assertCases(
+    [
+      {
+        name:
+          "logbook schema: a substrate-era minimal line still parses (fields only accrete)",
+        check: (): void => {
+          // The first recorded events carried none of the enrichment fields; readers
+          // must parse them forever — the additive-only compatibility promise.
+          const parsed = parseLogbookLine(JSON.stringify({
+            schema: LOGBOOK_SCHEMA_VERSION,
+            at: "2026-07-19T12:00:00.000Z",
+            kind: "verb",
+            verb: "status",
+            surface: "cli",
+            branch: "main",
+            head: "abc1234",
+            clean: true,
+            outcome: "ok",
+            duration_ms: 42,
+            epoch: null,
+          }));
+          assert(
+            parsed.kind === "event",
+            "a minimal substrate-era line must parse",
+          );
+          assert(parsed.event.kind === "verb");
+          assertEquals(parsed.event.waited_ms, undefined);
+          assertEquals(
+            executionDurationMs(parsed.event),
+            42,
+            "an event from before wait accounting reads as zero wait",
+          );
+        },
+      },
+      {
+        name: "logbook schema: a written line round-trips through the parser",
+        check: (): void => {
+          const event = sampleEvent();
+          const parsed = parseLogbookLine(JSON.stringify(event));
+          assert(
+            parsed.kind === "event",
+            `expected an event, got ${parsed.kind}`,
+          );
+          assertEquals(parsed.event, event);
+        },
+      },
+      {
+        name:
+          "logbook schema: partial acceptance records the landing effects that already happened",
+        check: (): void => {
+          const parsed = parseLogbookLine(JSON.stringify({
+            ...sampleEvent(),
+            verb: "accept",
+            outcome: "partial",
+            error: "partial_acceptance",
+            landing: {
+              recovery_performed: false,
+              trunk_landed: true,
+              worktree_removed: true,
+              branch_deleted: false,
+            },
+          }));
+          assert(
+            parsed.kind === "event",
+            "partial is a first-class logbook outcome",
+          );
+          assert(parsed.event.kind === "verb");
+          assertEquals(parsed.event.outcome, "partial");
+          assertEquals(
+            (parsed.event as unknown as { landing?: unknown }).landing,
+            {
+              recovery_performed: false,
+              trunk_landed: true,
+              worktree_removed: true,
+              branch_deleted: false,
+            },
+          );
+        },
+      },
+      {
+        name:
+          "logbook schema: every canonical outcome round-trips as a verb event",
+        check: (): void => {
+          for (const outcome of LOGBOOK_OUTCOMES) {
+            const parsed = parseLogbookLine(JSON.stringify({
+              ...sampleEvent(),
+              outcome,
+            }));
+            assert(
+              parsed.kind === "event",
+              `outcome ${outcome} must remain readable`,
+            );
+            assert(parsed.event.kind === "verb");
+            assertEquals(parsed.event.outcome, outcome);
+          }
+        },
+      },
+      {
+        name:
+          "logbook schema: checkpoint observations round-trip as metadata, and their absence censors",
+        check: (): void => {
+          // The block carries the open-question and variance lifecycle: ids, conclusions,
+          // fingerprints, and timing. No rationale field exists in the shape — the
+          // metadata-only bar is structural, not a convention.
+          const block = {
+            fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
+            reopened: [{ id: "api-review", definition: "d1", subject: "s2" }],
+            declared: [{
+              id: "api-review",
+              conclusion: "met",
+              revised: true,
+              definition: "d1",
+              subject: "s2",
+              elapsed_ms: 42_000,
+            }],
+            advise: [{ id: "commit-story" }],
+            variances: [{ id: "api-review", definition: "d1", subject: "s2" }],
+            abandoned: [{ id: "retired-rule" }],
+          };
+          const parsed = parseLogbookLine(JSON.stringify({
+            ...sampleEvent(),
+            checkpoints: block,
+          }));
+          assert(parsed.kind === "event");
+          assert(parsed.event.kind === "verb");
+          assertEquals(parsed.event.checkpoints, block);
+          // An event written before checkpoint observation existed still parses, its
+          // block simply absent — readers censor what is missing, never break.
+          const older = parseLogbookLine(JSON.stringify(sampleEvent()));
+          assert(older.kind === "event");
+          assert(older.event.kind === "verb");
+          assertEquals(older.event.checkpoints, undefined);
+        },
+      },
+      {
+        name:
+          "logbook schema: unknown fields pass through untouched (forward compat)",
+        check: (): void => {
+          const line = JSON.stringify({
+            ...sampleEvent(),
+            a_future_field: "kept",
+            steps: [{ label: "x", kind: "job", outcome: "ok", future_note: 7 }],
+          });
+          const parsed = parseLogbookLine(line);
+          assert(parsed.kind === "event");
+          const raw = parsed.event as unknown as Record<string, unknown>;
+          assertEquals(raw.a_future_field, "kept");
+        },
+      },
+      {
+        name: "logbook schema: historical error slugs remain string-compatible",
+        check: (): void => {
+          const parsed = parseLogbookLine(JSON.stringify({
+            ...sampleEvent(),
+            error: "retired_or_future_error_slug",
+          }));
+          assert(parsed.kind === "event");
+          assertEquals(parsed.event.error, "retired_or_future_error_slug");
+        },
+      },
+      {
+        name: "logbook schema: a newer schema major is named and never misread",
+        check: (): void => {
+          const parsed = parseLogbookLine(
+            JSON.stringify({
+              ...sampleEvent(),
+              schema: LOGBOOK_SCHEMA_VERSION + 1,
+            }),
+          );
+          assertEquals(parsed.kind, "newer");
+          if (parsed.kind === "newer") {
+            assertStringIncludes(parsed.reason, "written by a newer discern");
+          }
+        },
+      },
+      {
+        name:
+          "logbook schema: newer nested validation evidence is named and never misread",
+        check: (): void => {
+          const parsed = parseLogbookLine(
+            JSON.stringify({
+              ...sampleEvent(),
+              validation: {
+                version: ON_DISK_FORMATS.logbookValidationEvidence.version + 1,
+              },
+            }),
+          );
+          assertEquals(parsed.kind, "newer");
+          if (parsed.kind === "newer") {
+            assertStringIncludes(parsed.reason, "logbook-validation-evidence");
+            assertStringIncludes(parsed.reason, "Update discern");
+          }
+        },
+      },
+      {
+        name: "logbook schema: an unknown kind is foreign; a torn line is torn",
+        check: (): void => {
+          assertEquals(
+            parseLogbookLine(
+              JSON.stringify({
+                schema: LOGBOOK_SCHEMA_VERSION,
+                at: "2026-07-19T12:00:00.000Z",
+                kind: "verb-v2",
+              }),
+            ).kind,
+            "foreign",
+          );
+          assertEquals(
+            parseLogbookLine('{"schema":1,"kind":"ver').kind,
+            "torn",
+          );
+          assertEquals(parseLogbookLine("").kind, "torn");
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
   );
 });
 
 Deno.test("logbook schema: execution time excludes a recorded slot wait", () => {
   assertEquals(executionDurationMs(sampleEvent()), 1_000);
-});
-
-Deno.test("logbook schema: a written line round-trips through the parser", () => {
-  const event = sampleEvent();
-  const parsed = parseLogbookLine(JSON.stringify(event));
-  assert(parsed.kind === "event", `expected an event, got ${parsed.kind}`);
-  assertEquals(parsed.event, event);
-});
-
-Deno.test("logbook schema: partial acceptance records the landing effects that already happened", () => {
-  const parsed = parseLogbookLine(JSON.stringify({
-    ...sampleEvent(),
-    verb: "accept",
-    outcome: "partial",
-    error: "partial_acceptance",
-    landing: {
-      recovery_performed: false,
-      trunk_landed: true,
-      worktree_removed: true,
-      branch_deleted: false,
-    },
-  }));
-  assert(parsed.kind === "event", "partial is a first-class logbook outcome");
-  assert(parsed.event.kind === "verb");
-  assertEquals(parsed.event.outcome, "partial");
-  assertEquals((parsed.event as unknown as { landing?: unknown }).landing, {
-    recovery_performed: false,
-    trunk_landed: true,
-    worktree_removed: true,
-    branch_deleted: false,
-  });
-});
-
-Deno.test("logbook schema: every canonical outcome round-trips as a verb event", () => {
-  for (const outcome of LOGBOOK_OUTCOMES) {
-    const parsed = parseLogbookLine(JSON.stringify({
-      ...sampleEvent(),
-      outcome,
-    }));
-    assert(parsed.kind === "event", `outcome ${outcome} must remain readable`);
-    assert(parsed.event.kind === "verb");
-    assertEquals(parsed.event.outcome, outcome);
-  }
-});
-
-Deno.test("logbook schema: checkpoint observations round-trip as metadata, and their absence censors", () => {
-  // The block carries the open-question and variance lifecycle: ids, conclusions,
-  // fingerprints, and timing. No rationale field exists in the shape — the
-  // metadata-only bar is structural, not a convention.
-  const block = {
-    fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
-    reopened: [{ id: "api-review", definition: "d1", subject: "s2" }],
-    declared: [{
-      id: "api-review",
-      conclusion: "met",
-      revised: true,
-      definition: "d1",
-      subject: "s2",
-      elapsed_ms: 42_000,
-    }],
-    advise: [{ id: "commit-story" }],
-    variances: [{ id: "api-review", definition: "d1", subject: "s2" }],
-    abandoned: [{ id: "retired-rule" }],
-  };
-  const parsed = parseLogbookLine(JSON.stringify({
-    ...sampleEvent(),
-    checkpoints: block,
-  }));
-  assert(parsed.kind === "event");
-  assert(parsed.event.kind === "verb");
-  assertEquals(parsed.event.checkpoints, block);
-  // An event written before checkpoint observation existed still parses, its
-  // block simply absent — readers censor what is missing, never break.
-  const older = parseLogbookLine(JSON.stringify(sampleEvent()));
-  assert(older.kind === "event");
-  assert(older.event.kind === "verb");
-  assertEquals(older.event.checkpoints, undefined);
-});
-
-Deno.test("logbook schema: unknown fields pass through untouched (forward compat)", () => {
-  const line = JSON.stringify({
-    ...sampleEvent(),
-    a_future_field: "kept",
-    steps: [{ label: "x", kind: "job", outcome: "ok", future_note: 7 }],
-  });
-  const parsed = parseLogbookLine(line);
-  assert(parsed.kind === "event");
-  const raw = parsed.event as unknown as Record<string, unknown>;
-  assertEquals(raw.a_future_field, "kept");
-});
-
-Deno.test("logbook schema: historical error slugs remain string-compatible", () => {
-  const parsed = parseLogbookLine(JSON.stringify({
-    ...sampleEvent(),
-    error: "retired_or_future_error_slug",
-  }));
-  assert(parsed.kind === "event");
-  assertEquals(parsed.event.error, "retired_or_future_error_slug");
-});
-
-Deno.test("logbook schema: a newer schema major is named and never misread", () => {
-  const parsed = parseLogbookLine(
-    JSON.stringify({ ...sampleEvent(), schema: LOGBOOK_SCHEMA_VERSION + 1 }),
-  );
-  assertEquals(parsed.kind, "newer");
-  if (parsed.kind === "newer") {
-    assertStringIncludes(parsed.reason, "written by a newer discern");
-  }
-});
-
-Deno.test("logbook schema: newer nested validation evidence is named and never misread", () => {
-  const parsed = parseLogbookLine(
-    JSON.stringify({
-      ...sampleEvent(),
-      validation: {
-        version: ON_DISK_FORMATS.logbookValidationEvidence.version + 1,
-      },
-    }),
-  );
-  assertEquals(parsed.kind, "newer");
-  if (parsed.kind === "newer") {
-    assertStringIncludes(parsed.reason, "logbook-validation-evidence");
-    assertStringIncludes(parsed.reason, "Update discern");
-  }
-});
-
-Deno.test("logbook schema: an unknown kind is foreign; a torn line is torn", () => {
-  assertEquals(
-    parseLogbookLine(
-      JSON.stringify({
-        schema: LOGBOOK_SCHEMA_VERSION,
-        at: "2026-07-19T12:00:00.000Z",
-        kind: "verb-v2",
-      }),
-    ).kind,
-    "foreign",
-  );
-  assertEquals(parseLogbookLine('{"schema":1,"kind":"ver').kind, "torn");
-  assertEquals(parseLogbookLine("").kind, "torn");
 });
 
 Deno.test("logbook schema: begin, config-change, pin, and prune events validate", () => {
@@ -386,89 +458,141 @@ limit = ${limit}
 run = "${run}"
 `;
 
-Deno.test("epoch: every top-level config section is hashed (schema-driven, auto-enrol)", () => {
-  const epoch = configEpoch(parseConfigOrThrow(""));
-  assertEquals(
-    Object.keys(epoch.sections).sort(),
-    Object.keys(configSchema.shape).sort(),
-  );
-});
-
-Deno.test("epoch: a standards pin (a limit edit) changes no hash", () => {
-  const before = configEpoch(
-    parseConfigOrThrow(STANDARD_CONFIG(10, "echo DISCERN_METRIC cov 12")),
-  );
-  const pinned = configEpoch(
-    parseConfigOrThrow(STANDARD_CONFIG(12, "echo DISCERN_METRIC cov 12")),
-  );
-  assertEquals(pinned.fingerprint, before.fingerprint);
-  assertEquals(changedSections(before.sections, pinned.sections), []);
-});
-
-Deno.test("epoch: a real standards edit flips exactly the standards section", () => {
-  const before = configEpoch(
-    parseConfigOrThrow(STANDARD_CONFIG(10, "echo DISCERN_METRIC cov 12")),
-  );
-  const edited = configEpoch(
-    parseConfigOrThrow(STANDARD_CONFIG(10, "echo DISCERN_METRIC cov 99")),
-  );
-  assert(edited.fingerprint !== before.fingerprint);
-  assertEquals(changedSections(before.sections, edited.sections), [
-    "standards",
-  ]);
-});
-
-Deno.test("epoch: a job edit flips exactly the jobs section", () => {
-  const before = configEpoch(parseConfigOrThrow(""));
-  const edited = configEpoch(
-    parseConfigOrThrow('[jobs]\nlint = "deno lint"'),
-  );
-  assert(edited.fingerprint !== before.fingerprint);
-  assertEquals(changedSections(before.sections, edited.sections), [
-    "jobs",
-  ]);
-});
-
-Deno.test("epoch: a checkpoint trigger or question edit flips exactly the checkpoints section", () => {
-  // Economics shifts must be attributable to definition changes: an edited
-  // trigger or question lands as a config-change event naming `checkpoints`,
-  // and nothing else moves.
-  const CHECKPOINT_CONFIG = (paths: string, question: string): string => `
+Deno.test("config epochs track semantic edits and mask bookkeeping", () => {
+  assertCases(
+    [
+      {
+        name:
+          "epoch: every top-level config section is hashed (schema-driven, auto-enrol)",
+        check: (): void => {
+          const epoch = configEpoch(parseConfigOrThrow(""));
+          assertEquals(
+            Object.keys(epoch.sections).sort(),
+            Object.keys(configSchema.shape).sort(),
+          );
+        },
+      },
+      {
+        name: "epoch: a standards pin (a limit edit) changes no hash",
+        check: (): void => {
+          const before = configEpoch(
+            parseConfigOrThrow(
+              STANDARD_CONFIG(10, "echo DISCERN_METRIC cov 12"),
+            ),
+          );
+          const pinned = configEpoch(
+            parseConfigOrThrow(
+              STANDARD_CONFIG(12, "echo DISCERN_METRIC cov 12"),
+            ),
+          );
+          assertEquals(pinned.fingerprint, before.fingerprint);
+          assertEquals(changedSections(before.sections, pinned.sections), []);
+        },
+      },
+      {
+        name:
+          "epoch: a real standards edit flips exactly the standards section",
+        check: (): void => {
+          const before = configEpoch(
+            parseConfigOrThrow(
+              STANDARD_CONFIG(10, "echo DISCERN_METRIC cov 12"),
+            ),
+          );
+          const edited = configEpoch(
+            parseConfigOrThrow(
+              STANDARD_CONFIG(10, "echo DISCERN_METRIC cov 99"),
+            ),
+          );
+          assert(edited.fingerprint !== before.fingerprint);
+          assertEquals(changedSections(before.sections, edited.sections), [
+            "standards",
+          ]);
+        },
+      },
+      {
+        name: "epoch: a job edit flips exactly the jobs section",
+        check: (): void => {
+          const before = configEpoch(parseConfigOrThrow(""));
+          const edited = configEpoch(
+            parseConfigOrThrow('[jobs]\nlint = "deno lint"'),
+          );
+          assert(edited.fingerprint !== before.fingerprint);
+          assertEquals(changedSections(before.sections, edited.sections), [
+            "jobs",
+          ]);
+        },
+      },
+      {
+        name:
+          "epoch: a checkpoint trigger or question edit flips exactly the checkpoints section",
+        check: (): void => {
+          // Economics shifts must be attributable to definition changes: an edited
+          // trigger or question lands as a config-change event naming `checkpoints`,
+          // and nothing else moves.
+          const CHECKPOINT_CONFIG = (
+            paths: string,
+            question: string,
+          ): string => `
 [checkpoints.api-review]
 paths = ["${paths}"]
 question = "${question}"
 `;
-  const before = configEpoch(
-    parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/**", "Documented.")),
-  );
-  const questionEdited = configEpoch(
-    parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/**", "Documented, tested.")),
-  );
-  assert(questionEdited.fingerprint !== before.fingerprint);
-  assertEquals(changedSections(before.sections, questionEdited.sections), [
-    "checkpoints",
-  ]);
-  const triggerEdited = configEpoch(
-    parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/v2/**", "Documented.")),
-  );
-  assert(triggerEdited.fingerprint !== before.fingerprint);
-  assertEquals(changedSections(before.sections, triggerEdited.sections), [
-    "checkpoints",
-  ]);
-});
-
-Deno.test("epoch: [meta] bookkeeping is masked (an upgrade re-stamp moves nothing)", () => {
-  const before = configEpoch(parseConfigOrThrow(""));
-  const restamped = configEpoch(
-    parseConfigOrThrow("[meta]\nschema_version = 99\nbootstrapped = true"),
-  );
-  assertEquals(restamped.fingerprint, before.fingerprint);
-});
-
-Deno.test("epoch: canonical JSON ignores key declaration order", () => {
-  assertEquals(
-    canonicalJson({ b: 1, a: [{ y: 2, x: 3 }] }),
-    canonicalJson({ a: [{ x: 3, y: 2 }], b: 1 }),
+          const before = configEpoch(
+            parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/**", "Documented.")),
+          );
+          const questionEdited = configEpoch(
+            parseConfigOrThrow(
+              CHECKPOINT_CONFIG("src/api/**", "Documented, tested."),
+            ),
+          );
+          assert(questionEdited.fingerprint !== before.fingerprint);
+          assertEquals(
+            changedSections(before.sections, questionEdited.sections),
+            [
+              "checkpoints",
+            ],
+          );
+          const triggerEdited = configEpoch(
+            parseConfigOrThrow(
+              CHECKPOINT_CONFIG("src/api/v2/**", "Documented."),
+            ),
+          );
+          assert(triggerEdited.fingerprint !== before.fingerprint);
+          assertEquals(
+            changedSections(before.sections, triggerEdited.sections),
+            [
+              "checkpoints",
+            ],
+          );
+        },
+      },
+      {
+        name:
+          "epoch: [meta] bookkeeping is masked (an upgrade re-stamp moves nothing)",
+        check: (): void => {
+          const before = configEpoch(parseConfigOrThrow(""));
+          const restamped = configEpoch(
+            parseConfigOrThrow(
+              "[meta]\nschema_version = 99\nbootstrapped = true",
+            ),
+          );
+          assertEquals(restamped.fingerprint, before.fingerprint);
+        },
+      },
+      {
+        name: "epoch: canonical JSON ignores key declaration order",
+        check: (): void => {
+          assertEquals(
+            canonicalJson({ b: 1, a: [{ y: 2, x: 3 }] }),
+            canonicalJson({ a: [{ x: 3, y: 2 }], b: 1 }),
+          );
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
   );
 });
 
@@ -705,30 +829,21 @@ Deno.test("reader: a missing logbook is an empty stream, not an error", async ()
 
 Deno.test("reader: months merge chronologically and torn/foreign lines are counted, never fatal", async () => {
   await withTempDir(async (dir) => {
-    const logDir = logbookDir(dir);
-    await Deno.mkdir(logDir, { recursive: true });
     // Two months written out of name order, one holding a torn line and a
     // foreign (future-major) line between real events — plus an out-of-order
     // append inside the newer month (a concurrent worktree's interleaving).
-    await Deno.writeTextFile(
-      join(logDir, "2026-07.jsonl"),
-      [
-        JSON.stringify(verbEventAt("2026-07-02T09:00:00.000Z")),
-        JSON.stringify(verbEventAt("2026-07-01T08:00:00.000Z")),
-      ].join("\n") + "\n",
-    );
-    await Deno.writeTextFile(
-      join(logDir, "2026-06.jsonl"),
-      [
-        JSON.stringify(verbEventAt("2026-06-10T10:00:00.000Z")),
-        '{"schema":1,"kind":"ver',
-        JSON.stringify({
-          ...verbEventAt("2026-06-11T10:00:00.000Z"),
-          schema: 99,
-        }),
-        JSON.stringify(verbEventAt("2026-06-12T10:00:00.000Z")),
-      ].join("\n") + "\n",
-    );
+    await seedLogbookMonths(dir, [["2026-07.jsonl", [
+      JSON.stringify(verbEventAt("2026-07-02T09:00:00.000Z")),
+      JSON.stringify(verbEventAt("2026-07-01T08:00:00.000Z")),
+    ]], ["2026-06.jsonl", [
+      JSON.stringify(verbEventAt("2026-06-10T10:00:00.000Z")),
+      '{"schema":1,"kind":"ver',
+      JSON.stringify({
+        ...verbEventAt("2026-06-11T10:00:00.000Z"),
+        schema: 99,
+      }),
+      JSON.stringify(verbEventAt("2026-06-12T10:00:00.000Z")),
+    ]]]);
     // The epoch sidecar sits beside the months and is not event storage.
     await writeEpochState(dir, {
       schema: LOGBOOK_SCHEMA_VERSION,
@@ -751,20 +866,13 @@ Deno.test("reader: months merge chronologically and torn/foreign lines are count
 
 Deno.test("reader: the inline tail is event-bounded and never opens an older month once full", async () => {
   await withTempDir(async (dir) => {
-    const logDir = logbookDir(dir);
-    await Deno.mkdir(logDir, { recursive: true });
-    await Deno.writeTextFile(
-      join(logDir, "2026-06.jsonl"),
-      `${JSON.stringify(verbEventAt("2026-06-30T23:59:00.000Z"))}\n`,
-    );
-    await Deno.writeTextFile(
-      join(logDir, "2026-07.jsonl"),
-      [
-        JSON.stringify(verbEventAt("2026-07-01T08:00:00.000Z")),
-        JSON.stringify(verbEventAt("2026-07-02T09:00:00.000Z")),
-        JSON.stringify(verbEventAt("2026-07-03T10:00:00.000Z")),
-      ].join("\n") + "\n",
-    );
+    await seedLogbookMonths(dir, [["2026-06.jsonl", [
+      JSON.stringify(verbEventAt("2026-06-30T23:59:00.000Z")),
+    ]], ["2026-07.jsonl", [
+      JSON.stringify(verbEventAt("2026-07-01T08:00:00.000Z")),
+      JSON.stringify(verbEventAt("2026-07-02T09:00:00.000Z")),
+      JSON.stringify(verbEventAt("2026-07-03T10:00:00.000Z")),
+    ]]]);
 
     const recent = await readRecentLogbookStream(dir, 2);
     assertEquals(recent.months, ["2026-07.jsonl"]);
@@ -775,322 +883,348 @@ Deno.test("reader: the inline tail is event-bounded and never opens an older mon
   });
 });
 
-Deno.test("fleet activity: begin/finish pairing and current-epoch duration priors are pure derivations", () => {
-  const currentEpoch = "current";
-  const now = Date.parse("2026-07-19T12:10:00.000Z");
-  const events: LogbookEvent[] = [
-    {
-      ...verbEventAt("2026-07-19T11:00:00.000Z"),
-      invocation: "old-finish",
-      verb: "done",
-      duration_ms: 90_000,
-      epoch: "old",
-    },
-    {
-      ...verbEventAt("2026-07-19T11:10:00.000Z"),
-      invocation: "current-finish-a",
-      verb: "done",
-      duration_ms: 240_000,
-      waited_ms: 180_000,
-      epoch: currentEpoch,
-    },
-    {
-      ...verbEventAt("2026-07-19T11:20:00.000Z"),
-      invocation: "current-finish-b",
-      verb: "done",
-      outcome: "failed",
-      failed_stage: "test",
-      duration_ms: 360_000,
-      waited_ms: 300_000,
-      epoch: currentEpoch,
-    },
-    {
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: "2026-07-19T12:08:00.000Z",
-      writer: "9.9.9",
-      kind: "begin",
-      invocation: "live-run",
-      verb: "done",
-      surface: "cli",
-      driver: {},
-      branch: "main",
-      head: "abc1234",
-      epoch: currentEpoch,
-    },
-  ];
-
-  const derived = deriveFleetLogbookActivity(events, currentEpoch, now);
-  assertEquals(derived.durationPriors.get("done"), {
-    medianMs: 60_000,
-    p90Ms: 60_000,
-    samples: 2,
-  });
-  assertEquals(derived.byBranch.get("main"), {
-    lastAction: {
-      verb: "done",
-      outcome: "failed",
-      at: "2026-07-19T11:20:00.000Z",
-      failedStage: "test",
-    },
-    inFlight: [{
-      verb: "done",
-      started: "2026-07-19T12:08:00.000Z",
-    }],
-    running: {
-      verb: "done",
-      started: "2026-07-19T12:08:00.000Z",
-    },
-    lastEventAt: "2026-07-19T12:08:00.000Z",
-  });
-
-  const paired = deriveFleetLogbookActivity(
+Deno.test("fleet activity derives current liveness and duration from event evidence", () => {
+  assertCases(
     [
-      ...events,
       {
-        ...verbEventAt("2026-07-19T12:09:00.000Z"),
-        invocation: "live-run",
-        verb: "done",
-        epoch: currentEpoch,
+        name:
+          "fleet activity: begin/finish pairing and current-epoch duration priors are pure derivations",
+        check: (): void => {
+          const currentEpoch = "current";
+          const now = Date.parse("2026-07-19T12:10:00.000Z");
+          const events: LogbookEvent[] = [
+            {
+              ...verbEventAt("2026-07-19T11:00:00.000Z"),
+              invocation: "old-finish",
+              verb: "done",
+              duration_ms: 90_000,
+              epoch: "old",
+            },
+            {
+              ...verbEventAt("2026-07-19T11:10:00.000Z"),
+              invocation: "current-finish-a",
+              verb: "done",
+              duration_ms: 240_000,
+              waited_ms: 180_000,
+              epoch: currentEpoch,
+            },
+            {
+              ...verbEventAt("2026-07-19T11:20:00.000Z"),
+              invocation: "current-finish-b",
+              verb: "done",
+              outcome: "failed",
+              failed_stage: "test",
+              duration_ms: 360_000,
+              waited_ms: 300_000,
+              epoch: currentEpoch,
+            },
+            {
+              schema: LOGBOOK_SCHEMA_VERSION,
+              at: "2026-07-19T12:08:00.000Z",
+              writer: "9.9.9",
+              kind: "begin",
+              invocation: "live-run",
+              verb: "done",
+              surface: "cli",
+              driver: {},
+              branch: "main",
+              head: "abc1234",
+              epoch: currentEpoch,
+            },
+          ];
+
+          const derived = deriveFleetLogbookActivity(events, currentEpoch, now);
+          assertEquals(derived.durationPriors.get("done"), {
+            medianMs: 60_000,
+            p90Ms: 60_000,
+            samples: 2,
+          });
+          assertEquals(derived.byBranch.get("main"), {
+            lastAction: {
+              verb: "done",
+              outcome: "failed",
+              at: "2026-07-19T11:20:00.000Z",
+              failedStage: "test",
+            },
+            inFlight: [{
+              verb: "done",
+              started: "2026-07-19T12:08:00.000Z",
+            }],
+            running: {
+              verb: "done",
+              started: "2026-07-19T12:08:00.000Z",
+            },
+            lastEventAt: "2026-07-19T12:08:00.000Z",
+          });
+
+          const paired = deriveFleetLogbookActivity(
+            [
+              ...events,
+              {
+                ...verbEventAt("2026-07-19T12:09:00.000Z"),
+                invocation: "live-run",
+                verb: "done",
+                epoch: currentEpoch,
+              },
+            ],
+            currentEpoch,
+            now,
+          );
+          assertEquals(paired.byBranch.get("main")?.running, undefined);
+        },
+      },
+      {
+        name:
+          "fleet activity: a later conflicting completion retires an older unmatched begin",
+        check: (): void => {
+          const now = Date.parse("2026-07-19T12:10:00.000Z");
+          const branch = "agent/fleet-liveness";
+          const begin = {
+            schema: LOGBOOK_SCHEMA_VERSION,
+            at: "2026-07-19T12:01:00.000Z",
+            writer: "9.9.9",
+            kind: "begin",
+            invocation: "interrupted-refresh",
+            verb: "refresh",
+            surface: "cli",
+            driver: {},
+            branch,
+            head: "abc1234",
+            epoch: "current",
+          } as const;
+          const laterBegin = {
+            ...begin,
+            at: "2026-07-19T12:04:00.000Z",
+            invocation: "completed-tidy",
+            verb: "tidy",
+          } as const;
+          const laterCompletion = {
+            ...verbEventAt("2026-07-19T12:05:00.000Z"),
+            invocation: "completed-tidy",
+            verb: "tidy",
+            branch,
+            head: "def5678",
+            clean: true,
+            outcome: "ok",
+            epoch: "current",
+          } as const;
+          const events: LogbookEvent[] = [begin, laterBegin, laterCompletion];
+
+          assertEquals(
+            deriveFleetLogbookActivity(events, "current", now).byBranch.get(
+              branch,
+            )
+              ?.running,
+            undefined,
+            "a completed operation that acquired the same checkout boundary proves the older recorder is no longer live",
+          );
+          assertEquals(
+            freshInFlightInvocations(events, "current", now),
+            [],
+            "fleet status and lifecycle safety must share the same liveness predicate",
+          );
+
+          for (
+            const [name, completedBegin, completion] of [
+              [
+                "another checkout",
+                { ...laterBegin, branch: "agent/parallel-checkout" },
+                { ...laterCompletion, branch: "agent/parallel-checkout" },
+              ],
+              [
+                "a read-only command",
+                { ...laterBegin, verb: "status" },
+                { ...laterCompletion, verb: "status" },
+              ],
+              [
+                "a refused conflicting command",
+                laterBegin,
+                { ...laterCompletion, outcome: "refused" },
+              ],
+            ] as const
+          ) {
+            assertEquals(
+              deriveFleetLogbookActivity(
+                [begin, completedBegin, completion],
+                "current",
+                now,
+              )
+                .byBranch.get(branch)?.running?.verb,
+              "refresh",
+              `${name} cannot prove the unmatched invocation ended`,
+            );
+          }
+
+          assertEquals(
+            deriveFleetLogbookActivity(
+              [
+                { ...laterBegin, at: "2026-07-19T12:00:00.000Z" },
+                begin,
+                laterCompletion,
+              ],
+              "current",
+              now,
+            ).byBranch.get(branch)?.running?.verb,
+            "refresh",
+            "an invocation that started first may complete after a genuinely live sibling",
+          );
+
+          const childBegin = {
+            ...laterBegin,
+            at: "2026-07-19T12:03:00.000Z",
+            invocation: "nested-tidy",
+            driver: { spawned_by: begin.invocation },
+          } as const;
+          const grandchildBegin = {
+            ...laterBegin,
+            at: "2026-07-19T12:03:30.000Z",
+            invocation: "nested-refresh",
+            verb: "refresh",
+            driver: { spawned_by: childBegin.invocation },
+          } as const;
+          const grandchildCompletion = {
+            ...laterCompletion,
+            at: "2026-07-19T12:04:00.000Z",
+            invocation: grandchildBegin.invocation,
+            verb: grandchildBegin.verb,
+            driver: grandchildBegin.driver,
+          } as const;
+          const childCompletion = {
+            ...laterCompletion,
+            at: "2026-07-19T12:04:30.000Z",
+            invocation: childBegin.invocation,
+            driver: childBegin.driver,
+          } as const;
+          assertEquals(
+            freshInFlightInvocations(
+              [
+                begin,
+                childBegin,
+                grandchildBegin,
+                grandchildCompletion,
+                childCompletion,
+              ],
+              "current",
+              now,
+            ).map((event) => event.invocation),
+            [begin.invocation],
+            "a nested completion inherits its live ancestor's lease and cannot retire that ancestor",
+          );
+
+          const locklessBegin: LogbookEvent = {
+            ...begin,
+            invocation: "waiting-for-sibling",
+            verb: "await",
+          };
+          assertEquals(
+            deriveFleetLogbookActivity(
+              [locklessBegin, laterBegin, laterCompletion],
+              "current",
+              now,
+            ).byBranch.get(branch)?.running?.verb,
+            "await",
+            "an observation may remain live while a checkout operation completes",
+          );
+        },
+      },
+      {
+        name:
+          "fleet activity preserves concurrent begins before choosing the newest display action",
+        check: (): void => {
+          const now = Date.parse("2026-07-19T12:10:00.000Z");
+          const events: LogbookEvent[] = [
+            {
+              schema: LOGBOOK_SCHEMA_VERSION,
+              at: "2026-07-19T12:08:00.000Z",
+              writer: "9.9.9",
+              kind: "begin",
+              invocation: "older-work",
+              verb: "compile",
+              surface: "cli",
+              driver: {},
+              branch: "main",
+              head: "abc1234",
+              epoch: "current",
+            },
+            {
+              schema: LOGBOOK_SCHEMA_VERSION,
+              at: "2026-07-19T12:09:00.000Z",
+              writer: "9.9.9",
+              kind: "begin",
+              invocation: "newer-coordination",
+              verb: "coordinate",
+              surface: "mcp",
+              driver: {},
+              branch: "main",
+              head: "abc1234",
+              epoch: "current",
+            },
+          ];
+
+          const derived = deriveFleetLogbookActivity(events, "current", now);
+          assertEquals(derived.byBranch.get("main"), {
+            inFlight: [
+              {
+                verb: "compile",
+                started: "2026-07-19T12:08:00.000Z",
+              },
+              {
+                verb: "coordinate",
+                started: "2026-07-19T12:09:00.000Z",
+              },
+            ],
+            running: {
+              verb: "coordinate",
+              started: "2026-07-19T12:09:00.000Z",
+            },
+            lastEventAt: "2026-07-19T12:09:00.000Z",
+          });
+        },
+      },
+      {
+        name:
+          "fleet activity: a stale unmatched begin remains crash and activity evidence without claiming live work",
+        check: (): void => {
+          const now = Date.parse("2026-07-19T12:00:00.000Z");
+          const started = new Date(now - RUNNING_STALE_MIN_MS - 1)
+            .toISOString();
+          const events: LogbookEvent[] = [
+            {
+              ...verbEventAt("2026-07-19T10:00:00.000Z"),
+              invocation: "prior",
+              verb: "test",
+              duration_ms: 1_000,
+              epoch: "current",
+            },
+            {
+              schema: LOGBOOK_SCHEMA_VERSION,
+              at: started,
+              writer: "9.9.9",
+              kind: "begin",
+              invocation: "crashed-run",
+              verb: "test",
+              surface: "mcp",
+              driver: { session: "mcp:test" },
+              branch: "main",
+              head: "abc1234",
+              epoch: "current",
+            },
+          ];
+
+          const derived = deriveFleetLogbookActivity(events, "current", now);
+          assertEquals(derived.byBranch.get("main")?.running, undefined);
+          assertEquals(derived.byBranch.get("main")?.lastEventAt, started);
+          const parsed = parseLogbookLine(JSON.stringify(events[1]));
+          assert(parsed.kind === "event" && parsed.event.kind === "begin");
+          assertEquals(parsed.event.invocation, "crashed-run");
+        },
       },
     ],
-    currentEpoch,
-    now,
-  );
-  assertEquals(paired.byBranch.get("main")?.running, undefined);
-});
-
-Deno.test("fleet activity: a later conflicting completion retires an older unmatched begin", () => {
-  const now = Date.parse("2026-07-19T12:10:00.000Z");
-  const branch = "agent/fleet-liveness";
-  const begin = {
-    schema: LOGBOOK_SCHEMA_VERSION,
-    at: "2026-07-19T12:01:00.000Z",
-    writer: "9.9.9",
-    kind: "begin",
-    invocation: "interrupted-refresh",
-    verb: "refresh",
-    surface: "cli",
-    driver: {},
-    branch,
-    head: "abc1234",
-    epoch: "current",
-  } as const;
-  const laterBegin = {
-    ...begin,
-    at: "2026-07-19T12:04:00.000Z",
-    invocation: "completed-tidy",
-    verb: "tidy",
-  } as const;
-  const laterCompletion = {
-    ...verbEventAt("2026-07-19T12:05:00.000Z"),
-    invocation: "completed-tidy",
-    verb: "tidy",
-    branch,
-    head: "def5678",
-    clean: true,
-    outcome: "ok",
-    epoch: "current",
-  } as const;
-  const events: LogbookEvent[] = [begin, laterBegin, laterCompletion];
-
-  assertEquals(
-    deriveFleetLogbookActivity(events, "current", now).byBranch.get(branch)
-      ?.running,
-    undefined,
-    "a completed operation that acquired the same checkout boundary proves the older recorder is no longer live",
-  );
-  assertEquals(
-    freshInFlightInvocations(events, "current", now),
-    [],
-    "fleet status and lifecycle safety must share the same liveness predicate",
-  );
-
-  for (
-    const [name, completedBegin, completion] of [
-      [
-        "another checkout",
-        { ...laterBegin, branch: "agent/parallel-checkout" },
-        { ...laterCompletion, branch: "agent/parallel-checkout" },
-      ],
-      [
-        "a read-only command",
-        { ...laterBegin, verb: "status" },
-        { ...laterCompletion, verb: "status" },
-      ],
-      [
-        "a refused conflicting command",
-        laterBegin,
-        { ...laterCompletion, outcome: "refused" },
-      ],
-    ] as const
-  ) {
-    assertEquals(
-      deriveFleetLogbookActivity(
-        [begin, completedBegin, completion],
-        "current",
-        now,
-      )
-        .byBranch.get(branch)?.running?.verb,
-      "refresh",
-      `${name} cannot prove the unmatched invocation ended`,
-    );
-  }
-
-  assertEquals(
-    deriveFleetLogbookActivity(
-      [
-        { ...laterBegin, at: "2026-07-19T12:00:00.000Z" },
-        begin,
-        laterCompletion,
-      ],
-      "current",
-      now,
-    ).byBranch.get(branch)?.running?.verb,
-    "refresh",
-    "an invocation that started first may complete after a genuinely live sibling",
-  );
-
-  const childBegin = {
-    ...laterBegin,
-    at: "2026-07-19T12:03:00.000Z",
-    invocation: "nested-tidy",
-    driver: { spawned_by: begin.invocation },
-  } as const;
-  const grandchildBegin = {
-    ...laterBegin,
-    at: "2026-07-19T12:03:30.000Z",
-    invocation: "nested-refresh",
-    verb: "refresh",
-    driver: { spawned_by: childBegin.invocation },
-  } as const;
-  const grandchildCompletion = {
-    ...laterCompletion,
-    at: "2026-07-19T12:04:00.000Z",
-    invocation: grandchildBegin.invocation,
-    verb: grandchildBegin.verb,
-    driver: grandchildBegin.driver,
-  } as const;
-  const childCompletion = {
-    ...laterCompletion,
-    at: "2026-07-19T12:04:30.000Z",
-    invocation: childBegin.invocation,
-    driver: childBegin.driver,
-  } as const;
-  assertEquals(
-    freshInFlightInvocations(
-      [
-        begin,
-        childBegin,
-        grandchildBegin,
-        grandchildCompletion,
-        childCompletion,
-      ],
-      "current",
-      now,
-    ).map((event) => event.invocation),
-    [begin.invocation],
-    "a nested completion inherits its live ancestor's lease and cannot retire that ancestor",
-  );
-
-  const locklessBegin: LogbookEvent = {
-    ...begin,
-    invocation: "waiting-for-sibling",
-    verb: "await",
-  };
-  assertEquals(
-    deriveFleetLogbookActivity(
-      [locklessBegin, laterBegin, laterCompletion],
-      "current",
-      now,
-    ).byBranch.get(branch)?.running?.verb,
-    "await",
-    "an observation may remain live while a checkout operation completes",
-  );
-});
-
-Deno.test("fleet activity preserves concurrent begins before choosing the newest display action", () => {
-  const now = Date.parse("2026-07-19T12:10:00.000Z");
-  const events: LogbookEvent[] = [
-    {
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: "2026-07-19T12:08:00.000Z",
-      writer: "9.9.9",
-      kind: "begin",
-      invocation: "older-work",
-      verb: "compile",
-      surface: "cli",
-      driver: {},
-      branch: "main",
-      head: "abc1234",
-      epoch: "current",
+    (row) => row.name,
+    (row) => {
+      row.check();
     },
-    {
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: "2026-07-19T12:09:00.000Z",
-      writer: "9.9.9",
-      kind: "begin",
-      invocation: "newer-coordination",
-      verb: "coordinate",
-      surface: "mcp",
-      driver: {},
-      branch: "main",
-      head: "abc1234",
-      epoch: "current",
-    },
-  ];
-
-  const derived = deriveFleetLogbookActivity(events, "current", now);
-  assertEquals(derived.byBranch.get("main"), {
-    inFlight: [
-      {
-        verb: "compile",
-        started: "2026-07-19T12:08:00.000Z",
-      },
-      {
-        verb: "coordinate",
-        started: "2026-07-19T12:09:00.000Z",
-      },
-    ],
-    running: {
-      verb: "coordinate",
-      started: "2026-07-19T12:09:00.000Z",
-    },
-    lastEventAt: "2026-07-19T12:09:00.000Z",
-  });
-});
-
-Deno.test("fleet activity: a stale unmatched begin remains crash and activity evidence without claiming live work", () => {
-  const now = Date.parse("2026-07-19T12:00:00.000Z");
-  const started = new Date(now - RUNNING_STALE_MIN_MS - 1).toISOString();
-  const events: LogbookEvent[] = [
-    {
-      ...verbEventAt("2026-07-19T10:00:00.000Z"),
-      invocation: "prior",
-      verb: "test",
-      duration_ms: 1_000,
-      epoch: "current",
-    },
-    {
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: started,
-      writer: "9.9.9",
-      kind: "begin",
-      invocation: "crashed-run",
-      verb: "test",
-      surface: "mcp",
-      driver: { session: "mcp:test" },
-      branch: "main",
-      head: "abc1234",
-      epoch: "current",
-    },
-  ];
-
-  const derived = deriveFleetLogbookActivity(events, "current", now);
-  assertEquals(derived.byBranch.get("main")?.running, undefined);
-  assertEquals(derived.byBranch.get("main")?.lastEventAt, started);
-  const parsed = parseLogbookLine(JSON.stringify(events[1]));
-  assert(parsed.kind === "event" && parsed.event.kind === "begin");
-  assertEquals(parsed.event.invocation, "crashed-run");
+  );
 });
 
 Deno.test("store: the epoch sidecar round-trips and tolerates corruption", async () => {

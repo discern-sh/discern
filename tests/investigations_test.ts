@@ -12,6 +12,7 @@ import {
   type PatternsFinding,
   PatternsFindingSchema,
 } from "../src/shared/patterns_vocabulary.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Required string fields are independently meaningful claims, never aliases. */
 function assertNoRequiredStringAliases(
@@ -263,168 +264,187 @@ const VALID_FIXTURES: Record<string, PatternsFinding[]> = {
   "standard-variance": [varianceSource()],
 };
 
-Deno.test("patterns schemas require one field for each string claim", () => {
-  const findings = Object.values(VALID_FIXTURES).flat();
-  const investigations = Object.values(VALID_FIXTURES).flatMap((fixture) =>
-    synthesizeInvestigations(fixture)
-  );
-  assertNoRequiredStringAliases(
-    PatternsFindingSchema,
-    findings,
-    "finding",
-  );
-  assertNoRequiredStringAliases(
-    PatternInvestigationSchema,
-    investigations,
-    "investigation",
-  );
-});
-
-Deno.test("investigation registry enrolls every relationship in shared invariants", () => {
-  assertEquals(
-    Object.keys(VALID_FIXTURES).sort(),
-    INVESTIGATION_RELATIONSHIPS.map((relationship) => relationship.id).sort(),
-    "a new relationship must add one valid fixture",
-  );
-  assertEquals(
-    new Set(INVESTIGATION_RELATIONSHIPS.map((relationship) => relationship.id))
-      .size,
-    INVESTIGATION_RELATIONSHIPS.length,
-    "relationship ids are stable and unique",
-  );
-  for (const relationship of INVESTIGATION_RELATIONSHIPS) {
-    assert(relationship.requiredFindings.length > 0, relationship.id);
-    assert(relationship.suppressors.length > 0, relationship.id);
-    assertEquals(relationship.cohortPolicy, "pooled-only", relationship.id);
-    for (const requirement of relationship.requiredFindings) {
-      assert(requirement.kinds.length > 0, relationship.id);
-      assert(
-        requirement.kinds.every((kind) => kind.length > 0),
-        relationship.id,
+Deno.test("investigations: contracts", () => {
+  assertNamedCases({
+    "patterns schemas require one field for each string claim": () => {
+      const findings = Object.values(VALID_FIXTURES).flat();
+      const investigations = Object.values(VALID_FIXTURES).flatMap((fixture) =>
+        synthesizeInvestigations(fixture)
       );
-    }
-    const fixture = VALID_FIXTURES[relationship.id];
-    assert(fixture !== undefined, relationship.id);
-    const results = synthesizeInvestigations(fixture);
-    assertEquals(results.length, 1, `${relationship.id} must synthesize`);
-    PatternInvestigationSchema.parse(results[0]);
-    assert(
-      !PatternInvestigationSchema.safeParse({
-        ...results[0],
-        interpretation: results[0]?.summary,
-      }).success,
-      `${relationship.id}: retired interpretation field must be rejected`,
-    );
-    assertEquals(
-      results[0]?.id.startsWith(relationship.id),
-      true,
-      relationship.id,
-    );
-  }
-});
-
-Deno.test("investigations keep source findings and their denominators traceable", () => {
-  const sources = [
-    ...validationSources(),
-    ...feedbackSources(),
-    ...schedulingSources(),
-    varianceSource(),
-  ];
-  const before = structuredClone(sources);
-  const results = synthesizeInvestigations(sources);
-  assertEquals(sources, before, "synthesis is a pure additive projection");
-  assertEquals(results.length, 4);
-  for (const investigation of results) {
-    assert(investigation.summary.length > 0);
-    assert(investigation.observed.length > 0);
-    assert(/\d/.test(investigation.observed));
-    assert(investigation.observations.length > 0);
-    assert(
-      investigation.observations.every((observation) =>
-        observation.denominator.value >= 0 &&
-        observation.denominator.unit.length > 0
-      ),
-    );
-    assertEquals(
-      new Set(investigation.finding_ids),
-      new Set(investigation.observations.map((entry) => entry.finding_id)),
-    );
-  }
-});
-
-Deno.test("investigation near misses and conflicting evidence leave raw findings only", () => {
-  const nearMisses: PatternsFinding[][] = [
-    validationSources({ complete: false }),
-    feedbackSources().map((source, index) =>
-      index === 1 ? { ...source, subject: "agent/other" } : source
-    ),
-    feedbackSources({ mixedSetup: true }),
-    schedulingSources({ costSetup: "setup-b" }),
-    [varianceSource("coverage", { reversal: 0, failure: 0 })],
-    [varianceSource("coverage", { recommendation: 1 })],
-  ];
-  for (const sources of nearMisses) {
-    assertEquals(synthesizeInvestigations(sources), []);
-    assert(sources.length > 0, "raw findings remain available");
-  }
-});
-
-Deno.test("investigation values retain observed and estimated provenance", () => {
-  const [investigation] = synthesizeInvestigations(schedulingSources());
-  assert(investigation !== undefined);
-  const ledger = investigation.observations.find((observation) =>
-    observation.finding_id === "masked-failures"
-  );
-  assert(ledger !== undefined);
-  assertEquals(ledger.values.estimated_job_tail_seconds?.kind, "estimated");
-  assertEquals(ledger.values.later_round_command_seconds?.kind, "observed");
-  assert(
-    !/\b(?:caused|causes|rank|score)\b/i.test(
-      `${investigation.summary} ${investigation.observed}`,
-    ),
-  );
-});
-
-Deno.test("scheduling investigation never treats unlike duration totals as a policy decision", () => {
-  const [investigation] = synthesizeInvestigations(
-    schedulingSources({ largeJobTail: true }),
-  );
-  assert(investigation !== undefined);
-  assertEquals(investigation.id, "validation-scheduling");
-  assert(investigation.diagnostic_action.includes("total time through green"));
-});
-
-Deno.test("cohort evidence cannot mint or alter pooled investigations", () => {
-  const cohort = finding("cohort-done-thrash", {
-    cohorts: 2,
-    unattributed_runs: 4,
+      assertNoRequiredStringAliases(
+        PatternsFindingSchema,
+        findings,
+        "finding",
+      );
+      assertNoRequiredStringAliases(
+        PatternInvestigationSchema,
+        investigations,
+        "investigation",
+      );
+    },
+    "investigation registry enrolls every relationship in shared invariants":
+      () => {
+        assertEquals(
+          Object.keys(VALID_FIXTURES).sort(),
+          INVESTIGATION_RELATIONSHIPS.map((relationship) => relationship.id)
+            .sort(),
+          "a new relationship must add one valid fixture",
+        );
+        assertEquals(
+          new Set(
+            INVESTIGATION_RELATIONSHIPS.map((relationship) => relationship.id),
+          )
+            .size,
+          INVESTIGATION_RELATIONSHIPS.length,
+          "relationship ids are stable and unique",
+        );
+        for (const relationship of INVESTIGATION_RELATIONSHIPS) {
+          assert(relationship.requiredFindings.length > 0, relationship.id);
+          assert(relationship.suppressors.length > 0, relationship.id);
+          assertEquals(
+            relationship.cohortPolicy,
+            "pooled-only",
+            relationship.id,
+          );
+          for (const requirement of relationship.requiredFindings) {
+            assert(requirement.kinds.length > 0, relationship.id);
+            assert(
+              requirement.kinds.every((kind) => kind.length > 0),
+              relationship.id,
+            );
+          }
+          const fixture = VALID_FIXTURES[relationship.id];
+          assert(fixture !== undefined, relationship.id);
+          const results = synthesizeInvestigations(fixture);
+          assertEquals(results.length, 1, `${relationship.id} must synthesize`);
+          PatternInvestigationSchema.parse(results[0]);
+          assert(
+            !PatternInvestigationSchema.safeParse({
+              ...results[0],
+              interpretation: results[0]?.summary,
+            }).success,
+            `${relationship.id}: retired interpretation field must be rejected`,
+          );
+          assertEquals(
+            results[0]?.id.startsWith(relationship.id),
+            true,
+            relationship.id,
+          );
+        }
+      },
+    "investigations keep source findings and their denominators traceable":
+      () => {
+        const sources = [
+          ...validationSources(),
+          ...feedbackSources(),
+          ...schedulingSources(),
+          varianceSource(),
+        ];
+        const before = structuredClone(sources);
+        const results = synthesizeInvestigations(sources);
+        assertEquals(
+          sources,
+          before,
+          "synthesis is a pure additive projection",
+        );
+        assertEquals(results.length, 4);
+        for (const investigation of results) {
+          assert(investigation.summary.length > 0);
+          assert(investigation.observed.length > 0);
+          assert(/\d/.test(investigation.observed));
+          assert(investigation.observations.length > 0);
+          assert(
+            investigation.observations.every((observation) =>
+              observation.denominator.value >= 0 &&
+              observation.denominator.unit.length > 0
+            ),
+          );
+          assertEquals(
+            new Set(investigation.finding_ids),
+            new Set(
+              investigation.observations.map((entry) => entry.finding_id),
+            ),
+          );
+        }
+      },
+    "investigation near misses and conflicting evidence leave raw findings only":
+      () => {
+        const nearMisses: PatternsFinding[][] = [
+          validationSources({ complete: false }),
+          feedbackSources().map((source, index) =>
+            index === 1 ? { ...source, subject: "agent/other" } : source
+          ),
+          feedbackSources({ mixedSetup: true }),
+          schedulingSources({ costSetup: "setup-b" }),
+          [varianceSource("coverage", { reversal: 0, failure: 0 })],
+          [varianceSource("coverage", { recommendation: 1 })],
+        ];
+        for (const sources of nearMisses) {
+          assertEquals(synthesizeInvestigations(sources), []);
+          assert(sources.length > 0, "raw findings remain available");
+        }
+      },
+    "investigation values retain observed and estimated provenance": () => {
+      const [investigation] = synthesizeInvestigations(schedulingSources());
+      assert(investigation !== undefined);
+      const ledger = investigation.observations.find((observation) =>
+        observation.finding_id === "masked-failures"
+      );
+      assert(ledger !== undefined);
+      assertEquals(ledger.values.estimated_job_tail_seconds?.kind, "estimated");
+      assertEquals(ledger.values.later_round_command_seconds?.kind, "observed");
+      assert(
+        !/\b(?:caused|causes|rank|score)\b/i.test(
+          `${investigation.summary} ${investigation.observed}`,
+        ),
+      );
+    },
+    "scheduling investigation never treats unlike duration totals as a policy decision":
+      () => {
+        const [investigation] = synthesizeInvestigations(
+          schedulingSources({ largeJobTail: true }),
+        );
+        assert(investigation !== undefined);
+        assertEquals(investigation.id, "validation-scheduling");
+        assert(
+          investigation.diagnostic_action.includes("total time through green"),
+        );
+      },
+    "cohort evidence cannot mint or alter pooled investigations": () => {
+      const cohort = finding("cohort-done-thrash", {
+        cohorts: 2,
+        unattributed_runs: 4,
+      });
+      assertEquals(synthesizeInvestigations([cohort]), []);
+      assertEquals(
+        synthesizeInvestigations([...validationSources(), cohort]),
+        synthesizeInvestigations(validationSources()),
+      );
+    },
+    "investigation order and deduplication are registry-stable": () => {
+      const sources = [
+        varianceSource("zeta"),
+        ...schedulingSources(),
+        ...feedbackSources(),
+        varianceSource("alpha"),
+        ...validationSources(),
+        ...validationSources(),
+      ];
+      const expected = [
+        "validation-instability",
+        "feedback-loop/agent%2Fchange",
+        "validation-scheduling",
+        "standard-variance/alpha",
+        "standard-variance/zeta",
+      ];
+      assertEquals(
+        synthesizeInvestigations(sources).map(({ id }) => id),
+        expected,
+      );
+      assertEquals(
+        synthesizeInvestigations([...sources].reverse()).map(({ id }) => id),
+        expected,
+      );
+    },
   });
-  assertEquals(synthesizeInvestigations([cohort]), []);
-  assertEquals(
-    synthesizeInvestigations([...validationSources(), cohort]),
-    synthesizeInvestigations(validationSources()),
-  );
-});
-
-Deno.test("investigation order and deduplication are registry-stable", () => {
-  const sources = [
-    varianceSource("zeta"),
-    ...schedulingSources(),
-    ...feedbackSources(),
-    varianceSource("alpha"),
-    ...validationSources(),
-    ...validationSources(),
-  ];
-  const expected = [
-    "validation-instability",
-    "feedback-loop/agent%2Fchange",
-    "validation-scheduling",
-    "standard-variance/alpha",
-    "standard-variance/zeta",
-  ];
-  assertEquals(synthesizeInvestigations(sources).map(({ id }) => id), expected);
-  assertEquals(
-    synthesizeInvestigations([...sources].reverse()).map(({ id }) => id),
-    expected,
-  );
 });

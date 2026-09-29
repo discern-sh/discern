@@ -34,6 +34,7 @@ import { CONFIG_REL, findRoot, installedConfigRel } from "../src/shared/env.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { fakeEnv, REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** A fully-defaulted config carrying the given `[worktree].root` (empty ⇒ default). */
 function configWithRoot(root: string): ReturnType<typeof parseConfigOrThrow> {
@@ -152,35 +153,41 @@ Deno.test("with no override, the walk-up discovers the repo's real templates/", 
   );
 });
 
-Deno.test("resolveWorktreeRoot: an empty [worktree].root ⇒ a sibling of the repo", () => {
-  // The default places worktrees in "<repo>.worktrees" — adjacent, NOT nested
-  // inside the checkout (the anti-pattern this convention exists to avoid).
-  assertEquals(
-    resolveWorktreeRoot("/a/b/myrepo", configWithRoot("")),
-    "/a/b/myrepo.worktrees",
-  );
+Deno.test("paths: resolveWorktreeRoot cases", () => {
+  assertNamedCases({
+    "resolveWorktreeRoot: an empty [worktree].root ⇒ a sibling of the repo":
+      () => {
+        // The default places worktrees in "<repo>.worktrees" — adjacent, NOT nested
+        // inside the checkout (the anti-pattern this convention exists to avoid).
+        assertEquals(
+          resolveWorktreeRoot("/a/b/myrepo", configWithRoot("")),
+          "/a/b/myrepo.worktrees",
+        );
+      },
+    "resolveWorktreeRoot: a relative root resolves against the repo root":
+      () => {
+        // The escape hatch that restores the old nested placement.
+        assertEquals(
+          resolveWorktreeRoot(
+            "/a/b/myrepo",
+            configWithRoot(".claude/worktrees"),
+          ),
+          "/a/b/myrepo/.claude/worktrees",
+        );
+        // A custom sibling via `..` — join() normalises the traversal.
+        assertEquals(
+          resolveWorktreeRoot("/a/b/myrepo", configWithRoot("../wts")),
+          "/a/b/wts",
+        );
+      },
+    "resolveWorktreeRoot: an absolute root is used as-is": () => {
+      assertEquals(
+        resolveWorktreeRoot("/a/b/myrepo", configWithRoot("/srv/worktrees")),
+        "/srv/worktrees",
+      );
+    },
+  });
 });
-
-Deno.test("resolveWorktreeRoot: a relative root resolves against the repo root", () => {
-  // The escape hatch that restores the old nested placement.
-  assertEquals(
-    resolveWorktreeRoot("/a/b/myrepo", configWithRoot(".claude/worktrees")),
-    "/a/b/myrepo/.claude/worktrees",
-  );
-  // A custom sibling via `..` — join() normalises the traversal.
-  assertEquals(
-    resolveWorktreeRoot("/a/b/myrepo", configWithRoot("../wts")),
-    "/a/b/wts",
-  );
-});
-
-Deno.test("resolveWorktreeRoot: an absolute root is used as-is", () => {
-  assertEquals(
-    resolveWorktreeRoot("/a/b/myrepo", configWithRoot("/srv/worktrees")),
-    "/srv/worktrees",
-  );
-});
-
 Deno.test("resolveInstructionSources: a root whose path contains glob metacharacters still compiles its instructions", async () => {
   // The class: a user-controlled path segment (the absolute project root) fed
   // into a pattern language. Building the glob as `join(root, pattern)` parses

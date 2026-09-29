@@ -27,6 +27,7 @@ import {
   sourcePathReference,
 } from "../src/shared/source_path_references.ts";
 import { resolveSourcePaths } from "../src/shared/source_path_resolution.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** A unique configured value with the same file/directory shape as the default. */
 function sentinelFor(name: SourcePathName): string {
@@ -100,137 +101,140 @@ const EXPECTED_SCOPE_PATTERNS = SOURCE_PATH_REFERENCES.map(({ name }) =>
   resolvedReferencePath(name)
 );
 
-Deno.test("every configured SOURCE_PATHS member owns one live reference", () => {
-  const configured = SOURCE_PATH_NAMES.filter((name) =>
-    SOURCE_PATHS[name].resolution === "configured"
-  );
-  assertEquals(
-    SOURCE_PATH_REFERENCES.map(({ name }) => name),
-    configured,
-  );
-  for (const member of SOURCE_PATH_REFERENCES) {
-    assertEquals(member.reference, `\${${member.key}}`);
-    assertEquals(sourcePathReference(member.name), member.reference);
-  }
-  for (const name of SOURCE_PATH_NAMES) {
-    if (!configured.includes(name)) {
-      assertEquals(sourcePathReference(name), undefined);
-    }
-  }
-});
+Deno.test("source path references: contracts", () => {
+  assertNamedCases({
+    "every configured SOURCE_PATHS member owns one live reference": () => {
+      const configured = SOURCE_PATH_NAMES.filter((name) =>
+        SOURCE_PATHS[name].resolution === "configured"
+      );
+      assertEquals(
+        SOURCE_PATH_REFERENCES.map(({ name }) => name),
+        configured,
+      );
+      for (const member of SOURCE_PATH_REFERENCES) {
+        assertEquals(member.reference, `\${${member.key}}`);
+        assertEquals(sourcePathReference(member.name), member.reference);
+      }
+      for (const name of SOURCE_PATH_NAMES) {
+        if (!configured.includes(name)) {
+          assertEquals(sourcePathReference(name), undefined);
+        }
+      }
+    },
+    "reference expansion is registry-wide and leaves shell variables alone":
+      () => {
+        assertEquals(
+          expandSourcePathReferences(
+            `${REFERENCE_SEQUENCE}|\${PATH}|$HOME|\${UNREGISTERED}`,
+            CONFIG,
+          ),
+          `${EXPECTED_SEQUENCE}|\${PATH}|$HOME|\${UNREGISTERED}`,
+        );
+      },
+    "every enrolled scope-glob dialect surface expands every live reference":
+      () => {
+        assertEquals(
+          jobsInStage(CONFIG, "fix").find(({ label }) => label === "format")
+            ?.command,
+          `known ${EXPECTED_SEQUENCE}`,
+        );
+        assertEquals(
+          jobsInStage(CONFIG, "check").find(({ label }) => label === "custom")
+            ?.command,
+          `custom ${EXPECTED_SEQUENCE}`,
+        );
+        assertEquals(
+          planScopeGates(CONFIG, ["references"])[0]?.command,
+          `scope ${EXPECTED_SEQUENCE}`,
+        );
 
-Deno.test("reference expansion is registry-wide and leaves shell variables alone", () => {
-  assertEquals(
-    expandSourcePathReferences(
-      `${REFERENCE_SEQUENCE}|\${PATH}|$HOME|\${UNREGISTERED}`,
-      CONFIG,
-    ),
-    `${EXPECTED_SEQUENCE}|\${PATH}|$HOME|\${UNREGISTERED}`,
-  );
-});
+        for (const member of SOURCE_PATH_REFERENCES) {
+          const entry = SOURCE_PATHS[member.name];
+          const path = resolvedReferencePath(member.name);
+          const probe = entry.pathKind === "directory"
+            ? `${path.replace(/\/+$/, "")}/probe.md`
+            : path;
+          assertEquals(
+            scopesForPaths([probe], CONFIG),
+            ["references"],
+            member.name,
+          );
+        }
 
-Deno.test("every enrolled scope-glob dialect surface expands every live reference", () => {
-  assertEquals(
-    jobsInStage(CONFIG, "fix").find(({ label }) => label === "format")?.command,
-    `known ${EXPECTED_SEQUENCE}`,
-  );
-  assertEquals(
-    jobsInStage(CONFIG, "check").find(({ label }) => label === "custom")
-      ?.command,
-    `custom ${EXPECTED_SEQUENCE}`,
-  );
-  assertEquals(
-    planScopeGates(CONFIG, ["references"])[0]?.command,
-    `scope ${EXPECTED_SEQUENCE}`,
-  );
+        const generated = resolveGeneratedGroups(CONFIG)[0];
+        assertEquals(generated?.paths, EXPECTED_SCOPE_PATTERNS);
+        assertEquals(generated?.run, `generated ${EXPECTED_SEQUENCE}`);
+        assertEquals(
+          jobsInStage(CONFIG, "build")[0]?.command,
+          `generated ${EXPECTED_SEQUENCE}`,
+        );
 
-  for (const member of SOURCE_PATH_REFERENCES) {
-    const entry = SOURCE_PATHS[member.name];
-    const path = resolvedReferencePath(member.name);
-    const probe = entry.pathKind === "directory"
-      ? `${path.replace(/\/+$/, "")}/probe.md`
-      : path;
-    assertEquals(
-      scopesForPaths([probe], CONFIG),
-      ["references"],
-      member.name,
-    );
-  }
-
-  const generated = resolveGeneratedGroups(CONFIG)[0];
-  assertEquals(generated?.paths, EXPECTED_SCOPE_PATTERNS);
-  assertEquals(generated?.run, `generated ${EXPECTED_SEQUENCE}`);
-  assertEquals(
-    jobsInStage(CONFIG, "build")[0]?.command,
-    `generated ${EXPECTED_SEQUENCE}`,
-  );
-
-  const standard = buildStandardPlan(CONFIG).standards[0];
-  assertEquals(standard?.command, `standard ${EXPECTED_SEQUENCE}`);
-  assertEquals(standard?.inputs, EXPECTED_SCOPE_PATTERNS);
-  assertEquals(standard?.per, {
-    kind: "extent",
-    measure: "files",
-    globs: EXPECTED_SCOPE_PATTERNS,
+        const standard = buildStandardPlan(CONFIG).standards[0];
+        assertEquals(standard?.command, `standard ${EXPECTED_SEQUENCE}`);
+        assertEquals(standard?.inputs, EXPECTED_SCOPE_PATTERNS);
+        assertEquals(standard?.per, {
+          kind: "extent",
+          measure: "files",
+          globs: EXPECTED_SCOPE_PATTERNS,
+        });
+      },
+    "directory references normalize configured paths with or without a trailing slash":
+      () => {
+        const config = parseConfigOrThrow([
+          "[map]",
+          'dir = "docs/map/"',
+          "",
+          "[skills]",
+          'dir = "tools/skills"',
+          "",
+        ].join("\n"));
+        assertEquals(
+          expandSourcePathReferences(
+            "${map.dir}README.md|${skills.dir}demo/SKILL.md",
+            config,
+          ),
+          "docs/map/README.md|tools/skills/demo/SKILL.md",
+        );
+        assertEquals(
+          expandSourcePathReferences("${map.dir}|${skills.dir}", config),
+          "docs/map/|tools/skills/",
+        );
+      },
+    "scalar config-path references expand from their configured value": () => {
+      const config = parseConfigOrThrow(
+        '[project]\ngotchas_doc = "notes/traps.md"\n',
+      );
+      assertEquals(
+        expandSourcePathReferences("probe ${project.gotchas_doc}", config),
+        "probe notes/traps.md",
+      );
+    },
+    "an unset scalar reference expands to the empty pattern, which matches nothing":
+      () => {
+        const config = parseConfigOrThrow("");
+        assertEquals(
+          expandSourcePathReferences("${project.gotchas_doc}", config),
+          "",
+        );
+        // The consumer contract that makes the empty expansion safe: a glob of ""
+        // matches no path, so a trigger or scope keyed on the unset value goes
+        // quiet instead of matching everything.
+        assertEquals(pathMatchesPattern("any/file.md", ""), false);
+      },
+    "the live-reference membership is registry members plus the scalar docs":
+      () => {
+        assertEquals(LIVE_PATH_REFERENCE_SPELLINGS, [
+          ...SOURCE_PATH_REFERENCES.map(({ reference }) => reference),
+          ...SCALAR_CONFIG_PATH_REFERENCES.map(({ reference }) => reference),
+        ]);
+        for (const member of SCALAR_CONFIG_PATH_REFERENCES) {
+          assertEquals(member.reference, `\${${member.key}}`);
+          assert(
+            SOURCE_PATH_REFERENCES.every((r) => r.key !== member.key),
+            `scalar member '${member.key}' shadows a registry member`,
+          );
+        }
+      },
   });
 });
-
-Deno.test("directory references normalize configured paths with or without a trailing slash", () => {
-  const config = parseConfigOrThrow([
-    "[map]",
-    'dir = "docs/map/"',
-    "",
-    "[skills]",
-    'dir = "tools/skills"',
-    "",
-  ].join("\n"));
-  assertEquals(
-    expandSourcePathReferences(
-      "${map.dir}README.md|${skills.dir}demo/SKILL.md",
-      config,
-    ),
-    "docs/map/README.md|tools/skills/demo/SKILL.md",
-  );
-  assertEquals(
-    expandSourcePathReferences("${map.dir}|${skills.dir}", config),
-    "docs/map/|tools/skills/",
-  );
-});
-
 // ── scalar config-path references ───────────────────────────────────────────
-
-Deno.test("scalar config-path references expand from their configured value", () => {
-  const config = parseConfigOrThrow(
-    '[project]\ngotchas_doc = "notes/traps.md"\n',
-  );
-  assertEquals(
-    expandSourcePathReferences("probe ${project.gotchas_doc}", config),
-    "probe notes/traps.md",
-  );
-});
-
-Deno.test("an unset scalar reference expands to the empty pattern, which matches nothing", () => {
-  const config = parseConfigOrThrow("");
-  assertEquals(
-    expandSourcePathReferences("${project.gotchas_doc}", config),
-    "",
-  );
-  // The consumer contract that makes the empty expansion safe: a glob of ""
-  // matches no path, so a trigger or scope keyed on the unset value goes
-  // quiet instead of matching everything.
-  assertEquals(pathMatchesPattern("any/file.md", ""), false);
-});
-
-Deno.test("the live-reference membership is registry members plus the scalar docs", () => {
-  assertEquals(LIVE_PATH_REFERENCE_SPELLINGS, [
-    ...SOURCE_PATH_REFERENCES.map(({ reference }) => reference),
-    ...SCALAR_CONFIG_PATH_REFERENCES.map(({ reference }) => reference),
-  ]);
-  for (const member of SCALAR_CONFIG_PATH_REFERENCES) {
-    assertEquals(member.reference, `\${${member.key}}`);
-    assert(
-      SOURCE_PATH_REFERENCES.every((r) => r.key !== member.key),
-      `scalar member '${member.key}' shadows a registry member`,
-    );
-  }
-});

@@ -40,6 +40,7 @@ import {
 } from "../src/shared/result.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const POLICY = GENERATED_INVENTORY_POLICIES["public-schema-publications"];
 const digest = await renderContractDigestDoc(REPO_ROOT);
@@ -117,35 +118,66 @@ function evolving(node: JsonValue | undefined, marker: string): boolean {
   return isObject(node) && node[marker] === STABILITY_TIER_EVOLVING;
 }
 
-Deno.test("the digest covers every registered publication and the exit statuses", () => {
-  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-    assert(
-      digest.includes(`\`${publication.artifactPath}\`, policy`),
-      `${publication.artifactPath} has no section heading`,
-    );
-  }
-  assertStringIncludes(digest, "CLI exit statuses");
-  for (const entry of EXIT_STATUS_REGISTRY) {
-    assertStringIncludes(digest, `| ${entry.label} `);
-  }
+Deno.test("contract digest: digest contracts", () => {
+  assertNamedCases({
+    "the digest covers every registered publication and the exit statuses":
+      () => {
+        for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+          assert(
+            digest.includes(`\`${publication.artifactPath}\`, policy`),
+            `${publication.artifactPath} has no section heading`,
+          );
+        }
+        assertStringIncludes(digest, "CLI exit statuses");
+        for (const entry of EXIT_STATUS_REGISTRY) {
+          assertStringIncludes(digest, `| ${entry.label} `);
+        }
+      },
+    "every section states its publication's contract and same-major policy verbatim":
+      () => {
+        for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+          const section = flat(sectionOf(publication));
+          assertStringIncludes(
+            section,
+            flat(publication.contract),
+            `${publication.artifactPath} does not state its contract`,
+          );
+          assertStringIncludes(
+            section,
+            flat(compatibilityContract(publication.compatibility)),
+            `${publication.artifactPath} does not state its policy`,
+          );
+        }
+      },
+    "every digest line keeps its code spans balanced": () => {
+      const open = digest.split("\n").filter((line) =>
+        backticks(line) % 2 === 1
+      );
+      assertEquals(open, [], "lines with an unclosed code span");
+    },
+    "every table row keeps its header's column count": () => {
+      let headerCells: number | undefined;
+      const mismatches: string[] = [];
+      for (const line of digest.split("\n")) {
+        if (!line.startsWith("|")) {
+          headerCells = undefined;
+          continue;
+        }
+        const count = cells(line).length;
+        if (headerCells === undefined) {
+          headerCells = count;
+        } else if (count !== headerCells) {
+          mismatches.push(line);
+        }
+      }
+      assertEquals(
+        mismatches,
+        [],
+        "rows whose cell count differs from their header",
+      );
+    },
+  });
 });
-
-Deno.test("every section states its publication's contract and same-major policy verbatim", () => {
-  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-    const section = flat(sectionOf(publication));
-    assertStringIncludes(
-      section,
-      flat(publication.contract),
-      `${publication.artifactPath} does not state its contract`,
-    );
-    assertStringIncludes(
-      section,
-      flat(compatibilityContract(publication.compatibility)),
-      `${publication.artifactPath} does not state its policy`,
-    );
-  }
-});
-
 Deno.test("every evolving command, tool, contract, and config section is marked, and no stable one is", async () => {
   const marker = ` (${STABILITY_TIER_EVOLVING})`;
   const expectMarked = (
@@ -328,34 +360,6 @@ Deno.test("the digest page opens with its framing policy and the committed page 
     `${POLICY.artifactPath} has drifted from the artifacts — run \`deno task codegen\` and commit the result`,
   );
 });
-
-Deno.test("every digest line keeps its code spans balanced", () => {
-  const open = digest.split("\n").filter((line) => backticks(line) % 2 === 1);
-  assertEquals(open, [], "lines with an unclosed code span");
-});
-
-Deno.test("every table row keeps its header's column count", () => {
-  let headerCells: number | undefined;
-  const mismatches: string[] = [];
-  for (const line of digest.split("\n")) {
-    if (!line.startsWith("|")) {
-      headerCells = undefined;
-      continue;
-    }
-    const count = cells(line).length;
-    if (headerCells === undefined) {
-      headerCells = count;
-    } else if (count !== headerCells) {
-      mismatches.push(line);
-    }
-  }
-  assertEquals(
-    mismatches,
-    [],
-    "rows whose cell count differs from their header",
-  );
-});
-
 Deno.test("clip never leaves a code span open and keeps short text intact", () => {
   assertEquals(
     clip("Use `discern_update` when behind", 200),

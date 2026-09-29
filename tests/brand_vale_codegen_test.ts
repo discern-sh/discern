@@ -47,6 +47,7 @@ import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 Deno.test("every committed style file matches its renderer (run `deno task codegen`)", async () => {
   const files = valeStyleFiles();
@@ -111,74 +112,111 @@ Deno.test("every committed style file matches its renderer (run `deno task codeg
   );
 });
 
-Deno.test("every rule's source citations resolve, and an unknown id throws", () => {
-  for (const rule of VALE_STYLE_RULES) {
-    for (const source of rule.sources) {
-      const label = resolveValeSource(source);
-      assert(label.length > 0, `${rule.id}: empty provenance label`);
-    }
-  }
-  const unknown = {
-    kind: "banned-word",
-    word: "no-such-word",
-  } as unknown as ValeRuleSource;
-  assertThrows(
-    () => resolveValeSource(unknown),
-    Error,
-    "unknown banned word",
-    "the resolver must throw on an id the registry no longer declares",
-  );
+Deno.test("brand vale codegen: contracts", () => {
+  assertNamedCases({
+    "every rule's source citations resolve, and an unknown id throws": () => {
+      for (const rule of VALE_STYLE_RULES) {
+        for (const source of rule.sources) {
+          const label = resolveValeSource(source);
+          assert(label.length > 0, `${rule.id}: empty provenance label`);
+        }
+      }
+      const unknown = {
+        kind: "banned-word",
+        word: "no-such-word",
+      } as unknown as ValeRuleSource;
+      assertThrows(
+        () => resolveValeSource(unknown),
+        Error,
+        "unknown banned word",
+        "the resolver must throw on an id the registry no longer declares",
+      );
+    },
+    "every proposed check has exactly one coverage classification": () => {
+      assertEquals(
+        coveragePartitionIssues(
+          PROPOSED_MECHANICAL_CHECKS,
+          VALE_STYLE_RULES,
+          VALE_DISPOSITIONS,
+        ),
+        [],
+        "the proposed-check partition drifted",
+      );
+      assertEquals(
+        voiceEnforcementCoverage().length,
+        REGISTERS.reduce(
+          (total, register) =>
+            total + PROPOSED_MECHANICAL_CHECKS[register].length,
+          0,
+        ),
+      );
+    },
+    "a future proposal fails until it receives one classification": () => {
+      const future = {
+        ...PROPOSED_MECHANICAL_CHECKS,
+        brand: [
+          ...PROPOSED_MECHANICAL_CHECKS.brand,
+          { id: "future-model-smell", text: "future model smell;" },
+        ],
+      };
+      const missing = coveragePartitionIssues(
+        future,
+        VALE_STYLE_RULES,
+        VALE_DISPOSITIONS,
+      );
+      assertEquals(missing.length, 1);
+      assertStringIncludes(missing[0] ?? "", "brand/future-model-smell");
+
+      const classified = coveragePartitionIssues(
+        future,
+        VALE_STYLE_RULES,
+        [
+          ...VALE_DISPOSITIONS,
+          {
+            check: { register: "brand", check: "future-model-smell" },
+            disposition: "deferred",
+          },
+        ],
+      );
+      assertEquals(classified, []);
+    },
+    "every generated pattern survives a source-line wrap": () => {
+      // The map hard-wraps prose, so a literal space in a pattern silently
+      // misses wrapped instances — the same class the authored style's guard
+      // holds (tests/voice_vale_parity_test.ts); the renderer throws on it, and
+      // this control proves the predicate discriminates.
+      for (const rule of VALE_STYLE_RULES) {
+        for (const pattern of valeCheckPatterns(rule.check)) {
+          assertEquals(
+            valePatternOffences(pattern),
+            [],
+            `${rule.id}: pattern would miss wrapped instances`,
+          );
+        }
+      }
+      assert(
+        valePatternOffences("literal space").length > 0,
+        "the literal-space predicate no longer discriminates",
+      );
+      assert(
+        valePatternOffences("").length > 0,
+        "the empty-pattern predicate no longer discriminates",
+      );
+    },
+    "rule ids are unique per style and PascalCase": () => {
+      const seen = new Set<string>();
+      for (const rule of VALE_STYLE_RULES) {
+        assert(
+          /^[A-Z][A-Za-z]+$/.test(rule.id),
+          `${rule.id}: a rule id is its Vale check name — PascalCase, letters only`,
+        );
+        const key = `${rule.register}/${rule.id}`;
+        assert(!seen.has(key), `${key} is declared twice`);
+        seen.add(key);
+      }
+    },
+  });
 });
-
-Deno.test("every proposed check has exactly one coverage classification", () => {
-  assertEquals(
-    coveragePartitionIssues(
-      PROPOSED_MECHANICAL_CHECKS,
-      VALE_STYLE_RULES,
-      VALE_DISPOSITIONS,
-    ),
-    [],
-    "the proposed-check partition drifted",
-  );
-  assertEquals(
-    voiceEnforcementCoverage().length,
-    REGISTERS.reduce(
-      (total, register) => total + PROPOSED_MECHANICAL_CHECKS[register].length,
-      0,
-    ),
-  );
-});
-
-Deno.test("a future proposal fails until it receives one classification", () => {
-  const future = {
-    ...PROPOSED_MECHANICAL_CHECKS,
-    brand: [
-      ...PROPOSED_MECHANICAL_CHECKS.brand,
-      { id: "future-model-smell", text: "future model smell;" },
-    ],
-  };
-  const missing = coveragePartitionIssues(
-    future,
-    VALE_STYLE_RULES,
-    VALE_DISPOSITIONS,
-  );
-  assertEquals(missing.length, 1);
-  assertStringIncludes(missing[0] ?? "", "brand/future-model-smell");
-
-  const classified = coveragePartitionIssues(
-    future,
-    VALE_STYLE_RULES,
-    [
-      ...VALE_DISPOSITIONS,
-      {
-        check: { register: "brand", check: "future-model-smell" },
-        disposition: "deferred",
-      },
-    ],
-  );
-  assertEquals(classified, []);
-});
-
 Deno.test("every coverage citation and generated target exists", async () => {
   const seen = new Set<string>();
   for (const reference of voiceEnforcementReferences()) {
@@ -286,44 +324,6 @@ Deno.test("every generated Vale rule fires on its bad case and ignores its safe 
     }
   });
 });
-
-Deno.test("every generated pattern survives a source-line wrap", () => {
-  // The map hard-wraps prose, so a literal space in a pattern silently
-  // misses wrapped instances — the same class the authored style's guard
-  // holds (tests/voice_vale_parity_test.ts); the renderer throws on it, and
-  // this control proves the predicate discriminates.
-  for (const rule of VALE_STYLE_RULES) {
-    for (const pattern of valeCheckPatterns(rule.check)) {
-      assertEquals(
-        valePatternOffences(pattern),
-        [],
-        `${rule.id}: pattern would miss wrapped instances`,
-      );
-    }
-  }
-  assert(
-    valePatternOffences("literal space").length > 0,
-    "the literal-space predicate no longer discriminates",
-  );
-  assert(
-    valePatternOffences("").length > 0,
-    "the empty-pattern predicate no longer discriminates",
-  );
-});
-
-Deno.test("rule ids are unique per style and PascalCase", () => {
-  const seen = new Set<string>();
-  for (const rule of VALE_STYLE_RULES) {
-    assert(
-      /^[A-Z][A-Za-z]+$/.test(rule.id),
-      `${rule.id}: a rule id is its Vale check name — PascalCase, letters only`,
-    );
-    const key = `${rule.register}/${rule.id}`;
-    assert(!seen.has(key), `${key} is declared twice`);
-    seen.add(key);
-  }
-});
-
 Deno.test("canonical casing keeps linked titles and catches errors inside labels", async () => {
   const rule = VALE_STYLE_RULES.find((candidate) =>
     candidate.register === "product" && candidate.id === "CanonicalTermCase"

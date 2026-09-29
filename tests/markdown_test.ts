@@ -26,6 +26,7 @@ import {
   terminalPresentationContext,
 } from "../src/lib/terminal.ts";
 import { unexpectedTerminalControls } from "./helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const DIALECT_FIXTURE = `# A complete document
 
@@ -55,65 +56,101 @@ A note[^proof].
 
 [^proof]: The definition remains linked.`;
 
-Deno.test("terminal Markdown is byte-for-byte the package Markdown Component", () => {
-  const base = terminalPresentationContext(true);
-  for (
-    const { color, width } of [
-      { color: true, width: 72 },
-      { color: false, width: 48 },
-      // Discern's public compatibility wrapper retains its 20-cell floor.
-      { color: false, width: 12 },
-    ]
-  ) {
-    const terminal = terminalContextWithColor(base, color);
-    const effectiveWidth = Math.max(20, width);
-    assertEquals(
-      renderMarkdown(DIALECT_FIXTURE, { color, width, terminal: base }),
-      terminal.presenter.present(renderMarkdownCli, {
-        source: DIALECT_FIXTURE,
-        maxWidth: effectiveWidth,
-      }),
-    );
-  }
+Deno.test("markdown: terminalPresentationContext cases", () => {
+  assertNamedCases({
+    "terminal Markdown is byte-for-byte the package Markdown Component": () => {
+      const base = terminalPresentationContext(true);
+      for (
+        const { color, width } of [
+          { color: true, width: 72 },
+          { color: false, width: 48 },
+          // Discern's public compatibility wrapper retains its 20-cell floor.
+          { color: false, width: 12 },
+        ]
+      ) {
+        const terminal = terminalContextWithColor(base, color);
+        const effectiveWidth = Math.max(20, width);
+        assertEquals(
+          renderMarkdown(DIALECT_FIXTURE, { color, width, terminal: base }),
+          terminal.presenter.present(renderMarkdownCli, {
+            source: DIALECT_FIXTURE,
+            maxWidth: effectiveWidth,
+          }),
+        );
+      }
+    },
+    "ASCII Markdown uses only the package motif's ASCII repertoire": () => {
+      const base = terminalPresentationContext(false);
+      const terminal = {
+        ...base,
+        capabilities: {
+          ...base.capabilities,
+          columns: 32,
+          unicode: false,
+        },
+        size: { columns: 32, rows: 24 },
+      };
+      const rendered = renderMarkdown("# Heading\n\n---\n\n> quote\n\n- item", {
+        width: 32,
+        color: false,
+        terminal,
+      });
+      for (const glyph of Object.values(DISCERN_TRIANGLE_GLYPHS)) {
+        assert(!rendered.includes(glyph), `Unicode triangle leaked: ${glyph}`);
+      }
+      assertStringIncludes(rendered, "| quote");
+      assertStringIncludes(rendered, "* item");
+    },
+  });
 });
 
-Deno.test("package Markdown keeps rich documents complete and width-bounded", () => {
-  const width = 42;
-  const rendered = renderMarkdown(DIALECT_FIXTURE, { color: false, width });
-  for (
-    const fact of [
-      "A complete document",
-      "Alerts retain nested content.",
-      "Ordered from three",
-      "const complete = true;",
-      "The definition remains linked.",
-    ]
-  ) {
-    assertStringIncludes(rendered, fact);
-  }
-  for (const line of rendered.split("\n")) {
-    assert(
-      measureText(line) <= width,
-      `Markdown overflowed ${width} columns: ${JSON.stringify(line)}`,
-    );
-  }
+Deno.test("markdown: renderMarkdown cases", () => {
+  assertNamedCases({
+    "package Markdown keeps rich documents complete and width-bounded": () => {
+      const width = 42;
+      const rendered = renderMarkdown(DIALECT_FIXTURE, { color: false, width });
+      for (
+        const fact of [
+          "A complete document",
+          "Alerts retain nested content.",
+          "Ordered from three",
+          "const complete = true;",
+          "The definition remains linked.",
+        ]
+      ) {
+        assertStringIncludes(rendered, fact);
+      }
+      for (const line of rendered.split("\n")) {
+        assert(
+          measureText(line) <= width,
+          `Markdown overflowed ${width} columns: ${JSON.stringify(line)}`,
+        );
+      }
+    },
+    "terminal Markdown makes hostile controls visible and inert": () => {
+      const rendered = renderMarkdown(
+        "# café 👩‍💻\x1b\u0085\u202E\n\n[unsafe](javascript:alert(1))",
+        { color: false, width: 48 },
+      );
+
+      assertEquals(unexpectedTerminalControls(rendered), []);
+      assert(!/[\p{Cc}\p{Cf}]/u.test(rendered.replaceAll("\n", "")));
+      for (const visible of ["\\u{200D}", "\\u{1B}", "\\u{85}", "\\u{202E}"]) {
+        assertStringIncludes(rendered, visible);
+      }
+      assertStringIncludes(rendered, "unsafe");
+      assertStringIncludes(rendered, "javascript:alert(1)");
+    },
+    "coloured Markdown contains only package-owned terminal styling": () => {
+      const rendered = renderMarkdown(DIALECT_FIXTURE, {
+        color: true,
+        width: 60,
+      });
+      assertStringIncludes(rendered, "\x1b[");
+      assertStringIncludes(stripAnsi(rendered), "A complete document");
+    },
+  });
 });
-
-Deno.test("terminal Markdown makes hostile controls visible and inert", () => {
-  const rendered = renderMarkdown(
-    "# café 👩‍💻\x1b\u0085\u202E\n\n[unsafe](javascript:alert(1))",
-    { color: false, width: 48 },
-  );
-
-  assertEquals(unexpectedTerminalControls(rendered), []);
-  assert(!/[\p{Cc}\p{Cf}]/u.test(rendered.replaceAll("\n", "")));
-  for (const visible of ["\\u{200D}", "\\u{1B}", "\\u{85}", "\\u{202E}"]) {
-    assertStringIncludes(rendered, visible);
-  }
-  assertStringIncludes(rendered, "unsafe");
-  assertStringIncludes(rendered, "javascript:alert(1)");
-});
-
 Deno.test("explicit colour is independent of inherited NO_COLOR", async () => {
   const module = new URL("../src/lib/markdown.ts", import.meta.url).href;
   const probe = [
@@ -130,105 +167,98 @@ Deno.test("explicit colour is independent of inherited NO_COLOR", async () => {
   assertEquals(result.code, 0, stderr);
   assertStringIncludes(new TextDecoder().decode(result.stdout), "\x1b[");
 });
-
-Deno.test("ASCII Markdown uses only the package motif's ASCII repertoire", () => {
-  const base = terminalPresentationContext(false);
-  const terminal = {
-    ...base,
-    capabilities: {
-      ...base.capabilities,
-      columns: 32,
-      unicode: false,
+Deno.test("markdown: renderMarkdownHtml cases", () => {
+  assertNamedCases({
+    "HTML nested lists keep every child list inside its parent item": () => {
+      const rendered = renderMarkdownHtml(
+        "- alpha\n  - fresh sibling\n  1. ordered sibling\n- omega",
+      );
+      assertEquals(
+        rendered.html,
+        "<ul>\n<li>alpha\n<ul>\n<li>fresh sibling</li>\n</ul>\n" +
+          "<ol>\n<li>ordered sibling</li>\n</ol>\n</li>\n" +
+          "<li>omega</li>\n</ul>",
+      );
     },
-    size: { columns: 32, rows: 24 },
-  };
-  const rendered = renderMarkdown("# Heading\n\n---\n\n> quote\n\n- item", {
-    width: 32,
-    color: false,
-    terminal,
+    "HTML fenced code gives every Unicode grapheme a terminal cell": () => {
+      const source = "AB┌界🎨<&CD";
+      const rendered = renderMarkdownHtml(`\`\`\`text\n${source}\n\`\`\``);
+      const document = new JSDOM(rendered.html).window.document;
+      const code = document.querySelector("pre > code");
+
+      assertEquals(code?.textContent, source);
+      assertEquals(
+        [...document.querySelectorAll("[data-discern-terminal-cell]")].map(
+          (
+            cell,
+          ) => [
+            cell.textContent,
+            cell.getAttribute("data-discern-terminal-cell"),
+          ],
+        ),
+        [
+          ["┌", "1"],
+          ["界", "2"],
+          ["🎨", "2"],
+        ],
+      );
+    },
+    "HTML prose hooks cannot replace existing inline semantics or headings":
+      () => {
+        const rendered = renderMarkdownHtml(
+          [
+            "# Heading",
+            "",
+            "plain **bold** [linked](/target) `coded`",
+            "",
+            "> quoted",
+            "",
+            "- listed",
+            "",
+            "| Column |",
+            "| --- |",
+            "| cell |",
+          ].join("\n"),
+          { renderProseText: (text) => `<mark>${text}</mark>` },
+        );
+
+        assertStringIncludes(rendered.html, '<h1 id="heading">Heading</h1>');
+        assertStringIncludes(rendered.html, "<mark>plain </mark>");
+        assertStringIncludes(rendered.html, "<strong>bold</strong>");
+        assertStringIncludes(rendered.html, '<a href="/target">linked</a>');
+        assertStringIncludes(rendered.html, "<code>coded</code>");
+        assertStringIncludes(
+          rendered.html,
+          "<blockquote><p><mark>quoted</mark></p>",
+        );
+        assertStringIncludes(rendered.html, "<li><mark>listed</mark></li>");
+        assertStringIncludes(rendered.html, "<th><mark>Column</mark></th>");
+        assertStringIncludes(rendered.html, "<td><mark>cell</mark></td>");
+        assert(!rendered.html.includes('<h1 id="heading"><mark>'));
+        assert(!rendered.html.includes("<strong><mark>"));
+        assert(!rendered.html.includes('<a href="/target"><mark>'));
+        assert(!rendered.html.includes("<code><mark>"));
+      },
+    "HTML heading ids match GitHub's anchor algorithm": () => {
+      const { headings } = renderMarkdownHtml(
+        [
+          "# Your files / Yours",
+          "## Bookkeeping & integration",
+          "## public_doc_leaf_density",
+          "## Repeat",
+          "## Repeat",
+        ].join("\n"),
+      );
+      assertEquals(headings.map((heading) => heading.id), [
+        "your-files--yours",
+        "bookkeeping--integration",
+        "public_doc_leaf_density",
+        "repeat",
+        "repeat-1",
+      ]);
+    },
   });
-  for (const glyph of Object.values(DISCERN_TRIANGLE_GLYPHS)) {
-    assert(!rendered.includes(glyph), `Unicode triangle leaked: ${glyph}`);
-  }
-  assertStringIncludes(rendered, "| quote");
-  assertStringIncludes(rendered, "* item");
 });
-
-Deno.test("coloured Markdown contains only package-owned terminal styling", () => {
-  const rendered = renderMarkdown(DIALECT_FIXTURE, {
-    color: true,
-    width: 60,
-  });
-  assertStringIncludes(rendered, "\x1b[");
-  assertStringIncludes(stripAnsi(rendered), "A complete document");
-});
-
-Deno.test("HTML nested lists keep every child list inside its parent item", () => {
-  const rendered = renderMarkdownHtml(
-    "- alpha\n  - fresh sibling\n  1. ordered sibling\n- omega",
-  );
-  assertEquals(
-    rendered.html,
-    "<ul>\n<li>alpha\n<ul>\n<li>fresh sibling</li>\n</ul>\n" +
-      "<ol>\n<li>ordered sibling</li>\n</ol>\n</li>\n" +
-      "<li>omega</li>\n</ul>",
-  );
-});
-
-Deno.test("HTML fenced code gives every Unicode grapheme a terminal cell", () => {
-  const source = "AB┌界🎨<&CD";
-  const rendered = renderMarkdownHtml(`\`\`\`text\n${source}\n\`\`\``);
-  const document = new JSDOM(rendered.html).window.document;
-  const code = document.querySelector("pre > code");
-
-  assertEquals(code?.textContent, source);
-  assertEquals(
-    [...document.querySelectorAll("[data-discern-terminal-cell]")].map(
-      (
-        cell,
-      ) => [cell.textContent, cell.getAttribute("data-discern-terminal-cell")],
-    ),
-    [
-      ["┌", "1"],
-      ["界", "2"],
-      ["🎨", "2"],
-    ],
-  );
-});
-
-Deno.test("HTML prose hooks cannot replace existing inline semantics or headings", () => {
-  const rendered = renderMarkdownHtml(
-    [
-      "# Heading",
-      "",
-      "plain **bold** [linked](/target) `coded`",
-      "",
-      "> quoted",
-      "",
-      "- listed",
-      "",
-      "| Column |",
-      "| --- |",
-      "| cell |",
-    ].join("\n"),
-    { renderProseText: (text) => `<mark>${text}</mark>` },
-  );
-
-  assertStringIncludes(rendered.html, '<h1 id="heading">Heading</h1>');
-  assertStringIncludes(rendered.html, "<mark>plain </mark>");
-  assertStringIncludes(rendered.html, "<strong>bold</strong>");
-  assertStringIncludes(rendered.html, '<a href="/target">linked</a>');
-  assertStringIncludes(rendered.html, "<code>coded</code>");
-  assertStringIncludes(rendered.html, "<blockquote><p><mark>quoted</mark></p>");
-  assertStringIncludes(rendered.html, "<li><mark>listed</mark></li>");
-  assertStringIncludes(rendered.html, "<th><mark>Column</mark></th>");
-  assertStringIncludes(rendered.html, "<td><mark>cell</mark></td>");
-  assert(!rendered.html.includes('<h1 id="heading"><mark>'));
-  assert(!rendered.html.includes("<strong><mark>"));
-  assert(!rendered.html.includes('<a href="/target"><mark>'));
-  assert(!rendered.html.includes("<code><mark>"));
-});
-
 Deno.test("inline HTML stays escaped while retaining Markdown semantics", () => {
   assertEquals(
     renderMarkdownInlineHtml("Use `<unsafe>` with [the docs](/docs)."),
@@ -266,23 +296,4 @@ Deno.test("inlineToPlain remains the metadata projection authority", () => {
     inlineToPlain("a **b** and `c` and [d](http://e) and ~~gone~~"),
     "a b and c and d and gone",
   );
-});
-
-Deno.test("HTML heading ids match GitHub's anchor algorithm", () => {
-  const { headings } = renderMarkdownHtml(
-    [
-      "# Your files / Yours",
-      "## Bookkeeping & integration",
-      "## public_doc_leaf_density",
-      "## Repeat",
-      "## Repeat",
-    ].join("\n"),
-  );
-  assertEquals(headings.map((heading) => heading.id), [
-    "your-files--yours",
-    "bookkeeping--integration",
-    "public_doc_leaf_density",
-    "repeat",
-    "repeat-1",
-  ]);
 });

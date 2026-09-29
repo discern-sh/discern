@@ -12,6 +12,7 @@ import {
 } from "../scripts/silent_catch_lint.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const RULE_ID = "discern-silent-catch/no-silent-catch";
 
@@ -28,8 +29,10 @@ function diagnostics(
   );
 }
 
-Deno.test("empty, comment-only, and absence-returning catches are silent", () => {
-  const found = diagnostics(`
+Deno.test("silent catch lint: diagnostics cases", () => {
+  assertNamedCases({
+    "empty, comment-only, and absence-returning catches are silent": () => {
+      const found = diagnostics(`
 export function forgetOne(): void {
   try { act(); } catch {}
 }
@@ -48,17 +51,16 @@ export function forgetFive(): number {
   try { act(); } catch { return 0; }
 }
 `);
-  assertEquals(found.map((diagnostic) => diagnostic.id), [
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-  ]);
-});
-
-Deno.test("promise, async, aliased, and richer discard handlers are silent", () => {
-  const found = diagnostics(`
+      assertEquals(found.map((diagnostic) => diagnostic.id), [
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+      ]);
+    },
+    "promise, async, aliased, and richer discard handlers are silent": () => {
+      const found = diagnostics(`
 const forget = () => undefined;
 export async function consume(): Promise<void> {
   await first().catch(() => undefined);
@@ -71,35 +73,33 @@ export async function consume(): Promise<void> {
   await eighth().then(use, () => undefined);
 }
 `);
-  assertEquals(found.map((diagnostic) => diagnostic.id), [
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-  ]);
-});
-
-Deno.test("cosmetic statements do not make a swallowed catch observable", () => {
-  const found = diagnostics(`
+      assertEquals(found.map((diagnostic) => diagnostic.id), [
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+      ]);
+    },
+    "cosmetic statements do not make a swallowed catch observable": () => {
+      const found = diagnostics(`
 export function consume(): void {
   try { first(); } catch (error) { error; }
   try { second(); } catch (error) { void error; }
   try { third(); } catch (error) { String(error); }
 }
 `);
-  assertEquals(found.map((diagnostic) => diagnostic.id), [
-    RULE_ID,
-    RULE_ID,
-    RULE_ID,
-  ]);
-});
-
-Deno.test("nested cleanup swallowing is detected independently", () => {
-  const found = diagnostics(`
+      assertEquals(found.map((diagnostic) => diagnostic.id), [
+        RULE_ID,
+        RULE_ID,
+        RULE_ID,
+      ]);
+    },
+    "nested cleanup swallowing is detected independently": () => {
+      const found = diagnostics(`
 export async function preservePrimary(): Promise<void> {
   try {
     await primary();
@@ -109,12 +109,11 @@ export async function preservePrimary(): Promise<void> {
   }
 }
 `);
-  assertEquals(found.map((diagnostic) => diagnostic.id), [RULE_ID]);
-});
-
-Deno.test("reported, propagated, and structured failures remain visible", () => {
-  assertEquals(
-    diagnostics(`
+      assertEquals(found.map((diagnostic) => diagnostic.id), [RULE_ID]);
+    },
+    "reported, propagated, and structured failures remain visible": () => {
+      assertEquals(
+        diagnostics(`
 export async function visible(): Promise<void> {
   try { await first(); } catch (error) { log.warn(String(error)); }
   try { await second(); } catch (error) { throw error; }
@@ -123,17 +122,74 @@ export async function visible(): Promise<void> {
   await fourth().catch((error) => ({ ok: false, error }));
 }
 `),
-    [],
-  );
-});
-
-Deno.test("non-function catch combinators are not promise rejection handlers", () => {
-  assertEquals(
-    diagnostics(`
+        [],
+      );
+    },
+    "non-function catch combinators are not promise rejection handlers": () => {
+      assertEquals(
+        diagnostics(`
 const schema = z.string().optional().catch(undefined);
 `),
-    [],
-  );
+        [],
+      );
+    },
+    "an exact direct exception permits one registered syntax site": () => {
+      const source = `export function fixture(): void {
+  try { cleanup(); } catch {
+    // discern-best-effort: planted-cleanup
+  }
+}\n`;
+      assertEquals(
+        diagnostics(source, "synthetic.ts", {
+          "planted-cleanup": directBoundary(),
+        }),
+        [],
+      );
+    },
+    "an awaited direct exception binds its async registry shape": () => {
+      const source = `export async function fixture(): Promise<void> {
+  try { await cleanup(); } catch {
+    // discern-best-effort: planted-cleanup
+  }
+}\n`;
+      assertEquals(
+        diagnostics(source, "synthetic.ts", {
+          "planted-cleanup": directBoundary({ shape: "async" }),
+        }),
+        [],
+      );
+    },
+    "a for-await direct exception also binds its async registry shape": () => {
+      const source = `export async function fixture(): Promise<void> {
+  try { for await (const value of values()) consume(value); } catch {
+    // discern-best-effort: planted-cleanup
+  }
+}\n`;
+      assertEquals(
+        diagnostics(source, "synthetic.ts", {
+          "planted-cleanup": directBoundary({ shape: "async" }),
+        }),
+        [],
+      );
+    },
+    "unknown and mismatched direct exceptions fail with recovery": () => {
+      const source = `export function fixture(): void {
+  try { cleanup(); } catch {
+    // discern-best-effort: unknown-cleanup
+  }
+}\n`;
+      const unknown = diagnostics(source);
+      assertEquals(unknown.map((diagnostic) => diagnostic.id), [RULE_ID]);
+      assertEquals(
+        unknown[0]?.message,
+        "Unknown best-effort boundary 'unknown-cleanup'; add its exact registry entry or remove the marker.",
+      );
+      const mismatch = diagnostics(source, "synthetic.ts", {
+        "unknown-cleanup": directBoundary({ enclosingFunction: "elsewhere" }),
+      });
+      assertEquals(mismatch.map((diagnostic) => diagnostic.id), [RULE_ID]);
+    },
+  });
 });
 
 /** Build one exact synthetic direct exception. */
@@ -152,66 +208,6 @@ function directBoundary(
     ...overrides,
   };
 }
-
-Deno.test("an exact direct exception permits one registered syntax site", () => {
-  const source = `export function fixture(): void {
-  try { cleanup(); } catch {
-    // discern-best-effort: planted-cleanup
-  }
-}\n`;
-  assertEquals(
-    diagnostics(source, "synthetic.ts", {
-      "planted-cleanup": directBoundary(),
-    }),
-    [],
-  );
-});
-
-Deno.test("an awaited direct exception binds its async registry shape", () => {
-  const source = `export async function fixture(): Promise<void> {
-  try { await cleanup(); } catch {
-    // discern-best-effort: planted-cleanup
-  }
-}\n`;
-  assertEquals(
-    diagnostics(source, "synthetic.ts", {
-      "planted-cleanup": directBoundary({ shape: "async" }),
-    }),
-    [],
-  );
-});
-
-Deno.test("a for-await direct exception also binds its async registry shape", () => {
-  const source = `export async function fixture(): Promise<void> {
-  try { for await (const value of values()) consume(value); } catch {
-    // discern-best-effort: planted-cleanup
-  }
-}\n`;
-  assertEquals(
-    diagnostics(source, "synthetic.ts", {
-      "planted-cleanup": directBoundary({ shape: "async" }),
-    }),
-    [],
-  );
-});
-
-Deno.test("unknown and mismatched direct exceptions fail with recovery", () => {
-  const source = `export function fixture(): void {
-  try { cleanup(); } catch {
-    // discern-best-effort: unknown-cleanup
-  }
-}\n`;
-  const unknown = diagnostics(source);
-  assertEquals(unknown.map((diagnostic) => diagnostic.id), [RULE_ID]);
-  assertEquals(
-    unknown[0]?.message,
-    "Unknown best-effort boundary 'unknown-cleanup'; add its exact registry entry or remove the marker.",
-  );
-  const mismatch = diagnostics(source, "synthetic.ts", {
-    "unknown-cleanup": directBoundary({ enclosingFunction: "elsewhere" }),
-  });
-  assertEquals(mismatch.map((diagnostic) => diagnostic.id), [RULE_ID]);
-});
 
 /** Convert a diagnostic byte offset into a one-based line. */
 function diagnosticLine(

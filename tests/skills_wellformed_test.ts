@@ -22,6 +22,7 @@ import {
 } from "../src/lib/skills.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const BUNDLED_SKILLS = "templates/skills";
 const AUTHORED_SKILLS = relative(REPO_ROOT, REPO_AUTHORED_PATHS.skills);
@@ -151,132 +152,135 @@ function skillDoc(...blockLines: string[]): string {
   return ["---", ...blockLines, "---", "", "# A skill", "", "Body."].join("\n");
 }
 
-Deno.test("a valid identity passes, extra keys and nested metadata allowed", () => {
-  assertEquals(
-    skillFrontmatterIssues(
-      skillDoc(
-        "name: brew-perfect-coffee",
-        "description: Brew a cup worth drinking. Use when the pot is empty.",
-        "metadata:",
-        '  author: "someone | https://example.com"',
-        '  version: "1.0"',
-      ),
-      "brew-perfect-coffee",
-    ),
-    [],
-  );
-});
+Deno.test("skills wellformed: skillFrontmatterIssues cases", () => {
+  assertNamedCases({
+    "a valid identity passes, extra keys and nested metadata allowed": () => {
+      assertEquals(
+        skillFrontmatterIssues(
+          skillDoc(
+            "name: brew-perfect-coffee",
+            "description: Brew a cup worth drinking. Use when the pot is empty.",
+            "metadata:",
+            '  author: "someone | https://example.com"',
+            '  version: "1.0"',
+          ),
+          "brew-perfect-coffee",
+        ),
+        [],
+      );
+    },
+    "a continuation line hiding an inline colon is rejected": () => {
+      // The shape that shipped: `description:` with the text on the next line and
+      // an inline `: ` in it, which YAML reads as a nested mapping, not text.
+      const withColon = skillFrontmatterIssues(
+        skillDoc(
+          "name: prune-the-orchard",
+          "description:",
+          "  Keep the trees healthy. Out of season: prune nothing at all.",
+        ),
+        "prune-the-orchard",
+      );
+      assertEquals(withColon.length, 1);
+      assert(withColon[0]?.includes("nested mapping"), withColon[0]);
 
-Deno.test("a continuation line hiding an inline colon is rejected", () => {
-  // The shape that shipped: `description:` with the text on the next line and
-  // an inline `: ` in it, which YAML reads as a nested mapping, not text.
-  const withColon = skillFrontmatterIssues(
-    skillDoc(
-      "name: prune-the-orchard",
-      "description:",
-      "  Keep the trees healthy. Out of season: prune nothing at all.",
-    ),
-    "prune-the-orchard",
-  );
-  assertEquals(withColon.length, 1);
-  assert(withColon[0]?.includes("nested mapping"), withColon[0]);
+      // Without the colon the continuation is a plain multi-line YAML string —
+      // every consumer reads it correctly, so it is valid.
+      assertEquals(
+        skillFrontmatterIssues(
+          skillDoc(
+            "name: prune-the-orchard",
+            "description:",
+            "  Keep the trees healthy all year round.",
+          ),
+          "prune-the-orchard",
+        ),
+        [],
+      );
+    },
+    "an unquoted inline `: ` is rejected as invalid YAML": () => {
+      const issues = skillFrontmatterIssues(
+        skillDoc(
+          "name: tune-the-engine",
+          "description: Covers the full loop: measure, adjust, and re-run.",
+        ),
+        "tune-the-engine",
+      );
+      assertEquals(issues.length, 1);
+      assert(issues[0]?.includes("not valid YAML"), issues[0]);
+    },
+    "a block-scalar description is valid — YAML is YAML": () => {
+      assertEquals(
+        skillFrontmatterIssues(
+          skillDoc(
+            "name: chart-the-stars",
+            "description: >-",
+            "  Map the night sky one constellation at a time.",
+          ),
+          "chart-the-stars",
+        ),
+        [],
+      );
+    },
+    "a missing, empty, or mis-typed identity field is rejected": () => {
+      const missing = skillFrontmatterIssues(
+        skillDoc("name: sort-the-library"),
+        "sort-the-library",
+      );
+      assertEquals(missing.length, 1);
+      assert(missing[0]?.startsWith("description:"), missing[0]);
 
-  // Without the colon the continuation is a plain multi-line YAML string —
-  // every consumer reads it correctly, so it is valid.
-  assertEquals(
-    skillFrontmatterIssues(
-      skillDoc(
-        "name: prune-the-orchard",
-        "description:",
-        "  Keep the trees healthy all year round.",
-      ),
-      "prune-the-orchard",
-    ),
-    [],
-  );
-});
+      const listName = skillFrontmatterIssues(
+        skillDoc(
+          "name:",
+          "  - sort-the-library",
+          "description: Shelve every book.",
+        ),
+        "sort-the-library",
+      );
+      assertEquals(listName.length, 1);
+      assert(listName[0]?.includes("a list"), listName[0]);
+    },
+    "frontmatter fences must open the file and close": () => {
+      assertEquals(skillFrontmatterIssues("# No block\n", "any-name"), [
+        "missing opening '---' frontmatter fence",
+      ]);
+      assertEquals(
+        skillFrontmatterIssues("---\nname: any-name\n\n# Doc\n", "any-name"),
+        ["unterminated frontmatter fence (no closing '---')"],
+      );
+    },
+    "the name must match the directory and the consumer contract": () => {
+      const renamed = skillFrontmatterIssues(
+        skillDoc(
+          "name: polish-the-brass",
+          "description: Make the rails shine.",
+        ),
+        "shine-the-rails",
+      );
+      assertEquals(renamed.length, 1);
+      assert(renamed[0]?.includes('directory "shine-the-rails"'), renamed[0]);
 
-Deno.test("an unquoted inline `: ` is rejected as invalid YAML", () => {
-  const issues = skillFrontmatterIssues(
-    skillDoc(
-      "name: tune-the-engine",
-      "description: Covers the full loop: measure, adjust, and re-run.",
-    ),
-    "tune-the-engine",
-  );
-  assertEquals(issues.length, 1);
-  assert(issues[0]?.includes("not valid YAML"), issues[0]);
-});
-
-Deno.test("a block-scalar description is valid — YAML is YAML", () => {
-  assertEquals(
-    skillFrontmatterIssues(
-      skillDoc(
-        "name: chart-the-stars",
-        "description: >-",
-        "  Map the night sky one constellation at a time.",
-      ),
-      "chart-the-stars",
-    ),
-    [],
-  );
-});
-
-Deno.test("a missing, empty, or mis-typed identity field is rejected", () => {
-  const missing = skillFrontmatterIssues(
-    skillDoc("name: sort-the-library"),
-    "sort-the-library",
-  );
-  assertEquals(missing.length, 1);
-  assert(missing[0]?.startsWith("description:"), missing[0]);
-
-  const listName = skillFrontmatterIssues(
-    skillDoc(
-      "name:",
-      "  - sort-the-library",
-      "description: Shelve every book.",
-    ),
-    "sort-the-library",
-  );
-  assertEquals(listName.length, 1);
-  assert(listName[0]?.includes("a list"), listName[0]);
-});
-
-Deno.test("frontmatter fences must open the file and close", () => {
-  assertEquals(skillFrontmatterIssues("# No block\n", "any-name"), [
-    "missing opening '---' frontmatter fence",
-  ]);
-  assertEquals(
-    skillFrontmatterIssues("---\nname: any-name\n\n# Doc\n", "any-name"),
-    ["unterminated frontmatter fence (no closing '---')"],
-  );
-});
-
-Deno.test("the name must match the directory and the consumer contract", () => {
-  const renamed = skillFrontmatterIssues(
-    skillDoc("name: polish-the-brass", "description: Make the rails shine."),
-    "shine-the-rails",
-  );
-  assertEquals(renamed.length, 1);
-  assert(renamed[0]?.includes('directory "shine-the-rails"'), renamed[0]);
-
-  const shouty = skillFrontmatterIssues(
-    skillDoc("name: Polish The Brass", "description: Make the rails shine."),
-    "Polish The Brass",
-  );
-  assertEquals(shouty.length, 1);
-  assert(shouty[0]?.includes("lowercase"), shouty[0]);
-});
-
-Deno.test("the description honours the consumer length ceiling", () => {
-  const long = "x".repeat(SKILL_DESCRIPTION_MAX_LENGTH + 1);
-  const issues = skillFrontmatterIssues(
-    skillDoc("name: weave-a-basket", `description: ${long}`),
-    "weave-a-basket",
-  );
-  assertEquals(issues.length, 1);
-  assert(
-    issues[0]?.includes(`${SKILL_DESCRIPTION_MAX_LENGTH}`),
-    issues[0],
-  );
+      const shouty = skillFrontmatterIssues(
+        skillDoc(
+          "name: Polish The Brass",
+          "description: Make the rails shine.",
+        ),
+        "Polish The Brass",
+      );
+      assertEquals(shouty.length, 1);
+      assert(shouty[0]?.includes("lowercase"), shouty[0]);
+    },
+    "the description honours the consumer length ceiling": () => {
+      const long = "x".repeat(SKILL_DESCRIPTION_MAX_LENGTH + 1);
+      const issues = skillFrontmatterIssues(
+        skillDoc("name: weave-a-basket", `description: ${long}`),
+        "weave-a-basket",
+      );
+      assertEquals(issues.length, 1);
+      assert(
+        issues[0]?.includes(`${SKILL_DESCRIPTION_MAX_LENGTH}`),
+        issues[0],
+      );
+    },
+  });
 });

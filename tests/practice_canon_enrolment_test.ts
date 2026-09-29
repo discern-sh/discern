@@ -54,6 +54,7 @@ import { CONCEPTS } from "../scripts/brand/bridge.ts";
 import { buildPracticeCarrierCatalog } from "../scripts/practice_carriers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const PRACTICE_CARRIERS = await buildPracticeCarrierCatalog();
 
@@ -81,21 +82,326 @@ Deno.test("the configured map's public practice page matches the generator (run 
   );
 });
 
-Deno.test("every tenet, property, and deferred-consumer id is unique and kebab-case", () => {
-  const seen = new Set<string>();
-  const ids = [
-    ...PRACTICE_CANON.map((tenet) => tenet.id),
-    ...PRACTICE_PROPERTIES.map((property) => property.id),
-    ...PRACTICE_DEFERRED_CONSUMERS.map((consumer) => consumer.id),
-  ];
-  for (const id of ids) {
-    assert(!seen.has(id), `duplicate practice id: ${id}`);
-    seen.add(id);
-    assert(
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id),
-      `practice id is not kebab-case: ${id}`,
-    );
-  }
+Deno.test("practice canon enrolment: contracts", () => {
+  assertNamedCases({
+    "every tenet, property, and deferred-consumer id is unique and kebab-case":
+      () => {
+        const seen = new Set<string>();
+        const ids = [
+          ...PRACTICE_CANON.map((tenet) => tenet.id),
+          ...PRACTICE_PROPERTIES.map((property) => property.id),
+          ...PRACTICE_DEFERRED_CONSUMERS.map((consumer) => consumer.id),
+        ];
+        for (const id of ids) {
+          assert(!seen.has(id), `duplicate practice id: ${id}`);
+          seen.add(id);
+          assert(
+            /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id),
+            `practice id is not kebab-case: ${id}`,
+          );
+        }
+      },
+    "every tenet carries a belief that names no carrier and no identifier":
+      () => {
+        const members = everyCarrierMember();
+        for (const tenet of PRACTICE_CANON) {
+          const why = tenet.why.trim();
+          assert(why.length > 0, `tenet ${tenet.id} has no belief`);
+          assert(
+            !why.includes("`"),
+            `tenet ${tenet.id}: the belief names an identifier`,
+          );
+          assert(
+            why !== tenet.obligation.trim(),
+            `tenet ${tenet.id}: the belief restates the obligation`,
+          );
+          const sentences = why.split(/[.!?](?:\s+|$)/).filter((s) =>
+            s.length > 0
+          );
+          assert(
+            sentences.length <= 2,
+            `tenet ${tenet.id}: the belief runs to ${sentences.length} sentences; keep it to one or two`,
+          );
+          for (const member of members) {
+            const pattern = new RegExp(
+              `\\b${member.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+              "i",
+            );
+            assert(
+              !pattern.test(why),
+              `tenet ${tenet.id}: the belief names the carrier "${member}"; state the reason without product vocabulary`,
+            );
+          }
+        }
+      },
+    "the canon numbers its tenets in lens order, and no lens is empty": () => {
+      const order = PRACTICE_ARCS.map((arc) => arc.id);
+      assertEquals(new Set(order).size, order.length, "a lens is listed twice");
+      const seen = PRACTICE_CANON.map((tenet) => order.indexOf(tenet.arc));
+      for (const [index, rank] of seen.entries()) {
+        assert(
+          rank !== -1,
+          `tenet ${
+            PRACTICE_CANON[index]?.id
+          } has a lens PRACTICE_ARCS does not list`,
+        );
+        const previous = seen[index - 1] ?? -1;
+        assert(
+          rank >= previous,
+          `tenet ${PRACTICE_CANON[index]?.id} is numbered out of lens order`,
+        );
+      }
+      for (const arc of order) {
+        assert(
+          PRACTICE_CANON.some((tenet) => tenet.arc === arc),
+          `no tenet belongs to the lens: ${arc}`,
+        );
+      }
+    },
+    "every upheld key names a live member, on the right tier": () => {
+      for (const tenet of PRACTICE_CANON) {
+        const entries = upheldEntries(tenet);
+        assert(entries.length > 0, `tenet is upheld by nothing: ${tenet.id}`);
+        for (const { tier, keys } of entries) {
+          for (const key of keys) {
+            const { set } = parseCarrier(key);
+            const carriers = tier === "taught"
+              ? PRACTICE_CARRIERS.teaching
+              : PRACTICE_CARRIERS.enforcement;
+            assert(
+              carriers.some((carrier) => carrier.key === key),
+              `tenet ${tenet.id} ${tier} key names no compatible live carrier: ${key}`,
+            );
+            if (tier === "taught") {
+              assert(
+                set === "skill",
+                `tenet ${tenet.id} taught tier carries a non-skill key: ${key}`,
+              );
+            } else {
+              assert(
+                set !== "skill",
+                `tenet ${tenet.id} ${tier} tier carries a skill key: ${key}`,
+              );
+            }
+          }
+        }
+      }
+    },
+    "every bundled skill is claimed by a tenet or recorded absent — exactly one, with a reason":
+      () => {
+        const claimed = new Set(
+          PRACTICE_CANON.flatMap((tenet) => allUpheldKeys(tenet))
+            .map((key) => parseCarrier(key))
+            .filter(({ set }) => set === "skill")
+            .map(({ member }) => member),
+        );
+        const skills = PRACTICE_CARRIERS.teaching.map(({ member }) => member);
+        for (const skill of skills) {
+          const absent = skill in PRACTICE_DELIBERATELY_ABSENT;
+          assert(
+            claimed.has(skill) || absent,
+            `bundled skill is neither claimed by a tenet nor recorded absent: ${skill}`,
+          );
+          assert(
+            !(claimed.has(skill) && absent),
+            `stale absence record: the canon claims ${skill}`,
+          );
+        }
+        for (
+          const [skill, reason] of Object.entries(PRACTICE_DELIBERATELY_ABSENT)
+        ) {
+          assert(
+            skills.includes(skill),
+            `absence record names no live bundled skill: ${skill}`,
+          );
+          assert(
+            reason.trim().length > 0,
+            `blank absence reason for bundled skill: ${skill}`,
+          );
+        }
+      },
+    "every mechanism and human or agent yield cites a live member": () => {
+      const nodeIds = new Set(allFeatureNodes().map(({ node }) => node.id));
+      const clusterIds = new Set(
+        HUMAN_BENEFIT_CANON.map((cluster) => cluster.id),
+      );
+      const agentBenefitIds = new Set(
+        allAgentBenefitEntries().map(({ entry }) => entry.id),
+      );
+      const citing = [
+        ...PRACTICE_CANON.map((tenet) => ({
+          id: tenet.id,
+          mechanisms: tenet.mechanisms,
+          yields: tenet.yields,
+          agentYields: tenet.agentYields,
+        })),
+        ...PRACTICE_PROPERTIES.map((property) => ({
+          id: property.id,
+          mechanisms: property.mechanisms,
+          yields: property.yields ?? [],
+          agentYields: property.agentYields ?? [],
+        })),
+      ];
+      for (const { id, mechanisms, yields, agentYields } of citing) {
+        assert(mechanisms.length > 0, `no mechanisms cited by: ${id}`);
+        for (const mechanism of mechanisms) {
+          assert(
+            nodeIds.has(mechanism),
+            `${id} cites unknown feature node: ${mechanism}`,
+          );
+        }
+        for (const cluster of yields) {
+          assert(
+            clusterIds.has(cluster),
+            `${id} yields unknown benefit cluster: ${cluster}`,
+          );
+        }
+        for (const outcome of agentYields) {
+          assert(
+            agentBenefitIds.has(outcome),
+            `${id} enables unknown agent benefit: ${outcome}`,
+          );
+        }
+      }
+      for (const tenet of PRACTICE_CANON) {
+        assert(tenet.yields.length > 0, `tenet yields nothing: ${tenet.id}`);
+        assert(
+          tenet.agentYields.length > 0,
+          `tenet enables no coding-agent outcome: ${tenet.id}`,
+        );
+      }
+    },
+    "every coding-agent outcome is enabled by the practice or recorded absent":
+      () => {
+        assertEquals(
+          agentOutcomeCoverageOffenders(liveAgentOutcomeCoverage()),
+          [],
+        );
+      },
+    "a future coding-agent outcome enrolls in practice coverage": () => {
+      assertEquals(
+        agentOutcomeCoverageOffenders({
+          outcomeIds: ["current-outcome", "freshly-named-outcome"],
+          tenets: [{ id: "practice", agentYields: ["current-outcome"] }],
+          properties: [],
+          absences: {},
+        }),
+        ["freshly-named-outcome: no practice carrier or recorded absence"],
+      );
+      assertEquals(
+        agentOutcomeCoverageOffenders({
+          outcomeIds: ["current-outcome"],
+          tenets: [{ id: "practice", agentYields: ["current-outcome"] }],
+          properties: [],
+          absences: { "current-outcome": "A former exception." },
+        }),
+        ["current-outcome: claimed with a stale absence"],
+      );
+    },
+    "every feature pillar is claimed at some resolution or recorded absent — exactly one, with a reason":
+      () => {
+        const flattened = allFeatureNodes();
+        const parents = new Map<string, string>();
+        for (const { node, parent } of flattened) {
+          if (parent !== undefined) parents.set(node.id, parent);
+        }
+        const pillarOf = (id: string): string => {
+          let current = id;
+          for (
+            let parent = parents.get(current);
+            parent !== undefined;
+            parent = parents.get(current)
+          ) {
+            current = parent;
+          }
+          return current;
+        };
+        const claimedPillars = new Set(
+          [
+            ...PRACTICE_CANON.flatMap((tenet) => [...tenet.mechanisms]),
+            ...PRACTICE_PROPERTIES.flatMap((
+              property,
+            ) => [...property.mechanisms]),
+          ].map(pillarOf),
+        );
+        const pillars = flattened
+          .filter(({ depth }) => depth === 0)
+          .map(({ node }) => node.id);
+        for (const pillar of pillars) {
+          const absent = pillar in PRACTICE_PILLAR_ABSENCES;
+          assert(
+            claimedPillars.has(pillar) || absent,
+            `feature pillar is neither cited by the practice canon nor recorded absent: ${pillar}`,
+          );
+          assert(
+            !(claimedPillars.has(pillar) && absent),
+            `stale pillar absence: the canon cites ${pillar}`,
+          );
+        }
+        for (
+          const [pillar, reason] of Object.entries(PRACTICE_PILLAR_ABSENCES)
+        ) {
+          assert(
+            pillars.includes(pillar),
+            `pillar absence names no live pillar: ${pillar}`,
+          );
+          assert(
+            reason.trim().length > 0,
+            `blank pillar absence reason: ${pillar}`,
+          );
+        }
+      },
+    "every benefit cluster is yielded or recorded absent — exactly one, with a reason":
+      () => {
+        const yielded = new Set([
+          ...PRACTICE_CANON.flatMap((tenet) => [...tenet.yields]),
+          ...PRACTICE_PROPERTIES.flatMap((
+            property,
+          ) => [...(property.yields ?? [])]),
+        ]);
+        const clusters = HUMAN_BENEFIT_CANON.map((cluster) => cluster.id);
+        for (const cluster of clusters) {
+          const absent = cluster in PRACTICE_CLUSTER_ABSENCES;
+          assert(
+            yielded.has(cluster) || absent,
+            `benefit cluster is neither yielded by the practice canon nor recorded absent: ${cluster}`,
+          );
+          assert(
+            !(yielded.has(cluster) && absent),
+            `stale cluster absence: the canon yields ${cluster}`,
+          );
+        }
+        for (
+          const [cluster, reason] of Object.entries(PRACTICE_CLUSTER_ABSENCES)
+        ) {
+          assert(
+            clusters.includes(cluster),
+            `cluster absence names no live cluster: ${cluster}`,
+          );
+          assert(
+            reason.trim().length > 0,
+            `blank cluster absence reason: ${cluster}`,
+          );
+        }
+      },
+    "the fixed inventory keeps a maintainer per item": () => {
+      for (const item of PROJECT_INVENTORY) {
+        assert(
+          PRACTICE_CANON.some((tenet) => tenet.holds.includes(item)),
+          `no tenet maintains the inventory item: ${item}`,
+        );
+      }
+    },
+    "the frame's project role carries the fixed inventory phrase verbatim":
+      () => {
+        const project = PRACTICE_FRAME.find((role) => role.id === "project");
+        assert(project !== undefined, "the frame names no project role");
+        assert(
+          project.line.includes(inventoryPhrase()),
+          "the project role's line does not interpolate the inventory phrase",
+        );
+      },
+  });
 });
 
 /** Every carrier member the canon cites, in every tier, deduplicated. */
@@ -107,173 +413,6 @@ function everyCarrierMember(): readonly string[] {
     ),
   ];
 }
-
-Deno.test("every tenet carries a belief that names no carrier and no identifier", () => {
-  const members = everyCarrierMember();
-  for (const tenet of PRACTICE_CANON) {
-    const why = tenet.why.trim();
-    assert(why.length > 0, `tenet ${tenet.id} has no belief`);
-    assert(
-      !why.includes("`"),
-      `tenet ${tenet.id}: the belief names an identifier`,
-    );
-    assert(
-      why !== tenet.obligation.trim(),
-      `tenet ${tenet.id}: the belief restates the obligation`,
-    );
-    const sentences = why.split(/[.!?](?:\s+|$)/).filter((s) => s.length > 0);
-    assert(
-      sentences.length <= 2,
-      `tenet ${tenet.id}: the belief runs to ${sentences.length} sentences; keep it to one or two`,
-    );
-    for (const member of members) {
-      const pattern = new RegExp(
-        `\\b${member.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-        "i",
-      );
-      assert(
-        !pattern.test(why),
-        `tenet ${tenet.id}: the belief names the carrier "${member}"; state the reason without product vocabulary`,
-      );
-    }
-  }
-});
-
-Deno.test("the canon numbers its tenets in lens order, and no lens is empty", () => {
-  const order = PRACTICE_ARCS.map((arc) => arc.id);
-  assertEquals(new Set(order).size, order.length, "a lens is listed twice");
-  const seen = PRACTICE_CANON.map((tenet) => order.indexOf(tenet.arc));
-  for (const [index, rank] of seen.entries()) {
-    assert(
-      rank !== -1,
-      `tenet ${
-        PRACTICE_CANON[index]?.id
-      } has a lens PRACTICE_ARCS does not list`,
-    );
-    const previous = seen[index - 1] ?? -1;
-    assert(
-      rank >= previous,
-      `tenet ${PRACTICE_CANON[index]?.id} is numbered out of lens order`,
-    );
-  }
-  for (const arc of order) {
-    assert(
-      PRACTICE_CANON.some((tenet) => tenet.arc === arc),
-      `no tenet belongs to the lens: ${arc}`,
-    );
-  }
-});
-
-Deno.test("every upheld key names a live member, on the right tier", () => {
-  for (const tenet of PRACTICE_CANON) {
-    const entries = upheldEntries(tenet);
-    assert(entries.length > 0, `tenet is upheld by nothing: ${tenet.id}`);
-    for (const { tier, keys } of entries) {
-      for (const key of keys) {
-        const { set } = parseCarrier(key);
-        const carriers = tier === "taught"
-          ? PRACTICE_CARRIERS.teaching
-          : PRACTICE_CARRIERS.enforcement;
-        assert(
-          carriers.some((carrier) => carrier.key === key),
-          `tenet ${tenet.id} ${tier} key names no compatible live carrier: ${key}`,
-        );
-        if (tier === "taught") {
-          assert(
-            set === "skill",
-            `tenet ${tenet.id} taught tier carries a non-skill key: ${key}`,
-          );
-        } else {
-          assert(
-            set !== "skill",
-            `tenet ${tenet.id} ${tier} tier carries a skill key: ${key}`,
-          );
-        }
-      }
-    }
-  }
-});
-
-Deno.test("every bundled skill is claimed by a tenet or recorded absent — exactly one, with a reason", () => {
-  const claimed = new Set(
-    PRACTICE_CANON.flatMap((tenet) => allUpheldKeys(tenet))
-      .map((key) => parseCarrier(key))
-      .filter(({ set }) => set === "skill")
-      .map(({ member }) => member),
-  );
-  const skills = PRACTICE_CARRIERS.teaching.map(({ member }) => member);
-  for (const skill of skills) {
-    const absent = skill in PRACTICE_DELIBERATELY_ABSENT;
-    assert(
-      claimed.has(skill) || absent,
-      `bundled skill is neither claimed by a tenet nor recorded absent: ${skill}`,
-    );
-    assert(
-      !(claimed.has(skill) && absent),
-      `stale absence record: the canon claims ${skill}`,
-    );
-  }
-  for (const [skill, reason] of Object.entries(PRACTICE_DELIBERATELY_ABSENT)) {
-    assert(
-      skills.includes(skill),
-      `absence record names no live bundled skill: ${skill}`,
-    );
-    assert(
-      reason.trim().length > 0,
-      `blank absence reason for bundled skill: ${skill}`,
-    );
-  }
-});
-
-Deno.test("every mechanism and human or agent yield cites a live member", () => {
-  const nodeIds = new Set(allFeatureNodes().map(({ node }) => node.id));
-  const clusterIds = new Set(HUMAN_BENEFIT_CANON.map((cluster) => cluster.id));
-  const agentBenefitIds = new Set(
-    allAgentBenefitEntries().map(({ entry }) => entry.id),
-  );
-  const citing = [
-    ...PRACTICE_CANON.map((tenet) => ({
-      id: tenet.id,
-      mechanisms: tenet.mechanisms,
-      yields: tenet.yields,
-      agentYields: tenet.agentYields,
-    })),
-    ...PRACTICE_PROPERTIES.map((property) => ({
-      id: property.id,
-      mechanisms: property.mechanisms,
-      yields: property.yields ?? [],
-      agentYields: property.agentYields ?? [],
-    })),
-  ];
-  for (const { id, mechanisms, yields, agentYields } of citing) {
-    assert(mechanisms.length > 0, `no mechanisms cited by: ${id}`);
-    for (const mechanism of mechanisms) {
-      assert(
-        nodeIds.has(mechanism),
-        `${id} cites unknown feature node: ${mechanism}`,
-      );
-    }
-    for (const cluster of yields) {
-      assert(
-        clusterIds.has(cluster),
-        `${id} yields unknown benefit cluster: ${cluster}`,
-      );
-    }
-    for (const outcome of agentYields) {
-      assert(
-        agentBenefitIds.has(outcome),
-        `${id} enables unknown agent benefit: ${outcome}`,
-      );
-    }
-  }
-  for (const tenet of PRACTICE_CANON) {
-    assert(tenet.yields.length > 0, `tenet yields nothing: ${tenet.id}`);
-    assert(
-      tenet.agentYields.length > 0,
-      `tenet enables no coding-agent outcome: ${tenet.id}`,
-    );
-  }
-});
 
 interface AgentOutcomeCoverageFixture {
   readonly outcomeIds: readonly string[];
@@ -326,130 +465,6 @@ function liveAgentOutcomeCoverage(): AgentOutcomeCoverageFixture {
     absences: PRACTICE_AGENT_BENEFIT_ABSENCES,
   };
 }
-
-Deno.test("every coding-agent outcome is enabled by the practice or recorded absent", () => {
-  assertEquals(
-    agentOutcomeCoverageOffenders(liveAgentOutcomeCoverage()),
-    [],
-  );
-});
-
-Deno.test("a future coding-agent outcome enrolls in practice coverage", () => {
-  assertEquals(
-    agentOutcomeCoverageOffenders({
-      outcomeIds: ["current-outcome", "freshly-named-outcome"],
-      tenets: [{ id: "practice", agentYields: ["current-outcome"] }],
-      properties: [],
-      absences: {},
-    }),
-    ["freshly-named-outcome: no practice carrier or recorded absence"],
-  );
-  assertEquals(
-    agentOutcomeCoverageOffenders({
-      outcomeIds: ["current-outcome"],
-      tenets: [{ id: "practice", agentYields: ["current-outcome"] }],
-      properties: [],
-      absences: { "current-outcome": "A former exception." },
-    }),
-    ["current-outcome: claimed with a stale absence"],
-  );
-});
-
-Deno.test("every feature pillar is claimed at some resolution or recorded absent — exactly one, with a reason", () => {
-  const flattened = allFeatureNodes();
-  const parents = new Map<string, string>();
-  for (const { node, parent } of flattened) {
-    if (parent !== undefined) parents.set(node.id, parent);
-  }
-  const pillarOf = (id: string): string => {
-    let current = id;
-    for (
-      let parent = parents.get(current);
-      parent !== undefined;
-      parent = parents.get(current)
-    ) {
-      current = parent;
-    }
-    return current;
-  };
-  const claimedPillars = new Set(
-    [
-      ...PRACTICE_CANON.flatMap((tenet) => [...tenet.mechanisms]),
-      ...PRACTICE_PROPERTIES.flatMap((property) => [...property.mechanisms]),
-    ].map(pillarOf),
-  );
-  const pillars = flattened
-    .filter(({ depth }) => depth === 0)
-    .map(({ node }) => node.id);
-  for (const pillar of pillars) {
-    const absent = pillar in PRACTICE_PILLAR_ABSENCES;
-    assert(
-      claimedPillars.has(pillar) || absent,
-      `feature pillar is neither cited by the practice canon nor recorded absent: ${pillar}`,
-    );
-    assert(
-      !(claimedPillars.has(pillar) && absent),
-      `stale pillar absence: the canon cites ${pillar}`,
-    );
-  }
-  for (const [pillar, reason] of Object.entries(PRACTICE_PILLAR_ABSENCES)) {
-    assert(
-      pillars.includes(pillar),
-      `pillar absence names no live pillar: ${pillar}`,
-    );
-    assert(
-      reason.trim().length > 0,
-      `blank pillar absence reason: ${pillar}`,
-    );
-  }
-});
-
-Deno.test("every benefit cluster is yielded or recorded absent — exactly one, with a reason", () => {
-  const yielded = new Set([
-    ...PRACTICE_CANON.flatMap((tenet) => [...tenet.yields]),
-    ...PRACTICE_PROPERTIES.flatMap((property) => [...(property.yields ?? [])]),
-  ]);
-  const clusters = HUMAN_BENEFIT_CANON.map((cluster) => cluster.id);
-  for (const cluster of clusters) {
-    const absent = cluster in PRACTICE_CLUSTER_ABSENCES;
-    assert(
-      yielded.has(cluster) || absent,
-      `benefit cluster is neither yielded by the practice canon nor recorded absent: ${cluster}`,
-    );
-    assert(
-      !(yielded.has(cluster) && absent),
-      `stale cluster absence: the canon yields ${cluster}`,
-    );
-  }
-  for (const [cluster, reason] of Object.entries(PRACTICE_CLUSTER_ABSENCES)) {
-    assert(
-      clusters.includes(cluster),
-      `cluster absence names no live cluster: ${cluster}`,
-    );
-    assert(
-      reason.trim().length > 0,
-      `blank cluster absence reason: ${cluster}`,
-    );
-  }
-});
-
-Deno.test("the fixed inventory keeps a maintainer per item", () => {
-  for (const item of PROJECT_INVENTORY) {
-    assert(
-      PRACTICE_CANON.some((tenet) => tenet.holds.includes(item)),
-      `no tenet maintains the inventory item: ${item}`,
-    );
-  }
-});
-
-Deno.test("the frame's project role carries the fixed inventory phrase verbatim", () => {
-  const project = PRACTICE_FRAME.find((role) => role.id === "project");
-  assert(project !== undefined, "the frame names no project role");
-  assert(
-    project.line.includes(inventoryPhrase()),
-    "the project role's line does not interpolate the inventory phrase",
-  );
-});
 
 /** SHA-256 of a UTF-8 string, as lowercase hex. */
 async function sha256Hex(text: string): Promise<string> {

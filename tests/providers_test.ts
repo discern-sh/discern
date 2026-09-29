@@ -108,6 +108,7 @@ import {
   mcpServerArgsForNativeAgent,
   NATIVE_MCP_TIMEOUT_POLICY,
 } from "../src/shared/mcp_timeout_policy.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Call the production MCP wirer with an empty environment by default, so the
  * host running this suite cannot opt fixtures into an experiment. */
@@ -140,370 +141,391 @@ async function wireProviderProjectRules(
   return await wireProviderProjectRulesFromRegistry(root, agents, env);
 }
 
-Deno.test("the registry is total: every known agent has a complete provider", () => {
-  for (const name of AGENT_NAMES) {
-    const p = providerFor(name);
-    assert(p, `no provider for ${name}`);
-    assertEquals(p.name, name);
-    assert(p.label.length > 0, `${name}: empty label`);
-    assert(
-      p.instructionFile.path.endsWith(".md"),
-      `${name}: odd instruction file`,
-    );
-  }
-  assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
-});
-
-Deno.test("setup facts project provider files, trust, and security disclosures from the registry", () => {
-  for (const name of AGENT_NAMES) {
-    const provider = PROVIDERS[name];
-    const facts = providerSetupFacts(name);
-    assertEquals(facts.agent, name);
-    assertEquals(facts.label, provider.label);
-    assertEquals(facts.instructionFile, provider.instructionFile.path);
-    assertEquals(facts.trust, providerTrustData(name, provider.trust));
-    assertEquals(facts.disclosures, provider.setupDisclosures);
-    assert(facts.disclosures.length > 0, `${name}: no setup disclosure`);
-    assert(
-      facts.writtenFiles.includes(provider.instructionFile.path),
-      `${name}: setup facts omit its compiled agent file`,
-    );
-  }
-
-  assertStringIncludes(
-    providerSetupFacts("claude_code").disclosures.join(" "),
-    "normal MCP tool permissions",
-  );
-  const codex = providerSetupFacts("codex").disclosures.join(" ");
-  for (
-    const fact of [
-      "git add",
-      "git commit",
-      "trailing arguments",
-      "no working-directory boundary",
-      "no push",
-      "no broader Git",
-      "general shell",
-    ]
-  ) {
-    assertStringIncludes(codex, fact);
-  }
-});
-
-Deno.test("a provider advertises enable-hooks exactly when its seed overrides hooksConfig", () => {
-  for (const name of AGENT_NAMES) {
-    const provider = PROVIDERS[name];
-    const enablesHooks = provider.trust.actions.some((action) =>
-      action.kind === "enable-hooks"
-    );
-    const seed = provider.hooks === undefined
-      ? ""
-      : renderProviderHookSeed(provider.hooks);
-    assertEquals(
-      enablesHooks,
-      seed.includes("hooksConfig"),
-      `${name}: enable-hooks action and hooksConfig override must move together`,
-    );
-  }
-});
-
-Deno.test("provider prompt arguments are documented, separate argv options", () => {
-  for (const name of AGENT_NAMES) {
-    for (const action of PROVIDERS[name].cli.actions) {
-      const prompt = action.promptArgument;
-      if (prompt === undefined) continue;
-      assert(
-        /^--[a-z0-9][a-z0-9-]*$/u.test(prompt.flag),
-        `${name}:${action.kind}: prompt flag must be one standalone long option`,
-      );
-      assert(
-        /^https:\/\//u.test(prompt.documentation),
-        `${name}:${action.kind}: prompt option needs public provider documentation`,
-      );
-    }
-  }
-});
-
-Deno.test("every native provider declares an MCP timeout capability", () => {
-  assertEquals(
-    Object.keys(NATIVE_MCP_TIMEOUT_POLICY).sort(),
-    [...AGENT_NAMES].sort(),
-  );
-  for (const name of AGENT_NAMES) {
-    const policy = NATIVE_MCP_TIMEOUT_POLICY[name];
-    assert(policy.await_call_seconds > 0, `${name}: no safe await bound`);
-    if (policy.capability === "configurable") {
-      assertEquals(
-        policy.configured_seconds,
-        MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
-      );
-      assert(
-        policy.await_call_seconds < policy.configured_seconds,
-        `${name}: await needs delivery headroom below its configured timeout`,
-      );
-    } else {
-      assertEquals(
-        policy.strictest_surface_seconds,
-        CURSOR_CLI_TOOL_TIMEOUT_SECONDS,
-      );
-      assert(
-        policy.await_call_seconds < policy.strictest_surface_seconds,
-        `${name}: await needs delivery headroom below its strictest client surface`,
-      );
-    }
-    assertEquals(mcpServerArgsForNativeAgent(name, ["mcp"]), [
-      "mcp",
-      policy.capability === "configurable"
-        ? MCP_LONG_TOOL_CALLS_FLAG
-        : MCP_STRICT_TOOL_CALLS_FLAG,
-    ]);
-  }
-});
-
-Deno.test("every known agent declares a skills directory (all SKILL.md-format)", () => {
-  for (const name of AGENT_NAMES) {
-    const dir = providerFor(name)?.skillsDir;
-    assert(dir !== undefined && dir.path.length > 0, `${name}: no skills dir`);
-  }
-  // Claude keeps its own; Codex, Gemini, Cursor, and Copilot share the cross-tool standard.
-  assertEquals(providerFor("claude_code")?.skillsDir?.path, ".claude/skills");
-  assertEquals(providerFor("codex")?.skillsDir?.path, ".agents/skills");
-  assertEquals(providerFor("gemini")?.skillsDir?.path, ".agents/skills");
-  assertEquals(providerFor("cursor")?.skillsDir?.path, ".agents/skills");
-  assertEquals(providerFor("copilot")?.skillsDir?.path, ".agents/skills");
-});
-
-Deno.test("skillsDirsForAgents: dedupes Codex+Gemini onto the shared .agents/skills", () => {
-  // The default agent set materializes into two dirs (Claude's + the shared one).
-  assertEquals(skillsDirsForAgents(["claude_code", "codex"]), [
-    ".claude/skills",
-    ".agents/skills",
-  ]);
-  // Codex + Gemini collapse to a single shared dir (no redundant materialization).
-  assertEquals(skillsDirsForAgents(["codex", "gemini"]), [".agents/skills"]);
-  // All three → two dirs, deduped and in first-seen order.
-  assertEquals(skillsDirsForAgents(["claude_code", "codex", "gemini"]), [
-    ".claude/skills",
-    ".agents/skills",
-  ]);
-  // An unknown agent contributes nothing (skipped, never guessed).
-  assertEquals(skillsDirsForAgents(["nope"]), []);
-});
-
-Deno.test("every agent renders a distinct `<label> (<file>)` setup choice", () => {
-  // The `setup` agent-files Checkbox derives each option's display from the
-  // registry: `${label} (${instructionFile.path})`. The label and path must be
-  // 1:1 with the agent, or two agents render identically and one is silently
-  // mislabelled (the "two Codexs" bug, when a hardcoded fallback labelled both
-  // codex and gemini "Codex (AGENTS.md)").
-  const display = (name: typeof AGENT_NAMES[number]) =>
-    `${PROVIDERS[name].label} (${PROVIDERS[name].instructionFile.path})`;
-  assertEquals(display("claude_code"), "Claude Code (CLAUDE.md)");
-  assertEquals(display("codex"), "Codex (AGENTS.md)");
-  assertEquals(display("gemini"), "Gemini (GEMINI.md)");
-  // No two agents share a rendered choice.
-  const rendered = AGENT_NAMES.map(display);
-  assertEquals(
-    new Set(rendered).size,
-    AGENT_NAMES.length,
-    rendered.join(" | "),
-  );
-});
-
-Deno.test("the instruction-file mapping is the documented one (AGENTS.md the one canonical file)", () => {
-  // Claude Code's mirror points at the canonical file rather than duplicating it,
-  // so its instructionFile carries a `pointer` that emits an `@<path>` import — and it
-  // is not itself canonical. (canonical is decoupled from git-tracking: ADR 0034
-  // makes every compiled file gitignored.)
-  const claude = providerFor("claude_code")?.instructionFile;
-  assertEquals(claude?.path, "CLAUDE.md");
-  assertEquals(claude?.canonical, false);
-  assertEquals(typeof claude?.pointer, "function");
-  assertEquals(claude?.pointer?.("AGENTS.md"), "@AGENTS.md\n");
-
-  // The canonical file holds the full compiled body — no pointer.
-  const codex = providerFor("codex")?.instructionFile;
-  assertEquals(codex?.path, "AGENTS.md");
-  assertEquals(codex?.canonical, true);
-  assertEquals(codex?.pointer, undefined);
-
-  // Gemini's mirror points at the canonical AGENTS.md via its `@path` Memory Import
-  // (vendor-verified, `.md`-only), exactly like Claude — not a duplicated body.
-  const gemini = providerFor("gemini")?.instructionFile;
-  assertEquals(gemini?.path, "GEMINI.md");
-  assertEquals(gemini?.canonical, false);
-  assertEquals(gemini?.pointer?.("AGENTS.md"), "@AGENTS.md\n");
-  // Exactly one canonical file, and it is AGENTS.md.
-  const canonical = Object.values(PROVIDERS)
-    .filter((p) => p.instructionFile.canonical)
-    .map((p) => p.instructionFile.path);
-  assertEquals(canonical, ["AGENTS.md"]);
-});
-
-Deno.test("providerFor returns undefined for an unknown agent", () => {
-  assertEquals(providerFor("eliza"), undefined);
-});
-
-Deno.test("the discern MCP server spec is `discern mcp`", () => {
-  assertEquals(DISCERN_MCP_SERVER, {
-    name: "discern",
-    command: "discern",
-    args: ["mcp"],
-  });
-});
-
-Deno.test("exact lifecycle matchers render one vendor group per event value", () => {
-  const gemini = providerFor("gemini")?.hooks;
-  assertExists(gemini);
-  const rendered = decodeWith(
-    z.object({
-      hooks: z.object({
-        SessionStart: z.array(z.object({ matcher: z.string().optional() })),
-      }),
-    }),
-    renderProviderHookSeed(gemini),
-  );
-  assertEquals(
-    rendered.hooks.SessionStart.map((group) => group.matcher),
-    ["startup", "resume"],
-  );
-});
-
-Deno.test("MCP status is typed and explicit: all five agents wired to their own config file", () => {
-  // The typed McpStatus (ADR 0051) tightens as plans flip pending → wired: Phase B
-  // wired Codex (.codex/config.toml, TOML) and Gemini (.gemini/settings.json, JSON)
-  // alongside Claude (.mcp.json); Phase C wires Cursor (.cursor/mcp.json) and Copilot
-  // (the SAME .mcp.json Claude uses — co-owned). Every provider carries a live
-  // integration naming the committable file it writes into — no pending/undefined gap.
-  assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
-  assertEquals(wiredMcp(PROVIDERS.claude_code)?.configFile, ".mcp.json");
-  assertEquals(providerFor("codex")?.mcp.kind, "wired");
-  assertEquals(wiredMcp(PROVIDERS.codex)?.configFile, ".codex/config.toml");
-  assertEquals(providerFor("gemini")?.mcp.kind, "wired");
-  assertEquals(wiredMcp(PROVIDERS.gemini)?.configFile, ".gemini/settings.json");
-  assertEquals(providerFor("cursor")?.mcp.kind, "wired");
-  assertEquals(wiredMcp(PROVIDERS.cursor)?.configFile, ".cursor/mcp.json");
-  assertEquals(providerFor("copilot")?.mcp.kind, "wired");
-  // Copilot co-owns Claude's .mcp.json — same file, byte-identical entry (ADR 0074).
-  assertEquals(wiredMcp(PROVIDERS.copilot)?.configFile, ".mcp.json");
-
-  // hook-stripping / the settings seam iterate exactly the providers that declare a
-  // hook surface — now all five (Cursor + Copilot gained a SessionStart hook), in
-  // registry order.
-  assertEquals(providersWithHooks().map((p) => p.name), [
-    "claude_code",
-    "codex",
-    "gemini",
-    "cursor",
-    "copilot",
-  ]);
-
-  // Only Codex co-manages app worktree lifecycle and project-rules files; every
-  // other agent declares neither surface (skipped, never guessed).
-  assertEquals(
-    providerFor("codex")?.worktreeApp?.configFile,
-    ".codex/environments/environment.toml",
-  );
-  assertEquals(
-    providerFor("codex")?.projectRules?.rulesFile,
-    ".codex/rules/discern.rules",
-  );
-  assertEquals(providerFor("claude_code")?.worktreeApp, undefined);
-  assertEquals(providerFor("claude_code")?.projectRules, undefined);
-  assertEquals(providerFor("gemini")?.worktreeApp, undefined);
-  assertEquals(providerFor("gemini")?.projectRules, undefined);
-  assertEquals(providerFor("cursor")?.worktreeApp, undefined);
-  assertEquals(providerFor("cursor")?.projectRules, undefined);
-  assertEquals(providerFor("copilot")?.worktreeApp, undefined);
-  assertEquals(providerFor("copilot")?.projectRules, undefined);
-});
-
-Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, no duplicate provider file, share .agents/skills", () => {
-  // Phase C's two cheap agents: instructions and skills reuse artifacts discern already
-  // produces, so each is a registry declaration, not new machinery (ADR 0070).
-  for (const name of ["cursor", "copilot"] as const) {
-    const p = providerFor(name);
-    assert(p !== undefined, `no provider for ${name}`);
-    // Reuse-canonical: path names the canonical AGENTS.md it reads; discern emits
-    // no provider-specific file (no duplicate body, no pointer).
-    assertEquals(p.instructionFile.path, "AGENTS.md");
-    assertEquals(p.instructionFile.canonical, false);
-    assertEquals(p.instructionFile.reuseCanonical, true);
-    assertEquals(p.instructionFile.pointer, undefined);
-    // The shared cross-tool skills dir — deduped onto Codex's/Gemini's target.
-    assertEquals(p.skillsDir?.path, ".agents/skills");
-    // Committed MCP/hooks are inert until a one-time trust, and the action is named.
-    assertEquals(p.trust.required, true);
-    assert(p.trust.actions.length > 0, `${name}: trust must name an action`);
-  }
-  // A reuse-canonical provider leaks no duplicate AGENTS.md into the emitted set.
-  const emitted = allInstructionFilePaths();
-  assertEquals(emitted.filter((p) => p === "AGENTS.md").length, 1);
-});
-
-Deno.test("provider trust projections preserve typed future literals without prose parsing", () => {
-  const trust = {
-    required: true,
-    explanation: "A synthetic provider keeps committed setup inactive.",
-    actions: [{
-      kind: "trust-directory" as const,
-      instruction: "Enable the committed setup",
-      facts: [
-        { kind: "path" as const, value: ".future/settings.json" },
-        { kind: "config-key" as const, value: "workspace.trust" },
-        { kind: "config-value" as const, value: "enabled" },
-        { kind: "flag" as const, value: "--future-trust" },
-      ],
-    }],
-  };
-
-  const data = providerTrustData("future", trust);
-  assertEquals(data.provider, "future");
-  assertEquals(data.actions[0]?.facts, trust.actions[0]?.facts);
-  const markdown = renderProviderTrustMarkdown(trust);
-  for (
-    const literal of trust.actions[0]?.facts.map((fact) => fact.value) ?? []
-  ) {
-    assertStringIncludes(markdown, `\`${literal}\``);
-  }
-  assertStringIncludes(markdown, "key `workspace.trust` = `enabled`");
-  assert(!markdown.includes(".codex/"));
-});
-
-Deno.test("every provider trust action declares typed literal facts", () => {
-  for (const name of AGENT_NAMES) {
-    const provider = providerFor(name);
-    assert(provider !== undefined, `no provider for ${name}`);
-    assert(provider.trust.actions.length > 0, `${name}: no trust actions`);
-    for (const action of provider.trust.actions) {
-      assert(
-        action.instruction.trim().length > 0,
-        `${name}: empty trust action`,
-      );
-      assert(
-        action.facts.length > 0,
-        `${name}: trust action has no typed facts`,
-      );
-      for (const fact of action.facts) {
+Deno.test("providers: provider capabilities", () => {
+  assertNamedCases({
+    "the registry is total: every known agent has a complete provider": () => {
+      for (const name of AGENT_NAMES) {
+        const p = providerFor(name);
+        assert(p, `no provider for ${name}`);
+        assertEquals(p.name, name);
+        assert(p.label.length > 0, `${name}: empty label`);
         assert(
-          fact.value.trim().length > 0,
-          `${name}: empty ${fact.kind} fact`,
+          p.instructionFile.path.endsWith(".md"),
+          `${name}: odd instruction file`,
         );
       }
-    }
-  }
-  const codexTrustPaths = PROVIDERS.codex.trust.actions.flatMap((action) =>
-    action.facts.filter((fact) => fact.kind === "path").map((fact) =>
-      fact.value
-    )
-  );
-  assertEquals(codexTrustPaths.includes(".codex/"), false);
-  assert(
-    codexTrustPaths.includes("~/.codex/config.toml"),
-    "Codex project trust belongs in the user-level config",
-  );
-});
+      assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
+    },
+    "setup facts project provider files, trust, and security disclosures from the registry":
+      () => {
+        for (const name of AGENT_NAMES) {
+          const provider = PROVIDERS[name];
+          const facts = providerSetupFacts(name);
+          assertEquals(facts.agent, name);
+          assertEquals(facts.label, provider.label);
+          assertEquals(facts.instructionFile, provider.instructionFile.path);
+          assertEquals(facts.trust, providerTrustData(name, provider.trust));
+          assertEquals(facts.disclosures, provider.setupDisclosures);
+          assert(facts.disclosures.length > 0, `${name}: no setup disclosure`);
+          assert(
+            facts.writtenFiles.includes(provider.instructionFile.path),
+            `${name}: setup facts omit its compiled agent file`,
+          );
+        }
 
+        assertStringIncludes(
+          providerSetupFacts("claude_code").disclosures.join(" "),
+          "normal MCP tool permissions",
+        );
+        const codex = providerSetupFacts("codex").disclosures.join(" ");
+        for (
+          const fact of [
+            "git add",
+            "git commit",
+            "trailing arguments",
+            "no working-directory boundary",
+            "no push",
+            "no broader Git",
+            "general shell",
+          ]
+        ) {
+          assertStringIncludes(codex, fact);
+        }
+      },
+    "a provider advertises enable-hooks exactly when its seed overrides hooksConfig":
+      () => {
+        for (const name of AGENT_NAMES) {
+          const provider = PROVIDERS[name];
+          const enablesHooks = provider.trust.actions.some((action) =>
+            action.kind === "enable-hooks"
+          );
+          const seed = provider.hooks === undefined
+            ? ""
+            : renderProviderHookSeed(provider.hooks);
+          assertEquals(
+            enablesHooks,
+            seed.includes("hooksConfig"),
+            `${name}: enable-hooks action and hooksConfig override must move together`,
+          );
+        }
+      },
+    "provider prompt arguments are documented, separate argv options": () => {
+      for (const name of AGENT_NAMES) {
+        for (const action of PROVIDERS[name].cli.actions) {
+          const prompt = action.promptArgument;
+          if (prompt === undefined) continue;
+          assert(
+            /^--[a-z0-9][a-z0-9-]*$/u.test(prompt.flag),
+            `${name}:${action.kind}: prompt flag must be one standalone long option`,
+          );
+          assert(
+            /^https:\/\//u.test(prompt.documentation),
+            `${name}:${action.kind}: prompt option needs public provider documentation`,
+          );
+        }
+      }
+    },
+    "every native provider declares an MCP timeout capability": () => {
+      assertEquals(
+        Object.keys(NATIVE_MCP_TIMEOUT_POLICY).sort(),
+        [...AGENT_NAMES].sort(),
+      );
+      for (const name of AGENT_NAMES) {
+        const policy = NATIVE_MCP_TIMEOUT_POLICY[name];
+        assert(policy.await_call_seconds > 0, `${name}: no safe await bound`);
+        if (policy.capability === "configurable") {
+          assertEquals(
+            policy.configured_seconds,
+            MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
+          );
+          assert(
+            policy.await_call_seconds < policy.configured_seconds,
+            `${name}: await needs delivery headroom below its configured timeout`,
+          );
+        } else {
+          assertEquals(
+            policy.strictest_surface_seconds,
+            CURSOR_CLI_TOOL_TIMEOUT_SECONDS,
+          );
+          assert(
+            policy.await_call_seconds < policy.strictest_surface_seconds,
+            `${name}: await needs delivery headroom below its strictest client surface`,
+          );
+        }
+        assertEquals(mcpServerArgsForNativeAgent(name, ["mcp"]), [
+          "mcp",
+          policy.capability === "configurable"
+            ? MCP_LONG_TOOL_CALLS_FLAG
+            : MCP_STRICT_TOOL_CALLS_FLAG,
+        ]);
+      }
+    },
+    "every known agent declares a skills directory (all SKILL.md-format)":
+      () => {
+        for (const name of AGENT_NAMES) {
+          const dir = providerFor(name)?.skillsDir;
+          assert(
+            dir !== undefined && dir.path.length > 0,
+            `${name}: no skills dir`,
+          );
+        }
+        // Claude keeps its own; Codex, Gemini, Cursor, and Copilot share the cross-tool standard.
+        assertEquals(
+          providerFor("claude_code")?.skillsDir?.path,
+          ".claude/skills",
+        );
+        assertEquals(providerFor("codex")?.skillsDir?.path, ".agents/skills");
+        assertEquals(providerFor("gemini")?.skillsDir?.path, ".agents/skills");
+        assertEquals(providerFor("cursor")?.skillsDir?.path, ".agents/skills");
+        assertEquals(providerFor("copilot")?.skillsDir?.path, ".agents/skills");
+      },
+    "providerFor returns undefined for an unknown agent": () => {
+      assertEquals(providerFor("eliza"), undefined);
+    },
+    "the discern MCP server spec is `discern mcp`": () => {
+      assertEquals(DISCERN_MCP_SERVER, {
+        name: "discern",
+        command: "discern",
+        args: ["mcp"],
+      });
+    },
+    "exact lifecycle matchers render one vendor group per event value": () => {
+      const gemini = providerFor("gemini")?.hooks;
+      assertExists(gemini);
+      const rendered = decodeWith(
+        z.object({
+          hooks: z.object({
+            SessionStart: z.array(z.object({ matcher: z.string().optional() })),
+          }),
+        }),
+        renderProviderHookSeed(gemini),
+      );
+      assertEquals(
+        rendered.hooks.SessionStart.map((group) => group.matcher),
+        ["startup", "resume"],
+      );
+    },
+    "MCP status is typed and explicit: all five agents wired to their own config file":
+      () => {
+        // The typed McpStatus (ADR 0051) tightens as plans flip pending → wired: Phase B
+        // wired Codex (.codex/config.toml, TOML) and Gemini (.gemini/settings.json, JSON)
+        // alongside Claude (.mcp.json); Phase C wires Cursor (.cursor/mcp.json) and Copilot
+        // (the SAME .mcp.json Claude uses — co-owned). Every provider carries a live
+        // integration naming the committable file it writes into — no pending/undefined gap.
+        assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
+        assertEquals(wiredMcp(PROVIDERS.claude_code)?.configFile, ".mcp.json");
+        assertEquals(providerFor("codex")?.mcp.kind, "wired");
+        assertEquals(
+          wiredMcp(PROVIDERS.codex)?.configFile,
+          ".codex/config.toml",
+        );
+        assertEquals(providerFor("gemini")?.mcp.kind, "wired");
+        assertEquals(
+          wiredMcp(PROVIDERS.gemini)?.configFile,
+          ".gemini/settings.json",
+        );
+        assertEquals(providerFor("cursor")?.mcp.kind, "wired");
+        assertEquals(
+          wiredMcp(PROVIDERS.cursor)?.configFile,
+          ".cursor/mcp.json",
+        );
+        assertEquals(providerFor("copilot")?.mcp.kind, "wired");
+        // Copilot co-owns Claude's .mcp.json — same file, byte-identical entry (ADR 0074).
+        assertEquals(wiredMcp(PROVIDERS.copilot)?.configFile, ".mcp.json");
+
+        // hook-stripping / the settings seam iterate exactly the providers that declare a
+        // hook surface — now all five (Cursor + Copilot gained a SessionStart hook), in
+        // registry order.
+        assertEquals(providersWithHooks().map((p) => p.name), [
+          "claude_code",
+          "codex",
+          "gemini",
+          "cursor",
+          "copilot",
+        ]);
+
+        // Only Codex co-manages app worktree lifecycle and project-rules files; every
+        // other agent declares neither surface (skipped, never guessed).
+        assertEquals(
+          providerFor("codex")?.worktreeApp?.configFile,
+          ".codex/environments/environment.toml",
+        );
+        assertEquals(
+          providerFor("codex")?.projectRules?.rulesFile,
+          ".codex/rules/discern.rules",
+        );
+        assertEquals(providerFor("claude_code")?.worktreeApp, undefined);
+        assertEquals(providerFor("claude_code")?.projectRules, undefined);
+        assertEquals(providerFor("gemini")?.worktreeApp, undefined);
+        assertEquals(providerFor("gemini")?.projectRules, undefined);
+        assertEquals(providerFor("cursor")?.worktreeApp, undefined);
+        assertEquals(providerFor("cursor")?.projectRules, undefined);
+        assertEquals(providerFor("copilot")?.worktreeApp, undefined);
+        assertEquals(providerFor("copilot")?.projectRules, undefined);
+      },
+    "provider trust projections preserve typed future literals without prose parsing":
+      () => {
+        const trust = {
+          required: true,
+          explanation: "A synthetic provider keeps committed setup inactive.",
+          actions: [{
+            kind: "trust-directory" as const,
+            instruction: "Enable the committed setup",
+            facts: [
+              { kind: "path" as const, value: ".future/settings.json" },
+              { kind: "config-key" as const, value: "workspace.trust" },
+              { kind: "config-value" as const, value: "enabled" },
+              { kind: "flag" as const, value: "--future-trust" },
+            ],
+          }],
+        };
+
+        const data = providerTrustData("future", trust);
+        assertEquals(data.provider, "future");
+        assertEquals(data.actions[0]?.facts, trust.actions[0]?.facts);
+        const markdown = renderProviderTrustMarkdown(trust);
+        for (
+          const literal of trust.actions[0]?.facts.map((fact) => fact.value) ??
+            []
+        ) {
+          assertStringIncludes(markdown, `\`${literal}\``);
+        }
+        assertStringIncludes(markdown, "key `workspace.trust` = `enabled`");
+        assert(!markdown.includes(".codex/"));
+      },
+    "every provider trust action declares typed literal facts": () => {
+      for (const name of AGENT_NAMES) {
+        const provider = providerFor(name);
+        assert(provider !== undefined, `no provider for ${name}`);
+        assert(provider.trust.actions.length > 0, `${name}: no trust actions`);
+        for (const action of provider.trust.actions) {
+          assert(
+            action.instruction.trim().length > 0,
+            `${name}: empty trust action`,
+          );
+          assert(
+            action.facts.length > 0,
+            `${name}: trust action has no typed facts`,
+          );
+          for (const fact of action.facts) {
+            assert(
+              fact.value.trim().length > 0,
+              `${name}: empty ${fact.kind} fact`,
+            );
+          }
+        }
+      }
+      const codexTrustPaths = PROVIDERS.codex.trust.actions.flatMap((action) =>
+        action.facts.filter((fact) => fact.kind === "path").map((fact) =>
+          fact.value
+        )
+      );
+      assertEquals(codexTrustPaths.includes(".codex/"), false);
+      assert(
+        codexTrustPaths.includes("~/.codex/config.toml"),
+        "Codex project trust belongs in the user-level config",
+      );
+    },
+  });
+});
+Deno.test("providers: provider path projections", () => {
+  assertNamedCases({
+    "skillsDirsForAgents: dedupes Codex+Gemini onto the shared .agents/skills":
+      () => {
+        // The default agent set materializes into two dirs (Claude's + the shared one).
+        assertEquals(skillsDirsForAgents(["claude_code", "codex"]), [
+          ".claude/skills",
+          ".agents/skills",
+        ]);
+        // Codex + Gemini collapse to a single shared dir (no redundant materialization).
+        assertEquals(skillsDirsForAgents(["codex", "gemini"]), [
+          ".agents/skills",
+        ]);
+        // All three → two dirs, deduped and in first-seen order.
+        assertEquals(skillsDirsForAgents(["claude_code", "codex", "gemini"]), [
+          ".claude/skills",
+          ".agents/skills",
+        ]);
+        // An unknown agent contributes nothing (skipped, never guessed).
+        assertEquals(skillsDirsForAgents(["nope"]), []);
+      },
+    "every agent renders a distinct `<label> (<file>)` setup choice": () => {
+      // The `setup` agent-files Checkbox derives each option's display from the
+      // registry: `${label} (${instructionFile.path})`. The label and path must be
+      // 1:1 with the agent, or two agents render identically and one is silently
+      // mislabelled (the "two Codexs" bug, when a hardcoded fallback labelled both
+      // codex and gemini "Codex (AGENTS.md)").
+      const display = (name: typeof AGENT_NAMES[number]) =>
+        `${PROVIDERS[name].label} (${PROVIDERS[name].instructionFile.path})`;
+      assertEquals(display("claude_code"), "Claude Code (CLAUDE.md)");
+      assertEquals(display("codex"), "Codex (AGENTS.md)");
+      assertEquals(display("gemini"), "Gemini (GEMINI.md)");
+      // No two agents share a rendered choice.
+      const rendered = AGENT_NAMES.map(display);
+      assertEquals(
+        new Set(rendered).size,
+        AGENT_NAMES.length,
+        rendered.join(" | "),
+      );
+    },
+    "the instruction-file mapping is the documented one (AGENTS.md the one canonical file)":
+      () => {
+        // Claude Code's mirror points at the canonical file rather than duplicating it,
+        // so its instructionFile carries a `pointer` that emits an `@<path>` import — and it
+        // is not itself canonical. (canonical is decoupled from git-tracking: ADR 0034
+        // makes every compiled file gitignored.)
+        const claude = providerFor("claude_code")?.instructionFile;
+        assertEquals(claude?.path, "CLAUDE.md");
+        assertEquals(claude?.canonical, false);
+        assertEquals(typeof claude?.pointer, "function");
+        assertEquals(claude?.pointer?.("AGENTS.md"), "@AGENTS.md\n");
+
+        // The canonical file holds the full compiled body — no pointer.
+        const codex = providerFor("codex")?.instructionFile;
+        assertEquals(codex?.path, "AGENTS.md");
+        assertEquals(codex?.canonical, true);
+        assertEquals(codex?.pointer, undefined);
+
+        // Gemini's mirror points at the canonical AGENTS.md via its `@path` Memory Import
+        // (vendor-verified, `.md`-only), exactly like Claude — not a duplicated body.
+        const gemini = providerFor("gemini")?.instructionFile;
+        assertEquals(gemini?.path, "GEMINI.md");
+        assertEquals(gemini?.canonical, false);
+        assertEquals(gemini?.pointer?.("AGENTS.md"), "@AGENTS.md\n");
+        // Exactly one canonical file, and it is AGENTS.md.
+        const canonical = Object.values(PROVIDERS)
+          .filter((p) => p.instructionFile.canonical)
+          .map((p) => p.instructionFile.path);
+        assertEquals(canonical, ["AGENTS.md"]);
+      },
+    "Cursor & Copilot are reuse-canonical: read AGENTS.md natively, no duplicate provider file, share .agents/skills":
+      () => {
+        // Phase C's two cheap agents: instructions and skills reuse artifacts discern already
+        // produces, so each is a registry declaration, not new machinery (ADR 0070).
+        for (const name of ["cursor", "copilot"] as const) {
+          const p = providerFor(name);
+          assert(p !== undefined, `no provider for ${name}`);
+          // Reuse-canonical: path names the canonical AGENTS.md it reads; discern emits
+          // no provider-specific file (no duplicate body, no pointer).
+          assertEquals(p.instructionFile.path, "AGENTS.md");
+          assertEquals(p.instructionFile.canonical, false);
+          assertEquals(p.instructionFile.reuseCanonical, true);
+          assertEquals(p.instructionFile.pointer, undefined);
+          // The shared cross-tool skills dir — deduped onto Codex's/Gemini's target.
+          assertEquals(p.skillsDir?.path, ".agents/skills");
+          // Committed MCP/hooks are inert until a one-time trust, and the action is named.
+          assertEquals(p.trust.required, true);
+          assert(
+            p.trust.actions.length > 0,
+            `${name}: trust must name an action`,
+          );
+        }
+        // A reuse-canonical provider leaks no duplicate AGENTS.md into the emitted set.
+        const emitted = allInstructionFilePaths();
+        assertEquals(emitted.filter((p) => p === "AGENTS.md").length, 1);
+      },
+  });
+});
 Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempotently", async () => {
   await withTempDir(async (dir) => {
     const first = await wireProviderMcp(dir, ["claude_code"]);

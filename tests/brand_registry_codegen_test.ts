@@ -62,6 +62,7 @@ import {
 import { skillFrontmatterIssues } from "../src/lib/skills.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 Deno.test("every generated brand page matches its renderer (run `deno task codegen`)", async () => {
   const docs = generatedBrandDocuments();
@@ -119,32 +120,202 @@ Deno.test("every generated brand page matches its renderer (run `deno task codeg
   }
 });
 
-Deno.test("the homepage path and brand voice both route through the demand canon", () => {
-  const homepage = READING_PATHS.find((path) =>
-    path.id === "homepage-or-campaign"
-  );
-  assert(homepage !== undefined, "missing homepage-or-campaign reading path");
-  assertEquals(
-    homepage.steps.slice(0, BRAND_FOUNDATION_READING_STEPS.length),
-    BRAND_FOUNDATION_READING_STEPS.map((step) => step.instruction),
-    "the homepage reading path diverges from the brand-writing foundations",
-  );
-  const brandReading = VOICES.brand.sections.find((section) =>
-    section.heading === "Read before writing"
-  );
-  assert(
-    brandReading?.kind === "prose",
-    "the brand voice skill lost its reading instructions",
-  );
-  let previous = -1;
-  for (const step of BRAND_FOUNDATION_READING_STEPS) {
-    const current = brandReading.body.indexOf(step.instruction);
-    assert(
-      current > previous,
-      `the brand voice skill skips or reorders its foundation: ${step.id}`,
-    );
-    previous = current;
-  }
+Deno.test("brand registry codegen: contracts", () => {
+  assertNamedCases({
+    "the homepage path and brand voice both route through the demand canon":
+      () => {
+        const homepage = READING_PATHS.find((path) =>
+          path.id === "homepage-or-campaign"
+        );
+        assert(
+          homepage !== undefined,
+          "missing homepage-or-campaign reading path",
+        );
+        assertEquals(
+          homepage.steps.slice(0, BRAND_FOUNDATION_READING_STEPS.length),
+          BRAND_FOUNDATION_READING_STEPS.map((step) => step.instruction),
+          "the homepage reading path diverges from the brand-writing foundations",
+        );
+        const brandReading = VOICES.brand.sections.find((section) =>
+          section.heading === "Read before writing"
+        );
+        assert(
+          brandReading?.kind === "prose",
+          "the brand voice skill lost its reading instructions",
+        );
+        let previous = -1;
+        for (const step of BRAND_FOUNDATION_READING_STEPS) {
+          const current = brandReading.body.indexOf(step.instruction);
+          assert(
+            current > previous,
+            `the brand voice skill skips or reorders its foundation: ${step.id}`,
+          );
+          previous = current;
+        }
+      },
+    "the shared canon renders where the owner placed it": () => {
+      // Owner selection, 2026-08-08: product and brand carry the banned canon;
+      // every register carries the mechanics. A dropped marker is a silent loss
+      // of enforcement canon, so the placement is held here.
+      const kinds = (register: (typeof REGISTERS)[number]): Set<string> =>
+        new Set(VOICES[register].sections.map((section) => section.kind));
+      for (const register of ["brand", "product"] as const) {
+        assert(
+          kinds(register).has("banned-words") &&
+            kinds(register).has("banned-moves"),
+          `${register}: the banned canon must render into this skill`,
+        );
+      }
+      for (const register of REGISTERS) {
+        assert(
+          kinds(register).has("mechanics"),
+          `${register}: the mechanics must render into this skill`,
+        );
+      }
+      for (const word of BANNED_WORDS) {
+        assert(
+          word.registers.includes("product"),
+          `${word.id}: every banned word renders at least into the product skill`,
+        );
+      }
+    },
+    "registry ids, files, and slugs are unique and citable": () => {
+      const unique = (label: string, values: readonly string[]): void => {
+        assertEquals(
+          new Set(values).size,
+          values.length,
+          `${label} must be unique`,
+        );
+      };
+      unique("document ids", BRAND_DOCUMENTS.map((doc) => doc.id));
+      unique("document files", BRAND_DOCUMENTS.map((doc) => doc.file));
+      unique("territory ids", TERRITORIES.map((territory) => territory.id));
+      unique("pillar ids", PILLARS.map((pillar) => pillar.id));
+      unique("positioning-grid ids", POSITIONING_GRID.map((row) => row.id));
+      unique("fact-line ids", FACT_LINES.map((fact) => fact.id));
+      unique(
+        "description ids",
+        DESCRIPTIONS.map((description) => description.id),
+      );
+      unique("hero ids", HERO_SYSTEMS.map((hero) => hero.id));
+      unique("CTA bank ids", CTA_BANKS.map((bank) => bank.id));
+      unique("headline lines", HEADLINES.map((headline) => headline.line));
+      unique("concept ids", CONCEPTS.map((concept) => concept.id));
+      unique(
+        "translation ids",
+        TRANSLATIONS.map((translation) => translation.id),
+      );
+      unique("copy-pattern ids", COPY_PATTERNS.map((pattern) => pattern.id));
+      unique("reading-path ids", READING_PATHS.map((path) => path.id));
+      unique("outstanding-work ids", OUTSTANDING_WORK.map((item) => item.id));
+      unique("banned-word ids", BANNED_WORDS.map((word) => word.id));
+      unique("banned-move ids", BANNED_MOVES.map((move) => move.id));
+      unique("mechanics ids", MECHANICS.map((rule) => rule.id));
+      for (const register of REGISTERS) {
+        const sections = VOICES[register].sections;
+        unique(
+          `${register} voice section headings`,
+          sections.map((section) => section.heading),
+        );
+        unique(
+          `${register} voice rules-section ids`,
+          sections.flatMap((section) =>
+            section.kind === "rules" ? [section.id] : []
+          ),
+        );
+        for (const section of sections) {
+          if (section.kind !== "rules" && section.kind !== "principles") {
+            continue;
+          }
+          unique(
+            `${register} "${section.heading}" item ids`,
+            section.items.map((item) => item.id),
+          );
+        }
+      }
+      for (const register of REGISTERS) {
+        unique(
+          `${register} proposed-check ids`,
+          PROPOSED_MECHANICAL_CHECKS[register].map((check) => check.id),
+        );
+      }
+      // The resolver's token pattern only matches kebab ids, so anything else
+      // could never be cited.
+      for (const id of BRAND_DOCUMENTS.map((doc) => doc.id)) {
+        assert(/^[a-z0-9-]+$/.test(id), `document id ${id} is not citable`);
+      }
+      for (const slug of Object.keys(CLAIMS)) {
+        assert(/^[a-z0-9-]+$/.test(slug), `claim slug ${slug} is not citable`);
+      }
+      for (const id of CONCEPTS.map((concept) => concept.id)) {
+        assert(/^[a-z0-9-]+$/.test(id), `concept id ${id} is not citable`);
+      }
+    },
+    "citation tokens resolve against the live registry, and unknown ids throw":
+      () => {
+        assertStringIncludes(
+          resolveBrandCitations("{{claim:proof-exact-tree}}"),
+          "claims-and-evidence.md#",
+          "a claim citation must link into the claims ledger",
+        );
+        assertEquals(
+          resolveBrandCitations("{{doc:messaging}}"),
+          "[`messaging.md`](messaging.md)",
+        );
+        assertEquals(
+          resolveBrandCitations("{{doc:audiences}}"),
+          "`audiences.md`",
+          "an overlay-document citation names the document without a link",
+        );
+        assertEquals(
+          resolveBrandCitations("{{concept:gate}}"),
+          "[Gate](register-bridge.md#core-concept-map)",
+          "a concept citation must link into the register bridge's concept map",
+        );
+        assertThrows(
+          () => resolveBrandCitations("{{claim:no-such-claim}}"),
+          Error,
+          "cites no known claim",
+        );
+        assertThrows(
+          () => resolveBrandCitations("{{doc:no-such-doc}}"),
+          Error,
+          "cites no known doc",
+        );
+        assertThrows(
+          () => resolveBrandCitations("{{concept:no-such-concept}}"),
+          Error,
+          "cites no known concept",
+        );
+      },
+    "every pillar, contrast, and fact line cites existing claims": () => {
+      const citers = [
+        ...PILLARS.map((pillar) => ({ id: pillar.id, claims: pillar.claims })),
+        ...POSITIONING_GRID.map((row) => ({ id: row.id, claims: row.claims })),
+        ...FACT_LINES.map((fact) => ({ id: fact.id, claims: [fact.claim] })),
+      ];
+      for (const citer of citers) {
+        assert(citer.claims.length > 0, `${citer.id} cites no claims`);
+        for (const slug of citer.claims) {
+          assert(
+            Object.hasOwn(CLAIMS, slug),
+            `${citer.id} cites unknown claim ${slug}`,
+          );
+        }
+      }
+    },
+    "the claims ledger and the do-not-claim list hold their shape": () => {
+      const slugs = Object.keys(CLAIMS);
+      assert(slugs.length > 0, "the claims ledger must not be empty");
+      for (const [slug, claim] of Object.entries(CLAIMS)) {
+        assert(
+          claim.evidence.length > 0,
+          `${slug} carries no evidence class`,
+        );
+      }
+      assert(DO_NOT_CLAIM.length > 0, "DO_NOT_CLAIM must not be empty");
+    },
+  });
 });
 
 Deno.test("every register's generated skill matches its renderer (run `deno task codegen`)", async () => {
@@ -181,34 +352,6 @@ Deno.test("every register's generated skill matches its renderer (run `deno task
     );
   }
 });
-
-Deno.test("the shared canon renders where the owner placed it", () => {
-  // Owner selection, 2026-08-08: product and brand carry the banned canon;
-  // every register carries the mechanics. A dropped marker is a silent loss
-  // of enforcement canon, so the placement is held here.
-  const kinds = (register: (typeof REGISTERS)[number]): Set<string> =>
-    new Set(VOICES[register].sections.map((section) => section.kind));
-  for (const register of ["brand", "product"] as const) {
-    assert(
-      kinds(register).has("banned-words") &&
-        kinds(register).has("banned-moves"),
-      `${register}: the banned canon must render into this skill`,
-    );
-  }
-  for (const register of REGISTERS) {
-    assert(
-      kinds(register).has("mechanics"),
-      `${register}: the mechanics must render into this skill`,
-    );
-  }
-  for (const word of BANNED_WORDS) {
-    assert(
-      word.registers.includes("product"),
-      `${word.id}: every banned word renders at least into the product skill`,
-    );
-  }
-});
-
 Deno.test("every registered brand document exists on disk", async () => {
   // Authored rows live in the `_private` overlay tree, which the launch
   // scrub turns into a local, gitignored clone: present on the owner's
@@ -225,141 +368,4 @@ Deno.test("every registered brand document exists on disk", async () => {
       `${doc.id}: ${brandDocMapRel(doc)} is registered but not on disk`,
     );
   }
-});
-
-Deno.test("registry ids, files, and slugs are unique and citable", () => {
-  const unique = (label: string, values: readonly string[]): void => {
-    assertEquals(
-      new Set(values).size,
-      values.length,
-      `${label} must be unique`,
-    );
-  };
-  unique("document ids", BRAND_DOCUMENTS.map((doc) => doc.id));
-  unique("document files", BRAND_DOCUMENTS.map((doc) => doc.file));
-  unique("territory ids", TERRITORIES.map((territory) => territory.id));
-  unique("pillar ids", PILLARS.map((pillar) => pillar.id));
-  unique("positioning-grid ids", POSITIONING_GRID.map((row) => row.id));
-  unique("fact-line ids", FACT_LINES.map((fact) => fact.id));
-  unique(
-    "description ids",
-    DESCRIPTIONS.map((description) => description.id),
-  );
-  unique("hero ids", HERO_SYSTEMS.map((hero) => hero.id));
-  unique("CTA bank ids", CTA_BANKS.map((bank) => bank.id));
-  unique("headline lines", HEADLINES.map((headline) => headline.line));
-  unique("concept ids", CONCEPTS.map((concept) => concept.id));
-  unique(
-    "translation ids",
-    TRANSLATIONS.map((translation) => translation.id),
-  );
-  unique("copy-pattern ids", COPY_PATTERNS.map((pattern) => pattern.id));
-  unique("reading-path ids", READING_PATHS.map((path) => path.id));
-  unique("outstanding-work ids", OUTSTANDING_WORK.map((item) => item.id));
-  unique("banned-word ids", BANNED_WORDS.map((word) => word.id));
-  unique("banned-move ids", BANNED_MOVES.map((move) => move.id));
-  unique("mechanics ids", MECHANICS.map((rule) => rule.id));
-  for (const register of REGISTERS) {
-    const sections = VOICES[register].sections;
-    unique(
-      `${register} voice section headings`,
-      sections.map((section) => section.heading),
-    );
-    unique(
-      `${register} voice rules-section ids`,
-      sections.flatMap((section) =>
-        section.kind === "rules" ? [section.id] : []
-      ),
-    );
-    for (const section of sections) {
-      if (section.kind !== "rules" && section.kind !== "principles") continue;
-      unique(
-        `${register} "${section.heading}" item ids`,
-        section.items.map((item) => item.id),
-      );
-    }
-  }
-  for (const register of REGISTERS) {
-    unique(
-      `${register} proposed-check ids`,
-      PROPOSED_MECHANICAL_CHECKS[register].map((check) => check.id),
-    );
-  }
-  // The resolver's token pattern only matches kebab ids, so anything else
-  // could never be cited.
-  for (const id of BRAND_DOCUMENTS.map((doc) => doc.id)) {
-    assert(/^[a-z0-9-]+$/.test(id), `document id ${id} is not citable`);
-  }
-  for (const slug of Object.keys(CLAIMS)) {
-    assert(/^[a-z0-9-]+$/.test(slug), `claim slug ${slug} is not citable`);
-  }
-  for (const id of CONCEPTS.map((concept) => concept.id)) {
-    assert(/^[a-z0-9-]+$/.test(id), `concept id ${id} is not citable`);
-  }
-});
-
-Deno.test("citation tokens resolve against the live registry, and unknown ids throw", () => {
-  assertStringIncludes(
-    resolveBrandCitations("{{claim:proof-exact-tree}}"),
-    "claims-and-evidence.md#",
-    "a claim citation must link into the claims ledger",
-  );
-  assertEquals(
-    resolveBrandCitations("{{doc:messaging}}"),
-    "[`messaging.md`](messaging.md)",
-  );
-  assertEquals(
-    resolveBrandCitations("{{doc:audiences}}"),
-    "`audiences.md`",
-    "an overlay-document citation names the document without a link",
-  );
-  assertEquals(
-    resolveBrandCitations("{{concept:gate}}"),
-    "[Gate](register-bridge.md#core-concept-map)",
-    "a concept citation must link into the register bridge's concept map",
-  );
-  assertThrows(
-    () => resolveBrandCitations("{{claim:no-such-claim}}"),
-    Error,
-    "cites no known claim",
-  );
-  assertThrows(
-    () => resolveBrandCitations("{{doc:no-such-doc}}"),
-    Error,
-    "cites no known doc",
-  );
-  assertThrows(
-    () => resolveBrandCitations("{{concept:no-such-concept}}"),
-    Error,
-    "cites no known concept",
-  );
-});
-
-Deno.test("every pillar, contrast, and fact line cites existing claims", () => {
-  const citers = [
-    ...PILLARS.map((pillar) => ({ id: pillar.id, claims: pillar.claims })),
-    ...POSITIONING_GRID.map((row) => ({ id: row.id, claims: row.claims })),
-    ...FACT_LINES.map((fact) => ({ id: fact.id, claims: [fact.claim] })),
-  ];
-  for (const citer of citers) {
-    assert(citer.claims.length > 0, `${citer.id} cites no claims`);
-    for (const slug of citer.claims) {
-      assert(
-        Object.hasOwn(CLAIMS, slug),
-        `${citer.id} cites unknown claim ${slug}`,
-      );
-    }
-  }
-});
-
-Deno.test("the claims ledger and the do-not-claim list hold their shape", () => {
-  const slugs = Object.keys(CLAIMS);
-  assert(slugs.length > 0, "the claims ledger must not be empty");
-  for (const [slug, claim] of Object.entries(CLAIMS)) {
-    assert(
-      claim.evidence.length > 0,
-      `${slug} carries no evidence class`,
-    );
-  }
-  assert(DO_NOT_CLAIM.length > 0, "DO_NOT_CLAIM must not be empty");
 });

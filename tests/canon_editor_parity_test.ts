@@ -76,6 +76,7 @@ import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 import { EVIDENCE_CLASS_NAMES } from "../scripts/brand/model.ts";
 import { PROJECT_INVENTORY } from "../scripts/practice_registry.ts";
 import { buildPracticeCarrierCatalog } from "../scripts/practice_carriers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 interface CanonPage {
   readonly id: string;
@@ -281,65 +282,119 @@ Deno.test("every canon entry surfaces at least one annotated span", () => {
   }
 });
 
-Deno.test("every declared field resolves to editor semantics that fit its literal", () => {
-  const project = openRegistryProject(REPO_ROOT);
-  for (const entry of registryEntries(project, REPO_ROOT)) {
-    for (const leaf of fieldLeaves(entry)) {
-      const spec = fieldSpecFor(entry.registry, entry.kind, leaf.path);
-      assert(
-        spec !== undefined,
-        `${entry.registry} ${entry.id} · ${leaf.path}: the editor has no semantics for this field`,
+Deno.test("canon editor parity: openRegistryProject cases", () => {
+  assertNamedCases({
+    "every declared field resolves to editor semantics that fit its literal":
+      () => {
+        const project = openRegistryProject(REPO_ROOT);
+        for (const entry of registryEntries(project, REPO_ROOT)) {
+          for (const leaf of fieldLeaves(entry)) {
+            const spec = fieldSpecFor(entry.registry, entry.kind, leaf.path);
+            assert(
+              spec !== undefined,
+              `${entry.registry} ${entry.id} · ${leaf.path}: the editor has no semantics for this field`,
+            );
+            if (spec.edit === "prose") {
+              assert(
+                leaf.kind === "string" || leaf.kind === "template",
+                `${entry.registry} ${entry.id} · ${leaf.path}: prose semantics over a ${leaf.kind} literal`,
+              );
+            }
+            if (spec.edit === "list") {
+              assert(
+                leaf.kind === "string-array" || leaf.kind === "array" ||
+                  leaf.kind === "computed",
+                `${entry.registry} ${entry.id} · ${leaf.path}: list semantics over a ${leaf.kind} literal`,
+              );
+            }
+            assert(
+              spec.edit !== "nested",
+              `${entry.registry} ${entry.id} · ${leaf.path}: a nested spec cannot terminate a leaf`,
+            );
+          }
+        }
+      },
+    "every closed live list declares picker write-back": () => {
+      const missing = new Set<string>();
+      const project = openRegistryProject(REPO_ROOT);
+      for (const entry of registryEntries(project, REPO_ROOT)) {
+        for (const leaf of fieldLeaves(entry)) {
+          const spec = fieldSpecFor(entry.registry, entry.kind, leaf.path);
+          if (
+            spec !== undefined && requiresPickerWrite(spec) &&
+            spec.write !== "picker"
+          ) {
+            missing.add(`${entry.registry}:${entry.kind}:${leaf.path}`);
+          }
+        }
+      }
+      assertEquals(
+        [...missing].toSorted(),
+        [],
+        "a closed list cannot silently remain a source-only field",
       );
-      if (spec.edit === "prose") {
-        assert(
-          leaf.kind === "string" || leaf.kind === "template",
-          `${entry.registry} ${entry.id} · ${leaf.path}: prose semantics over a ${leaf.kind} literal`,
-        );
-      }
-      if (spec.edit === "list") {
-        assert(
-          leaf.kind === "string-array" || leaf.kind === "array" ||
-            leaf.kind === "computed",
-          `${entry.registry} ${entry.id} · ${leaf.path}: list semantics over a ${leaf.kind} literal`,
-        );
-      }
       assert(
-        spec.edit !== "nested",
-        `${entry.registry} ${entry.id} · ${leaf.path}: a nested spec cannot terminate a leaf`,
+        requiresPickerWrite({ edit: "list", picker: "inventory" }),
+        "an unrelated future closed list enters the same detector",
       );
-    }
-  }
-});
-
-Deno.test("every closed live list declares picker write-back", () => {
-  const missing = new Set<string>();
-  const project = openRegistryProject(REPO_ROOT);
-  for (const entry of registryEntries(project, REPO_ROOT)) {
-    for (const leaf of fieldLeaves(entry)) {
-      const spec = fieldSpecFor(entry.registry, entry.kind, leaf.path);
-      if (
-        spec !== undefined && requiresPickerWrite(spec) &&
-        spec.write !== "picker"
-      ) {
-        missing.add(`${entry.registry}:${entry.kind}:${leaf.path}`);
+      assert(
+        !requiresPickerWrite({ edit: "list", picker: "free" }),
+        "genuinely arbitrary string lists remain free-form",
+      );
+    },
+    "the syntax enumeration and the evaluated registries agree on ids": () => {
+      assertEquals(
+        PROSE_REGISTRIES.map((registry) => registry.name),
+        [...PROSE_REGISTRY_NAMES],
+        "the registry specifications cover the name authority in reading order",
+      );
+      const project = openRegistryProject(REPO_ROOT);
+      const byRegistry = new Map<string, string[]>();
+      for (const entry of registryEntries(project, REPO_ROOT)) {
+        const ids = byRegistry.get(entry.registry) ?? [];
+        ids.push(entry.slug);
+        byRegistry.set(entry.registry, ids);
       }
-    }
-  }
-  assertEquals(
-    [...missing].toSorted(),
-    [],
-    "a closed list cannot silently remain a source-only field",
-  );
-  assert(
-    requiresPickerWrite({ edit: "list", picker: "inventory" }),
-    "an unrelated future closed list enters the same detector",
-  );
-  assert(
-    !requiresPickerWrite({ edit: "list", picker: "free" }),
-    "genuinely arbitrary string lists remain free-form",
-  );
+      assertEquals(
+        byRegistry.get("feature")?.toSorted(),
+        allFeatureNodes().map(({ node }) => node.id).toSorted(),
+      );
+      assertEquals(
+        byRegistry.get("benefit")?.toSorted(),
+        [
+          ...HUMAN_BENEFIT_CANON.map((cluster) => cluster.id),
+          ...allHumanBenefitEntries().map(({ entry }) => entry.id),
+        ].toSorted(),
+      );
+      assertEquals(
+        byRegistry.get("agent-benefit")?.toSorted(),
+        [
+          ...AGENT_BENEFIT_CANON.map((cluster) => cluster.id),
+          ...allAgentBenefitEntries().map(({ entry }) => entry.id),
+        ].toSorted(),
+      );
+      assertEquals(
+        byRegistry.get("demand")?.toSorted(),
+        [
+          ...DEMAND_CANON.map((territory) => territory.id),
+          ...allDemandEntries().map(({ entry }) => entry.id),
+        ].toSorted(),
+      );
+      assertEquals(
+        byRegistry.get("practice")?.toSorted(),
+        PRACTICE_CANON.map((tenet) => tenet.id).toSorted(),
+      );
+      assertEquals(
+        byRegistry.get("glossary")?.toSorted(),
+        GLOSSARY.map((entry) => slugify(entry.term)).toSorted(),
+      );
+      assertEquals(
+        byRegistry.get("claims")?.toSorted(),
+        Object.keys(CLAIMS).toSorted(),
+      );
+    },
+  });
 });
-
 Deno.test("picker write-back and option handlers stay in two-way parity", async () => {
   const project = openRegistryProject(REPO_ROOT);
   const used = new Set<PickerSource>();
@@ -424,56 +479,4 @@ Deno.test("picker write-back and option handlers stay in two-way parity", async 
       `${source} picker values are unique`,
     );
   }
-});
-
-Deno.test("the syntax enumeration and the evaluated registries agree on ids", () => {
-  assertEquals(
-    PROSE_REGISTRIES.map((registry) => registry.name),
-    [...PROSE_REGISTRY_NAMES],
-    "the registry specifications cover the name authority in reading order",
-  );
-  const project = openRegistryProject(REPO_ROOT);
-  const byRegistry = new Map<string, string[]>();
-  for (const entry of registryEntries(project, REPO_ROOT)) {
-    const ids = byRegistry.get(entry.registry) ?? [];
-    ids.push(entry.slug);
-    byRegistry.set(entry.registry, ids);
-  }
-  assertEquals(
-    byRegistry.get("feature")?.toSorted(),
-    allFeatureNodes().map(({ node }) => node.id).toSorted(),
-  );
-  assertEquals(
-    byRegistry.get("benefit")?.toSorted(),
-    [
-      ...HUMAN_BENEFIT_CANON.map((cluster) => cluster.id),
-      ...allHumanBenefitEntries().map(({ entry }) => entry.id),
-    ].toSorted(),
-  );
-  assertEquals(
-    byRegistry.get("agent-benefit")?.toSorted(),
-    [
-      ...AGENT_BENEFIT_CANON.map((cluster) => cluster.id),
-      ...allAgentBenefitEntries().map(({ entry }) => entry.id),
-    ].toSorted(),
-  );
-  assertEquals(
-    byRegistry.get("demand")?.toSorted(),
-    [
-      ...DEMAND_CANON.map((territory) => territory.id),
-      ...allDemandEntries().map(({ entry }) => entry.id),
-    ].toSorted(),
-  );
-  assertEquals(
-    byRegistry.get("practice")?.toSorted(),
-    PRACTICE_CANON.map((tenet) => tenet.id).toSorted(),
-  );
-  assertEquals(
-    byRegistry.get("glossary")?.toSorted(),
-    GLOSSARY.map((entry) => slugify(entry.term)).toSorted(),
-  );
-  assertEquals(
-    byRegistry.get("claims")?.toSorted(),
-    Object.keys(CLAIMS).toSorted(),
-  );
 });

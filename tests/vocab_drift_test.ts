@@ -36,6 +36,7 @@ import {
 } from "./repo_authored_paths.ts";
 import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Generated vendor output under site/ (materialized design-system bundles) —
  * not authored here, so not this repo's vocabulary to police. */
@@ -242,30 +243,34 @@ Deno.test("the vocabulary scan universe reaches the site tree", async () => {
 // Positive controls: prove the detector detects, so the guard can't rot into
 // a test that passes because it sees nothing.
 
-Deno.test("drift guard: a phrase wrapped across a line break still matches, case-insensitively", () => {
-  const pattern = retiredPattern({ phrase: "integration branch" });
-  assertEquals(
-    bannedPhraseLines(
-      "x.md",
-      "one\ntwo forked from the Integration\nbranch yesterday",
-      pattern,
-    ),
-    ['x.md:2 contains "Integration branch"'],
-  );
-});
-
-Deno.test("drift guard: an explicit pattern covers its inflection family, word-bounded", () => {
-  const pattern = retiredPattern({
-    phrase: "harness",
-    pattern: String.raw`\bharness(?:es|ing)?\b`,
+Deno.test("vocab drift: retiredPattern cases", () => {
+  assertNamedCases({
+    "drift guard: a phrase wrapped across a line break still matches, case-insensitively":
+      () => {
+        const pattern = retiredPattern({ phrase: "integration branch" });
+        assertEquals(
+          bannedPhraseLines(
+            "x.md",
+            "one\ntwo forked from the Integration\nbranch yesterday",
+            pattern,
+          ),
+          ['x.md:2 contains "Integration branch"'],
+        );
+      },
+    "drift guard: an explicit pattern covers its inflection family, word-bounded":
+      () => {
+        const pattern = retiredPattern({
+          phrase: "harness",
+          pattern: String.raw`\bharness(?:es|ing)?\b`,
+        });
+        assertEquals("harnessing the harnesses".match(pattern), [
+          "harnessing",
+          "harnesses",
+        ]);
+        assertEquals("unharnessed".match(pattern), null);
+      },
   });
-  assertEquals("harnessing the harnesses".match(pattern), [
-    "harnessing",
-    "harnesses",
-  ]);
-  assertEquals("unharnessed".match(pattern), null);
 });
-
 Deno.test("drift guard: every declared matcher recognises its own phrase", () => {
   for (const { term, synonym } of retiredSynonyms()) {
     assert(

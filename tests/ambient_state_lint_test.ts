@@ -22,6 +22,7 @@ import {
 } from "../src/shared/entropy.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const READ_RULE_ID = "discern-ambient-state/no-hidden-ambient-read";
 const MUTATION_RULE_ID = "discern-ambient-state/no-unregistered-env-mutation";
@@ -126,203 +127,200 @@ Deno.test("ambient registration is exact to path, function, and operation", () =
   ]);
 });
 
-Deno.test("environment mutation needs an exact registered operation", () => {
-  const source = [
-    "export function mutate(",
-    "  applied = " +
-    DENO_ENV_FIXTURE_OBJECT +
-    '.set("FUTURE_STATE", "ready"),',
-    "): void {",
-    "  " + DENO_ENV_FIXTURE_OBJECT + '.delete("FUTURE_STATE");',
-    "  void applied;",
-    "}",
-  ].join("\n");
-  assertEquals(
-    diagnostics(source).map((diagnostic) => diagnostic.id),
-    [MUTATION_RULE_ID, MUTATION_RULE_ID],
-  );
-  const mutations: Readonly<Record<string, AmbientMutationBoundary>> = {
-    "future-host-delete": {
-      path: "src/future_host.ts",
-      enclosingFunction: "mutate",
-      primitive: "env.delete",
-      operation: "clear the owned child marker",
-      reason:
-        "The synthetic executable boundary clears the marker before returning control.",
+Deno.test("ambient state lint: diagnostics cases", () => {
+  assertNamedCases({
+    "environment mutation needs an exact registered operation": () => {
+      const source = [
+        "export function mutate(",
+        "  applied = " +
+        DENO_ENV_FIXTURE_OBJECT +
+        '.set("FUTURE_STATE", "ready"),',
+        "): void {",
+        "  " + DENO_ENV_FIXTURE_OBJECT + '.delete("FUTURE_STATE");',
+        "  void applied;",
+        "}",
+      ].join("\n");
+      assertEquals(
+        diagnostics(source).map((diagnostic) => diagnostic.id),
+        [MUTATION_RULE_ID, MUTATION_RULE_ID],
+      );
+      const mutations: Readonly<Record<string, AmbientMutationBoundary>> = {
+        "future-host-delete": {
+          path: "src/future_host.ts",
+          enclosingFunction: "mutate",
+          primitive: "env.delete",
+          operation: "clear the owned child marker",
+          reason:
+            "The synthetic executable boundary clears the marker before returning control.",
+        },
+        "future-host-set": {
+          path: "src/future_host.ts",
+          enclosingFunction: "mutate",
+          primitive: "env.set",
+          operation: "publish the owned child marker",
+          reason:
+            "The synthetic executable boundary publishes one process marker for its owned child.",
+        },
+      };
+      assertEquals(
+        diagnostics(source, "src/future_host.ts", {
+          ...EMPTY_REGISTRIES,
+          mutations,
+        }),
+        [],
+      );
     },
-    "future-host-set": {
-      path: "src/future_host.ts",
-      enclosingFunction: "mutate",
-      primitive: "env.set",
-      operation: "publish the owned child marker",
-      reason:
-        "The synthetic executable boundary publishes one process marker for its owned child.",
+    "clock primitives reject host spellings but allow conversion": () => {
+      const found = diagnostics([
+        "void Date.now();",
+        "void globalThis.Date.now();",
+        "void Deno.Date.now();",
+        "void performance.now();",
+        "void globalThis.performance.now();",
+        "void Deno.performance.now();",
+        "void Date();",
+        "void globalThis.Date();",
+        "void Deno.Date();",
+        "void new Date();",
+        "void new globalThis.Date();",
+        "void new Deno.Date();",
+        "void new Date(0);",
+        "void new globalThis.Date(0);",
+      ].join("\n"));
+      assertEquals(
+        found.map((diagnostic) => diagnostic.id),
+        Array.from({ length: 12 }, () => CLOCK_RULE_ID),
+      );
     },
-  };
-  assertEquals(
-    diagnostics(source, "src/future_host.ts", {
-      ...EMPTY_REGISTRIES,
-      mutations,
-    }),
-    [],
-  );
-});
-
-Deno.test("clock primitives reject host spellings but allow conversion", () => {
-  const found = diagnostics([
-    "void Date.now();",
-    "void globalThis.Date.now();",
-    "void Deno.Date.now();",
-    "void performance.now();",
-    "void globalThis.performance.now();",
-    "void Deno.performance.now();",
-    "void Date();",
-    "void globalThis.Date();",
-    "void Deno.Date();",
-    "void new Date();",
-    "void new globalThis.Date();",
-    "void new Deno.Date();",
-    "void new Date(0);",
-    "void new globalThis.Date(0);",
-  ].join("\n"));
-  assertEquals(
-    found.map((diagnostic) => diagnostic.id),
-    Array.from({ length: 12 }, () => CLOCK_RULE_ID),
-  );
-});
-
-Deno.test("clock registration cannot authorize a neighboring operation", () => {
-  const clocks = {
-    "future-wall-clock": {
-      path: "src/future_clock.ts",
-      enclosingFunction: "wallNow",
-      operation: "Date.now" as const,
-      reason:
-        "The synthetic system clock adapts one host wall-time source for its callers.",
+    "clock registration cannot authorize a neighboring operation": () => {
+      const clocks = {
+        "future-wall-clock": {
+          path: "src/future_clock.ts",
+          enclosingFunction: "wallNow",
+          operation: "Date.now" as const,
+          reason:
+            "The synthetic system clock adapts one host wall-time source for its callers.",
+        },
+      };
+      const found = diagnostics(
+        [
+          "export function wallNow(): number { return Date.now(); }",
+          "export function monotonicNow(): number { return performance.now(); }",
+          "export function otherWallNow(): number { return Date.now(); }",
+        ].join("\n"),
+        "src/future_clock.ts",
+        { ...EMPTY_REGISTRIES, clocks },
+      );
+      assertEquals(found.map((diagnostic) => diagnostic.id), [
+        CLOCK_RULE_ID,
+        CLOCK_RULE_ID,
+      ]);
     },
-  };
-  const found = diagnostics(
-    [
-      "export function wallNow(): number { return Date.now(); }",
-      "export function monotonicNow(): number { return performance.now(); }",
-      "export function otherWallNow(): number { return Date.now(); }",
-    ].join("\n"),
-    "src/future_clock.ts",
-    { ...EMPTY_REGISTRIES, clocks },
-  );
-  assertEquals(found.map((diagnostic) => diagnostic.id), [
-    CLOCK_RULE_ID,
-    CLOCK_RULE_ID,
-  ]);
-});
-
-Deno.test("scheduler primitives reject bare, globalThis, and Deno forms", () => {
-  const setTimeoutName = ["set", "Timeout"].join("");
-  const clearTimeoutName = ["clear", "Timeout"].join("");
-  const setIntervalName = ["set", "Interval"].join("");
-  const clearIntervalName = ["clear", "Interval"].join("");
-  const found = diagnostics([
-    "const callback = (): void => {};",
-    `const one = ${setTimeoutName}(callback, 1);`,
-    `${clearTimeoutName}(one);`,
-    `const two = globalThis.${setIntervalName}(callback, 1);`,
-    `globalThis.${clearIntervalName}(two);`,
-    `const three = Deno.${setTimeoutName}(callback, 1);`,
-    `Deno.${clearTimeoutName}(three);`,
-    `const four = Deno.${setIntervalName}(callback, 1);`,
-    `Deno.${clearIntervalName}(four);`,
-  ].join("\n"));
-  assertEquals(
-    found.map((diagnostic) => diagnostic.id),
-    Array.from({ length: 8 }, () => SCHEDULER_RULE_ID),
-  );
-});
-
-Deno.test("Math.random is reserved for registered scheduling jitter", () => {
-  assertEquals(
-    diagnostics([
-      "void Math.random();",
-      "void globalThis.Math.random();",
-      "void Deno.Math.random();",
-    ].join("\n")).map((diagnostic) => diagnostic.id),
-    [JITTER_RULE_ID, JITTER_RULE_ID, JITTER_RULE_ID],
-  );
-});
-
-Deno.test("secure entropy primitives reject bare, globalThis, and Deno forms", () => {
-  const found = diagnostics([
-    "void crypto.randomUUID();",
-    "void globalThis.crypto.randomUUID();",
-    "void Deno.crypto.randomUUID();",
-    "void crypto.getRandomValues(new Uint8Array(1));",
-    "void globalThis.crypto.getRandomValues(new Uint8Array(1));",
-    "void Deno.crypto.getRandomValues(new Uint8Array(1));",
-    "void crypto.subtle.generateKey({}, true, []);",
-    "void globalThis.crypto.subtle.generateKey({}, true, []);",
-    "void Deno.crypto.subtle.generateKey({}, true, []);",
-  ].join("\n"));
-  assertEquals(
-    found.map((diagnostic) => diagnostic.id),
-    Array.from({ length: 9 }, () => SECURE_ENTROPY_RULE_ID),
-  );
-});
-
-Deno.test("a helper wrapping WebCrypto does not evade secure entropy enrollment", () => {
-  const found = diagnostics(
-    [
-      "export function adHocSecureUuid(): string {",
-      "  return crypto.randomUUID();",
-      "}",
-      "export function consumer(): string { return adHocSecureUuid(); }",
-    ].join("\n"),
-    "src/future_entropy_wrapper.ts",
-  );
-  assertEquals(found.map((diagnostic) => diagnostic.id), [
-    SECURE_ENTROPY_RULE_ID,
-  ]);
-});
-
-Deno.test("a planted Math.random entropy downgrade remains illegal", () => {
-  const found = diagnostics(
-    [
-      "export function fillSystemSecureBytes(bytes: Uint8Array): void {",
-      "  bytes.fill(Math.floor(Math.random() * 256));",
-      "}",
-    ].join("\n"),
-    "src/shared/entropy.ts",
-  );
-  assertEquals(found.map((diagnostic) => diagnostic.id), [JITTER_RULE_ID]);
-});
-
-Deno.test("secure entropy registration is exact to operation and owner", () => {
-  const secureEntropy: Readonly<
-    Record<string, SecureEntropyPrimitiveBoundary>
-  > = {
-    "future-secure-uuid": {
-      path: "src/future_entropy.ts",
-      enclosingFunction: "secureUuid",
-      operation: "crypto.randomUUID",
-      requiredSecurityProperty:
-        "cryptographic unpredictability and collision resistance",
-      reason:
-        "The synthetic system adapter exposes one secure UUID source to callers.",
+    "scheduler primitives reject bare, globalThis, and Deno forms": () => {
+      const setTimeoutName = ["set", "Timeout"].join("");
+      const clearTimeoutName = ["clear", "Timeout"].join("");
+      const setIntervalName = ["set", "Interval"].join("");
+      const clearIntervalName = ["clear", "Interval"].join("");
+      const found = diagnostics([
+        "const callback = (): void => {};",
+        `const one = ${setTimeoutName}(callback, 1);`,
+        `${clearTimeoutName}(one);`,
+        `const two = globalThis.${setIntervalName}(callback, 1);`,
+        `globalThis.${clearIntervalName}(two);`,
+        `const three = Deno.${setTimeoutName}(callback, 1);`,
+        `Deno.${clearTimeoutName}(three);`,
+        `const four = Deno.${setIntervalName}(callback, 1);`,
+        `Deno.${clearIntervalName}(four);`,
+      ].join("\n"));
+      assertEquals(
+        found.map((diagnostic) => diagnostic.id),
+        Array.from({ length: 8 }, () => SCHEDULER_RULE_ID),
+      );
     },
-  };
-  const found = diagnostics(
-    [
-      "export function secureUuid(): string { return crypto.randomUUID(); }",
-      "export function otherUuid(): string { return crypto.randomUUID(); }",
-      "export function secureBytes(): void {",
-      "  crypto.getRandomValues(new Uint8Array(1));",
-      "}",
-    ].join("\n"),
-    "src/future_entropy.ts",
-    { ...EMPTY_REGISTRIES, secureEntropy },
-  );
-  assertEquals(found.map((diagnostic) => diagnostic.id), [
-    SECURE_ENTROPY_RULE_ID,
-    SECURE_ENTROPY_RULE_ID,
-  ]);
+    "Math.random is reserved for registered scheduling jitter": () => {
+      assertEquals(
+        diagnostics([
+          "void Math.random();",
+          "void globalThis.Math.random();",
+          "void Deno.Math.random();",
+        ].join("\n")).map((diagnostic) => diagnostic.id),
+        [JITTER_RULE_ID, JITTER_RULE_ID, JITTER_RULE_ID],
+      );
+    },
+    "secure entropy primitives reject bare, globalThis, and Deno forms": () => {
+      const found = diagnostics([
+        "void crypto.randomUUID();",
+        "void globalThis.crypto.randomUUID();",
+        "void Deno.crypto.randomUUID();",
+        "void crypto.getRandomValues(new Uint8Array(1));",
+        "void globalThis.crypto.getRandomValues(new Uint8Array(1));",
+        "void Deno.crypto.getRandomValues(new Uint8Array(1));",
+        "void crypto.subtle.generateKey({}, true, []);",
+        "void globalThis.crypto.subtle.generateKey({}, true, []);",
+        "void Deno.crypto.subtle.generateKey({}, true, []);",
+      ].join("\n"));
+      assertEquals(
+        found.map((diagnostic) => diagnostic.id),
+        Array.from({ length: 9 }, () => SECURE_ENTROPY_RULE_ID),
+      );
+    },
+    "a helper wrapping WebCrypto does not evade secure entropy enrollment":
+      () => {
+        const found = diagnostics(
+          [
+            "export function adHocSecureUuid(): string {",
+            "  return crypto.randomUUID();",
+            "}",
+            "export function consumer(): string { return adHocSecureUuid(); }",
+          ].join("\n"),
+          "src/future_entropy_wrapper.ts",
+        );
+        assertEquals(found.map((diagnostic) => diagnostic.id), [
+          SECURE_ENTROPY_RULE_ID,
+        ]);
+      },
+    "a planted Math.random entropy downgrade remains illegal": () => {
+      const found = diagnostics(
+        [
+          "export function fillSystemSecureBytes(bytes: Uint8Array): void {",
+          "  bytes.fill(Math.floor(Math.random() * 256));",
+          "}",
+        ].join("\n"),
+        "src/shared/entropy.ts",
+      );
+      assertEquals(found.map((diagnostic) => diagnostic.id), [JITTER_RULE_ID]);
+    },
+    "secure entropy registration is exact to operation and owner": () => {
+      const secureEntropy: Readonly<
+        Record<string, SecureEntropyPrimitiveBoundary>
+      > = {
+        "future-secure-uuid": {
+          path: "src/future_entropy.ts",
+          enclosingFunction: "secureUuid",
+          operation: "crypto.randomUUID",
+          requiredSecurityProperty:
+            "cryptographic unpredictability and collision resistance",
+          reason:
+            "The synthetic system adapter exposes one secure UUID source to callers.",
+        },
+      };
+      const found = diagnostics(
+        [
+          "export function secureUuid(): string { return crypto.randomUUID(); }",
+          "export function otherUuid(): string { return crypto.randomUUID(); }",
+          "export function secureBytes(): void {",
+          "  crypto.getRandomValues(new Uint8Array(1));",
+          "}",
+        ].join("\n"),
+        "src/future_entropy.ts",
+        { ...EMPTY_REGISTRIES, secureEntropy },
+      );
+      assertEquals(found.map((diagnostic) => diagnostic.id), [
+        SECURE_ENTROPY_RULE_ID,
+        SECURE_ENTROPY_RULE_ID,
+      ]);
+    },
+  });
 });
 
 /** Parse one module without resolving its dependency graph. */

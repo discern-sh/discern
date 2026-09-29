@@ -26,6 +26,7 @@ import {
   groupedSelectionEntries,
   withInteractionBoundary,
 } from "../src/lib/terminal_interaction.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 interface BoundaryFinding {
   readonly rule: string;
@@ -430,255 +431,289 @@ function lineAt(source: string, offset: number): number {
   return source.slice(0, offset).split("\n").length;
 }
 
-Deno.test("human-output boundary detector rejects unrelated future siblings", () => {
-  const synthetic = [
-    'function orbit(writer: { raw(s: string): void }) { writer.raw("\\n"); }',
-    'function canopy() { console.log(""); }',
-    "function harbor(log: { line(): void }) { log.line(); }",
-    'function estuary(lines: string[]) { console.log(lines.join("\\n")); }',
-    'function inlet(log: { line(s: string): void }) { log.line(""); }',
-    'function delta(writer: { raw(s: string): void }) { writer.raw("one\\n\\ntwo"); }',
-    'function shoal() { console.error("\\n"); }',
-    'function channel() { console.warn("one\\n\\ntwo"); }',
-  ].join("\n");
+Deno.test("human output grouping: contracts", () => {
+  assertNamedCases({
+    "human-output boundary detector rejects unrelated future siblings": () => {
+      const synthetic = [
+        'function orbit(writer: { raw(s: string): void }) { writer.raw("\\n"); }',
+        'function canopy() { console.log(""); }',
+        "function harbor(log: { line(): void }) { log.line(); }",
+        'function estuary(lines: string[]) { console.log(lines.join("\\n")); }',
+        'function inlet(log: { line(s: string): void }) { log.line(""); }',
+        'function delta(writer: { raw(s: string): void }) { writer.raw("one\\n\\ntwo"); }',
+        'function shoal() { console.error("\\n"); }',
+        'function channel() { console.warn("one\\n\\ntwo"); }',
+      ].join("\n");
 
-  assertEquals(
-    manualBoundaryFindings(synthetic).map((finding) => finding.rule).sort(),
-    [
-      "double-newline-console-call",
-      "double-newline-output-call",
-      "empty-console-line",
-      "empty-output-call",
-      "empty-output-string",
-      "escaped-newline-console-call",
-      "escaped-newline-output-call",
-      "joined-line-output-call",
-    ],
-  );
+      assertEquals(
+        manualBoundaryFindings(synthetic).map((finding) => finding.rule).sort(),
+        [
+          "double-newline-console-call",
+          "double-newline-output-call",
+          "empty-console-line",
+          "empty-output-call",
+          "empty-output-string",
+          "escaped-newline-console-call",
+          "escaped-newline-output-call",
+          "joined-line-output-call",
+        ],
+      );
 
-  const requestSynthetic = [
-    'import { Select } from "@cliffy/prompt";',
-    `import { requestSelection as orbit, DenoTerminalIO } from "${INTERACTIVE_MODULE}";`,
-    `import * as interactive from "${INTERACTIVE_MODULE}";`,
-    'orbit({ label: "Fresh sibling", choices: [] });',
-    'relay(orbit, { label: "Helper bypass", choices: [] });',
-    'notRunInteractionRequest(orbit, { label: "Near miss", choices: [] });',
-    'adapter.runInteractionRequest(orbit, { label: "Qualified near miss", choices: [] });',
-    'interactive.requestFuture({ label: "Future sibling" });',
-    `const future = await import("${INTERACTIVE_MODULE}"); future.requestFuture({});`,
-  ].join("\n");
-  assertEquals(
-    directRequestFindings(requestSynthetic).map((finding) => finding.rule),
-    [
-      "legacy-cliffy-prompt-import",
-      "direct-package-request-import",
-      "direct-package-request-call",
-      "unmediated-package-request-use",
-      "unmediated-package-request-use",
-      "unmediated-package-request-use",
-      "unmediated-package-request-use",
-      "direct-package-namespace-request",
-      "dynamic-interactive-package-import",
-    ],
-  );
-  assertEquals(
-    directRequestFindings(
-      `import { requestSelection as orbit } from "${INTERACTIVE_MODULE}";\n` +
-        "runInteractionRequest(orbit, options, runtime);",
-    ).map((finding) => finding.rule),
-    ["direct-package-request-import"],
-  );
-  assertEquals(
-    directRequestFindings(
-      `import { InlineFramePainter } from "${INTERACTIVE_MODULE}";\n` +
-        "new InlineFramePainter({});",
-    ),
-    [],
-  );
-  assertEquals(
-    adHocHeadingFindings(
-      'const fake = { kind: "group-heading", id: "fake", value: "fake" };',
-    ).map((finding) => finding.rule),
-    ["ad-hoc-selection-heading"],
-  );
+      const requestSynthetic = [
+        'import { Select } from "@cliffy/prompt";',
+        `import { requestSelection as orbit, DenoTerminalIO } from "${INTERACTIVE_MODULE}";`,
+        `import * as interactive from "${INTERACTIVE_MODULE}";`,
+        'orbit({ label: "Fresh sibling", choices: [] });',
+        'relay(orbit, { label: "Helper bypass", choices: [] });',
+        'notRunInteractionRequest(orbit, { label: "Near miss", choices: [] });',
+        'adapter.runInteractionRequest(orbit, { label: "Qualified near miss", choices: [] });',
+        'interactive.requestFuture({ label: "Future sibling" });',
+        `const future = await import("${INTERACTIVE_MODULE}"); future.requestFuture({});`,
+      ].join("\n");
+      assertEquals(
+        directRequestFindings(requestSynthetic).map((finding) => finding.rule),
+        [
+          "legacy-cliffy-prompt-import",
+          "direct-package-request-import",
+          "direct-package-request-call",
+          "unmediated-package-request-use",
+          "unmediated-package-request-use",
+          "unmediated-package-request-use",
+          "unmediated-package-request-use",
+          "direct-package-namespace-request",
+          "dynamic-interactive-package-import",
+        ],
+      );
+      assertEquals(
+        directRequestFindings(
+          `import { requestSelection as orbit } from "${INTERACTIVE_MODULE}";\n` +
+            "runInteractionRequest(orbit, options, runtime);",
+        ).map((finding) => finding.rule),
+        ["direct-package-request-import"],
+      );
+      assertEquals(
+        directRequestFindings(
+          `import { InlineFramePainter } from "${INTERACTIVE_MODULE}";\n` +
+            "new InlineFramePainter({});",
+        ),
+        [],
+      );
+      assertEquals(
+        adHocHeadingFindings(
+          'const fake = { kind: "group-heading", id: "fake", value: "fake" };',
+        ).map((finding) => finding.rule),
+        ["ad-hoc-selection-heading"],
+      );
 
-  const headingImport =
-    `import { renderOrbitHeadingCli as future } from "${STATIC_CLI_MODULE}";\n`;
-  assertEquals(
-    packageHeadingBoundaryFindings(
-      headingImport +
-        'function grouped(out: Out, caps: Caps) { out.group("next"); out.raw(future({ text: "Next" }, caps)); }\n' +
-        'function composed(caps: Caps) { return [future({ text: "Inside" }, caps)]; }\n' +
-        'function top(caps: Caps) { return future({ text: "Top" }, caps); }\n' +
-        'function embedded(caps: Caps) { return [future({ text: "Inside", leadingBlankLines: 0 }, caps)]; }\n' +
-        'function custom(caps: Caps) { return future({ text: "Custom", leadingBlankLines: 2 }, caps); }',
-    ).map((finding) => finding.rule),
-    [
-      "package-heading-default-inside-owned-boundary",
-      "package-heading-default-inside-owned-boundary",
-      "package-heading-nonembedded-override",
-    ],
-  );
-});
-
-Deno.test("the text grouping surface owns populated boundaries and identities", () => {
-  const rendered = renderHumanOutputGroups([
-    { id: "orbit", items: ["first\n", "second"] },
-    { id: "canopy", label: "Canopy", items: [] },
-    { id: "harbor", label: "Harbor", items: ["third"] },
-  ], {
-    leadingBoundary: true,
-    renderLabel: (group) => group.label,
-  });
-
-  assertEquals(rendered, "\nfirst\nsecond\n\nHarbor\nthird");
-  assertThrows(
-    () => populatedHumanOutputGroups([{ id: " ", items: ["one"] }]),
-    Error,
-    "must not be blank",
-  );
-  assertThrows(
-    () =>
-      populatedHumanOutputGroups([
-        { id: "orbit", items: ["one"] },
-        { id: "orbit", items: ["two"] },
-      ]),
-    Error,
-    "duplicate human output group id",
-  );
-  assertThrows(
-    () =>
-      populatedHumanOutputGroups([{
-        id: "orbit",
-        label: " ",
-        items: ["one"],
-      }]),
-    Error,
-    "label must not be blank",
-  );
-});
-
-Deno.test("the live output grouping surface writes exactly one complete boundary", () => {
-  const chunks: string[] = [];
-  const errors: string[] = [];
-  const out = makeOut(false, {
-    stdout: (text) => chunks.push(text),
-    stderr: (text) => errors.push(text),
-  });
-
-  out.group("leading");
-  out.raw("first");
-  out.group("second");
-  out.group("same-boundary");
-  out.raw("second\n");
-  out.group("third");
-  out.info("third");
-  out.group("fourth", "Fourth");
-  out.raw("fourth\n");
-  assertThrows(
-    () => out.group("invalid-label", " "),
-    Error,
-    "label must not be blank",
-  );
-
-  assertEquals(
-    chunks.join(""),
-    "first\n\nsecond\n\n▸ third\n\n  ── Fourth\nfourth\n",
-  );
-
-  out.error("failure");
-  out.group("failure-recovery", "Recovery");
-  out.warn("fix it");
-  assertEquals(
-    errors.join(""),
-    "✕ failure\n\n  ── Recovery\n! fix it\n",
-  );
-});
-
-Deno.test("the live narration surface makes hostile caller facts inert but keeps raw bytes", () => {
-  const chunks: string[] = [];
-  const errors: string[] = [];
-  const out = makeOut(false, {
-    stdout: (text) => chunks.push(text),
-    stderr: (text) => errors.push(text),
-  });
-  const hostile = "repo\x1b[31m\nbranch\x00\u0085\u202E";
-  const safe = "repo␛[31m␊branch␀<U+0085><U+202E>";
-  const hostileLabel = "repo\x1b[31m\x00\u0085\u202E";
-  const safeLabel = "repo␛[31m␀<U+0085><U+202E>";
-
-  out.info(hostile);
-  out.ok(hostile);
-  out.warn(hostile);
-  out.error(hostile);
-  out.heading(hostile);
-  out.group("hostile-label", hostileLabel);
-
-  assertEquals(
-    chunks.join(""),
-    `▸ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
-  );
-  assertEquals(errors.join(""), `! ${safe}\n✕ ${safe}\n`);
-
-  out.raw(hostile);
-  assertEquals(chunks.at(-1), hostile);
-});
-
-Deno.test("the selection grouping surface gives every populated group a heading", () => {
-  const options = groupedSelectionEntries<string>([
-    {
-      id: "orbit",
-      label: "Orbit",
-      items: [{ name: "First", value: "first" }],
+      const headingImport =
+        `import { renderOrbitHeadingCli as future } from "${STATIC_CLI_MODULE}";\n`;
+      assertEquals(
+        packageHeadingBoundaryFindings(
+          headingImport +
+            'function grouped(out: Out, caps: Caps) { out.group("next"); out.raw(future({ text: "Next" }, caps)); }\n' +
+            'function composed(caps: Caps) { return [future({ text: "Inside" }, caps)]; }\n' +
+            'function top(caps: Caps) { return future({ text: "Top" }, caps); }\n' +
+            'function embedded(caps: Caps) { return [future({ text: "Inside", leadingBlankLines: 0 }, caps)]; }\n' +
+            'function custom(caps: Caps) { return future({ text: "Custom", leadingBlankLines: 2 }, caps); }',
+        ).map((finding) => finding.rule),
+        [
+          "package-heading-default-inside-owned-boundary",
+          "package-heading-default-inside-owned-boundary",
+          "package-heading-nonembedded-override",
+        ],
+      );
     },
-    { id: "canopy", label: "Canopy", items: [] },
-    {
-      id: "harbor",
-      label: "Harbor",
-      items: [{ name: "Second", value: "second" }],
+    "the text grouping surface owns populated boundaries and identities":
+      () => {
+        const rendered = renderHumanOutputGroups([
+          { id: "orbit", items: ["first\n", "second"] },
+          { id: "canopy", label: "Canopy", items: [] },
+          { id: "harbor", label: "Harbor", items: ["third"] },
+        ], {
+          leadingBoundary: true,
+          renderLabel: (group) => group.label,
+        });
+
+        assertEquals(rendered, "\nfirst\nsecond\n\nHarbor\nthird");
+        assertThrows(
+          () => populatedHumanOutputGroups([{ id: " ", items: ["one"] }]),
+          Error,
+          "must not be blank",
+        );
+        assertThrows(
+          () =>
+            populatedHumanOutputGroups([
+              { id: "orbit", items: ["one"] },
+              { id: "orbit", items: ["two"] },
+            ]),
+          Error,
+          "duplicate human output group id",
+        );
+        assertThrows(
+          () =>
+            populatedHumanOutputGroups([{
+              id: "orbit",
+              label: " ",
+              items: ["one"],
+            }]),
+          Error,
+          "label must not be blank",
+        );
+      },
+    "the live output grouping surface writes exactly one complete boundary":
+      () => {
+        const chunks: string[] = [];
+        const errors: string[] = [];
+        const out = makeOut(false, {
+          stdout: (text) => chunks.push(text),
+          stderr: (text) => errors.push(text),
+        });
+
+        out.group("leading");
+        out.raw("first");
+        out.group("second");
+        out.group("same-boundary");
+        out.raw("second\n");
+        out.group("third");
+        out.info("third");
+        out.group("fourth", "Fourth");
+        out.raw("fourth\n");
+        assertThrows(
+          () => out.group("invalid-label", " "),
+          Error,
+          "label must not be blank",
+        );
+
+        assertEquals(
+          chunks.join(""),
+          "first\n\nsecond\n\n▸ third\n\n  ── Fourth\nfourth\n",
+        );
+
+        out.error("failure");
+        out.group("failure-recovery", "Recovery");
+        out.warn("fix it");
+        assertEquals(
+          errors.join(""),
+          "✕ failure\n\n  ── Recovery\n! fix it\n",
+        );
+      },
+    "the live narration surface makes hostile caller facts inert but keeps raw bytes":
+      () => {
+        const chunks: string[] = [];
+        const errors: string[] = [];
+        const out = makeOut(false, {
+          stdout: (text) => chunks.push(text),
+          stderr: (text) => errors.push(text),
+        });
+        const hostile = "repo\x1b[31m\nbranch\x00\u0085\u202E";
+        const safe = "repo␛[31m␊branch␀<U+0085><U+202E>";
+        const hostileLabel = "repo\x1b[31m\x00\u0085\u202E";
+        const safeLabel = "repo␛[31m␀<U+0085><U+202E>";
+
+        out.info(hostile);
+        out.ok(hostile);
+        out.warn(hostile);
+        out.error(hostile);
+        out.heading(hostile);
+        out.group("hostile-label", hostileLabel);
+
+        assertEquals(
+          chunks.join(""),
+          `▸ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
+        );
+        assertEquals(errors.join(""), `! ${safe}\n✕ ${safe}\n`);
+
+        out.raw(hostile);
+        assertEquals(chunks.at(-1), hostile);
+      },
+    "the selection grouping surface gives every populated group a heading":
+      () => {
+        const options = groupedSelectionEntries<string>([
+          {
+            id: "orbit",
+            label: "Orbit",
+            items: [{ name: "First", value: "first" }],
+          },
+          { id: "canopy", label: "Canopy", items: [] },
+          {
+            id: "harbor",
+            label: "Harbor",
+            items: [{ name: "Second", value: "second" }],
+          },
+        ]);
+
+        assertEquals(
+          JSON.stringify(options),
+          JSON.stringify([
+            { kind: "group-heading", id: "orbit", name: "Orbit" },
+            { name: "First", value: "first" },
+            { kind: "group-heading", id: "harbor", name: "Harbor" },
+            { name: "Second", value: "second" },
+          ]),
+        );
+      },
+    "the interaction grouping surface writes one leading boundary": () => {
+      const writes: string[] = [];
+      const rawTransitions: boolean[] = [];
+      const target: TerminalIO = {
+        isInteractive: () => true,
+        capabilities: () => ({
+          colorDepth: "none",
+          columns: 60,
+          unicode: true,
+        }),
+        size: () => ({ columns: 60, rows: 24 }),
+        read: () => Promise.resolve(null),
+        setRawMode: (enabled) => rawTransitions.push(enabled),
+        write: (value) => writes.push(value),
+      };
+      const terminal = withInteractionBoundary(target);
+
+      terminal.setRawMode(true);
+      terminal.write("? Fresh sibling");
+      terminal.write("\n  First option");
+      terminal.setRawMode(false);
+
+      assertEquals(writes, ["\n", "? Fresh sibling", "\n  First option"]);
+      assertEquals(rawTransitions, [true, false]);
+      assertEquals(terminal.isInteractive(), true);
+      assertEquals(terminal.capabilities(), target.capabilities());
+      assertEquals(terminal.size(), target.size());
     },
-  ]);
-
-  assertEquals(
-    JSON.stringify(options),
-    JSON.stringify([
-      { kind: "group-heading", id: "orbit", name: "Orbit" },
-      { name: "First", value: "first" },
-      { kind: "group-heading", id: "harbor", name: "Harbor" },
-      { name: "Second", value: "second" },
-    ]),
-  );
+    "the output-idiom detector rejects unrelated future siblings": () => {
+      const synthetic = [
+        "function orbit(rows: { name: string }[]) {",
+        "  for (const row of rows) console.log(`  ${row.name.padEnd(20)}`);",
+        "}",
+        'function canopy() { console.error("✗ the file is missing."); }',
+        'function harbor(out: { raw(s: string): void }) { out.raw("→ next"); }',
+        'function estuary(n: number) { writeStdout("\\n".repeat(n)); }',
+        'function inlet() { writeStderr("\\nSection heading"); }',
+        "// a commented console.log(`✓ done`) never matches",
+      ].join("\n");
+      assertEquals(
+        outputIdiomFindings(synthetic).map((finding) => finding.rule).sort(),
+        [
+          "boundary-newline-repeat",
+          "direct-console-presentation",
+          "direct-console-presentation",
+          "narration-glyph-literal",
+          "narration-glyph-literal",
+          "padEnd-alignment",
+          "writer-leading-newline",
+          "writer-leading-newline",
+        ],
+      );
+      assertEquals(
+        outputIdiomFindings(
+          'const mark = "✓";\nlog.error("state the condition");\n',
+        ),
+        [],
+        "a bare data glyph and an authority call stay legal",
+      );
+    },
+  });
 });
-
-Deno.test("the interaction grouping surface writes one leading boundary", () => {
-  const writes: string[] = [];
-  const rawTransitions: boolean[] = [];
-  const target: TerminalIO = {
-    isInteractive: () => true,
-    capabilities: () => ({
-      colorDepth: "none",
-      columns: 60,
-      unicode: true,
-    }),
-    size: () => ({ columns: 60, rows: 24 }),
-    read: () => Promise.resolve(null),
-    setRawMode: (enabled) => rawTransitions.push(enabled),
-    write: (value) => writes.push(value),
-  };
-  const terminal = withInteractionBoundary(target);
-
-  terminal.setRawMode(true);
-  terminal.write("? Fresh sibling");
-  terminal.write("\n  First option");
-  terminal.setRawMode(false);
-
-  assertEquals(writes, ["\n", "? Fresh sibling", "\n  First option"]);
-  assertEquals(rawTransitions, [true, false]);
-  assertEquals(terminal.isInteractive(), true);
-  assertEquals(terminal.capabilities(), target.capabilities());
-  assertEquals(terminal.size(), target.size());
-});
-
 Deno.test("discern-managed human boundaries use the semantic grouping surface", async () => {
   const offenders: string[] = [];
   const idiomFindings = new Map<string, LocatedIdiomFinding[]>();
@@ -734,38 +769,5 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
     offenders.length === 0,
     "Human output groups must go through the shared text/interaction grouping surfaces; " +
       `found:\n${offenders.join("\n")}`,
-  );
-});
-
-Deno.test("the output-idiom detector rejects unrelated future siblings", () => {
-  const synthetic = [
-    "function orbit(rows: { name: string }[]) {",
-    "  for (const row of rows) console.log(`  ${row.name.padEnd(20)}`);",
-    "}",
-    'function canopy() { console.error("✗ the file is missing."); }',
-    'function harbor(out: { raw(s: string): void }) { out.raw("→ next"); }',
-    'function estuary(n: number) { writeStdout("\\n".repeat(n)); }',
-    'function inlet() { writeStderr("\\nSection heading"); }',
-    "// a commented console.log(`✓ done`) never matches",
-  ].join("\n");
-  assertEquals(
-    outputIdiomFindings(synthetic).map((finding) => finding.rule).sort(),
-    [
-      "boundary-newline-repeat",
-      "direct-console-presentation",
-      "direct-console-presentation",
-      "narration-glyph-literal",
-      "narration-glyph-literal",
-      "padEnd-alignment",
-      "writer-leading-newline",
-      "writer-leading-newline",
-    ],
-  );
-  assertEquals(
-    outputIdiomFindings(
-      'const mark = "✓";\nlog.error("state the condition");\n',
-    ),
-    [],
-    "a bare data glyph and an authority call stay legal",
   );
 });

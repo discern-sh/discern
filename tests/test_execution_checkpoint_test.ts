@@ -12,6 +12,7 @@ import {
 import { gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./temp_dir.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const PATH = "tests/example_test.ts";
 const IMPORT = 'import { runAgent as invoke } from "./engine_helpers.ts";';
@@ -66,97 +67,111 @@ function selected(
   ).length > 0;
 }
 
-Deno.test("test cost selection distinguishes extra execution from incidental edits", () => {
-  const base = `${IMPORT} async function example() { ${CALL} }`;
-  for (
-    const [label, after, fires] of [
-      [
-        "extra invocation",
-        `${IMPORT} async function example() { ${CALL} ${CALL} }`,
-        true,
-      ],
-      [
-        "assertion",
-        `${IMPORT} async function example() { ${CALL} assertEquals(result.code, 0); }`,
-        false,
-      ],
-      ["comment", `${base}\n// await invoke(dir, ["done"]);`, false],
-      [
-        "string",
-        `${base}\nconst fixture = 'await invoke(dir, ["done"]);';`,
-        false,
-      ],
-      ["format", `${IMPORT}\nasync function example() {\n${CALL}\n}`, false],
-      ["move", `${IMPORT} async function renamed() { ${CALL} }`, false],
-      ["delete", IMPORT, false],
-      [
-        "new loop",
-        `${IMPORT} async function example() { for (const x of [1, 2]) { ${CALL} } }`,
-        true,
-      ],
-      [
-        "shadow",
-        `${base}\nfunction pure(invoke: () => void) { invoke(); }`,
-        false,
-      ],
-    ] as const
-  ) assertEquals(selected(base, after), fires, label);
+Deno.test("test execution checkpoint: selected cases", () => {
+  assertNamedCases({
+    "test cost selection distinguishes extra execution from incidental edits":
+      () => {
+        const base = `${IMPORT} async function example() { ${CALL} }`;
+        for (
+          const [label, after, fires] of [
+            [
+              "extra invocation",
+              `${IMPORT} async function example() { ${CALL} ${CALL} }`,
+              true,
+            ],
+            [
+              "assertion",
+              `${IMPORT} async function example() { ${CALL} assertEquals(result.code, 0); }`,
+              false,
+            ],
+            ["comment", `${base}\n// await invoke(dir, ["done"]);`, false],
+            [
+              "string",
+              `${base}\nconst fixture = 'await invoke(dir, ["done"]);';`,
+              false,
+            ],
+            [
+              "format",
+              `${IMPORT}\nasync function example() {\n${CALL}\n}`,
+              false,
+            ],
+            ["move", `${IMPORT} async function renamed() { ${CALL} }`, false],
+            ["delete", IMPORT, false],
+            [
+              "new loop",
+              `${IMPORT} async function example() { for (const x of [1, 2]) { ${CALL} } }`,
+              true,
+            ],
+            [
+              "shadow",
+              `${base}\nfunction pure(invoke: () => void) { invoke(); }`,
+              false,
+            ],
+          ] as const
+        ) assertEquals(selected(base, after), fires, label);
+      },
+    "test cost follows fixture wrappers, namespace imports, and re-exports":
+      () => {
+        const extra = [
+          {
+            path: "tests/fixture.ts",
+            text: `${IMPORT} export async function ready() { ${CALL} }`,
+          },
+          {
+            path: "tests/reexport.ts",
+            text: 'export { ready as fixture } from "./fixture.ts";',
+          },
+        ];
+        for (
+          const [imports, call] of [
+            [
+              'import { fixture as prepare } from "./reexport.ts";',
+              "prepare()",
+            ],
+            ['import * as fixtures from "./fixture.ts";', "fixtures.ready()"],
+          ]
+        ) {
+          assertEquals(
+            selected(
+              imports ?? "",
+              `${imports} async function test() { await ${call}; }`,
+              extra,
+            ),
+            true,
+          );
+        }
+        assertEquals(
+          selected(
+            IMPORT,
+            `${IMPORT} async function helper() { ${CALL} } async function test() { await helper(); }`,
+          ),
+          true,
+        );
+      },
+    "test cost detects local matrix expansion and ignores changed case values":
+      () => {
+        for (
+          const loop of [
+            `for (const entry of cases) { ${CALL} }`,
+            `await cases.map(async () => { ${CALL} });`,
+          ]
+        ) {
+          const source = (values: string): string =>
+            `${IMPORT} const cases = [${values}] as const; async function test() { ${loop} }`;
+          assertEquals(selected(source("1"), source("1, 2")), true);
+          assertEquals(selected(source("1, 2"), source("1")), false);
+          assertEquals(selected(source("1"), source("99")), false);
+        }
+        assertEquals(
+          selected(
+            "",
+            "for (const entry of [1,2]) { assertEquals(entry, entry); }",
+          ),
+          false,
+        );
+      },
+  });
 });
-
-Deno.test("test cost follows fixture wrappers, namespace imports, and re-exports", () => {
-  const extra = [
-    {
-      path: "tests/fixture.ts",
-      text: `${IMPORT} export async function ready() { ${CALL} }`,
-    },
-    {
-      path: "tests/reexport.ts",
-      text: 'export { ready as fixture } from "./fixture.ts";',
-    },
-  ];
-  for (
-    const [imports, call] of [
-      ['import { fixture as prepare } from "./reexport.ts";', "prepare()"],
-      ['import * as fixtures from "./fixture.ts";', "fixtures.ready()"],
-    ]
-  ) {
-    assertEquals(
-      selected(
-        imports ?? "",
-        `${imports} async function test() { await ${call}; }`,
-        extra,
-      ),
-      true,
-    );
-  }
-  assertEquals(
-    selected(
-      IMPORT,
-      `${IMPORT} async function helper() { ${CALL} } async function test() { await helper(); }`,
-    ),
-    true,
-  );
-});
-
-Deno.test("test cost detects local matrix expansion and ignores changed case values", () => {
-  for (
-    const loop of [
-      `for (const entry of cases) { ${CALL} }`,
-      `await cases.map(async () => { ${CALL} });`,
-    ]
-  ) {
-    const source = (values: string): string =>
-      `${IMPORT} const cases = [${values}] as const; async function test() { ${loop} }`;
-    assertEquals(selected(source("1"), source("1, 2")), true);
-    assertEquals(selected(source("1, 2"), source("1")), false);
-    assertEquals(selected(source("1"), source("99")), false);
-  }
-  assertEquals(
-    selected("", "for (const entry of [1,2]) { assertEquals(entry, entry); }"),
-    false,
-  );
-});
-
 Deno.test("test cost refreshes unchanged callers when dependencies change", () => {
   const fixture = (text: string): TestExecutionSource => ({
     path: "tests/fixture.ts",

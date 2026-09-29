@@ -27,6 +27,7 @@ import {
 } from "../src/shared/license_registry.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 Deno.test("canonical project artifacts retain ownership, provenance, licensing, and reference parity", async () => {
   const entries = projectArtifactPaths(parseConfigOrThrow(""));
@@ -184,73 +185,76 @@ Deno.test("a future registered artifact auto-enrols in the ownership inventory",
 // Positive controls: prove the guard rejects both ways an ownership answer can
 // be absent or ambiguous, so a green test cannot mean it inspected no markers.
 
-Deno.test("ownership guard: an unbucketed synthetic entry fails", () => {
-  assertThrows(
-    () => declaredFileOwnership({ id: "synthetic:none", ownership: {} }),
-    Error,
-    "found 0",
-  );
+Deno.test("artifact ownership: declaredFileOwnership cases", () => {
+  assertNamedCases({
+    "ownership guard: an unbucketed synthetic entry fails": () => {
+      assertThrows(
+        () => declaredFileOwnership({ id: "synthetic:none", ownership: {} }),
+        Error,
+        "found 0",
+      );
+    },
+    "ownership guard: a double-bucketed synthetic entry fails": () => {
+      assertThrows(
+        () =>
+          declaredFileOwnership({
+            id: "synthetic:two",
+            ownership: { "project-owned": true, shared: true },
+          }),
+        Error,
+        "found 2",
+      );
+    },
+    "ownership guard: provider-local needs a reason": () => {
+      assertThrows(
+        () =>
+          declaredFileOwnership({
+            id: "synthetic:local",
+            ownership: { "provider-local": "" },
+          }),
+        Error,
+        "must explain",
+      );
+    },
+  });
 });
-
-Deno.test("ownership guard: a double-bucketed synthetic entry fails", () => {
-  assertThrows(
-    () =>
-      declaredFileOwnership({
-        id: "synthetic:two",
-        ownership: { "project-owned": true, shared: true },
-      }),
-    Error,
-    "found 2",
-  );
-});
-
-Deno.test("ownership guard: provider-local needs a reason", () => {
-  assertThrows(
-    () =>
-      declaredFileOwnership({
-        id: "synthetic:local",
-        ownership: { "provider-local": "" },
-      }),
-    Error,
-    "must explain",
-  );
-});
-
-Deno.test("provenance guard: an unclassified synthetic artifact fails", () => {
-  assertThrows(
-    () =>
-      declaredWrittenArtifactClass({
-        id: "synthetic:none",
-        writtenArtifact: {},
-      }),
-    Error,
-    "found 0",
-  );
-});
-
-Deno.test("provenance guard: a double-classified synthetic artifact fails", () => {
-  assertThrows(
-    () =>
-      declaredWrittenArtifactClass({
-        id: "synthetic:two",
-        writtenArtifact: {
-          "context-loaded": true,
-          "comment-incapable": true,
-        },
-      }),
-    Error,
-    "found 2",
-  );
-});
-
-Deno.test("provenance guard: a comment-capable artifact names its source", () => {
-  assertThrows(
-    () =>
-      declaredWrittenArtifactClass({
-        id: "synthetic:source",
-        writtenArtifact: { "comment-capable-non-context": "" },
-      }),
-    Error,
-    "must name the source",
-  );
+Deno.test("artifact ownership: declaredWrittenArtifactClass cases", () => {
+  assertNamedCases({
+    "provenance guard: an unclassified synthetic artifact fails": () => {
+      assertThrows(
+        () =>
+          declaredWrittenArtifactClass({
+            id: "synthetic:none",
+            writtenArtifact: {},
+          }),
+        Error,
+        "found 0",
+      );
+    },
+    "provenance guard: a double-classified synthetic artifact fails": () => {
+      assertThrows(
+        () =>
+          declaredWrittenArtifactClass({
+            id: "synthetic:two",
+            writtenArtifact: {
+              "context-loaded": true,
+              "comment-incapable": true,
+            },
+          }),
+        Error,
+        "found 2",
+      );
+    },
+    "provenance guard: a comment-capable artifact names its source": () => {
+      assertThrows(
+        () =>
+          declaredWrittenArtifactClass({
+            id: "synthetic:source",
+            writtenArtifact: { "comment-capable-non-context": "" },
+          }),
+        Error,
+        "must name the source",
+      );
+    },
+  });
 });

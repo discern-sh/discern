@@ -17,6 +17,7 @@ import {
   PROSE_REGISTRIES,
   registryEntries,
 } from "../scripts/canon_editor/registry_ast.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const project = openRegistryProject(REPO_ROOT);
 const entries = registryEntries(project, REPO_ROOT);
@@ -78,68 +79,73 @@ Deno.test("ids are unique within each registry", () => {
   }
 });
 
-Deno.test("lookups tier from exact id to slug to title substring", () => {
-  assertEquals(only("proof").registry, "feature");
-  assertEquals(only("Proof").registry, "glossary");
-  assertEquals(only("file-ownership").title, "File ownership");
-  assertEquals(only("reduced-review-burden").registry, "claims");
-  assertEquals(only("context-for-the-task").registry, "benefit");
-  assertEquals(only("checkout-collisions").registry, "demand");
-  assertEquals(only("only-better").registry, "practice");
-  assertEquals(
-    only("worktree").registry,
-    "glossary",
-    "a slug-tier hit resolves uniquely instead of drowning in substrings",
-  );
-  const ambiguous = findEntries(entries, "review");
-  assert(ambiguous.length > 1, "a broad query should list its matches");
-});
+Deno.test("canon editor locate: only cases", () => {
+  assertNamedCases({
+    "lookups tier from exact id to slug to title substring": () => {
+      assertEquals(only("proof").registry, "feature");
+      assertEquals(only("Proof").registry, "glossary");
+      assertEquals(only("file-ownership").title, "File ownership");
+      assertEquals(only("reduced-review-burden").registry, "claims");
+      assertEquals(only("context-for-the-task").registry, "benefit");
+      assertEquals(only("checkout-collisions").registry, "demand");
+      assertEquals(only("only-better").registry, "practice");
+      assertEquals(
+        only("worktree").registry,
+        "glossary",
+        "a slug-tier hit resolves uniquely instead of drowning in substrings",
+      );
+      const ambiguous = findEntries(entries, "review");
+      assert(ambiguous.length > 1, "a broad query should list its matches");
+    },
+    "field paths resolve and classify the literals the editor handles": () => {
+      const proof = only("proof");
+      assertEquals(fieldTarget(proof, "what")?.kind, "string");
+      assertEquals(fieldTarget(proof, "plain.what")?.kind, "string");
+      assertEquals(fieldTarget(proof, "missing")?.kind, undefined);
 
-Deno.test("field paths resolve and classify the literals the editor handles", () => {
-  const proof = only("proof");
-  assertEquals(fieldTarget(proof, "what")?.kind, "string");
-  assertEquals(fieldTarget(proof, "plain.what")?.kind, "string");
-  assertEquals(fieldTarget(proof, "missing")?.kind, undefined);
+      const agentBenefit = only("own-one-isolated-effort");
+      assertEquals(agentBenefit.registry, "agent-benefit");
+      assertEquals(fieldTarget(agentBenefit, "hints")?.kind, "string-array");
 
-  const agentBenefit = only("own-one-isolated-effort");
-  assertEquals(agentBenefit.registry, "agent-benefit");
-  assertEquals(fieldTarget(agentBenefit, "hints")?.kind, "string-array");
+      const interpolated = only("jobs-table");
+      assertEquals(fieldTarget(interpolated, "what")?.kind, "template");
 
-  const interpolated = only("jobs-table");
-  assertEquals(fieldTarget(interpolated, "what")?.kind, "template");
+      const staged = only("staged-pipeline");
+      assertEquals(fieldTarget(staged, "surfaces")?.kind, "computed");
 
-  const staged = only("staged-pipeline");
-  assertEquals(fieldTarget(staged, "surfaces")?.kind, "computed");
+      const benefit = only("context-for-the-task");
+      assertEquals(fieldTarget(benefit, "drawsOn")?.kind, "string-array");
 
-  const benefit = only("context-for-the-task");
-  assertEquals(fieldTarget(benefit, "drawsOn")?.kind, "string-array");
+      const demand = only("checkout-collisions");
+      assertEquals(fieldTarget(demand, "situation")?.kind, "string");
+      assertEquals(
+        fieldTarget(demand, "answer.benefits")?.kind,
+        "string-array",
+      );
+      assertEquals(fieldTarget(demand, "evidence")?.kind, "array");
 
-  const demand = only("checkout-collisions");
-  assertEquals(fieldTarget(demand, "situation")?.kind, "string");
-  assertEquals(
-    fieldTarget(demand, "answer.benefits")?.kind,
-    "string-array",
-  );
-  assertEquals(fieldTarget(demand, "evidence")?.kind, "array");
+      const ownership = only("file-ownership");
+      assertEquals(
+        fieldTarget(ownership, "retired.0.pattern")?.kind,
+        "template",
+      );
+    },
+    "field inventories flatten nested accounts without child entries": () => {
+      const proof = only("proof");
+      const paths = fieldLeaves(proof).map((leaf) => leaf.path);
+      assert(paths.includes("what"), "proof.what missing from the inventory");
+      assert(paths.includes("plain.what"), "proof.plain.what missing");
+      assert(
+        paths.every((path) => !path.startsWith("children")),
+        "child entries are entries of their own, not fields",
+      );
 
-  const ownership = only("file-ownership");
-  assertEquals(fieldTarget(ownership, "retired.0.pattern")?.kind, "template");
-});
-
-Deno.test("field inventories flatten nested accounts without child entries", () => {
-  const proof = only("proof");
-  const paths = fieldLeaves(proof).map((leaf) => leaf.path);
-  assert(paths.includes("what"), "proof.what missing from the inventory");
-  assert(paths.includes("plain.what"), "proof.plain.what missing");
-  assert(
-    paths.every((path) => !path.startsWith("children")),
-    "child entries are entries of their own, not fields",
-  );
-
-  const tenet = only("only-better");
-  const tenetPaths = fieldLeaves(tenet).map((leaf) => leaf.path);
-  assert(
-    tenetPaths.includes("upheld.enforced"),
-    "the tenet's upheld tiers flatten into dotted leaves",
-  );
+      const tenet = only("only-better");
+      const tenetPaths = fieldLeaves(tenet).map((leaf) => leaf.path);
+      assert(
+        tenetPaths.includes("upheld.enforced"),
+        "the tenet's upheld tiers flatten into dotted leaves",
+      );
+    },
+  });
 });

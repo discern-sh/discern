@@ -11,6 +11,7 @@ import {
 } from "../site/specimens.ts";
 import { handler, PAGES } from "../site/serve.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const DenoTasksSchema = z.object({
   tasks: z.record(z.string(), z.string()).optional(),
@@ -101,147 +102,159 @@ Deno.test("the development handler preserves the homepage specimen sheet", async
   }
 });
 
-Deno.test("all four truthful artefacts render once in each fixed theme", () => {
-  const html = renderSpecimens();
-  const dom = new JSDOM(html);
-  const document = dom.window.document;
+Deno.test("site specimens: renderSpecimens cases", () => {
+  assertNamedCases({
+    "all four truthful artefacts render once in each fixed theme": () => {
+      const html = renderSpecimens();
+      const dom = new JSDOM(html);
+      const document = dom.window.document;
 
-  assertEquals(document.querySelectorAll("h1").length, 1);
-  assertEquals(document.querySelectorAll(".specimen-section").length, 4);
-  assertEquals(document.querySelectorAll(".specimen-theme").length, 8);
-  assertEquals(
-    document.querySelectorAll(".specimen-theme[data-discern-accent]").length,
-    8,
-  );
-  assertEquals(
-    document.querySelectorAll('.specimen-theme[data-discern-theme="light"]')
-      .length,
-    4,
-  );
-  assertEquals(
-    document.querySelectorAll('.specimen-theme[data-discern-theme="dark"]')
-      .length,
-    4,
-  );
+      assertEquals(document.querySelectorAll("h1").length, 1);
+      assertEquals(document.querySelectorAll(".specimen-section").length, 4);
+      assertEquals(document.querySelectorAll(".specimen-theme").length, 8);
+      assertEquals(
+        document.querySelectorAll(".specimen-theme[data-discern-accent]")
+          .length,
+        8,
+      );
+      assertEquals(
+        document.querySelectorAll('.specimen-theme[data-discern-theme="light"]')
+          .length,
+        4,
+      );
+      assertEquals(
+        document.querySelectorAll('.specimen-theme[data-discern-theme="dark"]')
+          .length,
+        4,
+      );
 
-  const ids = [...document.querySelectorAll("[id]")].map((element) =>
-    element.id
-  );
-  assertEquals(ids.length, new Set(ids).size, "rendered ids must be unique");
+      const ids = [...document.querySelectorAll("[id]")].map((element) =>
+        element.id
+      );
+      assertEquals(
+        ids.length,
+        new Set(ids).size,
+        "rendered ids must be unique",
+      );
 
-  const text = readableText(document.body.textContent);
-  for (
-    const theme of document.querySelectorAll("#delegation .specimen-theme")
-  ) {
-    assertEquals(
-      [...theme.querySelectorAll(".wave-handoff")].map((handoff) =>
-        [...handoff.children].map((element) =>
-          readableText(element.textContent)
-        ).join(" ")
-      ),
-      ["Wave 1 lands ↓ Wave 2 opens", "Wave 2 lands ↓ Wave 3 opens"],
-    );
-  }
-  assertEquals(
-    document.querySelectorAll("#delegation .delegation-wave").length,
-    6,
-  );
-  assertEquals(document.querySelectorAll("#delegation .wave-task").length, 10);
-  for (
-    const required of [
-      "Open the project to beta users",
-      "beta-onboarding",
-      "beta-feedback",
-      "beta-journey",
-      "beta-accessibility",
-      "beta-invitation",
-      "Illustrative homepage plan.",
-      "Your agent studies the project",
-      "Your agent presents their findings",
-      "They’ll ask you to confirm a few details about your project before they continue.",
-      "They prove it works in a fresh workspace",
-      "New tools need your approval. Nothing is installed without it.",
-      "31 → 25",
-      "471 readings across 12 days and 40 attributed setup or release configurations.",
-      "Internal snapshot, not a customer benchmark.",
-      "agent/homepage-1a-b9ab45",
-      "9457535abebe",
-      "9 configured jobs",
-      "The owner still decides whether the change may land.",
-    ]
-  ) assertStringIncludes(text, required);
+      const text = readableText(document.body.textContent);
+      for (
+        const theme of document.querySelectorAll("#delegation .specimen-theme")
+      ) {
+        assertEquals(
+          [...theme.querySelectorAll(".wave-handoff")].map((handoff) =>
+            [...handoff.children].map((element) =>
+              readableText(element.textContent)
+            ).join(" ")
+          ),
+          ["Wave 1 lands ↓ Wave 2 opens", "Wave 2 lands ↓ Wave 3 opens"],
+        );
+      }
+      assertEquals(
+        document.querySelectorAll("#delegation .delegation-wave").length,
+        6,
+      );
+      assertEquals(
+        document.querySelectorAll("#delegation .wave-task").length,
+        10,
+      );
+      for (
+        const required of [
+          "Open the project to beta users",
+          "beta-onboarding",
+          "beta-feedback",
+          "beta-journey",
+          "beta-accessibility",
+          "beta-invitation",
+          "Illustrative homepage plan.",
+          "Your agent studies the project",
+          "Your agent presents their findings",
+          "They’ll ask you to confirm a few details about your project before they continue.",
+          "They prove it works in a fresh workspace",
+          "New tools need your approval. Nothing is installed without it.",
+          "31 → 25",
+          "471 readings across 12 days and 40 attributed setup or release configurations.",
+          "Internal snapshot, not a customer benchmark.",
+          "agent/homepage-1a-b9ab45",
+          "9457535abebe",
+          "9 configured jobs",
+          "The owner still decides whether the change may land.",
+        ]
+      ) assertStringIncludes(text, required);
 
-  assert(!text.includes("It does not claim"));
-  assert(!text.includes("Desk UX"));
-  assert(!text.includes("Output ·"));
-  assert(!text.includes("Example subject ·"));
-  assertEquals(
-    document.querySelectorAll('#proof [aria-label="Figure legend"]').length,
-    0,
-  );
-  assertEquals(
-    document.querySelectorAll(
-      '#commissioning [aria-label="Figure legend"]',
-    ).length,
-    0,
-  );
-  assertEquals(
-    document.querySelectorAll('#delegation [aria-label="Figure legend"]')
-      .length,
-    0,
-  );
-  assertEquals(
-    readableText(
-      document.querySelector("#standard .standard-trajectory__status")
-        ?.textContent ?? null,
-    ),
-    "Lower is better. Every authored Deno source file is enrolled.",
-  );
-  assert(!text.includes("Internal dogfooding"));
-  assert(!text.toLowerCase().includes("observational"));
+      assert(!text.includes("It does not claim"));
+      assert(!text.includes("Desk UX"));
+      assert(!text.includes("Output ·"));
+      assert(!text.includes("Example subject ·"));
+      assertEquals(
+        document.querySelectorAll('#proof [aria-label="Figure legend"]').length,
+        0,
+      );
+      assertEquals(
+        document.querySelectorAll(
+          '#commissioning [aria-label="Figure legend"]',
+        ).length,
+        0,
+      );
+      assertEquals(
+        document.querySelectorAll('#delegation [aria-label="Figure legend"]')
+          .length,
+        0,
+      );
+      assertEquals(
+        readableText(
+          document.querySelector("#standard .standard-trajectory__status")
+            ?.textContent ?? null,
+        ),
+        "Lower is better. Every authored Deno source file is enrolled.",
+      );
+      assert(!text.includes("Internal dogfooding"));
+      assert(!text.toLowerCase().includes("observational"));
 
-  assert(!html.includes("_private"), "private source paths must not render");
-  assertEquals(
-    [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
-      (script) => script.getAttribute("src"),
-    ),
-    [],
-    "the static preview must not ship a browser framework runtime",
-  );
-  dom.window.close();
-});
+      assert(
+        !html.includes("_private"),
+        "private source paths must not render",
+      );
+      assertEquals(
+        [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
+          (script) => script.getAttribute("src"),
+        ),
+        [],
+        "the static preview must not ship a browser framework runtime",
+      );
+      dom.window.close();
+    },
+    "Proof markers stay inside the section they annotate": () => {
+      const rendered = new JSDOM(renderSpecimens());
+      assertEquals(misplacedProofMarkers(rendered.window.document), []);
+      rendered.window.close();
 
-Deno.test("Proof markers stay inside the section they annotate", () => {
-  const rendered = new JSDOM(renderSpecimens());
-  assertEquals(misplacedProofMarkers(rendered.window.document), []);
-  rendered.window.close();
-
-  const futureSibling = new JSDOM(`
+      const futureSibling = new JSDOM(`
     <section data-proof-section="tree">
       <span class="proof-pin" data-proof-target="gate">02</span>
     </section>
   `);
-  assertEquals(
-    misplacedProofMarkers(futureSibling.window.document),
-    ["02"],
-    "a new marker must live inside the section named by its target",
-  );
-  futureSibling.window.close();
+      assertEquals(
+        misplacedProofMarkers(futureSibling.window.document),
+        ["02"],
+        "a new marker must live inside the section named by its target",
+      );
+      futureSibling.window.close();
+    },
+    "the Proof specimen uses the canonical CommonMark semantics": () => {
+      const rendered = new JSDOM(renderSpecimens());
+      const proofLine = rendered.window.document.querySelector(".proof-line");
+      assertEquals(proofLine?.tagName, "BLOCKQUOTE");
+      assertEquals(proofLine?.querySelector("strong")?.textContent, "Proof:");
+      assertEquals(proofLine?.querySelectorAll("code").length, 4);
+      assertStringIncludes(
+        readableText(proofLine?.textContent ?? null),
+        "Gate passed for agent/homepage-1a-b9ab45 at 9457535abebe",
+      );
+      rendered.window.close();
+    },
+  });
 });
-
-Deno.test("the Proof specimen uses the canonical CommonMark semantics", () => {
-  const rendered = new JSDOM(renderSpecimens());
-  const proofLine = rendered.window.document.querySelector(".proof-line");
-  assertEquals(proofLine?.tagName, "BLOCKQUOTE");
-  assertEquals(proofLine?.querySelector("strong")?.textContent, "Proof:");
-  assertEquals(proofLine?.querySelectorAll("code").length, 4);
-  assertStringIncludes(
-    readableText(proofLine?.textContent ?? null),
-    "Gate passed for agent/homepage-1a-b9ab45 at 9457535abebe",
-  );
-  rendered.window.close();
-});
-
 Deno.test("specimen typography reserves monospace for the name and code", async () => {
   const css = await Deno.readTextFile(SPECIMEN_CSS);
   assertEquals(monoSelectors(css), [

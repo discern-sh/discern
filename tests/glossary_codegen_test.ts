@@ -14,6 +14,7 @@ import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 // These prove the committed glossary page stays in lockstep with the term
 // registry (the same drift-guard discipline as the config and CLI references):
@@ -82,106 +83,111 @@ Deno.test("the public manual's glossary matches the term registry", async () => 
   );
 });
 
-Deno.test("every term is unique and defined (the registry is a canon, not a list)", () => {
-  const seen = new Set<string>();
-  for (const { term, definition } of GLOSSARY) {
-    const key = term.toLowerCase();
-    assert(!seen.has(key), `duplicate glossary term: ${term}`);
-    seen.add(key);
-    assert(definition.trim().length > 0, `empty definition for: ${term}`);
-  }
-});
+Deno.test("glossary codegen: contracts", () => {
+  assertNamedCases({
+    "every term is unique and defined (the registry is a canon, not a list)":
+      () => {
+        const seen = new Set<string>();
+        for (const { term, definition } of GLOSSARY) {
+          const key = term.toLowerCase();
+          assert(!seen.has(key), `duplicate glossary term: ${term}`);
+          seen.add(key);
+          assert(definition.trim().length > 0, `empty definition for: ${term}`);
+        }
+      },
+    "every entry has a one-sentence hover summary without duplicating short definitions":
+      () => {
+        assertEquals(
+          glossarySummary({
+            term: "Fixture",
+            definition: "Use `AGENTS.md`, then continue. Full detail follows.",
+          }),
+          "Use `AGENTS.md`, then continue.",
+        );
+        assertEquals(
+          glossarySummary({
+            term: "Fixture",
+            summary: "A tighter sentence.",
+            definition: "A long first sentence with details. More follows.",
+          }),
+          "A tighter sentence.",
+        );
 
-Deno.test("every entry has a one-sentence hover summary without duplicating short definitions", () => {
-  assertEquals(
-    glossarySummary({
-      term: "Fixture",
-      definition: "Use `AGENTS.md`, then continue. Full detail follows.",
-    }),
-    "Use `AGENTS.md`, then continue.",
-  );
-  assertEquals(
-    glossarySummary({
-      term: "Fixture",
-      summary: "A tighter sentence.",
-      definition: "A long first sentence with details. More follows.",
-    }),
-    "A tighter sentence.",
-  );
-
-  for (const entry of GLOSSARY) {
-    const summary = glossarySummary(entry);
-    assert(summary.trim().length > 0, `empty summary for: ${entry.term}`);
-    assert(
-      /[.!?]$/u.test(summary),
-      `summary is not one complete sentence: ${entry.term}`,
-    );
-  }
-});
-
-Deno.test("the glossary defines the Proof concept directly", () => {
-  assert(
-    GLOSSARY.some((entry) => entry.term === "Proof"),
-    "the glossary must define Proof",
-  );
-});
-
-Deno.test("future glossary terms gain headings and aliases without exposing retired guard vocabulary", () => {
-  const futureRetiredPhrase = "discarded future launcher";
-  const glossary = [
-    ...GLOSSARY,
-    {
-      term: "Future contract",
-      runningCase: "lowercase" as const,
-      plain: { keep: "a synthetic reference term" },
-      definition: "A synthetic term proving future glossary enrollment.",
-      retired: [{ phrase: futureRetiredPhrase }],
+        for (const entry of GLOSSARY) {
+          const summary = glossarySummary(entry);
+          assert(summary.trim().length > 0, `empty summary for: ${entry.term}`);
+          assert(
+            /[.!?]$/u.test(summary),
+            `summary is not one complete sentence: ${entry.term}`,
+          );
+        }
+      },
+    "the glossary defines the Proof concept directly": () => {
+      assert(
+        GLOSSARY.some((entry) => entry.term === "Proof"),
+        "the glossary must define Proof",
+      );
     },
-  ];
-  const retiredPhrases = [
-    ...retiredSynonyms().map(({ synonym }) => synonym.phrase.toLowerCase()),
-    futureRetiredPhrase,
-  ];
+    "future glossary terms gain headings and aliases without exposing retired guard vocabulary":
+      () => {
+        const futureRetiredPhrase = "discarded future launcher";
+        const glossary = [
+          ...GLOSSARY,
+          {
+            term: "Future contract",
+            runningCase: "lowercase" as const,
+            plain: { keep: "a synthetic reference term" },
+            definition: "A synthetic term proving future glossary enrollment.",
+            retired: [{ phrase: futureRetiredPhrase }],
+          },
+        ];
+        const retiredPhrases = [
+          ...retiredSynonyms().map(({ synonym }) =>
+            synonym.phrase.toLowerCase()
+          ),
+          futureRetiredPhrase,
+        ];
 
-  for (
-    const document of [
-      renderGlossaryDoc(glossary),
-      renderManualGlossaryDoc(glossary),
-    ]
-  ) {
-    assertStringIncludes(document, "### Future contract");
-    const frontmatter = document.split("\n---\n")[0] ?? "";
-    assertStringIncludes(frontmatter, "  - future contract");
-    assertEquals(
-      retiredPhrases.filter((phrase) =>
-        frontmatter.includes(`  - ${phrase}\n`)
-      ),
-      [],
-      "retired guard data is internal history, not a public search alias",
-    );
-  }
-});
-
-Deno.test("the gate job entry closes over exactly the live known-job vocabulary", () => {
-  const entry = GLOSSARY.find((e) => e.term === "Gate job");
-  assert(entry !== undefined, "the glossary must define Gate job");
-  for (const name of Object.keys(KNOWN_JOBS)) {
-    assertStringIncludes(
-      entry.definition,
-      `\`${name}\``,
-      `the Gate job entry must name the ${name} known job — it interpolates KNOWN_JOBS`,
-    );
-  }
-});
-
-Deno.test("the stage entry closes over exactly the live stage vocabulary", () => {
-  const entry = GLOSSARY.find((e) => e.term === "Stage");
-  assert(entry !== undefined, "the glossary must define Stage");
-  for (const stage of STAGES) {
-    assertStringIncludes(
-      entry.definition,
-      `\`${stage}\``,
-      `the Stage entry must name the ${stage} stage — it interpolates STAGES`,
-    );
-  }
+        for (
+          const document of [
+            renderGlossaryDoc(glossary),
+            renderManualGlossaryDoc(glossary),
+          ]
+        ) {
+          assertStringIncludes(document, "### Future contract");
+          const frontmatter = document.split("\n---\n")[0] ?? "";
+          assertStringIncludes(frontmatter, "  - future contract");
+          assertEquals(
+            retiredPhrases.filter((phrase) =>
+              frontmatter.includes(`  - ${phrase}\n`)
+            ),
+            [],
+            "retired guard data is internal history, not a public search alias",
+          );
+        }
+      },
+    "the gate job entry closes over exactly the live known-job vocabulary":
+      () => {
+        const entry = GLOSSARY.find((e) => e.term === "Gate job");
+        assert(entry !== undefined, "the glossary must define Gate job");
+        for (const name of Object.keys(KNOWN_JOBS)) {
+          assertStringIncludes(
+            entry.definition,
+            `\`${name}\``,
+            `the Gate job entry must name the ${name} known job — it interpolates KNOWN_JOBS`,
+          );
+        }
+      },
+    "the stage entry closes over exactly the live stage vocabulary": () => {
+      const entry = GLOSSARY.find((e) => e.term === "Stage");
+      assert(entry !== undefined, "the glossary must define Stage");
+      for (const stage of STAGES) {
+        assertStringIncludes(
+          entry.definition,
+          `\`${stage}\``,
+          `the Stage entry must name the ${stage} stage — it interpolates STAGES`,
+        );
+      }
+    },
+  });
 });

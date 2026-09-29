@@ -35,6 +35,7 @@ import {
   AGENT_NAMES,
   agentLabelForNative,
 } from "../src/shared/agent_catalogue.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** The closed sets the canon must account for, from their single sources. */
 const CLOSED_SETS: Readonly<Record<SurfaceSet, readonly string[]>> =
@@ -84,25 +85,168 @@ function providerDetailLeaks(
   return offenders;
 }
 
-Deno.test("provider details stay on provider-claimed feature nodes", () => {
-  assertEquals(providerDetailLeaks(FEATURE_CANON), []);
-});
-
-Deno.test("provider-detail guard enrolls a future provider without naming it", () => {
-  const future = [{ member: "fresh", label: "Fresh Agent" }];
-  const generic: FeatureNode = {
-    id: "generic",
-    title: "Generic capability",
-    what: "Fresh Agent loads this differently.",
-    plain: { title: "Generic capability", what: "A generic capability." },
-  };
-  assertEquals(providerDetailLeaks([generic], future), [
-    "generic names Fresh Agent without claiming agent:fresh",
-  ]);
-  assertEquals(
-    providerDetailLeaks([{ ...generic, surfaces: ["agent:fresh"] }], future),
-    [],
-  );
+Deno.test("feature canon enrolment: contracts", () => {
+  assertNamedCases({
+    "provider details stay on provider-claimed feature nodes": () => {
+      assertEquals(providerDetailLeaks(FEATURE_CANON), []);
+    },
+    "provider-detail guard enrolls a future provider without naming it": () => {
+      const future = [{ member: "fresh", label: "Fresh Agent" }];
+      const generic: FeatureNode = {
+        id: "generic",
+        title: "Generic capability",
+        what: "Fresh Agent loads this differently.",
+        plain: { title: "Generic capability", what: "A generic capability." },
+      };
+      assertEquals(providerDetailLeaks([generic], future), [
+        "generic names Fresh Agent without claiming agent:fresh",
+      ]);
+      assertEquals(
+        providerDetailLeaks(
+          [{ ...generic, surfaces: ["agent:fresh"] }],
+          future,
+        ),
+        [],
+      );
+    },
+    "every verb, job, stage, config table, bundled skill, and agent is claimed or recorded deliberately absent":
+      () => {
+        const claimed = claimedBySet();
+        const offenders: string[] = [];
+        for (const set of SURFACE_SETS) {
+          for (const member of CLOSED_SETS[set]) {
+            const key = `${set}:${member}`;
+            const isClaimed = claimed.get(set)?.has(member) ?? false;
+            const recorded = Object.hasOwn(FEATURES_DELIBERATELY_ABSENT, key);
+            if (!isClaimed && !recorded) {
+              offenders.push(
+                `${key} is outside the feature account — claim it from a node's ` +
+                  "surfaces, or record it in FEATURES_DELIBERATELY_ABSENT with the reason",
+              );
+            }
+            if (isClaimed && recorded) {
+              offenders.push(
+                `${key} is recorded deliberately absent, but the canon claims it — ` +
+                  "delete the stale record",
+              );
+            }
+          }
+        }
+        assertEquals(
+          offenders,
+          [],
+          "closed-set members must enter the feature canon the moment they exist " +
+            `(scripts/feature_registry.ts):\n  ${offenders.join("\n  ")}`,
+        );
+      },
+    "every surface claim names a live closed-set member": () => {
+      const offenders: string[] = [];
+      for (const claim of allSurfaceClaims()) {
+        if (!CLOSED_SETS[claim.set].includes(claim.member)) {
+          offenders.push(
+            `${claim.claimedBy} claims ${claim.set}:${claim.member}, which is not ` +
+              "a live member — the set changed under the canon; update the node",
+          );
+        }
+      }
+      assertEquals(
+        offenders,
+        [],
+        `stale claims in the feature canon:\n  ${offenders.join("\n  ")}`,
+      );
+    },
+    "every deliberate-absence record points at a live closed-set member, with a reason":
+      () => {
+        for (
+          const [key, reason] of Object.entries(FEATURES_DELIBERATELY_ABSENT)
+        ) {
+          const at = key.indexOf(":");
+          const set = at === -1 ? key : key.slice(0, at);
+          const member = at === -1 ? "" : key.slice(at + 1);
+          const members = Object.hasOwn(CLOSED_SETS, set)
+            ? CLOSED_SETS[set as SurfaceSet]
+            : undefined;
+          assert(
+            members !== undefined,
+            `${key}: "${set}" is not a closed set the enrolment guard covers`,
+          );
+          assert(
+            members.includes(member),
+            `${key}: no such member — the set changed under this record; delete or rename it`,
+          );
+          assert(
+            reason.trim().length > 0,
+            `${key}: a deliberate absence carries its reason`,
+          );
+        }
+      },
+    "enrolment guard: claims are read from the whole tree, at any depth":
+      () => {
+        const fixture: FeatureNode[] = [
+          {
+            id: "root",
+            title: "Root",
+            what: "A fixture.",
+            plain: { title: "Fixture", what: "A fixture." },
+            surfaces: ["verb:done"],
+            children: [
+              {
+                id: "leaf",
+                title: "Leaf",
+                what: "A fixture.",
+                plain: { title: "Fixture", what: "A fixture." },
+                surfaces: ["job:test", "stage:fix"],
+              },
+            ],
+          },
+        ];
+        assertEquals(allSurfaceClaims(fixture), [
+          { set: "verb", member: "done", claimedBy: "root" },
+          { set: "job", member: "test", claimedBy: "leaf" },
+          { set: "stage", member: "fix", claimedBy: "leaf" },
+        ]);
+      },
+    "enrolment guard: malformed and unknown-set claims fail loudly": () => {
+      assertThrows(
+        () =>
+          allSurfaceClaims([
+            {
+              id: "bad",
+              title: "Bad",
+              what: "A fixture.",
+              plain: { title: "Fixture", what: "A fixture." },
+              surfaces: ["done"],
+            },
+          ]),
+        Error,
+        "malformed surface key",
+      );
+      assertThrows(
+        () =>
+          allSurfaceClaims([
+            {
+              id: "bad",
+              title: "Bad",
+              what: "A fixture.",
+              plain: { title: "Fixture", what: "A fixture." },
+              surfaces: ["tool:discern_done"],
+            },
+          ]),
+        Error,
+        "unknown surface set",
+      );
+    },
+    "the live canon claims every closed set at least once": () => {
+      const claimed = claimedBySet();
+      for (const set of SURFACE_SETS) {
+        assert(
+          (claimed.get(set)?.size ?? 0) > 0,
+          `the canon claims no ${set} members — a whole set fell out of the account`,
+        );
+      }
+      assert(FEATURE_CANON.length > 0, "the canon is never empty");
+    },
+  });
 });
 
 /** Claimed members per set, from the canon's explicit surface claims. */
@@ -116,143 +260,5 @@ function claimedBySet(): Map<SurfaceSet, Set<string>> {
   return claimed;
 }
 
-Deno.test("every verb, job, stage, config table, bundled skill, and agent is claimed or recorded deliberately absent", () => {
-  const claimed = claimedBySet();
-  const offenders: string[] = [];
-  for (const set of SURFACE_SETS) {
-    for (const member of CLOSED_SETS[set]) {
-      const key = `${set}:${member}`;
-      const isClaimed = claimed.get(set)?.has(member) ?? false;
-      const recorded = Object.hasOwn(FEATURES_DELIBERATELY_ABSENT, key);
-      if (!isClaimed && !recorded) {
-        offenders.push(
-          `${key} is outside the feature account — claim it from a node's ` +
-            "surfaces, or record it in FEATURES_DELIBERATELY_ABSENT with the reason",
-        );
-      }
-      if (isClaimed && recorded) {
-        offenders.push(
-          `${key} is recorded deliberately absent, but the canon claims it — ` +
-            "delete the stale record",
-        );
-      }
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    "closed-set members must enter the feature canon the moment they exist " +
-      `(scripts/feature_registry.ts):\n  ${offenders.join("\n  ")}`,
-  );
-});
-
-Deno.test("every surface claim names a live closed-set member", () => {
-  const offenders: string[] = [];
-  for (const claim of allSurfaceClaims()) {
-    if (!CLOSED_SETS[claim.set].includes(claim.member)) {
-      offenders.push(
-        `${claim.claimedBy} claims ${claim.set}:${claim.member}, which is not ` +
-          "a live member — the set changed under the canon; update the node",
-      );
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    `stale claims in the feature canon:\n  ${offenders.join("\n  ")}`,
-  );
-});
-
-Deno.test("every deliberate-absence record points at a live closed-set member, with a reason", () => {
-  for (const [key, reason] of Object.entries(FEATURES_DELIBERATELY_ABSENT)) {
-    const at = key.indexOf(":");
-    const set = at === -1 ? key : key.slice(0, at);
-    const member = at === -1 ? "" : key.slice(at + 1);
-    const members = Object.hasOwn(CLOSED_SETS, set)
-      ? CLOSED_SETS[set as SurfaceSet]
-      : undefined;
-    assert(
-      members !== undefined,
-      `${key}: "${set}" is not a closed set the enrolment guard covers`,
-    );
-    assert(
-      members.includes(member),
-      `${key}: no such member — the set changed under this record; delete or rename it`,
-    );
-    assert(
-      reason.trim().length > 0,
-      `${key}: a deliberate absence carries its reason`,
-    );
-  }
-});
-
 // Positive controls: prove the claim machinery discriminates, so the guard
 // can't rot into a test that passes because nothing looks claimed.
-
-Deno.test("enrolment guard: claims are read from the whole tree, at any depth", () => {
-  const fixture: FeatureNode[] = [
-    {
-      id: "root",
-      title: "Root",
-      what: "A fixture.",
-      plain: { title: "Fixture", what: "A fixture." },
-      surfaces: ["verb:done"],
-      children: [
-        {
-          id: "leaf",
-          title: "Leaf",
-          what: "A fixture.",
-          plain: { title: "Fixture", what: "A fixture." },
-          surfaces: ["job:test", "stage:fix"],
-        },
-      ],
-    },
-  ];
-  assertEquals(allSurfaceClaims(fixture), [
-    { set: "verb", member: "done", claimedBy: "root" },
-    { set: "job", member: "test", claimedBy: "leaf" },
-    { set: "stage", member: "fix", claimedBy: "leaf" },
-  ]);
-});
-
-Deno.test("enrolment guard: malformed and unknown-set claims fail loudly", () => {
-  assertThrows(
-    () =>
-      allSurfaceClaims([
-        {
-          id: "bad",
-          title: "Bad",
-          what: "A fixture.",
-          plain: { title: "Fixture", what: "A fixture." },
-          surfaces: ["done"],
-        },
-      ]),
-    Error,
-    "malformed surface key",
-  );
-  assertThrows(
-    () =>
-      allSurfaceClaims([
-        {
-          id: "bad",
-          title: "Bad",
-          what: "A fixture.",
-          plain: { title: "Fixture", what: "A fixture." },
-          surfaces: ["tool:discern_done"],
-        },
-      ]),
-    Error,
-    "unknown surface set",
-  );
-});
-
-Deno.test("the live canon claims every closed set at least once", () => {
-  const claimed = claimedBySet();
-  for (const set of SURFACE_SETS) {
-    assert(
-      (claimed.get(set)?.size ?? 0) > 0,
-      `the canon claims no ${set} members — a whole set fell out of the account`,
-    );
-  }
-  assert(FEATURE_CANON.length > 0, "the canon is never empty");
-});

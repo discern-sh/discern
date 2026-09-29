@@ -9,6 +9,7 @@ import {
 } from "../src/shared/best_effort.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const FS_PRESENCE_AUTHORITY = "src/shared/fs_presence.ts";
 const DIRECT_BOUNDARY_MARKER =
@@ -220,8 +221,12 @@ Deno.test("optional filesystem reads are owned by the presence capability", asyn
   );
 });
 
-Deno.test("presence ownership catches helpers whose names do not mention existence", () => {
-  const source = `async function inspectCache(path: string): Promise<boolean> {
+Deno.test("fs presence enrolment: presenceBypassFindings cases", () => {
+  assertNamedCases({
+    "presence ownership catches helpers whose names do not mention existence":
+      () => {
+        const source =
+          `async function inspectCache(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);
     return true;
@@ -230,13 +235,14 @@ Deno.test("presence ownership catches helpers whose names do not mention existen
     return false;
   }
 }\n`;
-  assertEquals(presenceBypassFindings("tools/cache.ts", source), [
-    "tools/cache.ts:3 Deno.stat",
-  ]);
-});
-
-Deno.test("an exact registered policy fallback does not claim ordinary absence", () => {
-  const source = `async function inspectCache(path: string): Promise<boolean> {
+        assertEquals(presenceBypassFindings("tools/cache.ts", source), [
+          "tools/cache.ts:3 Deno.stat",
+        ]);
+      },
+    "an exact registered policy fallback does not claim ordinary absence":
+      () => {
+        const source =
+          `async function inspectCache(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);
     return true;
@@ -245,27 +251,29 @@ Deno.test("an exact registered policy fallback does not claim ordinary absence",
     return false;
   }
 }\n`;
-  assertEquals(
-    presenceBypassFindings("tools/cache.ts", source, {
-      "planted-cache-probe": {
-        path: "tools/cache.ts",
-        enclosingFunction: "inspectCache",
-        operation: "treat an unavailable advisory cache probe as not ready",
-        kind: "direct",
-        shape: "async",
-        observability: { kind: "unobservable" },
-        reason:
-          "The planted cache probe has no authority over the primary operation and proves exact enrollment.",
+        assertEquals(
+          presenceBypassFindings("tools/cache.ts", source, {
+            "planted-cache-probe": {
+              path: "tools/cache.ts",
+              enclosingFunction: "inspectCache",
+              operation:
+                "treat an unavailable advisory cache probe as not ready",
+              kind: "direct",
+              shape: "async",
+              observability: { kind: "unobservable" },
+              reason:
+                "The planted cache probe has no authority over the primary operation and proves exact enrollment.",
+            },
+          }),
+          [],
+        );
       },
-    }),
-    [],
-  );
-});
-
-Deno.test("presence ownership catches promise-level failure suppression", () => {
-  const source = `export const load = (path: string): Promise<string> =>
+    "presence ownership catches promise-level failure suppression": () => {
+      const source = `export const load = (path: string): Promise<string> =>
   Deno.readTextFile(path).catch(() => "");\n`;
-  assertEquals(presenceBypassFindings("tools/loader.ts", source), [
-    "tools/loader.ts:2 Deno.readTextFile.catch",
-  ]);
+      assertEquals(presenceBypassFindings("tools/loader.ts", source), [
+        "tools/loader.ts:2 Deno.readTextFile.catch",
+      ]);
+    },
+  });
 });

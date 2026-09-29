@@ -25,6 +25,7 @@ import {
 } from "../scripts/glossary_registry.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** The closed sets the vocabulary must account for, from their single sources. */
 type ClosedSet = "job" | "stage" | "verb";
@@ -71,34 +72,82 @@ function namedBy(
   return definitions.some((entry) => mention.test(entry.definition));
 }
 
-Deno.test("every known job, stage, and top-level verb is named by the glossary or recorded deliberately absent", () => {
-  const offenders: string[] = [];
-  for (const set of Object.keys(CLOSED_SETS) as ClosedSet[]) {
-    const members = CLOSED_SETS[set];
-    for (const member of members) {
-      const key = `${set}:${member}`;
-      const named = namedBy(GLOSSARY, set, member);
-      const recorded = Object.hasOwn(DELIBERATELY_ABSENT, key);
-      if (!named && !recorded) {
-        offenders.push(
-          `${key} is outside the vocabulary — give it a glossary entry, name ` +
-            "it in one, or record it in DELIBERATELY_ABSENT with the reason",
+Deno.test("glossary enrolment: namedBy cases", () => {
+  assertNamedCases({
+    "every known job, stage, and top-level verb is named by the glossary or recorded deliberately absent":
+      () => {
+        const offenders: string[] = [];
+        for (const set of Object.keys(CLOSED_SETS) as ClosedSet[]) {
+          const members = CLOSED_SETS[set];
+          for (const member of members) {
+            const key = `${set}:${member}`;
+            const named = namedBy(GLOSSARY, set, member);
+            const recorded = Object.hasOwn(DELIBERATELY_ABSENT, key);
+            if (!named && !recorded) {
+              offenders.push(
+                `${key} is outside the vocabulary — give it a glossary entry, name ` +
+                  "it in one, or record it in DELIBERATELY_ABSENT with the reason",
+              );
+            }
+            if (named && recorded) {
+              offenders.push(
+                `${key} is recorded deliberately absent, but the glossary names ` +
+                  "it — delete the stale record",
+              );
+            }
+          }
+        }
+        assertEquals(
+          offenders,
+          [],
+          "closed-set members must enter the vocabulary the moment they exist " +
+            `(scripts/glossary_registry.ts):\n  ${offenders.join("\n  ")}`,
         );
-      }
-      if (named && recorded) {
-        offenders.push(
-          `${key} is recorded deliberately absent, but the glossary names ` +
-            "it — delete the stale record",
+      },
+    "enrolment guard: the naming predicate matches terms and backticked mentions only":
+      () => {
+        const fixture: NamedByEntry[] = [
+          {
+            term: "Gate",
+            definition:
+              "Run with `discern done`; declared under `[standards]`. The `desk` opens it.",
+          },
+        ];
+        assert(
+          namedBy(fixture, "verb", "gate"),
+          "a term of its own names the member",
         );
-      }
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    "closed-set members must enter the vocabulary the moment they exist " +
-      `(scripts/glossary_registry.ts):\n  ${offenders.join("\n  ")}`,
-  );
+        assert(
+          namedBy(fixture, "verb", "done"),
+          "a `discern <verb>` mention names it",
+        );
+        assert(
+          namedBy(fixture, "verb", "desk"),
+          "a bare backticked mention names it",
+        );
+        assert(
+          !namedBy(fixture, "verb", "standards"),
+          "`[standards]` names the config table, not the standards verb",
+        );
+        assert(
+          !namedBy(fixture, "verb", "doctor"),
+          "an unmentioned member is not named",
+        );
+      },
+    "enrolment guard: interpolated sets do not cross-enrol same-named verbs":
+      () => {
+        const fixture: NamedByEntry[] = [
+          { term: "Gate job", definition: "Known jobs include `test`." },
+          { term: "Stage", definition: "The stages include `test`." },
+        ];
+        assert(namedBy(fixture, "job", "test"), "Gate job enrols the job");
+        assert(namedBy(fixture, "stage", "test"), "Stage enrols the stage");
+        assert(
+          !namedBy(fixture, "verb", "test"),
+          "job and stage lists do not enrol the verb",
+        );
+      },
+  });
 });
 
 Deno.test("every deliberate-absence record points at a live closed-set member, with a reason", () => {
@@ -141,46 +190,3 @@ Deno.test("Shared file is property-defined and delegates its inventory", () => {
 
 // Positive controls: prove the predicate discriminates, so the guard can't
 // rot into a test that passes because everything looks named.
-
-Deno.test("enrolment guard: the naming predicate matches terms and backticked mentions only", () => {
-  const fixture: NamedByEntry[] = [
-    {
-      term: "Gate",
-      definition:
-        "Run with `discern done`; declared under `[standards]`. The `desk` opens it.",
-    },
-  ];
-  assert(
-    namedBy(fixture, "verb", "gate"),
-    "a term of its own names the member",
-  );
-  assert(
-    namedBy(fixture, "verb", "done"),
-    "a `discern <verb>` mention names it",
-  );
-  assert(
-    namedBy(fixture, "verb", "desk"),
-    "a bare backticked mention names it",
-  );
-  assert(
-    !namedBy(fixture, "verb", "standards"),
-    "`[standards]` names the config table, not the standards verb",
-  );
-  assert(
-    !namedBy(fixture, "verb", "doctor"),
-    "an unmentioned member is not named",
-  );
-});
-
-Deno.test("enrolment guard: interpolated sets do not cross-enrol same-named verbs", () => {
-  const fixture: NamedByEntry[] = [
-    { term: "Gate job", definition: "Known jobs include `test`." },
-    { term: "Stage", definition: "The stages include `test`." },
-  ];
-  assert(namedBy(fixture, "job", "test"), "Gate job enrols the job");
-  assert(namedBy(fixture, "stage", "test"), "Stage enrols the stage");
-  assert(
-    !namedBy(fixture, "verb", "test"),
-    "job and stage lists do not enrol the verb",
-  );
-});

@@ -24,6 +24,7 @@ import {
   teardownPlanToEngine,
 } from "../src/engine/worktree/plan.ts";
 import { remapWorktreeLocalTemplatesDir } from "../src/engine/worktree/lifecycle.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const PRUNE_IDENTITY_SETTINGS = {
   slug: "app",
@@ -63,62 +64,65 @@ const NO_LIVE = {
   identities: new Set<string>(),
 };
 
-Deno.test("classifyOrphans: an entry whose worktree is gone is reclaimable", () => {
-  const { reclaimable, kept } = classifyOrphans(items(entry()), NO_LIVE);
-  assertEquals(kept, 0);
-  assertEquals(reclaimable.map((i) => i.entry.resource_identity), ["app-a-db"]);
-});
+Deno.test("worktree plan: orphan classification", () => {
+  assertNamedCases({
+    "classifyOrphans: an entry whose worktree is gone is reclaimable": () => {
+      const { reclaimable, kept } = classifyOrphans(items(entry()), NO_LIVE);
+      assertEquals(kept, 0);
+      assertEquals(reclaimable.map((i) => i.entry.resource_identity), [
+        "app-a-db",
+      ]);
+    },
+    "classifyOrphans: a live git_key, path, OR handle keeps the entry": () => {
+      const byKey = classifyOrphans(items(entry()), {
+        ...NO_LIVE,
+        gitKeys: new Set(["wt-a"]),
+      });
+      assertEquals(byKey.reclaimable.length, 0);
+      assertEquals(byKey.kept, 1);
 
-Deno.test("classifyOrphans: a live git_key, path, OR handle keeps the entry", () => {
-  const byKey = classifyOrphans(items(entry()), {
-    ...NO_LIVE,
-    gitKeys: new Set(["wt-a"]),
+      const byPath = classifyOrphans(items(entry()), {
+        ...NO_LIVE,
+        paths: new Set(["/repo/.wt/a"]),
+      });
+      assertEquals(byPath.reclaimable.length, 0);
+
+      const byHandle = classifyOrphans(items(entry()), {
+        ...NO_LIVE,
+        identities: new Set(["app-a-db"]),
+      });
+      assertEquals(byHandle.reclaimable.length, 0);
+    },
+    "classifyOrphans: a non-prunable entry is never reclaimed (teardown-only)":
+      () => {
+        const { reclaimable, kept } = classifyOrphans(
+          items(entry({ prunable: false })),
+          NO_LIVE,
+        );
+        assertEquals(reclaimable.length, 0);
+        assertEquals(kept, 1);
+      },
+    "classifyOrphans: partitions a mixed ledger, preserving order": () => {
+      const live = entry({ git_key: "live", resource_identity: "app-live-db" });
+      const orphanA = entry({ git_key: "x", resource_identity: "app-x-db" });
+      const guarded = entry({
+        git_key: "y",
+        prunable: false,
+        resource_identity: "app-y",
+      });
+      const orphanB = entry({ git_key: "z", resource_identity: "app-z-db" });
+      const { reclaimable, kept } = classifyOrphans(
+        items(live, orphanA, guarded, orphanB),
+        { ...NO_LIVE, gitKeys: new Set(["live"]) },
+      );
+      assertEquals(reclaimable.map((i) => i.entry.resource_identity), [
+        "app-x-db",
+        "app-z-db",
+      ]);
+      assertEquals(kept, 2); // the live one + the non-prunable one
+    },
   });
-  assertEquals(byKey.reclaimable.length, 0);
-  assertEquals(byKey.kept, 1);
-
-  const byPath = classifyOrphans(items(entry()), {
-    ...NO_LIVE,
-    paths: new Set(["/repo/.wt/a"]),
-  });
-  assertEquals(byPath.reclaimable.length, 0);
-
-  const byHandle = classifyOrphans(items(entry()), {
-    ...NO_LIVE,
-    identities: new Set(["app-a-db"]),
-  });
-  assertEquals(byHandle.reclaimable.length, 0);
 });
-
-Deno.test("classifyOrphans: a non-prunable entry is never reclaimed (teardown-only)", () => {
-  const { reclaimable, kept } = classifyOrphans(
-    items(entry({ prunable: false })),
-    NO_LIVE,
-  );
-  assertEquals(reclaimable.length, 0);
-  assertEquals(kept, 1);
-});
-
-Deno.test("classifyOrphans: partitions a mixed ledger, preserving order", () => {
-  const live = entry({ git_key: "live", resource_identity: "app-live-db" });
-  const orphanA = entry({ git_key: "x", resource_identity: "app-x-db" });
-  const guarded = entry({
-    git_key: "y",
-    prunable: false,
-    resource_identity: "app-y",
-  });
-  const orphanB = entry({ git_key: "z", resource_identity: "app-z-db" });
-  const { reclaimable, kept } = classifyOrphans(
-    items(live, orphanA, guarded, orphanB),
-    { ...NO_LIVE, gitKeys: new Set(["live"]) },
-  );
-  assertEquals(reclaimable.map((i) => i.entry.resource_identity), [
-    "app-x-db",
-    "app-z-db",
-  ]);
-  assertEquals(kept, 2); // the live one + the non-prunable one
-});
-
 // ── plan projections ───────────────────────────────────────────────────────────
 
 Deno.test("teardownPlanToEngine: one destroy step per ledger entry", () => {
@@ -238,214 +242,229 @@ Deno.test("setupPlanToEngine: every step runs, branch surfaced as a detail", () 
   assert(plan.steps.every((s) => s.disposition === "run"));
 });
 
-Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty", () => {
-  const empty = {
-    gitScan: {
-      repoRoot: "/repo",
-      mainBranch: "main",
-      identitySettings: PRUNE_IDENTITY_SETTINGS,
-      worktreesToRemove: [],
-      staleMetadata: [],
-      worktreeLines: [],
-      branchLines: [],
-      orphanedLandedBranches: [],
-    },
-    worktreeResourceTeardowns: [],
-    orphanScan: {
-      mainRepo: "/repo",
-      mainBranch: "main",
-      identitySettings: PRUNE_IDENTITY_SETTINGS,
-      removable: [],
-      kept: [],
-    },
-    reappearedPathScan: {
-      repoRoot: "/repo",
-      removable: [],
-      kept: [],
-    },
-    resourceReclaims: [],
-    resourceReclaimsKept: 0,
-    contained: [],
-    reclaimContained: false,
-    integrations: [],
-  };
-  assert(prunePlanIsEmpty(empty));
-  assertEquals(prunePlanToEngine(empty).steps.length, 0);
+Deno.test("worktree plan: prune projection", () => {
+  assertNamedCases({
+    "prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty":
+      () => {
+        const empty = {
+          gitScan: {
+            repoRoot: "/repo",
+            mainBranch: "main",
+            identitySettings: PRUNE_IDENTITY_SETTINGS,
+            worktreesToRemove: [],
+            staleMetadata: [],
+            worktreeLines: [],
+            branchLines: [],
+            orphanedLandedBranches: [],
+          },
+          worktreeResourceTeardowns: [],
+          orphanScan: {
+            mainRepo: "/repo",
+            mainBranch: "main",
+            identitySettings: PRUNE_IDENTITY_SETTINGS,
+            removable: [],
+            kept: [],
+          },
+          reappearedPathScan: {
+            repoRoot: "/repo",
+            removable: [],
+            kept: [],
+          },
+          resourceReclaims: [],
+          resourceReclaimsKept: 0,
+          contained: [],
+          reclaimContained: false,
+          integrations: [],
+        };
+        assert(prunePlanIsEmpty(empty));
+        assertEquals(prunePlanToEngine(empty).steps.length, 0);
 
-  const full = {
-    gitScan: {
-      repoRoot: "/repo",
-      mainBranch: "main",
-      identitySettings: PRUNE_IDENTITY_SETTINGS,
-      worktreesToRemove: [{
-        path: "/repo/.wt/stale",
-        branch: "agent/stale",
-        id: "stale",
-        head: "1111111111111111111111111111111111111111",
-      }],
-      staleMetadata: [{
-        path: "/repo/.wt/gone",
-        adminDir: "/repo/.git/worktrees/gone",
-        gitDir: "/repo/.wt/gone/.git",
-        id: "gone",
-        branch: "agent/gone",
-        head: "3333333333333333333333333333333333333333",
-      }],
-      worktreeLines: [],
-      branchLines: [],
-      orphanedLandedBranches: [],
-    },
-    worktreeResourceTeardowns: [{
-      worktreePath: "/repo/.wt/stale",
-      gitKey: "stale",
-      entries: items(entry({
-        resource_name: "cache",
-        resource_identity: "app-stale-cache",
-      })),
-    }],
-    orphanScan: {
-      mainRepo: "/repo",
-      mainBranch: "main",
-      identitySettings: PRUNE_IDENTITY_SETTINGS,
-      removable: [{ path: "/repo/.wt/orphan", reason: "clean" }],
-      kept: [{
-        path: "/repo/.wt/dirty",
-        reason: "dirty 1 status entries",
-      }],
-    },
-    reappearedPathScan: {
-      repoRoot: "/repo",
-      removable: [{
-        path: "/repo/.wt/reappeared",
-        removed_at: "2026-08-08T12:00:00.000Z",
-        kind: "directory" as const,
-        contents: ["observer-state/checkpoint.bin"],
-        contents_truncated: false,
-        entries: 2,
-        fingerprint: "snapshot",
-      }],
-      kept: [{
-        path: "/repo/.wt/repurposed",
-        removed_at: "2026-08-08T12:00:00.000Z",
-        kind: "directory" as const,
-        contents: [".git/config"],
-        contents_truncated: false,
-        entries: 2,
-        cleanup_blocked_reason: "the path contains Git metadata",
-      }],
-    },
-    resourceReclaims: items(entry({ resource_identity: "app-z-db" })),
-    resourceReclaimsKept: 1,
-    contained: [{
-      path: "/repo/.wt/spent",
-      branch: "agent/spent",
-      tip: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      containingBranch: "agent/next",
-      containingTip: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      containerAhead: 2,
-    }],
-    reclaimContained: false,
-    integrations: [],
-  };
-  assert(!prunePlanIsEmpty(full));
-  const enginePlan = prunePlanToEngine(full);
-  const groups = new Set(enginePlan.steps.map((s) => s.group));
-  assertEquals(
-    groups,
-    new Set([
-      "Worktrees",
-      "Branches",
-      "Stale metadata",
-      "Orphan directories",
-      "Kept orphan directories",
-      "Reappeared worktree paths",
-      "Kept reappeared worktree paths",
-      "Resources",
-      "Contained worktrees",
-    ]),
-  );
-  assertEquals(enginePlan.steps[0]?.label, "app-stale-cache");
-  assertEquals(enginePlan.steps[0]?.kind, "resource-destroy");
-  assert(enginePlan.details.some((d) => d.includes("Stale metadata: 1 entry")));
-});
+        const full = {
+          gitScan: {
+            repoRoot: "/repo",
+            mainBranch: "main",
+            identitySettings: PRUNE_IDENTITY_SETTINGS,
+            worktreesToRemove: [{
+              path: "/repo/.wt/stale",
+              branch: "agent/stale",
+              id: "stale",
+              head: "1111111111111111111111111111111111111111",
+            }],
+            staleMetadata: [{
+              path: "/repo/.wt/gone",
+              adminDir: "/repo/.git/worktrees/gone",
+              gitDir: "/repo/.wt/gone/.git",
+              id: "gone",
+              branch: "agent/gone",
+              head: "3333333333333333333333333333333333333333",
+            }],
+            worktreeLines: [],
+            branchLines: [],
+            orphanedLandedBranches: [],
+          },
+          worktreeResourceTeardowns: [{
+            worktreePath: "/repo/.wt/stale",
+            gitKey: "stale",
+            entries: items(entry({
+              resource_name: "cache",
+              resource_identity: "app-stale-cache",
+            })),
+          }],
+          orphanScan: {
+            mainRepo: "/repo",
+            mainBranch: "main",
+            identitySettings: PRUNE_IDENTITY_SETTINGS,
+            removable: [{ path: "/repo/.wt/orphan", reason: "clean" }],
+            kept: [{
+              path: "/repo/.wt/dirty",
+              reason: "dirty 1 status entries",
+            }],
+          },
+          reappearedPathScan: {
+            repoRoot: "/repo",
+            removable: [{
+              path: "/repo/.wt/reappeared",
+              removed_at: "2026-08-08T12:00:00.000Z",
+              kind: "directory" as const,
+              contents: ["observer-state/checkpoint.bin"],
+              contents_truncated: false,
+              entries: 2,
+              fingerprint: "snapshot",
+            }],
+            kept: [{
+              path: "/repo/.wt/repurposed",
+              removed_at: "2026-08-08T12:00:00.000Z",
+              kind: "directory" as const,
+              contents: [".git/config"],
+              contents_truncated: false,
+              entries: 2,
+              cleanup_blocked_reason: "the path contains Git metadata",
+            }],
+          },
+          resourceReclaims: items(entry({ resource_identity: "app-z-db" })),
+          resourceReclaimsKept: 1,
+          contained: [{
+            path: "/repo/.wt/spent",
+            branch: "agent/spent",
+            tip: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            containingBranch: "agent/next",
+            containingTip: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            containerAhead: 2,
+          }],
+          reclaimContained: false,
+          integrations: [],
+        };
+        assert(!prunePlanIsEmpty(full));
+        const enginePlan = prunePlanToEngine(full);
+        const groups = new Set(enginePlan.steps.map((s) => s.group));
+        assertEquals(
+          groups,
+          new Set([
+            "Worktrees",
+            "Branches",
+            "Stale metadata",
+            "Orphan directories",
+            "Kept orphan directories",
+            "Reappeared worktree paths",
+            "Kept reappeared worktree paths",
+            "Resources",
+            "Contained worktrees",
+          ]),
+        );
+        assertEquals(enginePlan.steps[0]?.label, "app-stale-cache");
+        assertEquals(enginePlan.steps[0]?.kind, "resource-destroy");
+        assert(
+          enginePlan.details.some((d) => d.includes("Stale metadata: 1 entry")),
+        );
+      },
+    "prunePlanToEngine: the contained group is offer-only by default and runs only under the opt-in":
+      () => {
+        const base = {
+          gitScan: {
+            repoRoot: "/repo",
+            mainBranch: "main",
+            identitySettings: PRUNE_IDENTITY_SETTINGS,
+            worktreesToRemove: [],
+            staleMetadata: [],
+            worktreeLines: [],
+            branchLines: [],
+            orphanedLandedBranches: [],
+          },
+          worktreeResourceTeardowns: [],
+          orphanScan: {
+            mainRepo: "/repo",
+            mainBranch: "main",
+            identitySettings: PRUNE_IDENTITY_SETTINGS,
+            removable: [],
+            kept: [],
+          },
+          reappearedPathScan: {
+            repoRoot: "/repo",
+            removable: [],
+            kept: [],
+          },
+          resourceReclaims: [],
+          resourceReclaimsKept: 0,
+          contained: [{
+            path: "/repo/.wt/spent",
+            branch: "agent/spent",
+            tip: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            containingBranch: "agent/next",
+            containingTip: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            containerAhead: 3,
+          }],
+          integrations: [],
+        };
 
-Deno.test("prunePlanToEngine: the contained group is offer-only by default and runs only under the opt-in", () => {
-  const base = {
-    gitScan: {
-      repoRoot: "/repo",
-      mainBranch: "main",
-      identitySettings: PRUNE_IDENTITY_SETTINGS,
-      worktreesToRemove: [],
-      staleMetadata: [],
-      worktreeLines: [],
-      branchLines: [],
-      orphanedLandedBranches: [],
-    },
-    worktreeResourceTeardowns: [],
-    orphanScan: {
-      mainRepo: "/repo",
-      mainBranch: "main",
-      identitySettings: PRUNE_IDENTITY_SETTINGS,
-      removable: [],
-      kept: [],
-    },
-    reappearedPathScan: {
-      repoRoot: "/repo",
-      removable: [],
-      kept: [],
-    },
-    resourceReclaims: [],
-    resourceReclaimsKept: 0,
-    contained: [{
-      path: "/repo/.wt/spent",
-      branch: "agent/spent",
-      tip: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      containingBranch: "agent/next",
-      containingTip: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      containerAhead: 3,
-    }],
-    integrations: [],
-  };
+        // Without the opt-in: visible, skipped, and NOT a change (the plan is empty
+        // in the "would touch anything" sense — nothing to confirm or apply).
+        const offered = { ...base, reclaimContained: false };
+        assert(
+          prunePlanIsEmpty(offered),
+          "an offer alone must not read as a change",
+        );
+        const offeredPlan = prunePlanToEngine(offered);
+        const offeredStep = offeredPlan.steps.find(
+          (s) => s.group === "Contained worktrees",
+        );
+        assertEquals(offeredStep?.disposition, "skip");
+        assert(offeredStep?.note?.includes("agent/next") === true);
+        assert(offeredStep?.note?.includes("--contained") === true);
+        // The offer carries the evidence: both tips and the container's lead.
+        assert(offeredStep?.note?.includes("aaaaaaaaaaaa") === true);
+        assert(offeredStep?.note?.includes("bbbbbbbbbbbb") === true);
+        assert(offeredStep?.note?.includes("+3 ahead") === true);
+        assert(
+          offeredPlan.details.some((d) =>
+            d.includes("branch refs are always kept")
+          ),
+        );
 
-  // Without the opt-in: visible, skipped, and NOT a change (the plan is empty
-  // in the "would touch anything" sense — nothing to confirm or apply).
-  const offered = { ...base, reclaimContained: false };
-  assert(prunePlanIsEmpty(offered), "an offer alone must not read as a change");
-  const offeredPlan = prunePlanToEngine(offered);
-  const offeredStep = offeredPlan.steps.find(
-    (s) => s.group === "Contained worktrees",
-  );
-  assertEquals(offeredStep?.disposition, "skip");
-  assert(offeredStep?.note?.includes("agent/next") === true);
-  assert(offeredStep?.note?.includes("--contained") === true);
-  // The offer carries the evidence: both tips and the container's lead.
-  assert(offeredStep?.note?.includes("aaaaaaaaaaaa") === true);
-  assert(offeredStep?.note?.includes("bbbbbbbbbbbb") === true);
-  assert(offeredStep?.note?.includes("+3 ahead") === true);
-  assert(
-    offeredPlan.details.some((d) => d.includes("branch refs are always kept")),
-  );
-
-  // Under the opt-in: the same candidate becomes a real step, and the details
-  // name exactly what is kept and what is destroyed.
-  const reclaiming = { ...base, reclaimContained: true };
-  assert(!prunePlanIsEmpty(reclaiming));
-  const reclaimingPlan = prunePlanToEngine(reclaiming);
-  const reclaimingStep = reclaimingPlan.steps.find(
-    (s) => s.group === "Contained worktrees",
-  );
-  assertEquals(reclaimingStep?.disposition, "run");
-  assert(reclaimingStep?.note?.includes("keep branch agent/spent") === true);
-  // The reclaim confirmation keeps the same evidence the offer showed — the
-  // human confirms shas, not bare names.
-  assert(reclaimingStep?.note?.includes("aaaaaaaaaaaa") === true);
-  assert(reclaimingStep?.note?.includes("bbbbbbbbbbbb") === true);
-  assert(reclaimingStep?.note?.includes("+3 ahead") === true);
-  assert(
-    reclaimingPlan.details.some(
-      (d) =>
-        d.includes("branch refs kept") && d.includes("gate Proof included"),
-    ),
-    "the reclaim confirmation must name what is kept and what is destroyed",
-  );
+        // Under the opt-in: the same candidate becomes a real step, and the details
+        // name exactly what is kept and what is destroyed.
+        const reclaiming = { ...base, reclaimContained: true };
+        assert(!prunePlanIsEmpty(reclaiming));
+        const reclaimingPlan = prunePlanToEngine(reclaiming);
+        const reclaimingStep = reclaimingPlan.steps.find(
+          (s) => s.group === "Contained worktrees",
+        );
+        assertEquals(reclaimingStep?.disposition, "run");
+        assert(
+          reclaimingStep?.note?.includes("keep branch agent/spent") === true,
+        );
+        // The reclaim confirmation keeps the same evidence the offer showed — the
+        // human confirms shas, not bare names.
+        assert(reclaimingStep?.note?.includes("aaaaaaaaaaaa") === true);
+        assert(reclaimingStep?.note?.includes("bbbbbbbbbbbb") === true);
+        assert(reclaimingStep?.note?.includes("+3 ahead") === true);
+        assert(
+          reclaimingPlan.details.some(
+            (d) =>
+              d.includes("branch refs kept") &&
+              d.includes("gate Proof included"),
+          ),
+          "the reclaim confirmation must name what is kept and what is destroyed",
+        );
+      },
+  });
 });

@@ -31,6 +31,7 @@ import {
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
 import { CHECKPOINT_ECONOMICS_ROWS_MAX } from "../src/shared/patterns_vocabulary.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** A deterministic timestamp `n` hours after the fixture epoch. */
 function t(hours: number): string {
@@ -68,99 +69,181 @@ function facts(events: LogbookEvent[]): ReturnType<typeof buildStreamFacts> {
   return buildStreamFacts(events, "main");
 }
 
-Deno.test("checkpoint economics: the full lifecycle tallies with its denominators", () => {
-  const events = run([
-    // Effort one: fired, revised, declared met after a reopen, landed clean.
-    {
-      branch: "agent/one",
-      checkpoints: { fired: [{ id: "api-review", subject: "s1" }] },
-    },
-    {
-      branch: "agent/one",
-      checkpoints: {
-        reopened: [{ id: "api-review", subject: "s2" }],
-        declared: [{
+Deno.test("checkpoint economics: run cases", () => {
+  assertNamedCases({
+    "checkpoint economics: the full lifecycle tallies with its denominators":
+      () => {
+        const events = run([
+          // Effort one: fired, revised, declared met after a reopen, landed clean.
+          {
+            branch: "agent/one",
+            checkpoints: { fired: [{ id: "api-review", subject: "s1" }] },
+          },
+          {
+            branch: "agent/one",
+            checkpoints: {
+              reopened: [{ id: "api-review", subject: "s2" }],
+              declared: [{
+                id: "api-review",
+                conclusion: "met",
+                revised: true,
+                elapsed_ms: 120_000,
+              }],
+            },
+          },
+          { branch: "agent/one", verb: "accept" },
+          // Effort two: fired, declared unmet on the unchanged subject, landed
+          // under an authorized variance with one abandoned open question.
+          {
+            branch: "agent/two",
+            checkpoints: { fired: [{ id: "api-review", subject: "s3" }] },
+          },
+          {
+            branch: "agent/two",
+            checkpoints: {
+              declared: [{
+                id: "api-review",
+                conclusion: "unmet",
+                revised: false,
+                elapsed_ms: 60_000,
+              }],
+            },
+          },
+          {
+            branch: "agent/two",
+            verb: "accept",
+            checkpoints: {
+              variances: [{
+                id: "api-review",
+                definition: "d1",
+                subject: "s3",
+              }],
+              abandoned: [{ id: "retired-rule" }],
+            },
+          },
+          // Effort three: a gate run where nothing fired — the denominator grows.
+          { branch: "agent/three" },
+        ]);
+        const economics = checkpointEconomicsOf(facts(events));
+        assert(
+          economics !== undefined,
+          "recorded activity must produce economics",
+        );
+        assertEquals(economics.efforts, 3);
+        assertEquals(economics.omitted, 0);
+        const api = economics.rows.find((row) => row.id === "api-review");
+        assertEquals(api, {
           id: "api-review",
-          conclusion: "met",
-          revised: true,
-          elapsed_ms: 120_000,
-        }],
+          efforts_fired: 2,
+          efforts_landed: 2,
+          fires: 3,
+          declared: 2,
+          declared_unchanged: 1,
+          declared_unmet: 1,
+          reopened: 1,
+          variances: 1,
+          abandoned: 0,
+          median_declare_s: 90,
+        });
+        const retired = economics.rows.find((row) => row.id === "retired-rule");
+        assertEquals(retired?.abandoned, 1);
+        assertEquals(retired?.fires, 0);
       },
+    "checkpoint economics: evidence gaps censor instead of counting": () => {
+      const events = run([
+        // An event from a writer without the observation block: nothing to read.
+        { branch: "agent/one" },
+        // A declaration without the revision flag counts as declared only, and
+        // one without elapsed time contributes nothing to the median.
+        {
+          branch: "agent/one",
+          checkpoints: {
+            fired: [{ id: "api-review" }],
+            declared: [{ id: "api-review", conclusion: "met" }],
+          },
+        },
+      ]);
+      const economics = checkpointEconomicsOf(facts(events));
+      assert(economics !== undefined);
+      const api = economics.rows.find((row) => row.id === "api-review");
+      assertEquals(api?.declared, 1);
+      assertEquals(api?.declared_unchanged, 0);
+      assertEquals(api?.median_declare_s, undefined);
     },
-    { branch: "agent/one", verb: "accept" },
-    // Effort two: fired, declared unmet on the unchanged subject, landed
-    // under an authorized variance with one abandoned open question.
-    {
-      branch: "agent/two",
-      checkpoints: { fired: [{ id: "api-review", subject: "s3" }] },
-    },
-    {
-      branch: "agent/two",
-      checkpoints: {
-        declared: [{
-          id: "api-review",
-          conclusion: "unmet",
-          revised: false,
-          elapsed_ms: 60_000,
-        }],
+    "frequently varied: the bar needs three landed, three varied, and half the share":
+      () => {
+        const events = run([
+          ...landedEfforts("qualifies", 3, 3), // 3 of 3 varied
+          ...landedEfforts("thin-share", 3, 1), // 1 of 3 — below half
+          ...landedEfforts("thin-landed", 2, 2), // 2 landed — below three
+          ...landedEfforts("thin-varied", 4, 2), // half the share, 2 varied — below three
+        ]);
+        const analysis = analyzeCheckpointObservations(facts(events));
+        const qualifying = frequentlyVariedCheckpoints(analysis);
+        assertEquals(qualifying.map((summary) => summary.id), ["qualifies"]);
+        assertEquals(qualifying[0], {
+          id: "qualifies",
+          landed: 3,
+          variedLandings: 3,
+          variances: 3,
+        });
+        // Non-qualifying checkpoints keep their denominators readable.
+        const summaries = checkpointVarianceSummaries(analysis);
+        assertEquals(summaries.find((s) => s.id === "thin-landed")?.landed, 2);
+        // The observation sentence carries counts beside denominators.
+        const observed = variedObservation(
+          qualifying[0] ?? {
+            id: "",
+            landed: 0,
+            variedLandings: 0,
+            variances: 0,
+          },
+        );
+        assertEquals(
+          observed,
+          "`qualifies` landed under an owner-authorized variance on 3 of 3 landed " +
+            "efforts where it fired (3 variances in all).",
+        );
       },
-    },
-    {
-      branch: "agent/two",
-      verb: "accept",
-      checkpoints: {
-        variances: [{ id: "api-review", definition: "d1", subject: "s3" }],
-        abandoned: [{ id: "retired-rule" }],
+    "frequently varied: the detector and the shared predicate qualify the same set":
+      () => {
+        // One bar, two consumers: the checkpoint-varied hygiene detector and the
+        // improvement coach's checkpoint-review recommendation must never disagree
+        // about which checkpoints cleared it.
+        const events = run([
+          ...landedEfforts("qualifies", 3, 3),
+          ...landedEfforts("also-fits", 4, 3),
+          ...landedEfforts("thin-share", 5, 1),
+        ]);
+        const streamFacts = facts(events);
+        const detector = DETECTORS.find((d) => d.id === "checkpoint-varied");
+        assert(
+          detector !== undefined,
+          "the checkpoint-varied detector is registered",
+        );
+        assertEquals(
+          detector.threshold,
+          FREQUENTLY_VARIED_MIN_LANDED,
+          "the detector's registry threshold mirrors the shared bar (module-init " +
+            "order forbids the import, so this tie holds them together)",
+        );
+        const report = runDetector(detector, streamFacts);
+        const analysis = analyzeCheckpointObservations(streamFacts);
+        assertEquals(
+          report.findings.map((finding) => finding.subject).sort(),
+          frequentlyVariedCheckpoints(analysis).map((summary) => summary.id)
+            .sort(),
+        );
+        for (const finding of report.findings) {
+          const summary = frequentlyVariedCheckpoints(analysis).find(
+            (s) => s.id === finding.subject,
+          );
+          assert(summary !== undefined);
+          assertEquals(finding.observed, variedObservation(summary));
+        }
       },
-    },
-    // Effort three: a gate run where nothing fired — the denominator grows.
-    { branch: "agent/three" },
-  ]);
-  const economics = checkpointEconomicsOf(facts(events));
-  assert(economics !== undefined, "recorded activity must produce economics");
-  assertEquals(economics.efforts, 3);
-  assertEquals(economics.omitted, 0);
-  const api = economics.rows.find((row) => row.id === "api-review");
-  assertEquals(api, {
-    id: "api-review",
-    efforts_fired: 2,
-    efforts_landed: 2,
-    fires: 3,
-    declared: 2,
-    declared_unchanged: 1,
-    declared_unmet: 1,
-    reopened: 1,
-    variances: 1,
-    abandoned: 0,
-    median_declare_s: 90,
   });
-  const retired = economics.rows.find((row) => row.id === "retired-rule");
-  assertEquals(retired?.abandoned, 1);
-  assertEquals(retired?.fires, 0);
 });
-
-Deno.test("checkpoint economics: evidence gaps censor instead of counting", () => {
-  const events = run([
-    // An event from a writer without the observation block: nothing to read.
-    { branch: "agent/one" },
-    // A declaration without the revision flag counts as declared only, and
-    // one without elapsed time contributes nothing to the median.
-    {
-      branch: "agent/one",
-      checkpoints: {
-        fired: [{ id: "api-review" }],
-        declared: [{ id: "api-review", conclusion: "met" }],
-      },
-    },
-  ]);
-  const economics = checkpointEconomicsOf(facts(events));
-  assert(economics !== undefined);
-  const api = economics.rows.find((row) => row.id === "api-review");
-  assertEquals(api?.declared, 1);
-  assertEquals(api?.declared_unchanged, 0);
-  assertEquals(api?.median_declare_s, undefined);
-});
-
 Deno.test("checkpoint economics: rows stay bounded and most-served first", () => {
   const many = Array.from(
     { length: CHECKPOINT_ECONOMICS_ROWS_MAX + 4 },
@@ -238,162 +321,98 @@ function landedEfforts(
   }).flat();
 }
 
-Deno.test("frequently varied: the bar needs three landed, three varied, and half the share", () => {
-  const events = run([
-    ...landedEfforts("qualifies", 3, 3), // 3 of 3 varied
-    ...landedEfforts("thin-share", 3, 1), // 1 of 3 — below half
-    ...landedEfforts("thin-landed", 2, 2), // 2 landed — below three
-    ...landedEfforts("thin-varied", 4, 2), // half the share, 2 varied — below three
-  ]);
-  const analysis = analyzeCheckpointObservations(facts(events));
-  const qualifying = frequentlyVariedCheckpoints(analysis);
-  assertEquals(qualifying.map((summary) => summary.id), ["qualifies"]);
-  assertEquals(qualifying[0], {
-    id: "qualifies",
-    landed: 3,
-    variedLandings: 3,
-    variances: 3,
-  });
-  // Non-qualifying checkpoints keep their denominators readable.
-  const summaries = checkpointVarianceSummaries(analysis);
-  assertEquals(summaries.find((s) => s.id === "thin-landed")?.landed, 2);
-  // The observation sentence carries counts beside denominators.
-  const observed = variedObservation(
-    qualifying[0] ?? {
-      id: "",
-      landed: 0,
-      variedLandings: 0,
-      variances: 0,
-    },
-  );
-  assertEquals(
-    observed,
-    "`qualifies` landed under an owner-authorized variance on 3 of 3 landed " +
-      "efforts where it fired (3 variances in all).",
-  );
-});
-
-Deno.test("frequently varied: the detector and the shared predicate qualify the same set", () => {
-  // One bar, two consumers: the checkpoint-varied hygiene detector and the
-  // improvement coach's checkpoint-review recommendation must never disagree
-  // about which checkpoints cleared it.
-  const events = run([
-    ...landedEfforts("qualifies", 3, 3),
-    ...landedEfforts("also-fits", 4, 3),
-    ...landedEfforts("thin-share", 5, 1),
-  ]);
-  const streamFacts = facts(events);
-  const detector = DETECTORS.find((d) => d.id === "checkpoint-varied");
-  assert(
-    detector !== undefined,
-    "the checkpoint-varied detector is registered",
-  );
-  assertEquals(
-    detector.threshold,
-    FREQUENTLY_VARIED_MIN_LANDED,
-    "the detector's registry threshold mirrors the shared bar (module-init " +
-      "order forbids the import, so this tie holds them together)",
-  );
-  const report = runDetector(detector, streamFacts);
-  const analysis = analyzeCheckpointObservations(streamFacts);
-  assertEquals(
-    report.findings.map((finding) => finding.subject).sort(),
-    frequentlyVariedCheckpoints(analysis).map((summary) => summary.id).sort(),
-  );
-  for (const finding of report.findings) {
-    const summary = frequentlyVariedCheckpoints(analysis).find(
-      (s) => s.id === finding.subject,
-    );
-    assert(summary !== undefined);
-    assertEquals(finding.observed, variedObservation(summary));
-  }
-});
-
-Deno.test("checkpoint economics: the config-change boundary restarts the hygiene denominator", () => {
-  const events: LogbookEvent[] = [
-    verb({ at: t(0), branch: "agent/old-one" }),
-    verb({ at: t(1), branch: "agent/old-two" }),
-    {
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: t(2),
-      kind: "config-change",
-      branch: "agent/new-one",
-      sections: ["checkpoints"],
-      epoch: "e2",
-    },
-    verb({ at: t(3), branch: "agent/new-one", epoch: "e2" }),
-    verb({ at: t(4), branch: "agent/new-two", epoch: "e2" }),
-  ];
-  const streamFacts = facts(events);
-  const boundary = checkpointConfigBoundary(streamFacts);
-  assertEquals(boundary, t(2));
-  assertEquals(
-    [...gateEffortsSince(streamFacts, boundary)].sort(),
-    ["agent/new-one", "agent/new-two"],
-  );
-  // A change to some other section moves no checkpoint boundary.
-  const other: LogbookEvent[] = [
-    {
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: t(0),
-      kind: "config-change",
-      branch: "agent/one",
-      sections: ["standards"],
-      epoch: "e2",
-    },
-    verb({ at: t(1), branch: "agent/one" }),
-  ];
-  assertEquals(checkpointConfigBoundary(facts(other)), undefined);
-  assertEquals(
-    [...gateEffortsSince(facts(other), undefined)],
-    ["agent/one"],
-  );
-});
-
-Deno.test("checkpoint-dead: pre-boundary servings do not satisfy revised definitions", () => {
-  const events: LogbookEvent[] = [
-    verb({
-      at: t(0),
-      branch: "agent/old",
-      checkpoints: {
-        fired: [{ id: "revised-rule" }, { id: "current-rule" }],
+Deno.test("checkpoint economics: verb cases", () => {
+  assertNamedCases({
+    "checkpoint economics: the config-change boundary restarts the hygiene denominator":
+      () => {
+        const events: LogbookEvent[] = [
+          verb({ at: t(0), branch: "agent/old-one" }),
+          verb({ at: t(1), branch: "agent/old-two" }),
+          {
+            schema: LOGBOOK_SCHEMA_VERSION,
+            at: t(2),
+            kind: "config-change",
+            branch: "agent/new-one",
+            sections: ["checkpoints"],
+            epoch: "e2",
+          },
+          verb({ at: t(3), branch: "agent/new-one", epoch: "e2" }),
+          verb({ at: t(4), branch: "agent/new-two", epoch: "e2" }),
+        ];
+        const streamFacts = facts(events);
+        const boundary = checkpointConfigBoundary(streamFacts);
+        assertEquals(boundary, t(2));
+        assertEquals(
+          [...gateEffortsSince(streamFacts, boundary)].sort(),
+          ["agent/new-one", "agent/new-two"],
+        );
+        // A change to some other section moves no checkpoint boundary.
+        const other: LogbookEvent[] = [
+          {
+            schema: LOGBOOK_SCHEMA_VERSION,
+            at: t(0),
+            kind: "config-change",
+            branch: "agent/one",
+            sections: ["standards"],
+            epoch: "e2",
+          },
+          verb({ at: t(1), branch: "agent/one" }),
+        ];
+        assertEquals(checkpointConfigBoundary(facts(other)), undefined);
+        assertEquals(
+          [...gateEffortsSince(facts(other), undefined)],
+          ["agent/one"],
+        );
       },
-    }),
-    {
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: t(1),
-      kind: "config-change",
-      branch: "agent/reconfigure",
-      sections: ["checkpoints"],
-      epoch: "e2",
-    },
-    ...Array.from({ length: 8 }, (_, i) =>
-      verb({
-        at: t(i + 2),
-        branch: `agent/new-${i}`,
-        epoch: "e2",
-        ...(i === 0
-          ? { checkpoints: { fired: [{ id: "current-rule" }] } }
-          : {}),
-      })),
-  ];
-  const detector = DETECTORS.find((entry) => entry.id === "checkpoint-dead");
-  assert(detector !== undefined);
-  const report = runDetector(
-    detector,
-    buildStreamFacts(
-      events,
-      "main",
-      [],
-      ["revised-rule", "current-rule"],
-    ),
-  );
+    "checkpoint-dead: pre-boundary servings do not satisfy revised definitions":
+      () => {
+        const events: LogbookEvent[] = [
+          verb({
+            at: t(0),
+            branch: "agent/old",
+            checkpoints: {
+              fired: [{ id: "revised-rule" }, { id: "current-rule" }],
+            },
+          }),
+          {
+            schema: LOGBOOK_SCHEMA_VERSION,
+            at: t(1),
+            kind: "config-change",
+            branch: "agent/reconfigure",
+            sections: ["checkpoints"],
+            epoch: "e2",
+          },
+          ...Array.from({ length: 8 }, (_, i) =>
+            verb({
+              at: t(i + 2),
+              branch: `agent/new-${i}`,
+              epoch: "e2",
+              ...(i === 0
+                ? { checkpoints: { fired: [{ id: "current-rule" }] } }
+                : {}),
+            })),
+        ];
+        const detector = DETECTORS.find((entry) =>
+          entry.id === "checkpoint-dead"
+        );
+        assert(detector !== undefined);
+        const report = runDetector(
+          detector,
+          buildStreamFacts(
+            events,
+            "main",
+            [],
+            ["revised-rule", "current-rule"],
+          ),
+        );
 
-  assertEquals(report.status, "fired");
-  assertEquals(report.considered, 8);
-  assertEquals(
-    report.findings.map((finding) => finding.subject),
-    ["revised-rule"],
-  );
-  assertEquals(report.findings[0]?.evidence, { efforts: 8, fires: 0 });
+        assertEquals(report.status, "fired");
+        assertEquals(report.considered, 8);
+        assertEquals(
+          report.findings.map((finding) => finding.subject),
+          ["revised-rule"],
+        );
+        assertEquals(report.findings[0]?.evidence, { efforts: 8, fires: 0 });
+      },
+  });
 });

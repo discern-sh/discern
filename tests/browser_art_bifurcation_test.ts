@@ -8,6 +8,7 @@ import {
   BIFURCATION_TOPOLOGY,
 } from "../art/browser/bifurcation.tsx";
 import { renderArtGallery } from "../site/ui/pages/ArtGalleryPage.tsx";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const BIFURCATION_CSS = new URL(
   "../art/browser/bifurcation.css",
@@ -671,15 +672,249 @@ function assertBinaryTopology(): void {
   }
 }
 
-Deno.test("the topology doubles through three declared levels", () => {
-  assertEquals(
-    BIFURCATION_TOPOLOGY.levels.map((level) => level.nodes.length),
-    [2, 4, 8],
-  );
-  assertBinaryTopology();
-  const lastLevel = BIFURCATION_TOPOLOGY.levels.at(-1);
-  assert(lastLevel !== undefined);
-  assertEquals(BIFURCATION_TERMINALS, lastLevel.nodes);
+Deno.test("browser art bifurcation: contracts", () => {
+  assertNamedCases({
+    "the topology doubles through three declared levels": () => {
+      assertEquals(
+        BIFURCATION_TOPOLOGY.levels.map((level) => level.nodes.length),
+        [2, 4, 8],
+      );
+      assertBinaryTopology();
+      const lastLevel = BIFURCATION_TOPOLOGY.levels.at(-1);
+      assert(lastLevel !== undefined);
+      assertEquals(BIFURCATION_TERMINALS, lastLevel.nodes);
+    },
+    "culmination detectors automatically reject renamed future registry members":
+      () => {
+        const futureTopology = {
+          levels: [{
+            depth: 9,
+            nodes: [{ id: "later-limb", x: 650, y: 120 }],
+          }],
+        } as const;
+        const dom = new JSDOM(`
+    <article class="art-preview__theme">
+      <svg>
+        <g class="bifurcation-art__level" data-bifurcation-level="9">
+          <path class="bifurcation-art__branch"
+            data-bifurcation-branch="later-limb" pathLength="1"
+            d="M 0 0 L 10 0"></path>
+          <path class="later-wash" d="M 0 0 L 10 0"></path>
+        </g>
+        <g data-bifurcation-terminal="later-limb"
+          transform="translate(650 120)">
+          <g class="bifurcation-art__terminal-cap"
+            data-bifurcation-cap-motion data-bifurcation-motion>
+            <use x="640" y="110" width="20" height="20"></use>
+          </g>
+        </g>
+      </svg>
+    </article>
+  `);
+        const unsafeCss = `
+    .bifurcation-art__branch { stroke-dasharray: none; }
+    .bifurcation-art__level[data-bifurcation-level="9"]
+      .bifurcation-art__branch { animation-name: later-branch; }
+    .later-wash { stroke: var(--discern-color-canvas); }
+    .bifurcation-art__terminal-cap {
+      animation-name: later-cap;
+      transform-box: view-box;
+      transform-origin: 0 0;
+    }
+    @keyframes later-branch {
+      75%, 93% {
+        opacity: 1;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 0;
+      }
+    }
+    @keyframes later-cap {
+      0% { opacity: 0; transform: translateX(-4px) scale(0.7); }
+      78%, 93% { opacity: 1; transform: scale(1); }
+    }
+  `;
+        const root = dom.window.document.querySelector(
+          ".art-preview__theme",
+        );
+        assert(root !== null);
+
+        const branchIssues = branchCulminationIssues(
+          futureTopology,
+          root,
+          unsafeCss,
+        );
+        assertEquals(branchIssues.length, 1);
+        assertStringIncludes(branchIssues[0] ?? "", "later-limb");
+        assertStringIncludes(
+          branchIssues[0] ?? "",
+          "canvas-coloured stroke copy",
+        );
+        assertStringIncludes(
+          branchIssues[0] ?? "",
+          "individual branch animation",
+        );
+
+        const sweepIssues = sweepContinuityIssues(
+          futureTopology,
+          root,
+          unsafeCss,
+        );
+        assert(
+          sweepIssues.some((issue) =>
+            issue.startsWith("later-limb:") &&
+            issue.includes("owns an animation")
+          ),
+          sweepIssues.join("\n"),
+        );
+
+        const capIssues = terminalMotionIssues(futureTopology, root, unsafeCss);
+        assertEquals(capIssues.length, 1);
+        assertStringIncludes(capIssues[0] ?? "", "later-limb");
+        assertStringIncludes(capIssues[0] ?? "", "local origin 0 0");
+        assertStringIncludes(capIssues[0] ?? "", "translateX(-4px)");
+        dom.window.close();
+      },
+    "one bifurcation study renders in both fixed themes": () => {
+      const html = renderArtGallery();
+      const dom = new JSDOM(html);
+      const document = dom.window.document;
+      const study = document.querySelector(
+        '[data-browser-artwork="bifurcation"]',
+      );
+      assert(study !== null);
+
+      assertEquals(study.querySelectorAll(".art-gallery__theme").length, 2);
+      assertEquals(
+        study.querySelectorAll(
+          '.art-gallery__theme[data-discern-theme="light"]',
+        ).length,
+        1,
+      );
+      assertEquals(
+        study.querySelectorAll(
+          '.art-gallery__theme[data-discern-theme="dark"]',
+        ).length,
+        1,
+      );
+
+      for (
+        const theme of study.querySelectorAll(".art-gallery__theme")
+      ) {
+        assertEquals(
+          theme.querySelectorAll(".bifurcation-art > svg").length,
+          1,
+        );
+        const branchCount = BIFURCATION_TOPOLOGY.levels.reduce(
+          (total, level) => total + level.nodes.length,
+          0,
+        );
+        assertEquals(
+          theme.querySelectorAll("[data-bifurcation-branch]").length,
+          branchCount,
+        );
+        for (const level of BIFURCATION_TOPOLOGY.levels) {
+          assertEquals(
+            theme.querySelectorAll(
+              `[data-bifurcation-level="${level.depth}"] [data-bifurcation-branch]`,
+            ).length,
+            level.nodes.length,
+          );
+        }
+
+        const capSymbol = theme.querySelector<SVGSymbolElement>(
+          "symbol[data-bifurcation-cap-symbol]",
+        );
+        assert(capSymbol !== null);
+        const terminalCaps = [
+          ...theme.querySelectorAll<SVGGElement>("[data-bifurcation-terminal]"),
+        ];
+        assertEquals(terminalCaps.length, BIFURCATION_TERMINALS.length);
+        for (const cap of terminalCaps) {
+          const terminal = BIFURCATION_TERMINALS.find((candidate) =>
+            candidate.id === cap.getAttribute("data-bifurcation-terminal")
+          );
+          assert(terminal !== undefined);
+          assertEquals(
+            cap.getAttribute("transform"),
+            `translate(${terminal.x + 10} ${terminal.y})`,
+          );
+          assert(!cap.hasAttribute("data-bifurcation-motion"));
+          const motion = cap.querySelector<SVGGElement>(
+            "[data-bifurcation-cap-motion]",
+          );
+          assert(motion !== null);
+          assert(motion.hasAttribute("data-bifurcation-motion"));
+          const geometry = motion.querySelector<SVGUseElement>("use");
+          assert(geometry !== null);
+          assertEquals(geometry.getAttribute("href"), `#${capSymbol.id}`);
+          assertEquals(geometry.getAttribute("x"), "-7");
+          assertEquals(geometry.getAttribute("y"), "-7");
+          assertEquals(geometry.getAttribute("width"), "14");
+          assertEquals(geometry.getAttribute("height"), "14");
+        }
+
+        for (
+          const branch of theme.querySelectorAll("[data-bifurcation-branch]")
+        ) {
+          assert(branch.hasAttribute("data-bifurcation-parent"));
+          assert(!branch.hasAttribute("data-bifurcation-motion"));
+        }
+        assertEquals(
+          theme.querySelectorAll("[data-bifurcation-motion]").length,
+          2 + BIFURCATION_TERMINALS.length,
+        );
+      }
+
+      assert(
+        !html.includes("bifurcation-art__resolution"),
+        "the obsolete converging triangle must not return",
+      );
+
+      const ids = [...document.querySelectorAll("[id]")].map((element) =>
+        element.id
+      );
+      assertEquals(
+        ids.length,
+        new Set(ids).size,
+        "rendered ids must be unique",
+      );
+
+      const text = readableText(study.textContent);
+      assertStringIncludes(text, "One uninterrupted sweep");
+      assert(
+        !html.includes("_private"),
+        "private source paths must not render",
+      );
+      assertEquals(
+        [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
+          (script) => script.getAttribute("src"),
+        ),
+        [],
+        "the static preview must not ship a browser framework runtime",
+      );
+      dom.window.close();
+    },
+    "each artwork has a local title and description": () => {
+      const dom = new JSDOM(renderArtGallery());
+      const document = dom.window.document;
+
+      for (const svg of document.querySelectorAll(".bifurcation-art svg")) {
+        assertEquals(svg.getAttribute("role"), "img");
+        const labelledBy = (svg.getAttribute("aria-labelledby") ?? "").split(
+          /\s+/,
+        ).filter(Boolean);
+        assertEquals(labelledBy.length, 2);
+
+        const title = document.getElementById(labelledBy[0] ?? "");
+        const description = document.getElementById(labelledBy[1] ?? "");
+        assertEquals(title?.tagName.toLowerCase(), "title");
+        assertEquals(description?.tagName.toLowerCase(), "desc");
+        assert(readableText(title?.textContent ?? null).length > 0);
+        assert(readableText(description?.textContent ?? null).length > 0);
+      }
+      dom.window.close();
+    },
+  });
 });
 
 Deno.test("every registered branch culminates as one complete unoccluded stroke", async () => {
@@ -810,221 +1045,6 @@ Deno.test("motion-role easing must win the authored cascade", async () => {
   );
   dom.window.close();
 });
-
-Deno.test("culmination detectors automatically reject renamed future registry members", () => {
-  const futureTopology = {
-    levels: [{
-      depth: 9,
-      nodes: [{ id: "later-limb", x: 650, y: 120 }],
-    }],
-  } as const;
-  const dom = new JSDOM(`
-    <article class="art-preview__theme">
-      <svg>
-        <g class="bifurcation-art__level" data-bifurcation-level="9">
-          <path class="bifurcation-art__branch"
-            data-bifurcation-branch="later-limb" pathLength="1"
-            d="M 0 0 L 10 0"></path>
-          <path class="later-wash" d="M 0 0 L 10 0"></path>
-        </g>
-        <g data-bifurcation-terminal="later-limb"
-          transform="translate(650 120)">
-          <g class="bifurcation-art__terminal-cap"
-            data-bifurcation-cap-motion data-bifurcation-motion>
-            <use x="640" y="110" width="20" height="20"></use>
-          </g>
-        </g>
-      </svg>
-    </article>
-  `);
-  const unsafeCss = `
-    .bifurcation-art__branch { stroke-dasharray: none; }
-    .bifurcation-art__level[data-bifurcation-level="9"]
-      .bifurcation-art__branch { animation-name: later-branch; }
-    .later-wash { stroke: var(--discern-color-canvas); }
-    .bifurcation-art__terminal-cap {
-      animation-name: later-cap;
-      transform-box: view-box;
-      transform-origin: 0 0;
-    }
-    @keyframes later-branch {
-      75%, 93% {
-        opacity: 1;
-        stroke-dasharray: 1;
-        stroke-dashoffset: 0;
-      }
-    }
-    @keyframes later-cap {
-      0% { opacity: 0; transform: translateX(-4px) scale(0.7); }
-      78%, 93% { opacity: 1; transform: scale(1); }
-    }
-  `;
-  const root = dom.window.document.querySelector(
-    ".art-preview__theme",
-  );
-  assert(root !== null);
-
-  const branchIssues = branchCulminationIssues(
-    futureTopology,
-    root,
-    unsafeCss,
-  );
-  assertEquals(branchIssues.length, 1);
-  assertStringIncludes(branchIssues[0] ?? "", "later-limb");
-  assertStringIncludes(branchIssues[0] ?? "", "canvas-coloured stroke copy");
-  assertStringIncludes(branchIssues[0] ?? "", "individual branch animation");
-
-  const sweepIssues = sweepContinuityIssues(
-    futureTopology,
-    root,
-    unsafeCss,
-  );
-  assert(
-    sweepIssues.some((issue) =>
-      issue.startsWith("later-limb:") &&
-      issue.includes("owns an animation")
-    ),
-    sweepIssues.join("\n"),
-  );
-
-  const capIssues = terminalMotionIssues(futureTopology, root, unsafeCss);
-  assertEquals(capIssues.length, 1);
-  assertStringIncludes(capIssues[0] ?? "", "later-limb");
-  assertStringIncludes(capIssues[0] ?? "", "local origin 0 0");
-  assertStringIncludes(capIssues[0] ?? "", "translateX(-4px)");
-  dom.window.close();
-});
-
-Deno.test("one bifurcation study renders in both fixed themes", () => {
-  const html = renderArtGallery();
-  const dom = new JSDOM(html);
-  const document = dom.window.document;
-  const study = document.querySelector(
-    '[data-browser-artwork="bifurcation"]',
-  );
-  assert(study !== null);
-
-  assertEquals(study.querySelectorAll(".art-gallery__theme").length, 2);
-  assertEquals(
-    study.querySelectorAll(
-      '.art-gallery__theme[data-discern-theme="light"]',
-    ).length,
-    1,
-  );
-  assertEquals(
-    study.querySelectorAll(
-      '.art-gallery__theme[data-discern-theme="dark"]',
-    ).length,
-    1,
-  );
-
-  for (
-    const theme of study.querySelectorAll(".art-gallery__theme")
-  ) {
-    assertEquals(theme.querySelectorAll(".bifurcation-art > svg").length, 1);
-    const branchCount = BIFURCATION_TOPOLOGY.levels.reduce(
-      (total, level) => total + level.nodes.length,
-      0,
-    );
-    assertEquals(
-      theme.querySelectorAll("[data-bifurcation-branch]").length,
-      branchCount,
-    );
-    for (const level of BIFURCATION_TOPOLOGY.levels) {
-      assertEquals(
-        theme.querySelectorAll(
-          `[data-bifurcation-level="${level.depth}"] [data-bifurcation-branch]`,
-        ).length,
-        level.nodes.length,
-      );
-    }
-
-    const capSymbol = theme.querySelector<SVGSymbolElement>(
-      "symbol[data-bifurcation-cap-symbol]",
-    );
-    assert(capSymbol !== null);
-    const terminalCaps = [
-      ...theme.querySelectorAll<SVGGElement>("[data-bifurcation-terminal]"),
-    ];
-    assertEquals(terminalCaps.length, BIFURCATION_TERMINALS.length);
-    for (const cap of terminalCaps) {
-      const terminal = BIFURCATION_TERMINALS.find((candidate) =>
-        candidate.id === cap.getAttribute("data-bifurcation-terminal")
-      );
-      assert(terminal !== undefined);
-      assertEquals(
-        cap.getAttribute("transform"),
-        `translate(${terminal.x + 10} ${terminal.y})`,
-      );
-      assert(!cap.hasAttribute("data-bifurcation-motion"));
-      const motion = cap.querySelector<SVGGElement>(
-        "[data-bifurcation-cap-motion]",
-      );
-      assert(motion !== null);
-      assert(motion.hasAttribute("data-bifurcation-motion"));
-      const geometry = motion.querySelector<SVGUseElement>("use");
-      assert(geometry !== null);
-      assertEquals(geometry.getAttribute("href"), `#${capSymbol.id}`);
-      assertEquals(geometry.getAttribute("x"), "-7");
-      assertEquals(geometry.getAttribute("y"), "-7");
-      assertEquals(geometry.getAttribute("width"), "14");
-      assertEquals(geometry.getAttribute("height"), "14");
-    }
-
-    for (const branch of theme.querySelectorAll("[data-bifurcation-branch]")) {
-      assert(branch.hasAttribute("data-bifurcation-parent"));
-      assert(!branch.hasAttribute("data-bifurcation-motion"));
-    }
-    assertEquals(
-      theme.querySelectorAll("[data-bifurcation-motion]").length,
-      2 + BIFURCATION_TERMINALS.length,
-    );
-  }
-
-  assert(
-    !html.includes("bifurcation-art__resolution"),
-    "the obsolete converging triangle must not return",
-  );
-
-  const ids = [...document.querySelectorAll("[id]")].map((element) =>
-    element.id
-  );
-  assertEquals(ids.length, new Set(ids).size, "rendered ids must be unique");
-
-  const text = readableText(study.textContent);
-  assertStringIncludes(text, "One uninterrupted sweep");
-  assert(!html.includes("_private"), "private source paths must not render");
-  assertEquals(
-    [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
-      (script) => script.getAttribute("src"),
-    ),
-    [],
-    "the static preview must not ship a browser framework runtime",
-  );
-  dom.window.close();
-});
-
-Deno.test("each artwork has a local title and description", () => {
-  const dom = new JSDOM(renderArtGallery());
-  const document = dom.window.document;
-
-  for (const svg of document.querySelectorAll(".bifurcation-art svg")) {
-    assertEquals(svg.getAttribute("role"), "img");
-    const labelledBy = (svg.getAttribute("aria-labelledby") ?? "").split(
-      /\s+/,
-    ).filter(Boolean);
-    assertEquals(labelledBy.length, 2);
-
-    const title = document.getElementById(labelledBy[0] ?? "");
-    const description = document.getElementById(labelledBy[1] ?? "");
-    assertEquals(title?.tagName.toLowerCase(), "title");
-    assertEquals(description?.tagName.toLowerCase(), "desc");
-    assert(readableText(title?.textContent ?? null).length > 0);
-    assert(readableText(description?.textContent ?? null).length > 0);
-  }
-  dom.window.close();
-});
-
 Deno.test("the artwork remains fluid through the compact gallery breakpoints", async () => {
   const dom = new JSDOM(renderArtGallery());
   const css = await Deno.readTextFile(BIFURCATION_CSS);

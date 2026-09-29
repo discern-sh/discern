@@ -39,6 +39,7 @@ import {
 } from "./engine_helpers.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 interface CksumVector {
   input: string;
@@ -101,87 +102,106 @@ const fixture: ParityFixture = decodeWith(
   ),
 );
 
-Deno.test("POSIX cksum parity vectors", () => {
-  for (const v of fixture.cksum) {
-    assertEquals(
-      cksumString(v.input),
-      v.crc,
-      `cksum('${v.input}') should be ${v.crc}`,
-    );
-  }
+Deno.test("worktree identity: deterministic identity", () => {
+  assertNamedCases({
+    "POSIX cksum parity vectors": () => {
+      for (const v of fixture.cksum) {
+        assertEquals(
+          cksumString(v.input),
+          v.crc,
+          `cksum('${v.input}') should be ${v.crc}`,
+        );
+      }
+    },
+    "the declared identity contract matches the frozen parity fixture": () => {
+      assertEquals(WORKTREE_IDENTITY_CONTRACT.checksum, "posix-cksum");
+      assertEquals(
+        WORKTREE_IDENTITY_CONTRACT.portBase,
+        fixture.identity.port_band.base,
+      );
+      assertEquals(
+        WORKTREE_IDENTITY_CONTRACT.portSpan,
+        fixture.identity.port_band.span,
+      );
+      assertEquals(
+        WORKTREE_IDENTITY_CONTRACT.dnsLabelLimit,
+        fixture.identity.site_dns_label_limit,
+      );
+      assertEquals(WORKTREE_IDENTITY_CONTRACT.databaseInputs, [
+        "project-slug",
+        "worktree-id",
+      ]);
+      assertEquals(WORKTREE_IDENTITY_CONTRACT.branchInputs, [
+        "branch-prefix",
+        "worktree-id",
+      ]);
+      assertEquals(WORKTREE_IDENTITY_CONTRACT.seedInput, "full-branch");
+      assertEquals(WORKTREE_IDENTITY_CONTRACT.slugCollisionPrefix, "wt-");
+    },
+    "deriveIdentity reproduces the shell engine's identity vectors": () => {
+      const settings: IdentitySettings = {
+        slug: fixture.identity.slug,
+        branchPrefix: fixture.identity.branch_prefix,
+      };
+      for (const c of fixture.identity.cases) {
+        const got = deriveIdentity(c.id, settings);
+        assertEquals(got.id, c.id, `id for '${c.id}'`);
+        assertEquals(got.port, c.port, `port for '${c.id}'`);
+        assertEquals(got.site, c.site, `site for '${c.id}'`);
+        assertEquals(got.db, c.db, `db for '${c.id}'`);
+        assertEquals(got.branch, c.branch, `branch for '${c.id}'`);
+        assertEquals(got.seed, c.seed, `seed for '${c.id}'`);
+      }
+    },
+    "the pure derivation helpers match the vectors": () => {
+      const slug = fixture.identity.slug;
+      for (const c of fixture.identity.cases) {
+        assertEquals(portForId(c.id), c.port, `portForId('${c.id}')`);
+        assertEquals(siteForId(slug, c.id), c.site, `siteForId('${c.id}')`);
+        assertEquals(dbNameForId(slug, c.id), c.db, `dbNameForId('${c.id}')`);
+        assertEquals(
+          seedForBranch(c.branch),
+          c.seed,
+          `seedForBranch('${c.branch}')`,
+        );
+      }
+    },
+    "the trunk identity is branch-derived and constant for one configuration":
+      () => {
+        const settings: IdentitySettings = {
+          slug: "discern",
+          branchPrefix: "agent/",
+          trunk: "release/stable",
+        };
+        const first = deriveTrunkIdentity(settings);
+        const second = deriveTrunkIdentity(settings);
+        assertEquals(first, second);
+        assertEquals(first.id, "release-stable");
+        assertEquals(first.branch, "release/stable");
+        assertEquals(first.seed, seedForBranch("release/stable"));
+        assertEquals(first.port, portForId("release-stable"));
+      },
+    "the long-id case triggers the fit_site_id tail hash (documented double dash)":
+      () => {
+        const slug = fixture.identity.slug;
+        const longCase = fixture.identity.cases.find((c) => c.id.length > 55);
+        if (!longCase) {
+          throw new Error("expected a long-id case in the fixture");
+        }
+        // max_id_len = 63 - 7 - 1 = 55; the id is 67 chars, so it clamps + hashes.
+        const fitted = fitSiteId(slug, longCase.id);
+        assertEquals(`${slug}-${fitted}`, longCase.site);
+        // The clamp lands on a dash boundary, producing the documented `--` join.
+        if (!longCase.site.includes("--")) {
+          throw new Error(
+            "expected the documented double-dash in the long-id site",
+          );
+        }
+        // db must NOT clamp (the full id survives, underscore-joined).
+        assertEquals(dbNameForId(slug, longCase.id), longCase.db);
+      },
+  });
 });
-
-Deno.test("the declared identity contract matches the frozen parity fixture", () => {
-  assertEquals(WORKTREE_IDENTITY_CONTRACT.checksum, "posix-cksum");
-  assertEquals(
-    WORKTREE_IDENTITY_CONTRACT.portBase,
-    fixture.identity.port_band.base,
-  );
-  assertEquals(
-    WORKTREE_IDENTITY_CONTRACT.portSpan,
-    fixture.identity.port_band.span,
-  );
-  assertEquals(
-    WORKTREE_IDENTITY_CONTRACT.dnsLabelLimit,
-    fixture.identity.site_dns_label_limit,
-  );
-  assertEquals(WORKTREE_IDENTITY_CONTRACT.databaseInputs, [
-    "project-slug",
-    "worktree-id",
-  ]);
-  assertEquals(WORKTREE_IDENTITY_CONTRACT.branchInputs, [
-    "branch-prefix",
-    "worktree-id",
-  ]);
-  assertEquals(WORKTREE_IDENTITY_CONTRACT.seedInput, "full-branch");
-  assertEquals(WORKTREE_IDENTITY_CONTRACT.slugCollisionPrefix, "wt-");
-});
-
-Deno.test("deriveIdentity reproduces the shell engine's identity vectors", () => {
-  const settings: IdentitySettings = {
-    slug: fixture.identity.slug,
-    branchPrefix: fixture.identity.branch_prefix,
-  };
-  for (const c of fixture.identity.cases) {
-    const got = deriveIdentity(c.id, settings);
-    assertEquals(got.id, c.id, `id for '${c.id}'`);
-    assertEquals(got.port, c.port, `port for '${c.id}'`);
-    assertEquals(got.site, c.site, `site for '${c.id}'`);
-    assertEquals(got.db, c.db, `db for '${c.id}'`);
-    assertEquals(got.branch, c.branch, `branch for '${c.id}'`);
-    assertEquals(got.seed, c.seed, `seed for '${c.id}'`);
-  }
-});
-
-Deno.test("the pure derivation helpers match the vectors", () => {
-  const slug = fixture.identity.slug;
-  for (const c of fixture.identity.cases) {
-    assertEquals(portForId(c.id), c.port, `portForId('${c.id}')`);
-    assertEquals(siteForId(slug, c.id), c.site, `siteForId('${c.id}')`);
-    assertEquals(dbNameForId(slug, c.id), c.db, `dbNameForId('${c.id}')`);
-    assertEquals(
-      seedForBranch(c.branch),
-      c.seed,
-      `seedForBranch('${c.branch}')`,
-    );
-  }
-});
-
-Deno.test("the trunk identity is branch-derived and constant for one configuration", () => {
-  const settings: IdentitySettings = {
-    slug: "discern",
-    branchPrefix: "agent/",
-    trunk: "release/stable",
-  };
-  const first = deriveTrunkIdentity(settings);
-  const second = deriveTrunkIdentity(settings);
-  assertEquals(first, second);
-  assertEquals(first.id, "release-stable");
-  assertEquals(first.branch, "release/stable");
-  assertEquals(first.seed, seedForBranch("release/stable"));
-  assertEquals(first.port, portForId("release-stable"));
-});
-
 Deno.test("resolveIdentity gives the main checkout and linked worktree first-class values", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
@@ -202,50 +222,65 @@ Deno.test("resolveIdentity gives the main checkout and linked worktree first-cla
   });
 });
 
-Deno.test("generateWorktreeId mints a readable, valid, unique id (the discern start basis)", () => {
-  // With no name: <adjective>-<noun>-<hex tail>, all slug-safe — readable like the
-  // names Claude Code's hook supplies, but minted by discern for `discern start`.
-  const minted = generateWorktreeId();
-  assertEquals(minted.source, "codename");
-  assertMatch(minted.id, /^[a-z]+-[a-z]+-[0-9a-f]{6}$/);
+Deno.test("worktree identity: generated identities", () => {
+  assertNamedCases({
+    "generateWorktreeId mints a readable, valid, unique id (the discern start basis)":
+      () => {
+        // With no name: <adjective>-<noun>-<hex tail>, all slug-safe — readable like the
+        // names Claude Code's hook supplies, but minted by discern for `discern start`.
+        const minted = generateWorktreeId();
+        assertEquals(minted.source, "codename");
+        assertMatch(minted.id, /^[a-z]+-[a-z]+-[0-9a-f]{6}$/);
 
-  // It is a valid identity id: the override validator accepts it unchanged, and the
-  // derived branch is the clean `agent/<id>` `discern start` puts the worktree on.
-  assertEquals(
-    validateOverrideId(minted.id),
-    minted.id,
-    `minted id '${minted.id}' must be slug-valid`,
-  );
-  assertEquals(
-    deriveIdentity(minted.id, { slug: "discern", branchPrefix: "agent/" })
-      .branch,
-    `agent/${minted.id}`,
-  );
+        // It is a valid identity id: the override validator accepts it unchanged, and the
+        // derived branch is the clean `agent/<id>` `discern start` puts the worktree on.
+        assertEquals(
+          validateOverrideId(minted.id),
+          minted.id,
+          `minted id '${minted.id}' must be slug-valid`,
+        );
+        assertEquals(
+          deriveIdentity(minted.id, { slug: "discern", branchPrefix: "agent/" })
+            .branch,
+          `agent/${minted.id}`,
+        );
 
-  // Fresh across calls: the hex tail makes a repeated call collide only by
-  // astronomical chance, so a batch must be all-distinct (the property `discern
-  // start` relies on to never re-mint a live worktree's id).
-  const batch = Array.from({ length: 500 }, () => generateWorktreeId().id);
-  assertEquals(new Set(batch).size, batch.length, "minted ids must be unique");
-  assert(
-    new Set(batch.map((i) => i.split("-").slice(0, 2).join("-"))).size > 1,
-    "the word pair should vary across a large batch (not a constant prefix)",
-  );
+        // Fresh across calls: the hex tail makes a repeated call collide only by
+        // astronomical chance, so a batch must be all-distinct (the property `discern
+        // start` relies on to never re-mint a live worktree's id).
+        const batch = Array.from(
+          { length: 500 },
+          () => generateWorktreeId().id,
+        );
+        assertEquals(
+          new Set(batch).size,
+          batch.length,
+          "minted ids must be unique",
+        );
+        assert(
+          new Set(batch.map((i) => i.split("-").slice(0, 2).join("-"))).size >
+            1,
+          "the word pair should vary across a large batch (not a constant prefix)",
+        );
+      },
+    "generateWorktreeId(name) builds a <slug>-<hex> id and keeps the hex unique":
+      () => {
+        const first = generateWorktreeId("fix the upload retry");
+        assertEquals(first.source, "name");
+        assertMatch(first.id, /^fix-the-upload-retry-[0-9a-f]{6}$/);
+
+        // Two worktrees sharing a name still get distinct ids — the hex tail, not the
+        // words, is the uniqueness. This is what lets `discern start` name freely without
+        // ever re-minting a live worktree's id.
+        const second = generateWorktreeId("fix the upload retry");
+        assertMatch(second.id, /^fix-the-upload-retry-[0-9a-f]{6}$/);
+        assert(
+          first.id !== second.id,
+          "same name must still mint distinct ids",
+        );
+      },
+  });
 });
-
-Deno.test("generateWorktreeId(name) builds a <slug>-<hex> id and keeps the hex unique", () => {
-  const first = generateWorktreeId("fix the upload retry");
-  assertEquals(first.source, "name");
-  assertMatch(first.id, /^fix-the-upload-retry-[0-9a-f]{6}$/);
-
-  // Two worktrees sharing a name still get distinct ids — the hex tail, not the
-  // words, is the uniqueness. This is what lets `discern start` name freely without
-  // ever re-minting a live worktree's id.
-  const second = generateWorktreeId("fix the upload retry");
-  assertMatch(second.id, /^fix-the-upload-retry-[0-9a-f]{6}$/);
-  assert(first.id !== second.id, "same name must still mint distinct ids");
-});
-
 // The class guard for "no caller string can break `discern start`". Every hostile
 // name must reduce — without throwing — to a branch- and path-safe id (or a codename
 // fallback), stay within the length cap, and round-trip as a valid identity id. The
@@ -331,94 +366,84 @@ const NAME_CASES: readonly NameCase[] = [
   { name: "", source: "codename", note: false },
 ];
 
-Deno.test("chooseWorktreeName neutralises every hostile name (branch-safe or codename)", () => {
-  for (const c of NAME_CASES) {
-    const choice = chooseWorktreeName(c.name); // must never throw
-    assertEquals(choice.source, c.source, `source for '${c.name}'`);
-    assertEquals(
-      choice.note !== undefined,
-      c.note,
-      `note presence for '${c.name}'`,
-    );
+Deno.test("worktree identity: name normalization", () => {
+  assertNamedCases({
+    "chooseWorktreeName neutralises every hostile name (branch-safe or codename)":
+      () => {
+        for (const c of NAME_CASES) {
+          const choice = chooseWorktreeName(c.name); // must never throw
+          assertEquals(choice.source, c.source, `source for '${c.name}'`);
+          assertEquals(
+            choice.note !== undefined,
+            c.note,
+            `note presence for '${c.name}'`,
+          );
 
-    if (choice.source === "name") {
+          if (choice.source === "name") {
+            assert(
+              SAFE_SLUG.test(choice.slug),
+              `slug '${choice.slug}' from '${c.name}' must be branch-safe`,
+            );
+            assert(
+              choice.slug.length <= NAME_SLUG_MAX,
+              `slug '${choice.slug}' from '${c.name}' must fit ${NAME_SLUG_MAX} chars`,
+            );
+            if (c.slug !== undefined) {
+              assertEquals(choice.slug, c.slug, `slug for '${c.name}'`);
+            }
+          } else {
+            assertEquals(
+              choice.slug,
+              "",
+              `codename choice for '${c.name}' is slug-less`,
+            );
+          }
+
+          // The load-bearing invariant: whatever the name, the minted id is a valid identity
+          // id (round-trips through the override validator) and keeps its hex tail.
+          const minted = generateWorktreeId(c.name);
+          assertEquals(
+            minted.source,
+            c.source,
+            `minted source for '${c.name}'`,
+          );
+          assertEquals(
+            validateOverrideId(minted.id),
+            minted.id,
+            `minted id '${minted.id}' from '${c.name}' must be a valid identity id`,
+          );
+          if (c.source === "codename") {
+            assertMatch(
+              minted.id,
+              /^[a-z]+-[a-z]+-[0-9a-f]{6}$/,
+              `codename id '${minted.id}' keeps the <adjective>-<noun>-<hex> shape`,
+            );
+          } else {
+            assertMatch(
+              minted.id,
+              new RegExp(`^${choice.slug}-[0-9a-f]{6}$`),
+              `named id '${minted.id}' must be <slug>-<hex>`,
+            );
+          }
+        }
+      },
+    "chooseWorktreeName notes explain normalisation and fallback": () => {
+      const normalised = chooseWorktreeName("Fix Upload");
       assert(
-        SAFE_SLUG.test(choice.slug),
-        `slug '${choice.slug}' from '${c.name}' must be branch-safe`,
+        normalised.note !== undefined &&
+          normalised.note.includes("Fix Upload") &&
+          normalised.note.includes("fix-upload"),
+        `normalisation note should show both forms: ${normalised.note}`,
       );
+
+      const fallback = chooseWorktreeName("🚀");
       assert(
-        choice.slug.length <= NAME_SLUG_MAX,
-        `slug '${choice.slug}' from '${c.name}' must fit ${NAME_SLUG_MAX} chars`,
+        fallback.note !== undefined && /codename/i.test(fallback.note),
+        `fallback note should mention the codename substitution: ${fallback.note}`,
       );
-      if (c.slug !== undefined) {
-        assertEquals(choice.slug, c.slug, `slug for '${c.name}'`);
-      }
-    } else {
-      assertEquals(
-        choice.slug,
-        "",
-        `codename choice for '${c.name}' is slug-less`,
-      );
-    }
-
-    // The load-bearing invariant: whatever the name, the minted id is a valid identity
-    // id (round-trips through the override validator) and keeps its hex tail.
-    const minted = generateWorktreeId(c.name);
-    assertEquals(minted.source, c.source, `minted source for '${c.name}'`);
-    assertEquals(
-      validateOverrideId(minted.id),
-      minted.id,
-      `minted id '${minted.id}' from '${c.name}' must be a valid identity id`,
-    );
-    if (c.source === "codename") {
-      assertMatch(
-        minted.id,
-        /^[a-z]+-[a-z]+-[0-9a-f]{6}$/,
-        `codename id '${minted.id}' keeps the <adjective>-<noun>-<hex> shape`,
-      );
-    } else {
-      assertMatch(
-        minted.id,
-        new RegExp(`^${choice.slug}-[0-9a-f]{6}$`),
-        `named id '${minted.id}' must be <slug>-<hex>`,
-      );
-    }
-  }
+    },
+  });
 });
-
-Deno.test("chooseWorktreeName notes explain normalisation and fallback", () => {
-  const normalised = chooseWorktreeName("Fix Upload");
-  assert(
-    normalised.note !== undefined &&
-      normalised.note.includes("Fix Upload") &&
-      normalised.note.includes("fix-upload"),
-    `normalisation note should show both forms: ${normalised.note}`,
-  );
-
-  const fallback = chooseWorktreeName("🚀");
-  assert(
-    fallback.note !== undefined && /codename/i.test(fallback.note),
-    `fallback note should mention the codename substitution: ${fallback.note}`,
-  );
-});
-
-Deno.test("the long-id case triggers the fit_site_id tail hash (documented double dash)", () => {
-  const slug = fixture.identity.slug;
-  const longCase = fixture.identity.cases.find((c) => c.id.length > 55);
-  if (!longCase) {
-    throw new Error("expected a long-id case in the fixture");
-  }
-  // max_id_len = 63 - 7 - 1 = 55; the id is 67 chars, so it clamps + hashes.
-  const fitted = fitSiteId(slug, longCase.id);
-  assertEquals(`${slug}-${fitted}`, longCase.site);
-  // The clamp lands on a dash boundary, producing the documented `--` join.
-  if (!longCase.site.includes("--")) {
-    throw new Error("expected the documented double-dash in the long-id site");
-  }
-  // db must NOT clamp (the full id survives, underscore-joined).
-  assertEquals(dbNameForId(slug, longCase.id), longCase.db);
-});
-
 Deno.test("resolveWorktreeId honours the DISCERN_WORKTREE_ID env override (parity ids)", async () => {
   const settings: IdentitySettings = {
     slug: fixture.identity.slug,

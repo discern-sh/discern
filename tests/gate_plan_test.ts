@@ -36,6 +36,7 @@ import { serializeResult } from "../src/shared/result_serialization.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { GATE_JOB_ENVIRONMENT } from "../src/engine/jobs/command.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const FULL = parseConfigOrThrow(`
 [jobs]
@@ -72,17 +73,184 @@ function jobResult(
   };
 }
 
-Deno.test("the FULL fixture wires EVERY known capability (so the gate-shape tests cover the whole vocabulary)", () => {
-  // The plan/shape assertions below hard-code capability labels off FULL's
-  // [jobs]. Tie that fixture to the SSOT: a capability added to
-  // KNOWN_JOBS must be wired into FULL (and its gate shape asserted) rather
-  // than silently escaping this fast unit coverage.
-  assertEquals(
-    Object.keys(FULL.jobs).filter((name) => name in KNOWN_JOBS).sort(),
-    Object.keys(KNOWN_JOBS).sort(),
-    "the FULL fixture has drifted from KNOWN_JOBS — add the new capability to " +
-      "the [jobs] block above and assert its gate-stage shape",
-  );
+Deno.test("gate plan: planning", () => {
+  assertNamedCases({
+    "the FULL fixture wires EVERY known capability (so the gate-shape tests cover the whole vocabulary)":
+      () => {
+        // The plan/shape assertions below hard-code capability labels off FULL's
+        // [jobs]. Tie that fixture to the SSOT: a capability added to
+        // KNOWN_JOBS must be wired into FULL (and its gate shape asserted) rather
+        // than silently escaping this fast unit coverage.
+        assertEquals(
+          Object.keys(FULL.jobs).filter((name) => name in KNOWN_JOBS).sort(),
+          Object.keys(KNOWN_JOBS).sort(),
+          "the FULL fixture has drifted from KNOWN_JOBS — add the new capability to " +
+            "the [jobs] block above and assert its gate-stage shape",
+        );
+      },
+    "gate job labels are unique across the whole plan (results are keyed by label)":
+      () => {
+        // The executor records every job result into ONE label-keyed map, and the
+        // report looks each planned job up by label — so the plan's labels must be
+        // unique across every job source. Exercise them all, driven off the
+        // KNOWN_JOBS / STAGES registries so a new capability, stage, or label
+        // scheme auto-enrols: every capability as an ordered LIST, a
+        // check in every stage, and several scope gates.
+        const toml = [
+          "[jobs]",
+          ...Object.keys(KNOWN_JOBS).map((c) => `${c} = ["run-a", "run-b"]`),
+          ...STAGES.flatMap((
+            s,
+          ) => [`[jobs.extra-${s}]`, `stage = "${s}"`, 'run = "x"']),
+          "[scopes.widget]",
+          'paths = ["widget/**"]',
+          'gate = "echo w"',
+          "[scopes.gadget]",
+          'paths = ["gadget/**"]',
+          'gate = "echo g"',
+        ].join("\n");
+        const plan = buildGatePlan(parseConfigOrThrow(toml), [
+          "widget",
+          "gadget",
+        ]);
+        const labels = plan.groups.flatMap((g) => g.jobs.map((j) => j.label));
+        assert(labels.length > 0);
+        assertEquals(
+          labels.length,
+          new Set(labels).size,
+          `duplicate gate job labels in: ${labels.join(", ")}`,
+        );
+      },
+    "planStageJobs: derived stage, ordered recipes, willRun always true":
+      () => {
+        const check = planStageJobs(FULL, "check");
+        assertEquals(check.map((j) => j.label), ["lint", "typecheck"]);
+        assert(check.every((j) => j.willRun));
+        assert(check.every((j) => j.reportStage === "check"));
+        assertEquals(planStageJobs(FULL, "fix").map((j) => j.label), [
+          "format",
+        ]);
+      },
+    "planScopeGates: every configured gate, willRun only for changed scopes":
+      () => {
+        const gates = planScopeGates(FULL, ["code", "widget"]);
+        assertEquals(gates.map((j) => j.label), [
+          "scope:widget",
+          "scope:gadget",
+        ]);
+        assertEquals(
+          gates.find((g) => g.label === "scope:widget")?.willRun,
+          true,
+        );
+        assertEquals(
+          gates.find((g) => g.label === "scope:gadget")?.willRun,
+          false,
+        );
+        assert(gates.every((g) => g.kind === "scope-gate"));
+      },
+    "buildGatePlan: the fresh cap splits check and test in registry order":
+      () => {
+        const plan = buildGatePlan(FULL, ["widget"]);
+        assertEquals(plan.groups.map((g) => g.stage), [
+          "fix",
+          "build",
+          "check",
+          "test",
+          "scope_gates",
+        ]);
+        assertEquals(plan.groups.map((g) => g.mode), [
+          "serial", // fix mutates — serial
+          "parallel",
+          "parallel",
+          "parallel",
+          "parallel",
+        ]);
+        assertEquals(
+          plan.groups.find((g) => g.stage === "check")?.jobs.map((j) =>
+            j.label
+          ),
+          [
+            "lint",
+            "typecheck",
+          ],
+        );
+        // `smoke` rides the test stage (ADR 0090), so it follows `test`.
+        assertEquals(
+          plan.groups.find((g) => g.stage === "test")?.jobs.map((j) => j.label),
+          [
+            "test",
+            "smoke",
+          ],
+        );
+        assert(plan.mergeCheck);
+      },
+    "live Gate admission stays pure and reserves every configured scope row":
+      () => {
+        const admission = gateLiveAdmissionGroups(FULL);
+        assertEquals(admission.initialGroups.map((group) => group.stage), [
+          "fix",
+          "build",
+          "check",
+          "test",
+        ]);
+        assertEquals(admission.maximumGroups.map((group) => group.stage), [
+          "fix",
+          "build",
+          "check",
+          "test",
+          "scope_gates",
+        ]);
+        const scopeJobs = admission.maximumGroups
+          .find((group) => group.stage === "scope_gates")
+          ?.jobs ?? [];
+        assertEquals(scopeJobs.map((job) => job.label), [
+          "scope:widget",
+          "scope:gadget",
+        ]);
+        assert(scopeJobs.every((job) => job.willRun));
+      },
+    "buildGatePlan: empty stages produce no group (a no-op gate has no groups)":
+      () => {
+        const bare = parseConfigOrThrow('[project]\nslug = "x"\n');
+        const plan = buildGatePlan(bare, []);
+        assertEquals(plan.groups, []);
+        assert(plan.mergeCheck);
+      },
+    "gatePlanToEngine: firing job is run, unchanged scope gate is skip, built-in preconditions are gates":
+      () => {
+        const plan = buildGatePlan(FULL, ["widget"]);
+        const engine = gatePlanToEngine(plan);
+        const widget = engine.steps.find((s) => s.label === "scope:widget");
+        const gadget = engine.steps.find((s) => s.label === "scope:gadget");
+        assertEquals(widget?.disposition, "run");
+        assertEquals(gadget?.disposition, "skip");
+        assertEquals(
+          engine.steps.find((s) => s.label === "format")?.disposition,
+          "run",
+        );
+        // The merge check, tracked-artifacts guard, and instructions + skills currency checks
+        // (FULL leaves both features on) are read-only `gate` preconditions, listed for
+        // honesty.
+        assertEquals(
+          engine.steps.find((s) => s.kind === "merge-check")?.disposition,
+          "gate",
+        );
+        assertEquals(
+          engine.steps.find((s) => s.kind === "tracked-artifacts-check")
+            ?.disposition,
+          "gate",
+        );
+        assertEquals(
+          engine.steps.find((s) => s.kind === "instructions-check")
+            ?.disposition,
+          "gate",
+        );
+        assertEquals(
+          engine.steps.find((s) => s.kind === "skills-check")?.disposition,
+          "gate",
+        );
+      },
+  });
 });
 
 Deno.test("the Gate contract documents its registry order, fixed child environment, process groups, and currency rule", async () => {
@@ -151,119 +319,6 @@ Deno.test("CLI, MCP, and composite done paths share one preamble implementation"
     3,
   );
 });
-
-Deno.test("gate job labels are unique across the whole plan (results are keyed by label)", () => {
-  // The executor records every job result into ONE label-keyed map, and the
-  // report looks each planned job up by label — so the plan's labels must be
-  // unique across every job source. Exercise them all, driven off the
-  // KNOWN_JOBS / STAGES registries so a new capability, stage, or label
-  // scheme auto-enrols: every capability as an ordered LIST, a
-  // check in every stage, and several scope gates.
-  const toml = [
-    "[jobs]",
-    ...Object.keys(KNOWN_JOBS).map((c) => `${c} = ["run-a", "run-b"]`),
-    ...STAGES.flatMap((
-      s,
-    ) => [`[jobs.extra-${s}]`, `stage = "${s}"`, 'run = "x"']),
-    "[scopes.widget]",
-    'paths = ["widget/**"]',
-    'gate = "echo w"',
-    "[scopes.gadget]",
-    'paths = ["gadget/**"]',
-    'gate = "echo g"',
-  ].join("\n");
-  const plan = buildGatePlan(parseConfigOrThrow(toml), ["widget", "gadget"]);
-  const labels = plan.groups.flatMap((g) => g.jobs.map((j) => j.label));
-  assert(labels.length > 0);
-  assertEquals(
-    labels.length,
-    new Set(labels).size,
-    `duplicate gate job labels in: ${labels.join(", ")}`,
-  );
-});
-
-Deno.test("planStageJobs: derived stage, ordered recipes, willRun always true", () => {
-  const check = planStageJobs(FULL, "check");
-  assertEquals(check.map((j) => j.label), ["lint", "typecheck"]);
-  assert(check.every((j) => j.willRun));
-  assert(check.every((j) => j.reportStage === "check"));
-  assertEquals(planStageJobs(FULL, "fix").map((j) => j.label), ["format"]);
-});
-
-Deno.test("planScopeGates: every configured gate, willRun only for changed scopes", () => {
-  const gates = planScopeGates(FULL, ["code", "widget"]);
-  assertEquals(gates.map((j) => j.label), ["scope:widget", "scope:gadget"]);
-  assertEquals(gates.find((g) => g.label === "scope:widget")?.willRun, true);
-  assertEquals(gates.find((g) => g.label === "scope:gadget")?.willRun, false);
-  assert(gates.every((g) => g.kind === "scope-gate"));
-});
-
-Deno.test("buildGatePlan: the fresh cap splits check and test in registry order", () => {
-  const plan = buildGatePlan(FULL, ["widget"]);
-  assertEquals(plan.groups.map((g) => g.stage), [
-    "fix",
-    "build",
-    "check",
-    "test",
-    "scope_gates",
-  ]);
-  assertEquals(plan.groups.map((g) => g.mode), [
-    "serial", // fix mutates — serial
-    "parallel",
-    "parallel",
-    "parallel",
-    "parallel",
-  ]);
-  assertEquals(
-    plan.groups.find((g) => g.stage === "check")?.jobs.map((j) => j.label),
-    [
-      "lint",
-      "typecheck",
-    ],
-  );
-  // `smoke` rides the test stage (ADR 0090), so it follows `test`.
-  assertEquals(
-    plan.groups.find((g) => g.stage === "test")?.jobs.map((j) => j.label),
-    [
-      "test",
-      "smoke",
-    ],
-  );
-  assert(plan.mergeCheck);
-});
-
-Deno.test("live Gate admission stays pure and reserves every configured scope row", () => {
-  const admission = gateLiveAdmissionGroups(FULL);
-  assertEquals(admission.initialGroups.map((group) => group.stage), [
-    "fix",
-    "build",
-    "check",
-    "test",
-  ]);
-  assertEquals(admission.maximumGroups.map((group) => group.stage), [
-    "fix",
-    "build",
-    "check",
-    "test",
-    "scope_gates",
-  ]);
-  const scopeJobs = admission.maximumGroups
-    .find((group) => group.stage === "scope_gates")
-    ?.jobs ?? [];
-  assertEquals(scopeJobs.map((job) => job.label), [
-    "scope:widget",
-    "scope:gadget",
-  ]);
-  assert(scopeJobs.every((job) => job.willRun));
-});
-
-Deno.test("buildGatePlan: empty stages produce no group (a no-op gate has no groups)", () => {
-  const bare = parseConfigOrThrow('[project]\nslug = "x"\n');
-  const plan = buildGatePlan(bare, []);
-  assertEquals(plan.groups, []);
-  assert(plan.mergeCheck);
-});
-
 Deno.test("buildGateResult: serializes plan+results into the DiscernResult envelope", async () => {
   const plan = buildGatePlan(FULL, ["widget"]);
   // Simulate: fix+build+check/test all passed; widget gate passed; gadget skipped.
@@ -516,40 +571,6 @@ Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic
   // Every diagnostic is Tier-1 (located) — none fell back to a raw Tier-0 blob.
   assert(diags.every((d) => d.file !== undefined && d.output === undefined));
 });
-
-Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, built-in preconditions are gates", () => {
-  const plan = buildGatePlan(FULL, ["widget"]);
-  const engine = gatePlanToEngine(plan);
-  const widget = engine.steps.find((s) => s.label === "scope:widget");
-  const gadget = engine.steps.find((s) => s.label === "scope:gadget");
-  assertEquals(widget?.disposition, "run");
-  assertEquals(gadget?.disposition, "skip");
-  assertEquals(
-    engine.steps.find((s) => s.label === "format")?.disposition,
-    "run",
-  );
-  // The merge check, tracked-artifacts guard, and instructions + skills currency checks
-  // (FULL leaves both features on) are read-only `gate` preconditions, listed for
-  // honesty.
-  assertEquals(
-    engine.steps.find((s) => s.kind === "merge-check")?.disposition,
-    "gate",
-  );
-  assertEquals(
-    engine.steps.find((s) => s.kind === "tracked-artifacts-check")
-      ?.disposition,
-    "gate",
-  );
-  assertEquals(
-    engine.steps.find((s) => s.kind === "instructions-check")?.disposition,
-    "gate",
-  );
-  assertEquals(
-    engine.steps.find((s) => s.kind === "skills-check")?.disposition,
-    "gate",
-  );
-});
-
 // ── the shared renderer ────────────────────────────────────────────────────────
 
 /** A sink that captures rendered lines (colour off — dim is a passthrough). */
@@ -564,199 +585,200 @@ function captureSink(): { sink: RenderSink; lines: string[] } {
   return { sink, lines };
 }
 
-Deno.test("renderPlan: groups its steps and marks dispositions", () => {
-  const plan = gatePlanToEngine(buildGatePlan(FULL, ["widget"]));
-  const { sink, lines } = captureSink();
-  renderPlan(sink, plan);
-  const text = lines.join("\n");
-  assert(text.includes("Gate plan"));
-  assert(/run\s+format/.test(text), text);
-  assert(/skip\s+scope:gadget/.test(text), text);
-  assert(/check\s+merge-check/.test(text), text);
-  for (
-    const group of [
-      ...new Set(plan.steps.map((step) => step.group).filter(Boolean)),
-    ]
-  ) {
-    const index = lines.indexOf(`  ${group}`);
-    assert(index > 0, `missing rendered group ${group}:\n${text}`);
-    assertEquals(
-      lines[index - 1],
-      "",
-      `group ${group} must have a visible boundary before it:\n${text}`,
-    );
-  }
-});
+Deno.test("gate plan: presentation", () => {
+  assertNamedCases({
+    "renderPlan: groups its steps and marks dispositions": () => {
+      const plan = gatePlanToEngine(buildGatePlan(FULL, ["widget"]));
+      const { sink, lines } = captureSink();
+      renderPlan(sink, plan);
+      const text = lines.join("\n");
+      assert(text.includes("Gate plan"));
+      assert(/run\s+format/.test(text), text);
+      assert(/skip\s+scope:gadget/.test(text), text);
+      assert(/check\s+merge-check/.test(text), text);
+      for (
+        const group of [
+          ...new Set(plan.steps.map((step) => step.group).filter(Boolean)),
+        ]
+      ) {
+        const index = lines.indexOf(`  ${group}`);
+        assert(index > 0, `missing rendered group ${group}:\n${text}`);
+        assertEquals(
+          lines[index - 1],
+          "",
+          `group ${group} must have a visible boundary before it:\n${text}`,
+        );
+      }
+    },
+    "renderPlan: an empty plan says so": () => {
+      const empty: EnginePlan = { title: "Empty plan", details: [], steps: [] };
+      const { sink, lines } = captureSink();
+      renderPlan(sink, empty);
+      assert(lines.join("\n").includes("nothing to do"));
+    },
+    "step renderers preserve recurring semantic group runs": () => {
+      const steps: EnginePlan["steps"] = [
+        {
+          kind: "git",
+          label: verbatimStepLabel("before"),
+          disposition: "run",
+        },
+        {
+          kind: "job",
+          label: verbatimStepLabel("orbit-one"),
+          disposition: "run",
+          group: "Orbit",
+        },
+        {
+          kind: "job",
+          label: verbatimStepLabel("canopy"),
+          disposition: "run",
+          group: "Canopy",
+        },
+        {
+          kind: "job",
+          label: verbatimStepLabel("orbit-two"),
+          disposition: "run",
+          group: "Orbit",
+        },
+        {
+          kind: "refresh",
+          label: verbatimStepLabel("after"),
+          disposition: "run",
+          group: "",
+        },
+      ];
+      const renderers = [
+        {
+          name: "plan",
+          render: (sink: RenderSink): void =>
+            renderPlan(sink, { title: "Plan", details: [], steps }),
+        },
+        {
+          name: "apply",
+          render: (sink: RenderSink): void =>
+            renderStepResults(sink, {
+              title: "Apply",
+              steps: steps.map((step) => ({ step, outcome: "ok" })),
+            }),
+        },
+      ];
 
-Deno.test("renderPlan: an empty plan says so", () => {
-  const empty: EnginePlan = { title: "Empty plan", details: [], steps: [] };
-  const { sink, lines } = captureSink();
-  renderPlan(sink, empty);
-  assert(lines.join("\n").includes("nothing to do"));
-});
+      for (const renderer of renderers) {
+        const { sink, lines } = captureSink();
+        renderer.render(sink);
+        for (
+          const [label, count] of [["Steps", 2], ["Orbit", 2], ["Canopy", 1]]
+        ) {
+          assertEquals(
+            lines.filter((line) => line === `  ${label}`).length,
+            count,
+            `${renderer.name} must preserve every ${label} run:\n${
+              lines.join("\n")
+            }`,
+          );
+        }
+        const indexOfStep = (label: string): number =>
+          lines.findIndex((line) => line.includes(label));
+        const renderedSteps = [
+          "before",
+          "orbit-one",
+          "canopy",
+          "orbit-two",
+          "after",
+        ].map(indexOfStep);
+        assert(
+          renderedSteps.every((index) => index >= 0),
+          `${renderer.name} must render every step:\n${lines.join("\n")}`,
+        );
+        assertEquals(
+          renderedSteps,
+          [...renderedSteps].sort((a, b) => a - b),
+          `${renderer.name} must retain step order:\n${lines.join("\n")}`,
+        );
+      }
+    },
+    "renderStepResults: groups outcomes and renders result metadata": () => {
+      const steps: StepResult[] = [
+        {
+          step: {
+            kind: "job",
+            label: verbatimStepLabel("format"),
+            disposition: "run",
+            note: "deno fmt",
+            group: "Fix",
+          },
+          outcome: "ok",
+          durationS: 2,
+          outputLines: 3,
+          errorLikeLines: 1,
+          outputPath: "/tmp/format.out",
+        },
+        {
+          step: {
+            kind: "scope-gate",
+            label: verbatimStepLabel("scope:map"),
+            disposition: "skip",
+            note: "scope unchanged",
+            group: "Scopes",
+          },
+          outcome: "skipped",
+        },
+        {
+          step: {
+            kind: "standard",
+            label: verbatimStepLabel("coverage"),
+            disposition: "run",
+          },
+          outcome: "failed",
+        },
+        {
+          step: {
+            kind: "job",
+            label: verbatimStepLabel("typecheck"),
+            disposition: "run",
+          },
+          outcome: "cancelled",
+        },
+      ];
+      const { sink, lines } = captureSink();
+      renderStepResults(sink, { title: "Apply results", steps });
+      const text = lines.join("\n");
 
-Deno.test("step renderers preserve recurring semantic group runs", () => {
-  const steps: EnginePlan["steps"] = [
-    {
-      kind: "git",
-      label: verbatimStepLabel("before"),
-      disposition: "run",
+      assert(text.includes("Apply results"));
+      assert(text.includes("Fix"));
+      assert(text.includes("Scopes"));
+      assert(/ok\s+format/.test(text), text);
+      assertStringIncludes(text, "deno fmt");
+      assertStringIncludes(text, "2s");
+      assertStringIncludes(text, "3 output lines");
+      assertStringIncludes(text, "1 diagnostic-like line");
+      assertStringIncludes(text, "output: /tmp/format.out");
+      assert(/skipped\s+scope:map/.test(text), text);
+      assert(/failed\s+coverage/.test(text), text);
+      assert(/cancelled\s+typecheck/.test(text), text);
+      for (const group of ["Fix", "Scopes"]) {
+        const index = lines.indexOf(`  ${group}`);
+        assert(index > 0, `missing rendered group ${group}:\n${text}`);
+        assertEquals(
+          lines[index - 1],
+          "",
+          `group ${group} must have a visible boundary before it:\n${text}`,
+        );
+      }
     },
-    {
-      kind: "job",
-      label: verbatimStepLabel("orbit-one"),
-      disposition: "run",
-      group: "Orbit",
+    "renderStepResults: an empty apply says nothing ran": () => {
+      const { sink, lines } = captureSink();
+      renderStepResults(sink, { title: "Apply results", steps: [] });
+      assert(lines.join("\n").includes("nothing ran"));
     },
-    {
-      kind: "job",
-      label: verbatimStepLabel("canopy"),
-      disposition: "run",
-      group: "Canopy",
+    "planToJson: round-trips the plan shape": () => {
+      const plan = gatePlanToEngine(buildGatePlan(FULL, ["widget"]));
+      const json = planToJson(plan);
+      assertEquals(json.title, "Gate plan");
+      const widget = json.steps.find((s) => s.label === "scope:widget");
+      assertEquals(widget?.disposition, "run");
+      assertEquals(widget?.kind, "scope-gate");
     },
-    {
-      kind: "job",
-      label: verbatimStepLabel("orbit-two"),
-      disposition: "run",
-      group: "Orbit",
-    },
-    {
-      kind: "refresh",
-      label: verbatimStepLabel("after"),
-      disposition: "run",
-      group: "",
-    },
-  ];
-  const renderers = [
-    {
-      name: "plan",
-      render: (sink: RenderSink): void =>
-        renderPlan(sink, { title: "Plan", details: [], steps }),
-    },
-    {
-      name: "apply",
-      render: (sink: RenderSink): void =>
-        renderStepResults(sink, {
-          title: "Apply",
-          steps: steps.map((step) => ({ step, outcome: "ok" })),
-        }),
-    },
-  ];
-
-  for (const renderer of renderers) {
-    const { sink, lines } = captureSink();
-    renderer.render(sink);
-    for (const [label, count] of [["Steps", 2], ["Orbit", 2], ["Canopy", 1]]) {
-      assertEquals(
-        lines.filter((line) => line === `  ${label}`).length,
-        count,
-        `${renderer.name} must preserve every ${label} run:\n${
-          lines.join("\n")
-        }`,
-      );
-    }
-    const indexOfStep = (label: string): number =>
-      lines.findIndex((line) => line.includes(label));
-    const renderedSteps = [
-      "before",
-      "orbit-one",
-      "canopy",
-      "orbit-two",
-      "after",
-    ].map(indexOfStep);
-    assert(
-      renderedSteps.every((index) => index >= 0),
-      `${renderer.name} must render every step:\n${lines.join("\n")}`,
-    );
-    assertEquals(
-      renderedSteps,
-      [...renderedSteps].sort((a, b) => a - b),
-      `${renderer.name} must retain step order:\n${lines.join("\n")}`,
-    );
-  }
-});
-
-Deno.test("renderStepResults: groups outcomes and renders result metadata", () => {
-  const steps: StepResult[] = [
-    {
-      step: {
-        kind: "job",
-        label: verbatimStepLabel("format"),
-        disposition: "run",
-        note: "deno fmt",
-        group: "Fix",
-      },
-      outcome: "ok",
-      durationS: 2,
-      outputLines: 3,
-      errorLikeLines: 1,
-      outputPath: "/tmp/format.out",
-    },
-    {
-      step: {
-        kind: "scope-gate",
-        label: verbatimStepLabel("scope:map"),
-        disposition: "skip",
-        note: "scope unchanged",
-        group: "Scopes",
-      },
-      outcome: "skipped",
-    },
-    {
-      step: {
-        kind: "standard",
-        label: verbatimStepLabel("coverage"),
-        disposition: "run",
-      },
-      outcome: "failed",
-    },
-    {
-      step: {
-        kind: "job",
-        label: verbatimStepLabel("typecheck"),
-        disposition: "run",
-      },
-      outcome: "cancelled",
-    },
-  ];
-  const { sink, lines } = captureSink();
-  renderStepResults(sink, { title: "Apply results", steps });
-  const text = lines.join("\n");
-
-  assert(text.includes("Apply results"));
-  assert(text.includes("Fix"));
-  assert(text.includes("Scopes"));
-  assert(/ok\s+format/.test(text), text);
-  assertStringIncludes(text, "deno fmt");
-  assertStringIncludes(text, "2s");
-  assertStringIncludes(text, "3 output lines");
-  assertStringIncludes(text, "1 diagnostic-like line");
-  assertStringIncludes(text, "output: /tmp/format.out");
-  assert(/skipped\s+scope:map/.test(text), text);
-  assert(/failed\s+coverage/.test(text), text);
-  assert(/cancelled\s+typecheck/.test(text), text);
-  for (const group of ["Fix", "Scopes"]) {
-    const index = lines.indexOf(`  ${group}`);
-    assert(index > 0, `missing rendered group ${group}:\n${text}`);
-    assertEquals(
-      lines[index - 1],
-      "",
-      `group ${group} must have a visible boundary before it:\n${text}`,
-    );
-  }
-});
-
-Deno.test("renderStepResults: an empty apply says nothing ran", () => {
-  const { sink, lines } = captureSink();
-  renderStepResults(sink, { title: "Apply results", steps: [] });
-  assert(lines.join("\n").includes("nothing ran"));
-});
-
-Deno.test("planToJson: round-trips the plan shape", () => {
-  const plan = gatePlanToEngine(buildGatePlan(FULL, ["widget"]));
-  const json = planToJson(plan);
-  assertEquals(json.title, "Gate plan");
-  const widget = json.steps.find((s) => s.label === "scope:widget");
-  assertEquals(widget?.disposition, "run");
-  assertEquals(widget?.kind, "scope-gate");
+  });
 });

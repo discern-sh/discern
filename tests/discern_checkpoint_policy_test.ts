@@ -31,6 +31,7 @@ import {
 } from "../src/shared/manual.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const MANUAL_PAGE_CHECKPOINT_IDS = [
   MANUAL_PUBLIC_READER_CHECKPOINT_ID,
@@ -114,161 +115,301 @@ function checkpoint(id: string): ResolvedCheckpoint {
   return found;
 }
 
-Deno.test("discern resolves the complete project boundary checkpoint set", () => {
-  assertEquals(RESOLUTION.drops, []);
-  const authored = Object.keys(CONFIG.checkpoints).filter((id) =>
-    !Object.hasOwn(BUILT_IN_CHECKPOINTS, id)
-  );
-  assertEquals(authored.sort(), [...PROJECT_CHECKPOINT_IDS].sort());
+Deno.test("discern checkpoint policy: checkpoint cases", () => {
+  assertNamedCases({
+    "discern resolves the complete project boundary checkpoint set": () => {
+      assertEquals(RESOLUTION.drops, []);
+      const authored = Object.keys(CONFIG.checkpoints).filter((id) =>
+        !Object.hasOwn(BUILT_IN_CHECKPOINTS, id)
+      );
+      assertEquals(authored.sort(), [...PROJECT_CHECKPOINT_IDS].sort());
 
-  for (const id of MANUAL_PAGE_CHECKPOINT_IDS) {
-    const definition = checkpoint(id);
-    assertEquals(definition.mode, "stop");
-    assertEquals(definition.selector?.globs, ["project/manual/**"]);
-    assertEquals(
-      definition.when,
-      CHECKPOINT_GIT_MATCHER_PREFIX +
-        `scripts/manual_doc_checkpoint.ts ${id}`,
-    );
-  }
-  assertFalse(Object.hasOwn(CONFIG.checkpoints, "public-doc-audience"));
+      for (const id of MANUAL_PAGE_CHECKPOINT_IDS) {
+        const definition = checkpoint(id);
+        assertEquals(definition.mode, "stop");
+        assertEquals(definition.selector?.globs, ["project/manual/**"]);
+        assertEquals(
+          definition.when,
+          CHECKPOINT_GIT_MATCHER_PREFIX +
+            `scripts/manual_doc_checkpoint.ts ${id}`,
+        );
+      }
+      assertFalse(Object.hasOwn(CONFIG.checkpoints, "public-doc-audience"));
 
-  // The matcher script re-exports the shared registry constant; a drifting
-  // local re-declaration would detach its output from this resolved policy.
-  assertStrictEquals(
-    MATCHER_FRONT_DOOR_CHECKPOINT_ID,
-    MANUAL_FRONT_DOOR_CHECKPOINT_ID,
-  );
-  assertEquals(checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).mode, "stop");
-  assertEquals(
-    checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).selector?.globs,
-    ["project/manual/README.md"],
-  );
-  assertEquals(
-    checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).when,
-    CHECKPOINT_GIT_MATCHER_PREFIX +
-      "scripts/manual_front_door_checkpoint.ts",
-  );
+      // The matcher script re-exports the shared registry constant; a drifting
+      // local re-declaration would detach its output from this resolved policy.
+      assertStrictEquals(
+        MATCHER_FRONT_DOOR_CHECKPOINT_ID,
+        MANUAL_FRONT_DOOR_CHECKPOINT_ID,
+      );
+      assertEquals(checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).mode, "stop");
+      assertEquals(
+        checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).selector?.globs,
+        ["project/manual/README.md"],
+      );
+      assertEquals(
+        checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).when,
+        CHECKPOINT_GIT_MATCHER_PREFIX +
+          "scripts/manual_front_door_checkpoint.ts",
+      );
 
-  assertEquals(checkpoint("templates-stay-generic").mode, "stop");
-  assertEquals(
-    checkpoint("templates-stay-generic").selector?.globs,
-    ["templates/**"],
-  );
-  assertEquals(checkpoint("shipped-instruction-rent").mode, "stop");
-  assertEquals(
-    checkpoint("shipped-instruction-rent").selector?.globs,
-    ["templates/instructions/**"],
-  );
+      assertEquals(checkpoint("templates-stay-generic").mode, "stop");
+      assertEquals(
+        checkpoint("templates-stay-generic").selector?.globs,
+        ["templates/**"],
+      );
+      assertEquals(checkpoint("shipped-instruction-rent").mode, "stop");
+      assertEquals(
+        checkpoint("shipped-instruction-rent").selector?.globs,
+        ["templates/instructions/**"],
+      );
 
-  assertEquals(checkpoint("authority-boundary").mode, "stop");
-  assertEquals(
-    checkpoint("authority-boundary").selector?.globs,
-    AUTHORITY_BOUNDARY_PATHS,
-  );
-  assertFalse(
-    checkpoint("authority-boundary").selector?.globs.includes("src/**") ??
-      false,
-  );
+      assertEquals(checkpoint("authority-boundary").mode, "stop");
+      assertEquals(
+        checkpoint("authority-boundary").selector?.globs,
+        AUTHORITY_BOUNDARY_PATHS,
+      );
+      assertFalse(
+        checkpoint("authority-boundary").selector?.globs.includes("src/**") ??
+          false,
+      );
 
-  const terminalTiming = checkpoint("terminal-timing-readiness");
-  assertEquals(terminalTiming.mode, "stop");
-  assertEquals(
-    terminalTiming.selector?.globs,
-    TERMINAL_TIMING_READINESS_PATHS,
-  );
-  assertEquals(
-    terminalTiming.teach,
-    "Scheduler silence cannot establish completion of streamed output; " +
-      "the real-delay census measures population, not semantic validity.",
-  );
-  assert(
-    terminalTiming.question.includes("why no protocol can expose that state"),
-  );
+      const terminalTiming = checkpoint("terminal-timing-readiness");
+      assertEquals(terminalTiming.mode, "stop");
+      assertEquals(
+        terminalTiming.selector?.globs,
+        TERMINAL_TIMING_READINESS_PATHS,
+      );
+      assertEquals(
+        terminalTiming.teach,
+        "Scheduler silence cannot establish completion of streamed output; " +
+          "the real-delay census measures population, not semantic validity.",
+      );
+      assert(
+        terminalTiming.question.includes(
+          "why no protocol can expose that state",
+        ),
+      );
 
-  assertEquals(checkpoint("adr-quality").mode, "advise");
-  assertEquals(
-    checkpoint("adr-quality").selector?.globs,
-    ["project/map/_adr/**"],
-  );
-  assertEquals(checkpoint("adr-quality").kinds, ["added"]);
+      assertEquals(checkpoint("adr-quality").mode, "advise");
+      assertEquals(
+        checkpoint("adr-quality").selector?.globs,
+        ["project/map/_adr/**"],
+      );
+      assertEquals(checkpoint("adr-quality").kinds, ["added"]);
 
-  assertEquals(checkpoint("public-contract").mode, "advise");
-  assertEquals(
-    checkpoint("public-contract").selector?.globs,
-    PUBLIC_CONTRACT_PATHS,
-  );
-  assertFalse(
-    checkpoint("public-contract").selector?.globs.includes("src/**") ?? false,
-  );
+      assertEquals(checkpoint("public-contract").mode, "advise");
+      assertEquals(
+        checkpoint("public-contract").selector?.globs,
+        PUBLIC_CONTRACT_PATHS,
+      );
+      assertFalse(
+        checkpoint("public-contract").selector?.globs.includes("src/**") ??
+          false,
+      );
 
-  assertEquals(checkpoint("feature-benefit-currency").mode, "advise");
-  assertEquals(
-    checkpoint("feature-benefit-currency").selector?.globs,
-    [
-      "src/main.ts",
-      "src/engine/**",
-      "src/shared/hints.ts",
-      "src/shared/result*.ts",
-      "templates/**",
-      "scripts/brand/claims.ts",
-    ],
-  );
-  assertEquals(
-    checkpoint("feature-benefit-currency").unlessChanged,
-    [],
-  );
-  assertEquals(
-    checkpoint("feature-benefit-currency").when,
-    CHECKPOINT_GIT_MATCHER_PREFIX +
-      "scripts/feature_benefit_currency_checkpoint.ts",
-  );
-  assertEquals(
-    checkpoint("feature-benefit-currency").teach,
-    "The matcher compares all three canon regions independently; " +
-      "an unchanged region may be correct, but it still needs review.",
-  );
+      assertEquals(checkpoint("feature-benefit-currency").mode, "advise");
+      assertEquals(
+        checkpoint("feature-benefit-currency").selector?.globs,
+        [
+          "src/main.ts",
+          "src/engine/**",
+          "src/shared/hints.ts",
+          "src/shared/result*.ts",
+          "templates/**",
+          "scripts/brand/claims.ts",
+        ],
+      );
+      assertEquals(
+        checkpoint("feature-benefit-currency").unlessChanged,
+        [],
+      );
+      assertEquals(
+        checkpoint("feature-benefit-currency").when,
+        CHECKPOINT_GIT_MATCHER_PREFIX +
+          "scripts/feature_benefit_currency_checkpoint.ts",
+      );
+      assertEquals(
+        checkpoint("feature-benefit-currency").teach,
+        "The matcher compares all three canon regions independently; " +
+          "an unchanged region may be correct, but it still needs review.",
+      );
 
-  const mapFocus = checkpoint("map-focus");
-  assertEquals(mapFocus.minChangedFiles, undefined);
-  assertEquals(mapFocus.mapReview, { kind: "focus", directory: "project/map" });
-  assertEquals(
-    mapFocus.teach,
-    "Explain contracts and relationships with evidence. Remove stale material and copied inventories; keep useful implementation summaries.",
-  );
-  assertFalse(Object.hasOwn(CONFIG.checkpoints, "map-conventions"));
-});
-
-Deno.test("test execution checkpoint selects authored tests while leaving inert fixtures outside review", () => {
-  const definition = checkpoint("test-execution-cost");
-  assertEquals(definition.mode, "stop");
-  assert(definition.when?.includes("scripts/test_execution_checkpoint.ts"));
-  for (
-    const [path, holds] of [
-      ["tests/fresh_test.ts", true],
-      ["tests/nested/fresh_helper.ts", true],
-      ["tests/fixtures/inert.ts", false],
-      ["src/fresh.ts", false],
-    ] as const
-  ) {
-    assertEquals(
-      evaluateStructuralTrigger(definition, {
-        files: [{
+      const mapFocus = checkpoint("map-focus");
+      assertEquals(mapFocus.minChangedFiles, undefined);
+      assertEquals(mapFocus.mapReview, {
+        kind: "focus",
+        directory: "project/map",
+      });
+      assertEquals(
+        mapFocus.teach,
+        "Explain contracts and relationships with evidence. Remove stale material and copied inventories; keep useful implementation summaries.",
+      );
+      assertFalse(Object.hasOwn(CONFIG.checkpoints, "map-conventions"));
+    },
+    "test execution checkpoint selects authored tests while leaving inert fixtures outside review":
+      () => {
+        const definition = checkpoint("test-execution-cost");
+        assertEquals(definition.mode, "stop");
+        assert(
+          definition.when?.includes("scripts/test_execution_checkpoint.ts"),
+        );
+        for (
+          const [path, holds] of [
+            ["tests/fresh_test.ts", true],
+            ["tests/nested/fresh_helper.ts", true],
+            ["tests/fixtures/inert.ts", false],
+            ["src/fresh.ts", false],
+          ] as const
+        ) {
+          assertEquals(
+            evaluateStructuralTrigger(definition, {
+              files: [{
+                path,
+                kind: "added",
+                insertions: 1,
+                deletions: 0,
+                binary: false,
+                generated: false,
+              }],
+              baseFiles: [],
+            }).holds,
+            holds,
+            path,
+          );
+        }
+      },
+    "terminal timing checkpoint catches a fresh registered sibling and generic synchronization changes":
+      () => {
+        const definition = checkpoint("terminal-timing-readiness");
+        const changed = (
+          path: string,
+        ): EffortDiff["files"][number] => ({
           path,
-          kind: "added",
+          generated: false,
+          kind: "modified",
           insertions: 1,
           deletions: 0,
           binary: false,
-          generated: false,
-        }],
-        baseFiles: [],
-      }).holds,
-      holds,
-      path,
-    );
-  }
-});
+        });
 
+        const futureSibling: EffortDiff = {
+          files: [
+            changed("tests/foreign-rig/scenes/unrelated_fixture.ts"),
+            changed("tests/waiting.ts"),
+          ],
+          baseFiles: [],
+        };
+        const siblingTrigger = evaluateStructuralTrigger(
+          definition,
+          futureSibling,
+        );
+        assert(siblingTrigger.holds);
+        assertEquals(siblingTrigger.matched, ["tests/waiting.ts"]);
+
+        for (
+          const path of [
+            ...TERMINAL_TIMING_READINESS_PATHS.filter((path) =>
+              !path.includes("*")
+            ),
+            "tests/test_shell_wait_boundaries.ts",
+            "tests/test_shell_wait_guard.ts",
+            "tests/test_shell_wait_future_runtime.ts",
+            "tests/test_elapsed_boundaries.ts",
+            "tests/test_elapsed_guard_test.ts",
+          ]
+        ) {
+          const outcome = evaluateStructuralTrigger(definition, {
+            files: [changed(path)],
+            baseFiles: [],
+          });
+          assert(
+            outcome.holds,
+            `${path} must require terminal timing judgment`,
+          );
+          assertEquals(outcome.matched, [path]);
+        }
+
+        assertEquals(
+          evaluateStructuralTrigger(definition, {
+            files: [changed("tests/unrelated_parser_test.ts")],
+            baseFiles: [],
+          }),
+          { holds: false, vetoedBy: "empty_matched_set" },
+        );
+      },
+    "boundary checkpoints exclude generated subjects by default": () => {
+      for (const id of PROJECT_CHECKPOINT_IDS) {
+        assertFalse(checkpoint(id).includeGenerated, id);
+      }
+
+      const generatedTemplate = {
+        path:
+          "templates/skills/discern-write-adr/skeleton/map/_adr/0000-template.md",
+        generated: true,
+        kind: "modified" as const,
+        insertions: 1,
+        deletions: 1,
+        binary: false,
+      };
+      const diff: EffortDiff = {
+        files: [generatedTemplate],
+        baseFiles: [{ path: generatedTemplate.path, generated: true }],
+      };
+      assertEquals(
+        evaluateStructuralTrigger(checkpoint("templates-stay-generic"), diff),
+        { holds: false, vetoedBy: "generated_only" },
+      );
+    },
+    "manual when input contains only authored pre-scoped facts": () => {
+      const authored = {
+        path: "project/manual/20-guides/place-and-answer-checkpoints.md",
+        generated: false,
+        kind: "modified" as const,
+        insertions: 5,
+        deletions: 2,
+        binary: false,
+      };
+      const generated = {
+        path: "project/manual/30-reference/cli-reference.md",
+        generated: true,
+        kind: "modified" as const,
+        insertions: 20,
+        deletions: 20,
+        binary: false,
+      };
+      const diff: EffortDiff = {
+        files: [generated, authored],
+        baseFiles: [
+          { path: authored.path, generated: false },
+          { path: generated.path, generated: true },
+        ],
+      };
+      for (const id of MANUAL_PAGE_CHECKPOINT_IDS) {
+        const definition = checkpoint(id);
+        const structural = evaluateStructuralTrigger(definition, diff);
+        assert(structural.holds);
+        assertEquals(structural.matched, [authored.path]);
+        assertEquals(structural.whenPending, true);
+        assertEquals(
+          checkpointWhenInput(definition, "b".repeat(40), structural),
+          {
+            version: 1,
+            checkpoint: { id, mode: "stop" },
+            policy_commit: "b".repeat(40),
+            changed_files: [{
+              path: authored.path,
+              kind: "modified",
+              insertions: 5,
+              deletions: 2,
+              binary: false,
+            }],
+          },
+        );
+      }
+    },
+  });
+});
 Deno.test("every Git-backed checkpoint matcher exposes only its input environment", () => {
   const gitMatchers = RESOLUTION.checkpoints.filter((definition) =>
     definition.when?.split(/\s+/).includes("--allow-run=git") ?? false
@@ -335,58 +476,6 @@ Deno.test("checkpoint Git reads use the one isolated read-only adapter", async (
     );
   }
 });
-
-Deno.test("terminal timing checkpoint catches a fresh registered sibling and generic synchronization changes", () => {
-  const definition = checkpoint("terminal-timing-readiness");
-  const changed = (
-    path: string,
-  ): EffortDiff["files"][number] => ({
-    path,
-    generated: false,
-    kind: "modified",
-    insertions: 1,
-    deletions: 0,
-    binary: false,
-  });
-
-  const futureSibling: EffortDiff = {
-    files: [
-      changed("tests/foreign-rig/scenes/unrelated_fixture.ts"),
-      changed("tests/waiting.ts"),
-    ],
-    baseFiles: [],
-  };
-  const siblingTrigger = evaluateStructuralTrigger(definition, futureSibling);
-  assert(siblingTrigger.holds);
-  assertEquals(siblingTrigger.matched, ["tests/waiting.ts"]);
-
-  for (
-    const path of [
-      ...TERMINAL_TIMING_READINESS_PATHS.filter((path) => !path.includes("*")),
-      "tests/test_shell_wait_boundaries.ts",
-      "tests/test_shell_wait_guard.ts",
-      "tests/test_shell_wait_future_runtime.ts",
-      "tests/test_elapsed_boundaries.ts",
-      "tests/test_elapsed_guard_test.ts",
-    ]
-  ) {
-    const outcome = evaluateStructuralTrigger(definition, {
-      files: [changed(path)],
-      baseFiles: [],
-    });
-    assert(outcome.holds, `${path} must require terminal timing judgment`);
-    assertEquals(outcome.matched, [path]);
-  }
-
-  assertEquals(
-    evaluateStructuralTrigger(definition, {
-      files: [changed("tests/unrelated_parser_test.ts")],
-      baseFiles: [],
-    }),
-    { holds: false, vetoedBy: "empty_matched_set" },
-  );
-});
-
 Deno.test("project checkpoint matchers share the invocation-root boundary", () => {
   const matcherPaths = new Set<string>();
   for (const definition of RESOLUTION.checkpoints) {
@@ -418,76 +507,4 @@ Deno.test("project checkpoint matchers share the invocation-root boundary", () =
     reason:
       "The shared checkpoint adapter composes one host root for every project-authored matcher.",
   });
-});
-
-Deno.test("boundary checkpoints exclude generated subjects by default", () => {
-  for (const id of PROJECT_CHECKPOINT_IDS) {
-    assertFalse(checkpoint(id).includeGenerated, id);
-  }
-
-  const generatedTemplate = {
-    path:
-      "templates/skills/discern-write-adr/skeleton/map/_adr/0000-template.md",
-    generated: true,
-    kind: "modified" as const,
-    insertions: 1,
-    deletions: 1,
-    binary: false,
-  };
-  const diff: EffortDiff = {
-    files: [generatedTemplate],
-    baseFiles: [{ path: generatedTemplate.path, generated: true }],
-  };
-  assertEquals(
-    evaluateStructuralTrigger(checkpoint("templates-stay-generic"), diff),
-    { holds: false, vetoedBy: "generated_only" },
-  );
-});
-
-Deno.test("manual when input contains only authored pre-scoped facts", () => {
-  const authored = {
-    path: "project/manual/20-guides/place-and-answer-checkpoints.md",
-    generated: false,
-    kind: "modified" as const,
-    insertions: 5,
-    deletions: 2,
-    binary: false,
-  };
-  const generated = {
-    path: "project/manual/30-reference/cli-reference.md",
-    generated: true,
-    kind: "modified" as const,
-    insertions: 20,
-    deletions: 20,
-    binary: false,
-  };
-  const diff: EffortDiff = {
-    files: [generated, authored],
-    baseFiles: [
-      { path: authored.path, generated: false },
-      { path: generated.path, generated: true },
-    ],
-  };
-  for (const id of MANUAL_PAGE_CHECKPOINT_IDS) {
-    const definition = checkpoint(id);
-    const structural = evaluateStructuralTrigger(definition, diff);
-    assert(structural.holds);
-    assertEquals(structural.matched, [authored.path]);
-    assertEquals(structural.whenPending, true);
-    assertEquals(
-      checkpointWhenInput(definition, "b".repeat(40), structural),
-      {
-        version: 1,
-        checkpoint: { id, mode: "stop" },
-        policy_commit: "b".repeat(40),
-        changed_files: [{
-          path: authored.path,
-          kind: "modified",
-          insertions: 5,
-          deletions: 2,
-          binary: false,
-        }],
-      },
-    );
-  }
 });

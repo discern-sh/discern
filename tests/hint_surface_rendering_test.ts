@@ -30,6 +30,7 @@ import {
   TOOLS,
 } from "../src/engine/mcp/server.ts";
 import { quotedDiscernCommands } from "./command_span_scan.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** The surface facts the checker judges against — injected so the negatives
  * can seed a defective world while the live pass uses the real one. */
@@ -171,62 +172,68 @@ const SEEDED: SurfaceContract = {
       : undefined,
 };
 
-Deno.test("a reference to a verb that is neither tool-backed nor declared shell-only is rejected", () => {
-  const authored =
-    '⟦discern-cmd:{"words":"status","args":[],"executor":"caller"}⟧';
-  const findings = surfaceRenderingFindings(
-    "seeded",
-    authored,
-    undefined,
-    SEEDED,
-  );
-  assertEquals(findings.length, 1);
-  assert(findings[0]?.includes("neither tool-backed nor declared shell-only"));
-});
-
-Deno.test("a rendered parameter missing from the tool schema is rejected", () => {
-  const authored =
-    '⟦discern-cmd:{"words":"start","args":[{"flag":"verbose"}],"executor":"caller"}⟧';
-  const findings = surfaceRenderingFindings(
-    "seeded",
-    authored,
-    undefined,
-    SEEDED,
-  );
-  assertEquals(findings.length, 1);
-  assert(findings[0]?.includes('parameter "verbose"'));
-});
-
-Deno.test("a bare CLI spelling for a tool-backed verb in the MCP rendering is rejected", () => {
-  // Prose-spelled (no reference) — the completeness guard also rejects it,
-  // and this pass proves the MCP rendering itself cannot smuggle it through.
-  const findings = surfaceRenderingFindings(
-    "seeded",
-    "run `discern start` now",
-    undefined,
-    SEEDED,
-  );
-  assertEquals(findings.length, 1);
-  assert(findings[0]?.includes("bare CLI spelling"));
-});
-
-Deno.test("an owner-relayed command keeps its CLI spelling without a finding", () => {
-  const authored =
-    '⟦discern-cmd:{"words":"start","args":[],"executor":"owner"}⟧';
-  assertEquals(
-    surfaceRenderingFindings("seeded", authored, undefined, SEEDED),
-    [],
-  );
-});
-
-Deno.test("a CLI rendering that names an MCP tool is rejected unless delivery is mcp", () => {
-  const authored = "call `discern_start` yourself";
-  assertEquals(
-    surfaceRenderingFindings("seeded", authored, undefined, SEEDED).length,
-    1,
-  );
-  assertEquals(
-    surfaceRenderingFindings("seeded", authored, "mcp", SEEDED),
-    [],
-  );
+Deno.test("hint surface rendering: surfaceRenderingFindings cases", () => {
+  assertNamedCases({
+    "a reference to a verb that is neither tool-backed nor declared shell-only is rejected":
+      () => {
+        const authored =
+          '⟦discern-cmd:{"words":"status","args":[],"executor":"caller"}⟧';
+        const findings = surfaceRenderingFindings(
+          "seeded",
+          authored,
+          undefined,
+          SEEDED,
+        );
+        assertEquals(findings.length, 1);
+        assert(
+          findings[0]?.includes("neither tool-backed nor declared shell-only"),
+        );
+      },
+    "a rendered parameter missing from the tool schema is rejected": () => {
+      const authored =
+        '⟦discern-cmd:{"words":"start","args":[{"flag":"verbose"}],"executor":"caller"}⟧';
+      const findings = surfaceRenderingFindings(
+        "seeded",
+        authored,
+        undefined,
+        SEEDED,
+      );
+      assertEquals(findings.length, 1);
+      assert(findings[0]?.includes('parameter "verbose"'));
+    },
+    "a bare CLI spelling for a tool-backed verb in the MCP rendering is rejected":
+      () => {
+        // Prose-spelled (no reference) — the completeness guard also rejects it,
+        // and this pass proves the MCP rendering itself cannot smuggle it through.
+        const findings = surfaceRenderingFindings(
+          "seeded",
+          "run `discern start` now",
+          undefined,
+          SEEDED,
+        );
+        assertEquals(findings.length, 1);
+        assert(findings[0]?.includes("bare CLI spelling"));
+      },
+    "an owner-relayed command keeps its CLI spelling without a finding": () => {
+      const authored =
+        '⟦discern-cmd:{"words":"start","args":[],"executor":"owner"}⟧';
+      assertEquals(
+        surfaceRenderingFindings("seeded", authored, undefined, SEEDED),
+        [],
+      );
+    },
+    "a CLI rendering that names an MCP tool is rejected unless delivery is mcp":
+      () => {
+        const authored = "call `discern_start` yourself";
+        assertEquals(
+          surfaceRenderingFindings("seeded", authored, undefined, SEEDED)
+            .length,
+          1,
+        );
+        assertEquals(
+          surfaceRenderingFindings("seeded", authored, "mcp", SEEDED),
+          [],
+        );
+      },
+  });
 });

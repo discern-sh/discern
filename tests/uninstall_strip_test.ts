@@ -16,6 +16,7 @@ import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const STRIPPED_SETTINGS_SCHEMA = z.object({
   permissions: z.object({ deny: z.array(z.string()) }).passthrough(),
@@ -50,179 +51,199 @@ const UNINSTALL_SRC = join(
 const BEGIN = "# --- discern ---";
 const END = "# --- /discern ---";
 
-Deno.test("removeGitignoreBlock keeps the user's rules on both sides of the block", () => {
-  const text = [
-    "node_modules/",
-    "",
-    BEGIN,
-    "/CLAUDE.md",
-    "/.claude/*",
-    END,
-    "",
-    "*.log",
-    "",
-  ].join("\n");
-  const out = removeGitignoreBlock(text);
-  assert(out !== null);
-  assert(out.includes("node_modules/"));
-  assert(out.includes("*.log"));
-  assert(!out.includes("# --- discern ---"));
-  assert(!out.includes("/CLAUDE.md"));
-});
-
-Deno.test("removeGitignoreBlock deletes a file that held only the block", () => {
-  const text = [BEGIN, "/AGENTS.md", "/.agents/skills/", END, ""].join("\n");
-  assertEquals(removeGitignoreBlock(text), null);
-});
-
-Deno.test("removeGitignoreBlock leaves a file with no discern block untouched", () => {
-  const text = "node_modules/\ndist/\n";
-  assertEquals(removeGitignoreBlock(text), text);
-});
-
-Deno.test("removeGitignoreBlock handles an unterminated block by removing to EOF", () => {
-  const text = ["dist/", "", BEGIN, "/CLAUDE.md"].join("\n");
-  const out = removeGitignoreBlock(text);
-  assert(out !== null);
-  assert(out.includes("dist/"));
-  assert(!out.includes("CLAUDE.md"));
-});
-
-Deno.test("stripDiscernFromJsonSettings keeps user hooks and permissions, removes discern's", () => {
-  const existing = JSON.stringify(
-    {
-      permissions: { deny: ["Read(secret)", "Read(./.env)"] },
-      hooks: {
-        SessionStart: [
-          { hooks: [{ type: "command", command: "echo mine" }] },
-          { hooks: [{ type: "command", command: "discern worktree ensure" }] },
-        ],
-        WorktreeCreate: [
+Deno.test("uninstall strip: contracts", () => {
+  assertNamedCases({
+    "removeGitignoreBlock keeps the user's rules on both sides of the block":
+      () => {
+        const text = [
+          "node_modules/",
+          "",
+          BEGIN,
+          "/CLAUDE.md",
+          "/.claude/*",
+          END,
+          "",
+          "*.log",
+          "",
+        ].join("\n");
+        const out = removeGitignoreBlock(text);
+        assert(out !== null);
+        assert(out.includes("node_modules/"));
+        assert(out.includes("*.log"));
+        assert(!out.includes("# --- discern ---"));
+        assert(!out.includes("/CLAUDE.md"));
+      },
+    "removeGitignoreBlock deletes a file that held only the block": () => {
+      const text = [BEGIN, "/AGENTS.md", "/.agents/skills/", END, ""].join(
+        "\n",
+      );
+      assertEquals(removeGitignoreBlock(text), null);
+    },
+    "removeGitignoreBlock leaves a file with no discern block untouched":
+      () => {
+        const text = "node_modules/\ndist/\n";
+        assertEquals(removeGitignoreBlock(text), text);
+      },
+    "removeGitignoreBlock handles an unterminated block by removing to EOF":
+      () => {
+        const text = ["dist/", "", BEGIN, "/CLAUDE.md"].join("\n");
+        const out = removeGitignoreBlock(text);
+        assert(out !== null);
+        assert(out.includes("dist/"));
+        assert(!out.includes("CLAUDE.md"));
+      },
+    "stripDiscernFromJsonSettings keeps user hooks and permissions, removes discern's":
+      () => {
+        const existing = JSON.stringify(
           {
-            hooks: [{
+            permissions: { deny: ["Read(secret)", "Read(./.env)"] },
+            hooks: {
+              SessionStart: [
+                { hooks: [{ type: "command", command: "echo mine" }] },
+                {
+                  hooks: [{
+                    type: "command",
+                    command: "discern worktree ensure",
+                  }],
+                },
+              ],
+              WorktreeCreate: [
+                {
+                  hooks: [{
+                    type: "command",
+                    command: "discern worktree hook create",
+                  }],
+                },
+              ],
+            },
+            mcpServers: {
+              other: { type: "stdio", command: "x", args: [] },
+              discern: { type: "stdio", command: "discern", args: ["mcp"] },
+            },
+            enabledMcpjsonServers: ["discern"],
+          },
+          null,
+          2,
+        );
+        const template = JSON.stringify({
+          permissions: { deny: ["Read(./.env)"] },
+          hooks: {
+            SessionStart: [{ hooks: [{ command: "discern worktree ensure" }] }],
+          },
+        });
+
+        const out = stripDiscernFromJsonSettings(existing, {
+          hasMcp: true,
+          hooksTemplateText: template,
+        });
+        assert(out !== null);
+        const parsed = decodeWith(STRIPPED_SETTINGS_SCHEMA, out);
+        // The user's own hook group and deny rule survive.
+        const sessionStart = parsed.hooks.SessionStart;
+        assertExists(sessionStart);
+        assertEquals(sessionStart.length, 1);
+        const ownGroup = sessionStart[0];
+        assertExists(ownGroup);
+        const ownHook = ownGroup.hooks[0];
+        assertExists(ownHook);
+        assertEquals(ownHook.command, "echo mine");
+        assertEquals(parsed.permissions.deny, ["Read(secret)"]);
+        // The user's own MCP server survives; discern's is gone.
+        assertEquals(Object.keys(parsed.mcpServers), ["other"]);
+        // Discern's WorktreeCreate event, enabledMcpjsonServers, and server are gone.
+        assert(!("WorktreeCreate" in parsed.hooks));
+        assert(!("enabledMcpjsonServers" in parsed));
+      },
+    "stripDiscernFromJsonSettings deletes a file that was purely discern's":
+      () => {
+        const existing = JSON.stringify({
+          version: 1,
+          hooks: {
+            sessionStart: [{
               type: "command",
-              command: "discern worktree hook create",
+              bash: "discern worktree ensure",
             }],
           },
-        ],
+        });
+        const template = JSON.stringify({
+          version: 1,
+          hooks: {
+            sessionStart: [{
+              type: "command",
+              bash: "discern worktree ensure",
+            }],
+          },
+        });
+        assertEquals(
+          stripDiscernFromJsonSettings(existing, {
+            hasMcp: false,
+            hooksTemplateText: template,
+          }),
+          null,
+        );
       },
-      mcpServers: {
-        other: { type: "stdio", command: "x", args: [] },
-        discern: { type: "stdio", command: "discern", args: ["mcp"] },
+    "stripDiscernFromCodexEnv deletes a discern-created shell, keeps an app-owned file":
+      () => {
+        const marker = generatedArtifactMarker(
+          ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+        );
+        const discernShell = [
+          marker,
+          "version = 1",
+          'name = "Any Project Name"',
+          "",
+          "[setup]",
+          'script = "discern worktree ensure"',
+          "",
+          "[cleanup]",
+          'script = "discern worktree teardown"',
+          "",
+        ].join("\n");
+        assertEquals(stripDiscernFromCodexEnv(discernShell), null);
+
+        const appOwned = [
+          marker,
+          "version = 2",
+          'name = "My Env"',
+          "",
+          "[setup]",
+          'script = "discern worktree ensure"',
+          "",
+          "[[actions]]",
+          'run = "npm ci"',
+          "",
+        ].join("\n");
+        const out = stripDiscernFromCodexEnv(appOwned);
+        assert(out !== null);
+        assert(
+          !out.includes("discern worktree ensure"),
+          "discern's script is stripped",
+        );
+        assert(out.includes('name = "My Env"'), "the app's config is kept");
+        assert(out.includes("npm ci"), "the app's actions are kept");
+        assert(
+          !out.includes(marker),
+          "discern's provenance marker is stripped",
+        );
       },
-      enabledMcpjsonServers: ["discern"],
-    },
-    null,
-    2,
-  );
-  const template = JSON.stringify({
-    permissions: { deny: ["Read(./.env)"] },
-    hooks: {
-      SessionStart: [{ hooks: [{ command: "discern worktree ensure" }] }],
-    },
+    "TomlEditor.deleteRootKey removes a pre-section key and leaves the rest":
+      () => {
+        const editor = new TomlEditor(
+          ["version = 1", 'name = "Discern"', "", "[setup]", 'script = "x"', ""]
+            .join(
+              "\n",
+            ),
+        );
+        assertEquals(editor.deleteRootKey("version"), true);
+        const out = editor.toString();
+        assert(!out.includes("version = 1"));
+        assert(out.includes('name = "Discern"'));
+        assert(out.includes("[setup]"));
+        // Absent key is a no-op returning false.
+        assertEquals(editor.deleteRootKey("missing"), false);
+      },
   });
-
-  const out = stripDiscernFromJsonSettings(existing, {
-    hasMcp: true,
-    hooksTemplateText: template,
-  });
-  assert(out !== null);
-  const parsed = decodeWith(STRIPPED_SETTINGS_SCHEMA, out);
-  // The user's own hook group and deny rule survive.
-  const sessionStart = parsed.hooks.SessionStart;
-  assertExists(sessionStart);
-  assertEquals(sessionStart.length, 1);
-  const ownGroup = sessionStart[0];
-  assertExists(ownGroup);
-  const ownHook = ownGroup.hooks[0];
-  assertExists(ownHook);
-  assertEquals(ownHook.command, "echo mine");
-  assertEquals(parsed.permissions.deny, ["Read(secret)"]);
-  // The user's own MCP server survives; discern's is gone.
-  assertEquals(Object.keys(parsed.mcpServers), ["other"]);
-  // Discern's WorktreeCreate event, enabledMcpjsonServers, and server are gone.
-  assert(!("WorktreeCreate" in parsed.hooks));
-  assert(!("enabledMcpjsonServers" in parsed));
 });
-
-Deno.test("stripDiscernFromJsonSettings deletes a file that was purely discern's", () => {
-  const existing = JSON.stringify({
-    version: 1,
-    hooks: {
-      sessionStart: [{ type: "command", bash: "discern worktree ensure" }],
-    },
-  });
-  const template = JSON.stringify({
-    version: 1,
-    hooks: {
-      sessionStart: [{ type: "command", bash: "discern worktree ensure" }],
-    },
-  });
-  assertEquals(
-    stripDiscernFromJsonSettings(existing, {
-      hasMcp: false,
-      hooksTemplateText: template,
-    }),
-    null,
-  );
-});
-
-Deno.test("stripDiscernFromCodexEnv deletes a discern-created shell, keeps an app-owned file", () => {
-  const marker = generatedArtifactMarker(
-    ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
-  );
-  const discernShell = [
-    marker,
-    "version = 1",
-    'name = "Any Project Name"',
-    "",
-    "[setup]",
-    'script = "discern worktree ensure"',
-    "",
-    "[cleanup]",
-    'script = "discern worktree teardown"',
-    "",
-  ].join("\n");
-  assertEquals(stripDiscernFromCodexEnv(discernShell), null);
-
-  const appOwned = [
-    marker,
-    "version = 2",
-    'name = "My Env"',
-    "",
-    "[setup]",
-    'script = "discern worktree ensure"',
-    "",
-    "[[actions]]",
-    'run = "npm ci"',
-    "",
-  ].join("\n");
-  const out = stripDiscernFromCodexEnv(appOwned);
-  assert(out !== null);
-  assert(
-    !out.includes("discern worktree ensure"),
-    "discern's script is stripped",
-  );
-  assert(out.includes('name = "My Env"'), "the app's config is kept");
-  assert(out.includes("npm ci"), "the app's actions are kept");
-  assert(!out.includes(marker), "discern's provenance marker is stripped");
-});
-
-Deno.test("TomlEditor.deleteRootKey removes a pre-section key and leaves the rest", () => {
-  const editor = new TomlEditor(
-    ["version = 1", 'name = "Discern"', "", "[setup]", 'script = "x"', ""].join(
-      "\n",
-    ),
-  );
-  assertEquals(editor.deleteRootKey("version"), true);
-  const out = editor.toString();
-  assert(!out.includes("version = 1"));
-  assert(out.includes('name = "Discern"'));
-  assert(out.includes("[setup]"));
-  // Absent key is a no-op returning false.
-  assertEquals(editor.deleteRootKey("missing"), false);
-});
-
 // ── Class guard: every UninstallPlan field is consumed (B52) ─────────────────
 //
 // The class: a plan field computed and never read. The plan/apply split

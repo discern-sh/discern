@@ -14,6 +14,7 @@ import {
   siteProseSource,
   withStagedSiteProse,
 } from "../scripts/site_prose_lib.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
@@ -39,37 +40,39 @@ Deno.test("every marketing page follows its prose policy", () => {
   }
 });
 
-Deno.test("the For Agents projection uses the agent register", () => {
-  const page = projectSiteProse().find(({ route }) => route === "/agents");
-  assert(page !== undefined);
-  assertEquals(page.stagePath, "_internal/agent/agents.md");
-  assertStringIncludes(
-    page.prose,
-    "Finally, software where you are the user.",
-  );
-  assertStringIncludes(
-    page.prose,
-    "You should not have to infer the workflow.",
-  );
+Deno.test("site prose: projectSiteProse cases", () => {
+  assertNamedCases({
+    "the For Agents projection uses the agent register": () => {
+      const page = projectSiteProse().find(({ route }) => route === "/agents");
+      assert(page !== undefined);
+      assertEquals(page.stagePath, "_internal/agent/agents.md");
+      assertStringIncludes(
+        page.prose,
+        "Finally, software where you are the user.",
+      );
+      assertStringIncludes(
+        page.prose,
+        "You should not have to infer the workflow.",
+      );
+    },
+    "the homepage projection measures the launch headline once": () => {
+      const pages = projectSiteProse();
+      const homepage = pages.find(({ route }) => route === "/");
+      assert(homepage !== undefined);
+      const dom = new JSDOM(renderLanding());
+      const headline = dom.window.document.querySelector("h1")?.textContent
+        ?.trim();
+      dom.window.close();
+      assert(headline, "the homepage renders a headline");
+      assertEquals(
+        homepage.prose.split(headline).length - 1,
+        1,
+        "the homepage headline contributes one authored prose block",
+      );
+      assert(siteProseReadingGrade(pages) > 0);
+    },
+  });
 });
-
-Deno.test("the homepage projection measures the launch headline once", () => {
-  const pages = projectSiteProse();
-  const homepage = pages.find(({ route }) => route === "/");
-  assert(homepage !== undefined);
-  const dom = new JSDOM(renderLanding());
-  const headline = dom.window.document.querySelector("h1")?.textContent
-    ?.trim();
-  dom.window.close();
-  assert(headline, "the homepage renders a headline");
-  assertEquals(
-    homepage.prose.split(headline).length - 1,
-    1,
-    "the homepage headline contributes one authored prose block",
-  );
-  assert(siteProseReadingGrade(pages) > 0);
-});
-
 Deno.test("the Vale numerator and denominator read the exact same staged bytes", async () => {
   await withStagedSiteProse(ROOT, async (stage) => {
     let words = 0;

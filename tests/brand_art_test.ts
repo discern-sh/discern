@@ -6,6 +6,7 @@ import {
   type DiscernArtStyle,
   renderDiscernArt,
 } from "../art/terminal/brand.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const EXPECTED: Readonly<Record<DiscernArtStyle, string>> = {
   compact: "◮ discern",
@@ -110,64 +111,69 @@ const EXPECTED: Readonly<Record<DiscernArtStyle, string>> = {
   ].join("\n"),
 };
 
-Deno.test("terminal-art functions preserve every curated design", () => {
-  assertEquals(Object.keys(DISCERN_ART_VARIANTS), Object.keys(EXPECTED));
-  for (const style of Object.keys(EXPECTED) as DiscernArtStyle[]) {
-    assertEquals(DISCERN_ART_VARIANTS[style].render(), EXPECTED[style], style);
-    assertEquals(renderDiscernArt(style), EXPECTED[style], style);
-  }
-});
-
-Deno.test("terminal-art variants stay deterministic and safe to compose", () => {
-  const seen = new Set<string>();
-  for (const [style, variant] of Object.entries(DISCERN_ART_VARIANTS)) {
-    const first = variant.render();
-    const second = variant.render();
-    assertEquals(second, first, `${style} must be deterministic`);
-    assert(!seen.has(first), `${style} duplicates another variant`);
-    seen.add(first);
-    assert(first !== "", `${style} must not be empty`);
-    assert(!first.startsWith("\n"), `${style} starts with a blank row`);
-    assert(!first.endsWith("\n"), `${style} owns no trailing newline`);
-    assert(!first.includes("\r"), `${style} contains a carriage return`);
-    assert(!first.includes("\t"), `${style} contains a tab`);
-    assert(!first.includes("\x1b"), `${style} contains ANSI styling`);
-    for (const character of first) {
-      assert(
-        character === "\n" || !/[\p{Cc}\p{Cf}]/u.test(character),
-        `${style} contains terminal control ${JSON.stringify(character)}`,
-      );
-    }
-    for (const line of first.split("\n")) {
-      assert(
-        !/\s$/u.test(line),
-        `${style} line has trailing whitespace: ${JSON.stringify(line)}`,
-      );
-    }
-  }
-});
-
-Deno.test("ASCII-labelled art uses only printable 7-bit characters", () => {
-  for (const [style, variant] of Object.entries(DISCERN_ART_VARIANTS)) {
-    if (variant.charset !== "ascii") continue;
-    for (const character of variant.render()) {
-      const code = character.codePointAt(0) ?? 0;
-      assert(
-        character === "\n" || (code >= 0x20 && code <= 0x7e),
-        `${style} contains non-ASCII ${JSON.stringify(character)}`,
-      );
-    }
-  }
-});
-
-Deno.test("Unicode-labelled art contains a non-ASCII character", () => {
-  for (const [style, variant] of Object.entries(DISCERN_ART_VARIANTS)) {
-    if (variant.charset !== "unicode") continue;
-    assert(
-      [...variant.render()].some((character) =>
-        (character.codePointAt(0) ?? 0) > 0x7f
-      ),
-      `${style} is labelled Unicode but contains only ASCII`,
-    );
-  }
+Deno.test("brand art: contracts", () => {
+  assertNamedCases({
+    "terminal-art functions preserve every curated design": () => {
+      assertEquals(Object.keys(DISCERN_ART_VARIANTS), Object.keys(EXPECTED));
+      for (const style of Object.keys(EXPECTED) as DiscernArtStyle[]) {
+        assertEquals(
+          DISCERN_ART_VARIANTS[style].render(),
+          EXPECTED[style],
+          style,
+        );
+        assertEquals(renderDiscernArt(style), EXPECTED[style], style);
+      }
+    },
+    "terminal-art variants stay deterministic and safe to compose": () => {
+      const seen = new Set<string>();
+      for (const [style, variant] of Object.entries(DISCERN_ART_VARIANTS)) {
+        const first = variant.render();
+        const second = variant.render();
+        assertEquals(second, first, `${style} must be deterministic`);
+        assert(!seen.has(first), `${style} duplicates another variant`);
+        seen.add(first);
+        assert(first !== "", `${style} must not be empty`);
+        assert(!first.startsWith("\n"), `${style} starts with a blank row`);
+        assert(!first.endsWith("\n"), `${style} owns no trailing newline`);
+        assert(!first.includes("\r"), `${style} contains a carriage return`);
+        assert(!first.includes("\t"), `${style} contains a tab`);
+        assert(!first.includes("\x1b"), `${style} contains ANSI styling`);
+        for (const character of first) {
+          assert(
+            character === "\n" || !/[\p{Cc}\p{Cf}]/u.test(character),
+            `${style} contains terminal control ${JSON.stringify(character)}`,
+          );
+        }
+        for (const line of first.split("\n")) {
+          assert(
+            !/\s$/u.test(line),
+            `${style} line has trailing whitespace: ${JSON.stringify(line)}`,
+          );
+        }
+      }
+    },
+    "ASCII-labelled art uses only printable 7-bit characters": () => {
+      for (const [style, variant] of Object.entries(DISCERN_ART_VARIANTS)) {
+        if (variant.charset !== "ascii") continue;
+        for (const character of variant.render()) {
+          const code = character.codePointAt(0) ?? 0;
+          assert(
+            character === "\n" || (code >= 0x20 && code <= 0x7e),
+            `${style} contains non-ASCII ${JSON.stringify(character)}`,
+          );
+        }
+      }
+    },
+    "Unicode-labelled art contains a non-ASCII character": () => {
+      for (const [style, variant] of Object.entries(DISCERN_ART_VARIANTS)) {
+        if (variant.charset !== "unicode") continue;
+        assert(
+          [...variant.render()].some((character) =>
+            (character.codePointAt(0) ?? 0) > 0x7f
+          ),
+          `${style} is labelled Unicode but contains only ASCII`,
+        );
+      }
+    },
+  });
 });

@@ -15,6 +15,7 @@ import {
   WORKFLOW_COMPONENTS,
   WORKFLOW_DIRECTIVES,
 } from "../site/workflow_registry.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml",
@@ -125,102 +126,106 @@ Deno.test("Workflow-enhanced routes keep their pristine Markdown editions", asyn
   }
 });
 
-Deno.test("static procedure prerequisites render as requirements, not status", () => {
-  const { html } = renderWorkflowMarkdown(
-    [
-      "<!-- discern-workflow:procedure -->",
-      "## Review a change",
-      "",
-      "Try the changed experience before deciding whether to land it.",
-      "",
-      "**Before you start:**",
-      "",
-      "- The agent has provided the changed app.",
-      "- The preview shows this task's version.",
-      "",
-      "**Steps:**",
-      "",
-      "1. **Try the result.** Check whether the requested change works.",
-      "",
-      "**You are done when:** you can decide whether to land the change.",
-      "<!-- /discern-workflow -->",
-    ].join("\n"),
-    {},
-    "fixture.md",
-  );
-  const items = [
-    ...html.matchAll(
-      /<li class="discern-prerequisite-list__item" data-discern-state="([^"]+)">([\s\S]*?)<\/li>/g,
-    ),
-  ];
-  assertEquals(items.length, 2);
-  assertEquals(items.map((item) => item[1]), ["required", "required"]);
-  assertEquals(
-    items.map((item) =>
-      /discern-prerequisite-list__marker"[^>]*>([^<]+)</.exec(
-        item[2] ?? "",
-      )?.[1]
-    ),
-    ["•", "•"],
-  );
-  assertEquals(
-    items.map((item) =>
-      /discern-prerequisite-list__state">([^<]+)</.exec(item[2] ?? "")
-        ?.[1]
-    ),
-    ["Required", "Required"],
-  );
-  assertEquals(/\b(?:Unresolved|Satisfied)\b/.test(html), false);
-});
-
-Deno.test("malformed and unknown Workflow directives fail at the source boundary", () => {
-  assertThrows(
-    () => {
-      renderWorkflowMarkdown(
-        "<!-- discern-workflow:future-thing -->\ntext\n<!-- /discern-workflow -->",
-        {},
-        "fixture.md",
-      );
-    },
-    Error,
-    "unknown directive future-thing",
-  );
-  assertThrows(
-    () => {
-      renderWorkflowMarkdown(
-        "<!-- discern-workflow:command -->\n```sh\ndiscern done\n```",
-        {},
-        "fixture.md",
-      );
-    },
-    Error,
-    "has no closing marker",
-  );
-  assertThrows(
-    () => {
-      renderWorkflowMarkdown(
+Deno.test("site workflow: renderWorkflowMarkdown cases", () => {
+  assertNamedCases({
+    "static procedure prerequisites render as requirements, not status": () => {
+      const { html } = renderWorkflowMarkdown(
         [
           "<!-- discern-workflow:procedure -->",
-          "## Ship a change",
+          "## Review a change",
           "",
-          "Take one change through the gate.",
+          "Try the changed experience before deciding whether to land it.",
           "",
           "**Before you start:**",
           "",
-          "- [ ] The setup branch is landed.",
+          "- The agent has provided the changed app.",
+          "- The preview shows this task's version.",
           "",
           "**Steps:**",
           "",
-          "1. **Start.** Open a worktree.",
+          "1. **Try the result.** Check whether the requested change works.",
           "",
-          "**You are done when:** The branch is landed.",
+          "**You are done when:** you can decide whether to land the change.",
           "<!-- /discern-workflow -->",
         ].join("\n"),
         {},
         "fixture.md",
       );
+      const items = [
+        ...html.matchAll(
+          /<li class="discern-prerequisite-list__item" data-discern-state="([^"]+)">([\s\S]*?)<\/li>/g,
+        ),
+      ];
+      assertEquals(items.length, 2);
+      assertEquals(items.map((item) => item[1]), ["required", "required"]);
+      assertEquals(
+        items.map((item) =>
+          /discern-prerequisite-list__marker"[^>]*>([^<]+)</.exec(
+            item[2] ?? "",
+          )?.[1]
+        ),
+        ["•", "•"],
+      );
+      assertEquals(
+        items.map((item) =>
+          /discern-prerequisite-list__state">([^<]+)</.exec(item[2] ?? "")
+            ?.[1]
+        ),
+        ["Required", "Required"],
+      );
+      assertEquals(/\b(?:Unresolved|Satisfied)\b/.test(html), false);
     },
-    Error,
-    "invalid prerequisite line",
-  );
+    "malformed and unknown Workflow directives fail at the source boundary":
+      () => {
+        assertThrows(
+          () => {
+            renderWorkflowMarkdown(
+              "<!-- discern-workflow:future-thing -->\ntext\n<!-- /discern-workflow -->",
+              {},
+              "fixture.md",
+            );
+          },
+          Error,
+          "unknown directive future-thing",
+        );
+        assertThrows(
+          () => {
+            renderWorkflowMarkdown(
+              "<!-- discern-workflow:command -->\n```sh\ndiscern done\n```",
+              {},
+              "fixture.md",
+            );
+          },
+          Error,
+          "has no closing marker",
+        );
+        assertThrows(
+          () => {
+            renderWorkflowMarkdown(
+              [
+                "<!-- discern-workflow:procedure -->",
+                "## Ship a change",
+                "",
+                "Take one change through the gate.",
+                "",
+                "**Before you start:**",
+                "",
+                "- [ ] The setup branch is landed.",
+                "",
+                "**Steps:**",
+                "",
+                "1. **Start.** Open a worktree.",
+                "",
+                "**You are done when:** The branch is landed.",
+                "<!-- /discern-workflow -->",
+              ].join("\n"),
+              {},
+              "fixture.md",
+            );
+          },
+          Error,
+          "invalid prerequisite line",
+        );
+      },
+  });
 });

@@ -9,18 +9,26 @@ import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { adrNumberOf, duplicateAdrNumbers } from "../src/lib/adr_numbers.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
-Deno.test("adrNumberOf: reads the number from a record basename, at any depth", () => {
-  assertEquals(adrNumberOf("map/_adr/0184-proof-line.md"), "0184");
-  assertEquals(adrNumberOf("map/_adr/_superseded/0002-side-gates.md"), "0002");
-  assertEquals(adrNumberOf("0000-template.md"), "0000");
-});
-
-Deno.test("adrNumberOf: non-record files carry no number", () => {
-  assertEquals(adrNumberOf("map/_adr/README.md"), undefined);
-  assertEquals(adrNumberOf("map/_adr/0184-missing-extension"), undefined);
-  assertEquals(adrNumberOf("map/_adr/123-three-digits.md"), undefined);
-  assertEquals(adrNumberOf("map/_adr/0184.md"), undefined);
+Deno.test("adr numbers: adrNumberOf cases", () => {
+  assertNamedCases({
+    "adrNumberOf: reads the number from a record basename, at any depth":
+      () => {
+        assertEquals(adrNumberOf("map/_adr/0184-proof-line.md"), "0184");
+        assertEquals(
+          adrNumberOf("map/_adr/_superseded/0002-side-gates.md"),
+          "0002",
+        );
+        assertEquals(adrNumberOf("0000-template.md"), "0000");
+      },
+    "adrNumberOf: non-record files carry no number": () => {
+      assertEquals(adrNumberOf("map/_adr/README.md"), undefined);
+      assertEquals(adrNumberOf("map/_adr/0184-missing-extension"), undefined);
+      assertEquals(adrNumberOf("map/_adr/123-three-digits.md"), undefined);
+      assertEquals(adrNumberOf("map/_adr/0184.md"), undefined);
+    },
+  });
 });
 
 /** Create minimal map/_adr files so numbering tests vary only their filenames. */

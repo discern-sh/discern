@@ -27,6 +27,7 @@ import type {
   ResolvedCheckpoint,
 } from "../src/engine/checkpoints/types.ts";
 import type { TriggerVeto } from "../src/shared/checkpoints.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 // ── fixtures ────────────────────────────────────────────────────────────────
 
@@ -93,69 +94,397 @@ function resolved(id: string): ResolvedCheckpoint {
 
 // ── composition: the shipped contract, pinned ───────────────────────────────
 
-Deno.test("the shipped set is four stop members on the knowledge surfaces and six advise members on the change", () => {
-  const stop = RESOLUTION.checkpoints.filter((c) => c.mode === "stop")
-    .map((c) => c.id).sort();
-  const advise = RESOLUTION.checkpoints.filter((c) => c.mode === "advise")
-    .map((c) => c.id).sort();
-  assertEquals(stop, [
-    "gotchas-playbook",
-    "instruction-economy",
-    "map-focus",
-    "skills-playbook",
-  ]);
-  assertEquals(advise, [
-    "commit-story",
-    "deletion-heavy-change",
-    "effort-sprawl",
-    "map-drift",
-    "new-binary-asset",
-    "parallel-implementation",
-  ]);
-});
-
-Deno.test("every built-in resolves by bare reference and serves its canonical question verbatim", () => {
-  assertEquals(RESOLUTION.drops, []);
-  for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
-    const def = resolved(id);
-    const canonical = questionById(seed.question);
-    assert(canonical !== undefined, id);
-    assertEquals(def.question, canonical.question, id);
-    assertEquals(def.teach, canonical.teach, id);
-  }
-});
-
-Deno.test("the v1 built-in ids and canonical question ids are frozen together", () => {
-  assertEquals(
-    Object.fromEntries(
-      Object.entries(BUILT_IN_CHECKPOINTS).map(([id, seed]) => [
-        id,
-        seed.question,
-      ]),
-    ),
-    {
-      "map-focus": "map.focus",
-      "instruction-economy": "instructions.economy",
-      "skills-playbook": "skills.executable",
-      "gotchas-playbook": "setup.failure-memory",
-      "deletion-heavy-change": "change.deletion-safety",
-      "parallel-implementation": "change.parallel-implementation",
-      "new-binary-asset": "change.binary-asset",
-      "effort-sprawl": "change.effort-scope",
-      "map-drift": "map.current",
-      "commit-story": "change.commit-story",
+Deno.test("checkpoints builtins: contracts", () => {
+  assertNamedCases({
+    "the shipped set is four stop members on the knowledge surfaces and six advise members on the change":
+      () => {
+        const stop = RESOLUTION.checkpoints.filter((c) => c.mode === "stop")
+          .map((c) => c.id).sort();
+        const advise = RESOLUTION.checkpoints.filter((c) => c.mode === "advise")
+          .map((c) => c.id).sort();
+        assertEquals(stop, [
+          "gotchas-playbook",
+          "instruction-economy",
+          "map-focus",
+          "skills-playbook",
+        ]);
+        assertEquals(advise, [
+          "commit-story",
+          "deletion-heavy-change",
+          "effort-sprawl",
+          "map-drift",
+          "new-binary-asset",
+          "parallel-implementation",
+        ]);
+      },
+    "every built-in resolves by bare reference and serves its canonical question verbatim":
+      () => {
+        assertEquals(RESOLUTION.drops, []);
+        for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
+          const def = resolved(id);
+          const canonical = questionById(seed.question);
+          assert(canonical !== undefined, id);
+          assertEquals(def.question, canonical.question, id);
+          assertEquals(def.teach, canonical.teach, id);
+        }
+      },
+    "the v1 built-in ids and canonical question ids are frozen together":
+      () => {
+        assertEquals(
+          Object.fromEntries(
+            Object.entries(BUILT_IN_CHECKPOINTS).map(([id, seed]) => [
+              id,
+              seed.question,
+            ]),
+          ),
+          {
+            "map-focus": "map.focus",
+            "instruction-economy": "instructions.economy",
+            "skills-playbook": "skills.executable",
+            "gotchas-playbook": "setup.failure-memory",
+            "deletion-heavy-change": "change.deletion-safety",
+            "parallel-implementation": "change.parallel-implementation",
+            "new-binary-asset": "change.binary-asset",
+            "effort-sprawl": "change.effort-scope",
+            "map-drift": "map.current",
+            "commit-story": "change.commit-story",
+          },
+        );
+      },
+    "the retired docs-drift spelling is not a built-in alias": () => {
+      assertThrows(
+        () => parseConfigOrThrow("[checkpoints.docs-drift]\n"),
+        Error,
+        "names no shipped checkpoint",
+      );
     },
-  );
+    "map-focus fires on a broad documentation change under the CONFIGURED map dir":
+      () => {
+        const pages = [
+          file("guide/a.md", "modified", 80, 2),
+          file("guide/b.md"),
+          file("guide/sub/c.md"),
+        ];
+        const outcome = evaluateStructuralTrigger(
+          resolved("map-focus"),
+          diff(pages),
+        );
+        assert(outcome.holds);
+        assertEquals(outcome.matched, [
+          "guide/a.md",
+          "guide/b.md",
+          "guide/sub/c.md",
+        ]);
+      },
+    "map-focus stays quiet for a touch-up, and off-map files never count toward its threshold":
+      () => {
+        const touchUp = evaluateStructuralTrigger(
+          resolved("map-focus"),
+          diff([file("guide/a.md"), file("guide/b.md")]),
+        );
+        assertEquals(touchUp, { holds: false, vetoedBy: "min_changed_lines" });
+        const padded = evaluateStructuralTrigger(
+          resolved("map-focus"),
+          diff([file("guide/a.md"), file("guide/b.md"), ...sourceFiles(5)]),
+        );
+        assertEquals(padded, { holds: false, vetoedBy: "min_changed_lines" });
+      },
+    "instruction-economy enrolls every configured instruction source glob":
+      () => {
+        assertEquals(resolved("instruction-economy").selector?.globs, [
+          "agent-instructions.md",
+          "guidance/**/*.md",
+        ]);
+        const outcome = evaluateStructuralTrigger(
+          resolved("instruction-economy"),
+          diff([file("guidance/team/review.md")]),
+        );
+        assert(outcome.holds);
+        assertEquals(outcome.matched, ["guidance/team/review.md"]);
+      },
+    "an authored skill fires skills-playbook without borrowing the broad instructions scope":
+      () => {
+        const changed = diff([file("playbooks/review/SKILL.md")]);
+        assert(
+          evaluateStructuralTrigger(resolved("skills-playbook"), changed).holds,
+        );
+        assertEquals(
+          evaluateStructuralTrigger(resolved("instruction-economy"), changed),
+          { holds: false, vetoedBy: "empty_matched_set" },
+        );
+      },
+    "an absent instruction source stays quiet without a missing-scope advisory":
+      () => {
+        const config = parseConfigOrThrow([
+          "[instructions]",
+          'sources = ["not-created/**/*.md"]',
+          "",
+          "[checkpoints.instruction-economy]",
+          "",
+        ].join("\n"));
+        const { checkpoints, drops } = resolveCheckpoints(config);
+        assertEquals(drops, []);
+        const definition = checkpoints[0];
+        assert(definition !== undefined);
+        assertEquals(definition.selector?.globs, ["not-created/**/*.md"]);
+        assertEquals(
+          evaluateStructuralTrigger(definition, diff([file("src/mod0.ext")])),
+          { holds: false, vetoedBy: "empty_matched_set" },
+        );
+      },
+    "a project-authored selector overrides instruction-economy's configured-source default":
+      () => {
+        const config = parseConfigOrThrow([
+          "[instructions]",
+          'sources = ["agent-instructions.md"]',
+          "",
+          "[checkpoints.instruction-economy]",
+          'paths = ["reviewed-guidance/**"]',
+          "",
+        ].join("\n"));
+        const { checkpoints, drops } = resolveCheckpoints(config);
+        assertEquals(drops, []);
+        assertEquals(checkpoints[0]?.selector?.globs, ["reviewed-guidance/**"]);
+      },
+    "skills-playbook fires on a change under the CONFIGURED skills dir": () => {
+      const outcome = evaluateStructuralTrigger(
+        resolved("skills-playbook"),
+        diff([file("playbooks/release-dance/SKILL.md", "added")]),
+      );
+      assert(outcome.holds);
+      assertEquals(outcome.matched, ["playbooks/release-dance/SKILL.md"]);
+    },
+    "gotchas-playbook fires on the CONFIGURED gotchas doc and nothing else":
+      () => {
+        const onDoc = evaluateStructuralTrigger(
+          resolved("gotchas-playbook"),
+          diff([file("notes/gate-traps.md")]),
+        );
+        assert(onDoc.holds);
+        assertEquals(onDoc.matched, ["notes/gate-traps.md"]);
+        const elsewhere = evaluateStructuralTrigger(
+          resolved("gotchas-playbook"),
+          diff([file("notes/other.md"), ...sourceFiles(3)]),
+        );
+        assertEquals(elsewhere, {
+          holds: false,
+          vetoedBy: "empty_matched_set",
+        });
+      },
+    "gotchas-playbook stays quiet in a project that never configured a gotchas doc":
+      () => {
+        const noDoc = parseConfigOrThrow("[checkpoints.gotchas-playbook]\n");
+        const { checkpoints, drops } = resolveCheckpoints(noDoc);
+        assertEquals(drops, []);
+        const def = checkpoints[0];
+        assert(
+          def !== undefined,
+          "the checkpoint still governs — it just never fires",
+        );
+        assertEquals(def.selector?.globs, [""]);
+        const outcome = evaluateStructuralTrigger(
+          def,
+          diff([file("anything.md"), ...sourceFiles(10)]),
+        );
+        assertEquals(outcome, { holds: false, vetoedBy: "empty_matched_set" });
+      },
+    "deletion-heavy-change fires on a substantial, deletion-dominant cut":
+      () => {
+        const outcome = evaluateStructuralTrigger(
+          resolved("deletion-heavy-change"),
+          diff([
+            file("src/legacy.ext", "deleted", 0, 110),
+            file("src/mod.ext"),
+          ]),
+        );
+        assert(outcome.holds);
+      },
+    "a rename is not a deletion-heavy change: balanced churn fails the ratio":
+      () => {
+        // Rename detection is off, so a rename reads as one deletion plus one
+        // addition of similar size — deletions ≈ insertions, nowhere near 2×.
+        const outcome = evaluateStructuralTrigger(
+          resolved("deletion-heavy-change"),
+          diff([
+            file("src/old-name.ext", "deleted", 0, 80),
+            file("src/new-name.ext", "added", 80, 0),
+          ]),
+        );
+        assertEquals(outcome, { holds: false, vetoedBy: "deletion_dominant" });
+      },
+    "a small cleanup is not a deletion-heavy change: the absolute floor holds":
+      () => {
+        const outcome = evaluateStructuralTrigger(
+          resolved("deletion-heavy-change"),
+          diff([file("src/tidy.ext", "modified", 3, 40)]),
+        );
+        assertEquals(outcome, { holds: false, vetoedBy: "deletion_dominant" });
+      },
+    "parallel-implementation fires when a decorated sibling grows beside a surviving original":
+      () => {
+        const outcome = evaluateStructuralTrigger(
+          resolved("parallel-implementation"),
+          diff(
+            [file("src/service_v2.ext", "added", 120, 0)],
+            ["src/service.ext", "src/other.ext"],
+          ),
+        );
+        assert(outcome.holds);
+        assertEquals(outcome.related, [
+          {
+            kind: "similar_existing",
+            forPath: "src/service_v2.ext",
+            path: "src/service.ext",
+          },
+        ]);
+      },
+    "a moved file is not a parallel implementation: a different directory is no sibling":
+      () => {
+        const outcome = evaluateStructuralTrigger(
+          resolved("parallel-implementation"),
+          diff(
+            [
+              file("lib/service.ext", "added", 80, 0),
+              file("src/service.ext", "deleted", 0, 80),
+            ],
+            ["src/service.ext"],
+          ),
+        );
+        assertEquals(outcome, { holds: false, vetoedBy: "similar_new_file" });
+      },
+    "a rename in place is not a parallel implementation: the vanished original is no sibling":
+      () => {
+        const outcome = evaluateStructuralTrigger(
+          resolved("parallel-implementation"),
+          diff(
+            [
+              file("src/service_v2.ext", "added", 80, 0),
+              file("src/service.ext", "deleted", 0, 80),
+            ],
+            ["src/service.ext"],
+          ),
+        );
+        assertEquals(outcome, { holds: false, vetoedBy: "similar_new_file" });
+      },
+    "an unrelated map edit cannot veto map-drift": () => {
+      const outcome = evaluateStructuralTrigger(
+        resolved("map-drift"),
+        diff([...sourceFiles(5), file("guide/page.md")]),
+      );
+      assert(outcome.holds);
+      assertEquals(outcome.matched, sourceFiles(5).map((file) => file.path));
+    },
+    "regenerated agent files alone stay under the map-drift threshold": () => {
+      // The closed menu cannot name 'generated files'; the threshold is the
+      // guard — a compile of every agent file plus a small touch never reaches
+      // five changed files on its own.
+      const outcome = evaluateStructuralTrigger(
+        resolved("map-drift"),
+        diff([
+          file("CLAUDE.md"),
+          file("AGENTS.md"),
+          file("GEMINI.md"),
+          file("src/mod.ext"),
+        ]),
+      );
+      assertEquals(outcome, { holds: false, vetoedBy: "min_changed_files" });
+    },
+    "every built-in proves it fires and stays quiet — a new seed fails until its fixtures exist":
+      () => {
+        assertEquals(
+          Object.keys(TRIGGER_FIXTURES).sort(),
+          Object.keys(BUILT_IN_CHECKPOINTS).sort(),
+          "the fixture table must cover exactly the registry",
+        );
+        const { checkpoints, drops } = resolveCheckpoints(CONFIG);
+        assertEquals(drops, []);
+        assertEquals(
+          checkpoints.length,
+          Object.keys(BUILT_IN_CHECKPOINTS).length,
+        );
+        for (const def of checkpoints) {
+          const fixtures = TRIGGER_FIXTURES[def.id];
+          assert(fixtures !== undefined, def.id);
+          const firing = evaluateStructuralTrigger(def, fixtures.firing);
+          assert(firing.holds, `${def.id} must fire on its firing fixture`);
+          if (fixtures.firingMatched !== undefined) {
+            assertEquals(firing.matched, fixtures.firingMatched, def.id);
+          }
+          const quiet = evaluateStructuralTrigger(def, fixtures.quiet);
+          assertEquals(
+            quiet.holds,
+            false,
+            `${def.id} must stay quiet on its quiet fixture`,
+          );
+          if (fixtures.quietVeto !== undefined) {
+            assertEquals(
+              quiet,
+              { holds: false, vetoedBy: fixtures.quietVeto },
+              def.id,
+            );
+          }
+          for (const extra of fixtures.additionalQuiet ?? []) {
+            assertEquals(
+              evaluateStructuralTrigger(def, extra.diff),
+              { holds: false, vetoedBy: extra.vetoedBy },
+              `${def.id}: ${extra.name}`,
+            );
+          }
+        }
+      },
+    "map-focus reviews a single new explanation but excludes history, private and generated pages":
+      () => {
+        const def = resolved("map-focus");
+        assert(
+          evaluateStructuralTrigger(
+            def,
+            diff([file("guide/runtime/README.md", "added")]),
+          ).holds,
+        );
+        for (
+          const path of ["guide/_adr/0002-choice.md", "guide/_private/notes.md"]
+        ) {
+          assert(
+            !evaluateStructuralTrigger(def, diff([file(path, "added")])).holds,
+          );
+        }
+        assert(
+          !evaluateStructuralTrigger(
+            def,
+            diff([{ ...file("guide/inventory.md", "added"), generated: true }]),
+          ).holds,
+        );
+      },
+    "map-drift relates one changed source to its explanation, even when the page also changes":
+      () => {
+        const evidence: EffortDiff = {
+          ...diff([
+            file("src/mod0.ext"),
+            file("guide/runtime/README.md"),
+            file("guide/other.md"),
+          ]),
+          mapSources: {
+            complete: true,
+            pages: [{
+              path: "guide/runtime/README.md",
+              sources: ["src/mod0.ext"],
+            }],
+          },
+        };
+        const outcome = evaluateStructuralTrigger(
+          resolved("map-drift"),
+          evidence,
+        );
+        assert(outcome.holds);
+        assertEquals(outcome.matched, ["src/mod0.ext"]);
+        assertEquals(outcome.related, [{
+          kind: "map_explanation",
+          forPath: "src/mod0.ext",
+          path: "guide/runtime/README.md",
+        }]);
+      },
+  });
 });
-
-Deno.test("the retired docs-drift spelling is not a built-in alias", () => {
-  assertThrows(
-    () => parseConfigOrThrow("[checkpoints.docs-drift]\n"),
-    Error,
-    "names no shipped checkpoint",
-  );
-});
-
 Deno.test("the public guide inventory follows the built-in registry", async () => {
   const guide = await Deno.readTextFile(
     new URL("../project/map/20-quality-gate/checkpoints.md", import.meta.url),
@@ -171,238 +500,12 @@ Deno.test("the public guide inventory follows the built-in registry", async () =
 });
 
 // ── map-focus ───────────────────────────────────────────────────────────────
-
-Deno.test("map-focus fires on a broad documentation change under the CONFIGURED map dir", () => {
-  const pages = [
-    file("guide/a.md", "modified", 80, 2),
-    file("guide/b.md"),
-    file("guide/sub/c.md"),
-  ];
-  const outcome = evaluateStructuralTrigger(resolved("map-focus"), diff(pages));
-  assert(outcome.holds);
-  assertEquals(outcome.matched, ["guide/a.md", "guide/b.md", "guide/sub/c.md"]);
-});
-
-Deno.test("map-focus stays quiet for a touch-up, and off-map files never count toward its threshold", () => {
-  const touchUp = evaluateStructuralTrigger(
-    resolved("map-focus"),
-    diff([file("guide/a.md"), file("guide/b.md")]),
-  );
-  assertEquals(touchUp, { holds: false, vetoedBy: "min_changed_lines" });
-  const padded = evaluateStructuralTrigger(
-    resolved("map-focus"),
-    diff([file("guide/a.md"), file("guide/b.md"), ...sourceFiles(5)]),
-  );
-  assertEquals(padded, { holds: false, vetoedBy: "min_changed_lines" });
-});
-
 // ── instruction-economy ─────────────────────────────────────────────────────
-
-Deno.test("instruction-economy enrolls every configured instruction source glob", () => {
-  assertEquals(resolved("instruction-economy").selector?.globs, [
-    "agent-instructions.md",
-    "guidance/**/*.md",
-  ]);
-  const outcome = evaluateStructuralTrigger(
-    resolved("instruction-economy"),
-    diff([file("guidance/team/review.md")]),
-  );
-  assert(outcome.holds);
-  assertEquals(outcome.matched, ["guidance/team/review.md"]);
-});
-
-Deno.test("an authored skill fires skills-playbook without borrowing the broad instructions scope", () => {
-  const changed = diff([file("playbooks/review/SKILL.md")]);
-  assert(evaluateStructuralTrigger(resolved("skills-playbook"), changed).holds);
-  assertEquals(
-    evaluateStructuralTrigger(resolved("instruction-economy"), changed),
-    { holds: false, vetoedBy: "empty_matched_set" },
-  );
-});
-
-Deno.test("an absent instruction source stays quiet without a missing-scope advisory", () => {
-  const config = parseConfigOrThrow([
-    "[instructions]",
-    'sources = ["not-created/**/*.md"]',
-    "",
-    "[checkpoints.instruction-economy]",
-    "",
-  ].join("\n"));
-  const { checkpoints, drops } = resolveCheckpoints(config);
-  assertEquals(drops, []);
-  const definition = checkpoints[0];
-  assert(definition !== undefined);
-  assertEquals(definition.selector?.globs, ["not-created/**/*.md"]);
-  assertEquals(
-    evaluateStructuralTrigger(definition, diff([file("src/mod0.ext")])),
-    { holds: false, vetoedBy: "empty_matched_set" },
-  );
-});
-
-Deno.test("a project-authored selector overrides instruction-economy's configured-source default", () => {
-  const config = parseConfigOrThrow([
-    "[instructions]",
-    'sources = ["agent-instructions.md"]',
-    "",
-    "[checkpoints.instruction-economy]",
-    'paths = ["reviewed-guidance/**"]',
-    "",
-  ].join("\n"));
-  const { checkpoints, drops } = resolveCheckpoints(config);
-  assertEquals(drops, []);
-  assertEquals(checkpoints[0]?.selector?.globs, ["reviewed-guidance/**"]);
-});
-
 // ── skills-playbook ─────────────────────────────────────────────────────────
-
-Deno.test("skills-playbook fires on a change under the CONFIGURED skills dir", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("skills-playbook"),
-    diff([file("playbooks/release-dance/SKILL.md", "added")]),
-  );
-  assert(outcome.holds);
-  assertEquals(outcome.matched, ["playbooks/release-dance/SKILL.md"]);
-});
-
 // ── gotchas-playbook ────────────────────────────────────────────────────────
-
-Deno.test("gotchas-playbook fires on the CONFIGURED gotchas doc and nothing else", () => {
-  const onDoc = evaluateStructuralTrigger(
-    resolved("gotchas-playbook"),
-    diff([file("notes/gate-traps.md")]),
-  );
-  assert(onDoc.holds);
-  assertEquals(onDoc.matched, ["notes/gate-traps.md"]);
-  const elsewhere = evaluateStructuralTrigger(
-    resolved("gotchas-playbook"),
-    diff([file("notes/other.md"), ...sourceFiles(3)]),
-  );
-  assertEquals(elsewhere, { holds: false, vetoedBy: "empty_matched_set" });
-});
-
-Deno.test("gotchas-playbook stays quiet in a project that never configured a gotchas doc", () => {
-  const noDoc = parseConfigOrThrow("[checkpoints.gotchas-playbook]\n");
-  const { checkpoints, drops } = resolveCheckpoints(noDoc);
-  assertEquals(drops, []);
-  const def = checkpoints[0];
-  assert(
-    def !== undefined,
-    "the checkpoint still governs — it just never fires",
-  );
-  assertEquals(def.selector?.globs, [""]);
-  const outcome = evaluateStructuralTrigger(
-    def,
-    diff([file("anything.md"), ...sourceFiles(10)]),
-  );
-  assertEquals(outcome, { holds: false, vetoedBy: "empty_matched_set" });
-});
-
 // ── deletion-heavy-change ───────────────────────────────────────────────────
-
-Deno.test("deletion-heavy-change fires on a substantial, deletion-dominant cut", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("deletion-heavy-change"),
-    diff([file("src/legacy.ext", "deleted", 0, 110), file("src/mod.ext")]),
-  );
-  assert(outcome.holds);
-});
-
-Deno.test("a rename is not a deletion-heavy change: balanced churn fails the ratio", () => {
-  // Rename detection is off, so a rename reads as one deletion plus one
-  // addition of similar size — deletions ≈ insertions, nowhere near 2×.
-  const outcome = evaluateStructuralTrigger(
-    resolved("deletion-heavy-change"),
-    diff([
-      file("src/old-name.ext", "deleted", 0, 80),
-      file("src/new-name.ext", "added", 80, 0),
-    ]),
-  );
-  assertEquals(outcome, { holds: false, vetoedBy: "deletion_dominant" });
-});
-
-Deno.test("a small cleanup is not a deletion-heavy change: the absolute floor holds", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("deletion-heavy-change"),
-    diff([file("src/tidy.ext", "modified", 3, 40)]),
-  );
-  assertEquals(outcome, { holds: false, vetoedBy: "deletion_dominant" });
-});
-
 // ── parallel-implementation ─────────────────────────────────────────────────
-
-Deno.test("parallel-implementation fires when a decorated sibling grows beside a surviving original", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("parallel-implementation"),
-    diff(
-      [file("src/service_v2.ext", "added", 120, 0)],
-      ["src/service.ext", "src/other.ext"],
-    ),
-  );
-  assert(outcome.holds);
-  assertEquals(outcome.related, [
-    {
-      kind: "similar_existing",
-      forPath: "src/service_v2.ext",
-      path: "src/service.ext",
-    },
-  ]);
-});
-
-Deno.test("a moved file is not a parallel implementation: a different directory is no sibling", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("parallel-implementation"),
-    diff(
-      [
-        file("lib/service.ext", "added", 80, 0),
-        file("src/service.ext", "deleted", 0, 80),
-      ],
-      ["src/service.ext"],
-    ),
-  );
-  assertEquals(outcome, { holds: false, vetoedBy: "similar_new_file" });
-});
-
-Deno.test("a rename in place is not a parallel implementation: the vanished original is no sibling", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("parallel-implementation"),
-    diff(
-      [
-        file("src/service_v2.ext", "added", 80, 0),
-        file("src/service.ext", "deleted", 0, 80),
-      ],
-      ["src/service.ext"],
-    ),
-  );
-  assertEquals(outcome, { holds: false, vetoedBy: "similar_new_file" });
-});
-
 // ── map-drift ───────────────────────────────────────────────────────────────
-
-Deno.test("an unrelated map edit cannot veto map-drift", () => {
-  const outcome = evaluateStructuralTrigger(
-    resolved("map-drift"),
-    diff([...sourceFiles(5), file("guide/page.md")]),
-  );
-  assert(outcome.holds);
-  assertEquals(outcome.matched, sourceFiles(5).map((file) => file.path));
-});
-
-Deno.test("regenerated agent files alone stay under the map-drift threshold", () => {
-  // The closed menu cannot name 'generated files'; the threshold is the
-  // guard — a compile of every agent file plus a small touch never reaches
-  // five changed files on its own.
-  const outcome = evaluateStructuralTrigger(
-    resolved("map-drift"),
-    diff([
-      file("CLAUDE.md"),
-      file("AGENTS.md"),
-      file("GEMINI.md"),
-      file("src/mod.ext"),
-    ]),
-  );
-  assertEquals(outcome, { holds: false, vetoedBy: "min_changed_files" });
-});
-
 // ── the completeness forcing function ───────────────────────────────────────
 
 /** One firing and one quiet diff per built-in, keyed by the registry: a new
@@ -479,84 +582,3 @@ const TRIGGER_FIXTURES: Readonly<
     quietVeto: "min_changed_files",
   },
 };
-
-Deno.test("every built-in proves it fires and stays quiet — a new seed fails until its fixtures exist", () => {
-  assertEquals(
-    Object.keys(TRIGGER_FIXTURES).sort(),
-    Object.keys(BUILT_IN_CHECKPOINTS).sort(),
-    "the fixture table must cover exactly the registry",
-  );
-  const { checkpoints, drops } = resolveCheckpoints(CONFIG);
-  assertEquals(drops, []);
-  assertEquals(checkpoints.length, Object.keys(BUILT_IN_CHECKPOINTS).length);
-  for (const def of checkpoints) {
-    const fixtures = TRIGGER_FIXTURES[def.id];
-    assert(fixtures !== undefined, def.id);
-    const firing = evaluateStructuralTrigger(def, fixtures.firing);
-    assert(firing.holds, `${def.id} must fire on its firing fixture`);
-    if (fixtures.firingMatched !== undefined) {
-      assertEquals(firing.matched, fixtures.firingMatched, def.id);
-    }
-    const quiet = evaluateStructuralTrigger(def, fixtures.quiet);
-    assertEquals(
-      quiet.holds,
-      false,
-      `${def.id} must stay quiet on its quiet fixture`,
-    );
-    if (fixtures.quietVeto !== undefined) {
-      assertEquals(
-        quiet,
-        { holds: false, vetoedBy: fixtures.quietVeto },
-        def.id,
-      );
-    }
-    for (const extra of fixtures.additionalQuiet ?? []) {
-      assertEquals(
-        evaluateStructuralTrigger(def, extra.diff),
-        { holds: false, vetoedBy: extra.vetoedBy },
-        `${def.id}: ${extra.name}`,
-      );
-    }
-  }
-});
-
-Deno.test("map-focus reviews a single new explanation but excludes history, private and generated pages", () => {
-  const def = resolved("map-focus");
-  assert(
-    evaluateStructuralTrigger(
-      def,
-      diff([file("guide/runtime/README.md", "added")]),
-    ).holds,
-  );
-  for (const path of ["guide/_adr/0002-choice.md", "guide/_private/notes.md"]) {
-    assert(!evaluateStructuralTrigger(def, diff([file(path, "added")])).holds);
-  }
-  assert(
-    !evaluateStructuralTrigger(
-      def,
-      diff([{ ...file("guide/inventory.md", "added"), generated: true }]),
-    ).holds,
-  );
-});
-
-Deno.test("map-drift relates one changed source to its explanation, even when the page also changes", () => {
-  const evidence: EffortDiff = {
-    ...diff([
-      file("src/mod0.ext"),
-      file("guide/runtime/README.md"),
-      file("guide/other.md"),
-    ]),
-    mapSources: {
-      complete: true,
-      pages: [{ path: "guide/runtime/README.md", sources: ["src/mod0.ext"] }],
-    },
-  };
-  const outcome = evaluateStructuralTrigger(resolved("map-drift"), evidence);
-  assert(outcome.holds);
-  assertEquals(outcome.matched, ["src/mod0.ext"]);
-  assertEquals(outcome.related, [{
-    kind: "map_explanation",
-    forPath: "src/mod0.ext",
-    path: "guide/runtime/README.md",
-  }]);
-});

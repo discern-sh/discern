@@ -44,52 +44,99 @@ import {
   quotedDiscernCommands,
   sourceDiscernCommands,
 } from "./command_span_scan.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
-Deno.test("hint command guard extracts only quoted discern commands", () => {
-  assertEquals(
-    quotedDiscernCommands(
-      "Run `discern status --json`, then inspect `git status`; discern done in prose is not a command span.",
-    ),
-    ["discern status --json"],
-  );
+Deno.test("hint command guard: contracts", () => {
+  assertNamedCases({
+    "hint command guard extracts only quoted discern commands": () => {
+      assertEquals(
+        quotedDiscernCommands(
+          "Run `discern status --json`, then inspect `git status`; discern done in prose is not a command span.",
+        ),
+        ["discern status --json"],
+      );
+    },
+    "hint source scan reaches branches the example never renders": () => {
+      // The adversarial future sibling: a command misspelling hiding in the arm
+      // the typed example does NOT exercise. The rendered pass is blind to it;
+      // the source pass must extract it without this fixture being special-cased.
+      const def = {
+        example: { urgent: false },
+        template: ({ urgent }: { urgent: boolean }): string =>
+          urgent ? `Run \`discern frobnicate\` immediately.` : "Nothing to do.",
+      };
+      assertEquals(quotedDiscernCommands(def.template(def.example)), []);
+      assertEquals(sourceDiscernCommands(String(def.template)), [
+        "discern frobnicate",
+      ]);
+    },
+    "hint source scan skips interpolated spans and survives concatenation":
+      () => {
+        const template = ({ verb }: { verb: string }): string =>
+          `Try \`discern ${verb}\` first, then run \`discern ` +
+          `frobnicate --json\` and stop.`;
+        assertEquals(sourceDiscernCommands(String(template)), [
+          "discern frobnicate --json",
+        ]);
+      },
+    "a stale command in an unexercised branch is flagged end-to-end": () => {
+      const model = TEST_CLI_MODEL();
+      const template = ({ legacy }: { legacy: boolean }): string =>
+        legacy ? `Run \`discern frobnicate\` to migrate.` : "Up to date.";
+      const [command] = sourceDiscernCommands(String(template));
+      assert(command !== undefined, "the fixture span must be extracted");
+      assert(
+        validateFencedCommand(command, model, new Set()) !== undefined,
+        "an unknown command reached through the source scan must be rejected",
+      );
+    },
+    "every rendered hint spells runnable discern commands only through references":
+      () => {
+        const failures: string[] = [];
+        for (const [key, value] of Object.entries(HINTS)) {
+          const def = value as {
+            example: unknown;
+            template: (params: unknown) => string;
+          };
+          for (const span of proseCommandSpans(def.template(def.example))) {
+            failures.push(`${key}: \`${span}\``);
+          }
+        }
+        assertEquals(
+          failures,
+          [],
+          "a runnable discern command is written as prose — build it with " +
+            "discernCommand()/ownerDiscernCommand() so every surface can spell it:\n  " +
+            failures.join("\n  "),
+        );
+      },
+    "the completeness detector rejects a prose-spelled command beside a reference":
+      () => {
+        // The adversarial future sibling: one converted reference, one span left as
+        // prose. The stripped text must still expose the prose span.
+        const authored =
+          '⟦discern-cmd:{"words":"update","args":[],"executor":"caller"}⟧ first, then `discern done`.';
+        assertEquals(proseCommandSpans(authored), ["discern done"]);
+      },
+    "the command-value scan reaches a served command no rendering exercises":
+      () => {
+        // The adversarial sibling: a repair command naming a retired subcommand,
+        // pinned verbatim by its own status test, so only a validator catches it.
+        const model = TEST_CLI_MODEL();
+        const source = [
+          'repair: { kind: "manual", command: "discern worktree setup begin --dry-run" },',
+          'const hint = { label: "discern gate step", next_action: `discern ${verb}` };',
+        ].join("\n");
+        const commands = commandValueLiterals(source);
+        assertEquals(commands, ["discern worktree setup begin --dry-run"]);
+        assert(
+          validateFencedCommand(commands[0] ?? "", model, new Set()) !==
+            undefined,
+          "a retired subcommand reached through the command-value scan must be rejected",
+        );
+      },
+  });
 });
-
-Deno.test("hint source scan reaches branches the example never renders", () => {
-  // The adversarial future sibling: a command misspelling hiding in the arm
-  // the typed example does NOT exercise. The rendered pass is blind to it;
-  // the source pass must extract it without this fixture being special-cased.
-  const def = {
-    example: { urgent: false },
-    template: ({ urgent }: { urgent: boolean }): string =>
-      urgent ? `Run \`discern frobnicate\` immediately.` : "Nothing to do.",
-  };
-  assertEquals(quotedDiscernCommands(def.template(def.example)), []);
-  assertEquals(sourceDiscernCommands(String(def.template)), [
-    "discern frobnicate",
-  ]);
-});
-
-Deno.test("hint source scan skips interpolated spans and survives concatenation", () => {
-  const template = ({ verb }: { verb: string }): string =>
-    `Try \`discern ${verb}\` first, then run \`discern ` +
-    `frobnicate --json\` and stop.`;
-  assertEquals(sourceDiscernCommands(String(template)), [
-    "discern frobnicate --json",
-  ]);
-});
-
-Deno.test("a stale command in an unexercised branch is flagged end-to-end", () => {
-  const model = TEST_CLI_MODEL();
-  const template = ({ legacy }: { legacy: boolean }): string =>
-    legacy ? `Run \`discern frobnicate\` to migrate.` : "Up to date.";
-  const [command] = sourceDiscernCommands(String(template));
-  assert(command !== undefined, "the fixture span must be extracted");
-  assert(
-    validateFencedCommand(command, model, new Set()) !== undefined,
-    "an unknown command reached through the source scan must be rejected",
-  );
-});
-
 Deno.test("every quoted discern command in the hint registry validates against the live CLI", async () => {
   const validate = await liveCommandValidator();
   const failures: string[] = [];
@@ -137,34 +184,6 @@ function proseCommandSpans(authoredText: string): string[] {
   return quotedDiscernCommands(stripCommandRefs(authoredText))
     .filter((span) => span !== "discern");
 }
-
-Deno.test("every rendered hint spells runnable discern commands only through references", () => {
-  const failures: string[] = [];
-  for (const [key, value] of Object.entries(HINTS)) {
-    const def = value as {
-      example: unknown;
-      template: (params: unknown) => string;
-    };
-    for (const span of proseCommandSpans(def.template(def.example))) {
-      failures.push(`${key}: \`${span}\``);
-    }
-  }
-  assertEquals(
-    failures,
-    [],
-    "a runnable discern command is written as prose — build it with " +
-      "discernCommand()/ownerDiscernCommand() so every surface can spell it:\n  " +
-      failures.join("\n  "),
-  );
-});
-
-Deno.test("the completeness detector rejects a prose-spelled command beside a reference", () => {
-  // The adversarial future sibling: one converted reference, one span left as
-  // prose. The stripped text must still expose the prose span.
-  const authored =
-    '⟦discern-cmd:{"words":"update","args":[],"executor":"caller"}⟧ first, then `discern done`.';
-  assertEquals(proseCommandSpans(authored), ["discern done"]);
-});
 
 Deno.test("a reference with a stale flag or subcommand fails the live validation", async () => {
   // Constructors validate the verb word at build time, but a stale flag or
@@ -240,22 +259,6 @@ function commandValueLiterals(source: string): string[] {
     .map((match) => match[2] ?? "")
     .filter((command) => !command.includes("${"));
 }
-
-Deno.test("the command-value scan reaches a served command no rendering exercises", () => {
-  // The adversarial sibling: a repair command naming a retired subcommand,
-  // pinned verbatim by its own status test, so only a validator catches it.
-  const model = TEST_CLI_MODEL();
-  const source = [
-    'repair: { kind: "manual", command: "discern worktree setup begin --dry-run" },',
-    'const hint = { label: "discern gate step", next_action: `discern ${verb}` };',
-  ].join("\n");
-  const commands = commandValueLiterals(source);
-  assertEquals(commands, ["discern worktree setup begin --dry-run"]);
-  assert(
-    validateFencedCommand(commands[0] ?? "", model, new Set()) !== undefined,
-    "a retired subcommand reached through the command-value scan must be rejected",
-  );
-});
 
 Deno.test("every command-valued literal in authored source names a live command", async () => {
   const validate = await liveCommandValidator();

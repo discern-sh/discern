@@ -7,6 +7,8 @@
  * resolution, hashing, summary, or evaluation.
  */
 
+import { assertCases } from "./assert_cases.ts";
+
 import { assert, assertEquals } from "@std/assert";
 import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import {
@@ -232,17 +234,25 @@ Deno.test("every checkpoint trigger schema field belongs to the canonical regist
   );
 });
 
-for (const [field, probe] of Object.entries(FIELD_PROBES)) {
-  Deno.test(`trigger field enrollment: ${field}`, () => {
-    assertEquals(probe(), FIELD_PROBE_EXPECTATIONS[field as TriggerField]);
-  });
-}
+Deno.test("every registered trigger field satisfies its evaluator probe", () => {
+  assertCases(
+    Object.entries(FIELD_PROBES),
+    ([field]) => `trigger field enrollment: ${field}`,
+    ([field, probe]) => {
+      assertEquals(probe(), FIELD_PROBE_EXPECTATIONS[field as TriggerField]);
+    },
+  );
+});
 
-for (const [field, test] of Object.entries(SUMMARY_CASES)) {
-  Deno.test(`trigger summary enrollment: ${field}`, () => {
-    assertEquals(triggerSummary(definition(test.field)), test.expected);
-  });
-}
+Deno.test("every registered trigger field satisfies its summary probe", () => {
+  assertCases(
+    Object.entries(SUMMARY_CASES),
+    ([field]) => `trigger summary enrollment: ${field}`,
+    ([, test]) => {
+      assertEquals(triggerSummary(definition(test.field)), test.expected);
+    },
+  );
+});
 
 Deno.test("content pattern arrays are literal ORs and distinct fields are ANDed", () => {
   const regexLooking = "^Needle.*[0-9]+?$";

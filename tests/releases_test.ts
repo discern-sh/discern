@@ -81,6 +81,7 @@ import { runGit, runShell } from "../src/shared/subprocess.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Find strict-object keywords that would reject a future optional field. */
 function closedObjectPaths(value: unknown, path = "$"): string[] {
@@ -120,48 +121,83 @@ function publications(records: readonly AuthoredRelease[]): Publication[] {
   }));
 }
 
-Deno.test("SemVer precedence follows the standard across prereleases and metadata", () => {
-  const order = [
-    "2.3.0-alpha",
-    "2.3.0-alpha.1",
-    "2.3.0-alpha.beta",
-    "2.3.0-beta",
-    "2.3.0-beta.2",
-    "2.3.0-beta.11",
-    "2.3.0-rc.1",
-    "2.3.0",
-    "2.3.1",
-    "2.10.0",
-    "3.0.0",
-  ];
-  for (const [i, left] of order.entries()) {
-    for (const [j, right] of order.entries()) {
-      assertEquals(
-        Math.sign(compareVersions(left, right)),
-        Math.sign(i - j),
-        `${left} / ${right}`,
-      );
-    }
-  }
-  assertEquals(compareVersions("2.3.0+build.5", "2.3.0+other"), 0);
-  assert(compareVersions("2.3.0-rc.1+build", "2.3.0") < 0);
-  for (
-    const invalid of [
-      "",
-      "v2.3.0",
-      "2.3",
-      "02.3.0",
-      "2.3.0-01",
-      "2.3.0-",
-      " 2.3.0",
-      "2.3.0 ",
-      "2.3.0+",
-      "2.3.0+hello world",
-    ]
-  ) {
-    assertThrows(() => parseVersion(invalid));
-    assertThrows(() => releaseCheckUrls(invalid));
-  }
+Deno.test("releases: version inputs", () => {
+  assertNamedCases({
+    "SemVer precedence follows the standard across prereleases and metadata":
+      () => {
+        const order = [
+          "2.3.0-alpha",
+          "2.3.0-alpha.1",
+          "2.3.0-alpha.beta",
+          "2.3.0-beta",
+          "2.3.0-beta.2",
+          "2.3.0-beta.11",
+          "2.3.0-rc.1",
+          "2.3.0",
+          "2.3.1",
+          "2.10.0",
+          "3.0.0",
+        ];
+        for (const [i, left] of order.entries()) {
+          for (const [j, right] of order.entries()) {
+            assertEquals(
+              Math.sign(compareVersions(left, right)),
+              Math.sign(i - j),
+              `${left} / ${right}`,
+            );
+          }
+        }
+        assertEquals(compareVersions("2.3.0+build.5", "2.3.0+other"), 0);
+        assert(compareVersions("2.3.0-rc.1+build", "2.3.0") < 0);
+        for (
+          const invalid of [
+            "",
+            "v2.3.0",
+            "2.3",
+            "02.3.0",
+            "2.3.0-01",
+            "2.3.0-",
+            " 2.3.0",
+            "2.3.0 ",
+            "2.3.0+",
+            "2.3.0+hello world",
+          ]
+        ) {
+          assertThrows(() => parseVersion(invalid));
+          assertThrows(() => releaseCheckUrls(invalid));
+        }
+      },
+    "offline check links carry only an encoded numeric version": () => {
+      for (const version of [undefined, DISCERN_VERSION, "7.8.0+build-1"]) {
+        const urls = releaseCheckUrls(version);
+        for (const value of Object.values(urls)) {
+          const url = new URL(value);
+          assertEquals(
+            [...url.searchParams],
+            version === undefined ? [] : [["since", version]],
+          );
+          assertEquals(url.origin, "https://discern.sh");
+        }
+      }
+    },
+    "since rejects ambiguous inputs and preserves escaped build metadata":
+      () => {
+        assertEquals(parseSince(new URLSearchParams()), undefined);
+        assertEquals(
+          parseSince(new URLSearchParams("since=2.3.0%2Bbuild")),
+          "2.3.0+build",
+        );
+        for (
+          const query of [
+            "since=",
+            "since=v2.3.0",
+            "since=2.3",
+            "since=2.3.0&since=2.3.0",
+            "since=2.3.0+build",
+          ]
+        ) assertThrows(() => parseSince(new URLSearchParams(query)));
+      },
+  });
 });
 
 Deno.test("record validation rejects the class with file diagnostics and deterministic sorting", async () => {
@@ -231,140 +267,198 @@ Deno.test("record validation rejects the class with file diagnostics and determi
   });
 });
 
-Deno.test("published family declarations and unnamed families cannot change", () => {
-  for (const name of [undefined, "Aurora", "星の海"]) {
-    const metadata = name === undefined ? "" : `codename: ${name}\n`;
-    const published = parseReleaseRecords([source("2.3.0-rc.1", metadata)]);
-    const current = parseReleaseRecords([
-      source("2.3.0-rc.1", metadata),
-      source("2.3.0"),
-      source("2.3.1"),
-    ]);
-    assertPublishedCodenames(current, published);
-    assertThrows(
-      () =>
-        assertPublishedCodenames(
-          parseReleaseRecords([source("2.3.0-rc.1", "codename: Changed\n")]),
-          published,
-        ),
-      Error,
-      "published codename",
-    );
-    assertThrows(
-      () =>
-        assertPublishedCodenames(
-          parseReleaseRecords([source("2.3.0", metadata)]),
-          published,
-        ),
-      Error,
-      "missing current-version",
-    );
-  }
-});
-
-Deno.test("comparison states share stable recommendation and complete classified retained history", () => {
-  const records = parseReleaseRecords([
-    source("2.3.0"),
-    source("2.3.1"),
-    source("2.4.0-rc.1"),
-    source("2.4.0"),
-  ]);
-  const catalogue = releaseCatalogue(
-    records,
-    publications(records.filter((r) => r.version !== "2.4.0")),
-  );
-  const cases: [string | undefined, string, string[]][] = [
-    [undefined, "index", ["2.3.1", "2.3.0"]],
-    ["2.3.1", "current", []],
-    ["2.3.1+build", "current", []],
-    ["2.3.0", "update-available", ["2.3.1"]],
-    ["2.3.1-rc.1", "update-available", ["2.3.1"]],
-    ["2.4.0-rc.1", "ahead", []],
-    ["3.0.0", "ahead", []],
-    ["0.9.0", "update-available", ["2.3.1", "2.3.0"]],
-  ];
-  for (const [since, status, applicable] of cases) {
-    const result = compareReleases(catalogue, since);
-    assertEquals(comparisonSchema.parse(result), result);
-    assertEquals(result.status, status);
-    assertEquals(result.applicable.map((record) => record.version), applicable);
-    assertEquals(result.latest_stable?.version, "2.3.1");
-    assertEquals(result.history.prereleases.map((record) => record.version), [
-      "2.4.0-rc.1",
-    ]);
-    assertEquals(result.history.candidates.map((record) => record.version), [
-      "2.4.0",
-    ]);
-    assertEquals(
-      result.recommendation?.version,
-      status === "ahead" ? undefined : "2.3.1",
-    );
-    assertEquals(
-      result.history_coverage.before_earliest_known,
-      since === "0.9.0",
-    );
-  }
-  for (
-    const subset of [
-      [],
-      catalogue.filter((record) => record.publication !== "stable"),
-    ]
-  ) {
-    const result = compareReleases(subset);
-    assertEquals(result.status, "no-stable-release");
-    assertEquals(result.recommendation, undefined);
-  }
-  assertThrows(
-    () => releaseCatalogue(records, [{ version: "9.8.7", date: "2026-09-10" }]),
-    Error,
-    "missing retained",
-  );
-  const published = publications(records);
-  assertThrows(
-    () => releaseCatalogue(records, [...published, ...published]),
-    Error,
-    "duplicate publication",
-  );
-  assertThrows(
-    () =>
-      releaseCatalogue(
-        parseReleaseRecords([source("2.3.0", "date: 2026-09-11\n")]),
-        [{ version: "2.3.0", date: "2026-09-10" }],
-      ),
-    Error,
-    "disagrees with publication",
-  );
-});
-
-Deno.test("offline check links carry only an encoded numeric version", () => {
-  for (const version of [undefined, DISCERN_VERSION, "7.8.0+build-1"]) {
-    const urls = releaseCheckUrls(version);
-    for (const value of Object.values(urls)) {
-      const url = new URL(value);
-      assertEquals(
-        [...url.searchParams],
-        version === undefined ? [] : [["since", version]],
-      );
-      assertEquals(url.origin, "https://discern.sh");
-    }
-  }
-});
-
-Deno.test("since rejects ambiguous inputs and preserves escaped build metadata", () => {
-  assertEquals(parseSince(new URLSearchParams()), undefined);
-  assertEquals(
-    parseSince(new URLSearchParams("since=2.3.0%2Bbuild")),
-    "2.3.0+build",
-  );
-  for (
-    const query of [
-      "since=",
-      "since=v2.3.0",
-      "since=2.3",
-      "since=2.3.0&since=2.3.0",
-      "since=2.3.0+build",
-    ]
-  ) assertThrows(() => parseSince(new URLSearchParams(query)));
+Deno.test("releases: release catalogue", () => {
+  assertNamedCases({
+    "published family declarations and unnamed families cannot change": () => {
+      for (const name of [undefined, "Aurora", "星の海"]) {
+        const metadata = name === undefined ? "" : `codename: ${name}\n`;
+        const published = parseReleaseRecords([source("2.3.0-rc.1", metadata)]);
+        const current = parseReleaseRecords([
+          source("2.3.0-rc.1", metadata),
+          source("2.3.0"),
+          source("2.3.1"),
+        ]);
+        assertPublishedCodenames(current, published);
+        assertThrows(
+          () =>
+            assertPublishedCodenames(
+              parseReleaseRecords([
+                source("2.3.0-rc.1", "codename: Changed\n"),
+              ]),
+              published,
+            ),
+          Error,
+          "published codename",
+        );
+        assertThrows(
+          () =>
+            assertPublishedCodenames(
+              parseReleaseRecords([source("2.3.0", metadata)]),
+              published,
+            ),
+          Error,
+          "missing current-version",
+        );
+      }
+    },
+    "comparison states share stable recommendation and complete classified retained history":
+      () => {
+        const records = parseReleaseRecords([
+          source("2.3.0"),
+          source("2.3.1"),
+          source("2.4.0-rc.1"),
+          source("2.4.0"),
+        ]);
+        const catalogue = releaseCatalogue(
+          records,
+          publications(records.filter((r) => r.version !== "2.4.0")),
+        );
+        const cases: [string | undefined, string, string[]][] = [
+          [undefined, "index", ["2.3.1", "2.3.0"]],
+          ["2.3.1", "current", []],
+          ["2.3.1+build", "current", []],
+          ["2.3.0", "update-available", ["2.3.1"]],
+          ["2.3.1-rc.1", "update-available", ["2.3.1"]],
+          ["2.4.0-rc.1", "ahead", []],
+          ["3.0.0", "ahead", []],
+          ["0.9.0", "update-available", ["2.3.1", "2.3.0"]],
+        ];
+        for (const [since, status, applicable] of cases) {
+          const result = compareReleases(catalogue, since);
+          assertEquals(comparisonSchema.parse(result), result);
+          assertEquals(result.status, status);
+          assertEquals(
+            result.applicable.map((record) => record.version),
+            applicable,
+          );
+          assertEquals(result.latest_stable?.version, "2.3.1");
+          assertEquals(
+            result.history.prereleases.map((record) => record.version),
+            [
+              "2.4.0-rc.1",
+            ],
+          );
+          assertEquals(
+            result.history.candidates.map((record) => record.version),
+            [
+              "2.4.0",
+            ],
+          );
+          assertEquals(
+            result.recommendation?.version,
+            status === "ahead" ? undefined : "2.3.1",
+          );
+          assertEquals(
+            result.history_coverage.before_earliest_known,
+            since === "0.9.0",
+          );
+        }
+        for (
+          const subset of [
+            [],
+            catalogue.filter((record) => record.publication !== "stable"),
+          ]
+        ) {
+          const result = compareReleases(subset);
+          assertEquals(result.status, "no-stable-release");
+          assertEquals(result.recommendation, undefined);
+        }
+        assertThrows(
+          () =>
+            releaseCatalogue(records, [{
+              version: "9.8.7",
+              date: "2026-09-10",
+            }]),
+          Error,
+          "missing retained",
+        );
+        const published = publications(records);
+        assertThrows(
+          () => releaseCatalogue(records, [...published, ...published]),
+          Error,
+          "duplicate publication",
+        );
+        assertThrows(
+          () =>
+            releaseCatalogue(
+              parseReleaseRecords([source("2.3.0", "date: 2026-09-11\n")]),
+              [{ version: "2.3.0", date: "2026-09-10" }],
+            ),
+          Error,
+          "disagrees with publication",
+        );
+      },
+    "release plan preserves latest and catalogue through prereleases, maintenance, and reruns":
+      () => {
+        const records = parseReleaseRecords([
+          source("2.3.0"),
+          source("2.3.1"),
+          source("2.4.0"),
+          source("2.5.0-rc.1"),
+        ]);
+        const published = publications(
+          records.filter((record) => record.version !== "2.3.1"),
+        );
+        const ancestors = published.map((release) => release.version);
+        for (const record of records) {
+          const plan = releasePlan(`v${record.version}`, {
+            repositoryPrivate: false,
+            version: record.version,
+            records,
+            published,
+            ancestors,
+          });
+          assertEquals(plan.prerelease, record.version.includes("-"));
+          assertEquals(plan.makeLatest, record.version === "2.4.0");
+          assertEquals(plan.body, `${record.summary}\n\n${record.body}\n`);
+          const model = compareReleases(
+            releaseCatalogue(records, publications(records)),
+          );
+          if (plan.makeLatest) {
+            assertEquals(model.latest_stable?.version, plan.version);
+          }
+          assertThrows(
+            () =>
+              releasePlan(`v${record.version}`, {
+                repositoryPrivate: false,
+                version: record.version,
+                records,
+                published,
+                ancestors: [],
+              }),
+            Error,
+            "regress the production catalogue",
+          );
+        }
+        assertThrows(
+          () =>
+            releasePlan("v9.8.7", {
+              repositoryPrivate: false,
+              version: "9.8.7",
+              records,
+              published: [],
+              ancestors: [],
+            }),
+          Error,
+          "missing current-version",
+        );
+        const buildOnly = parseReleaseRecords([source("7.8.0+build-1")]);
+        const stableBuild = releasePlan("v7.8.0+build-1", {
+          repositoryPrivate: false,
+          version: "7.8.0+build-1",
+          records: buildOnly,
+          published: [],
+          ancestors: [],
+        });
+        assertEquals(stableBuild.prerelease, false);
+        assertEquals(stableBuild.makeLatest, true);
+        assert(UPDATE_SEQUENCE.some((step) => step.includes(INSTALL_COMMAND)));
+        const installer = Deno.readTextFileSync(
+          new URL("../install.sh", import.meta.url),
+        );
+        assertStringIncludes(installer, "releases/latest/download/");
+      },
+  });
 });
 
 /** A real routing snapshot with fixture release records still exercises outer security and SEO. */
@@ -581,77 +675,6 @@ Deno.test("every release projection and fixed route enrolls future records and s
     );
   }
 });
-
-Deno.test("release plan preserves latest and catalogue through prereleases, maintenance, and reruns", () => {
-  const records = parseReleaseRecords([
-    source("2.3.0"),
-    source("2.3.1"),
-    source("2.4.0"),
-    source("2.5.0-rc.1"),
-  ]);
-  const published = publications(
-    records.filter((record) => record.version !== "2.3.1"),
-  );
-  const ancestors = published.map((release) => release.version);
-  for (const record of records) {
-    const plan = releasePlan(`v${record.version}`, {
-      repositoryPrivate: false,
-      version: record.version,
-      records,
-      published,
-      ancestors,
-    });
-    assertEquals(plan.prerelease, record.version.includes("-"));
-    assertEquals(plan.makeLatest, record.version === "2.4.0");
-    assertEquals(plan.body, `${record.summary}\n\n${record.body}\n`);
-    const model = compareReleases(
-      releaseCatalogue(records, publications(records)),
-    );
-    if (plan.makeLatest) {
-      assertEquals(model.latest_stable?.version, plan.version);
-    }
-    assertThrows(
-      () =>
-        releasePlan(`v${record.version}`, {
-          repositoryPrivate: false,
-          version: record.version,
-          records,
-          published,
-          ancestors: [],
-        }),
-      Error,
-      "regress the production catalogue",
-    );
-  }
-  assertThrows(
-    () =>
-      releasePlan("v9.8.7", {
-        repositoryPrivate: false,
-        version: "9.8.7",
-        records,
-        published: [],
-        ancestors: [],
-      }),
-    Error,
-    "missing current-version",
-  );
-  const buildOnly = parseReleaseRecords([source("7.8.0+build-1")]);
-  const stableBuild = releasePlan("v7.8.0+build-1", {
-    repositoryPrivate: false,
-    version: "7.8.0+build-1",
-    records: buildOnly,
-    published: [],
-    ancestors: [],
-  });
-  assertEquals(stableBuild.prerelease, false);
-  assertEquals(stableBuild.makeLatest, true);
-  assert(UPDATE_SEQUENCE.some((step) => step.includes(INSTALL_COMMAND)));
-  const installer = Deno.readTextFileSync(
-    new URL("../install.sh", import.meta.url),
-  );
-  assertStringIncludes(installer, "releases/latest/download/");
-});
-
 Deno.test("publication evidence requires matching SemVer flags, dates, and native assets", () => {
   const assets = BUILD_TARGETS.flatMap(releaseArtifactPaths).map((path) => ({
     name: path.replace(/^dist\//, ""),

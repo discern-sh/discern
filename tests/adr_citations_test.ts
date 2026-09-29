@@ -11,6 +11,7 @@ import {
   findMalformedAdrReferences,
   stripAdrCitations,
 } from "../src/lib/adr_citations.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const PAGE = `# The landing model
 
@@ -28,11 +29,13 @@ Inline code keeps \`(ADR 0017)\` too. A repeat citation dedupes
 ([ADR 0110](../_adr/0110-the-landing-model.md)).
 `;
 
-Deno.test("stripAdrCitations round-trips a page to grammatical prose", () => {
-  const stripped = stripAdrCitations(PAGE);
-  assertEquals(
-    stripped,
-    `# The landing model
+Deno.test("adr citations: stripAdrCitations cases", () => {
+  assertNamedCases({
+    "stripAdrCitations round-trips a page to grammatical prose": () => {
+      const stripped = stripAdrCitations(PAGE);
+      assertEquals(
+        stripped,
+        `# The landing model
 
 The trunk is the one landing target;
 acceptance fast-forwards it. Metrics replay with input keys.
@@ -45,9 +48,17 @@ code fences keep everything: (ADR 0001) and ([ADR 0002](../_adr/0002-x.md))
 
 Inline code keeps \`(ADR 0017)\` too. A repeat citation dedupes.
 `,
-  );
-  // Nothing citation-shaped survives outside code.
-  assert(!stripped.replace(/```[\s\S]*?```/g, "").includes("[ADR "));
+      );
+      // Nothing citation-shaped survives outside code.
+      assert(!stripped.replace(/```[\s\S]*?```/g, "").includes("[ADR "));
+    },
+    "the stripper leaves malformed references alone — the gate owns those":
+      () => {
+        const subject =
+          "Per [ADR 0074](../_adr/0074-co-owned.md), it is co-owned.\n";
+        assertEquals(stripAdrCitations(subject), subject);
+      },
+  });
 });
 
 Deno.test("collectAdrCitations gathers cited decisions in order, deduplicated", () => {
@@ -67,50 +78,50 @@ Deno.test("collectAdrCitations gathers cited decisions in order, deduplicated", 
   ]);
 });
 
-Deno.test("a normalized page passes the gate check; code-only refs never fail it", () => {
-  assertEquals(findMalformedAdrReferences(PAGE), []);
-});
+Deno.test("adr citations: findMalformedAdrReferences cases", () => {
+  assertNamedCases({
+    "a normalized page passes the gate check; code-only refs never fail it":
+      () => {
+        assertEquals(findMalformedAdrReferences(PAGE), []);
+      },
+    "bare text references fail the normalized-form check": () => {
+      const issues = findMalformedAdrReferences(
+        "Generated files never drift (ADR 0034, ADR 0128).\n",
+      );
+      assertEquals(issues.length, 2);
+      assertEquals(issues[0]?.line, 1);
+      assert(
+        issues[0]?.reason.includes("bare text reference"),
+        issues[0]?.reason,
+      );
+    },
+    "a linked citation woven in as a grammatical subject fails": () => {
+      const issues = findMalformedAdrReferences(
+        "Per [ADR 0074](../_adr/0074-co-owned-mcp-json.md), the file is co-owned.\n",
+      );
+      assertEquals(issues.length, 1);
+      assert(
+        issues[0]?.reason.includes("outside a parenthetical group"),
+        issues[0]?.reason,
+      );
+    },
+    "a citation whose destination disagrees with its number fails": () => {
+      const mismatch = findMalformedAdrReferences(
+        "At clause end ([ADR 0110](../_adr/0111-wrong.md)).\n",
+      );
+      assertEquals(mismatch.length, 1);
+      assert(mismatch[0]?.reason.includes("links 0111"), mismatch[0]?.reason);
 
-Deno.test("bare text references fail the normalized-form check", () => {
-  const issues = findMalformedAdrReferences(
-    "Generated files never drift (ADR 0034, ADR 0128).\n",
-  );
-  assertEquals(issues.length, 2);
-  assertEquals(issues[0]?.line, 1);
-  assert(issues[0]?.reason.includes("bare text reference"), issues[0]?.reason);
-});
-
-Deno.test("a linked citation woven in as a grammatical subject fails", () => {
-  const issues = findMalformedAdrReferences(
-    "Per [ADR 0074](../_adr/0074-co-owned-mcp-json.md), the file is co-owned.\n",
-  );
-  assertEquals(issues.length, 1);
-  assert(
-    issues[0]?.reason.includes("outside a parenthetical group"),
-    issues[0]?.reason,
-  );
-});
-
-Deno.test("a citation whose destination disagrees with its number fails", () => {
-  const mismatch = findMalformedAdrReferences(
-    "At clause end ([ADR 0110](../_adr/0111-wrong.md)).\n",
-  );
-  assertEquals(mismatch.length, 1);
-  assert(mismatch[0]?.reason.includes("links 0111"), mismatch[0]?.reason);
-
-  const stray = findMalformedAdrReferences(
-    "At clause end ([ADR 0110](../guides/elsewhere.md)).\n",
-  );
-  assertEquals(stray.length, 1);
-  assert(
-    stray[0]?.reason.includes(
-      "neither an `_adr/NNNN-slug.md` record nor its canonical discern.sh decision route",
-    ),
-    stray[0]?.reason,
-  );
-});
-
-Deno.test("the stripper leaves malformed references alone — the gate owns those", () => {
-  const subject = "Per [ADR 0074](../_adr/0074-co-owned.md), it is co-owned.\n";
-  assertEquals(stripAdrCitations(subject), subject);
+      const stray = findMalformedAdrReferences(
+        "At clause end ([ADR 0110](../guides/elsewhere.md)).\n",
+      );
+      assertEquals(stray.length, 1);
+      assert(
+        stray[0]?.reason.includes(
+          "neither an `_adr/NNNN-slug.md` record nor its canonical discern.sh decision route",
+        ),
+        stray[0]?.reason,
+      );
+    },
+  });
 });

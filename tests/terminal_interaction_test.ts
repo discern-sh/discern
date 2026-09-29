@@ -2,6 +2,8 @@
  * Product-policy and deterministic package-adapter tests for terminal interaction.
  */
 
+import { assertCases, assertCasesAsync } from "./assert_cases.ts";
+
 import {
   assert,
   assertEquals,
@@ -58,6 +60,7 @@ import {
   requestText,
   resolveBrief,
   resolveSetupConfig,
+  type SequentialFormRequestStep,
   setJsonMode,
   setPlainMode,
 } from "../src/lib/terminal_interaction.ts";
@@ -135,6 +138,34 @@ function scriptedRuntime(io: TerminalIO): {
   return { io, interactive: () => true };
 }
 
+/** Fresh base and title steps shared by the task form scenarios. */
+function taskFormSteps(): [
+  SequentialFormRequestStep,
+  SequentialFormRequestStep,
+] {
+  return [{
+    id: "base",
+    label: "Starting point",
+    run: (_values, previous, requests) =>
+      requests.select({
+        message: "Choose a base",
+        options: [
+          { id: "main", name: "main", value: "main" },
+          { id: "task", name: "Live task", value: "agent/task" },
+        ],
+        ...(typeof previous === "string" ? { default: previous } : {}),
+      }),
+  }, {
+    id: "title",
+    label: "Task title",
+    run: (_values, previous, requests) =>
+      requests.text({
+        message: "Task title",
+        ...(typeof previous === "string" ? { default: previous } : {}),
+      }),
+  }];
+}
+
 /** A real, colourless, non-JSON logger as the wizard receives one, with a
  * pinned terminal context so nothing floats with the ambient locale. */
 function logger(): Logger {
@@ -189,57 +220,90 @@ Deno.test("resolveBrief throws a clear error for a missing @path", async () => {
 
 // ---- canInteract -------------------------------------------------------------
 
-Deno.test("canInteract(true) is false — --yes suppresses interaction", () => {
-  // `--yes` short-circuits before any TTY check, so this holds in CI too.
-  assertEquals(canInteract(true), false);
-});
+Deno.test("interaction policy honors explicit suppression and every independent veto", () => {
+  assertCases(
+    [
+      {
+        name: "canInteract(true) is false — --yes suppresses interaction",
+        check: (): void => {
+          // `--yes` short-circuits before any TTY check, so this holds in CI too.
+          assertEquals(canInteract(true), false);
+        },
+      },
+      {
+        name: "interaction policy independently honors every veto",
+        check: (): void => {
+          const env = (CI?: string) => ({
+            get: (key: string) => key === "CI" ? CI : undefined,
+          });
+          const streams = (stdin: boolean, stdout: boolean) => () => ({
+            stdin,
+            stdout,
+          });
 
-Deno.test("interaction policy independently honors every veto", () => {
-  const env = (CI?: string) => ({
-    get: (key: string) => key === "CI" ? CI : undefined,
-  });
-  const streams = (stdin: boolean, stdout: boolean) => () => ({
-    stdin,
-    stdout,
-  });
-
-  assertEquals(
-    interactionAllowed(false, false, false, env(), streams(true, true)),
-    true,
-  );
-  assertEquals(
-    interactionAllowed(true, false, false, env(), streams(true, true)),
-    false,
-  );
-  assertEquals(
-    interactionAllowed(false, true, false, env(), streams(true, true)),
-    false,
-  );
-  assertEquals(
-    interactionAllowed(false, false, true, env(), streams(true, true)),
-    false,
-  );
-  assertEquals(
-    interactionAllowed(false, false, false, env("1"), streams(true, true)),
-    false,
-  );
-  assertEquals(
-    interactionAllowed(
-      false,
-      false,
-      false,
-      env("false"),
-      streams(true, true),
-    ),
-    true,
-  );
-  assertEquals(
-    interactionAllowed(false, false, false, env(), streams(false, true)),
-    false,
-  );
-  assertEquals(
-    interactionAllowed(false, false, false, env(), streams(true, false)),
-    false,
+          assertEquals(
+            interactionAllowed(false, false, false, env(), streams(true, true)),
+            true,
+          );
+          assertEquals(
+            interactionAllowed(true, false, false, env(), streams(true, true)),
+            false,
+          );
+          assertEquals(
+            interactionAllowed(false, true, false, env(), streams(true, true)),
+            false,
+          );
+          assertEquals(
+            interactionAllowed(false, false, true, env(), streams(true, true)),
+            false,
+          );
+          assertEquals(
+            interactionAllowed(
+              false,
+              false,
+              false,
+              env("1"),
+              streams(true, true),
+            ),
+            false,
+          );
+          assertEquals(
+            interactionAllowed(
+              false,
+              false,
+              false,
+              env("false"),
+              streams(true, true),
+            ),
+            true,
+          );
+          assertEquals(
+            interactionAllowed(
+              false,
+              false,
+              false,
+              env(),
+              streams(false, true),
+            ),
+            false,
+          );
+          assertEquals(
+            interactionAllowed(
+              false,
+              false,
+              false,
+              env(),
+              streams(true, false),
+            ),
+            false,
+          );
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
   );
 });
 
@@ -312,298 +376,626 @@ Deno.test("global JSON and plain vetoes outrank an injected interactive runtime"
   assertEquals(io.rawTransitions, []);
 });
 
-Deno.test("grouped select keeps headings structural and ids stable across reorder", async () => {
-  const groups = groupedSelectionEntries([
-    {
-      id: "first",
-      label: "First group",
-      items: [{ id: "alpha", name: "Duplicate label", value: "alpha" }],
-    },
-    {
-      id: "second",
-      label: "Second group",
-      items: [{ id: "beta", name: "Duplicate label", value: "beta" }],
-    },
-  ]);
-  const first = new ScriptedTerminal(["\r"]);
-  assertEquals(
-    await requestSelection({
-      message: "Choose",
-      options: groups,
-      default: "beta",
-    }, scriptedRuntime(first)),
-    "beta",
-  );
-  assertStringIncludes(first.writes.join(""), "FIRST GROUP");
-  assertStringIncludes(first.writes.join(""), "SECOND GROUP");
+Deno.test("scripted selection preserves identity, navigation, and search contracts", async () => {
+  await assertCasesAsync(
+    [
+      {
+        name:
+          "grouped select keeps headings structural and ids stable across reorder",
+        check: async (): Promise<void> => {
+          const groups = groupedSelectionEntries([
+            {
+              id: "first",
+              label: "First group",
+              items: [{ id: "alpha", name: "Duplicate label", value: "alpha" }],
+            },
+            {
+              id: "second",
+              label: "Second group",
+              items: [{ id: "beta", name: "Duplicate label", value: "beta" }],
+            },
+          ]);
+          const first = new ScriptedTerminal(["\r"]);
+          assertEquals(
+            await requestSelection({
+              message: "Choose",
+              options: groups,
+              default: "beta",
+            }, scriptedRuntime(first)),
+            "beta",
+          );
+          assertStringIncludes(first.writes.join(""), "FIRST GROUP");
+          assertStringIncludes(first.writes.join(""), "SECOND GROUP");
 
-  const reordered = new ScriptedTerminal(["\r"]);
-  assertEquals(
-    await requestSelection({
-      message: "Choose",
-      options: groupedSelectionEntries([
-        {
-          id: "second",
-          label: "Second group",
-          items: [{ id: "beta", name: "Duplicate label", value: "beta" }],
+          const reordered = new ScriptedTerminal(["\r"]);
+          assertEquals(
+            await requestSelection({
+              message: "Choose",
+              options: groupedSelectionEntries([
+                {
+                  id: "second",
+                  label: "Second group",
+                  items: [{
+                    id: "beta",
+                    name: "Duplicate label",
+                    value: "beta",
+                  }],
+                },
+                {
+                  id: "first",
+                  label: "First group",
+                  items: [{
+                    id: "alpha",
+                    name: "Duplicate label",
+                    value: "alpha",
+                  }],
+                },
+              ]),
+              default: "beta",
+            }, scriptedRuntime(reordered)),
+            "beta",
+          );
         },
-        {
-          id: "first",
-          label: "First group",
-          items: [{ id: "alpha", name: "Duplicate label", value: "alpha" }],
-        },
-      ]),
-      default: "beta",
-    }, scriptedRuntime(reordered)),
-    "beta",
-  );
-});
-
-Deno.test("interaction defaults stay semantic across text, confirmation, and selection", async () => {
-  const text = new ScriptedTerminal(["\r"]);
-  assertEquals(
-    await requestText(
-      { message: "Text", default: "remembered-value" },
-      scriptedRuntime(text),
-    ),
-    "remembered-value",
-  );
-
-  const confirmation = new ScriptedTerminal(["\r"]);
-  assertEquals(
-    await requestConfirmation("Confirm", {
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Reclaim",
-    }, scriptedRuntime(confirmation)),
-    false,
-  );
-  assertStringIncludes(confirmation.writes.join(""), "Keep");
-  assertStringIncludes(confirmation.writes.join(""), "Reclaim");
-
-  const selection = new ScriptedTerminal(["\r"]);
-  assertEquals(
-    await requestSelection({
-      message: "Choose",
-      default: "beta",
-      options: [
-        { id: "alpha", name: "Alpha", value: "alpha" },
-        { id: "beta", name: "Beta", value: "beta" },
-        { id: "omega", name: "Omega", value: "omega" },
-      ],
-    }, scriptedRuntime(selection)),
-    "beta",
-  );
-});
-
-Deno.test("default interactions retain the branded terminal Appearance", async () => {
-  const capabilities = {
-    ansiControl: true,
-    colorDepth: "ansi256",
-    columns: 60,
-    unicode: true,
-  } as const satisfies TerminalCapabilities;
-  const actual = new ScriptedTerminal(["\r"], capabilities);
-  const expected = new ScriptedTerminal(["\r"], capabilities);
-  const options = {
-    defaultTo: true,
-    noLabel: "No",
-    yesLabel: "Yes",
-  } as const;
-
-  assertEquals(
-    await requestConfirmation("Confirm", options, scriptedRuntime(actual)),
-    true,
-  );
-  assertEquals(
-    await requestConfirmation("Confirm", options, {
-      io: expected,
-      interactive: () => true,
-      packageRuntime: {
-        io: expected,
-        appearance: DISCERN_TERMINAL_APPEARANCE,
       },
-    }),
-    true,
-  );
-  assertEquals(actual.writes, expected.writes);
-});
-
-Deno.test("sequential forms compose product requests through one package session", async () => {
-  const io = new ScriptedTerminal(["\r", "Task ingress 修复\r", "\x1b[C\r"]);
-  const values = await requestSequentialForm({
-    message: "Create a task",
-    hint: "Ctrl+U returns to the previous question.",
-    steps: [{
-      id: "base",
-      label: "Starting point",
-      summarize: (value) => String(value),
-      run: (_values, previous, requests) =>
-        requests.select({
-          message: "Choose a base",
-          options: [
-            { id: "main", name: "main", value: "main" },
-            { id: "task", name: "Live task", value: "agent/task" },
-          ],
-          ...(typeof previous === "string" ? { default: previous } : {}),
-        }),
-    }, {
-      id: "title",
-      label: "Task title",
-      run: (_values, previous, requests) =>
-        requests.text({
-          message: "Task title",
-          ...(typeof previous === "string" ? { default: previous } : {}),
-        }),
-    }, {
-      id: "authority",
-      label: "Landing authority",
-      summarize: (value) => value === true ? "Pre-authorized" : "Later",
-      run: (_values, previous, requests) =>
-        requests.confirm("Pre-authorize landing?", {
-          defaultTo: previous === true,
-          noLabel: "Later",
-          yesLabel: "Pre-authorize",
-        }),
-    }],
-  }, scriptedRuntime(io));
-
-  assertEquals(values, {
-    base: "main",
-    title: "Task ingress 修复",
-    authority: true,
-  });
-  assertEquals(io.rawTransitions, [true, false, true, false, true, false]);
-  const rendered = stripAnsi(io.writes.join(""));
-  for (
-    const text of [
-      "Create a task",
-      "Starting point",
-      "Task title",
-      "Landing authority",
-    ]
-  ) {
-    assertStringIncludes(rendered, text);
-  }
-});
-
-Deno.test("sequential forms retain prior answers across package back-navigation", async () => {
-  const io = new ScriptedTerminal(["\r", "\x15", "\x1b[B\r", "Follow-up\r"]);
-  const values = await requestSequentialForm({
-    message: "Create a task",
-    steps: [{
-      id: "base",
-      label: "Starting point",
-      run: (_values, previous, requests) =>
-        requests.select({
-          message: "Choose a base",
-          options: [
-            { id: "main", name: "main", value: "main" },
-            { id: "task", name: "Live task", value: "agent/task" },
-          ],
-          ...(typeof previous === "string" ? { default: previous } : {}),
-        }),
-    }, {
-      id: "title",
-      label: "Task title",
-      run: (_values, previous, requests) =>
-        requests.text({
-          message: "Task title",
-          ...(typeof previous === "string" ? { default: previous } : {}),
-        }),
-    }],
-  }, scriptedRuntime(io));
-
-  assertEquals(values, { base: "agent/task", title: "Follow-up" });
-  assertEquals(io.rawTransitions, [
-    true,
-    false,
-    true,
-    false,
-    true,
-    false,
-    true,
-    false,
-  ]);
-});
-
-Deno.test("selection navigation preserves every supported byte-sequence variant", async () => {
-  const cases: readonly {
-    readonly input: string;
-    readonly expected: string;
-    readonly default?: string;
-  }[] = [
-    { input: "\x1b[B\x1b[A\x1b[B\r", expected: "beta" },
-    { input: "jkj\r", expected: "beta" },
-    { input: "lhl\r", expected: "beta" },
-    { input: "\x0e\x10\x0e\r", expected: "beta" },
-    { input: "\x06\x02\x06\r", expected: "beta" },
-    { input: "\x1b[H\r", expected: "alpha", default: "beta" },
-    { input: "\x1b[F\r", expected: "omega", default: "beta" },
-  ];
-  for (const testCase of cases) {
-    const io = new ScriptedTerminal([testCase.input]);
-    assertEquals(
-      await requestSelection({
-        message: "Choose",
-        ...(testCase.default === undefined
-          ? {}
-          : { default: testCase.default }),
-        options: [
-          { id: "alpha", name: "Alpha", value: "alpha" },
-          { id: "beta", name: "Beta", value: "beta" },
-          { id: "omega", name: "Omega", value: "omega" },
-        ],
-      }, scriptedRuntime(io)),
-      testCase.expected,
-    );
-  }
-});
-
-Deno.test("text editing preserves fragmented Unicode and cursor operations deterministically", async () => {
-  const emoji = encoder.encode("👩‍💻");
-  const io = new FakeTerminalIO([
-    encoder.encode("A"),
-    emoji.slice(0, 3),
-    emoji.slice(3),
-    encoder.encode("B\x1b[D\x7fé\x1b[HΩ\x1b[F!\r"),
-  ], { ansiControl: true, columns: 60, rows: 24 });
-  assertEquals(
-    await requestText("Edit", scriptedRuntime(io)),
-    "ΩAéB!",
-  );
-  assertEquals(io.rawTransitions, [true, false]);
-});
-
-Deno.test("choice descriptions stay semantic, searchable, and control-free", async () => {
-  const io = new ScriptedTerminal(["nested/path.md\r\r"]);
-  assertEquals(
-    await requestSelection({
-      message: "Choose",
-      options: groupedSelectionEntries([
-        {
-          id: "section",
-          label: "Section",
-          description: "00-section/\x1b",
-          items: [{
-            id: "nested",
-            name: "Nested document",
-            description: "nested/path.md",
-            value: "nested",
-          }],
+      {
+        name:
+          "selection navigation preserves every supported byte-sequence variant",
+        check: async (): Promise<void> => {
+          const cases: readonly {
+            readonly input: string;
+            readonly expected: string;
+            readonly default?: string;
+          }[] = [
+            { input: "\x1b[B\x1b[A\x1b[B\r", expected: "beta" },
+            { input: "jkj\r", expected: "beta" },
+            { input: "lhl\r", expected: "beta" },
+            { input: "\x0e\x10\x0e\r", expected: "beta" },
+            { input: "\x06\x02\x06\r", expected: "beta" },
+            { input: "\x1b[H\r", expected: "alpha", default: "beta" },
+            { input: "\x1b[F\r", expected: "omega", default: "beta" },
+          ];
+          for (const testCase of cases) {
+            const io = new ScriptedTerminal([testCase.input]);
+            assertEquals(
+              await requestSelection({
+                message: "Choose",
+                ...(testCase.default === undefined
+                  ? {}
+                  : { default: testCase.default }),
+                options: [
+                  { id: "alpha", name: "Alpha", value: "alpha" },
+                  { id: "beta", name: "Beta", value: "beta" },
+                  { id: "omega", name: "Omega", value: "omega" },
+                ],
+              }, scriptedRuntime(io)),
+              testCase.expected,
+            );
+          }
         },
-      ]),
-      search: true,
-      presentation: "browsing",
-      completion: "clear-frame",
-    }, scriptedRuntime(io)),
-    "nested",
+      },
+      {
+        name: "choice descriptions stay semantic, searchable, and control-free",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["nested/path.md\r\r"]);
+          assertEquals(
+            await requestSelection({
+              message: "Choose",
+              options: groupedSelectionEntries([
+                {
+                  id: "section",
+                  label: "Section",
+                  description: "00-section/\x1b",
+                  items: [{
+                    id: "nested",
+                    name: "Nested document",
+                    description: "nested/path.md",
+                    value: "nested",
+                  }],
+                },
+              ]),
+              search: true,
+              presentation: "browsing",
+              completion: "clear-frame",
+            }, scriptedRuntime(io)),
+            "nested",
+          );
+          const rendered = stripAnsi(io.writes.join(""));
+          assertStringIncludes(rendered, "00-section/␛");
+          assertStringIncludes(rendered, "nested/path.md");
+          assert(!rendered.includes("[active]"));
+          assertEquals(io.rawTransitions, [true, false]);
+        },
+      },
+      {
+        name:
+          "choice identity rejects duplicate values, ids, and implicit object ids",
+        check: async (): Promise<void> => {
+          const cases: Array<
+            readonly {
+              readonly id?: string;
+              readonly name: string;
+              readonly value: unknown;
+            }[]
+          > = [
+            [
+              { name: "One", value: "same" },
+              { name: "Two", value: "same" },
+            ],
+            [
+              { id: "same", name: "One", value: "one" },
+              { id: "same", name: "Two", value: "two" },
+            ],
+            [{ name: "Object", value: { id: "object" } }],
+          ];
+          for (const options of cases) {
+            const io = new ScriptedTerminal(["\r"]);
+            await assertRejects(
+              () =>
+                requestSelection<unknown>(
+                  { message: "Choose", options },
+                  scriptedRuntime(io),
+                ),
+              TypeError,
+            );
+            assertEquals(io.rawTransitions, []);
+          }
+        },
+      },
+      {
+        name:
+          "single-select rejects nullish values that collide with no-selection",
+        check: async (): Promise<void> => {
+          for (const value of [null, undefined]) {
+            const io = new ScriptedTerminal(["\r"]);
+            await assertRejects(
+              () =>
+                requestSelection<unknown>({
+                  message: "Choose",
+                  options: [{ id: "nullish", name: "Nullish", value }],
+                }, scriptedRuntime(io)),
+              TypeError,
+              "cannot use null or undefined",
+            );
+            assertEquals(io.rawTransitions, []);
+          }
+
+          const multiple = new ScriptedTerminal(["\r"]);
+          assertEquals(
+            await requestSelections<null>({
+              message: "Choose",
+              options: [{
+                id: "null",
+                name: "Null",
+                value: null,
+                checked: true,
+              }],
+            }, scriptedRuntime(multiple)),
+            [null],
+          );
+        },
+      },
+      {
+        name:
+          "search preserves matching groups, order, identity, and returned value",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["Beta", "\x1b[B", "\r"]);
+          const value = await requestSelection({
+            message: "Browse",
+            search: true,
+            searchLabel: "filter",
+            options: groupedSelectionEntries([
+              {
+                id: "documents",
+                label: "Documents",
+                items: [
+                  { id: "alpha", name: "Alpha guide", value: "alpha" },
+                  { id: "beta", name: "Beta guide", value: "beta" },
+                ],
+              },
+              {
+                id: "browse",
+                label: "Browse",
+                items: [{ id: "quit", name: "Quit", value: "quit" }],
+              },
+            ]),
+          }, scriptedRuntime(io));
+          assertEquals(value, "beta");
+          const transcript = io.writes.join("");
+          assertStringIncludes(transcript, "DOCUMENTS");
+          assertStringIncludes(transcript, "Beta guide");
+        },
+      },
+      {
+        name:
+          "search restores a stable initial choice through duplicate labels",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["\r"]);
+          assertEquals(
+            await requestSelection({
+              message: "Browse",
+              search: true,
+              default: "beta",
+              options: groupedSelectionEntries([
+                {
+                  id: "first",
+                  label: "First group",
+                  items: [{
+                    id: "alpha",
+                    name: "Duplicate label",
+                    value: "alpha",
+                  }],
+                },
+                {
+                  id: "second",
+                  label: "Second group",
+                  items: [{
+                    id: "beta",
+                    name: "Duplicate label",
+                    value: "beta",
+                  }],
+                },
+              ]),
+            }, scriptedRuntime(io)),
+            "beta",
+          );
+          assertEquals(io.rawTransitions, [true, false]);
+        },
+      },
+      {
+        name:
+          "unknown select, search, and multi-select defaults fail before raw mode",
+        check: async (): Promise<void> => {
+          const single = new ScriptedTerminal(["\r"]);
+          await assertRejects(
+            () =>
+              requestSelection({
+                message: "Choose",
+                default: "missing",
+                options: [{ name: "Present", value: "present" }],
+              }, scriptedRuntime(single)),
+            TypeError,
+            "does not name a selection choice",
+          );
+          assertEquals(single.rawTransitions, []);
+
+          const search = new ScriptedTerminal(["\r"]);
+          await assertRejects(
+            () =>
+              requestSelection({
+                message: "Search",
+                search: true,
+                default: "missing",
+                options: [{ name: "Present", value: "present" }],
+              }, scriptedRuntime(search)),
+            TypeError,
+            "does not name a selection choice",
+          );
+          assertEquals(search.rawTransitions, []);
+
+          const multiple = new ScriptedTerminal(["\r"]);
+          await assertRejects(
+            () =>
+              requestSelections({
+                message: "Choose",
+                default: ["missing"],
+                options: [{ name: "Present", value: "present" }],
+              }, scriptedRuntime(multiple)),
+            TypeError,
+            "does not name a selection choice",
+          );
+          assertEquals(multiple.rawTransitions, []);
+        },
+      },
+    ],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
+    },
   );
-  const rendered = stripAnsi(io.writes.join(""));
-  assertStringIncludes(rendered, "00-section/␛");
-  assertStringIncludes(rendered, "nested/path.md");
-  assert(!rendered.includes("[active]"));
-  assertEquals(io.rawTransitions, [true, false]);
+});
+
+Deno.test("scripted interaction defaults preserve semantics and appearance", async () => {
+  await assertCasesAsync(
+    [
+      {
+        name:
+          "interaction defaults stay semantic across text, confirmation, and selection",
+        check: async (): Promise<void> => {
+          const text = new ScriptedTerminal(["\r"]);
+          assertEquals(
+            await requestText(
+              { message: "Text", default: "remembered-value" },
+              scriptedRuntime(text),
+            ),
+            "remembered-value",
+          );
+
+          const confirmation = new ScriptedTerminal(["\r"]);
+          assertEquals(
+            await requestConfirmation("Confirm", {
+              defaultTo: false,
+              noLabel: "Keep",
+              yesLabel: "Reclaim",
+            }, scriptedRuntime(confirmation)),
+            false,
+          );
+          assertStringIncludes(confirmation.writes.join(""), "Keep");
+          assertStringIncludes(confirmation.writes.join(""), "Reclaim");
+
+          const selection = new ScriptedTerminal(["\r"]);
+          assertEquals(
+            await requestSelection({
+              message: "Choose",
+              default: "beta",
+              options: [
+                { id: "alpha", name: "Alpha", value: "alpha" },
+                { id: "beta", name: "Beta", value: "beta" },
+                { id: "omega", name: "Omega", value: "omega" },
+              ],
+            }, scriptedRuntime(selection)),
+            "beta",
+          );
+        },
+      },
+      {
+        name: "default interactions retain the branded terminal Appearance",
+        check: async (): Promise<void> => {
+          const capabilities = {
+            ansiControl: true,
+            colorDepth: "ansi256",
+            columns: 60,
+            unicode: true,
+          } as const satisfies TerminalCapabilities;
+          const actual = new ScriptedTerminal(["\r"], capabilities);
+          const expected = new ScriptedTerminal(["\r"], capabilities);
+          const options = {
+            defaultTo: true,
+            noLabel: "No",
+            yesLabel: "Yes",
+          } as const;
+
+          assertEquals(
+            await requestConfirmation(
+              "Confirm",
+              options,
+              scriptedRuntime(actual),
+            ),
+            true,
+          );
+          assertEquals(
+            await requestConfirmation("Confirm", options, {
+              io: expected,
+              interactive: () => true,
+              packageRuntime: {
+                io: expected,
+                appearance: DISCERN_TERMINAL_APPEARANCE,
+              },
+            }),
+            true,
+          );
+          assertEquals(actual.writes, expected.writes);
+        },
+      },
+    ],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
+    },
+  );
+});
+
+Deno.test("scripted sequential forms retain product composition and back-navigation", async () => {
+  await assertCasesAsync(
+    [
+      {
+        name:
+          "sequential forms compose product requests through one package session",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal([
+            "\r",
+            "Task ingress 修复\r",
+            "\x1b[C\r",
+          ]);
+          const [baseStep, titleStep] = taskFormSteps();
+          const values = await requestSequentialForm({
+            message: "Create a task",
+            hint: "Ctrl+U returns to the previous question.",
+            steps: [
+              { ...baseStep, summarize: (value) => String(value) },
+              titleStep,
+              {
+                id: "authority",
+                label: "Landing authority",
+                summarize: (value) =>
+                  value === true ? "Pre-authorized" : "Later",
+                run: (_values, previous, requests) =>
+                  requests.confirm("Pre-authorize landing?", {
+                    defaultTo: previous === true,
+                    noLabel: "Later",
+                    yesLabel: "Pre-authorize",
+                  }),
+              },
+            ],
+          }, scriptedRuntime(io));
+
+          assertEquals(values, {
+            base: "main",
+            title: "Task ingress 修复",
+            authority: true,
+          });
+          assertEquals(io.rawTransitions, [
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+          ]);
+          const rendered = stripAnsi(io.writes.join(""));
+          for (
+            const text of [
+              "Create a task",
+              "Starting point",
+              "Task title",
+              "Landing authority",
+            ]
+          ) {
+            assertStringIncludes(rendered, text);
+          }
+        },
+      },
+      {
+        name:
+          "sequential forms retain prior answers across package back-navigation",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal([
+            "\r",
+            "\x15",
+            "\x1b[B\r",
+            "Follow-up\r",
+          ]);
+          const values = await requestSequentialForm({
+            message: "Create a task",
+            steps: taskFormSteps(),
+          }, scriptedRuntime(io));
+
+          assertEquals(values, { base: "agent/task", title: "Follow-up" });
+          assertEquals(io.rawTransitions, [
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+          ]);
+        },
+      },
+    ],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
+    },
+  );
+});
+
+Deno.test("scripted text requests preserve editing, validation, cancellation, and cleanup", async () => {
+  await assertCasesAsync(
+    [
+      {
+        name:
+          "text editing preserves fragmented Unicode and cursor operations deterministically",
+        check: async (): Promise<void> => {
+          const emoji = encoder.encode("👩‍💻");
+          const io = new FakeTerminalIO([
+            encoder.encode("A"),
+            emoji.slice(0, 3),
+            emoji.slice(3),
+            encoder.encode("B\x1b[D\x7fé\x1b[HΩ\x1b[F!\r"),
+          ], { ansiControl: true, columns: 60, rows: 24 });
+          assertEquals(
+            await requestText("Edit", scriptedRuntime(io)),
+            "ΩAéB!",
+          );
+          assertEquals(io.rawTransitions, [true, false]);
+        },
+      },
+      {
+        name:
+          "text validation stays distinct from normalized Ctrl-C and EOF cancellation",
+        check: async (): Promise<void> => {
+          const validation = new ScriptedTerminal([
+            "bad\r",
+            "\x7f\x7f\x7f",
+            "good\r",
+          ]);
+          assertEquals(
+            await requestText({
+              message: "Value",
+              validate: (value) => value === "good" || "Enter good.",
+            }, scriptedRuntime(validation)),
+            "good",
+          );
+          assertStringIncludes(validation.writes.join(""), "Enter good.");
+
+          for (const chunks of [["\x03"], []] as const) {
+            const cancelled = new ScriptedTerminal(chunks);
+            const error = await (async (): Promise<unknown> => {
+              try {
+                await requestText("Value", scriptedRuntime(cancelled));
+                return undefined;
+              } catch (caught) {
+                return caught;
+              }
+            })();
+            assertEquals(isInteractionCancelled(error), true);
+            assertEquals(cancelled.rawTransitions, [true, false]);
+            assertEquals(cancelled.writes[0], "\n");
+          }
+        },
+      },
+      {
+        name:
+          "text transforms before required validation and returns the canonical value",
+        check: async (): Promise<void> => {
+          const observed: string[] = [];
+          const io = new ScriptedTerminal([
+            "   \r",
+            "\x7f\x7f\x7f",
+            "  MiXeD  \r",
+          ]);
+          assertEquals(
+            await requestText({
+              message: "Value",
+              required: "Enter a value.",
+              transform: (value) => value.trim().toLowerCase(),
+              validate: (value) => {
+                observed.push(value);
+                return value === "mixed" || "Enter mixed.";
+              },
+            }, scriptedRuntime(io)),
+            "mixed",
+          );
+          assert(
+            observed.every((value) => value === value.trim().toLowerCase()),
+            "required and caller validation should see only canonical values",
+          );
+          assertEquals(observed.at(-1), "mixed");
+          assertStringIncludes(io.writes.join(""), "Enter a value.");
+        },
+      },
+      {
+        name:
+          "an unexpected in-frame error restores and terminates the interaction",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["\r"]);
+          const failure = new Error("synthetic validator fault");
+          await assertRejects(
+            () =>
+              requestText({
+                message: "Value",
+                validate: () => {
+                  throw failure;
+                },
+              }, scriptedRuntime(io)),
+            Error,
+            failure.message,
+          );
+          assertEquals(io.rawTransitions, [true, false]);
+          assertEquals(
+            io.writes.at(-1),
+            "\n",
+            "the restored cursor must be followed by a semantic frame terminator",
+          );
+        },
+      },
+    ],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
+    },
+  );
 });
 
 Deno.test("compact acknowledgement owns continuation input and cleanup", async () => {
@@ -616,373 +1008,441 @@ Deno.test("compact acknowledgement owns continuation input and cleanup", async (
   assertEquals(io.rawTransitions, [true, false]);
 });
 
-Deno.test("Markdown browser adapter restores the terminal before product actions", async () => {
-  const io = new FakeTerminalIO([encodeTerminalKeys("enter")], {
-    ansiControl: true,
-    columns: 80,
-    rows: 24,
-  });
-  const result = await requestMarkdownBrowser({
-    message: "discern docs — 1 document in manual",
-    entries: [
-      { kind: "group-heading", id: "browse", name: "Browse" },
-      {
-        kind: "action",
-        id: "online",
-        name: "Read online",
-        value: { destination: "online" },
-      },
-      { kind: "group-heading", id: "documents", name: "Documents" },
-      {
-        kind: "document",
-        id: "readme",
-        name: "Welcome",
-        description: "README.md",
-        path: "README.md",
-        source: "# Welcome\n",
-      },
-      { kind: "group-heading", id: "actions", name: "Actions" },
-      { kind: "exit", id: "quit", name: "Quit" },
-    ],
-    mouse: true,
-  }, scriptedRuntime(io));
-
-  assertEquals(result.kind, "action");
-  if (result.kind !== "action") return;
-  assertEquals(result.id, "online");
-  assertEquals(result.value, { destination: "online" });
-  assertEquals(io.rawTransitions, [true, false]);
-  assertEquals(io.resizeListenerCount, 0);
-  assertTerminalTextIncludes(stripAnsi(io.output()), "DISCERN DOCS");
-});
-
-Deno.test("Markdown browser adapter returns only the package's typed refusals", async () => {
-  const io = new FakeTerminalIO([], {
-    ansiControl: false,
-    columns: 80,
-    rows: 24,
-  });
-  const result = await requestMarkdownBrowser({
-    message: "discern docs",
-    entries: [{ kind: "exit", id: "quit", name: "Quit" }],
-  }, scriptedRuntime(io));
-
-  assertEquals(result, {
-    kind: "refused",
-    reason: "ansi-control-unavailable",
-    columns: 80,
-    rows: 24,
-  });
-  assertEquals(io.writes, []);
-  assertEquals(io.rawTransitions, []);
-});
-
-Deno.test("Markdown browser adapter preserves external-link state and product document identity", async () => {
-  const io = new FakeTerminalIO([
-    encodeTerminalKeys("enter"),
-    "]",
-    encodeTerminalKeys("enter"),
-  ], { ansiControl: true, columns: 80, rows: 24, hyperlinks: true });
-  const result = await requestMarkdownBrowser({
-    message: "discern docs",
-    entries: [
-      {
-        kind: "document",
-        id: "welcome",
-        name: "Welcome",
-        path: "README.md",
-        source: "# Welcome\n\n[Website](https://example.com/docs)\n",
-      },
-      { kind: "exit", id: "quit", name: "Quit" },
-    ],
-  }, scriptedRuntime(io));
-
-  assertEquals(result.kind, "external-link");
-  if (result.kind !== "external-link") return;
-  assertEquals(result.destination, "https://example.com/docs");
-  assertEquals(result.sourceDocumentId, "welcome");
-  assertEquals(result.sourcePath, "README.md");
-  assertEquals(io.rawTransitions, [true, false]);
-  assertEquals(io.resizeListenerCount, 0);
-});
-
-for (
-  const testCase of [
-    { name: "Ctrl+C", chunks: [encodeTerminalKeys("ctrl-c")] },
-    { name: "end of input", chunks: [] },
-  ] as const
-) {
-  Deno.test(`Markdown browser adapter normalizes ${testCase.name} after cleanup`, async () => {
-    const io = new FakeTerminalIO(testCase.chunks, {
-      ansiControl: true,
-      columns: 80,
-      rows: 24,
-    });
-    let caught: unknown;
-    try {
-      await requestMarkdownBrowser({
-        message: "discern docs",
-        entries: [{ kind: "exit", id: "quit", name: "Quit" }],
-      }, scriptedRuntime(io));
-    } catch (error) {
-      caught = error;
-    }
-    assert(isInteractionCancelled(caught));
-    assertEquals(io.rawTransitions, [true, false]);
-    assertEquals(io.resizeListenerCount, 0);
-  });
-}
-
-Deno.test("Markdown browser adapter forwards live resize and mouse IO into coherent single panes", async () => {
-  const longDocument = `# Long document\n\n${
-    Array.from({ length: 40 }, (_, index) => `- Row ${index + 1}`).join("\n")
-  }\n`;
-  const io = new FakeTerminalIO([encodeTerminalKeys("enter")], {
-    ansiControl: true,
-    columns: 80,
-    holdOpen: true,
-    rows: 24,
-    mouseTracking: true,
-  });
-  const pending = requestMarkdownBrowser({
-    message: "discern docs",
-    entries: [
-      {
-        kind: "document",
-        id: "long",
-        name: "Long document",
-        path: "long.md",
-        source: longDocument,
-      },
-      {
-        kind: "action",
-        id: "return",
-        name: "Return",
-        value: "returned",
-      },
-      { kind: "exit", id: "quit", name: "Quit" },
-    ],
-    mouse: true,
-  }, scriptedRuntime(io));
-  io.enqueueResize(80, 13);
-  io.enqueue(encodeTerminalMouseEvent({
-    kind: "mouse",
-    action: "wheel",
-    direction: "down",
-    column: 12,
-    row: 6,
-    modifiers: { shift: false, alt: false, control: false },
-  }));
-  io.enqueueKeys("tab", "down", "enter");
-  const result = await pending;
-
-  assertEquals(result.kind, "action");
-  if (result.kind !== "action") return;
-  assertEquals(result.value, "returned");
-  assert(result.state.documentScrollOffset > 0);
-  assertEquals(io.rawTransitions, [true, false]);
-  assertEquals(io.resizeListenerCount, 0);
-});
-
-Deno.test("Markdown browser adapter preserves unexpected faults after package cleanup", async () => {
-  const captured = new FakeTerminalIO([], {
-    ansiControl: true,
-    columns: 80,
-    rows: 24,
-  });
-  const io: TerminalIO = {
-    isInteractive: () => captured.isInteractive(),
-    capabilities: () => captured.capabilities(),
-    size: () => captured.size(),
-    read: () => Promise.reject(new Error("browser read failed")),
-    setRawMode: (enabled) => captured.setRawMode(enabled),
-    write: (value) => captured.write(value),
-    listenResize: (handler) => captured.listenResize(handler),
-  };
-  await assertRejects(
-    () =>
-      requestMarkdownBrowser({
-        message: "discern docs",
-        entries: [{ kind: "exit", id: "quit", name: "Quit" }],
-      }, scriptedRuntime(io)),
-    Error,
-    "browser read failed",
-  );
-  assertEquals(captured.rawTransitions, [true, false]);
-  assertEquals(captured.resizeListenerCount, 0);
-});
-
-Deno.test("the shared choice adapter preserves wide frames and group breathing rows", async () => {
-  const columns = 96;
-  const io = new ScriptedTerminal(
-    ["\r"],
-    { colorDepth: "none", columns, unicode: true },
-    { columns, rows: 24 },
-  );
-  assertEquals(
-    await requestSelection({
-      message: "Choose",
-      options: groupedSelectionEntries([
-        {
-          id: "primary",
-          label: "Primary",
-          items: [{ name: "Alpha", value: "alpha" }],
-        },
-        {
-          id: "secondary",
-          label: "Secondary",
-          items: [{ name: "Beta", value: "beta" }],
-        },
-      ]),
-    }, scriptedRuntime(io)),
-    "alpha",
-  );
-
-  const frame = io.writes.find((write) => {
-    const rendered = stripAnsi(write);
-    return rendered.includes("Choose") && rendered.includes("Alpha") &&
-      rendered.includes("PRIMARY");
-  });
-  assertExists(frame);
-  assertEquals(widestTerminalLine(frame), columns);
-  const rows = stripAnsi(frame).split("\n");
-  const blank = `│${" ".repeat(columns - 2)}│`;
-  for (const heading of ["PRIMARY", "SECONDARY"]) {
-    const index = rows.findIndex((row) => row.includes(heading));
-    assert(index > 0, `missing ${heading} heading`);
-    assertEquals(rows[index - 1], blank);
-  }
-});
-
-Deno.test("the shared choice adapter discloses choices below its visible window", async () => {
-  const io = new ScriptedTerminal(["\r"]);
-  assertEquals(
-    await requestSelection({
-      message: "Choose",
-      options: Array.from({ length: 5 }, (_, index) => ({
-        name: `Choice ${index + 1}`,
-        value: index,
-      })),
-      maxRows: 2,
-    }, scriptedRuntime(io)),
-    0,
-  );
-  const frame = io.writes.find((write) => {
-    const rendered = stripAnsi(write);
-    return rendered.includes("Choose") && rendered.includes("Choice 1") &&
-      rendered.includes("↓ 3 more");
-  });
-  assertExists(frame);
-});
-
-Deno.test("choice identity rejects duplicate values, ids, and implicit object ids", async () => {
-  const cases: Array<
-    readonly {
-      readonly id?: string;
-      readonly name: string;
-      readonly value: unknown;
-    }[]
-  > = [
+Deno.test("scripted Markdown browsing preserves outcomes and terminal cleanup", async () => {
+  await assertCasesAsync(
     [
-      { name: "One", value: "same" },
-      { name: "Two", value: "same" },
+      {
+        name:
+          "Markdown browser adapter restores the terminal before product actions",
+        check: async (): Promise<void> => {
+          const io = new FakeTerminalIO([encodeTerminalKeys("enter")], {
+            ansiControl: true,
+            columns: 80,
+            rows: 24,
+          });
+          const result = await requestMarkdownBrowser({
+            message: "discern docs — 1 document in manual",
+            entries: [
+              { kind: "group-heading", id: "browse", name: "Browse" },
+              {
+                kind: "action",
+                id: "online",
+                name: "Read online",
+                value: { destination: "online" },
+              },
+              { kind: "group-heading", id: "documents", name: "Documents" },
+              {
+                kind: "document",
+                id: "readme",
+                name: "Welcome",
+                description: "README.md",
+                path: "README.md",
+                source: "# Welcome\n",
+              },
+              { kind: "group-heading", id: "actions", name: "Actions" },
+              { kind: "exit", id: "quit", name: "Quit" },
+            ],
+            mouse: true,
+          }, scriptedRuntime(io));
+
+          assertEquals(result.kind, "action");
+          if (result.kind !== "action") return;
+          assertEquals(result.id, "online");
+          assertEquals(result.value, { destination: "online" });
+          assertEquals(io.rawTransitions, [true, false]);
+          assertEquals(io.resizeListenerCount, 0);
+          assertTerminalTextIncludes(stripAnsi(io.output()), "DISCERN DOCS");
+        },
+      },
+      {
+        name:
+          "Markdown browser adapter returns only the package's typed refusals",
+        check: async (): Promise<void> => {
+          const io = new FakeTerminalIO([], {
+            ansiControl: false,
+            columns: 80,
+            rows: 24,
+          });
+          const result = await requestMarkdownBrowser({
+            message: "discern docs",
+            entries: [{ kind: "exit", id: "quit", name: "Quit" }],
+          }, scriptedRuntime(io));
+
+          assertEquals(result, {
+            kind: "refused",
+            reason: "ansi-control-unavailable",
+            columns: 80,
+            rows: 24,
+          });
+          assertEquals(io.writes, []);
+          assertEquals(io.rawTransitions, []);
+        },
+      },
+      {
+        name:
+          "Markdown browser adapter preserves external-link state and product document identity",
+        check: async (): Promise<void> => {
+          const io = new FakeTerminalIO([
+            encodeTerminalKeys("enter"),
+            "]",
+            encodeTerminalKeys("enter"),
+          ], { ansiControl: true, columns: 80, rows: 24, hyperlinks: true });
+          const result = await requestMarkdownBrowser({
+            message: "discern docs",
+            entries: [
+              {
+                kind: "document",
+                id: "welcome",
+                name: "Welcome",
+                path: "README.md",
+                source: "# Welcome\n\n[Website](https://example.com/docs)\n",
+              },
+              { kind: "exit", id: "quit", name: "Quit" },
+            ],
+          }, scriptedRuntime(io));
+
+          assertEquals(result.kind, "external-link");
+          if (result.kind !== "external-link") return;
+          assertEquals(result.destination, "https://example.com/docs");
+          assertEquals(result.sourceDocumentId, "welcome");
+          assertEquals(result.sourcePath, "README.md");
+          assertEquals(io.rawTransitions, [true, false]);
+          assertEquals(io.resizeListenerCount, 0);
+        },
+      },
+      {
+        name: "Markdown browser adapter normalizes cancellation after cleanup",
+        check: async (): Promise<void> => {
+          await assertCasesAsync(
+            [
+              { name: "Ctrl+C", chunks: [encodeTerminalKeys("ctrl-c")] },
+              { name: "end of input", chunks: [] },
+            ] as const,
+            (testCase) =>
+              `Markdown browser adapter normalizes ${testCase.name} after cleanup`,
+            async (testCase) => {
+              const io = new FakeTerminalIO(testCase.chunks, {
+                ansiControl: true,
+                columns: 80,
+                rows: 24,
+              });
+              let caught: unknown;
+              try {
+                await requestMarkdownBrowser({
+                  message: "discern docs",
+                  entries: [{ kind: "exit", id: "quit", name: "Quit" }],
+                }, scriptedRuntime(io));
+              } catch (error) {
+                caught = error;
+              }
+              assert(isInteractionCancelled(caught));
+              assertEquals(io.rawTransitions, [true, false]);
+              assertEquals(io.resizeListenerCount, 0);
+            },
+          );
+        },
+      },
+      {
+        name:
+          "Markdown browser adapter forwards live resize and mouse IO into coherent single panes",
+        check: async (): Promise<void> => {
+          const longDocument = `# Long document\n\n${
+            Array.from({ length: 40 }, (_, index) => `- Row ${index + 1}`).join(
+              "\n",
+            )
+          }\n`;
+          const io = new FakeTerminalIO([encodeTerminalKeys("enter")], {
+            ansiControl: true,
+            columns: 80,
+            holdOpen: true,
+            rows: 24,
+            mouseTracking: true,
+          });
+          const pending = requestMarkdownBrowser({
+            message: "discern docs",
+            entries: [
+              {
+                kind: "document",
+                id: "long",
+                name: "Long document",
+                path: "long.md",
+                source: longDocument,
+              },
+              {
+                kind: "action",
+                id: "return",
+                name: "Return",
+                value: "returned",
+              },
+              { kind: "exit", id: "quit", name: "Quit" },
+            ],
+            mouse: true,
+          }, scriptedRuntime(io));
+          io.enqueueResize(80, 13);
+          io.enqueue(encodeTerminalMouseEvent({
+            kind: "mouse",
+            action: "wheel",
+            direction: "down",
+            column: 12,
+            row: 6,
+            modifiers: { shift: false, alt: false, control: false },
+          }));
+          io.enqueueKeys("tab", "down", "enter");
+          const result = await pending;
+
+          assertEquals(result.kind, "action");
+          if (result.kind !== "action") return;
+          assertEquals(result.value, "returned");
+          assert(result.state.documentScrollOffset > 0);
+          assertEquals(io.rawTransitions, [true, false]);
+          assertEquals(io.resizeListenerCount, 0);
+        },
+      },
+      {
+        name:
+          "Markdown browser adapter preserves unexpected faults after package cleanup",
+        check: async (): Promise<void> => {
+          const captured = new FakeTerminalIO([], {
+            ansiControl: true,
+            columns: 80,
+            rows: 24,
+          });
+          const io: TerminalIO = {
+            isInteractive: () => captured.isInteractive(),
+            capabilities: () => captured.capabilities(),
+            size: () => captured.size(),
+            read: () => Promise.reject(new Error("browser read failed")),
+            setRawMode: (enabled) => captured.setRawMode(enabled),
+            write: (value) => captured.write(value),
+            listenResize: (handler) => captured.listenResize(handler),
+          };
+          await assertRejects(
+            () =>
+              requestMarkdownBrowser({
+                message: "discern docs",
+                entries: [{ kind: "exit", id: "quit", name: "Quit" }],
+              }, scriptedRuntime(io)),
+            Error,
+            "browser read failed",
+          );
+          assertEquals(captured.rawTransitions, [true, false]);
+          assertEquals(captured.resizeListenerCount, 0);
+        },
+      },
     ],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
+    },
+  );
+});
+
+Deno.test("scripted choice frames preserve geometry and visible-window contracts", async () => {
+  await assertCasesAsync(
     [
-      { id: "same", name: "One", value: "one" },
-      { id: "same", name: "Two", value: "two" },
+      {
+        name:
+          "the shared choice adapter preserves wide frames and group breathing rows",
+        check: async (): Promise<void> => {
+          const columns = 96;
+          const io = new ScriptedTerminal(
+            ["\r"],
+            { colorDepth: "none", columns, unicode: true },
+            { columns, rows: 24 },
+          );
+          assertEquals(
+            await requestSelection({
+              message: "Choose",
+              options: groupedSelectionEntries([
+                {
+                  id: "primary",
+                  label: "Primary",
+                  items: [{ name: "Alpha", value: "alpha" }],
+                },
+                {
+                  id: "secondary",
+                  label: "Secondary",
+                  items: [{ name: "Beta", value: "beta" }],
+                },
+              ]),
+            }, scriptedRuntime(io)),
+            "alpha",
+          );
+
+          const frame = io.writes.find((write) => {
+            const rendered = stripAnsi(write);
+            return rendered.includes("Choose") && rendered.includes("Alpha") &&
+              rendered.includes("PRIMARY");
+          });
+          assertExists(frame);
+          assertEquals(widestTerminalLine(frame), columns);
+          const rows = stripAnsi(frame).split("\n");
+          const blank = `│${" ".repeat(columns - 2)}│`;
+          for (const heading of ["PRIMARY", "SECONDARY"]) {
+            const index = rows.findIndex((row) => row.includes(heading));
+            assert(index > 0, `missing ${heading} heading`);
+            assertEquals(rows[index - 1], blank);
+          }
+        },
+      },
+      {
+        name:
+          "the shared choice adapter discloses choices below its visible window",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["\r"]);
+          assertEquals(
+            await requestSelection({
+              message: "Choose",
+              options: Array.from({ length: 5 }, (_, index) => ({
+                name: `Choice ${index + 1}`,
+                value: index,
+              })),
+              maxRows: 2,
+            }, scriptedRuntime(io)),
+            0,
+          );
+          const frame = io.writes.find((write) => {
+            const rendered = stripAnsi(write);
+            return rendered.includes("Choose") &&
+              rendered.includes("Choice 1") &&
+              rendered.includes("↓ 3 more");
+          });
+          assertExists(frame);
+        },
+      },
+      {
+        name:
+          "a tall terminal fills the choice window instead of the package default",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["\r"], undefined, {
+            columns: 60,
+            rows: 40,
+          });
+          const value = await requestSelection({
+            message: "Choose",
+            options: manyChoices(),
+          }, scriptedRuntime(io));
+          assertEquals(value, "choice-0");
+          const transcript = io.writes.join("");
+          assertStringIncludes(transcript, "Choice 00");
+          assertStringIncludes(transcript, "Choice 19");
+        },
+      },
+      {
+        name:
+          "every choice request fits its complete frame below reserved rows",
+        check: async (): Promise<void> => {
+          const selectIo = new ScriptedTerminal(["\r"], undefined, {
+            columns: 60,
+            rows: 40,
+          });
+          const searchIo = new ScriptedTerminal(["\r"], undefined, {
+            columns: 60,
+            rows: 40,
+          });
+          const selectionsIo = new ScriptedTerminal(["\r"], undefined, {
+            columns: 60,
+            rows: 40,
+          });
+          await requestSelection({
+            message: "Choose",
+            options: manyChoices(),
+            reservedRows: 30,
+          }, scriptedRuntime(selectIo));
+          await requestSelection({
+            message: "Search",
+            options: manyChoices(),
+            search: true,
+            default: "choice-0",
+            reservedRows: 30,
+          }, scriptedRuntime(searchIo));
+          await requestSelections({
+            message: "Choose several",
+            options: manyChoices(),
+            reservedRows: 30,
+          }, scriptedRuntime(selectionsIo));
+          for (const io of [selectIo, searchIo, selectionsIo]) {
+            for (const write of io.writes) {
+              assertEquals(
+                write.split("\n").length <= 10,
+                true,
+                `the package must fit the complete frame below the 30-row reservation:\n${write}`,
+              );
+            }
+          }
+        },
+      },
+      {
+        name: "maxRows stays a hard ceiling below the derived budget",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["\r"], undefined, {
+            columns: 60,
+            rows: 40,
+          });
+          await requestSelection({
+            message: "Choose",
+            options: manyChoices(),
+            maxRows: 3,
+          }, scriptedRuntime(io));
+          const transcript = io.writes.join("");
+          assertStringIncludes(transcript, "Choice 02");
+          assertEquals(transcript.includes("Choice 03"), false);
+        },
+      },
+      {
+        name:
+          "over-reserved compositions use the package's coherent-frame refusal",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["\r"], undefined, {
+            columns: 60,
+            rows: 40,
+          });
+          await assertRejects(
+            () =>
+              requestSelection({
+                message: "Choose",
+                options: manyChoices(),
+                reservedRows: 90,
+              }, scriptedRuntime(io)),
+            TypeError,
+            "cannot hold a coherent interaction frame",
+          );
+          assertEquals(io.rawTransitions, [true, false]);
+        },
+      },
+      {
+        name:
+          "a short terminal degrades through package fitting, never overflowing",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(["\r"], undefined, {
+            columns: 60,
+            rows: 8,
+          });
+          const value = await requestSelection({
+            message: "Choose",
+            options: manyChoices(),
+            hint: "Use the arrow keys to move and Enter to choose.",
+          }, scriptedRuntime(io));
+          assertEquals(value, "choice-0");
+          for (const write of io.writes) {
+            // Control sequences carry no newlines, so the raw newline count is the
+            // painted row count without any stripping.
+            assertEquals(
+              write.split("\n").length <= 8,
+              true,
+              `a painted frame must fit the 8-row terminal:\n${
+                JSON.stringify(write)
+              }`,
+            );
+          }
+        },
+      },
     ],
-    [{ name: "Object", value: { id: "object" } }],
-  ];
-  for (const options of cases) {
-    const io = new ScriptedTerminal(["\r"]);
-    await assertRejects(
-      () =>
-        requestSelection<unknown>(
-          { message: "Choose", options },
-          scriptedRuntime(io),
-        ),
-      TypeError,
-    );
-    assertEquals(io.rawTransitions, []);
-  }
-});
-
-Deno.test("single-select rejects nullish values that collide with no-selection", async () => {
-  for (const value of [null, undefined]) {
-    const io = new ScriptedTerminal(["\r"]);
-    await assertRejects(
-      () =>
-        requestSelection<unknown>({
-          message: "Choose",
-          options: [{ id: "nullish", name: "Nullish", value }],
-        }, scriptedRuntime(io)),
-      TypeError,
-      "cannot use null or undefined",
-    );
-    assertEquals(io.rawTransitions, []);
-  }
-
-  const multiple = new ScriptedTerminal(["\r"]);
-  assertEquals(
-    await requestSelections<null>({
-      message: "Choose",
-      options: [{ id: "null", name: "Null", value: null, checked: true }],
-    }, scriptedRuntime(multiple)),
-    [null],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
+    },
   );
-});
-
-Deno.test("search preserves matching groups, order, identity, and returned value", async () => {
-  const io = new ScriptedTerminal(["Beta", "\x1b[B", "\r"]);
-  const value = await requestSelection({
-    message: "Browse",
-    search: true,
-    searchLabel: "filter",
-    options: groupedSelectionEntries([
-      {
-        id: "documents",
-        label: "Documents",
-        items: [
-          { id: "alpha", name: "Alpha guide", value: "alpha" },
-          { id: "beta", name: "Beta guide", value: "beta" },
-        ],
-      },
-      {
-        id: "browse",
-        label: "Browse",
-        items: [{ id: "quit", name: "Quit", value: "quit" }],
-      },
-    ]),
-  }, scriptedRuntime(io));
-  assertEquals(value, "beta");
-  const transcript = io.writes.join("");
-  assertStringIncludes(transcript, "DOCUMENTS");
-  assertStringIncludes(transcript, "Beta guide");
-});
-
-Deno.test("search restores a stable initial choice through duplicate labels", async () => {
-  const io = new ScriptedTerminal(["\r"]);
-  assertEquals(
-    await requestSelection({
-      message: "Browse",
-      search: true,
-      default: "beta",
-      options: groupedSelectionEntries([
-        {
-          id: "first",
-          label: "First group",
-          items: [{ id: "alpha", name: "Duplicate label", value: "alpha" }],
-        },
-        {
-          id: "second",
-          label: "Second group",
-          items: [{ id: "beta", name: "Duplicate label", value: "beta" }],
-        },
-      ]),
-    }, scriptedRuntime(io)),
-    "beta",
-  );
-  assertEquals(io.rawTransitions, [true, false]);
 });
 
 /** Twenty zero-padded choices, so window edges are visible as exact labels. */
@@ -992,105 +1452,6 @@ function manyChoices(): { name: string; value: string }[] {
     value: `choice-${index}`,
   }));
 }
-
-Deno.test("a tall terminal fills the choice window instead of the package default", async () => {
-  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
-  const value = await requestSelection({
-    message: "Choose",
-    options: manyChoices(),
-  }, scriptedRuntime(io));
-  assertEquals(value, "choice-0");
-  const transcript = io.writes.join("");
-  assertStringIncludes(transcript, "Choice 00");
-  assertStringIncludes(transcript, "Choice 19");
-});
-
-Deno.test("every choice request fits its complete frame below reserved rows", async () => {
-  const selectIo = new ScriptedTerminal(["\r"], undefined, {
-    columns: 60,
-    rows: 40,
-  });
-  const searchIo = new ScriptedTerminal(["\r"], undefined, {
-    columns: 60,
-    rows: 40,
-  });
-  const selectionsIo = new ScriptedTerminal(["\r"], undefined, {
-    columns: 60,
-    rows: 40,
-  });
-  await requestSelection({
-    message: "Choose",
-    options: manyChoices(),
-    reservedRows: 30,
-  }, scriptedRuntime(selectIo));
-  await requestSelection({
-    message: "Search",
-    options: manyChoices(),
-    search: true,
-    default: "choice-0",
-    reservedRows: 30,
-  }, scriptedRuntime(searchIo));
-  await requestSelections({
-    message: "Choose several",
-    options: manyChoices(),
-    reservedRows: 30,
-  }, scriptedRuntime(selectionsIo));
-  for (const io of [selectIo, searchIo, selectionsIo]) {
-    for (const write of io.writes) {
-      assertEquals(
-        write.split("\n").length <= 10,
-        true,
-        `the package must fit the complete frame below the 30-row reservation:\n${write}`,
-      );
-    }
-  }
-});
-
-Deno.test("maxRows stays a hard ceiling below the derived budget", async () => {
-  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
-  await requestSelection({
-    message: "Choose",
-    options: manyChoices(),
-    maxRows: 3,
-  }, scriptedRuntime(io));
-  const transcript = io.writes.join("");
-  assertStringIncludes(transcript, "Choice 02");
-  assertEquals(transcript.includes("Choice 03"), false);
-});
-
-Deno.test("over-reserved compositions use the package's coherent-frame refusal", async () => {
-  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
-  await assertRejects(
-    () =>
-      requestSelection({
-        message: "Choose",
-        options: manyChoices(),
-        reservedRows: 90,
-      }, scriptedRuntime(io)),
-    TypeError,
-    "cannot hold a coherent interaction frame",
-  );
-  assertEquals(io.rawTransitions, [true, false]);
-});
-
-Deno.test("a short terminal degrades through package fitting, never overflowing", async () => {
-  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 8 });
-  const value = await requestSelection({
-    message: "Choose",
-    options: manyChoices(),
-    hint: "Use the arrow keys to move and Enter to choose.",
-  }, scriptedRuntime(io));
-  assertEquals(value, "choice-0");
-  for (const write of io.writes) {
-    // Control sequences carry no newlines, so the raw newline count is the
-    // painted row count without any stripping.
-    assertEquals(
-      write.split("\n").length <= 8,
-      true,
-      `a painted frame must fit the 8-row terminal:\n${JSON.stringify(write)}`,
-    );
-  }
-});
 
 Deno.test("the interaction trace records sizing evidence only when enabled", async () => {
   await withTempDir(async (dir) => {
@@ -1138,48 +1499,6 @@ Deno.test("the interaction trace records sizing evidence only when enabled", asy
       "tracing must stay inert without the variable",
     );
   });
-});
-
-Deno.test("unknown select, search, and multi-select defaults fail before raw mode", async () => {
-  const single = new ScriptedTerminal(["\r"]);
-  await assertRejects(
-    () =>
-      requestSelection({
-        message: "Choose",
-        default: "missing",
-        options: [{ name: "Present", value: "present" }],
-      }, scriptedRuntime(single)),
-    TypeError,
-    "does not name a selection choice",
-  );
-  assertEquals(single.rawTransitions, []);
-
-  const search = new ScriptedTerminal(["\r"]);
-  await assertRejects(
-    () =>
-      requestSelection({
-        message: "Search",
-        search: true,
-        default: "missing",
-        options: [{ name: "Present", value: "present" }],
-      }, scriptedRuntime(search)),
-    TypeError,
-    "does not name a selection choice",
-  );
-  assertEquals(search.rawTransitions, []);
-
-  const multiple = new ScriptedTerminal(["\r"]);
-  await assertRejects(
-    () =>
-      requestSelections({
-        message: "Choose",
-        default: ["missing"],
-        options: [{ name: "Present", value: "present" }],
-      }, scriptedRuntime(multiple)),
-    TypeError,
-    "does not name a selection choice",
-  );
-  assertEquals(multiple.rawTransitions, []);
 });
 
 Deno.test("component text is inert while submitted values remain exact", async () => {
@@ -1265,86 +1584,6 @@ Deno.test("multiselect composes minimum and caller validation in source order", 
   assertStringIncludes(transcript, "Beta is required for this test.");
 });
 
-Deno.test("text validation stays distinct from normalized Ctrl-C and EOF cancellation", async () => {
-  const validation = new ScriptedTerminal([
-    "bad\r",
-    "\x7f\x7f\x7f",
-    "good\r",
-  ]);
-  assertEquals(
-    await requestText({
-      message: "Value",
-      validate: (value) => value === "good" || "Enter good.",
-    }, scriptedRuntime(validation)),
-    "good",
-  );
-  assertStringIncludes(validation.writes.join(""), "Enter good.");
-
-  for (const chunks of [["\x03"], []] as const) {
-    const cancelled = new ScriptedTerminal(chunks);
-    const error = await (async (): Promise<unknown> => {
-      try {
-        await requestText("Value", scriptedRuntime(cancelled));
-        return undefined;
-      } catch (caught) {
-        return caught;
-      }
-    })();
-    assertEquals(isInteractionCancelled(error), true);
-    assertEquals(cancelled.rawTransitions, [true, false]);
-    assertEquals(cancelled.writes[0], "\n");
-  }
-});
-
-Deno.test("text transforms before required validation and returns the canonical value", async () => {
-  const observed: string[] = [];
-  const io = new ScriptedTerminal([
-    "   \r",
-    "\x7f\x7f\x7f",
-    "  MiXeD  \r",
-  ]);
-  assertEquals(
-    await requestText({
-      message: "Value",
-      required: "Enter a value.",
-      transform: (value) => value.trim().toLowerCase(),
-      validate: (value) => {
-        observed.push(value);
-        return value === "mixed" || "Enter mixed.";
-      },
-    }, scriptedRuntime(io)),
-    "mixed",
-  );
-  assert(
-    observed.every((value) => value === value.trim().toLowerCase()),
-    "required and caller validation should see only canonical values",
-  );
-  assertEquals(observed.at(-1), "mixed");
-  assertStringIncludes(io.writes.join(""), "Enter a value.");
-});
-
-Deno.test("an unexpected in-frame error restores and terminates the interaction", async () => {
-  const io = new ScriptedTerminal(["\r"]);
-  const failure = new Error("synthetic validator fault");
-  await assertRejects(
-    () =>
-      requestText({
-        message: "Value",
-        validate: () => {
-          throw failure;
-        },
-      }, scriptedRuntime(io)),
-    Error,
-    failure.message,
-  );
-  assertEquals(io.rawTransitions, [true, false]);
-  assertEquals(
-    io.writes.at(-1),
-    "\n",
-    "the restored cursor must be followed by a semantic frame terminator",
-  );
-});
-
 // ---- confirmationAllowed: no interaction is reachable under --json (B53) ---
 //
 // The class: blocking terminal input reachable while `--json` is the output
@@ -1355,19 +1594,36 @@ Deno.test("an unexpected in-frame error restores and terminates the interaction"
 // the test process's own (absent) terminal — pre-fix, json was ignored and this
 // returned true.
 
-Deno.test("confirmationAllowed forbids interaction under --json even with a TTY present", () => {
-  const ttyPresent = (_yes: boolean): boolean => true;
-  // JSON wins regardless of --yes or the interactive gate.
-  assertEquals(confirmationAllowed(false, true, ttyPresent), false);
-  assertEquals(confirmationAllowed(true, true, ttyPresent), false);
-});
-
-Deno.test("confirmationAllowed defers to the interactive gate when not --json", () => {
-  const ttyPresent = (_yes: boolean): boolean => true;
-  const noTty = (_yes: boolean): boolean => false;
-  // Outside json mode the ordinary interactive decision stands.
-  assertEquals(confirmationAllowed(false, false, ttyPresent), true);
-  assertEquals(confirmationAllowed(false, false, noTty), false);
+Deno.test("confirmation policy preserves the JSON boundary and interactive decision", () => {
+  assertCases(
+    [
+      {
+        name:
+          "confirmationAllowed forbids interaction under --json even with a TTY present",
+        check: (): void => {
+          const ttyPresent = (_yes: boolean): boolean => true;
+          // JSON wins regardless of --yes or the interactive gate.
+          assertEquals(confirmationAllowed(false, true, ttyPresent), false);
+          assertEquals(confirmationAllowed(true, true, ttyPresent), false);
+        },
+      },
+      {
+        name:
+          "confirmationAllowed defers to the interactive gate when not --json",
+        check: (): void => {
+          const ttyPresent = (_yes: boolean): boolean => true;
+          const noTty = (_yes: boolean): boolean => false;
+          // Outside json mode the ordinary interactive decision stands.
+          assertEquals(confirmationAllowed(false, false, ttyPresent), true);
+          assertEquals(confirmationAllowed(false, false, noTty), false);
+        },
+      },
+    ],
+    (row) => row.name,
+    (row) => {
+      row.check();
+    },
+  );
 });
 
 const DESTRUCTIVE_COPY = {
@@ -1403,52 +1659,139 @@ Deno.test("destructive confirmation renders the package's semantic facts", () =>
   );
 });
 
-Deno.test("destructive confirmation presents only on the interactive human path", async () => {
-  const presented: string[] = [];
-  const requests: unknown[] = [];
-  const options = {
-    yes: false,
-    json: false,
-    terminal: confirmationTerminal(),
-    present: (frame: string): void => {
-      presented.push(frame);
-    },
-  };
-  const request: NonNullable<ConfirmationRequestRuntime["request"]> = (
-    message,
-    options,
-  ) => {
-    requests.push({ message, options });
-    return Promise.resolve(false);
-  };
+Deno.test("scripted confirmations preserve consent facts and visible action labels", async () => {
+  await assertCasesAsync(
+    [
+      {
+        name:
+          "destructive confirmation presents only on the interactive human path",
+        check: async (): Promise<void> => {
+          const presented: string[] = [];
+          const requests: unknown[] = [];
+          const options = {
+            yes: false,
+            json: false,
+            terminal: confirmationTerminal(),
+            present: (frame: string): void => {
+              presented.push(frame);
+            },
+          };
+          const request: NonNullable<ConfirmationRequestRuntime["request"]> = (
+            message,
+            options,
+          ) => {
+            requests.push({ message, options });
+            return Promise.resolve(false);
+          };
 
-  assertEquals(
-    await confirmDestructiveAction(DESTRUCTIVE_COPY, options, {
-      interactive: () => false,
-      request,
-    }),
-    true,
-  );
-  assertEquals(presented, []);
-  assertEquals(requests, []);
+          assertEquals(
+            await confirmDestructiveAction(DESTRUCTIVE_COPY, options, {
+              interactive: () => false,
+              request,
+            }),
+            true,
+          );
+          assertEquals(presented, []);
+          assertEquals(requests, []);
 
-  assertEquals(
-    await confirmDestructiveAction(DESTRUCTIVE_COPY, options, {
-      interactive: () => true,
-      request,
-    }),
-    false,
-  );
-  assertEquals(presented.length, 1);
-  assertStringIncludes(presented[0] ?? "", "Scope: /tmp/project");
-  assertEquals(requests, [{
-    message: "Continue with removal?",
-    options: {
-      defaultTo: true,
-      noLabel: "Keep",
-      yesLabel: "Remove",
+          assertEquals(
+            await confirmDestructiveAction(DESTRUCTIVE_COPY, options, {
+              interactive: () => true,
+              request,
+            }),
+            false,
+          );
+          assertEquals(presented.length, 1);
+          assertStringIncludes(presented[0] ?? "", "Scope: /tmp/project");
+          assertEquals(requests, [{
+            message: "Continue with removal?",
+            options: {
+              defaultTo: true,
+              noLabel: "Keep",
+              yesLabel: "Remove",
+            },
+          }]);
+        },
+      },
+      {
+        name: "neutral confirmation renders and requests the same bounded act",
+        check: async (): Promise<void> => {
+          const rendered = renderConfirmationDialog(
+            DIALOG_COPY,
+            confirmationTerminal(),
+          );
+          assertStringIncludes(rendered, "Confirm");
+          assertStringIncludes(rendered, DIALOG_COPY.label);
+          assertStringIncludes(rendered, "Scope: /tmp/project");
+          assertStringIncludes(rendered, "Consequence: Two missing files");
+          assertStringIncludes(rendered, "[Cancel]  [Continue]");
+
+          const presented: string[] = [];
+          const requests: unknown[] = [];
+          assertEquals(
+            await confirmDialogAction(
+              DIALOG_COPY,
+              {
+                yes: false,
+                json: false,
+                terminal: confirmationTerminal(),
+                present: (frame: string): void => {
+                  presented.push(frame);
+                },
+              },
+              {
+                interactive: () => true,
+                request: (message, options) => {
+                  requests.push({ message, options });
+                  return Promise.resolve(true);
+                },
+              },
+            ),
+            true,
+          );
+          assertEquals(presented.length, 1);
+          assertEquals(requests, [{
+            message: "Overlay the preset now?",
+            options: {
+              defaultTo: true,
+              noLabel: "Keep",
+              yesLabel: "Apply",
+            },
+          }]);
+        },
+      },
+      {
+        name: "confirmation action labels remain visible in a 24-column frame",
+        check: async (): Promise<void> => {
+          const io = new ScriptedTerminal(
+            ["\r"],
+            { colorDepth: "none", columns: 24, unicode: true },
+            { columns: 24, rows: 8 },
+          );
+          assertEquals(
+            await requestConfirmation(
+              "Reclaim the checkout?",
+              {
+                defaultTo: false,
+                noLabel: "Keep",
+                yesLabel: "Reclaim",
+              },
+              scriptedRuntime(io),
+            ),
+            false,
+          );
+          const rendered = stripAnsi(io.writes.join(""));
+          assertStringIncludes(rendered, "Keep");
+          assertStringIncludes(rendered, "Reclaim");
+          assert(widestTerminalLine(rendered) <= 24, rendered);
+        },
+      },
+    ],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
     },
-  }]);
+  );
 });
 
 const DIALOG_COPY = {
@@ -1460,142 +1803,123 @@ const DIALOG_COPY = {
   labels: { noLabel: "Keep", yesLabel: "Apply" },
 } as const;
 
-Deno.test("neutral confirmation renders and requests the same bounded act", async () => {
-  const rendered = renderConfirmationDialog(
-    DIALOG_COPY,
-    confirmationTerminal(),
-  );
-  assertStringIncludes(rendered, "Confirm");
-  assertStringIncludes(rendered, DIALOG_COPY.label);
-  assertStringIncludes(rendered, "Scope: /tmp/project");
-  assertStringIncludes(rendered, "Consequence: Two missing files");
-  assertStringIncludes(rendered, "[Cancel]  [Continue]");
-
-  const presented: string[] = [];
-  const requests: unknown[] = [];
-  assertEquals(
-    await confirmDialogAction(
-      DIALOG_COPY,
-      {
-        yes: false,
-        json: false,
-        terminal: confirmationTerminal(),
-        present: (frame: string): void => {
-          presented.push(frame);
-        },
-      },
-      {
-        interactive: () => true,
-        request: (message, options) => {
-          requests.push({ message, options });
-          return Promise.resolve(true);
-        },
-      },
-    ),
-    true,
-  );
-  assertEquals(presented.length, 1);
-  assertEquals(requests, [{
-    message: "Overlay the preset now?",
-    options: {
-      defaultTo: true,
-      noLabel: "Keep",
-      yesLabel: "Apply",
-    },
-  }]);
-});
-
-Deno.test("confirmation action labels remain visible in a 24-column frame", async () => {
-  const io = new ScriptedTerminal(
-    ["\r"],
-    { colorDepth: "none", columns: 24, unicode: true },
-    { columns: 24, rows: 8 },
-  );
-  assertEquals(
-    await requestConfirmation(
-      "Reclaim the checkout?",
-      {
-        defaultTo: false,
-        noLabel: "Keep",
-        yesLabel: "Reclaim",
-      },
-      scriptedRuntime(io),
-    ),
-    false,
-  );
-  const rendered = stripAnsi(io.writes.join(""));
-  assertStringIncludes(rendered, "Keep");
-  assertStringIncludes(rendered, "Reclaim");
-  assert(widestTerminalLine(rendered) <= 24, rendered);
-});
-
 // ---- resolveSetupConfig (interaction suppressed via flags.yes) --------------
 
-Deno.test("resolveSetupConfig warns on an unknown agent, drops it, keeps the known one", async () => {
-  await captureStderr(async (lines) => {
-    const config = await resolveSetupConfig(
-      { yes: true, agents: "bogus,claude_code" },
-      logger(),
-    );
-    // The unknown name is dropped; the known one is kept.
-    assertEquals(config.agents, ["claude_code"]);
-    // A warning naming the unknown agent was emitted to stderr.
-    const warning = lines.find((l) => l.includes("ignoring unknown agent"));
-    assertExists(
-      warning,
-      `expected an unknown-agent warning; saw: ${JSON.stringify(lines)}`,
-    );
-    assertStringIncludes(warning, "bogus");
-  });
-});
-
-Deno.test("resolveSetupConfig falls back to default agents when all names are garbage", async () => {
-  await captureStderr(async (lines) => {
-    const config = await resolveSetupConfig(
-      { yes: true, agents: "nope, , also-nope" },
-      logger(),
-    );
-    // No valid agent survived parsing → the default set is used.
-    assertEquals(config.agents, [...DEFAULTS.agents]);
-    // The unknown names are still reported.
-    assertEquals(
-      lines.some((l) => l.includes("ignoring unknown agent")),
-      true,
-    );
-  });
-});
-
-Deno.test("resolveSetupConfig keeps a valid agents flag without warning", async () => {
-  await captureStderr(async (lines) => {
-    const config = await resolveSetupConfig(
-      { yes: true, agents: "codex" },
-      logger(),
-    );
-    assertEquals(config.agents, ["codex"]);
-    // No unknowns → no warning line.
-    assertEquals(
-      lines.some((l) => l.includes("ignoring unknown agent")),
-      false,
-    );
-  });
-});
-
-Deno.test("resolveSetupConfig honours explicit base flags non-interactively", async () => {
-  const config = await resolveSetupConfig(
-    {
-      yes: true,
-      name: "My Project",
-      slug: "my-proj",
-      branchPrefix: "wt/",
-      brief: "a literal brief",
+Deno.test("noninteractive setup flags preserve defaults, validation, and warning contracts", async () => {
+  await assertCasesAsync(
+    [
+      {
+        name:
+          "resolveSetupConfig warns on an unknown agent, drops it, keeps the known one",
+        check: async (): Promise<void> => {
+          await captureStderr(async (lines) => {
+            const config = await resolveSetupConfig(
+              { yes: true, agents: "bogus,claude_code" },
+              logger(),
+            );
+            // The unknown name is dropped; the known one is kept.
+            assertEquals(config.agents, ["claude_code"]);
+            // A warning naming the unknown agent was emitted to stderr.
+            const warning = lines.find((l) =>
+              l.includes("ignoring unknown agent")
+            );
+            assertExists(
+              warning,
+              `expected an unknown-agent warning; saw: ${
+                JSON.stringify(lines)
+              }`,
+            );
+            assertStringIncludes(warning, "bogus");
+          });
+        },
+      },
+      {
+        name:
+          "resolveSetupConfig falls back to default agents when all names are garbage",
+        check: async (): Promise<void> => {
+          await captureStderr(async (lines) => {
+            const config = await resolveSetupConfig(
+              { yes: true, agents: "nope, , also-nope" },
+              logger(),
+            );
+            // No valid agent survived parsing → the default set is used.
+            assertEquals(config.agents, [...DEFAULTS.agents]);
+            // The unknown names are still reported.
+            assertEquals(
+              lines.some((l) => l.includes("ignoring unknown agent")),
+              true,
+            );
+          });
+        },
+      },
+      {
+        name: "resolveSetupConfig keeps a valid agents flag without warning",
+        check: async (): Promise<void> => {
+          await captureStderr(async (lines) => {
+            const config = await resolveSetupConfig(
+              { yes: true, agents: "codex" },
+              logger(),
+            );
+            assertEquals(config.agents, ["codex"]);
+            // No unknowns → no warning line.
+            assertEquals(
+              lines.some((l) => l.includes("ignoring unknown agent")),
+              false,
+            );
+          });
+        },
+      },
+      {
+        name:
+          "resolveSetupConfig honours explicit base flags non-interactively",
+        check: async (): Promise<void> => {
+          const config = await resolveSetupConfig(
+            {
+              yes: true,
+              name: "My Project",
+              slug: "my-proj",
+              branchPrefix: "wt/",
+              brief: "a literal brief",
+            },
+            logger(),
+          );
+          assertEquals(config.slug, "my-proj");
+          assertEquals(config.branchPrefix, "wt/");
+          assertEquals(config.brief, "a literal brief");
+          // No agents flag → the default set, with interaction suppressed.
+          assertEquals(config.agents, [...DEFAULTS.agents]);
+        },
+      },
+      {
+        name: "resolveSetupConfig rejects an invalid explicit --slug",
+        check: async (): Promise<void> => {
+          // An explicit bad slug is an error (no silent coercion of a chosen value).
+          await assertRejects(
+            () =>
+              resolveSetupConfig({ yes: true, slug: "Bad Slug!" }, logger()),
+            Error,
+            'invalid --slug "Bad Slug!"',
+          );
+        },
+      },
+      {
+        name:
+          "resolveSetupConfig empty branch-prefix flag falls back to the default",
+        check: async (): Promise<void> => {
+          const config = await resolveSetupConfig(
+            { yes: true, branchPrefix: "   " },
+            logger(),
+          );
+          // A whitespace-only branch prefix trims to "" → the default applies.
+          assertEquals(config.branchPrefix, DEFAULTS.branchPrefix);
+        },
+      },
+    ],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
     },
-    logger(),
   );
-  assertEquals(config.slug, "my-proj");
-  assertEquals(config.branchPrefix, "wt/");
-  assertEquals(config.brief, "a literal brief");
-  // No agents flag → the default set, with interaction suppressed.
-  assertEquals(config.agents, [...DEFAULTS.agents]);
 });
 
 Deno.test("resolveSetupConfig resolves a @path brief flag non-interactively", async () => {
@@ -1608,22 +1932,4 @@ Deno.test("resolveSetupConfig resolves a @path brief flag non-interactively", as
     );
     assertEquals(config.brief, "briefed from file");
   });
-});
-
-Deno.test("resolveSetupConfig rejects an invalid explicit --slug", async () => {
-  // An explicit bad slug is an error (no silent coercion of a chosen value).
-  await assertRejects(
-    () => resolveSetupConfig({ yes: true, slug: "Bad Slug!" }, logger()),
-    Error,
-    'invalid --slug "Bad Slug!"',
-  );
-});
-
-Deno.test("resolveSetupConfig empty branch-prefix flag falls back to the default", async () => {
-  const config = await resolveSetupConfig(
-    { yes: true, branchPrefix: "   " },
-    logger(),
-  );
-  // A whitespace-only branch prefix trims to "" → the default applies.
-  assertEquals(config.branchPrefix, DEFAULTS.branchPrefix);
 });

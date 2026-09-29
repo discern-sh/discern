@@ -45,6 +45,7 @@ import {
 } from "./validator_registry.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const REGISTRY_MODULE = "tests/validator_registry.ts";
 const DOGFOOD_ANCHOR = "tests/repo_authored_paths.ts";
@@ -394,68 +395,265 @@ const FACTS: GraphFacts = (() => {
   return { functions, candidates, uses };
 })();
 
-Deno.test("every enrolled validator row holds against the live import graph", () => {
-  const offenders = registryOffenders(ARTIFACT_VALIDATORS, FACTS);
-  assertEquals(
-    offenders,
-    [],
-    `registry rows out of step with the tree:\n  ${offenders.join("\n  ")}`,
-  );
+Deno.test("validator enrolment: contracts", () => {
+  assertNamedCases({
+    "every enrolled validator row holds against the live import graph": () => {
+      const offenders = registryOffenders(ARTIFACT_VALIDATORS, FACTS);
+      assertEquals(
+        offenders,
+        [],
+        `registry rows out of step with the tree:\n  ${offenders.join("\n  ")}`,
+      );
+    },
+    "every unshipped dogfooded library function is enrolled or recorded":
+      () => {
+        const offenders = sweepOffenders(
+          ARTIFACT_VALIDATORS,
+          NON_VALIDATOR_IMPORTS,
+          FACTS,
+        );
+        assertEquals(
+          offenders,
+          [],
+          `the dogfood sweep found strays:\n  ${offenders.join("\n  ")}`,
+        );
+      },
+    "every non-validator record is live against the tree": () => {
+      const offenders = ledgerOffenders(NON_VALIDATOR_IMPORTS, FACTS);
+      assertEquals(
+        offenders,
+        [],
+        `stale NON_VALIDATOR_IMPORTS records:\n  ${offenders.join("\n  ")}`,
+      );
+    },
+    "the sweep sees the real wiring (it cannot go blind)": () => {
+      const shipped = shippedClosure(UNIVERSE);
+      assert(
+        shipped.has("src/engine/gate/finish.ts"),
+        "the shipped closure no longer covers the gate — the graph reader broke",
+      );
+      assert(
+        shipped.size >= 100,
+        `the shipped closure collapsed (${shipped.size} modules) — the graph ` +
+          "reader broke",
+      );
+      assert(
+        dogfoodTests(UNIVERSE).length >= 10,
+        "the dogfood-test detector sees almost nothing — the anchor import " +
+          `moved, or the matcher broke (${
+            dogfoodTests(UNIVERSE).length
+          } tests)`,
+      );
+      assert(
+        FACTS.candidates.size >= 5,
+        `the candidate sweep sees almost nothing (${FACTS.candidates.size} ` +
+          "exports) — the matcher has gone blind",
+      );
+      const shippedRows = ARTIFACT_VALIDATORS.filter(
+        (row) => row.enforcement.kind === "shipped",
+      );
+      assert(
+        shippedRows.length >= 3,
+        "the registry no longer declares the shipped preflights — rows were " +
+          "deleted without retiring their validators",
+      );
+    },
+    "control: a lazily-imported shipped wiring still counts (dynamic import edges are seen)":
+      () => {
+        // The dispatcher's verb bodies load via literal `await import(…)`; the graph
+        // reader must credit that wiring or every lazified module's validators would
+        // read as strays.
+        const files = new Map(fixtureUniverse({ wired: false }));
+        files.set(
+          "src/engine/gate/fixture.ts",
+          "export async function wired(root: string): Promise<string[]> {\n" +
+            '  const { checkWidgets } = await import("../../lib/widget_check.ts");\n' +
+            "  return checkWidgets(root);\n}\n",
+        );
+        const offenders = registryOffenders(
+          [FIXTURE_SHIPPED_ROW],
+          fixtureFacts(files),
+        );
+        assertEquals(
+          offenders,
+          [],
+          "a literal dynamic import from a shipped module must count as shipped use",
+        );
+      },
+    "control: an unwired enrolled validator fails the forward check": () => {
+      const facts = fixtureFacts(fixtureUniverse({ wired: false }));
+      const offenders = registryOffenders([FIXTURE_SHIPPED_ROW], facts);
+      assertEquals(offenders.length, 1, "an unwired shipped row must offend");
+      assert(
+        (offenders[0] ?? "").includes("wire it back into a shipped surface"),
+        "the failure teaches the remedy",
+      );
+      assertEquals(
+        registryOffenders(
+          [FIXTURE_SHIPPED_ROW],
+          fixtureFacts(
+            fixtureUniverse({ wired: true }),
+          ),
+        ),
+        [],
+        "the same row passes once a shipped module imports the validator",
+      );
+    },
+    "control: an unregistered unshipped dogfood candidate fails the sweep":
+      () => {
+        const facts = fixtureFacts(fixtureUniverse({ wired: false }));
+        const offenders = sweepOffenders([], {}, facts);
+        assertEquals(
+          offenders.length,
+          1,
+          "an unregistered candidate must offend",
+        );
+        assert(
+          (offenders[0] ?? "").includes(
+            "end-user projects never get this check",
+          ),
+          "the failure names the class",
+        );
+        assertEquals(
+          sweepOffenders([FIXTURE_LOCAL_ROW], {}, facts),
+          [],
+          "a repo-local enrolment satisfies the sweep",
+        );
+        assertEquals(
+          sweepOffenders([], { [FIXTURE_KEY]: "a fixture reason" }, facts),
+          [],
+          "a non-validator record satisfies the sweep",
+        );
+        assertEquals(
+          sweepOffenders(
+            [FIXTURE_LOCAL_ROW],
+            { [FIXTURE_KEY]: "also recorded" },
+            facts,
+          ).length,
+          1,
+          "enrolled-and-recorded must offend",
+        );
+        assertEquals(
+          sweepOffenders(
+            [],
+            {},
+            fixtureFacts(fixtureUniverse({ wired: true })),
+          ),
+          [],
+          "a shipped candidate needs no record",
+        );
+      },
+    "control: exemptions retire loudly": () => {
+      const wired = fixtureFacts(fixtureUniverse({ wired: true }));
+      const nowShipped = registryOffenders([FIXTURE_LOCAL_ROW], wired);
+      assertEquals(
+        nowShipped.length,
+        1,
+        "a repo-local row for a shipped validator must offend",
+      );
+      assert(
+        (nowShipped[0] ?? "").includes("the exemption is stale"),
+        "the failure says the exemption retired",
+      );
+      const unwired = fixtureFacts(fixtureUniverse({ wired: false }));
+      assertEquals(
+        registryOffenders([FIXTURE_LOCAL_ROW], unwired),
+        [],
+        "a live repo-local row passes",
+      );
+      assertEquals(
+        registryOffenders(
+          [{
+            ...FIXTURE_LOCAL_ROW,
+            enforcement: { kind: "repo-local", reason: " " },
+          }],
+          unwired,
+        ).length,
+        1,
+        "an empty reason must offend",
+      );
+      assertEquals(
+        registryOffenders(
+          [{ ...FIXTURE_LOCAL_ROW, exportName: "vanished" }],
+          unwired,
+        ).length,
+        1,
+        "a row pinned to a vanished export must offend",
+      );
+      assertEquals(
+        ledgerOffenders({ [FIXTURE_KEY]: "a fixture reason" }, wired).length,
+        1,
+        "a non-validator record for a shipped export must offend",
+      );
+      assertEquals(
+        ledgerOffenders({ "src/lib/gone.ts#gone": "a reason" }, unwired).length,
+        1,
+        "a record for a missing export must offend",
+      );
+      assertEquals(
+        ledgerOffenders({ [FIXTURE_KEY]: "" }, unwired).length,
+        1,
+        "an empty ledger reason must offend",
+      );
+      assertEquals(
+        ledgerOffenders({ [FIXTURE_KEY]: "a fixture reason" }, unwired),
+        [],
+        "a live non-validator record passes",
+      );
+    },
+    "control: the graph reader sees value imports, not type imports": () => {
+      const files = new Map(fixtureUniverse({ wired: false }));
+      files.set(
+        "src/engine/gate/fixture.ts",
+        'import type { checkWidgets } from "../../lib/widget_check.ts";\n' +
+          "export type Wired = typeof checkWidgets;\n",
+      );
+      const facts = fixtureFacts(files);
+      assertEquals(
+        facts.uses.get(FIXTURE_KEY) ?? [],
+        [],
+        "a type-only import is erased at runtime and must not count as shipped",
+      );
+      const intra = new Map(files);
+      intra.set(
+        "src/lib/widget_check.ts",
+        "export function checkWidgets(root: string): string[] {\n" +
+          "  return [root];\n}\n" +
+          "export function checkAll(root: string): string[] {\n" +
+          "  return checkWidgets(root);\n}\n",
+      );
+      intra.set(
+        "src/engine/gate/fixture.ts",
+        'import { checkAll } from "../../lib/widget_check.ts";\n' +
+          "export const wired = checkAll;\n",
+      );
+      const intraFacts = fixtureFacts(intra);
+      assertEquals(
+        intraFacts.uses.get(FIXTURE_KEY)?.length ?? 0,
+        1,
+        "an intra-module call from a shipped wrapper counts as shipped",
+      );
+      const commentOnly = new Map(files);
+      commentOnly.set(
+        "src/lib/widget_check.ts",
+        "/** See {@link checkWidgets} and checkWidgets again. */\n" +
+          "export function checkWidgets(root: string): string[] {\n" +
+          "  return [root];\n}\n",
+      );
+      commentOnly.set(
+        "src/engine/gate/fixture.ts",
+        'import { checkWidgets as aliased } from "../../lib/widget_check.ts";\n' +
+          "export const wired = aliased;\n",
+      );
+      const commentFacts = fixtureFacts(commentOnly);
+      assertEquals(
+        commentFacts.uses.get(FIXTURE_KEY)?.length ?? 0,
+        1,
+        "doc-comment mentions must not count; the aliased value import must",
+      );
+    },
+  });
 });
-
-Deno.test("every unshipped dogfooded library function is enrolled or recorded", () => {
-  const offenders = sweepOffenders(
-    ARTIFACT_VALIDATORS,
-    NON_VALIDATOR_IMPORTS,
-    FACTS,
-  );
-  assertEquals(
-    offenders,
-    [],
-    `the dogfood sweep found strays:\n  ${offenders.join("\n  ")}`,
-  );
-});
-
-Deno.test("every non-validator record is live against the tree", () => {
-  const offenders = ledgerOffenders(NON_VALIDATOR_IMPORTS, FACTS);
-  assertEquals(
-    offenders,
-    [],
-    `stale NON_VALIDATOR_IMPORTS records:\n  ${offenders.join("\n  ")}`,
-  );
-});
-
-Deno.test("the sweep sees the real wiring (it cannot go blind)", () => {
-  const shipped = shippedClosure(UNIVERSE);
-  assert(
-    shipped.has("src/engine/gate/finish.ts"),
-    "the shipped closure no longer covers the gate — the graph reader broke",
-  );
-  assert(
-    shipped.size >= 100,
-    `the shipped closure collapsed (${shipped.size} modules) — the graph ` +
-      "reader broke",
-  );
-  assert(
-    dogfoodTests(UNIVERSE).length >= 10,
-    "the dogfood-test detector sees almost nothing — the anchor import " +
-      `moved, or the matcher broke (${dogfoodTests(UNIVERSE).length} tests)`,
-  );
-  assert(
-    FACTS.candidates.size >= 5,
-    `the candidate sweep sees almost nothing (${FACTS.candidates.size} ` +
-      "exports) — the matcher has gone blind",
-  );
-  const shippedRows = ARTIFACT_VALIDATORS.filter(
-    (row) => row.enforcement.kind === "shipped",
-  );
-  assert(
-    shippedRows.length >= 3,
-    "the registry no longer declares the shipped preflights — rows were " +
-      "deleted without retiring their validators",
-  );
-});
-
 // --- Positive controls: prove the graph reader and predicates discriminate,
 // so the guard cannot rot into a sweep that passes because nothing looks
 // unwired. Fixture universes, never the live tree.
@@ -512,190 +710,3 @@ const FIXTURE_LOCAL_ROW: EnrolledValidator = {
   subjects: ["map"],
   enforcement: { kind: "repo-local", reason: "a fixture reason" },
 };
-
-Deno.test("control: a lazily-imported shipped wiring still counts (dynamic import edges are seen)", () => {
-  // The dispatcher's verb bodies load via literal `await import(…)`; the graph
-  // reader must credit that wiring or every lazified module's validators would
-  // read as strays.
-  const files = new Map(fixtureUniverse({ wired: false }));
-  files.set(
-    "src/engine/gate/fixture.ts",
-    "export async function wired(root: string): Promise<string[]> {\n" +
-      '  const { checkWidgets } = await import("../../lib/widget_check.ts");\n' +
-      "  return checkWidgets(root);\n}\n",
-  );
-  const offenders = registryOffenders(
-    [FIXTURE_SHIPPED_ROW],
-    fixtureFacts(files),
-  );
-  assertEquals(
-    offenders,
-    [],
-    "a literal dynamic import from a shipped module must count as shipped use",
-  );
-});
-
-Deno.test("control: an unwired enrolled validator fails the forward check", () => {
-  const facts = fixtureFacts(fixtureUniverse({ wired: false }));
-  const offenders = registryOffenders([FIXTURE_SHIPPED_ROW], facts);
-  assertEquals(offenders.length, 1, "an unwired shipped row must offend");
-  assert(
-    (offenders[0] ?? "").includes("wire it back into a shipped surface"),
-    "the failure teaches the remedy",
-  );
-  assertEquals(
-    registryOffenders(
-      [FIXTURE_SHIPPED_ROW],
-      fixtureFacts(
-        fixtureUniverse({ wired: true }),
-      ),
-    ),
-    [],
-    "the same row passes once a shipped module imports the validator",
-  );
-});
-
-Deno.test("control: an unregistered unshipped dogfood candidate fails the sweep", () => {
-  const facts = fixtureFacts(fixtureUniverse({ wired: false }));
-  const offenders = sweepOffenders([], {}, facts);
-  assertEquals(offenders.length, 1, "an unregistered candidate must offend");
-  assert(
-    (offenders[0] ?? "").includes("end-user projects never get this check"),
-    "the failure names the class",
-  );
-  assertEquals(
-    sweepOffenders([FIXTURE_LOCAL_ROW], {}, facts),
-    [],
-    "a repo-local enrolment satisfies the sweep",
-  );
-  assertEquals(
-    sweepOffenders([], { [FIXTURE_KEY]: "a fixture reason" }, facts),
-    [],
-    "a non-validator record satisfies the sweep",
-  );
-  assertEquals(
-    sweepOffenders(
-      [FIXTURE_LOCAL_ROW],
-      { [FIXTURE_KEY]: "also recorded" },
-      facts,
-    ).length,
-    1,
-    "enrolled-and-recorded must offend",
-  );
-  assertEquals(
-    sweepOffenders([], {}, fixtureFacts(fixtureUniverse({ wired: true }))),
-    [],
-    "a shipped candidate needs no record",
-  );
-});
-
-Deno.test("control: exemptions retire loudly", () => {
-  const wired = fixtureFacts(fixtureUniverse({ wired: true }));
-  const nowShipped = registryOffenders([FIXTURE_LOCAL_ROW], wired);
-  assertEquals(
-    nowShipped.length,
-    1,
-    "a repo-local row for a shipped validator must offend",
-  );
-  assert(
-    (nowShipped[0] ?? "").includes("the exemption is stale"),
-    "the failure says the exemption retired",
-  );
-  const unwired = fixtureFacts(fixtureUniverse({ wired: false }));
-  assertEquals(
-    registryOffenders([FIXTURE_LOCAL_ROW], unwired),
-    [],
-    "a live repo-local row passes",
-  );
-  assertEquals(
-    registryOffenders(
-      [{
-        ...FIXTURE_LOCAL_ROW,
-        enforcement: { kind: "repo-local", reason: " " },
-      }],
-      unwired,
-    ).length,
-    1,
-    "an empty reason must offend",
-  );
-  assertEquals(
-    registryOffenders(
-      [{ ...FIXTURE_LOCAL_ROW, exportName: "vanished" }],
-      unwired,
-    ).length,
-    1,
-    "a row pinned to a vanished export must offend",
-  );
-  assertEquals(
-    ledgerOffenders({ [FIXTURE_KEY]: "a fixture reason" }, wired).length,
-    1,
-    "a non-validator record for a shipped export must offend",
-  );
-  assertEquals(
-    ledgerOffenders({ "src/lib/gone.ts#gone": "a reason" }, unwired).length,
-    1,
-    "a record for a missing export must offend",
-  );
-  assertEquals(
-    ledgerOffenders({ [FIXTURE_KEY]: "" }, unwired).length,
-    1,
-    "an empty ledger reason must offend",
-  );
-  assertEquals(
-    ledgerOffenders({ [FIXTURE_KEY]: "a fixture reason" }, unwired),
-    [],
-    "a live non-validator record passes",
-  );
-});
-
-Deno.test("control: the graph reader sees value imports, not type imports", () => {
-  const files = new Map(fixtureUniverse({ wired: false }));
-  files.set(
-    "src/engine/gate/fixture.ts",
-    'import type { checkWidgets } from "../../lib/widget_check.ts";\n' +
-      "export type Wired = typeof checkWidgets;\n",
-  );
-  const facts = fixtureFacts(files);
-  assertEquals(
-    facts.uses.get(FIXTURE_KEY) ?? [],
-    [],
-    "a type-only import is erased at runtime and must not count as shipped",
-  );
-  const intra = new Map(files);
-  intra.set(
-    "src/lib/widget_check.ts",
-    "export function checkWidgets(root: string): string[] {\n" +
-      "  return [root];\n}\n" +
-      "export function checkAll(root: string): string[] {\n" +
-      "  return checkWidgets(root);\n}\n",
-  );
-  intra.set(
-    "src/engine/gate/fixture.ts",
-    'import { checkAll } from "../../lib/widget_check.ts";\n' +
-      "export const wired = checkAll;\n",
-  );
-  const intraFacts = fixtureFacts(intra);
-  assertEquals(
-    intraFacts.uses.get(FIXTURE_KEY)?.length ?? 0,
-    1,
-    "an intra-module call from a shipped wrapper counts as shipped",
-  );
-  const commentOnly = new Map(files);
-  commentOnly.set(
-    "src/lib/widget_check.ts",
-    "/** See {@link checkWidgets} and checkWidgets again. */\n" +
-      "export function checkWidgets(root: string): string[] {\n" +
-      "  return [root];\n}\n",
-  );
-  commentOnly.set(
-    "src/engine/gate/fixture.ts",
-    'import { checkWidgets as aliased } from "../../lib/widget_check.ts";\n' +
-      "export const wired = aliased;\n",
-  );
-  const commentFacts = fixtureFacts(commentOnly);
-  assertEquals(
-    commentFacts.uses.get(FIXTURE_KEY)?.length ?? 0,
-    1,
-    "doc-comment mentions must not count; the aliased value import must",
-  );
-});

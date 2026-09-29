@@ -60,156 +60,190 @@ import { stripManualSourceComments } from "../scripts/build.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { createWorkflowChecksum } from "./release_workflow_fixture.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
 const releaseSource = await Deno.readTextFile(RELEASE);
 
-Deno.test("release validation completes before any build or publication", () => {
-  const plan = releaseSource.indexOf("  plan:");
-  const build = releaseSource.indexOf("  build:");
-  const publish = releaseSource.indexOf("  release:");
-  assert(plan >= 0, "release.yml has a pre-publication plan job");
-  assert(plan < build, "the plan job precedes the build job");
-  assert(plan < publish, "the plan job precedes the publication job");
-  assertStringIncludes(releaseSource, "needs: plan");
-  assertStringIncludes(releaseSource, "RELEASE_TAG: ${{ github.ref_name }}");
-  assertStringIncludes(
-    releaseSource,
-    "REPOSITORY_PRIVATE: ${{ github.event.repository.private }}",
-  );
-});
-
-Deno.test("every build target auto-enrols in the native release matrix", () => {
-  const plan = releasePlan("v1.2.3", {
-    repositoryPrivate: false,
-    version: "1.2.3",
-  });
-  assertEquals(plan.matrix.include.length, BUILD_TARGETS.length);
-  for (const target of BUILD_TARGETS) {
-    assert(
-      plan.matrix.include.some((row) =>
-        row.target === target.triple && row.output === target.output &&
-        row.os === target.runner
-      ),
-      `${target.triple} is absent from the release matrix`,
-    );
-  }
-
-  const future: BuildTarget = {
-    triple: "riscv64-example-os",
-    output: "discern-riscv64-example-os",
-    runner: "example-native-runner",
-    installer: {
-      os: "Linux",
-      operatingSystem: "GNU/Linux",
-      architectures: ["riscv64"],
+Deno.test("release artifacts: contracts", () => {
+  assertNamedCases({
+    "release validation completes before any build or publication": () => {
+      const plan = releaseSource.indexOf("  plan:");
+      const build = releaseSource.indexOf("  build:");
+      const publish = releaseSource.indexOf("  release:");
+      assert(plan >= 0, "release.yml has a pre-publication plan job");
+      assert(plan < build, "the plan job precedes the build job");
+      assert(plan < publish, "the plan job precedes the publication job");
+      assertStringIncludes(releaseSource, "needs: plan");
+      assertStringIncludes(
+        releaseSource,
+        "RELEASE_TAG: ${{ github.ref_name }}",
+      );
+      assertStringIncludes(
+        releaseSource,
+        "REPOSITORY_PRIVATE: ${{ github.event.repository.private }}",
+      );
     },
-  };
-  assertEquals(
-    releasePlan("v1.2.3", {
-      repositoryPrivate: false,
-      version: "1.2.3",
-      targets: [future],
-    }).matrix.include,
-    [{
-      target: future.triple,
-      output: future.output,
-      os: future.runner,
-    }],
-  );
-});
-
-Deno.test("release targets ship no native Windows executable or build path", () => {
-  for (const target of BUILD_TARGETS) {
-    assertEquals(target.triple.includes("windows"), false, target.triple);
-    assertEquals(target.output.endsWith(".exe"), false, target.output);
-    assertEquals(
-      target.installer.os === "Darwin" || target.installer.os === "Linux",
-      true,
-    );
-  }
-  assertStringIncludes(releaseSource, "deno task build ${{ matrix.target }}");
-  assertEquals(releaseSource.match(/deno task build /gu)?.length, 1);
-});
-
-Deno.test("a tag/package mismatch is refused before the matrix exists", () => {
-  assertThrows(
-    () =>
-      releasePlan("v1.2.4", {
+    "every build target auto-enrols in the native release matrix": () => {
+      const plan = releasePlan("v1.2.3", {
         repositoryPrivate: false,
         version: "1.2.3",
-      }),
-    Error,
-    "release tag v1.2.4 does not match package version v1.2.3",
-  );
-});
+      });
+      assertEquals(plan.matrix.include.length, BUILD_TARGETS.length);
+      for (const target of BUILD_TARGETS) {
+        assert(
+          plan.matrix.include.some((row) =>
+            row.target === target.triple && row.output === target.output &&
+            row.os === target.runner
+          ),
+          `${target.triple} is absent from the release matrix`,
+        );
+      }
 
-Deno.test("every private v* tag is refused with no release-plan override", () => {
-  for (const tag of ["v1.2.3", "v1.2.3-beta.1", "vnext"]) {
-    assertThrows(
-      () =>
-        releasePlan(tag, {
-          repositoryPrivate: true,
-          version: tag.slice(1),
-        }),
-      Error,
-      "cannot run while the repository is private",
-    );
-  }
-  assertStringIncludes(
-    releaseSource,
-    "REPOSITORY_PRIVATE: ${{ github.event.repository.private }}",
-  );
-});
-
-Deno.test("release stability derives prerelease and latest behavior from the package version", () => {
-  const stable = releasePlan("v1.2.3", {
-    repositoryPrivate: false,
-    version: "1.2.3",
+      const future: BuildTarget = {
+        triple: "riscv64-example-os",
+        output: "discern-riscv64-example-os",
+        runner: "example-native-runner",
+        installer: {
+          os: "Linux",
+          operatingSystem: "GNU/Linux",
+          architectures: ["riscv64"],
+        },
+      };
+      assertEquals(
+        releasePlan("v1.2.3", {
+          repositoryPrivate: false,
+          version: "1.2.3",
+          targets: [future],
+        }).matrix.include,
+        [{
+          target: future.triple,
+          output: future.output,
+          os: future.runner,
+        }],
+      );
+    },
+    "release targets ship no native Windows executable or build path": () => {
+      for (const target of BUILD_TARGETS) {
+        assertEquals(target.triple.includes("windows"), false, target.triple);
+        assertEquals(target.output.endsWith(".exe"), false, target.output);
+        assertEquals(
+          target.installer.os === "Darwin" || target.installer.os === "Linux",
+          true,
+        );
+      }
+      assertStringIncludes(
+        releaseSource,
+        "deno task build ${{ matrix.target }}",
+      );
+      assertEquals(releaseSource.match(/deno task build /gu)?.length, 1);
+    },
+    "a tag/package mismatch is refused before the matrix exists": () => {
+      assertThrows(
+        () =>
+          releasePlan("v1.2.4", {
+            repositoryPrivate: false,
+            version: "1.2.3",
+          }),
+        Error,
+        "release tag v1.2.4 does not match package version v1.2.3",
+      );
+    },
+    "every private v* tag is refused with no release-plan override": () => {
+      for (const tag of ["v1.2.3", "v1.2.3-beta.1", "vnext"]) {
+        assertThrows(
+          () =>
+            releasePlan(tag, {
+              repositoryPrivate: true,
+              version: tag.slice(1),
+            }),
+          Error,
+          "cannot run while the repository is private",
+        );
+      }
+      assertStringIncludes(
+        releaseSource,
+        "REPOSITORY_PRIVATE: ${{ github.event.repository.private }}",
+      );
+    },
+    "release stability derives prerelease and latest behavior from the package version":
+      () => {
+        const stable = releasePlan("v1.2.3", {
+          repositoryPrivate: false,
+          version: "1.2.3",
+        });
+        assertEquals(stable.prerelease, false);
+        assertEquals(stable.makeLatest, true);
+        const prerelease = releasePlan("v1.2.3-rc.1", {
+          repositoryPrivate: false,
+          version: "1.2.3-rc.1",
+        });
+        assertEquals(prerelease.prerelease, true);
+        assertEquals(prerelease.makeLatest, false);
+        assertStringIncludes(
+          releaseSource,
+          "prerelease: ${{ steps.publication-plan.outputs.prerelease }}",
+        );
+        assertStringIncludes(
+          releaseSource,
+          "make_latest: ${{ steps.publication-plan.outputs.make_latest }}",
+        );
+      },
+    "release artifacts and provenance subjects keep binary-sidecar parity":
+      () => {
+        const expected = BUILD_TARGETS.flatMap(releaseArtifactPaths);
+        assertEquals(expected.length, BUILD_TARGETS.length * 2);
+        assertEquals(new Set(expected).size, expected.length);
+        const checksum = releaseSource.indexOf("- name: Checksum");
+        const attest = releaseSource.indexOf("- name: Attest build provenance");
+        const upload = releaseSource.indexOf("- name: Upload build artifacts");
+        const cleanup = releaseSource.indexOf("- name: Remove Apple");
+        assert(attest > checksum, "provenance follows checksum creation");
+        assert(upload > attest, "upload follows provenance");
+        for (
+          const block of [
+            releaseSource.slice(attest, upload),
+            releaseSource.slice(upload, cleanup),
+          ]
+        ) {
+          assertStringIncludes(block, "dist/${{ matrix.output }}");
+          assertStringIncludes(block, "dist/${{ matrix.output }}.sha256");
+        }
+        assert(
+          !releaseSource.slice(attest, upload).includes("if:"),
+          "the attestation step runs for every tag",
+        );
+      },
+    "the compiled release smoke gates artifact upload": () => {
+      const compile = releaseSource.indexOf(
+        "deno task build ${{ matrix.target }}",
+      );
+      const smoke = releaseSource.indexOf("scripts/release_smoke.ts");
+      const notarize = releaseSource.indexOf("- name: Notarize");
+      const checksum = releaseSource.indexOf("- name: Checksum");
+      const upload = releaseSource.indexOf("- name: Upload build artifacts");
+      assert(compile >= 0, "the release compiles its matrix target");
+      assert(
+        smoke > compile,
+        "the compiled binary is smoked after compilation",
+      );
+      assert(
+        notarize > smoke,
+        "macOS notarization follows the compiled binary smoke",
+      );
+      assert(
+        checksum > smoke,
+        "checksums are made only after the smoke passes",
+      );
+      assert(upload > checksum, "artifact upload follows the checksum");
+      assertStringIncludes(releaseSource, '"dist/${{ matrix.output }}"');
+      assertStringIncludes(
+        releaseSource,
+        '"${{ needs.plan.outputs.version }}"',
+      );
+    },
   });
-  assertEquals(stable.prerelease, false);
-  assertEquals(stable.makeLatest, true);
-  const prerelease = releasePlan("v1.2.3-rc.1", {
-    repositoryPrivate: false,
-    version: "1.2.3-rc.1",
-  });
-  assertEquals(prerelease.prerelease, true);
-  assertEquals(prerelease.makeLatest, false);
-  assertStringIncludes(
-    releaseSource,
-    "prerelease: ${{ steps.publication-plan.outputs.prerelease }}",
-  );
-  assertStringIncludes(
-    releaseSource,
-    "make_latest: ${{ steps.publication-plan.outputs.make_latest }}",
-  );
 });
-
-Deno.test("release artifacts and provenance subjects keep binary-sidecar parity", () => {
-  const expected = BUILD_TARGETS.flatMap(releaseArtifactPaths);
-  assertEquals(expected.length, BUILD_TARGETS.length * 2);
-  assertEquals(new Set(expected).size, expected.length);
-  const checksum = releaseSource.indexOf("- name: Checksum");
-  const attest = releaseSource.indexOf("- name: Attest build provenance");
-  const upload = releaseSource.indexOf("- name: Upload build artifacts");
-  const cleanup = releaseSource.indexOf("- name: Remove Apple");
-  assert(attest > checksum, "provenance follows checksum creation");
-  assert(upload > attest, "upload follows provenance");
-  for (
-    const block of [
-      releaseSource.slice(attest, upload),
-      releaseSource.slice(upload, cleanup),
-    ]
-  ) {
-    assertStringIncludes(block, "dist/${{ matrix.output }}");
-    assertStringIncludes(block, "dist/${{ matrix.output }}.sha256");
-  }
-  assert(
-    !releaseSource.slice(attest, upload).includes("if:"),
-    "the attestation step runs for every tag",
-  );
-});
-
 Deno.test("the workflow checksum command produces the installer sidecar fixture", async () => {
   await withTempDir(async (root) => {
     await Deno.mkdir(join(root, "dist"));
@@ -227,27 +261,6 @@ Deno.test("the workflow checksum command produces the installer sidecar fixture"
     }).output();
     assert(checked.success, new TextDecoder().decode(checked.stderr));
   }, { prefix: "release-checksum-test-" });
-});
-
-Deno.test("the compiled release smoke gates artifact upload", () => {
-  const compile = releaseSource.indexOf("deno task build ${{ matrix.target }}");
-  const smoke = releaseSource.indexOf("scripts/release_smoke.ts");
-  const notarize = releaseSource.indexOf("- name: Notarize");
-  const checksum = releaseSource.indexOf("- name: Checksum");
-  const upload = releaseSource.indexOf("- name: Upload build artifacts");
-  assert(compile >= 0, "the release compiles its matrix target");
-  assert(smoke > compile, "the compiled binary is smoked after compilation");
-  assert(
-    notarize > smoke,
-    "macOS notarization follows the compiled binary smoke",
-  );
-  assert(checksum > smoke, "checksums are made only after the smoke passes");
-  assert(upload > checksum, "artifact upload follows the checksum");
-  assertStringIncludes(releaseSource, '"dist/${{ matrix.output }}"');
-  assertStringIncludes(
-    releaseSource,
-    '"${{ needs.plan.outputs.version }}"',
-  );
 });
 
 interface FakeOptions {

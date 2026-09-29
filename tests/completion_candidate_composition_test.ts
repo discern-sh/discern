@@ -27,6 +27,7 @@ import {
   completionFixtures,
   completionId,
 } from "./completion_fixtures.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const DIGEST = "a".repeat(64);
 const TRUNK_COMMIT = "1".repeat(40);
@@ -46,103 +47,109 @@ function ordinaryCandidate(): Record<string, unknown> {
   };
 }
 
-Deno.test("an ordinary candidate is its single source tip", () => {
-  const parsed = CandidateSchema.parse(ordinaryCandidate());
-  assertEquals(candidateAuthor(parsed), COMPLETION_SOURCE);
-  assertEquals(candidateIsIntegrated(parsed), false);
+Deno.test("completion candidate composition: contracts", () => {
+  assertNamedCases({
+    "an ordinary candidate is its single source tip": () => {
+      const parsed = CandidateSchema.parse(ordinaryCandidate());
+      assertEquals(candidateAuthor(parsed), COMPLETION_SOURCE);
+      assertEquals(candidateIsIntegrated(parsed), false);
 
-  const detached = CandidateSchema.safeParse({
-    ...ordinaryCandidate(),
-    head: MERGED_COMMIT,
+      const detached = CandidateSchema.safeParse({
+        ...ordinaryCandidate(),
+        head: MERGED_COMMIT,
+      });
+      assert(!detached.success, "an unmarked candidate may not leave its tip");
+      assertStringIncludes(
+        JSON.stringify(detached.error.issues),
+        "single source tip",
+      );
+    },
+    "an integrated candidate records its procedure and tested result separately":
+      () => {
+        const parsed = CandidateSchema.parse({
+          ...ordinaryCandidate(),
+          head: MERGED_COMMIT,
+          tree: MERGED_TREE,
+          integration: { procedure: "merge-trunk" },
+        });
+        assertEquals(candidateIsIntegrated(parsed), true);
+        assertEquals(candidateAuthor(parsed).head, COMPLETION_SOURCE.head);
+        assertEquals(parsed.head, MERGED_COMMIT);
+
+        const empty = CandidateSchema.safeParse({
+          ...ordinaryCandidate(),
+          sources: [],
+          integration: { procedure: "merge-trunk" },
+        });
+        assert(!empty.success, "the composition input list is nonempty");
+      },
+    "the singular-source migration touches only candidate payloads": () => {
+      const stored = {
+        version: ON_DISK_FORMATS.completionRecord.version,
+        kind: "candidate",
+        id: completionId(1),
+        revision: 1,
+        data: { ...ordinaryCandidate(), sources: undefined },
+      };
+      const data = stored.data as Record<string, unknown>;
+      delete data.sources;
+      data.source = COMPLETION_SOURCE;
+      const migrated = migrateSingularSourceCandidate(stored) as {
+        data: Record<string, unknown>;
+      };
+      assertEquals(migrated.data.sources, [COMPLETION_SOURCE]);
+      assert(!("source" in migrated.data));
+
+      const attempt = completionFixtures().attempt;
+      assertEquals(migrateSingularSourceCandidate(attempt), attempt);
+      assertEquals(migrateSingularSourceCandidate("text"), "text");
+    },
+    "a retained Proof presentation's embedded singular candidate migrates in place":
+      () => {
+        const candidate = ordinaryCandidate() as Record<string, unknown>;
+        delete candidate.sources;
+        candidate.source = COMPLETION_SOURCE;
+        const proof = {
+          head: "abcdef123456",
+          branch: "amber",
+          completion: { candidate, validation: { mode: "strict" } },
+          line: "> **Proof:** …",
+        };
+        const migrated = migrateProofEmbeddedCandidate(proof) as {
+          completion: { candidate: Record<string, unknown> };
+          line: string;
+        };
+        assertEquals(migrated.completion.candidate.sources, [
+          COMPLETION_SOURCE,
+        ]);
+        assert(!("source" in migrated.completion.candidate));
+        assertEquals(migrated.line, proof.line);
+
+        // Both embeddings of the same old bytes migrate identically, so the
+        // presentation's byte-for-byte comparison against its complete evidence
+        // still holds after both sides migrate.
+        const storeRecord = migrateSingularSourceCandidate({
+          version: ON_DISK_FORMATS.completionRecord.version,
+          kind: "candidate",
+          id: completionId(1),
+          revision: 1,
+          data: structuredClone(candidate),
+        }) as { data: Record<string, unknown> };
+        assertEquals(
+          JSON.stringify(migrated.completion.candidate),
+          JSON.stringify(storeRecord.data),
+        );
+
+        // Anything that is not the exact embedding passes through untouched.
+        const current = { completion: { candidate: ordinaryCandidate() } };
+        assertEquals(migrateProofEmbeddedCandidate(current), current);
+        assertEquals(migrateProofEmbeddedCandidate({ line: "x" }), {
+          line: "x",
+        });
+        assertEquals(migrateProofEmbeddedCandidate(null), null);
+      },
   });
-  assert(!detached.success, "an unmarked candidate may not leave its tip");
-  assertStringIncludes(
-    JSON.stringify(detached.error.issues),
-    "single source tip",
-  );
 });
-
-Deno.test("an integrated candidate records its procedure and tested result separately", () => {
-  const parsed = CandidateSchema.parse({
-    ...ordinaryCandidate(),
-    head: MERGED_COMMIT,
-    tree: MERGED_TREE,
-    integration: { procedure: "merge-trunk" },
-  });
-  assertEquals(candidateIsIntegrated(parsed), true);
-  assertEquals(candidateAuthor(parsed).head, COMPLETION_SOURCE.head);
-  assertEquals(parsed.head, MERGED_COMMIT);
-
-  const empty = CandidateSchema.safeParse({
-    ...ordinaryCandidate(),
-    sources: [],
-    integration: { procedure: "merge-trunk" },
-  });
-  assert(!empty.success, "the composition input list is nonempty");
-});
-
-Deno.test("the singular-source migration touches only candidate payloads", () => {
-  const stored = {
-    version: ON_DISK_FORMATS.completionRecord.version,
-    kind: "candidate",
-    id: completionId(1),
-    revision: 1,
-    data: { ...ordinaryCandidate(), sources: undefined },
-  };
-  const data = stored.data as Record<string, unknown>;
-  delete data.sources;
-  data.source = COMPLETION_SOURCE;
-  const migrated = migrateSingularSourceCandidate(stored) as {
-    data: Record<string, unknown>;
-  };
-  assertEquals(migrated.data.sources, [COMPLETION_SOURCE]);
-  assert(!("source" in migrated.data));
-
-  const attempt = completionFixtures().attempt;
-  assertEquals(migrateSingularSourceCandidate(attempt), attempt);
-  assertEquals(migrateSingularSourceCandidate("text"), "text");
-});
-
-Deno.test("a retained Proof presentation's embedded singular candidate migrates in place", () => {
-  const candidate = ordinaryCandidate() as Record<string, unknown>;
-  delete candidate.sources;
-  candidate.source = COMPLETION_SOURCE;
-  const proof = {
-    head: "abcdef123456",
-    branch: "amber",
-    completion: { candidate, validation: { mode: "strict" } },
-    line: "> **Proof:** …",
-  };
-  const migrated = migrateProofEmbeddedCandidate(proof) as {
-    completion: { candidate: Record<string, unknown> };
-    line: string;
-  };
-  assertEquals(migrated.completion.candidate.sources, [COMPLETION_SOURCE]);
-  assert(!("source" in migrated.completion.candidate));
-  assertEquals(migrated.line, proof.line);
-
-  // Both embeddings of the same old bytes migrate identically, so the
-  // presentation's byte-for-byte comparison against its complete evidence
-  // still holds after both sides migrate.
-  const storeRecord = migrateSingularSourceCandidate({
-    version: ON_DISK_FORMATS.completionRecord.version,
-    kind: "candidate",
-    id: completionId(1),
-    revision: 1,
-    data: structuredClone(candidate),
-  }) as { data: Record<string, unknown> };
-  assertEquals(
-    JSON.stringify(migrated.completion.candidate),
-    JSON.stringify(storeRecord.data),
-  );
-
-  // Anything that is not the exact embedding passes through untouched.
-  const current = { completion: { candidate: ordinaryCandidate() } };
-  assertEquals(migrateProofEmbeddedCandidate(current), current);
-  assertEquals(migrateProofEmbeddedCandidate({ line: "x" }), { line: "x" });
-  assertEquals(migrateProofEmbeddedCandidate(null), null);
-});
-
 Deno.test("the store reads a stored singular-source candidate as the current list shape", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

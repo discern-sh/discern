@@ -58,6 +58,7 @@ import {
 } from "../scripts/canonical_sets.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
@@ -264,108 +265,177 @@ const SCANNED: readonly ScannedModule[] = [...UNIVERSE.entries()].map((
   [rel, target],
 ) => ({ rel, claims: target.claims }));
 
-Deno.test("every SSOT-claiming module is a declared source or a recorded absence", () => {
-  const offenders = claimSweepOffenders(
-    SCANNED,
-    CANONICAL_SETS,
-    UNAFFILIATED_SETS,
-  );
-  assertEquals(
-    offenders,
-    [],
-    `the SSOT-claim sweep found strays:\n  ${offenders.join("\n  ")}`,
-  );
+Deno.test("ssot claim guard: contracts", () => {
+  assertNamedCases({
+    "every SSOT-claiming module is a declared source or a recorded absence":
+      () => {
+        const offenders = claimSweepOffenders(
+          SCANNED,
+          CANONICAL_SETS,
+          UNAFFILIATED_SETS,
+        );
+        assertEquals(
+          offenders,
+          [],
+          `the SSOT-claim sweep found strays:\n  ${offenders.join("\n  ")}`,
+        );
+      },
+    "every UNAFFILIATED_SETS record is live against the tree": () => {
+      const offenders = ledgerOffenders(UNAFFILIATED_SETS, UNIVERSE);
+      assertEquals(
+        offenders,
+        [],
+        `stale UNAFFILIATED_SETS records:\n  ${offenders.join("\n  ")}`,
+      );
+    },
+    "the sweep sees the enrolled registries' own claims (it cannot go blind)":
+      () => {
+        const enrolled = new Set(
+          CANONICAL_SETS.flatMap((entry) =>
+            entry.source.kind === "module" ? [entry.source.module] : []
+          ),
+        );
+        const enrolledClaimants = SCANNED.filter(
+          (module) => module.claims.length > 0 && enrolled.has(module.rel),
+        );
+        assert(
+          enrolledClaimants.length >= 5,
+          "the enrolled registries announce themselves as single sources of truth " +
+            "in their doc comments; the matcher no longer sees those claims — it " +
+            `has gone blind (saw ${enrolledClaimants.length})`,
+        );
+      },
+    "control: each claim shape fires on a fixture module": () => {
+      const shapes: Readonly<Record<string, string>> = {
+        predicative: "/** The SSOT for the widget vocabulary. */\n" +
+          "export const W = 1;\n",
+        appositive: "/** The widget table — single source of truth. */\n" +
+          "export const W = 1;\n",
+        copular: "/** This table is the single source of truth. */\n" +
+          "export const W = 1;\n",
+      };
+      for (const [shape, text] of Object.entries(shapes)) {
+        assertEquals(
+          ssotClaims("src/w.ts", text).length,
+          1,
+          `the ${shape} claim shape must fire`,
+        );
+      }
+    },
+    "control: reference forms never fire": () => {
+      const references: Readonly<Record<string, string>> = {
+        "parenthetical aside":
+          "/** Iterates KNOWN_W (the SSOT), so a member auto-enrols. */\n" +
+          "export const W = 1;\n",
+        "possessive holder":
+          "/** Reads the schema's single source of truth for the shape. */\n" +
+          "export const W = 1;\n",
+        "another module named":
+          "/** The shape lives as WSchema in `other_schemas.ts`, the SSOT for " +
+          "every result. */\nexport const W = 1;\n",
+        "noun compound": "/** Reconciled against the widget SSOT. */\n" +
+          "export const W = 1;\n",
+        "line comment": "// the single source of truth for widget kinds\n" +
+          "export const W = 1;\n",
+        "unattached inner block": "export const X = 2;\n\n" +
+          "/** The SSOT for widget kinds. */\nconst W = 1;\n",
+      };
+      for (const [form, text] of Object.entries(references)) {
+        assertEquals(
+          ssotClaims("src/w.ts", text),
+          [],
+          `a ${form} must not fire`,
+        );
+      }
+      assertEquals(
+        ssotClaims(
+          "tests/w_test.ts",
+          "/** The SSOT for widget kinds. */\nexport const W = 1;\n",
+        ),
+        [],
+        "a test file's prose must not fire",
+      );
+    },
+    "control: an own-module mention does not veto the claim": () => {
+      const text =
+        "/** The SSOT for widget kinds; `w.ts` is imported by every " +
+        "consumer. */\nexport const W = 1;\n";
+      assertEquals(ssotClaims("src/w.ts", text).length, 1);
+    },
+    "control: a claiming module must be enrolled or recorded — never neither, never both":
+      () => {
+        const scanned: ScannedModule[] = [
+          { rel: "src/w.ts", claims: ["The SSOT for widget kinds"] },
+        ];
+        assertEquals(
+          claimSweepOffenders(scanned, [], {}).length,
+          1,
+          "an unenrolled, unrecorded claimant must offend",
+        );
+        assertEquals(
+          claimSweepOffenders(scanned, [CONTROL_ENTRY], {}),
+          [],
+          "an enrolled source passes",
+        );
+        assertEquals(
+          claimSweepOffenders(scanned, [], { "src/w.ts": "a fixture reason" }),
+          [],
+          "a recorded absence passes",
+        );
+        assertEquals(
+          claimSweepOffenders(scanned, [], {
+            "src/w.ts#W": "a fixture reason",
+          }),
+          [],
+          "a path#export record covers its module",
+        );
+        assertEquals(
+          claimSweepOffenders(scanned, [CONTROL_ENTRY], { "src/w.ts": "also" })
+            .length,
+          1,
+          "enrolled-and-recorded must offend",
+        );
+      },
+    "control: a stale ledger record fails the sweep": () => {
+      const targets = new Map<string, LedgerTarget>([
+        ["src/live.ts", {
+          text: "/** The SSOT for widget kinds. */\nexport const W = 1;\n",
+          claims: ["The SSOT for widget kinds"],
+        }],
+        ["src/quiet.ts", { text: "export const X = 1;\n", claims: [] }],
+      ]);
+      assertEquals(
+        ledgerOffenders({ "src/live.ts": "a reason" }, targets),
+        [],
+        "a live record passes",
+      );
+      assertEquals(
+        ledgerOffenders({ "src/gone.ts": "a reason" }, targets).length,
+        1,
+        "a record for a missing module must offend",
+      );
+      assertEquals(
+        ledgerOffenders({ "src/quiet.ts": "a reason" }, targets).length,
+        1,
+        "a record for a module that no longer claims must offend",
+      );
+      assertEquals(
+        ledgerOffenders({ "src/live.ts": "" }, targets).length,
+        1,
+        "an empty reason must offend",
+      );
+      assertEquals(
+        ledgerOffenders({ "src/live.ts#GONE_EXPORT": "a reason" }, targets)
+          .length,
+        1,
+        "a record pinned to a vanished export must offend",
+      );
+    },
+  });
 });
-
-Deno.test("every UNAFFILIATED_SETS record is live against the tree", () => {
-  const offenders = ledgerOffenders(UNAFFILIATED_SETS, UNIVERSE);
-  assertEquals(
-    offenders,
-    [],
-    `stale UNAFFILIATED_SETS records:\n  ${offenders.join("\n  ")}`,
-  );
-});
-
-Deno.test("the sweep sees the enrolled registries' own claims (it cannot go blind)", () => {
-  const enrolled = new Set(
-    CANONICAL_SETS.flatMap((entry) =>
-      entry.source.kind === "module" ? [entry.source.module] : []
-    ),
-  );
-  const enrolledClaimants = SCANNED.filter(
-    (module) => module.claims.length > 0 && enrolled.has(module.rel),
-  );
-  assert(
-    enrolledClaimants.length >= 5,
-    "the enrolled registries announce themselves as single sources of truth " +
-      "in their doc comments; the matcher no longer sees those claims — it " +
-      `has gone blind (saw ${enrolledClaimants.length})`,
-  );
-});
-
 // --- Positive controls: prove the matcher and predicates discriminate, so
 // the guard cannot rot into a sweep that passes because nothing looks like a
 // claim.
-
-Deno.test("control: each claim shape fires on a fixture module", () => {
-  const shapes: Readonly<Record<string, string>> = {
-    predicative: "/** The SSOT for the widget vocabulary. */\n" +
-      "export const W = 1;\n",
-    appositive: "/** The widget table — single source of truth. */\n" +
-      "export const W = 1;\n",
-    copular: "/** This table is the single source of truth. */\n" +
-      "export const W = 1;\n",
-  };
-  for (const [shape, text] of Object.entries(shapes)) {
-    assertEquals(
-      ssotClaims("src/w.ts", text).length,
-      1,
-      `the ${shape} claim shape must fire`,
-    );
-  }
-});
-
-Deno.test("control: reference forms never fire", () => {
-  const references: Readonly<Record<string, string>> = {
-    "parenthetical aside":
-      "/** Iterates KNOWN_W (the SSOT), so a member auto-enrols. */\n" +
-      "export const W = 1;\n",
-    "possessive holder":
-      "/** Reads the schema's single source of truth for the shape. */\n" +
-      "export const W = 1;\n",
-    "another module named":
-      "/** The shape lives as WSchema in `other_schemas.ts`, the SSOT for " +
-      "every result. */\nexport const W = 1;\n",
-    "noun compound": "/** Reconciled against the widget SSOT. */\n" +
-      "export const W = 1;\n",
-    "line comment": "// the single source of truth for widget kinds\n" +
-      "export const W = 1;\n",
-    "unattached inner block": "export const X = 2;\n\n" +
-      "/** The SSOT for widget kinds. */\nconst W = 1;\n",
-  };
-  for (const [form, text] of Object.entries(references)) {
-    assertEquals(
-      ssotClaims("src/w.ts", text),
-      [],
-      `a ${form} must not fire`,
-    );
-  }
-  assertEquals(
-    ssotClaims(
-      "tests/w_test.ts",
-      "/** The SSOT for widget kinds. */\nexport const W = 1;\n",
-    ),
-    [],
-    "a test file's prose must not fire",
-  );
-});
-
-Deno.test("control: an own-module mention does not veto the claim", () => {
-  const text = "/** The SSOT for widget kinds; `w.ts` is imported by every " +
-    "consumer. */\nexport const W = 1;\n";
-  assertEquals(ssotClaims("src/w.ts", text).length, 1);
-});
-
 const CONTROL_ENTRY: CanonicalSetEntry = {
   id: "control",
   title: "Control",
@@ -378,70 +448,3 @@ const CONTROL_ENTRY: CanonicalSetEntry = {
     featureCanon: { absent: "a fixture" },
   },
 };
-
-Deno.test("control: a claiming module must be enrolled or recorded — never neither, never both", () => {
-  const scanned: ScannedModule[] = [
-    { rel: "src/w.ts", claims: ["The SSOT for widget kinds"] },
-  ];
-  assertEquals(
-    claimSweepOffenders(scanned, [], {}).length,
-    1,
-    "an unenrolled, unrecorded claimant must offend",
-  );
-  assertEquals(
-    claimSweepOffenders(scanned, [CONTROL_ENTRY], {}),
-    [],
-    "an enrolled source passes",
-  );
-  assertEquals(
-    claimSweepOffenders(scanned, [], { "src/w.ts": "a fixture reason" }),
-    [],
-    "a recorded absence passes",
-  );
-  assertEquals(
-    claimSweepOffenders(scanned, [], { "src/w.ts#W": "a fixture reason" }),
-    [],
-    "a path#export record covers its module",
-  );
-  assertEquals(
-    claimSweepOffenders(scanned, [CONTROL_ENTRY], { "src/w.ts": "also" })
-      .length,
-    1,
-    "enrolled-and-recorded must offend",
-  );
-});
-
-Deno.test("control: a stale ledger record fails the sweep", () => {
-  const targets = new Map<string, LedgerTarget>([
-    ["src/live.ts", {
-      text: "/** The SSOT for widget kinds. */\nexport const W = 1;\n",
-      claims: ["The SSOT for widget kinds"],
-    }],
-    ["src/quiet.ts", { text: "export const X = 1;\n", claims: [] }],
-  ]);
-  assertEquals(
-    ledgerOffenders({ "src/live.ts": "a reason" }, targets),
-    [],
-    "a live record passes",
-  );
-  assertEquals(
-    ledgerOffenders({ "src/gone.ts": "a reason" }, targets).length,
-    1,
-    "a record for a missing module must offend",
-  );
-  assertEquals(
-    ledgerOffenders({ "src/quiet.ts": "a reason" }, targets).length,
-    1,
-    "a record for a module that no longer claims must offend",
-  );
-  assertEquals(
-    ledgerOffenders({ "src/live.ts": "" }, targets).length,
-    1,
-    "an empty reason must offend",
-  );
-  assertEquals(
-    ledgerOffenders({ "src/live.ts#GONE_EXPORT": "a reason" }, targets).length,
-    1,
-    "a record pinned to a vanished export must offend",
-  );
-});

@@ -20,6 +20,7 @@ import {
 } from "../src/shared/environment_variables.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Count reference-table rows for one exact environment name. */
 function tableRowCount(document: string, name: string): number {
@@ -40,46 +41,216 @@ function documentedEnvironmentNames(document: string): ReadonlySet<string> {
   );
 }
 
-Deno.test("environment definitions have valid groups, names, and documentation policy", () => {
-  const groupIds = DISCERN_ENVIRONMENT_VARIABLE_GROUPS.map((group) => group.id);
-  assertEquals(new Set(groupIds).size, groupIds.length, "group ids are unique");
-  const usedGroups = new Set<string>();
-  const names = new Set<string>();
-  for (const group of DISCERN_ENVIRONMENT_VARIABLE_GROUPS) {
-    assert(group.id.trim().length > 0, "group ids are non-empty");
-    assert(group.title.trim().length > 0, `${group.id}: title is non-empty`);
-    assert(
-      group.description.trim().length > 0,
-      `${group.id}: description is non-empty`,
-    );
-  }
-  for (
-    const [key, definition] of Object.entries(
-      DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
-    )
-  ) {
-    assert(key.trim().length > 0, "definition keys are non-empty");
-    assert(
-      groupIds.includes(definition.group),
-      `${definition.name}: unknown group ${definition.group}`,
-    );
-    usedGroups.add(definition.group);
-    assert(
-      /^DISCERN_[A-Z][A-Z0-9_]*(?:<NAME>)?$/.test(definition.name),
-      `${definition.name}: invalid environment-variable syntax`,
-    );
-    assert(!names.has(definition.name), `${definition.name}: duplicate name`);
-    names.add(definition.name);
-    const copy = definition.documentation.public
-      ? definition.documentation.description
-      : definition.documentation.reason;
-    assert(copy.trim().length > 0, `${definition.name}: empty documentation`);
-  }
-  assertEquals(
-    [...usedGroups].sort(),
-    [...groupIds].sort(),
-    "every declared group has a definition",
-  );
+Deno.test("environment variables codegen: contracts", () => {
+  assertNamedCases({
+    "environment definitions have valid groups, names, and documentation policy":
+      () => {
+        const groupIds = DISCERN_ENVIRONMENT_VARIABLE_GROUPS.map((group) =>
+          group.id
+        );
+        assertEquals(
+          new Set(groupIds).size,
+          groupIds.length,
+          "group ids are unique",
+        );
+        const usedGroups = new Set<string>();
+        const names = new Set<string>();
+        for (const group of DISCERN_ENVIRONMENT_VARIABLE_GROUPS) {
+          assert(group.id.trim().length > 0, "group ids are non-empty");
+          assert(
+            group.title.trim().length > 0,
+            `${group.id}: title is non-empty`,
+          );
+          assert(
+            group.description.trim().length > 0,
+            `${group.id}: description is non-empty`,
+          );
+        }
+        for (
+          const [key, definition] of Object.entries(
+            DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+          )
+        ) {
+          assert(key.trim().length > 0, "definition keys are non-empty");
+          assert(
+            groupIds.includes(definition.group),
+            `${definition.name}: unknown group ${definition.group}`,
+          );
+          usedGroups.add(definition.group);
+          assert(
+            /^DISCERN_[A-Z][A-Z0-9_]*(?:<NAME>)?$/.test(definition.name),
+            `${definition.name}: invalid environment-variable syntax`,
+          );
+          assert(
+            !names.has(definition.name),
+            `${definition.name}: duplicate name`,
+          );
+          names.add(definition.name);
+          const copy = definition.documentation.public
+            ? definition.documentation.description
+            : definition.documentation.reason;
+          assert(
+            copy.trim().length > 0,
+            `${definition.name}: empty documentation`,
+          );
+        }
+        assertEquals(
+          [...usedGroups].sort(),
+          [...groupIds].sort(),
+          "every declared group has a definition",
+        );
+      },
+    "the generated reference publishes each public definition and no internal definition":
+      () => {
+        const document = renderManualEnvironmentVariableReferenceDoc();
+        const documented = documentedEnvironmentNames(document);
+        for (
+          const definition of Object.values(
+            DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+          )
+        ) {
+          if (definition.documentation.public) {
+            assertEquals(
+              tableRowCount(document, definition.name),
+              1,
+              `${definition.name}: expected one public reference row`,
+            );
+            assertEquals(
+              aliasCount(document, definition.name),
+              1,
+              `${definition.name}: expected one public search alias`,
+            );
+          } else {
+            assertEquals(
+              documented.has(definition.name),
+              false,
+              `${definition.name}: internal definition leaked into the reference`,
+            );
+          }
+        }
+      },
+    "future public definitions auto-render while future internal definitions stay hidden":
+      () => {
+        const futurePublicName: `DISCERN_${string}` =
+          `DISCERN_${"EXPERIMENTAL_FUTURE_PUBLIC"}`;
+        const futureInternalName: `DISCERN_${string}` =
+          `DISCERN_${"INTERNAL_FUTURE"}`;
+        const futurePublic = {
+          name: futurePublicName,
+          group: "experimental-features",
+          documentation: {
+            public: true,
+            description: "A synthetic public control.",
+          },
+        } as const satisfies DiscernEnvironmentVariableDefinition;
+        const futureInternal = {
+          name: futureInternalName,
+          group: "test-controls",
+          documentation: {
+            public: false,
+            reason: "A synthetic internal control.",
+          },
+        } as const satisfies DiscernEnvironmentVariableDefinition;
+        const document = renderManualEnvironmentVariableReferenceDoc(
+          DISCERN_ENVIRONMENT_VARIABLE_GROUPS,
+          {
+            ...DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+            futurePublic,
+            futureInternal,
+          },
+        );
+        assertEquals(tableRowCount(document, futurePublicName), 1);
+        assertEquals(aliasCount(document, futurePublicName), 1);
+        assertEquals(
+          documentedEnvironmentNames(document).has(futureInternalName),
+          false,
+        );
+        const experiments = environmentVariableNamesForGroup(
+          {
+            ...DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+            futurePublic,
+            futureInternal,
+          },
+          "experimental-features",
+        );
+        assertEquals(experiments.futurePublic, futurePublicName);
+      },
+    "the conventions manifest publishes only public environment definitions":
+      () => {
+        const futurePublicName: `DISCERN_${string}` =
+          `DISCERN_${"FUTURE_MANIFEST_PUBLIC"}`;
+        const futureInternalName: `DISCERN_${string}` =
+          `DISCERN_${"FUTURE_MANIFEST_INTERNAL"}`;
+        const futurePublic = {
+          name: futurePublicName,
+          group: "experimental-features",
+          documentation: {
+            public: true,
+            description: "A synthetic public manifest control.",
+          },
+        } as const satisfies DiscernEnvironmentVariableDefinition;
+        const futureInternal = {
+          name: futureInternalName,
+          group: "test-controls",
+          documentation: {
+            public: false,
+            reason: "A synthetic internal manifest control.",
+          },
+        } as const satisfies DiscernEnvironmentVariableDefinition;
+        const definitions = {
+          ...DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+          futurePublic,
+          futureInternal,
+        };
+        const manifest = buildConventionsManifest(definitions);
+        const published = manifest.environment_variables;
+        assert(
+          typeof published === "object" && published !== null &&
+            !Array.isArray(published),
+        );
+        assertEquals(
+          Object.keys(published),
+          Object.values(definitions)
+            .filter((definition) => definition.documentation.public)
+            .map((definition) => definition.name),
+        );
+        assertEquals(Object.hasOwn(published, futurePublicName), true);
+        assertEquals(Object.hasOwn(published, futureInternalName), false);
+      },
+    "every experimental environment variable is publicly documented": () => {
+      const experiments = Object.values(
+        DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+      )
+        .filter((definition) => definition.group === "experimental-features");
+      assert(experiments.length > 0, "the experimental group has members");
+      for (const definition of experiments) {
+        assertEquals(
+          definition.documentation.public,
+          true,
+          `${definition.name}: experimental controls are public contracts`,
+        );
+      }
+    },
+    "Project Script path variables document their absolute values": () => {
+      for (
+        const definition of Object.values(
+          DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+        )
+      ) {
+        if (
+          definition.documentation.public &&
+          definition.group === "project-scripts" &&
+          (definition.name.endsWith("_DIR") ||
+            definition.name.endsWith("_PATH"))
+        ) {
+          assert(
+            definition.documentation.description.includes("Absolute"),
+            `${definition.name}: public path contract must state that it is absolute`,
+          );
+        }
+      }
+    },
+  });
 });
 
 Deno.test("the public manual's environment reference matches the registry", async () => {
@@ -104,154 +275,6 @@ Deno.test("the public manual's environment reference matches the registry", asyn
     `${REPO_AUTHORED_PATHS.manualRel}/30-reference/environment-variables.md is stale — run \`deno task codegen\``,
   );
 });
-
-Deno.test("the generated reference publishes each public definition and no internal definition", () => {
-  const document = renderManualEnvironmentVariableReferenceDoc();
-  const documented = documentedEnvironmentNames(document);
-  for (
-    const definition of Object.values(
-      DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
-    )
-  ) {
-    if (definition.documentation.public) {
-      assertEquals(
-        tableRowCount(document, definition.name),
-        1,
-        `${definition.name}: expected one public reference row`,
-      );
-      assertEquals(
-        aliasCount(document, definition.name),
-        1,
-        `${definition.name}: expected one public search alias`,
-      );
-    } else {
-      assertEquals(
-        documented.has(definition.name),
-        false,
-        `${definition.name}: internal definition leaked into the reference`,
-      );
-    }
-  }
-});
-
-Deno.test("future public definitions auto-render while future internal definitions stay hidden", () => {
-  const futurePublicName: `DISCERN_${string}` =
-    `DISCERN_${"EXPERIMENTAL_FUTURE_PUBLIC"}`;
-  const futureInternalName: `DISCERN_${string}` =
-    `DISCERN_${"INTERNAL_FUTURE"}`;
-  const futurePublic = {
-    name: futurePublicName,
-    group: "experimental-features",
-    documentation: {
-      public: true,
-      description: "A synthetic public control.",
-    },
-  } as const satisfies DiscernEnvironmentVariableDefinition;
-  const futureInternal = {
-    name: futureInternalName,
-    group: "test-controls",
-    documentation: {
-      public: false,
-      reason: "A synthetic internal control.",
-    },
-  } as const satisfies DiscernEnvironmentVariableDefinition;
-  const document = renderManualEnvironmentVariableReferenceDoc(
-    DISCERN_ENVIRONMENT_VARIABLE_GROUPS,
-    {
-      ...DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
-      futurePublic,
-      futureInternal,
-    },
-  );
-  assertEquals(tableRowCount(document, futurePublicName), 1);
-  assertEquals(aliasCount(document, futurePublicName), 1);
-  assertEquals(
-    documentedEnvironmentNames(document).has(futureInternalName),
-    false,
-  );
-  const experiments = environmentVariableNamesForGroup(
-    {
-      ...DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
-      futurePublic,
-      futureInternal,
-    },
-    "experimental-features",
-  );
-  assertEquals(experiments.futurePublic, futurePublicName);
-});
-
-Deno.test("the conventions manifest publishes only public environment definitions", () => {
-  const futurePublicName: `DISCERN_${string}` =
-    `DISCERN_${"FUTURE_MANIFEST_PUBLIC"}`;
-  const futureInternalName: `DISCERN_${string}` =
-    `DISCERN_${"FUTURE_MANIFEST_INTERNAL"}`;
-  const futurePublic = {
-    name: futurePublicName,
-    group: "experimental-features",
-    documentation: {
-      public: true,
-      description: "A synthetic public manifest control.",
-    },
-  } as const satisfies DiscernEnvironmentVariableDefinition;
-  const futureInternal = {
-    name: futureInternalName,
-    group: "test-controls",
-    documentation: {
-      public: false,
-      reason: "A synthetic internal manifest control.",
-    },
-  } as const satisfies DiscernEnvironmentVariableDefinition;
-  const definitions = {
-    ...DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
-    futurePublic,
-    futureInternal,
-  };
-  const manifest = buildConventionsManifest(definitions);
-  const published = manifest.environment_variables;
-  assert(
-    typeof published === "object" && published !== null &&
-      !Array.isArray(published),
-  );
-  assertEquals(
-    Object.keys(published),
-    Object.values(definitions)
-      .filter((definition) => definition.documentation.public)
-      .map((definition) => definition.name),
-  );
-  assertEquals(Object.hasOwn(published, futurePublicName), true);
-  assertEquals(Object.hasOwn(published, futureInternalName), false);
-});
-
-Deno.test("every experimental environment variable is publicly documented", () => {
-  const experiments = Object.values(DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS)
-    .filter((definition) => definition.group === "experimental-features");
-  assert(experiments.length > 0, "the experimental group has members");
-  for (const definition of experiments) {
-    assertEquals(
-      definition.documentation.public,
-      true,
-      `${definition.name}: experimental controls are public contracts`,
-    );
-  }
-});
-
-Deno.test("Project Script path variables document their absolute values", () => {
-  for (
-    const definition of Object.values(DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS)
-  ) {
-    if (
-      definition.documentation.public &&
-      definition.group === "project-scripts" &&
-      (definition.name.endsWith("_DIR") || definition.name.endsWith("_PATH"))
-    ) {
-      assert(
-        definition.documentation.description.includes("Absolute"),
-        `${definition.name}: public path contract must state that it is absolute`,
-      );
-    }
-  }
-});
-
 Deno.test("published manual pages never name internal environment variables", async () => {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,

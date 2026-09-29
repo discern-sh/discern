@@ -10,6 +10,8 @@
  * genuine marker token (not a coincidental number elsewhere in the output).
  */
 
+import { assertCases } from "./assert_cases.ts";
+
 import { assertEquals, assertThrows } from "@std/assert";
 import { DIAGNOSTIC_FORMATS } from "../src/engine/gate/diagnostics.ts";
 import { readMetrics } from "../src/engine/validation/metrics.ts";
@@ -88,11 +90,11 @@ const cases: Array<{
   },
 ];
 
-for (const c of cases) {
-  Deno.test(`readMetrics: ${c.name}`, () => {
+Deno.test("readMetrics accepts and ignores the declared marker shapes", () => {
+  assertCases(cases, (c) => `readMetrics: ${c.name}`, (c) => {
     assertEquals(readMetrics(c.output)[c.metric], c.want);
   });
-}
+});
 
 const diagnosticReports = {
   sarif: (message: string): string =>
@@ -111,25 +113,30 @@ const diagnosticReports = {
   (message: string) => string
 >;
 
-for (const format of DIAGNOSTIC_FORMATS) {
-  Deno.test(`readMetrics: ${format.label} payloads cannot supply or corrupt readings`, () => {
-    const report = diagnosticReports[format.id];
-    for (const token of ["91", "40)", "NaN"]) {
-      const payload = report(`DISCERN_METRIC unrelated ${token}`);
-      assertEquals(readMetrics(payload), {});
-      assertEquals(
-        readMetrics(
-          `DISCERN_METRIC unrelated 3\n${payload}\n` +
-            "result: DISCERN_METRIC population 4 (ok)",
-        ),
-        { unrelated: 3, population: 4 },
-      );
-      assertThrows(() =>
-        readMetrics(`${payload}\nDISCERN_METRIC unrelated ${token}oops`)
-      );
-    }
-  });
-}
+Deno.test("diagnostic payloads cannot supply or corrupt metric readings", () => {
+  assertCases(
+    DIAGNOSTIC_FORMATS,
+    (format) =>
+      `readMetrics: ${format.label} payloads cannot supply or corrupt readings`,
+    (format) => {
+      const report = diagnosticReports[format.id];
+      for (const token of ["91", "40)", "NaN"]) {
+        const payload = report(`DISCERN_METRIC unrelated ${token}`);
+        assertEquals(readMetrics(payload), {});
+        assertEquals(
+          readMetrics(
+            `DISCERN_METRIC unrelated 3\n${payload}\n` +
+              "result: DISCERN_METRIC population 4 (ok)",
+          ),
+          { unrelated: 3, population: 4 },
+        );
+        assertThrows(() =>
+          readMetrics(`${payload}\nDISCERN_METRIC unrelated ${token}oops`)
+        );
+      }
+    },
+  );
+});
 
 Deno.test("readMetrics: unrecognized or incomplete reports retain strict marker validation", () => {
   for (

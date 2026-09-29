@@ -25,6 +25,7 @@ import { runAgentPty } from "./engine_helpers.ts";
 import { fromFileUrl } from "@std/path";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const CSI = `${String.fromCharCode(27)}[`;
@@ -42,81 +43,95 @@ const CAPABLE_TERMINAL: TerminalAnimationEnvironment = {
   },
 };
 
-Deno.test("triangleResult carries the mark and the composed terminal art", () => {
-  const result = triangleResult();
-  assert(result.ok);
-  assertEquals(result.verb, "triangle");
-  assert(result.data !== undefined);
-  assertEquals(result.data.mark, DISCERN_MARK);
-  assertEquals(result.data.art, renderTriangleArt());
+Deno.test("triangle command: contracts", () => {
+  assertNamedCases({
+    "triangleResult carries the mark and the composed terminal art": () => {
+      const result = triangleResult();
+      assert(result.ok);
+      assertEquals(result.verb, "triangle");
+      assert(result.data !== undefined);
+      assertEquals(result.data.mark, DISCERN_MARK);
+      assertEquals(result.data.art, renderTriangleArt());
 
-  const art = result.data.art;
-  assertEquals(art.split("\n")[0], `       ${DISCERN_MARK}`);
-  assert(art.endsWith(`\n\n   ${DISCERN_WORDMARK}`));
-  assert(!art.endsWith("\n"));
-  for (const character of art) {
-    assert(
-      character === "\n" || !/[\p{Cc}\p{Cf}]/u.test(character),
-      `art contains terminal control ${JSON.stringify(character)}`,
-    );
-  }
-  for (const line of art.split("\n")) {
-    assert(!/\s$/u.test(line), `art has trailing whitespace in "${line}"`);
-  }
-});
-
-Deno.test("triangle planning keeps motion off non-interactive surfaces", () => {
-  const staticEnvironments: readonly TerminalAnimationEnvironment[] = [
-    { ...CAPABLE_TERMINAL, stdoutIsTerminal: false },
-    { ...CAPABLE_TERMINAL, ci: "true" },
-    {
-      ...CAPABLE_TERMINAL,
-      capabilities: {
-        ...CAPABLE_TERMINAL.capabilities,
-        ansiControl: false,
-      },
+      const art = result.data.art;
+      assertEquals(art.split("\n")[0], `       ${DISCERN_MARK}`);
+      assert(art.endsWith(`\n\n   ${DISCERN_WORDMARK}`));
+      assert(!art.endsWith("\n"));
+      for (const character of art) {
+        assert(
+          character === "\n" || !/[\p{Cc}\p{Cf}]/u.test(character),
+          `art contains terminal control ${JSON.stringify(character)}`,
+        );
+      }
+      for (const line of art.split("\n")) {
+        assert(!/\s$/u.test(line), `art has trailing whitespace in "${line}"`);
+      }
     },
-    { ...CAPABLE_TERMINAL, terminalColumns: 10 },
-    { ...CAPABLE_TERMINAL, terminalRows: 4 },
-  ];
-  for (const environment of staticEnvironments) {
-    const plan = planTriangleCommand(environment, { plain: false });
-    assertEquals(plan.mode, "static");
-    assert(plan.mode === "static");
-    assertEquals(
-      plan.output,
-      `${renderTriangleArt(environment.capabilities)}\n`,
-    );
-  }
-  const plainPlan = planTriangleCommand(CAPABLE_TERMINAL, { plain: true });
-  assertEquals(plainPlan.mode, "static");
+    "triangle planning keeps motion off non-interactive surfaces": () => {
+      const staticEnvironments: readonly TerminalAnimationEnvironment[] = [
+        { ...CAPABLE_TERMINAL, stdoutIsTerminal: false },
+        { ...CAPABLE_TERMINAL, ci: "true" },
+        {
+          ...CAPABLE_TERMINAL,
+          capabilities: {
+            ...CAPABLE_TERMINAL.capabilities,
+            ansiControl: false,
+          },
+        },
+        { ...CAPABLE_TERMINAL, terminalColumns: 10 },
+        { ...CAPABLE_TERMINAL, terminalRows: 4 },
+      ];
+      for (const environment of staticEnvironments) {
+        const plan = planTriangleCommand(environment, { plain: false });
+        assertEquals(plan.mode, "static");
+        assert(plan.mode === "static");
+        assertEquals(
+          plan.output,
+          `${renderTriangleArt(environment.capabilities)}\n`,
+        );
+      }
+      const plainPlan = planTriangleCommand(CAPABLE_TERMINAL, { plain: true });
+      assertEquals(plainPlan.mode, "static");
+    },
+    "the animated reveal reuses the gasket motif and settles on the art":
+      () => {
+        const plan = planTriangleCommand(CAPABLE_TERMINAL, { plain: false });
+        assert(plan.mode === "animate");
+        assertEquals(
+          plan.playback.finalTranscript,
+          renderTriangleArt(CAPABLE_TERMINAL.capabilities),
+        );
+        assertEquals(plan.playback.scenes.length, 1);
+
+        const motif = DISCERN_PRODUCT_TRIANGLE_ART.gasket.animate(
+          CAPABLE_TERMINAL.capabilities,
+        );
+        const scene = plan.playback.scenes[0];
+        assert(scene !== undefined);
+        assertEquals(scene.frameMs, motif.frameMs);
+        assertEquals(scene.finalHoldMs, motif.finalHoldMs);
+        assertEquals(
+          scene.viewports.map((viewport) =>
+            viewport.split("\n").slice(1).join("\n")
+          ),
+          [...motif.frames],
+        );
+        for (const viewport of scene.viewports) {
+          assertStringIncludes(viewport.split("\n")[0] ?? "", DISCERN_WORDMARK);
+        }
+      },
+    "triangle Markdown preserves the exact gasket geometry": () => {
+      const rendered = renderResultMarkdown(
+        { ...triangleResult() },
+        resultPresenterForVerb("triangle"),
+      );
+      assertStringIncludes(
+        rendered,
+        `\`\`\`text\n${renderTriangleArt()}\n\`\`\``,
+      );
+    },
+  });
 });
-
-Deno.test("the animated reveal reuses the gasket motif and settles on the art", () => {
-  const plan = planTriangleCommand(CAPABLE_TERMINAL, { plain: false });
-  assert(plan.mode === "animate");
-  assertEquals(
-    plan.playback.finalTranscript,
-    renderTriangleArt(CAPABLE_TERMINAL.capabilities),
-  );
-  assertEquals(plan.playback.scenes.length, 1);
-
-  const motif = DISCERN_PRODUCT_TRIANGLE_ART.gasket.animate(
-    CAPABLE_TERMINAL.capabilities,
-  );
-  const scene = plan.playback.scenes[0];
-  assert(scene !== undefined);
-  assertEquals(scene.frameMs, motif.frameMs);
-  assertEquals(scene.finalHoldMs, motif.finalHoldMs);
-  assertEquals(
-    scene.viewports.map((viewport) => viewport.split("\n").slice(1).join("\n")),
-    [...motif.frames],
-  );
-  for (const viewport of scene.viewports) {
-    assertStringIncludes(viewport.split("\n")[0] ?? "", DISCERN_WORDMARK);
-  }
-});
-
 Deno.test("triangle --json emits one faithful result envelope and exits 0", async () => {
   const lines: string[] = [];
   const original = console.log;
@@ -137,18 +152,6 @@ Deno.test("triangle --json emits one faithful result envelope and exits 0", asyn
   assertEquals(envelope.data.mark, DISCERN_MARK);
   assertEquals(envelope.data.art, renderTriangleArt());
 });
-
-Deno.test("triangle Markdown preserves the exact gasket geometry", () => {
-  const rendered = renderResultMarkdown(
-    { ...triangleResult() },
-    resultPresenterForVerb("triangle"),
-  );
-  assertStringIncludes(
-    rendered,
-    `\`\`\`text\n${renderTriangleArt()}\n\`\`\``,
-  );
-});
-
 realPtyTest({
   name: "triangle keeps Unicode in a Codex-style dumb UTF-8 terminal",
   contracts: ["platform-transport"],

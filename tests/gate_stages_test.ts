@@ -1,3 +1,4 @@
+import { assertCases } from "./assert_cases.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { withTempDir } from "./helpers.ts";
 import { runCapturedCommands } from "../src/engine/jobs/captured.ts";
@@ -53,15 +54,18 @@ Deno.test("cmdsInStage joins with && and is ':' when empty", () => {
   assertEquals(cmdsInStage(c, "build"), ":");
 });
 
-for (const [name, stage] of Object.entries(KNOWN_JOBS)) {
-  Deno.test(`known ${name} runs one ordered command recipe and stops on its first failure`, async () => {
-    await withTempDir(async (root) => {
-      const commands = [
-        "printf a >> order",
-        "test $(cat order) = a && printf b >> order",
-        "exit 17",
-        "printf forbidden >> order",
-      ];
+Deno.test("every known job emits the same ordered recipe, which stops on its first failure", async () => {
+  const commands = [
+    "printf a >> order",
+    "test $(cat order) = a && printf b >> order",
+    "exit 17",
+    "printf forbidden >> order",
+  ];
+  const recipe = commands.join(" && ");
+  assertCases(
+    Object.entries(KNOWN_JOBS),
+    ([name]) => `known ${name} preserves its stage and recipe`,
+    ([name, stage]) => {
       const config = parseConfigOrThrow(
         `[jobs]\n${name} = ${JSON.stringify(commands)}\n`,
       );
@@ -69,16 +73,20 @@ for (const [name, stage] of Object.entries(KNOWN_JOBS)) {
       assertEquals(jobs.length, 1);
       const job = jobs[0];
       if (job === undefined) throw new Error("Missing known-job recipe");
-      const result = await runCapturedCommands({
-        root,
-        label: name,
-        commands: [job.command],
-        timeout: 10,
-        signal: new AbortController().signal,
-        environment: {},
-      });
-      assertEquals(result.result.code, 17);
-      assertEquals(await Deno.readTextFile(`${root}/order`), "ab");
+      assertEquals(job.label, name);
+      assertEquals(job.command, recipe);
+    },
+  );
+  await withTempDir(async (root) => {
+    const result = await runCapturedCommands({
+      root,
+      label: "known-job-recipe",
+      commands: [recipe],
+      timeout: 10,
+      signal: new AbortController().signal,
+      environment: {},
     });
+    assertEquals(result.result.code, 17);
+    assertEquals(await Deno.readTextFile(`${root}/order`), "ab");
   });
-}
+});
