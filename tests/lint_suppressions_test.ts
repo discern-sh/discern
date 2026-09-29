@@ -9,10 +9,14 @@
 import { assertEquals } from "@std/assert";
 import {
   effectiveLintExclusions,
+  type FileLintSuppression,
   lintSuppressionsInFiles,
   lintSuppressionsInSource,
 } from "../scripts/lint_suppressions_lib.ts";
+import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { assertNamedCases } from "./assert_cases.ts";
 
 const lineDirective = ["deno", "lint", "ignore"].join("-");
@@ -119,6 +123,52 @@ Deno.test("lint suppression file scan reports repository-relative locations", as
 
     assertEquals(await lintSuppressionsInFiles(dir, [file]), [
       { file, line: 1, directive: lineDirective },
+    ]);
+  });
+});
+
+/** Find forbidden directives in every authored source, including future roots. */
+async function authoredLintSuppressions(
+  root: string,
+): Promise<FileLintSuppression[]> {
+  const files = await structuralGuardScope({
+    guard: "tests/lint_suppressions_test.ts#no-lint-suppressions",
+    universe: "authored-deno",
+  }, root);
+  return await lintSuppressionsInFiles(root, files);
+}
+
+Deno.test("authored Deno sources contain no lint suppression directives", async () => {
+  const findings = await authoredLintSuppressions(REPO_ROOT);
+  assertEquals(
+    findings,
+    [],
+    "Fix the named lint rule and remove each suppression directive. " +
+      findings.map(({ file, line, directive }) =>
+        `${file}:${line} ${directive}`
+      ).join("\n"),
+  );
+});
+
+Deno.test("lint suppression guard enrolls future roots and lint-excluded sources", async () => {
+  await withTempDir(async (root) => {
+    await Deno.mkdir(`${root}/future-source`, { recursive: true });
+    await Deno.writeTextFile(
+      `${root}/deno.json`,
+      JSON.stringify({ lint: { exclude: ["future-source/"] } }),
+    );
+    await Deno.writeTextFile(
+      `${root}/future-source/line.mts`,
+      `// ${lineDirective} no-explicit-any\nexport const value = 1;\n`,
+    );
+    await gitInit(root);
+    await Deno.writeTextFile(
+      `${root}/future-source/file.cjs`,
+      `// ${fileDirective} no-explicit-any\nmodule.exports = 1;\n`,
+    );
+    assertEquals(await authoredLintSuppressions(root), [
+      { file: "future-source/file.cjs", line: 1, directive: fileDirective },
+      { file: "future-source/line.mts", line: 1, directive: lineDirective },
     ]);
   });
 });

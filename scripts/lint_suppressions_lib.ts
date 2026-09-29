@@ -2,7 +2,8 @@
  * Structural census of Deno lint suppression directives.
  *
  * Deno recognizes line-scoped `deno-lint-ignore` and file-scoped
- * `deno-lint-ignore-file` comments. Both are migration debt in this repository.
+ * `deno-lint-ignore-file` comments. Neither is permitted in authored source
+ * in this repository.
  * This detector reads comment tokens rather than raw text, so examples inside
  * strings, template bodies, regex literals, and block comments do not count.
  */

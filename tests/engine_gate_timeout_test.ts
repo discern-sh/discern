@@ -367,10 +367,7 @@ async function assertStageKindTimesOut(opts: {
 
     assertEquals(r.code, 1, r.output);
     const obj = decodeCliResult(r.stdout, "done");
-    // deno-lint-ignore no-explicit-any
-    const diag = (obj.diagnostics ?? []).find((d: any) =>
-      d.tool === opts.jobLabel
-    );
+    const diag = (obj.diagnostics ?? []).find((d) => d.tool === opts.jobLabel);
     assert(
       diag !== undefined,
       `expected a timeout diagnostic for ${opts.jobLabel}: ${r.stdout}`,
@@ -564,10 +561,7 @@ async function assertOverrideBoundsOwnJob(opts: {
 
     assertEquals(r.code, 1, r.output);
     const obj = decodeCliResult(r.stdout, "done");
-    // deno-lint-ignore no-explicit-any
-    const diag = (obj.diagnostics ?? []).find((d: any) =>
-      d.tool === opts.jobLabel
-    );
+    const diag = (obj.diagnostics ?? []).find((d) => d.tool === opts.jobLabel);
     assert(
       diag !== undefined,
       `expected a timeout diagnostic for ${opts.jobLabel}: ${r.stdout}`,
@@ -577,8 +571,7 @@ async function assertOverrideBoundsOwnJob(opts: {
     // the run-level default the sibling kept.
     assertTimeoutAttribution(diag, opts.budgetKey);
     // The sibling under the global budget is untouched.
-    // deno-lint-ignore no-explicit-any
-    const sibling = (obj.steps ?? []).find((s: any) => s.label === "lint");
+    const sibling = (obj.steps ?? []).find((s) => s.label === "lint");
     assertEquals(sibling?.outcome, "ok", JSON.stringify(sibling));
   });
 }
@@ -657,10 +650,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
 
     assertEquals(r.code, 1, r.output);
     const obj = decodeCliResult(r.stdout, "done");
-    // deno-lint-ignore no-explicit-any
-    const diag = (obj.diagnostics ?? []).find((d: any) =>
-      d.tool === "scope:widget"
-    );
+    const diag = (obj.diagnostics ?? []).find((d) => d.tool === "scope:widget");
     assert(diag !== undefined, `expected a timeout diagnostic: ${r.stdout}`);
     assertStringIncludes(diag.message, "timed out after 1s");
     assertTimeoutAttribution(diag, "[scopes.widget].timeout");

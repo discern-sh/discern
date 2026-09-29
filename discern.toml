@@ -927,14 +927,10 @@
     "discern.toml",
   ]
 
-# Deno-lint suppression standard — hold the raw count of both recognized
-# comment directives (`deno-lint-ignore` and `deno-lint-ignore-file`) at or
-# below a falling ceiling. The structural detector scans every authored
-# JavaScript/TypeScript source from the Git-derived universe, so examples in
-# strings and block comments do not count and new source trees auto-enroll.
-# Fix a named lint finding, then run
-# `discern standards --pin lint_suppressions` to capture the lower census.
-# At zero, move the detector into an always-on test and retire this table.
+# Deno lint suppression directives are forbidden in authored source. The
+# always-on test and this metric share the structural detector and Git-derived
+# source universe, including lint-excluded files and future source trees.
+# Keep this standard as the producer for lint_exclusions as well.
 [standards.lint_suppressions]
   direction = "down"
   limit = 6

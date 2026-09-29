@@ -194,6 +194,15 @@ const MCP_RESOURCE_CONTENT_SCHEMA = z.object({
   "resource content must carry text or blob",
 );
 
+const MCP_TEXT_CONTENT_SCHEMA = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+}).passthrough();
+
+const MCP_TOOL_CONTENT_SCHEMA = z.tuple([MCP_TEXT_CONTENT_SCHEMA]).rest(
+  MCP_TEXT_CONTENT_SCHEMA,
+);
+
 const MCP_RESULT_SCHEMA = z.object({
   protocolVersion: z.string().optional(),
   capabilities: z.object({
@@ -216,13 +225,13 @@ const MCP_RESULT_SCHEMA = z.object({
   contents: z.array(MCP_RESOURCE_CONTENT_SCHEMA).optional(),
   isError: z.boolean().optional(),
   structuredContent: MCP_STRUCTURED_CONTENT_SCHEMA.optional(),
-  content: z.array(
-    z.object({
-      type: z.literal("text"),
-      text: z.string(),
-    }).passthrough(),
-  ).optional(),
+  content: z.array(MCP_TEXT_CONTENT_SCHEMA).optional(),
 }).passthrough();
+
+const MCP_TEXT_RESOURCE_RESULT_SCHEMA = MCP_RESULT_SCHEMA.extend({
+  contents: z.tuple([MCP_RESOURCE_CONTENT_SCHEMA.required({ text: true })])
+    .rest(MCP_RESOURCE_CONTENT_SCHEMA),
+});
 
 const JSON_RPC_RESPONSE_SCHEMA = z.object({
   jsonrpc: z.literal("2.0"),
@@ -236,6 +245,17 @@ const JSON_RPC_RESPONSE_SCHEMA = z.object({
   (message) => message.result !== undefined || message.error !== undefined,
   "a JSON-RPC response must carry result or error",
 );
+
+type JsonRpcResponse = z.output<typeof JSON_RPC_RESPONSE_SCHEMA>;
+type JsonRpcResult<T> = Omit<JsonRpcResponse, "result"> & {
+  readonly result: T;
+};
+
+interface McpToolResult<T> {
+  readonly isError?: boolean | undefined;
+  readonly structuredContent: T;
+  readonly content: z.output<typeof MCP_TOOL_CONTENT_SCHEMA>;
+}
 
 /** Infrastructure allowance for successful initialized-server responses. */
 const MCP_RECV_TIMEOUT_MS: number = (() => {
@@ -350,18 +370,35 @@ class McpClient {
   }
 
   /** Call one MCP tool and return its next protocol response. */
-  async callTool(
+  async callTool<T>(
     id: number,
     name: string,
+    schema: z.ZodType<T>,
     args: Readonly<Record<string, unknown>> = {},
-  ): ReturnType<McpClient["recv"]> {
+  ): Promise<JsonRpcResult<McpToolResult<T>>> {
     await this.send({
       jsonrpc: "2.0",
       id,
       method: "tools/call",
       params: { name, arguments: args },
     });
-    return await this.recv();
+    return await this.recvTool(schema);
+  }
+
+  /** Require the result payload expected by a successful protocol exchange. */
+  async recvResult<T>(schema: z.ZodType<T>): Promise<JsonRpcResult<T>> {
+    const response = await this.recv();
+    return { ...response, result: schema.parse(response.result) };
+  }
+
+  /** Validate a tool's structured result against its public output contract. */
+  async recvTool<T>(
+    schema: z.ZodType<T>,
+  ): Promise<JsonRpcResult<McpToolResult<T>>> {
+    return await this.recvResult(MCP_RESULT_SCHEMA.extend({
+      structuredContent: schema,
+      content: MCP_TOOL_CONTENT_SCHEMA,
+    }));
   }
 
   /** Send one raw line, for protocol-robustness tests below the JSON encoder. */
@@ -370,14 +407,13 @@ class McpClient {
   }
 
   /** Read the next non-empty JSON line from the server. */
-  // deno-lint-ignore no-explicit-any
-  async recv(timeoutMs?: number): Promise<any> {
+  async recv(timeoutMs?: number): Promise<JsonRpcResponse> {
     const deadlineMs = timeoutMs ??
       (this.receivedResponse
         ? MCP_RECV_TIMEOUT_MS
         : MCP_SERVER_READINESS_TIMEOUT_MS);
     let outcome:
-      | { readonly ok: true; readonly value: unknown }
+      | { readonly ok: true; readonly value: JsonRpcResponse }
       | { readonly ok: false; readonly error: unknown }
       | undefined;
     void this.recvLine().then(
@@ -412,8 +448,7 @@ class McpClient {
   }
 
   /** Read the next non-empty JSON line from the server, without a timeout wrapper. */
-  // deno-lint-ignore no-explicit-any
-  private async recvLine(): Promise<any> {
+  private async recvLine(): Promise<JsonRpcResponse> {
     while (true) {
       const nl = this.buffer.indexOf("\n");
       if (nl >= 0) {
@@ -987,7 +1022,9 @@ Deno.test("mcp (live): discern_docs serves discern's own docs from a server spaw
     await mcp.initialize();
 
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
-    const listed = await mcp.recv();
+    const listed = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({ resources: true }),
+    );
     const uris = (listed.result.resources as { uri: string }[]).map((entry) =>
       entry.uri
     );
@@ -999,7 +1036,9 @@ Deno.test("mcp (live): discern_docs serves discern's own docs from a server spaw
       id: 3,
       method: "resources/templates/list",
     });
-    const templates = await mcp.recv();
+    const templates = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({ resourceTemplates: true }),
+    );
     const resourceTemplates = templates.result.resourceTemplates as {
       uriTemplate: string;
     }[];
@@ -1016,7 +1055,7 @@ Deno.test("mcp (live): discern_docs serves discern's own docs from a server spaw
       method: "resources/read",
       params: { uri: "discern://docs" },
     });
-    const index = await mcp.recv();
+    const index = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     assertStringIncludes(
       index.result.contents[0]?.text ?? "",
       "config-reference",
@@ -1028,7 +1067,7 @@ Deno.test("mcp (live): discern_docs serves discern's own docs from a server spaw
       method: "tools/call",
       params: { name: "discern_docs", arguments: {} },
     });
-    const docs = await mcp.recv();
+    const docs = await mcp.recvTool(DocsOutputSchema);
     assertEquals(
       docs.result.isError,
       false,
@@ -1128,7 +1167,13 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
         clientInfo: { name: "test", version: "0" },
       },
     });
-    const init = await mcp.recv();
+    const init = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({
+        serverInfo: true,
+        protocolVersion: true,
+        capabilities: true,
+      }),
+    );
     assertEquals(init.id, 1);
     assertEquals(init.result.serverInfo.name, "discern");
     assertEquals(init.result.serverInfo.version, DISCERN_VERSION);
@@ -1140,7 +1185,9 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
 
     // tools/list → the exposed tool set.
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
+    const list = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({ tools: true }),
+    );
     assertEquals(list.id, 2);
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assert(names.includes("discern_done"), JSON.stringify(names));
@@ -1187,7 +1234,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
         arguments: { dry_run: true, standalone: true },
       },
     });
-    const call = await mcp.recv();
+    const call = await mcp.recvTool(FinishOutputSchema);
     assertEquals(call.id, 3);
     assertEquals(call.result.isError, false);
     const finish = call.result.structuredContent;
@@ -1195,6 +1242,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(finish.verb, "done");
     assertEquals(finish.dry_run, true); // the uniform preview signal, over MCP too
     assertEquals(finish.steps, undefined); // a preview serializes no effects
+    assertExists(finish.plan);
     assertEquals(finish.plan.title, "Gate plan"); // a preview carries the plan
     // Text is the authored Markdown projection of the same prepared result.
     assertStringIncludes(call.result.content[0].text, "# `discern done`");
@@ -1218,12 +1266,13 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       method: "tools/call",
       params: { name: "discern_refresh", arguments: { dry_run: true } },
     });
-    const refreshPreview = await mcp.recv();
+    const refreshPreview = await mcp.recvTool(RefreshOutputSchema);
     assertEquals(refreshPreview.id, 31);
     assertEquals(refreshPreview.result.isError, false);
     assertEquals(refreshPreview.result.structuredContent.ok, true);
     assertEquals(refreshPreview.result.structuredContent.verb, "refresh");
     assertEquals(refreshPreview.result.structuredContent.dry_run, true);
+    assertExists(refreshPreview.result.structuredContent.plan);
     assertEquals(
       refreshPreview.result.structuredContent.plan.title,
       "Refresh plan",
@@ -1249,7 +1298,8 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       method: "tools/call",
       params: { name: "discern_impact", arguments: {} },
     });
-    const cs = await mcp.recv();
+    const cs = await mcp.recvTool(ImpactOutputSchema);
+    assertResultDataKey(cs.result.structuredContent, "scopes");
     assertEquals(cs.result.structuredContent.verb, "impact");
     assert(Array.isArray(cs.result.structuredContent.data.scopes));
     assertEquals(cs.result.structuredContent.data.preview_actions, [{
@@ -1274,7 +1324,8 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
         },
       },
     });
-    const status = await mcp.recv();
+    const status = await mcp.recvTool(StatusOutputSchema);
+    assertResultDataKey(status.result.structuredContent, "location");
     assertEquals(status.id, 10);
     assertEquals(status.result.isError, false);
     assertEquals(status.result.structuredContent.verb, "status");
@@ -1291,7 +1342,8 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       method: "tools/call",
       params: { name: "discern_improvement", arguments: {} },
     });
-    const improve = await mcp.recv();
+    const improve = await mcp.recvTool(ImprovementOutputSchema);
+    assertResultDataKey(improve.result.structuredContent, "score");
     assertEquals(improve.id, 6);
     assertEquals(improve.result.structuredContent.verb, "improvement");
     assertEquals(typeof improve.result.structuredContent.data.score, "number");
@@ -1311,7 +1363,8 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       method: "tools/call",
       params: { name: "discern_doctor", arguments: {} },
     });
-    const doctor = await mcp.recv();
+    const doctor = await mcp.recvTool(DoctorOutputSchema);
+    assertResultDataKey(doctor.result.structuredContent, "checks");
     assertEquals(doctor.id, 7);
     assertEquals(doctor.result.structuredContent.verb, "doctor");
     assert(
@@ -1347,7 +1400,11 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       method: "tools/call",
       params: { name: "discern_doctor", arguments: { verbose: true } },
     });
-    const verboseDoctor = await mcp.recv();
+    const verboseDoctor = await mcp.recvTool(DoctorOutputSchema);
+    assertResultDataKey(
+      verboseDoctor.result.structuredContent,
+      "execution_model",
+    );
     assertEquals(verboseDoctor.id, 70);
     assert(
       Array.isArray(
@@ -1364,7 +1421,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       method: "tools/call",
       params: { name: "discern_prepare", arguments: {} },
     });
-    const prep = await mcp.recv();
+    const prep = await mcp.recvTool(PrepareOutputSchema);
     assertEquals(prep.id, 8);
     assertEquals(prep.result.isError, false);
     assertEquals(prep.result.structuredContent.verb, "prepare");
@@ -1378,7 +1435,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       method: "tools/call",
       params: { name: "discern_test", arguments: {} },
     });
-    const test = await mcp.recv();
+    const test = await mcp.recvTool(TestOutputSchema);
     assertEquals(test.id, 9);
     assertEquals(test.result.isError, false);
     assertEquals(test.result.structuredContent.verb, "test");
@@ -1396,7 +1453,9 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       method: "tools/call",
       params: { name: "nope" },
     });
-    const err = await mcp.recv();
+    const err = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.extend({ content: MCP_TOOL_CONTENT_SCHEMA }),
+    );
     assertEquals(err.id, 5);
     assertEquals(err.result.isError, true);
     assert(
@@ -1449,7 +1508,12 @@ Deno.test("discern mcp: protocol version, ping, and unknown method are handled c
       method: "initialize",
       params: initParams("1999-01-01"),
     });
-    assertEquals((await mcp.recv()).result.protocolVersion, "2025-11-25");
+    assertEquals(
+      (await mcp.recvResult(
+        MCP_RESULT_SCHEMA.required({ protocolVersion: true }),
+      )).result.protocolVersion,
+      "2025-11-25",
+    );
 
     // ping → empty result.
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "ping" });
@@ -1461,6 +1525,7 @@ Deno.test("discern mcp: protocol version, ping, and unknown method are handled c
     await mcp.send({ jsonrpc: "2.0", id: 3, method: "no/such/method" });
     const err = await mcp.recv();
     assertEquals(err.id, 3);
+    assertExists(err.error);
     assertEquals(err.error.code, -32601);
 
     assertEquals(await mcp.close(), 0);
@@ -1484,7 +1549,7 @@ Deno.test("discern mcp: a config parse failure stays structured and the server a
       method: "tools/call",
       params: { name: "discern_coupling", arguments: { file: "a.ts" } },
     });
-    const failed = await mcp.recv();
+    const failed = await mcp.recvTool(CouplingOutputSchema);
     assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
     assertEquals(failed.result.structuredContent.ok, false);
     assertEquals(failed.result.structuredContent.verb, "coupling");
@@ -1504,7 +1569,7 @@ Deno.test("discern mcp: a config parse failure stays structured and the server a
       method: "tools/call",
       params: { name: "discern_docs", arguments: {} },
     });
-    const next = await mcp.recv();
+    const next = await mcp.recvTool(DocsOutputSchema);
     assertEquals(next.result.isError, false, JSON.stringify(next.result));
     assertEquals(next.result.structuredContent.verb, "docs");
 
@@ -1614,6 +1679,8 @@ Deno.test("discern mcp: a malformed JSON line does not prevent the next valid ca
     });
     const first = await mcp.recv();
     const status = first.error?.code === -32700 ? await mcp.recv() : first;
+    assertExists(status.result);
+    assertExists(status.result.structuredContent);
     assertEquals(status.result.isError, false, JSON.stringify(status.result));
     assertEquals(status.result.structuredContent.verb, "status");
 
@@ -1656,8 +1723,11 @@ Deno.test("discern mcp: status projects the same setup applicability counts and 
       method: "tools/call",
       params: { name: "discern_status", arguments: {} },
     });
-    const status = await mcp.recv();
+    const status = await mcp.recvTool(StatusOutputSchema);
+    assertResultDataKey(status.result.structuredContent, "setup_unfinished");
     const unfinished = status.result.structuredContent.data.setup_unfinished;
+    assertExists(unfinished);
+    assertExists(unfinished.assurance);
     assertEquals(unfinished.assurance.enforced, applicableTotal);
     assertEquals(unfinished.assurance.total, applicableTotal);
     assertEquals(
@@ -1712,7 +1782,7 @@ Deno.test("discern mcp: wrong-typed arguments return a field-naming Zod validati
       method: "tools/call",
       params: { name: "discern_status", arguments: {} },
     });
-    const status = await mcp.recv();
+    const status = await mcp.recvTool(StatusOutputSchema);
     assertEquals(status.result.isError, false, JSON.stringify(status.result));
 
     assertEquals(await mcp.close(), 0);
@@ -1764,7 +1834,10 @@ Deno.test("discern mcp: EVERY tool refuses an undeclared argument loudly — nev
   });
 });
 
-type McpToolResponse = Awaited<ReturnType<McpClient["callTool"]>>;
+const DOCUMENT_TOOL_SCHEMA = z.union([MapOutputSchema, DocsOutputSchema]);
+type McpToolResponse = JsonRpcResult<
+  McpToolResult<z.output<typeof DOCUMENT_TOOL_SCHEMA>>
+>;
 
 interface DocumentToolCoreContract {
   readonly tool: "discern_map" | "discern_docs";
@@ -1788,13 +1861,15 @@ async function exerciseDocumentToolCore(
   mcp: McpClient,
   contract: DocumentToolCoreContract,
 ): Promise<DocumentToolCoreResponses> {
-  const index = await mcp.callTool(2, contract.tool);
+  const index = await mcp.callTool(2, contract.tool, DOCUMENT_TOOL_SCHEMA);
   assertEquals(index.result.isError, false);
   assertEquals(index.result.structuredContent.verb, contract.verb);
 
-  const doc = await mcp.callTool(3, contract.tool, {
+  const doc = await mcp.callTool(3, contract.tool, DOCUMENT_TOOL_SCHEMA, {
     target: contract.target,
   });
+  assertResultDataKey(doc.result.structuredContent, "doc");
+  assertExists(doc.result.structuredContent.data.doc);
   assertEquals(doc.result.isError, false);
   assert(
     doc.result.structuredContent.data.doc.content.includes(
@@ -1803,15 +1878,18 @@ async function exerciseDocumentToolCore(
     "the single-doc result carries the file's content",
   );
 
-  const miss = await mcp.callTool(4, contract.tool, {
+  const miss = await mcp.callTool(4, contract.tool, DOCUMENT_TOOL_SCHEMA, {
     target: contract.missingTarget,
   });
   assertEquals(miss.result.isError, true);
   assertEquals(miss.result.structuredContent.error, "unknown_target");
 
-  const search = await mcp.callTool(5, contract.tool, {
+  const search = await mcp.callTool(5, contract.tool, DOCUMENT_TOOL_SCHEMA, {
     search: contract.search,
   });
+  assertResultDataKey(search.result.structuredContent, "results");
+  assertExists(search.result.structuredContent.data.results);
+  assertExists(search.result.structuredContent.data.results[0]);
   assertEquals(search.result.isError, false);
   assertEquals(
     search.result.structuredContent.data.results[0].target,
@@ -1865,8 +1943,12 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       searchTarget: "00-orientation/concepts",
     });
     const index = core.index;
+    assertResultDataKey(index.result.structuredContent, "docs");
+    assertExists(index.result.structuredContent.data.docs);
+    assertExists(index.result.structuredContent.data.count);
     assert(index.result.structuredContent.data.count >= 1);
     const regions = index.result.structuredContent.data.regions;
+    assertExists(regions);
     assert(regions.length >= 1);
     for (const region of regions) {
       assert(!("staleness" in region), JSON.stringify(region));
@@ -1876,26 +1958,33 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       assertEquals("code_changes_since" in region, false);
     }
     const entry = index.result.structuredContent.data.docs[0];
+    assertExists(entry);
     assertEquals(typeof entry.slug, "string");
     assert(entry.slug.length > 0, JSON.stringify(entry));
+    assertResultDataKey(core.search.result.structuredContent, "results");
     const searchData = core.search.result.structuredContent.data;
+    assertExists(searchData.results?.[0]);
     assertEquals(searchData.results[0].target, "00-orientation/concepts");
     assertEquals("score" in searchData.results[0], false);
+    assertResultDataKey(core.doc.result.structuredContent, "doc");
+    assertExists(core.doc.result.structuredContent.data.doc);
     const mapContent = core.doc.result.structuredContent.data.doc.content;
     assert(!mapContent.includes("map-phantom-capability"));
     assertStringIncludes(mapContent, "<!-- map-literal-control -->");
 
     // A top-level region is both a compact index target and a search scope.
-    const region = await mcp.callTool(6, "discern_map", {
+    const region = await mcp.callTool(6, "discern_map", MapOutputSchema, {
       target: "00-orientation",
     });
+    assertResultDataKey(region.result.structuredContent, "scope");
     assertEquals(region.result.isError, false);
     assertEquals(region.result.structuredContent.data.scope, "00-orientation");
 
-    const scoped = await mcp.callTool(7, "discern_map", {
+    const scoped = await mcp.callTool(7, "discern_map", MapOutputSchema, {
       target: "00-orientation",
       search: "core ideas",
     });
+    assertResultDataKey(scoped.result.structuredContent, "scope");
     assertEquals(scoped.result.isError, false);
     assertEquals(
       scoped.result.structuredContent.data.scope,
@@ -1903,9 +1992,11 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
     );
 
     // Task terms can span documents; MCP returns and labels both partials.
-    const partials = await mcp.callTool(8, "discern_map", {
+    const partials = await mcp.callTool(8, "discern_map", MapOutputSchema, {
       search: "copper orchard velvet beacons telescope",
     });
+    assertResultDataKey(partials.result.structuredContent, "results");
+    assertExists(partials.result.structuredContent.data.results);
     assertEquals(partials.result.isError, false);
     assertEquals(
       new Set(
@@ -1924,24 +2015,31 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       ),
     );
 
-    const phantom = await mcp.callTool(9, "discern_map", {
+    const phantom = await mcp.callTool(9, "discern_map", MapOutputSchema, {
       search: "map-phantom-capability",
     });
+    assertResultDataKey(phantom.result.structuredContent, "results");
+    assertExists(phantom.result.structuredContent.data.results);
     assertEquals(phantom.result.structuredContent.data.results, []);
-    const literal = await mcp.callTool(10, "discern_map", {
+    const literal = await mcp.callTool(10, "discern_map", MapOutputSchema, {
       search: "<!-- map-literal-control -->",
     });
+    assertResultDataKey(literal.result.structuredContent, "results");
+    assertExists(literal.result.structuredContent.data.results);
+    assertExists(literal.result.structuredContent.data.results[0]);
     assertEquals(
       literal.result.structuredContent.data.results[0].target,
       "00-orientation/concepts",
     );
 
     // The bounded projection reports the full match count beside five results.
-    const capped = await mcp.callTool(11, "discern_map", {
+    const capped = await mcp.callTool(11, "discern_map", MapOutputSchema, {
       search: "shared capped marker",
     });
+    assertResultDataKey(capped.result.structuredContent, "count");
     assertEquals(capped.result.isError, false);
     const cappedData = capped.result.structuredContent.data;
+    assertExists(cappedData.results);
     assertEquals(cappedData.count, 6);
     assertEquals(cappedData.results.length, 5);
     assertEquals(cappedData.truncated, true);
@@ -2013,6 +2111,8 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       searchTarget: "20-guides/delegate-work",
     });
     const index = core.index;
+    assertResultDataKey(index.result.structuredContent, "docs");
+    assertExists(index.result.structuredContent.data.docs);
     assertEquals(index.result.structuredContent.data.map_dir, undefined);
     const docs = index.result.structuredContent.data.docs;
     assert(
@@ -2031,15 +2131,19 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       ),
       "discern_docs excludes every internal subtree",
     );
+    assertResultDataKey(core.doc.result.structuredContent, "doc");
+    assertExists(core.doc.result.structuredContent.data.doc);
     const configContent = core.doc.result.structuredContent.data.doc.content;
     assert(!configContent.includes("cerulean-narwhal-lantern"));
     assertStringIncludes(configContent, manualLiteral);
 
     // A frontmatter alias resolves like a slug ("config" is a declared alias
     // of the config reference).
-    const viaAlias = await mcp.callTool(6, "discern_docs", {
+    const viaAlias = await mcp.callTool(6, "discern_docs", DocsOutputSchema, {
       target: "config",
     });
+    assertResultDataKey(viaAlias.result.structuredContent, "doc");
+    assertExists(viaAlias.result.structuredContent.data.doc);
     assertEquals(viaAlias.result.isError, false);
     assertEquals(
       viaAlias.result.structuredContent.data.doc.slug,
@@ -2049,6 +2153,9 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
 
     // A near-miss target carries retryable suggestions.
     const miss = core.miss;
+    assertResultDataKey(miss.result.structuredContent, "suggestions");
+    assertExists(miss.result.structuredContent.data.suggestions);
+    assertExists(miss.result.structuredContent.message);
     assertEquals(miss.result.structuredContent.verb, "docs");
     assertStringIncludes(miss.result.structuredContent.message, "Closest");
     assert(
@@ -2060,9 +2167,11 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     );
 
     // Stable manual identity resolves to the migrated page and carries its kind.
-    const manualPage = await mcp.callTool(7, "discern_docs", {
+    const manualPage = await mcp.callTool(7, "discern_docs", DocsOutputSchema, {
       target: "guide-delegate-work",
     });
+    assertResultDataKey(manualPage.result.structuredContent, "doc");
+    assertExists(manualPage.result.structuredContent.data.doc);
     assertEquals(manualPage.result.isError, false);
     assertEquals(
       manualPage.result.structuredContent.data.doc.page_id,
@@ -2079,9 +2188,16 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
 
     // The installed-manual journey stays deterministic from orientation through
     // task and recovery search, then retrieves the current explanations intact.
-    const orientation = await mcp.callTool(8, "discern_docs", {
-      target: "start-index",
-    });
+    const orientation = await mcp.callTool(
+      8,
+      "discern_docs",
+      DocsOutputSchema,
+      {
+        target: "start-index",
+      },
+    );
+    assertResultDataKey(orientation.result.structuredContent, "doc");
+    assertExists(orientation.result.structuredContent.data.doc);
     assertEquals(orientation.result.isError, false);
     assertEquals(
       orientation.result.structuredContent.data.doc.target,
@@ -2092,9 +2208,16 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       "tutorial",
     );
 
-    const installation = await mcp.callTool(9, "discern_docs", {
-      target: "00-start/installation-and-setup",
-    });
+    const installation = await mcp.callTool(
+      9,
+      "discern_docs",
+      DocsOutputSchema,
+      {
+        target: "00-start/installation-and-setup",
+      },
+    );
+    assertResultDataKey(installation.result.structuredContent, "doc");
+    assertExists(installation.result.structuredContent.data.doc);
     assertEquals(installation.result.isError, false);
     assertEquals(
       installation.result.structuredContent.data.doc.content,
@@ -2102,10 +2225,12 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     );
 
     const taskQuery = "finish and land a change";
-    const task = await mcp.callTool(10, "discern_docs", {
+    const task = await mcp.callTool(10, "discern_docs", DocsOutputSchema, {
       search: taskQuery,
     });
+    assertResultDataKey(task.result.structuredContent, "count");
     const taskData = task.result.structuredContent.data;
+    assertExists(taskData.results?.[0]);
     assertEquals(task.result.isError, false);
     assertEquals(
       taskData.count,
@@ -2120,52 +2245,71 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     assertEquals(taskData.results[0].page_id, "guide-finish-and-land-a-change");
     assertEquals(taskData.results[0].manual_kind, "guide");
 
-    const symptom = await mcp.callTool(11, "discern_docs", {
+    const symptom = await mcp.callTool(11, "discern_docs", DocsOutputSchema, {
       search: "schema is newer than this binary",
     });
+    assertResultDataKey(symptom.result.structuredContent, "results");
+    assertExists(symptom.result.structuredContent.data.results);
     assertEquals(symptom.result.isError, false);
     assert(
       symptom.result.structuredContent.data.results.some(
-        (result: { target: string; manual_kind?: string }) =>
+        (result) =>
           result.target === "40-troubleshooting/setup-and-integrations" &&
           result.manual_kind === "troubleshooting",
       ),
     );
 
-    const proof = await mcp.callTool(12, "discern_docs", {
+    const proof = await mcp.callTool(12, "discern_docs", DocsOutputSchema, {
       target: "explanation-proof",
     });
+    assertResultDataKey(proof.result.structuredContent, "doc");
+    assertExists(proof.result.structuredContent.data.doc);
     assertEquals(proof.result.isError, false);
     const proofContent = proof.result.structuredContent.data.doc.content;
     assertEquals(proofContent, await visibleBody("10-understand/proof.md"));
 
-    const checkpoints = await mcp.callTool(13, "discern_docs", {
-      target: "explanation-checkpoints",
-    });
+    const checkpoints = await mcp.callTool(
+      13,
+      "discern_docs",
+      DocsOutputSchema,
+      {
+        target: "explanation-checkpoints",
+      },
+    );
+    assertResultDataKey(checkpoints.result.structuredContent, "doc");
+    assertExists(checkpoints.result.structuredContent.data.doc);
     assertEquals(checkpoints.result.isError, false);
     assertEquals(
       checkpoints.result.structuredContent.data.doc.content,
       await visibleBody("10-understand/checkpoints.md"),
     );
 
-    const phantom = await mcp.callTool(14, "discern_docs", {
+    const phantom = await mcp.callTool(14, "discern_docs", DocsOutputSchema, {
       search: "cerulean-narwhal-lantern",
     });
+    assertResultDataKey(phantom.result.structuredContent, "results");
+    assertExists(phantom.result.structuredContent.data.results);
     assertEquals(phantom.result.structuredContent.data.results, []);
-    const literal = await mcp.callTool(15, "discern_docs", {
+    const literal = await mcp.callTool(15, "discern_docs", DocsOutputSchema, {
       search: manualLiteral,
     });
+    assertResultDataKey(literal.result.structuredContent, "results");
+    assertExists(literal.result.structuredContent.data.results);
+    assertExists(literal.result.structuredContent.data.results[0]);
     assertEquals(
       literal.result.structuredContent.data.results[0].target,
       "30-reference/config-reference",
     );
 
     // A narrow query stays untruncated: the count is exactly what it returns.
-    const narrow = await mcp.callTool(16, "discern_docs", {
+    const narrow = await mcp.callTool(16, "discern_docs", DocsOutputSchema, {
       search: "vermilion-quasar-beacon",
     });
+    assertResultDataKey(narrow.result.structuredContent, "results");
+    assertExists(narrow.result.structuredContent.data.results);
     assertEquals(narrow.result.isError, false);
     const narrowData = narrow.result.structuredContent.data;
+    assertExists(narrowData.results?.[0]);
     assertEquals(narrowData.results.length, narrowData.count);
     assertEquals(narrowData.truncated, false);
     assertEquals(
@@ -2213,19 +2357,16 @@ Deno.test("discern mcp: docs tool and resources serve exactly the staged public 
       method: "tools/call",
       params: { name: "discern_docs", arguments: {} },
     });
-    const tool = await mcp.recv();
+    const tool = await mcp.recvTool(DocsOutputSchema);
+    assertResultDataKey(tool.result.structuredContent, "docs");
+    assertExists(tool.result.structuredContent.data.docs);
     const toolPaths = tool.result.structuredContent.data.docs.map(
       (doc: { path: string }) => doc.path,
     );
     assertEquals(toolPaths, expectedPaths);
     assertEquals(
       tool.result.structuredContent.data.docs.map(
-        (doc: {
-          target: string;
-          page_id?: string;
-          manual_kind?: string;
-          path: string;
-        }) => ({
+        (doc) => ({
           target: doc.target,
           page_id: doc.page_id,
           manual_kind: doc.manual_kind,
@@ -2241,7 +2382,7 @@ Deno.test("discern mcp: docs tool and resources serve exactly the staged public 
       method: "resources/read",
       params: { uri: "discern://docs" },
     });
-    const resource = await mcp.recv();
+    const resource = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     const resourceDocs = decodeWith(
       DocsDataSchema,
       resource.result.contents[0].text,
@@ -2277,14 +2418,14 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
 
     // `discern_map` still refuses with the structured setup_unfinished envelope — its
     // tree is empty until setup fills it.
-    const refused = await mcp.callTool(2, "discern_map");
+    const refused = await mcp.callTool(2, "discern_map", MapOutputSchema);
     assertEquals(refused.result.isError, true);
     assertEquals(refused.result.structuredContent.error, "setup_unfinished");
 
     // `discern_done` is a gate PROOF verb — un-gated during setup (ADR 0065) so
     // the agent can iterate while wiring capabilities — but it carries the
     // setup-in-progress hint so a green run can't be mistaken for "done".
-    const finish = await mcp.callTool(3, "discern_done");
+    const finish = await mcp.callTool(3, "discern_done", FinishOutputSchema);
     assertEquals(finish.result.structuredContent.verb, "done");
     assert(finish.result.structuredContent.error !== "setup_unfinished");
     assertHasMcpHint(
@@ -2293,9 +2434,11 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
     );
 
     // `discern_docs` stays open pre-setup — discern's own docs are what you need now.
-    const docs = await mcp.callTool(4, "discern_docs");
+    const docs = await mcp.callTool(4, "discern_docs", DocsOutputSchema);
+    assertResultDataKey(docs.result.structuredContent, "count");
     assertEquals(docs.result.isError, false);
     assertEquals(docs.result.structuredContent.verb, "docs");
+    assertExists(docs.result.structuredContent.data.count);
     assert(docs.result.structuredContent.data.count > 0);
 
     assertEquals(await mcp.close(), 0);
@@ -2352,7 +2495,7 @@ Deno.test("discern mcp: noisy Gate output stays inside the result under both str
         method: "tools/call",
         params: { name: "discern_done", arguments: {} },
       });
-      const response = await mcp.recv();
+      const response = await mcp.recvTool(FinishOutputSchema);
       assertEquals(
         response.result.structuredContent.ok,
         false,
@@ -2402,7 +2545,7 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
       params: { name: "discern_update", arguments: {} },
     };
     await wtMcp.send(updateCall);
-    const noop = await wtMcp.recv();
+    const noop = await wtMcp.recvTool(UpdateOutputSchema);
     assertEquals(
       noop.result.isError,
       false,
@@ -2459,7 +2602,7 @@ Deno.test("discern mcp: a failed no-op convergence returns command recovery", as
       method: "tools/call",
       params: { name: "discern_update", arguments: {} },
     });
-    const failed = await wtMcp.recv();
+    const failed = await wtMcp.recvTool(UpdateOutputSchema);
     assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
     const payload = failed.result.structuredContent as {
       ok: boolean;
@@ -2505,7 +2648,8 @@ Deno.test("discern mcp: discern_update returns schema-valid data for a real merg
       method: "tools/call",
       params: { name: "discern_update", arguments: {} },
     });
-    const merged = await mcp.recv();
+    const merged = await mcp.recvTool(UpdateOutputSchema);
+    assertResultDataKey(merged.result.structuredContent, "behind");
     assertEquals(merged.result.isError, false, JSON.stringify(merged.result));
     const payload = merged.result.structuredContent;
     const parsed = UpdateOutputSchema.safeParse(payload);
@@ -2586,7 +2730,8 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
       method: "tools/call",
       params: { name: "discern_coupling", arguments: {} },
     });
-    const diff = await mcp.recv();
+    const diff = await mcp.recvTool(CouplingOutputSchema);
+    assertResultDataKey(diff.result.structuredContent, "mode");
     assertEquals(diff.result.isError, false, JSON.stringify(diff.result));
     assert(
       CouplingOutputSchema.safeParse(diff.result.structuredContent).success,
@@ -2610,7 +2755,8 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
       method: "tools/call",
       params: { name: "discern_coupling", arguments: { file: "a.ts" } },
     });
-    const query = await mcp.recv();
+    const query = await mcp.recvTool(CouplingOutputSchema);
+    assertResultDataKey(query.result.structuredContent, "mode");
     assertEquals(query.result.isError, false, JSON.stringify(query.result));
     assert(
       CouplingOutputSchema.safeParse(query.result.structuredContent).success,
@@ -2639,7 +2785,8 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
         arguments: { file: "a.ts", with: "b.ts" },
       },
     });
-    const evidence = await mcp.recv();
+    const evidence = await mcp.recvTool(CouplingOutputSchema);
+    assertResultDataKey(evidence.result.structuredContent, "mode");
     assertEquals(
       evidence.result.isError,
       false,
@@ -2648,6 +2795,7 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
     assert(
       CouplingOutputSchema.safeParse(evidence.result.structuredContent).success,
     );
+    assertExists(evidence.result.structuredContent.data.commits);
     assertEquals(evidence.result.structuredContent.data.mode, "evidence");
     assertEquals(evidence.result.structuredContent.data.a, "a.ts");
     assertEquals(evidence.result.structuredContent.data.b, "b.ts");
@@ -2668,7 +2816,7 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
         arguments: { file: generatedPath },
       },
     });
-    const generated = await mcp.recv();
+    const generated = await mcp.recvTool(CouplingOutputSchema);
     assertEquals(
       generated.result.isError,
       false,
@@ -2699,12 +2847,13 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
       method: "tools/call",
       params: { name: "discern_coupling", arguments: { with: "b.ts" } },
     });
-    const invalid = await mcp.recv();
+    const invalid = await mcp.recvTool(CouplingOutputSchema);
     assertEquals(invalid.result.isError, true, JSON.stringify(invalid.result));
     assertEquals(
       invalid.result.structuredContent.error,
       "invalid_arguments",
     );
+    assertExists(invalid.result.structuredContent.message);
     assertStringIncludes(invalid.result.structuredContent.message, "with");
     assertStringIncludes(invalid.result.structuredContent.message, "file");
 
@@ -2729,7 +2878,13 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       method: "initialize",
       params: initParams(),
     });
-    const init = await main.recv();
+    const init = await main.recvResult(
+      MCP_RESULT_SCHEMA.required({
+        serverInfo: true,
+        protocolVersion: true,
+        capabilities: true,
+      }),
+    );
     const mainInstructions = init.result.instructions as string;
     assert(
       typeof mainInstructions === "string" && mainInstructions.length > 0,
@@ -2765,7 +2920,9 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       );
     }
     await main.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await main.recv();
+    const list = await main.recvResult(
+      MCP_RESULT_SCHEMA.required({ tools: true }),
+    );
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assertEquals(
       names,
@@ -2842,7 +2999,7 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       method: "tools/call",
       params: { name: "discern_accept", arguments: { dry_run: true } },
     });
-    const gradFromMain = await main.recv();
+    const gradFromMain = await main.recvTool(AcceptOutputSchema);
     assertEquals(gradFromMain.result.isError, false);
     assertEquals(
       gradFromMain.result.structuredContent.dry_run,
@@ -2860,7 +3017,13 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       method: "initialize",
       params: initParams(),
     });
-    const wtInit = await wtMcp.recv();
+    const wtInit = await wtMcp.recvResult(
+      MCP_RESULT_SCHEMA.required({
+        serverInfo: true,
+        protocolVersion: true,
+        capabilities: true,
+      }),
+    );
     const wtInstructions = wtInit.result.instructions as string;
     for (const verb of LIFECYCLE) {
       assert(
@@ -2869,7 +3032,9 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       );
     }
     await wtMcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const wtList = await wtMcp.recv();
+    const wtList = await wtMcp.recvResult(
+      MCP_RESULT_SCHEMA.required({ tools: true }),
+    );
     assertAdvertisedToolMetadata(wtList.result.tools as ListedTool[]);
     const wtNames = wtList.result.tools.map((t: { name: string }) => t.name);
     for (const verb of LIFECYCLE) {
@@ -2884,7 +3049,7 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       method: "tools/call",
       params: { name: "discern_start", arguments: { dry_run: true } },
     });
-    const startFromWt = await wtMcp.recv();
+    const startFromWt = await wtMcp.recvTool(StartOutputSchema);
     assertEquals(startFromWt.result.isError, true);
     assertEquals(
       startFromWt.result.structuredContent.error,
@@ -2991,7 +3156,7 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
         arguments: { path: worktree },
       },
     });
-    const finished = await mcp.recv();
+    const finished = await mcp.recvTool(FinishOutputSchema);
     assertEquals(
       finished.result.isError,
       false,
@@ -3052,7 +3217,7 @@ Deno.test("discern mcp: one main-rooted session — accept refuses with no candi
           method: "tools/call",
           params: { name: "discern_accept", arguments: { confirmed: true } },
         });
-        const refused = await mcp.recv();
+        const refused = await mcp.recvTool(AcceptOutputSchema);
         assertEquals(refused.result.isError, true);
         assertEquals(
           refused.result.structuredContent.verb,
@@ -3075,7 +3240,8 @@ Deno.test("discern mcp: one main-rooted session — accept refuses with no candi
           method: "tools/call",
           params: { name: "discern_start", arguments: {} },
         });
-        const started = await mcp.recv();
+        const started = await mcp.recvTool(StartOutputSchema);
+        assertResultDataKey(started.result.structuredContent, "path");
         assertEquals(
           started.result.isError,
           false,
@@ -3107,7 +3273,7 @@ Deno.test("discern mcp: one main-rooted session — accept refuses with no candi
           method: "tools/call",
           params: { name: "discern_accept", arguments: {} },
         });
-        const refused = await mcp.recv();
+        const refused = await mcp.recvTool(AcceptOutputSchema);
         assertEquals(
           refused.result.isError,
           true,
@@ -3143,7 +3309,8 @@ Deno.test("discern mcp: one main-rooted session — accept refuses with no candi
           method: "tools/call",
           params: { name: "discern_accept", arguments: { confirmed: true } },
         });
-        const landed = await mcp.recv();
+        const landed = await mcp.recvTool(AcceptOutputSchema);
+        assertResultDataKey(landed.result.structuredContent, "consent");
         assertEquals(
           landed.result.isError,
           false,
@@ -3215,7 +3382,7 @@ Deno.test("discern mcp: a worktree-spawned server — accepting another worktree
         method: "tools/call",
         params: { name: "discern_start", arguments: {} },
       });
-      const started = await m.recv();
+      const started = await m.recvTool(StartOutputSchema);
       assertEquals(
         started.result.isError,
         false,
@@ -3261,7 +3428,7 @@ Deno.test("discern mcp: a worktree-spawned server — accepting another worktree
             arguments: { path: other.path, confirmed: true },
           },
         });
-        const landed = await inHeld.recv();
+        const landed = await inHeld.recvTool(AcceptOutputSchema);
         assertEquals(
           landed.result.isError,
           false,
@@ -3282,7 +3449,8 @@ Deno.test("discern mcp: a worktree-spawned server — accepting another worktree
           method: "tools/call",
           params: { name: "discern_status", arguments: {} },
         });
-        const status = await inHeld.recv();
+        const status = await inHeld.recvTool(StatusOutputSchema);
+        assertResultDataKey(status.result.structuredContent, "location");
         assertEquals(
           status.result.isError,
           false,
@@ -3312,7 +3480,7 @@ Deno.test("discern mcp: a worktree-spawned server — accepting another worktree
       method: "tools/call",
       params: { name: "discern_update", arguments: {} },
     });
-    const updated = await inHeld.recv();
+    const updated = await inHeld.recvTool(UpdateOutputSchema);
     assertEquals(
       updated.result.isError,
       false,
@@ -3331,7 +3499,7 @@ Deno.test("discern mcp: a worktree-spawned server — accepting another worktree
           method: "tools/call",
           params: { name: "discern_accept", arguments: { dry_run: true } },
         });
-        const preview = await inHeld.recv();
+        const preview = await inHeld.recvTool(AcceptOutputSchema);
         assertEquals(preview.result.isError, false);
         assertEquals(preview.result.structuredContent.verb, "accept");
         assertEquals(preview.result.structuredContent.dry_run, true);
@@ -3370,7 +3538,8 @@ Deno.test("discern mcp: a worktree-spawned server — accepting another worktree
             arguments: { path: held.path, confirmed: true },
           },
         });
-        const landed = await inHeld.recv();
+        const landed = await inHeld.recvTool(AcceptOutputSchema);
+        assertResultDataKey(landed.result.structuredContent, "root");
         assertEquals(
           landed.result.isError,
           false,
@@ -3397,7 +3566,8 @@ Deno.test("discern mcp: a worktree-spawned server — accepting another worktree
           method: "tools/call",
           params: { name: "discern_status", arguments: {} },
         });
-        const status = await inHeld.recv();
+        const status = await inHeld.recvTool(StatusOutputSchema);
+        assertResultDataKey(status.result.structuredContent, "location");
         assertEquals(
           status.result.isError,
           false,
@@ -3441,7 +3611,8 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
       method: "tools/call",
       params: { name: "discern_status", arguments: {} },
     });
-    const before = await mcp.recv();
+    const before = await mcp.recvTool(StatusOutputSchema);
+    assertResultDataKey(before.result.structuredContent, "location");
     assertEquals(before.result.structuredContent.data.location, "main");
     await mcp.send({
       jsonrpc: "2.0",
@@ -3449,7 +3620,9 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
       method: "resources/read",
       params: { uri: "discern://status" },
     });
-    const beforeResource = await mcp.recv();
+    const beforeResource = await mcp.recvResult(
+      MCP_TEXT_RESOURCE_RESULT_SCHEMA,
+    );
     assertEquals(
       decodeWith(StatusWireDataSchema, beforeResource.result.contents[0].text)
         .location,
@@ -3464,7 +3637,8 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
       method: "tools/call",
       params: { name: "discern_start", arguments: {} },
     });
-    const started = await mcp.recv();
+    const started = await mcp.recvTool(StartOutputSchema);
+    assertResultDataKey(started.result.structuredContent, "path");
     assertEquals(started.result.isError, false, JSON.stringify(started.result));
     const wtPath = started.result.structuredContent.data.path as string;
 
@@ -3489,7 +3663,8 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
           method: "tools/call",
           params: { name: "discern_status", arguments: {} },
         });
-        const after = await mcp.recv();
+        const after = await mcp.recvTool(StatusOutputSchema);
+        assertResultDataKey(after.result.structuredContent, "location");
         assertEquals(after.result.structuredContent.data.location, "worktree");
         assertEquals(after.result.structuredContent.data.root, wtPath);
       },
@@ -3507,7 +3682,7 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
           method: "resources/read",
           params: { uri: "discern://status" },
         });
-        const after = await mcp.recv();
+        const after = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
         const afterData = decodeWith(
           StatusWireDataSchema,
           after.result.contents[0].text,
@@ -3527,7 +3702,8 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
           method: "tools/call",
           params: { name: "discern_status", arguments: {} },
         });
-        const fromWorking = await mcp.recv();
+        const fromWorking = await mcp.recvTool(StatusOutputSchema);
+        assertResultDataKey(fromWorking.result.structuredContent, "location");
         assertEquals(
           fromWorking.result.structuredContent.data.location,
           "worktree",
@@ -3541,7 +3717,8 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
           method: "tools/call",
           params: { name: "discern_status", arguments: { path: dir } },
         });
-        const fromPath = await mcp.recv();
+        const fromPath = await mcp.recvTool(StatusOutputSchema);
+        assertResultDataKey(fromPath.result.structuredContent, "location");
         assertEquals(fromPath.result.structuredContent.data.location, "main");
 
         // …and the override is scoped to that one call — the held working root is unchanged
@@ -3552,7 +3729,8 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
           method: "tools/call",
           params: { name: "discern_status", arguments: {} },
         });
-        const afterOverride = await mcp.recv();
+        const afterOverride = await mcp.recvTool(StatusOutputSchema);
+        assertResultDataKey(afterOverride.result.structuredContent, "location");
         assertEquals(
           afterOverride.result.structuredContent.data.location,
           "worktree",
@@ -3564,7 +3742,8 @@ Deno.test("discern mcp: after one discern_start, status, resources, and the expl
           method: "tools/call",
           params: { name: "discern_status", arguments: { path: wtPath } },
         });
-        const fromWtPath = await mcp.recv();
+        const fromWtPath = await mcp.recvTool(StatusOutputSchema);
+        assertResultDataKey(fromWtPath.result.structuredContent, "location");
         assertEquals(
           fromWtPath.result.structuredContent.data.location,
           "worktree",
@@ -3609,7 +3788,8 @@ Deno.test("discern mcp: discern_start with `path` creates the worktree for ANOTH
           arguments: { path: dirB, name: "cross project" },
         },
       });
-      const started = await mcp.recv();
+      const started = await mcp.recvTool(StartOutputSchema);
+      assertResultDataKey(started.result.structuredContent, "path");
       assertEquals(
         started.result.isError,
         false,
@@ -3637,8 +3817,10 @@ Deno.test("discern mcp: discern_start with `path` creates the worktree for ANOTH
         method: "tools/call",
         params: { name: "discern_status", arguments: {} },
       });
-      const followed = await mcp.recv();
+      const followed = await mcp.recvTool(StatusOutputSchema);
+      assertResultDataKey(followed.result.structuredContent, "location");
       assertEquals(followed.result.structuredContent.data.location, "worktree");
+      assertExists(followed.result.structuredContent.data.worktree);
       assertEquals(
         followed.result.structuredContent.data.worktree.id,
         data.id,
@@ -3653,7 +3835,8 @@ Deno.test("discern mcp: discern_start with `path` creates the worktree for ANOTH
         method: "tools/call",
         params: { name: "discern_status", arguments: { path: dirA } },
       });
-      const spawnProject = await mcp.recv();
+      const spawnProject = await mcp.recvTool(StatusOutputSchema);
+      assertResultDataKey(spawnProject.result.structuredContent, "location");
       assertEquals(spawnProject.result.structuredContent.data.location, "main");
 
       assertEquals(await mcp.close(), 0);
@@ -3682,7 +3865,7 @@ Deno.test("discern mcp: a `path` outside any discern project falls through to no
         method: "tools/call",
         params: { name: "discern_status", arguments: { path: outside } },
       });
-      const refused = await mcp.recv();
+      const refused = await mcp.recvTool(StatusOutputSchema);
       assertEquals(refused.result.isError, true);
       assertEquals(
         refused.result.structuredContent.error,
@@ -3999,7 +4182,7 @@ Deno.test("discern mcp: discern_refresh repairs stale generated artifacts", asyn
       method: "tools/call",
       params: { name: "discern_refresh", arguments: {} },
     });
-    const refreshed = await mcp.recv();
+    const refreshed = await mcp.recvTool(RefreshOutputSchema);
     assertEquals(refreshed.result.isError, false);
     assert(
       RefreshOutputSchema.safeParse(refreshed.result.structuredContent).success,
@@ -4220,6 +4403,7 @@ Deno.test("discern mcp: every live tool call validates against its own advertise
         params: { name: tool.name, arguments: argumentsFor(tool) },
       });
       const response = await mcp.recv();
+      assertExists(response.result);
       assertEquals(response.id, id, tool.name);
       assertEquals(response.error, undefined, JSON.stringify(response));
       assert(tool.outputSchema !== undefined, `${tool.name} needs a schema`);
@@ -4254,7 +4438,9 @@ Deno.test("discern mcp: discern_standards is listed (slow/on-demand), not read-o
 
     // Listed with the standards feature on (the default scaffold).
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
+    const list = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({ tools: true }),
+    );
     const tools = list.result.tools as ListedTool[];
     const rt = tools.find((t) => t.name === "discern_standards");
     assert(rt !== undefined, "discern_standards should be listed");
@@ -4291,7 +4477,7 @@ Deno.test("discern mcp: discern_standards is listed (slow/on-demand), not read-o
         arguments: { action: "measure", dry_run: true },
       },
     });
-    const preview = await mcp.recv();
+    const preview = await mcp.recvTool(StandardsOutputSchema);
     assertEquals(preview.result.isError, false);
     assertEquals(preview.result.structuredContent.verb, "standards");
     assertEquals(preview.result.structuredContent.dry_run, true);
@@ -4335,7 +4521,8 @@ Deno.test("discern mcp: a failing discern_standards apply returns an ok:false en
         arguments: { action: "measure" },
       },
     });
-    const failed = await mcp.recv();
+    const failed = await mcp.recvTool(StandardsOutputSchema);
+    assertResultDataKey(failed.result.structuredContent, "standards");
     assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
     const payload = failed.result.structuredContent;
     const parsed = StandardsOutputSchema.safeParse(payload);
@@ -4350,6 +4537,7 @@ Deno.test("discern mcp: a failing discern_standards apply returns an ok:false en
     assert(reading !== undefined, JSON.stringify(payload.data));
     assertEquals(reading.value, 10);
     assertEquals(reading.verdict, "regressed");
+    assertExists(payload.steps);
     assert(
       payload.steps.some((s: { outcome: string }) => s.outcome === "failed"),
       JSON.stringify(payload),
@@ -4453,7 +4641,9 @@ Deno.test("discern mcp: target-generic descriptions and each cross-project resul
     await mcp.recv();
 
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const list = await mcp.recv();
+    const list = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({ tools: true }),
+    );
     const prose = JSON.stringify(list.result.tools);
     assert(!prose.includes("trunk-one"), prose);
     assert(!prose.includes("trunk-two"), prose);
@@ -4474,7 +4664,9 @@ Deno.test("discern mcp: target-generic descriptions and each cross-project resul
           arguments: path === undefined ? {} : { path },
         },
       });
-      const status = await mcp.recv();
+      const status = await mcp.recvTool(StatusOutputSchema);
+      assertResultDataKey(status.result.structuredContent, "git");
+      assertExists(status.result.structuredContent.data.git);
       assertEquals(status.result.structuredContent.data.git.trunk, trunk);
     }
 
@@ -4503,7 +4695,13 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "initialize",
       params: initParams(),
     });
-    const init = await mcp.recv();
+    const init = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({
+        serverInfo: true,
+        protocolVersion: true,
+        capabilities: true,
+      }),
+    );
     assert(
       init.result.capabilities.resources,
       "server should advertise the resources capability",
@@ -4511,7 +4709,9 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
 
     // resources/list → the fixed resources (gated like their tools, all on here).
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
-    const list = await mcp.recv();
+    const list = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({ resources: true }),
+    );
     const resources = list.result.resources as {
       name: string;
       uri: string;
@@ -4548,7 +4748,9 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       id: 3,
       method: "resources/templates/list",
     });
-    const templates = await mcp.recv();
+    const templates = await mcp.recvResult(
+      MCP_RESULT_SCHEMA.required({ resourceTemplates: true }),
+    );
     const resourceTemplates = templates.result.resourceTemplates as {
       name: string;
       uriTemplate: string;
@@ -4592,7 +4794,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/read",
       params: { uri: "discern://status" },
     });
-    const status = await mcp.recv();
+    const status = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     const statusPart = status.result.contents[0];
     assertEquals(statusPart.mimeType, "application/json");
     assertEquals(statusPart.uri, "discern://status");
@@ -4613,7 +4815,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/read",
       params: { uri: "discern://impact" },
     });
-    const cs = await mcp.recv();
+    const cs = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     assert(
       Array.isArray(
         decodeWith(ScopesDataSchema, cs.result.contents[0].text).scopes,
@@ -4627,7 +4829,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/read",
       params: { uri: "discern://config" },
     });
-    const cfg = await mcp.recv();
+    const cfg = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     assert(
       decodeWith(configSchema, cfg.result.contents[0].text).project,
       "the config resource carries [project]",
@@ -4640,7 +4842,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/read",
       params: { uri: "discern://docs" },
     });
-    const docsIndex = await mcp.recv();
+    const docsIndex = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     assert(
       decodeWith(DocsDataSchema, docsIndex.result.contents[0].text).docs?.some(
         (d) => d.slug === "config-reference",
@@ -4653,7 +4855,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/read",
       params: { uri: "discern://docs/config-reference" },
     });
-    const docsPage = await mcp.recv();
+    const docsPage = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     assertEquals(docsPage.result.contents[0].mimeType, "text/markdown");
     assert(docsPage.result.contents[0].text.includes("config reference"));
     await mcp.send({
@@ -4662,7 +4864,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/read",
       params: { uri: "discern://docs/README" },
     });
-    const docsHome = await mcp.recv();
+    const docsHome = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     assertStringIncludes(
       docsHome.result.contents[0].text,
       "# The discern manual",
@@ -4678,7 +4880,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/read",
       params: { uri: "discern://map" },
     });
-    const mapIndex = await mcp.recv();
+    const mapIndex = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     const mapData = decodeWith(
       DocsDataSchema,
       mapIndex.result.contents[0].text,
@@ -4692,7 +4894,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/read",
       params: { uri: `discern://map/${slug}` },
     });
-    const doc = await mcp.recv();
+    const doc = await mcp.recvResult(MCP_TEXT_RESOURCE_RESULT_SCHEMA);
     assertEquals(doc.result.contents[0].mimeType, "text/markdown");
     assert(
       doc.result.contents[0].text.includes("The core ideas of the project"),
@@ -4745,10 +4947,7 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
     await mcp.recv();
 
     let id = 100;
-    const readResource = async (uri: string): Promise<{
-      result?: { contents?: { mimeType: string; text: string }[] };
-      error?: { code: number; message: string };
-    }> => {
+    const readResource = async (uri: string): Promise<JsonRpcResponse> => {
       await mcp.send({
         jsonrpc: "2.0",
         id: id++,
@@ -4816,6 +5015,7 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
           "text/markdown",
           `${scheme} by ${label} ("${target}"): expected Markdown`,
         );
+        assertExists(part.text);
         assert(
           part.text.length > 0,
           `${scheme} by ${label} ("${target}"): empty document body`,
