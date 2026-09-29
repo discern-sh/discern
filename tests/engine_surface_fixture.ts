@@ -5,9 +5,10 @@
  * asserts its own untouched copy, so no case can observe another's writes and
  * the copy count, not the scaffold count, grows with the case count.
  *
- * The copy is taken from a main checkout before any linked worktree exists and
- * before any Proof is recorded, so the snapshot embeds no absolute path that a
- * copy would carry to the wrong location.
+ * Callers snapshot a main checkout before linked worktrees or Proof introduce
+ * path-bound state. Fixture configuration must not name case-specific absolute
+ * paths. Each copy keeps the seed checkout's basename, preserving generated
+ * references to its sibling worktree directory.
  *
  * Every path handed out is fully symlink-resolved: a spawned CLI observes its
  * cwd kernel-resolved, so cases that drive a result core in-process must
@@ -27,8 +28,8 @@ export type PooledInstallCase = readonly [
 /**
  * Scaffold one install through `scaffold`, then run every case as a step over
  * a fresh copy of it. Steps run in sequence under the parent test's temp
- * directory, so each case still owns its files and keeps its original name in
- * the failure report.
+ * directory. Each step removes its copy and sibling worktrees before the next
+ * step starts, and keeps its original name in the failure report.
  */
 export async function withPristineInstalls(
   t: Deno.TestContext,
@@ -37,14 +38,17 @@ export async function withPristineInstalls(
 ): Promise<void> {
   await withTempDir(async (created) => {
     const root = await Deno.realPath(created);
-    const pristine = join(root, "pristine");
+    const checkoutName = "pristine";
+    const pristine = join(root, checkoutName);
     await Deno.mkdir(pristine);
     await scaffold(pristine);
-    for (const [index, [name, run]] of cases.entries()) {
+    for (const [name, run] of cases) {
       await t.step(name, async () => {
-        const dir = join(root, `case-${index}`);
-        await copy(pristine, dir);
-        await run(dir);
+        await withTempDir(async (createdCase) => {
+          const dir = join(await Deno.realPath(createdCase), checkoutName);
+          await copy(pristine, dir);
+          await run(dir);
+        }, { parent: root });
       });
     }
   });
