@@ -21,6 +21,7 @@ import {
 } from "../src/shared/config_schema.ts";
 import {
   CHECKPOINT_QUESTION_FILE_MAX_BYTES,
+  checkpointQuestionFileFailureMessage,
   readCheckpointQuestionFileAtCommit,
   readLiveCheckpointQuestionFile,
 } from "../src/shared/checkpoint_question_files.ts";
@@ -157,7 +158,30 @@ Deno.test("question blobs accept 0, 1, and 64 KiB exactly and retain authored by
       const read = await readCheckpointQuestionFileAtCommit(dir, commit, path);
       assert(!read.ok, path);
       assertEquals(read.reason, reason, path);
+      const live = await readLiveCheckpointQuestionFile(dir, path);
+      assert(!live.ok, path);
+      assertEquals(live.reason, reason, path);
+      for (
+        const authority of ["live configuration", "governing Git tree"] as const
+      ) {
+        assertStringIncludes(
+          checkpointQuestionFileFailureMessage(live, authority),
+          JSON.stringify(path),
+        );
+      }
     }
+
+    const unreadable = await readCheckpointQuestionFileAtCommit(
+      dir,
+      "absent-ref",
+      paths.one,
+    );
+    assert(!unreadable.ok);
+    assertEquals(unreadable.reason, "unreadable");
+    assertStringIncludes(
+      checkpointQuestionFileFailureMessage(unreadable, "governing Git tree"),
+      "could not read",
+    );
 
     await git(dir, "rm", paths.one);
     await git(dir, "commit", "-q", "-m", "delete question", "--no-gpg-sign");
@@ -174,6 +198,10 @@ Deno.test("question blobs accept 0, 1, and 64 KiB exactly and retain authored by
 
 Deno.test("live question files must be regular tracked UTF-8 files within the byte limit", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "unindexed.md"), "No repository yet.");
+    const noIndex = await readLiveCheckpointQuestionFile(dir, "unindexed.md");
+    assert(!noIndex.ok);
+    assertEquals(noIndex.reason, "unreadable");
     await scaffoldFilePolicy(dir, "policy/question.md", "Tracked question.");
     const config = await loadConfig(dir);
     assertEquals(

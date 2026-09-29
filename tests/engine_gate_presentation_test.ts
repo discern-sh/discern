@@ -6,6 +6,7 @@ import { stripAnsi } from "discern-design-system/cli";
 import {
   createGateTtyProgress,
   type GateTtyProgress,
+  renderGateTtyStatus,
   renderGateTtyTable,
 } from "../src/engine/gate/gate_tty.ts";
 import {
@@ -901,4 +902,82 @@ Deno.test("Gate workflow tables preserve completed and cancelled outcomes", () =
   assertCases(cases, (row) => row.name, (row) => {
     row.check();
   });
+});
+
+Deno.test("Gate activity degrades safely when viewport observation or scheduling fails", async () => {
+  for (const fault of ["open", "sample", "close", "schedule"] as const) {
+    const writes: string[] = [];
+    let tick: (() => void) | undefined;
+    const progress = await createGateTtyProgress(
+      (value) => writes.push(value),
+      [GROUP],
+      {
+        width: 72,
+        terminal: {
+          ...terminal({ columns: 72, unicode: false }),
+          observeViewport: () => {
+            if (fault === "open") throw new Error("observer unavailable");
+            return {
+              sample: () => {
+                if (fault === "sample") throw new Error("viewport unavailable");
+                return { columns: 72, rows: 20 };
+              },
+              close: () => {
+                if (fault === "close") throw new Error("observer closed");
+              },
+            };
+          },
+        },
+        scheduler: {
+          repeat: (callback) => {
+            tick = callback;
+            if (fault === "schedule") throw new Error("scheduler unavailable");
+            return () => {};
+          },
+        },
+      },
+    );
+    const job = GROUP.jobs[0];
+    assert(job !== undefined);
+    progress.note("A stable fact");
+    progress.note("Needs attention", "warning");
+    progress.transient("Working");
+    progress.started(job);
+    progress.settled({
+      label: job.label,
+      status: "failed",
+      code: 1,
+      durationS: 0,
+      outputLines: 0,
+      errorLikeLines: 0,
+      cancelled: true,
+    });
+    progress.output({ kind: "partial", label: job.label, text: "" });
+    progress.replaceGroups([]);
+    progress.started(job);
+    progress.settled({
+      label: job.label,
+      status: "failed",
+      code: 1,
+      durationS: 0,
+      outputLines: 0,
+      errorLikeLines: 0,
+    });
+    tick?.();
+    await Promise.resolve();
+    await progress.abandon();
+    await progress.complete([]);
+    progress.note("after closure");
+    assertEquals(writes.join("").includes("after closure"), false);
+    assertEquals(progress.writeFailed(), true);
+    if (fault !== "schedule") {
+      assertStringIncludes(stripAnsi(writes.join("")), "A stable fact");
+    }
+  }
+  assertStringIncludes(
+    stripAnsi(
+      renderGateTtyStatus("Stopped", "failed", { width: 72, terminal: PLAIN }),
+    ),
+    "Stopped",
+  );
 });

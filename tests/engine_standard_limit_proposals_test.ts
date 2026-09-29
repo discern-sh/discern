@@ -500,6 +500,22 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
     );
     const before = await gitOut(worktree, "rev-parse", "HEAD");
 
+    const preview = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      reasonA,
+      "--dry-run",
+    ]);
+    assertEquals(preview.code, 0, preview.output);
+    assertTerminalTextIncludes(preview.output, "sources");
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), before);
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-target-runs"),
+      targetRuns,
+    );
+
     const proposed = await propose(worktree, reasonA);
     assertEquals(proposed.code, 0, proposed.output);
     const envelope = decodeCliResult(proposed.stdout, "standards propose");
@@ -1203,6 +1219,19 @@ Deno.test("proposal state from a newer discern refuses replacement, and recovery
       async () => {
         // The transaction refusal is read-only: recovery parses the journal
         // before any measurement, so it can run over the recovered state.
+        const configBefore = await Deno.readTextFile(
+          join(worktree, "discern.toml"),
+        );
+        await Deno.writeTextFile(transactionPath, "{broken");
+        const malformed = await propose(worktree, reason);
+        assertEquals(malformed.code, 1, malformed.output);
+        assertTerminalTextIncludes(malformed.stdout, "journal is malformed");
+        assertEquals(await Deno.readTextFile(transactionPath), "{broken");
+        assertEquals(
+          await Deno.readTextFile(join(worktree, "discern.toml")),
+          configBefore,
+        );
+        await Deno.remove(transactionPath);
         const newerTransaction = `${
           JSON.stringify({
             version: ON_DISK_FORMATS.standardLimitProposalTransaction.version +

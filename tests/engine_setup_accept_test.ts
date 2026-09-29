@@ -33,6 +33,7 @@ import {
   gitOut,
   runAgent,
   scaffoldEngine,
+  writeExecutable,
   writeNoteWriteFailingGit,
 } from "./engine_helpers.ts";
 import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
@@ -408,6 +409,97 @@ Deno.test("setup accept refuses read-only on one proved setup branch, then fast-
         assertEquals(await gitOut(dir, "status", "--porcelain"), "");
         // Return main to the branch point so the proved commit fast-forwards.
         await git(dir, "branch", "-f", "main", mainBefore);
+      },
+    );
+
+    await t.step(
+      "setup acceptance reports Git failures without consuming its Proof",
+      async () => {
+        const wrapper = join(dir, ".git", "accept-failing-git");
+        for (
+          const [pattern, error] of [
+            [" refs/heads/discern-setup^{commit} ", "precondition_failed"],
+            [" checkout --quiet main ", "checkout_failed"],
+            [" update-ref ", "apply_failed"],
+          ] as const
+        ) {
+          await writeExecutable(
+            wrapper,
+            [
+              "#!/bin/sh",
+              `case " $* " in *"${pattern}"*) echo 'injected Git failure' >&2; exit 1 ;; esac`,
+              'exec git "$@"',
+              "",
+            ].join("\n"),
+          );
+          const failed = await runAgent(dir, ["setup", "accept", "--json"], {
+            env: { GIT_BIN: wrapper },
+          });
+          assertEquals(failed.code, 1, failed.output);
+          assertEquals(
+            decodeCliResult(failed.stdout, "setup accept").error,
+            error,
+          );
+          assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
+          assertEquals(
+            await gitOut(dir, "rev-parse", SETUP_BRANCH),
+            proved.head,
+          );
+          assertEquals(
+            await gitOut(dir, "branch", "--show-current"),
+            SETUP_BRANCH,
+          );
+          assertEquals(await Deno.readTextFile(proofFile), proofBytes);
+        }
+        await writeExecutable(
+          wrapper,
+          [
+            "#!/bin/sh",
+            'case " $* " in *" refs/heads/discern-setup^{commit} "*)',
+            '  if [ -f "${0}.observed" ]; then',
+            `    git update-ref refs/heads/discern-setup ${mainBefore}`,
+            '  else touch "${0}.observed"; fi ;;',
+            "esac",
+            'exec git "$@"',
+            "",
+          ].join("\n"),
+        );
+        const moved = await runAgent(dir, ["setup", "accept", "--json"], {
+          env: { GIT_BIN: wrapper },
+        });
+        assertEquals(moved.code, 1, moved.output);
+        const movement = decodeCliResult(moved.stdout, "setup accept");
+        assertEquals(movement.error, "precondition_failed");
+        assertStringIncludes(movement.message ?? "", "moved after validation");
+        assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
+        assertEquals(await gitOut(dir, "rev-parse", SETUP_BRANCH), mainBefore);
+        await git(dir, "update-ref", `refs/heads/${SETUP_BRANCH}`, proved.head);
+        assertEquals(await Deno.readTextFile(proofFile), proofBytes);
+
+        await git(dir, "checkout", "--detach", "HEAD");
+        const detached = await runAgent(dir, ["setup", "accept", "--json"]);
+        assertEquals(detached.code, 1, detached.output);
+        assertEquals(
+          decodeCliResult(detached.stdout, "setup accept").error,
+          "detached_head",
+        );
+        const human = await runAgent(dir, ["setup", "accept"]);
+        assertEquals(human.code, 1, human.output);
+        assertTerminalTextIncludes(human.output, "detached HEAD");
+        await git(dir, "checkout", SETUP_BRANCH);
+        const preview = await runAgent(dir, [
+          "setup",
+          "accept",
+          "--dry-run",
+          "--json",
+        ]);
+        assertEquals(preview.code, 0, preview.output);
+        assertEquals(
+          decodeCliResult(preview.stdout, "setup accept").dry_run,
+          true,
+        );
+        assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
+        assertEquals(await Deno.readTextFile(proofFile), proofBytes);
       },
     );
 

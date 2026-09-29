@@ -6,6 +6,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { searchAgentPages, type SearchPage } from "../src/lib/docs_search.ts";
+import { SEARCH_FIELD_WEIGHT, searchPages } from "../src/lib/docs_search.js";
 import { assertNamedCases } from "./assert_cases.ts";
 
 /** Build a minimal searchable page while letting each ranking case override only its signal. */
@@ -180,4 +181,55 @@ Deno.test("docs search agent: page cases", () => {
       assertEquals(results[0]?.match, "complete");
     },
   });
+});
+
+Deno.test("browser matcher ranks every searchable field and requires every term", () => {
+  const pages = [
+    page("/title", { title: "Copper orchard" }),
+    page("/alias", { aliases: ["Copper orchard"] }),
+    page("/heading", { headings: [{ id: "orchard", text: "Copper orchard" }] }),
+    page("/code", { codeTerms: ["Copper orchard"] }),
+    page("/body", { body: "Copper orchard" }),
+    page("/incomplete", { title: "Copper" }),
+  ];
+  const results = searchPages(pages, "  COPPER   orchard ");
+  assertEquals(results.map((result) => result.page.route), [
+    "/title",
+    "/alias",
+    "/heading",
+    "/code",
+    "/body",
+  ]);
+  assertEquals(
+    results.map((result) => result.score),
+    Object.values(SEARCH_FIELD_WEIGHT).map((weight) => weight * 4),
+  );
+  assertEquals(results[2]?.heading, { id: "orchard", text: "Copper orchard" });
+  assertEquals(searchPages(pages, " "), []);
+  assertEquals(searchPages(pages, "absent"), []);
+  assertEquals(searchPages(pages, "copper orchard", 1), results.slice(0, 1));
+});
+
+Deno.test("browser matcher breaks ties by route and crops contextual snippets", () => {
+  const body = "prefix ".repeat(20) + "copper grows beside an orchard " +
+    "suffix ".repeat(30);
+  const pages = [page("/b", { body }), page("/a", { body })];
+  const results = searchPages(pages, "copper orchard");
+  assertEquals(results.map((result) => result.page.route), ["/a", "/b"]);
+  const snippet = results[0]?.snippet ?? "";
+  assert(snippet.startsWith("…") && snippet.endsWith("…"));
+  assertStringIncludes(snippet, "copper grows beside an orchard");
+  assert(snippet.length < body.length);
+  const description = "Description fallback";
+  assertEquals(
+    searchPages([page("/copper", { description })], "copper")[0]?.snippet,
+    description,
+  );
+  assertEquals(
+    searchPages(
+      [page("/x", { description: "Copper orchard" })],
+      "copper orchard",
+    )[0]?.snippet,
+    "Copper orchard",
+  );
 });

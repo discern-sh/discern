@@ -1,12 +1,19 @@
 /** Plan/apply coverage for generic in-place terminal animation playback. */
 
-import { assertEquals, assertRejects, assertThrows } from "@std/assert";
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import {
   applyTerminalPlayback,
   planTerminalPlayback,
   type TerminalAnimationScene,
   type TerminalPlaybackPlan,
 } from "../src/lib/terminal_playback.ts";
+
+import {
+  abortableWait,
+  runTerminalPlayback,
+  terminalPlaybackPort,
+} from "../src/lib/terminal_animation.ts";
+import { ManualScheduler } from "./manual_scheduler.ts";
 
 const SCENES: readonly TerminalAnimationScene[] = [
   {
@@ -326,4 +333,62 @@ Deno.test("a terminal resize settles below the live viewport without cursor-up",
 
   assertEquals(writes.filter((value) => value.includes("\x1b[")).length, 0);
   assertEquals(writes.slice(-2), ["\n", "static\n"]);
+});
+
+Deno.test("terminal animation waits settle or cancel without leaving scheduled work", async () => {
+  const scheduler = new ManualScheduler();
+  const controller = new AbortController();
+  const wait = abortableWait(25, controller.signal, scheduler);
+  assertEquals(scheduler.pending.size, 1);
+  scheduler.fire(25);
+  await wait;
+  controller.abort();
+  assertEquals(scheduler.pending.size, 0);
+
+  const interrupted = new AbortController();
+  const pending = abortableWait(50, interrupted.signal, scheduler);
+  const rejected = assertRejects(() => pending, DOMException, "interrupted");
+  interrupted.abort();
+  await rejected;
+  assertEquals(scheduler.pending.size, 0);
+  await assertRejects(
+    () => abortableWait(50, interrupted.signal, scheduler),
+    DOMException,
+    "interrupted",
+  );
+  assertEquals(scheduler.pending.size, 0);
+
+  const writes: string[] = [];
+  const port = terminalPlaybackPort((value) => writes.push(value), scheduler);
+  port.write("frame");
+  const portWait = port.wait(10, new AbortController().signal);
+  scheduler.fire(10);
+  await portWait;
+  assertEquals(writes, ["frame"]);
+  assert(port.terminalSize().columns > 0);
+  assert(port.terminalCapabilities?.() !== undefined);
+});
+
+Deno.test("terminal animation owns signal listeners through success and output failure", async () => {
+  const writes: string[] = [];
+  await runTerminalPlayback(fixturePlan(), {
+    write: (value) => writes.push(value),
+    wait: () => Promise.resolve(),
+    terminalSize: STABLE_TERMINAL_SIZE,
+  });
+  assert(writes.join("").includes("static"));
+  const failure = new Error("output unavailable");
+  const caught = await assertRejects(
+    () =>
+      runTerminalPlayback(fixturePlan(), {
+        write: () => {
+          throw failure;
+        },
+        wait: () => Promise.resolve(),
+        terminalSize: STABLE_TERMINAL_SIZE,
+      }),
+    Error,
+    "output unavailable",
+  );
+  assertEquals(caught, failure);
 });

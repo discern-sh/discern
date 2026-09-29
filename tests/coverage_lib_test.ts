@@ -19,6 +19,12 @@ import {
 import { fromFileUrl, join, toFileUrl } from "@std/path";
 import { assertNamedCases } from "./assert_cases.ts";
 
+import { MODULE_COVERAGE_EXCEPTIONS } from "../scripts/module_coverage_exceptions.ts";
+
+Deno.test("every product module meets the coverage floor without exceptions", () => {
+  assertEquals<number>(MODULE_COVERAGE_EXCEPTIONS.length, 0);
+});
+
 const ROOT = "/repo/checkout";
 
 /** Render one LCOV record from explicit per-line execution counts. */

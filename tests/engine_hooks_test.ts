@@ -534,7 +534,29 @@ Deno.test("hook WorktreeRemove: a missing worktree path is a clean no-op", async
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runHook(dir, await hookCommand(dir, "WorktreeRemove"), {});
+    const remove = await hookCommand(dir, "WorktreeRemove");
+    const r = await runHook(dir, remove, {});
     assertEquals(r.code, 0, r.stderr);
+    const invalid = await runHook(dir, remove, null);
+    assertEquals(invalid.code, 0, invalid.stderr);
+    assertTerminalTextIncludes(invalid.stderr, "not a JSON object");
+    const gone = await runHook(dir, remove, {
+      worktree_path: join(dir, "gone"),
+    });
+    assertEquals(gone.code, 0, gone.stderr);
+    assertTerminalTextIncludes(gone.stderr, "teardown did not complete");
+    const create = await hookCommand(dir, "WorktreeCreate");
+    const malformed = await runHook(dir, create, []);
+    assertEquals(malformed.code, 1);
+    assertTerminalTextIncludes(malformed.stderr, "Could not parse");
+    const missingConfig = await runHook(dir, create, {
+      name: "invalid",
+      cwd: join(dir, "gone"),
+    });
+    assertEquals(missingConfig.code, 1);
+    assertTerminalTextIncludes(
+      missingConfig.stderr,
+      "Could not read discern.toml",
+    );
   });
 });

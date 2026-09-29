@@ -393,6 +393,16 @@ Deno.test("upgrade (human) reports the migrations it applied", async () => {
         ctx.note("wrote the MIGRATED marker");
       },
     }];
+    for (const mode of ["check", "dryRun"] as const) {
+      const preview = await captureUpgrade(dir, {
+        registry: chain,
+        json: false,
+        [mode]: true,
+      });
+      assertEquals(preview.code, mode === "check" ? 1 : 0);
+      assertTerminalTextIncludes(preview.stderr, "a synthetic smoke step");
+      assertEquals(await targetExists(join(dir, "MIGRATED")), false);
+    }
     const { code, err } = await upgradeHumanIn(dir, chain);
     assertEquals(code, 0, err);
     // The human summary announces the applied count and the step description.
@@ -404,14 +414,50 @@ Deno.test("upgrade (human) reports the migrations it applied", async () => {
   });
 });
 
-Deno.test("upgrade (human) closes with the restart-your-agents hint, even with nothing to migrate", async () => {
+Deno.test("upgrade human previews describe all pending file reconciliations without applying them", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    // A plain apply with no pending migrations still recompiles and re-stamps, and
-    // still just replaced the binary from the user's point of view — so the restart
-    // hint is unconditional, not gated on a migration having run.
-    const { code, err } = await upgradeHumanIn(dir);
-    assertEquals(code, 0, err);
-    assertStringIncludes(err, "restart it so its discern MCP server reloads");
+    const configPath = join(dir, "discern.toml");
+    const editor = new TomlEditor(await Deno.readTextFile(configPath));
+    editor.deleteKey("meta.managed_version");
+    editor.deleteKey("scripts.dir");
+    await Deno.writeTextFile(configPath, editor.toString());
+    await Deno.remove(join(dir, ".gitignore"));
+    await Deno.remove(join(dir, ".gitattributes"));
+    const before = await Deno.readTextFile(configPath);
+    for (const mode of ["check", "dryRun"] as const) {
+      const preview = await captureUpgrade(dir, { json: false, [mode]: true });
+      assertEquals(preview.code, mode === "check" ? 1 : 0);
+      for (
+        const expected of [
+          "managed",
+          "scripts.dir",
+          ".gitignore",
+          ".gitattributes",
+        ]
+      ) {
+        assertTerminalTextIncludes(preview.stderr, expected);
+      }
+      assertEquals(await Deno.readTextFile(configPath), before);
+      assertEquals(await targetExists(join(dir, ".gitignore")), false);
+      assertEquals(await targetExists(join(dir, ".gitattributes")), false);
+    }
+    const applied = await captureUpgrade(dir, { json: false });
+    assertEquals(applied.code, 0);
+    assertTerminalTextIncludes(
+      applied.stderr,
+      "restart it so its discern MCP server reloads",
+    );
+    for (
+      const expected of [
+        "config scaffold reconciled",
+        "gitignore block reconciled",
+        "gitattributes fragment reconciled",
+      ]
+    ) {
+      assertTerminalTextIncludes(applied.stderr, expected);
+    }
+    const current = await captureUpgrade(dir, { json: false, check: true });
+    assertEquals(current.code, 0);
   });
 });
