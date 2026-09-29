@@ -933,7 +933,7 @@
 # Keep this standard as the producer for lint_exclusions as well.
 [standards.lint_suppressions]
   direction = "down"
-  limit = 6
+  limit = 0
   run = "deno task lint-suppressions"
   inputs = [
     "*.ts",
