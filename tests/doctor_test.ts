@@ -15,6 +15,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { measureText, stripAnsi } from "discern-design-system/cli";
 import {
@@ -1129,13 +1131,15 @@ Deno.test("doctor schema, job, and command-probe checks run over pristine copies
       "doctor: explicitly inapplicable lifecycles do not trigger a known-job warning",
       async (dir) => {
         await removeTidyFormatJob(dir, true);
-        for (const name of Object.keys(KNOWN_JOBS)) {
-          const marked = await runCli(
-            ["config", "set-job", name, "--not-applicable"],
-            dir,
-          );
-          assertEquals(marked.code, 0, marked.stderr);
-        }
+        const path = join(dir, "discern.toml");
+        const editor = new TomlEditor(await Deno.readTextFile(path));
+        const knownJobNames = Object.keys(KNOWN_JOBS);
+        editor.setStringArray("setup.not_applicable", knownJobNames);
+        await writeDiscernToml(path, editor.toString());
+        assertEquals(
+          (await loadConfig(dir)).setup.not_applicable,
+          knownJobNames,
+        );
 
         const { code, payload } = await runDoctorJson(dir);
         assertEquals(code, 0, JSON.stringify(payload.data.checks));
