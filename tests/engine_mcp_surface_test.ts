@@ -4,6 +4,7 @@
  * Guards: claim:agent-as-operator
  */
 
+import { assertCases } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl } from "@std/path";
 import { z } from "@zod/zod";
@@ -55,17 +56,336 @@ function mcpSurface(): string {
   return parts.join("\n\n");
 }
 
-Deno.test("mcp surface: descriptions are target-generic and carry no startup interpolation", () => {
-  const surface = mcpSurface();
-  assert(!surface.includes("{{"), surface);
-  for (const name of ["discern_start", "discern_update", "discern_accept"]) {
-    const tool = TOOLS.find((candidate) => candidate.name === name);
-    assert(tool !== undefined, `${name} is not registered`);
-    assertStringIncludes(
-      tool.description,
-      "selected project's configured trunk",
-    );
-  }
+Deno.test("MCP tool descriptions and inputs preserve the registered protocol contract", () => {
+  const cases = [
+    {
+      name:
+        "mcp surface: descriptions are target-generic and carry no startup interpolation",
+      check: () => {
+        const surface = mcpSurface();
+        assert(!surface.includes("{{"), surface);
+        for (
+          const name of ["discern_start", "discern_update", "discern_accept"]
+        ) {
+          const tool = TOOLS.find((candidate) => candidate.name === name);
+          assert(tool !== undefined, `${name} is not registered`);
+          assertStringIncludes(
+            tool.description,
+            "selected project's configured trunk",
+          );
+        }
+      },
+    },
+    {
+      name:
+        "mcp surface: every advertised tool description stays within its byte budget",
+      check: () => {
+        for (const profile of ["long-client", "strict-client"] as const) {
+          for (const tool of TOOLS) {
+            const description = toolDescriptionForProfile(tool, profile);
+            const bytes = new TextEncoder().encode(description).length;
+            assert(
+              bytes <= MCP_TOOL_DESCRIPTION_BYTE_LIMIT,
+              `${profile} ${tool.name}: ${bytes} bytes exceeds ${MCP_TOOL_DESCRIPTION_BYTE_LIMIT}`,
+            );
+            if (
+              profile === "strict-client" &&
+              tool.annotations?.readOnlyHint !== true
+            ) {
+              assertStringIncludes(description, "60 seconds", tool.name);
+              assertStringIncludes(
+                description,
+                "discern done --markdown",
+                tool.name,
+              );
+            }
+          }
+        }
+      },
+    },
+    {
+      name:
+        "mcp surface: every described data field exists in that tool's output schema",
+      check: () => {
+        const failures: string[] = [];
+        for (const tool of TOOLS) {
+          assert(
+            tool.outputSchema !== undefined,
+            `${tool.name} needs an output schema`,
+          );
+          const schema = asObject(z.toJSONSchema(tool.outputSchema));
+          const properties = asObject(schema?.properties);
+          const dataFields = schemaObjectProperties(properties?.data);
+          const described = new Set(
+            [...toolProse(tool).matchAll(/\bdata\.([a-z][a-z0-9_]*)\b/g)]
+              .flatMap((match) => match[1] === undefined ? [] : [match[1]]),
+          );
+          for (const field of described) {
+            if (!dataFields.has(field)) {
+              failures.push(`${tool.name}: data.${field}`);
+            }
+          }
+        }
+        assertEquals(failures, []);
+      },
+    },
+    {
+      name:
+        "mcp surface: done declarations preserve their deliberate asymmetry",
+      check: () => {
+        const done = TOOLS.find((tool) => tool.name === "discern_done");
+        assert(done !== undefined);
+        const schema = asObject(
+          z.toJSONSchema(z.strictObject(done.inputSchema)),
+        );
+        const properties = asObject(schema?.properties);
+        assertEquals(asObject(properties?.met)?.type, "array");
+        const unmet = asObject(properties?.unmet);
+        assertEquals(unmet?.type, "object");
+        assertEquals(unmet?.additionalProperties, false);
+        assertEquals(unmet?.required, ["id", "why"]);
+      },
+    },
+    {
+      name: "mcp surface: confirmed belongs only to consent-gated tools",
+      check: () => {
+        const consentCommands = new Set(
+          CONSENT_GATED_VERBS.filter((entry) =>
+            new Set<string>(entry.surfaces).has("mcp")
+          )
+            // MCP actions share the tool for their owning top-level verb.
+            .map((entry) => entry.command.split(" ")[0]),
+        );
+        const carrying = TOOLS.filter((tool) =>
+          inputKeys(tool).includes("confirmed")
+        )
+          .map((tool) => verbOf(tool.name));
+        assertEquals(new Set(carrying), consentCommands);
+      },
+    },
+    {
+      name: "mcp surface: retired compatibility prose stays absent",
+      check: () => {
+        const residue =
+          /\b(?:compatibility alias|deprecated|existing callers)\b/iu;
+        const offenders = TOOLS.flatMap((tool) =>
+          residue.test(toolProse(tool)) ? [tool.name] : []
+        );
+        assertEquals(offenders, []);
+      },
+    },
+    {
+      name:
+        "mcp surface: every argument-shaped token names a declared tool input",
+      check: () => {
+        const envelope = new Set<string>(ENVELOPE_KEYS);
+        const offenders: string[] = [];
+        const check = (
+          source: string,
+          text: string,
+          allowed: ReadonlySet<string>,
+        ): void => {
+          for (const name of argumentTokens(text)) {
+            if (!allowed.has(name) && !envelope.has(name)) {
+              offenders.push(
+                `${source} names "${name}" — no registered tool declares it, so a ` +
+                  `strict-schema call carrying it is refused`,
+              );
+            }
+          }
+        };
+
+        // Per-tool prose is held to the tool's OWN schema — quoting another tool's
+        // argument inside this tool's description would mislead just the same.
+        const union = new Set<string>();
+        for (const tool of TOOLS) {
+          const own = new Set(inputKeys(tool));
+          for (const key of own) union.add(key);
+          check(tool.name, toolProse(tool), own);
+        }
+
+        // The instructions block and the start hint speak about the whole tool set.
+        check("instructions", buildInstructions(), union);
+        check("start hint", mcpStartHint("/project"), union);
+
+        assert(
+          offenders.length === 0,
+          `MCP prose invents arguments the strict input schemas reject:\n` +
+            offenders.join("\n"),
+        );
+      },
+    },
+    {
+      name:
+        "mcp surface: every project-selecting path explains cross-project resolution",
+      check: () => {
+        const pathTools = TOOLS.filter((tool) =>
+          inputKeys(tool).includes("path")
+        );
+        assert(
+          pathTools.length > 0,
+          "expected project-operating tools with `path`",
+        );
+        for (const tool of pathTools) {
+          const field = tool.inputSchema?.path as z.ZodType | undefined;
+          const description = field?.description?.toLowerCase() ?? "";
+          assertStringIncludes(description, "absolute", tool.name);
+          assertStringIncludes(description, "project", tool.name);
+          assertStringIncludes(description, "omit", tool.name);
+          assert(
+            description.includes("worktree") ||
+              description.includes("repository"),
+            `${tool.name} must explain that path can select another checkout`,
+          );
+          const prose = toolProse(tool).toLowerCase();
+          assert(
+            !prose.includes("server runs in") &&
+              !prose.includes("cannot reach another"),
+            `${tool.name} contradicts its cross-project path input`,
+          );
+        }
+      },
+    },
+    {
+      name: "mcp surface: map and docs expose the same search funnel",
+      check: () => {
+        for (const name of ["discern_map", "discern_docs"]) {
+          const tool = TOOLS.find((candidate) => candidate.name === name);
+          assert(tool !== undefined, `${name} is not registered`);
+          assertEquals(inputKeys(tool).includes("search"), true, name);
+          assertEquals(inputKeys(tool).includes("target"), true, name);
+          const prose = toolProse(tool);
+          assertStringIncludes(prose, "canonical target", name);
+          assertStringIncludes(prose, "not recorded", name);
+        }
+
+        const docs = TOOLS.find((candidate) =>
+          candidate.name === "discern_docs"
+        );
+        const map = TOOLS.find((candidate) => candidate.name === "discern_map");
+        assert(docs !== undefined);
+        assert(map !== undefined);
+        for (
+          const phrase of [
+            "complete published product manual",
+            "full match count",
+            "reader-visible Markdown",
+            "protected map tiers",
+          ]
+        ) {
+          assertStringIncludes(docs.description, phrase);
+        }
+        for (
+          const phrase of [
+            "configured project map",
+            "full index",
+            "distinct from discern_docs",
+          ]
+        ) {
+          assertStringIncludes(map.description, phrase);
+        }
+      },
+    },
+    {
+      name: "mcp surface: done exposes the explicit CI report mode",
+      check: () => {
+        const tool = TOOLS.find((candidate) =>
+          candidate.name === "discern_done"
+        );
+        assert(tool !== undefined, "discern_done is not registered");
+        assertEquals(inputKeys(tool).includes("ci"), true);
+        const schema = JSON.stringify(
+          z.toJSONSchema(z.object(tool.inputSchema)),
+        );
+        assertStringIncludes(schema, "report checkpoint questions");
+        assertStringIncludes(schema, "cannot be accepted");
+      },
+    },
+    {
+      name: "renamed MCP tools retain the routing vocabulary agents need",
+      check: () => {
+        const anchors: Record<string, readonly string[]> = {
+          discern_done: [
+            "format",
+            "lint",
+            "type-check",
+            "tests",
+            "may rewrite files",
+          ],
+          discern_update: [
+            "selected project's configured trunk",
+            "discern_accept",
+            "discern_refresh",
+          ],
+          discern_impact: ["scopes", "named regions of the repository"],
+          discern_map: ["regions digest", "freshness facts"],
+          discern_standards: [
+            "Select action: measure",
+            "every simultaneous breach",
+            "technical justification only",
+          ],
+          discern_improvement: [
+            "ranked next action",
+            "health audit",
+            "open qualitative reviews",
+          ],
+        };
+        for (const [name, expected] of Object.entries(anchors)) {
+          const tool = TOOLS.find((candidate) => candidate.name === name);
+          assert(tool !== undefined, `${name} is not registered`);
+          for (const phrase of expected) {
+            assertStringIncludes(tool.description, phrase);
+          }
+        }
+
+        const standards = TOOLS.find((tool) =>
+          tool.name === "discern_standards"
+        );
+        assert(standards !== undefined);
+        assertEquals(inputKeys(standards).includes("names"), true);
+        assertEquals(inputKeys(standards).includes("pin_names"), false);
+        assert(
+          !/ratchet/i.test(standards.description),
+          "standards description must route without the retired noun",
+        );
+        const coupling = TOOLS.find((tool) => tool.name === "discern_coupling");
+        assertEquals(coupling?.title, "Show co-change coupling");
+      },
+    },
+    {
+      name:
+        "acceptance describes verified grants without requiring a new conversation request",
+      check: () => {
+        const accept = TOOLS.find((tool) => tool.name === "discern_accept");
+        assert(accept !== undefined);
+        assertStringIncludes(
+          accept.description,
+          "explicit owner consent or machine-verified authority",
+        );
+        assert(
+          !/only when the (?:user|owner) explicitly asks/i.test(
+            accept.description,
+          ),
+        );
+        assertStringIncludes(
+          accept.description,
+          "the call records the submission",
+        );
+        assertStringIncludes(
+          accept.description,
+          "A trunk that moved after the Proof is composed and re-proven in a " +
+            "disposable integration worktree",
+        );
+        assertStringIncludes(
+          accept.description,
+          "Recorded grants never cover a checkpoint variance or standard proposal",
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("mcp surface: instructions lead with a complete Codex routing paragraph", () => {
@@ -91,25 +411,6 @@ Deno.test("mcp surface: instructions lead with a complete Codex routing paragrap
 
   const tokens = new Set(instructions.match(/\bdiscern_[a-z_]+\b/g) ?? []);
   assertEquals(tokens, new Set(TOOLS.map((tool) => tool.name)));
-});
-
-Deno.test("mcp surface: every advertised tool description stays within its byte budget", () => {
-  for (const profile of ["long-client", "strict-client"] as const) {
-    for (const tool of TOOLS) {
-      const description = toolDescriptionForProfile(tool, profile);
-      const bytes = new TextEncoder().encode(description).length;
-      assert(
-        bytes <= MCP_TOOL_DESCRIPTION_BYTE_LIMIT,
-        `${profile} ${tool.name}: ${bytes} bytes exceeds ${MCP_TOOL_DESCRIPTION_BYTE_LIMIT}`,
-      );
-      if (
-        profile === "strict-client" && tool.annotations?.readOnlyHint !== true
-      ) {
-        assertStringIncludes(description, "60 seconds", tool.name);
-        assertStringIncludes(description, "discern done --markdown", tool.name);
-      }
-    }
-  }
 });
 
 /**
@@ -205,293 +506,105 @@ function schemaObjectProperties(schema: unknown): Set<string> {
   return found;
 }
 
-Deno.test("mcp surface: every described data field exists in that tool's output schema", () => {
-  const failures: string[] = [];
-  for (const tool of TOOLS) {
-    assert(
-      tool.outputSchema !== undefined,
-      `${tool.name} needs an output schema`,
-    );
-    const schema = asObject(z.toJSONSchema(tool.outputSchema));
-    const properties = asObject(schema?.properties);
-    const dataFields = schemaObjectProperties(properties?.data);
-    const described = new Set(
-      [...toolProse(tool).matchAll(/\bdata\.([a-z][a-z0-9_]*)\b/g)]
-        .flatMap((match) => match[1] === undefined ? [] : [match[1]]),
-    );
-    for (const field of described) {
-      if (!dataFields.has(field)) failures.push(`${tool.name}: data.${field}`);
-    }
-  }
-  assertEquals(failures, []);
-});
-
-Deno.test("mcp surface: every advertised output schema widens each open vocabulary to a string and keeps each closed one enumerated", () => {
-  const offenders: string[] = [];
-  for (const contract of MCP_RESULT_CONTRACTS) {
-    const tool = TOOLS.find((candidate) => candidate.name === contract.mcpTool);
-    assert(tool !== undefined, `${contract.mcpTool} is not registered`);
-    const advertised = new Map(
-      jsonObjects(z.toJSONSchema(tool.outputSchema)).map((
-        { path, value },
-      ) => [path, value]),
-    );
-    const stamped = z.toJSONSchema(contract.schema, {
-      override: stampResultVocabulary,
-    });
-    for (const { path, value } of jsonObjects(stamped)) {
-      const key = value[RESULT_VOCABULARY_KEYWORD];
-      if (typeof key !== "string") continue;
-      const node = advertised.get(path);
-      const where = `${tool.name} ${path} (${key})`;
-      if (node === undefined) {
-        offenders.push(`${where}: missing from the advertised schema`);
-      } else if (isOpenVocabularyKey(key)) {
-        if (node.type !== "string" || node.enum !== undefined) {
-          offenders.push(`${where}: open vocabulary is not a plain string`);
+Deno.test("MCP advertised output schemas preserve open and closed vocabularies", () => {
+  const cases = [
+    {
+      name:
+        "mcp surface: every advertised output schema widens each open vocabulary to a string and keeps each closed one enumerated",
+      check: () => {
+        const offenders: string[] = [];
+        for (const contract of MCP_RESULT_CONTRACTS) {
+          const tool = TOOLS.find((candidate) =>
+            candidate.name === contract.mcpTool
+          );
+          assert(tool !== undefined, `${contract.mcpTool} is not registered`);
+          const advertised = new Map(
+            jsonObjects(z.toJSONSchema(tool.outputSchema)).map((
+              { path, value },
+            ) => [path, value]),
+          );
+          const stamped = z.toJSONSchema(contract.schema, {
+            override: stampResultVocabulary,
+          });
+          for (const { path, value } of jsonObjects(stamped)) {
+            const key = value[RESULT_VOCABULARY_KEYWORD];
+            if (typeof key !== "string") continue;
+            const node = advertised.get(path);
+            const where = `${tool.name} ${path} (${key})`;
+            if (node === undefined) {
+              offenders.push(`${where}: missing from the advertised schema`);
+            } else if (isOpenVocabularyKey(key)) {
+              if (node.type !== "string" || node.enum !== undefined) {
+                offenders.push(
+                  `${where}: open vocabulary is not a plain string`,
+                );
+              }
+            } else if (isDecisionVocabularyKey(key)) {
+              if (!Array.isArray(node.enum)) {
+                offenders.push(`${where}: closed vocabulary lost its enum`);
+              }
+            }
+          }
         }
-      } else if (isDecisionVocabularyKey(key)) {
-        if (!Array.isArray(node.enum)) {
-          offenders.push(`${where}: closed vocabulary lost its enum`);
-        }
-      }
-    }
-  }
-  assertEquals(offenders, [], offenders.join("\n"));
-});
-
-Deno.test("mcp surface: a status result carrying an unknown open member read from a durable note validates against the advertised schema", () => {
-  const status = TOOLS.find((tool) => tool.name === "discern_status");
-  assert(status !== undefined);
-  const recorded = TolerantProofSchema.parse({
-    branch: "agent/review",
-    trunk: "main",
-    head: "123456789abc",
-    files_total: 1,
-    insertions: 1,
-    deletions: 0,
-    line: "Proof line.",
-    markdown: "Proof page.",
-    checkpoint_drops: [{
-      scope: "policy",
-      checkpoint: null,
-      mode: null,
-      policy_commit: "a".repeat(40),
-      reason: "future_reason",
-      account: "a reason a later writer registered",
-    }],
-  });
-  const result = projectStatusResult({
-    ok: true,
-    verb: "status",
-    data: {
-      location: "worktree",
-      root: "/repo",
-      worktree: null,
-      git: null,
-      standards: [],
-      gate_proof: {
-        status: "honored",
-        proof_data: canonicalProof(recorded),
+        assertEquals(offenders, [], offenders.join("\n"));
       },
     },
-  }, { wireProjection: "full" });
-  assert(
-    !StatusOutputSchema.safeParse(result).success,
-    "the strict writer schema names only the members this build knows",
-  );
-  const advertised = status.outputSchema.safeParse(result);
-  assert(
-    advertised.success,
-    `the advertised schema must carry the member through: ${
-      advertised.success ? "" : advertised.error.message
-    }`,
-  );
-});
-
-Deno.test("mcp surface: done declarations preserve their deliberate asymmetry", () => {
-  const done = TOOLS.find((tool) => tool.name === "discern_done");
-  assert(done !== undefined);
-  const schema = asObject(z.toJSONSchema(z.strictObject(done.inputSchema)));
-  const properties = asObject(schema?.properties);
-  assertEquals(asObject(properties?.met)?.type, "array");
-  const unmet = asObject(properties?.unmet);
-  assertEquals(unmet?.type, "object");
-  assertEquals(unmet?.additionalProperties, false);
-  assertEquals(unmet?.required, ["id", "why"]);
-});
-
-Deno.test("mcp surface: confirmed belongs only to consent-gated tools", () => {
-  const consentCommands = new Set(
-    CONSENT_GATED_VERBS.filter((entry) =>
-      new Set<string>(entry.surfaces).has("mcp")
-    )
-      // MCP actions share the tool for their owning top-level verb.
-      .map((entry) => entry.command.split(" ")[0]),
-  );
-  const carrying = TOOLS.filter((tool) => inputKeys(tool).includes("confirmed"))
-    .map((tool) => verbOf(tool.name));
-  assertEquals(new Set(carrying), consentCommands);
-});
-
-Deno.test("mcp surface: retired compatibility prose stays absent", () => {
-  const residue = /\b(?:compatibility alias|deprecated|existing callers)\b/iu;
-  const offenders = TOOLS.flatMap((tool) =>
-    residue.test(toolProse(tool)) ? [tool.name] : []
-  );
-  assertEquals(offenders, []);
-});
-
-Deno.test("mcp surface: every argument-shaped token names a declared tool input", () => {
-  const envelope = new Set<string>(ENVELOPE_KEYS);
-  const offenders: string[] = [];
-  const check = (
-    source: string,
-    text: string,
-    allowed: ReadonlySet<string>,
-  ): void => {
-    for (const name of argumentTokens(text)) {
-      if (!allowed.has(name) && !envelope.has(name)) {
-        offenders.push(
-          `${source} names "${name}" — no registered tool declares it, so a ` +
-            `strict-schema call carrying it is refused`,
+    {
+      name:
+        "mcp surface: a status result carrying an unknown open member read from a durable note validates against the advertised schema",
+      check: () => {
+        const status = TOOLS.find((tool) => tool.name === "discern_status");
+        assert(status !== undefined);
+        const recorded = TolerantProofSchema.parse({
+          branch: "agent/review",
+          trunk: "main",
+          head: "123456789abc",
+          files_total: 1,
+          insertions: 1,
+          deletions: 0,
+          line: "Proof line.",
+          markdown: "Proof page.",
+          checkpoint_drops: [{
+            scope: "policy",
+            checkpoint: null,
+            mode: null,
+            policy_commit: "a".repeat(40),
+            reason: "future_reason",
+            account: "a reason a later writer registered",
+          }],
+        });
+        const result = projectStatusResult({
+          ok: true,
+          verb: "status",
+          data: {
+            location: "worktree",
+            root: "/repo",
+            worktree: null,
+            git: null,
+            standards: [],
+            gate_proof: {
+              status: "honored",
+              proof_data: canonicalProof(recorded),
+            },
+          },
+        }, { wireProjection: "full" });
+        assert(
+          !StatusOutputSchema.safeParse(result).success,
+          "the strict writer schema names only the members this build knows",
         );
-      }
-    }
-  };
-
-  // Per-tool prose is held to the tool's OWN schema — quoting another tool's
-  // argument inside this tool's description would mislead just the same.
-  const union = new Set<string>();
-  for (const tool of TOOLS) {
-    const own = new Set(inputKeys(tool));
-    for (const key of own) union.add(key);
-    check(tool.name, toolProse(tool), own);
-  }
-
-  // The instructions block and the start hint speak about the whole tool set.
-  check("instructions", buildInstructions(), union);
-  check("start hint", mcpStartHint("/project"), union);
-
-  assert(
-    offenders.length === 0,
-    `MCP prose invents arguments the strict input schemas reject:\n` +
-      offenders.join("\n"),
-  );
-});
-
-Deno.test("mcp surface: every project-selecting path explains cross-project resolution", () => {
-  const pathTools = TOOLS.filter((tool) => inputKeys(tool).includes("path"));
-  assert(pathTools.length > 0, "expected project-operating tools with `path`");
-  for (const tool of pathTools) {
-    const field = tool.inputSchema?.path as z.ZodType | undefined;
-    const description = field?.description?.toLowerCase() ?? "";
-    assertStringIncludes(description, "absolute", tool.name);
-    assertStringIncludes(description, "project", tool.name);
-    assertStringIncludes(description, "omit", tool.name);
-    assert(
-      description.includes("worktree") || description.includes("repository"),
-      `${tool.name} must explain that path can select another checkout`,
-    );
-    const prose = toolProse(tool).toLowerCase();
-    assert(
-      !prose.includes("server runs in") &&
-        !prose.includes("cannot reach another"),
-      `${tool.name} contradicts its cross-project path input`,
-    );
-  }
-});
-
-Deno.test("mcp surface: map and docs expose the same search funnel", () => {
-  for (const name of ["discern_map", "discern_docs"]) {
-    const tool = TOOLS.find((candidate) => candidate.name === name);
-    assert(tool !== undefined, `${name} is not registered`);
-    assertEquals(inputKeys(tool).includes("search"), true, name);
-    assertEquals(inputKeys(tool).includes("target"), true, name);
-    const prose = toolProse(tool);
-    assertStringIncludes(prose, "canonical target", name);
-    assertStringIncludes(prose, "not recorded", name);
-  }
-
-  const docs = TOOLS.find((candidate) => candidate.name === "discern_docs");
-  const map = TOOLS.find((candidate) => candidate.name === "discern_map");
-  assert(docs !== undefined);
-  assert(map !== undefined);
-  for (
-    const phrase of [
-      "complete published product manual",
-      "full match count",
-      "reader-visible Markdown",
-      "protected map tiers",
-    ]
-  ) {
-    assertStringIncludes(docs.description, phrase);
-  }
-  for (
-    const phrase of [
-      "configured project map",
-      "full index",
-      "distinct from discern_docs",
-    ]
-  ) {
-    assertStringIncludes(map.description, phrase);
-  }
-});
-
-Deno.test("mcp surface: done exposes the explicit CI report mode", () => {
-  const tool = TOOLS.find((candidate) => candidate.name === "discern_done");
-  assert(tool !== undefined, "discern_done is not registered");
-  assertEquals(inputKeys(tool).includes("ci"), true);
-  const schema = JSON.stringify(z.toJSONSchema(z.object(tool.inputSchema)));
-  assertStringIncludes(schema, "report checkpoint questions");
-  assertStringIncludes(schema, "cannot be accepted");
-});
-
-Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
-  const anchors: Record<string, readonly string[]> = {
-    discern_done: [
-      "format",
-      "lint",
-      "type-check",
-      "tests",
-      "may rewrite files",
-    ],
-    discern_update: [
-      "selected project's configured trunk",
-      "discern_accept",
-      "discern_refresh",
-    ],
-    discern_impact: ["scopes", "named regions of the repository"],
-    discern_map: ["regions digest", "freshness facts"],
-    discern_standards: [
-      "Select action: measure",
-      "every simultaneous breach",
-      "technical justification only",
-    ],
-    discern_improvement: [
-      "ranked next action",
-      "health audit",
-      "open qualitative reviews",
-    ],
-  };
-  for (const [name, expected] of Object.entries(anchors)) {
-    const tool = TOOLS.find((candidate) => candidate.name === name);
-    assert(tool !== undefined, `${name} is not registered`);
-    for (const phrase of expected) {
-      assertStringIncludes(tool.description, phrase);
-    }
-  }
-
-  const standards = TOOLS.find((tool) => tool.name === "discern_standards");
-  assert(standards !== undefined);
-  assertEquals(inputKeys(standards).includes("names"), true);
-  assertEquals(inputKeys(standards).includes("pin_names"), false);
-  assert(
-    !/ratchet/i.test(standards.description),
-    "standards description must route without the retired noun",
-  );
-  const coupling = TOOLS.find((tool) => tool.name === "discern_coupling");
-  assertEquals(coupling?.title, "Show co-change coupling");
+        const advertised = status.outputSchema.safeParse(result);
+        assert(
+          advertised.success,
+          `the advertised schema must carry the member through: ${
+            advertised.success ? "" : advertised.error.message
+          }`,
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("mcp server version imports DISCERN_VERSION instead of hardcoding semver", async () => {
@@ -505,31 +618,6 @@ Deno.test("mcp server version imports DISCERN_VERSION instead of hardcoding semv
   assert(
     !/["'`]\d+\.\d+\.\d+["'`]/.test(source),
     "src/engine/mcp/server.ts must not contain a hardcoded semver literal; import DISCERN_VERSION instead",
-  );
-});
-
-Deno.test("acceptance describes verified grants without requiring a new conversation request", () => {
-  const accept = TOOLS.find((tool) => tool.name === "discern_accept");
-  assert(accept !== undefined);
-  assertStringIncludes(
-    accept.description,
-    "explicit owner consent or machine-verified authority",
-  );
-  assert(
-    !/only when the (?:user|owner) explicitly asks/i.test(accept.description),
-  );
-  assertStringIncludes(
-    accept.description,
-    "the call records the submission",
-  );
-  assertStringIncludes(
-    accept.description,
-    "A trunk that moved after the Proof is composed and re-proven in a " +
-      "disposable integration worktree",
-  );
-  assertStringIncludes(
-    accept.description,
-    "Recorded grants never cover a checkpoint variance or standard proposal",
   );
 });
 

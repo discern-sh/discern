@@ -5,6 +5,7 @@
  * each verb's tool returns its DiscernResult as the tool's structuredContent.
  */
 
+import { assertCases } from "./assert_cases.ts";
 import {
   assert,
   assertEquals,
@@ -2893,24 +2894,37 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
   });
 });
 
-Deno.test("WorkingRoot: seeds from the spawn root and re-points on set", () => {
-  // The one mutable value the server holds (ADR 0062): seeded from the spawn root,
-  // moved by discern_start (→ the new worktree) and discern_accept (→ back to spawn).
-  const w = new WorkingRoot("/repo");
-  assertEquals(w.get(), "/repo");
-  w.set("/repo.worktrees/alpha"); // start re-aims at the new worktree
-  assertEquals(w.get(), "/repo.worktrees/alpha");
-  w.set("/repo"); // accept resets to the spawn root
-  assertEquals(w.get(), "/repo");
-});
-
-Deno.test("WorkingRoot: an undefined spawn root (outside a project) stays undefined until set", () => {
-  // Spawned outside a discern project → undefined, which runTool's no_project
-  // guard turns into the uniform refusal envelope.
-  const w = new WorkingRoot(undefined);
-  assertEquals(w.get(), undefined);
-  w.set("/now/a/project");
-  assertEquals(w.get(), "/now/a/project");
+Deno.test("WorkingRoot retains its seeded state until explicitly re-aimed", () => {
+  const cases = [
+    {
+      name: "WorkingRoot: seeds from the spawn root and re-points on set",
+      check: () => {
+        // The one mutable value the server holds (ADR 0062): seeded from the spawn root,
+        // moved by discern_start (→ the new worktree) and discern_accept (→ back to spawn).
+        const w = new WorkingRoot("/repo");
+        assertEquals(w.get(), "/repo");
+        w.set("/repo.worktrees/alpha"); // start re-aims at the new worktree
+        assertEquals(w.get(), "/repo.worktrees/alpha");
+        w.set("/repo"); // accept resets to the spawn root
+        assertEquals(w.get(), "/repo");
+      },
+    },
+    {
+      name:
+        "WorkingRoot: an undefined spawn root (outside a project) stays undefined until set",
+      check: () => {
+        // Spawned outside a discern project → undefined, which runTool's no_project
+        // guard turns into the uniform refusal envelope.
+        const w = new WorkingRoot(undefined);
+        assertEquals(w.get(), undefined);
+        w.set("/now/a/project");
+        assertEquals(w.get(), "/now/a/project");
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("mcp lifecycle re-aim: a failed start cannot move the held root even when its payload carries a path", () => {
@@ -4031,42 +4045,56 @@ function instructionContractFailures(instructions: string): string[] {
   return failures;
 }
 
-Deno.test("discern mcp: initialization instructions fit 2KB with the core lifecycle first", () => {
-  assertEquals(MCP_CORE_LIFECYCLE, [
-    "discern_status",
-    "discern_start",
-    "discern_prepare",
-    "discern_done",
-    "discern_update",
-    "discern_await",
-    "discern_accept",
-    "discern_map",
-  ]);
-  assertEquals(MCP_CORE_LIFECYCLE.length, 8);
-  assertEquals(new Set(MCP_CORE_LIFECYCLE).size, 8);
-  assertEquals(
-    TOOLS.slice(0, MCP_CORE_LIFECYCLE.length).map((tool) => tool.name),
-    [...MCP_CORE_LIFECYCLE],
-  );
-  assertEquals(instructionContractFailures(buildInstructions()), []);
-});
-
-Deno.test("the MCP instruction detector rejects future over-budget and misordered siblings", () => {
-  const ordered = MCP_CORE_LIFECYCLE.join(" ");
-  assertEquals(instructionContractFailures(ordered), []);
-  assert(
-    instructionContractFailures(`${ordered}${"x".repeat(2048)}`).some((f) =>
-      f.includes("not below")
-    ),
-  );
-  assert(
-    instructionContractFailures(
-      ordered.replace(
-        "discern_prepare discern_done",
-        "discern_done discern_prepare",
-      ),
-    ).some((f) => f.includes("discern_prepare")),
-  );
+Deno.test("MCP instruction contract recognizes valid and hostile lifecycle layouts", () => {
+  const cases = [
+    {
+      name:
+        "discern mcp: initialization instructions fit 2KB with the core lifecycle first",
+      check: () => {
+        assertEquals(MCP_CORE_LIFECYCLE, [
+          "discern_status",
+          "discern_start",
+          "discern_prepare",
+          "discern_done",
+          "discern_update",
+          "discern_await",
+          "discern_accept",
+          "discern_map",
+        ]);
+        assertEquals(MCP_CORE_LIFECYCLE.length, 8);
+        assertEquals(new Set(MCP_CORE_LIFECYCLE).size, 8);
+        assertEquals(
+          TOOLS.slice(0, MCP_CORE_LIFECYCLE.length).map((tool) => tool.name),
+          [...MCP_CORE_LIFECYCLE],
+        );
+        assertEquals(instructionContractFailures(buildInstructions()), []);
+      },
+    },
+    {
+      name:
+        "the MCP instruction detector rejects future over-budget and misordered siblings",
+      check: () => {
+        const ordered = MCP_CORE_LIFECYCLE.join(" ");
+        assertEquals(instructionContractFailures(ordered), []);
+        assert(
+          instructionContractFailures(`${ordered}${"x".repeat(2048)}`).some((
+            f,
+          ) => f.includes("not below")),
+        );
+        assert(
+          instructionContractFailures(
+            ordered.replace(
+              "discern_prepare discern_done",
+              "discern_done discern_prepare",
+            ),
+          ).some((f) => f.includes("discern_prepare")),
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("discern mcp: accept requires the verbatim landing proof line", () => {

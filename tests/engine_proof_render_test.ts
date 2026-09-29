@@ -9,6 +9,7 @@
  * Guards: boundary:exact-tree-proof, boundary:proof-scope, claim:proof-exact-tree
  */
 
+import { assertCases } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   renderLandingProofLine,
@@ -139,232 +140,325 @@ const GROWTH_PROPOSAL: StandardLimitProposalData = {
   evidence_paths: ["src/first.ts", "src/second.ts"],
 };
 
-Deno.test("proof render: fixed facts + steps pin the exact page", () => {
-  const expected = [
-    "### Proof — `agent/upload-retry`",
-    "",
-    "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files changed (+42 −7)",
-    "",
-    "| ran | command | result |",
-    "| --- | --- | --- |",
-    "| format | `deno fmt` | ok · 1s |",
-    "| lint | `deno lint` | ok · <1s |",
-    "| test | `deno task test` | ok · 41s |",
-    "| scope:web | scope unchanged | skipped |",
-    "",
-    "Inspect: `git diff main...agent/upload-retry`",
-  ].join("\n");
-  const page = renderProofMarkdown(FACTS, STEPS);
-  assertEquals(page, expected);
-  assertEquals(renderProofMarkdown(FACTS, STEPS), page);
+Deno.test("Proof Markdown preserves fixed facts, stages, and Standards", () => {
+  const cases = [
+    {
+      name: "proof render: fixed facts + steps pin the exact page",
+      check: () => {
+        const expected = [
+          "### Proof — `agent/upload-retry`",
+          "",
+          "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files changed (+42 −7)",
+          "",
+          "| ran | command | result |",
+          "| --- | --- | --- |",
+          "| format | `deno fmt` | ok · 1s |",
+          "| lint | `deno lint` | ok · <1s |",
+          "| test | `deno task test` | ok · 41s |",
+          "| scope:web | scope unchanged | skipped |",
+          "",
+          "Inspect: `git diff main...agent/upload-retry`",
+        ].join("\n");
+        const page = renderProofMarkdown(FACTS, STEPS);
+        assertEquals(page, expected);
+        assertEquals(renderProofMarkdown(FACTS, STEPS), page);
+      },
+    },
+    {
+      name: "proof render: standards render before the job table",
+      check: () => {
+        const expected = [
+          "### Proof — `agent/upload-retry`",
+          "",
+          "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files changed (+42 −7)",
+          "",
+          "Standards (limits verified against `main`):",
+          "",
+          "- `coverage` 83 (floor 80, held) · 3s",
+          "",
+          "| ran | command | result |",
+          "| --- | --- | --- |",
+          "| format | `deno fmt` | ok · 1s |",
+          "| lint | `deno lint` | ok · <1s |",
+          "| test | `deno task test` | ok · 41s |",
+          "| scope:web | scope unchanged | skipped |",
+          "",
+          "Inspect: `git diff main...agent/upload-retry`",
+        ].join("\n");
+        assertEquals(
+          renderProofMarkdown(FACTS, STEPS, [HELD], VERIFIED),
+          expected,
+        );
+      },
+    },
+    {
+      name:
+        "proof render: Standard limit proposal leads routine standards and names the exact decision",
+      check: () => {
+        const facts: ProofFacts = {
+          ...FACTS,
+          standard_proposals: [GROWTH_PROPOSAL],
+        };
+        const markdown = renderProofMarkdown(
+          facts,
+          STEPS,
+          [HELD],
+          { status: "proposed", trunk: "main" },
+        );
+        assertStringIncludes(
+          markdown,
+          "Standard limit proposals — resolved only by the owner's exact decision:",
+        );
+        assertStringIncludes(
+          markdown,
+          "`source_count`: 10 → 12 (measured 12; delta +2)",
+        );
+        assertStringIncludes(
+          markdown,
+          "Reason: The accepted feature adds two required sources.",
+        );
+        assertStringIncludes(
+          renderProofMarkdown(
+            {
+              ...facts,
+              standard_proposals: [{
+                ...GROWTH_PROPOSAL,
+                bound_commit: "d".repeat(40),
+              }],
+            },
+            STEPS,
+            [HELD],
+            { status: "proposed", trunk: "main" },
+          ),
+          `Bound to \`${"d".repeat(12)}\`; proposal commit \`${
+            "c".repeat(12)
+          }\``,
+        );
+        assert(
+          markdown.indexOf("Standard limit proposals") <
+            markdown.indexOf("Standards (limits verified"),
+        );
+        assertStringIncludes(
+          renderProofLine(facts),
+          "· Standard proposal awaiting exact owner approval: `source_count` 10 → 12 ·",
+        );
+      },
+    },
+    {
+      name: "proof render: a timed sub-second standard says <1s",
+      check: () => {
+        const md = renderProofMarkdown(
+          FACTS,
+          STEPS,
+          [{ ...HELD, duration_s: 0 }],
+          VERIFIED,
+        );
+        assertStringIncludes(md, "- `coverage` 83 (floor 80, held) · <1s");
+      },
+    },
+    {
+      name: "proof render: an untimed run claims no duration at all",
+      check: () => {
+        const untimed: StepResult[] = [
+          {
+            step: {
+              kind: "job",
+              label: verbatimStepLabel("smoke"),
+              disposition: "run",
+              note: "true",
+            },
+            outcome: "ok",
+          },
+        ];
+        assertStringIncludes(
+          renderProofMarkdown(FACTS, untimed),
+          "| smoke | `true` | ok |",
+        );
+      },
+    },
+    {
+      name: "proof render: a pipe in a command cannot break the table",
+      check: () => {
+        const steps: StepResult[] = [
+          {
+            step: {
+              kind: "job",
+              label: verbatimStepLabel("lint"),
+              disposition: "run",
+              note: "grep -c TODO src | sort",
+              group: "Check & test",
+            },
+            outcome: "ok",
+            durationS: 2,
+          },
+        ];
+        const md = renderProofMarkdown(FACTS, steps);
+        assertStringIncludes(
+          md,
+          "| lint | `grep -c TODO src \\| sort` | ok · 2s |",
+        );
+      },
+    },
+    {
+      name: "proof render: a no-op gate is stated honestly",
+      check: () => {
+        const md = renderProofMarkdown(FACTS, []);
+        assertStringIncludes(
+          md,
+          "(no job is wired — nothing ran)",
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
-Deno.test("proof render: standards render before the job table", () => {
-  const expected = [
-    "### Proof — `agent/upload-retry`",
-    "",
-    "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files changed (+42 −7)",
-    "",
-    "Standards (limits verified against `main`):",
-    "",
-    "- `coverage` 83 (floor 80, held) · 3s",
-    "",
-    "| ran | command | result |",
-    "| --- | --- | --- |",
-    "| format | `deno fmt` | ok · 1s |",
-    "| lint | `deno lint` | ok · <1s |",
-    "| test | `deno task test` | ok · 41s |",
-    "| scope:web | scope unchanged | skipped |",
-    "",
-    "Inspect: `git diff main...agent/upload-retry`",
-  ].join("\n");
-  assertEquals(
-    renderProofMarkdown(FACTS, STEPS, [HELD], VERIFIED),
-    expected,
-  );
-});
-
-Deno.test("proof render: Standard limit proposal leads routine standards and names the exact decision", () => {
-  const facts: ProofFacts = {
-    ...FACTS,
-    standard_proposals: [GROWTH_PROPOSAL],
-  };
-  const markdown = renderProofMarkdown(
-    facts,
-    STEPS,
-    [HELD],
-    { status: "proposed", trunk: "main" },
-  );
-  assertStringIncludes(
-    markdown,
-    "Standard limit proposals — resolved only by the owner's exact decision:",
-  );
-  assertStringIncludes(
-    markdown,
-    "`source_count`: 10 → 12 (measured 12; delta +2)",
-  );
-  assertStringIncludes(
-    markdown,
-    "Reason: The accepted feature adds two required sources.",
-  );
-  assertStringIncludes(
-    renderProofMarkdown(
-      {
-        ...facts,
-        standard_proposals: [{
+Deno.test("landing Proof lines resolve and report every consent form", () => {
+  const cases = [
+    {
+      name: "landing proof line resolves the proposal segment in place",
+      check: () => {
+        const facts: ProofFacts = {
+          ...FACTS,
+          standard_proposals: [GROWTH_PROPOSAL],
+        };
+        const landed = renderLandingProofLine(
+          renderProofLine(facts),
+          { source: "conversation" },
+          { proposals: [GROWTH_PROPOSAL] },
+        );
+        assertStringIncludes(
+          landed,
+          "· Standard proposal approved by the owner: `source_count` 10 → 12 ·",
+        );
+        // The resolution replaces the awaiting-decision segment — a landed line
+        // never states a demand next to the record of its satisfaction.
+        assertEquals(landed.includes("awaiting"), false);
+        assertEquals(landed.includes("required to land"), false);
+      },
+    },
+    {
+      name: "landing proof line resolves several proposals as a count",
+      check: () => {
+        const second: StandardLimitProposalData = {
           ...GROWTH_PROPOSAL,
-          bound_commit: "d".repeat(40),
-        }],
+          standard: "bundle_size",
+        };
+        const proposals = [GROWTH_PROPOSAL, second];
+        const facts: ProofFacts = { ...FACTS, standard_proposals: proposals };
+        const line = renderProofLine(facts);
+        assertStringIncludes(
+          line,
+          "· 2 Standard proposals awaiting exact owner approval ·",
+        );
+        const landed = renderLandingProofLine(
+          line,
+          { source: "conversation" },
+          {
+            proposals,
+          },
+        );
+        assertStringIncludes(
+          landed,
+          "· 2 Standard proposals approved by the owner ·",
+        );
+        assertEquals(landed.includes("awaiting"), false);
       },
-      STEPS,
-      [HELD],
-      { status: "proposed", trunk: "main" },
-    ),
-    `Bound to \`${"d".repeat(12)}\`; proposal commit \`${"c".repeat(12)}\``,
-  );
-  assert(
-    markdown.indexOf("Standard limit proposals") <
-      markdown.indexOf("Standards (limits verified"),
-  );
-  assertStringIncludes(
-    renderProofLine(facts),
-    "· Standard proposal awaiting exact owner approval: `source_count` 10 → 12 ·",
-  );
-});
-
-Deno.test("landing proof line resolves the proposal segment in place", () => {
-  const facts: ProofFacts = {
-    ...FACTS,
-    standard_proposals: [GROWTH_PROPOSAL],
-  };
-  const landed = renderLandingProofLine(
-    renderProofLine(facts),
-    { source: "conversation" },
-    { proposals: [GROWTH_PROPOSAL] },
-  );
-  assertStringIncludes(
-    landed,
-    "· Standard proposal approved by the owner: `source_count` 10 → 12 ·",
-  );
-  // The resolution replaces the awaiting-decision segment — a landed line
-  // never states a demand next to the record of its satisfaction.
-  assertEquals(landed.includes("awaiting"), false);
-  assertEquals(landed.includes("required to land"), false);
-});
-
-Deno.test("landing proof line resolves several proposals as a count", () => {
-  const second: StandardLimitProposalData = {
-    ...GROWTH_PROPOSAL,
-    standard: "bundle_size",
-  };
-  const proposals = [GROWTH_PROPOSAL, second];
-  const facts: ProofFacts = { ...FACTS, standard_proposals: proposals };
-  const line = renderProofLine(facts);
-  assertStringIncludes(
-    line,
-    "· 2 Standard proposals awaiting exact owner approval ·",
-  );
-  const landed = renderLandingProofLine(line, { source: "conversation" }, {
-    proposals,
-  });
-  assertStringIncludes(
-    landed,
-    "· 2 Standard proposals approved by the owner ·",
-  );
-  assertEquals(landed.includes("awaiting"), false);
-});
-
-Deno.test("landing proof line resolves declared-unmet checkpoints as authorized variances", () => {
-  const checkpoints = {
-    declared_met: [{ id: "docs", declared_at: "2026-08-26T00:00:00Z" }],
-    declared_unmet: [{
-      id: "migration",
-      why: "The change ships without a migration path.",
-      declared_at: "2026-08-26T00:00:00Z",
-    }],
-  };
-  const facts: ProofFacts = { ...FACTS, checkpoints };
-  const line = renderProofLine(facts);
-  assertStringIncludes(
-    line,
-    "· 1 declared unmet — owner variance required to land (1 declared met) ·",
-  );
-  const landed = renderLandingProofLine(line, { source: "conversation" }, {
-    checkpoints,
-  });
-  assertStringIncludes(
-    landed,
-    "· 1 declared unmet — variance authorized by the owner (1 declared met) ·",
-  );
-  assertEquals(landed.includes("required to land"), false);
-});
-
-Deno.test("landing proof line appends a resolution it cannot locate exactly once", () => {
-  // An honored line stored by an earlier engine carries older segment wording;
-  // the resolution still lands on the line, stated once, with no demand left.
-  const legacy =
-    "Proof: gate passed on agent/x @ abc1234 · 1 file +1 −0 vs main · full proof: discern status --verbose";
-  const landed = renderLandingProofLine(legacy, { source: "conversation" }, {
-    proposals: [GROWTH_PROPOSAL],
-  });
-  assertStringIncludes(
-    landed,
-    "· Standard proposal approved by the owner: `source_count` 10 → 12 · landed with conversation consent",
-  );
-});
-
-Deno.test("proof render: a timed sub-second standard says <1s", () => {
-  const md = renderProofMarkdown(
-    FACTS,
-    STEPS,
-    [{ ...HELD, duration_s: 0 }],
-    VERIFIED,
-  );
-  assertStringIncludes(md, "- `coverage` 83 (floor 80, held) · <1s");
-});
-
-Deno.test("proof render: an untimed run claims no duration at all", () => {
-  const untimed: StepResult[] = [
+    },
     {
-      step: {
-        kind: "job",
-        label: verbatimStepLabel("smoke"),
-        disposition: "run",
-        note: "true",
+      name:
+        "landing proof line resolves declared-unmet checkpoints as authorized variances",
+      check: () => {
+        const checkpoints = {
+          declared_met: [{ id: "docs", declared_at: "2026-08-26T00:00:00Z" }],
+          declared_unmet: [{
+            id: "migration",
+            why: "The change ships without a migration path.",
+            declared_at: "2026-08-26T00:00:00Z",
+          }],
+        };
+        const facts: ProofFacts = { ...FACTS, checkpoints };
+        const line = renderProofLine(facts);
+        assertStringIncludes(
+          line,
+          "· 1 declared unmet — owner variance required to land (1 declared met) ·",
+        );
+        const landed = renderLandingProofLine(
+          line,
+          { source: "conversation" },
+          {
+            checkpoints,
+          },
+        );
+        assertStringIncludes(
+          landed,
+          "· 1 declared unmet — variance authorized by the owner (1 declared met) ·",
+        );
+        assertEquals(landed.includes("required to land"), false);
       },
-      outcome: "ok",
+    },
+    {
+      name:
+        "landing proof line appends a resolution it cannot locate exactly once",
+      check: () => {
+        // An honored line stored by an earlier engine carries older segment wording;
+        // the resolution still lands on the line, stated once, with no demand left.
+        const legacy =
+          "Proof: gate passed on agent/x @ abc1234 · 1 file +1 −0 vs main · full proof: discern status --verbose";
+        const landed = renderLandingProofLine(legacy, {
+          source: "conversation",
+        }, {
+          proposals: [GROWTH_PROPOSAL],
+        });
+        assertStringIncludes(
+          landed,
+          "· Standard proposal approved by the owner: `source_count` 10 → 12 · landed with conversation consent",
+        );
+      },
+    },
+    {
+      name: "landing proof line records each canonical consent source",
+      check: () => {
+        const line = renderProofLine(FACTS);
+        const cases = {
+          conversation: {
+            consent: { source: "conversation" },
+            expected: `${line} · landed with conversation consent`,
+          },
+          "standing-grant": {
+            consent: { source: "standing-grant", scopes: ["map", "site"] },
+            expected:
+              `${line} · landed under standing grant: \`map\`, \`site\``,
+          },
+          "effort-grant": {
+            consent: { source: "effort-grant" },
+            expected: `${line} · landed under effort grant`,
+          },
+        } satisfies Record<
+          LandingConsentSource,
+          { readonly consent: LandingConsent; readonly expected: string }
+        >;
+
+        assertEquals(
+          Object.keys(cases).sort(),
+          [...LANDING_CONSENT_SOURCES].sort(),
+        );
+        for (const source of LANDING_CONSENT_SOURCES) {
+          const testCase = cases[source];
+          assertEquals(
+            renderLandingProofLine(line, testCase.consent),
+            testCase.expected,
+            `${source} must report its successful landing evidence`,
+          );
+        }
+      },
     },
   ];
-  assertStringIncludes(
-    renderProofMarkdown(FACTS, untimed),
-    "| smoke | `true` | ok |",
-  );
-});
-
-Deno.test("proof render: a pipe in a command cannot break the table", () => {
-  const steps: StepResult[] = [
-    {
-      step: {
-        kind: "job",
-        label: verbatimStepLabel("lint"),
-        disposition: "run",
-        note: "grep -c TODO src | sort",
-        group: "Check & test",
-      },
-      outcome: "ok",
-      durationS: 2,
-    },
-  ];
-  const md = renderProofMarkdown(FACTS, steps);
-  assertStringIncludes(md, "| lint | `grep -c TODO src \\| sort` | ok · 2s |");
-});
-
-Deno.test("proof render: a no-op gate is stated honestly", () => {
-  const md = renderProofMarkdown(FACTS, []);
-  assertStringIncludes(
-    md,
-    "(no job is wired — nothing ran)",
-  );
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("done TTY render: color paints success and the proof without widening lines", () => {
@@ -428,200 +522,208 @@ Deno.test("done TTY render: color paints success and the proof without widening 
   }
 });
 
-Deno.test("gate TTY render: a narrow terminal wraps commands without losing facts", () => {
-  const rendered = renderGateTtyTable(STEPS, {
-    width: 40,
-    terminal: PLAIN_TERMINAL,
-  });
-  assertStringIncludes(rendered, "Gate progress");
-  assertStringIncludes(rendered, "[100%]");
-  assertStringIncludes(rendered, "✓ Complete");
-  assertStringIncludes(rendered, "format [passed]");
-  assertStringIncludes(rendered, "Run: deno fmt");
-  assertStringIncludes(rendered, "passed\nin 1s");
-  assertStringIncludes(rendered, "scope:web [skipped]");
-  assertEquals(rendered.includes("\x1b["), false);
-});
-
-Deno.test("gate TTY render: color changes styling only and every line stays within budget", () => {
-  const outcomes: StepResult[] = [
-    ...STEPS,
+Deno.test("gate TTY tables preserve facts and width across terminal capabilities", () => {
+  const cases = [
     {
-      step: {
-        kind: "job",
-        label: verbatimStepLabel("types"),
-        disposition: "run",
-        note: "deno check a/long/path/to/the/project/entrypoint.ts",
-        group: "Check",
+      name:
+        "gate TTY render: a narrow terminal wraps commands without losing facts",
+      check: () => {
+        const rendered = renderGateTtyTable(STEPS, {
+          width: 40,
+          terminal: PLAIN_TERMINAL,
+        });
+        assertStringIncludes(rendered, "Gate progress");
+        assertStringIncludes(rendered, "[100%]");
+        assertStringIncludes(rendered, "✓ Complete");
+        assertStringIncludes(rendered, "format [passed]");
+        assertStringIncludes(rendered, "Run: deno fmt");
+        assertStringIncludes(rendered, "passed\nin 1s");
+        assertStringIncludes(rendered, "scope:web [skipped]");
+        assertEquals(rendered.includes("\x1b["), false);
       },
-      outcome: "failed",
-      durationS: 0.25,
     },
     {
-      step: {
-        kind: "job",
-        label: verbatimStepLabel("lint#2"),
-        disposition: "run",
-        note: "deno lint",
-        group: "Check",
+      name:
+        "gate TTY render: color changes styling only and every line stays within budget",
+      check: () => {
+        const outcomes: StepResult[] = [
+          ...STEPS,
+          {
+            step: {
+              kind: "job",
+              label: verbatimStepLabel("types"),
+              disposition: "run",
+              note: "deno check a/long/path/to/the/project/entrypoint.ts",
+              group: "Check",
+            },
+            outcome: "failed",
+            durationS: 0.25,
+          },
+          {
+            step: {
+              kind: "job",
+              label: verbatimStepLabel("lint#2"),
+              disposition: "run",
+              note: "deno lint",
+              group: "Check",
+            },
+            outcome: "cancelled",
+            durationS: 0.1,
+          },
+        ];
+        const options = { width: 52, terminal: PLAIN_TERMINAL };
+        const plain = `${renderGateTtyTable(outcomes, options)}\n${
+          renderGateTtyStatus(
+            "Fix and check stages passed. Build and test stages did not run.",
+            "ok",
+            options,
+          )
+        }`;
+        const colored = `${
+          renderGateTtyTable(outcomes, { ...options, terminal: COLOR_TERMINAL })
+        }\n${
+          renderGateTtyStatus(
+            "Fix and check stages passed. Build and test stages did not run.",
+            "ok",
+            { ...options, terminal: COLOR_TERMINAL },
+          )
+        }`;
+        assertEquals(stripSgr(colored), plain);
+        assert(SGR.test(colored));
+        assertStringIncludes(stripSgr(colored), "types [failed]");
+        assertStringIncludes(stripSgr(colored), "lint#2 [cancelled]");
+        for (const line of colored.split("\n")) {
+          assert(
+            displayWidth(line) <= options.width,
+            `gate TTY line is ${displayWidth(line)} columns: ${line}`,
+          );
+        }
       },
-      outcome: "cancelled",
-      durationS: 0.1,
     },
   ];
-  const options = { width: 52, terminal: PLAIN_TERMINAL };
-  const plain = `${renderGateTtyTable(outcomes, options)}\n${
-    renderGateTtyStatus(
-      "Fix and check stages passed. Build and test stages did not run.",
-      "ok",
-      options,
-    )
-  }`;
-  const colored = `${
-    renderGateTtyTable(outcomes, { ...options, terminal: COLOR_TERMINAL })
-  }\n${
-    renderGateTtyStatus(
-      "Fix and check stages passed. Build and test stages did not run.",
-      "ok",
-      { ...options, terminal: COLOR_TERMINAL },
-    )
-  }`;
-  assertEquals(stripSgr(colored), plain);
-  assert(SGR.test(colored));
-  assertStringIncludes(stripSgr(colored), "types [failed]");
-  assertStringIncludes(stripSgr(colored), "lint#2 [cancelled]");
-  for (const line of colored.split("\n")) {
-    assert(
-      displayWidth(line) <= options.width,
-      `gate TTY line is ${displayWidth(line)} columns: ${line}`,
-    );
-  }
-});
-
-Deno.test("proof line: fixed facts pin the exact CommonMark blockquote", () => {
-  assertEquals(
-    renderProofLine(FACTS),
-    "> **Proof:** Gate passed for `agent/upload-retry` at `abc1234def01` · " +
-      "2 files changed (+42 −7) vs `main` · View the full Proof: `discern status --verbose`",
-  );
-});
-
-Deno.test("proof line: a single file reads in the singular", () => {
-  const line = renderProofLine({
-    ...FACTS,
-    files_total: 1,
-    insertions: 5,
-    deletions: 0,
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
   });
-  assertStringIncludes(line, "1 file changed (+5 −0) vs `main`");
 });
 
-Deno.test("proof line: held standards claim one segment", () => {
-  assertStringIncludes(
-    renderProofLine(FACTS, [HELD], VERIFIED),
-    "· Standards held ·",
-  );
-});
-
-Deno.test("proof line: improved and unmeasured standards are counted", () => {
-  const improved: GateStandard = {
-    ...HELD,
-    name: "instruction_words",
-    verdict: "improved",
-  };
-  const skipped: GateStandard = {
-    name: "bundle_size",
-    direction: "down",
-    limit: 1024,
-    measurement: "skipped",
-  };
-  assertStringIncludes(
-    renderProofLine(FACTS, [HELD, improved, skipped], VERIFIED),
-    "· Standards held (1 improved, 1 not measured) ·",
-  );
-});
-
-Deno.test("proof line: no measured standard is stated as such", () => {
-  const skipped: GateStandard = {
-    name: "bundle_size",
-    direction: "down",
-    limit: 1024,
-    measurement: "skipped",
-  };
-  assertStringIncludes(
-    renderProofLine(FACTS, [skipped], VERIFIED),
-    "· Standards not measured (1) ·",
-  );
+Deno.test("Proof lines preserve change counts and truthful Standard claims", () => {
+  const cases = [
+    {
+      name: "proof line: fixed facts pin the exact CommonMark blockquote",
+      check: () => {
+        assertEquals(
+          renderProofLine(FACTS),
+          "> **Proof:** Gate passed for `agent/upload-retry` at `abc1234def01` · " +
+            "2 files changed (+42 −7) vs `main` · View the full Proof: `discern status --verbose`",
+        );
+      },
+    },
+    {
+      name: "proof line: a single file reads in the singular",
+      check: () => {
+        const line = renderProofLine({
+          ...FACTS,
+          files_total: 1,
+          insertions: 5,
+          deletions: 0,
+        });
+        assertStringIncludes(line, "1 file changed (+5 −0) vs `main`");
+      },
+    },
+    {
+      name: "proof line: held standards claim one segment",
+      check: () => {
+        assertStringIncludes(
+          renderProofLine(FACTS, [HELD], VERIFIED),
+          "· Standards held ·",
+        );
+      },
+    },
+    {
+      name: "proof line: improved and unmeasured standards are counted",
+      check: () => {
+        const improved: GateStandard = {
+          ...HELD,
+          name: "instruction_words",
+          verdict: "improved",
+        };
+        const skipped: GateStandard = {
+          name: "bundle_size",
+          direction: "down",
+          limit: 1024,
+          measurement: "skipped",
+        };
+        assertStringIncludes(
+          renderProofLine(FACTS, [HELD, improved, skipped], VERIFIED),
+          "· Standards held (1 improved, 1 not measured) ·",
+        );
+      },
+    },
+    {
+      name: "proof line: no measured standard is stated as such",
+      check: () => {
+        const skipped: GateStandard = {
+          name: "bundle_size",
+          direction: "down",
+          limit: 1024,
+          measurement: "skipped",
+        };
+        assertStringIncludes(
+          renderProofLine(FACTS, [skipped], VERIFIED),
+          "· Standards not measured (1) ·",
+        );
+      },
+    },
+    {
+      name:
+        "cancelled and stale measurements cannot render a held standards claim",
+      check: () => {
+        for (const measurement of ["cancelled", "stale"] as const) {
+          const reading: GateStandard = {
+            name: "coverage",
+            direction: "up",
+            limit: 80,
+            measurement,
+          };
+          assertStringIncludes(
+            renderProofLine(FACTS, [reading], VERIFIED),
+            "Standards incomplete (1)",
+          );
+          assertStringIncludes(
+            renderProofMarkdown(FACTS, STEPS, [reading], VERIFIED),
+            `${measurement} (no applicable completed measurement verdict)`,
+          );
+        }
+      },
+    },
+    {
+      name: "proof line: unverified limits are disclosed loudly",
+      check: () => {
+        assertStringIncludes(
+          renderProofLine(FACTS, [HELD], {
+            status: "unverified",
+            trunk: "main",
+            reason: "trunk config unavailable",
+          }),
+          "· Standards UNVERIFIED ·",
+        );
+      },
+    },
+    {
+      name: "proof line: no standards configured claims nothing",
+      check: () => {
+        const line = renderProofLine(FACTS, []);
+        assertEquals(line.includes("Standards"), false);
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("the measurement vocabulary carries no retired on-demand disposition", () => {
   assert(!STANDARD_MEASUREMENTS.includes("deferred" as never));
-});
-
-Deno.test("cancelled and stale measurements cannot render a held standards claim", () => {
-  for (const measurement of ["cancelled", "stale"] as const) {
-    const reading: GateStandard = {
-      name: "coverage",
-      direction: "up",
-      limit: 80,
-      measurement,
-    };
-    assertStringIncludes(
-      renderProofLine(FACTS, [reading], VERIFIED),
-      "Standards incomplete (1)",
-    );
-    assertStringIncludes(
-      renderProofMarkdown(FACTS, STEPS, [reading], VERIFIED),
-      `${measurement} (no applicable completed measurement verdict)`,
-    );
-  }
-});
-
-Deno.test("proof line: unverified limits are disclosed loudly", () => {
-  assertStringIncludes(
-    renderProofLine(FACTS, [HELD], {
-      status: "unverified",
-      trunk: "main",
-      reason: "trunk config unavailable",
-    }),
-    "· Standards UNVERIFIED ·",
-  );
-});
-
-Deno.test("proof line: no standards configured claims nothing", () => {
-  const line = renderProofLine(FACTS, []);
-  assertEquals(line.includes("Standards"), false);
-});
-
-Deno.test("landing proof line records each canonical consent source", () => {
-  const line = renderProofLine(FACTS);
-  const cases = {
-    conversation: {
-      consent: { source: "conversation" },
-      expected: `${line} · landed with conversation consent`,
-    },
-    "standing-grant": {
-      consent: { source: "standing-grant", scopes: ["map", "site"] },
-      expected: `${line} · landed under standing grant: \`map\`, \`site\``,
-    },
-    "effort-grant": {
-      consent: { source: "effort-grant" },
-      expected: `${line} · landed under effort grant`,
-    },
-  } satisfies Record<
-    LandingConsentSource,
-    { readonly consent: LandingConsent; readonly expected: string }
-  >;
-
-  assertEquals(Object.keys(cases).sort(), [...LANDING_CONSENT_SOURCES].sort());
-  for (const source of LANDING_CONSENT_SOURCES) {
-    const testCase = cases[source];
-    assertEquals(
-      renderLandingProofLine(line, testCase.consent),
-      testCase.expected,
-      `${source} must report its successful landing evidence`,
-    );
-  }
 });
 
 Deno.test("Proof escapes edge-case Standard and standing-grant scope names", () => {
@@ -649,28 +751,42 @@ Deno.test("Proof escapes edge-case Standard and standing-grant scope names", () 
 // reads as secondary against the narration around it. The CLI-level suites run
 // colourless (no TTY), where dim is identity — these pin the colour-ON contract.
 
-Deno.test("dimBlock wraps every non-empty line and leaves blank lines bare", () => {
-  assertEquals(
-    dimBlock("### Proof\n\n| ran |", (s) => `[${s}]`),
-    "[### Proof]\n\n[| ran |]",
-  );
-});
-
-Deno.test("dimBlock with a colour-off dim returns the block unchanged", () => {
-  const page = renderProofMarkdown(FACTS, STEPS);
-  assertEquals(dimBlock(page, (s) => s), page);
-});
-
-Deno.test("a proof page applies the package muted role per line", () => {
-  const dim = outSink(makeOut(true)).dim;
-  const page = renderProofMarkdown(FACTS, STEPS);
-  const block = dimBlock(page, dim);
-  assertEquals(
-    block.split("\n"),
-    page.split("\n").map((line) =>
-      line === "" ? "" : COLOR_TERMINAL.role(line, "muted")
-    ),
-  );
+Deno.test("Proof dimming preserves content and blank lines across terminal roles", () => {
+  const cases = [
+    {
+      name: "dimBlock wraps every non-empty line and leaves blank lines bare",
+      check: () => {
+        assertEquals(
+          dimBlock("### Proof\n\n| ran |", (s) => `[${s}]`),
+          "[### Proof]\n\n[| ran |]",
+        );
+      },
+    },
+    {
+      name: "dimBlock with a colour-off dim returns the block unchanged",
+      check: () => {
+        const page = renderProofMarkdown(FACTS, STEPS);
+        assertEquals(dimBlock(page, (s) => s), page);
+      },
+    },
+    {
+      name: "a proof page applies the package muted role per line",
+      check: () => {
+        const dim = outSink(makeOut(true)).dim;
+        const page = renderProofMarkdown(FACTS, STEPS);
+        const block = dimBlock(page, dim);
+        assertEquals(
+          block.split("\n"),
+          page.split("\n").map((line) =>
+            line === "" ? "" : COLOR_TERMINAL.role(line, "muted")
+          ),
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 // ── the Proof's vocabulary ──────────────────────────────────────────────────

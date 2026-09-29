@@ -15,6 +15,7 @@
  * diagnostics on a dirty tree keep their full end-of-run feedback.
  */
 
+import { assertCases } from "./assert_cases.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
@@ -75,55 +76,74 @@ const snap = (
   dirty: new Set(paths),
 });
 
-Deno.test("strandedByStage: a file clean at start, dirtied by the fix stage, is stranded and attributed", () => {
-  const strands = strandedByStage(new Set(), [snap("fix", "docs/a.md")]);
-  assertEquals(strands, [{ stage: "fix", paths: ["docs/a.md"] }]);
-});
-
-Deno.test("strandedByStage: a file ALREADY dirty before any stage is never stranded (inner loop)", () => {
-  const strands = strandedByStage(new Set(["src/wip.ts"]), [
-    snap("fix", "src/wip.ts"), // the fixer reworked the agent's own WIP
-  ]);
-  assertEquals(strands, []);
-});
-
-Deno.test("strandedByStage: mixes — only the newly-dirtied, committed-clean paths, sorted", () => {
-  const strands = strandedByStage(new Set(["a-wip.ts"]), [
-    snap("fix", "a-wip.ts", "z.md", "b.md"),
-  ]);
-  assertEquals(strands, [{ stage: "fix", paths: ["b.md", "z.md"] }]);
-});
-
-Deno.test("strandedByStage: a no-op gate strands nothing", () => {
+Deno.test("strandedByStage attributes only newly dirty paths remaining in the final snapshot", () => {
   const tree = new Set(["x.ts", "y.md"]);
-  assertEquals(strandedByStage(tree, [{ stage: "fix", dirty: tree }]), []);
-});
-
-Deno.test("strandedByStage: each strand names the FIRST stage that dirtied it", () => {
-  const strands = strandedByStage(new Set(), [
-    snap("fix", "a.md"),
-    snap("build", "a.md", "gen.json"),
-    snap("check/test", "a.md", "gen.json", "golden.txt"),
-  ]);
-  assertEquals(strands, [
-    { stage: "fix", paths: ["a.md"] },
-    { stage: "build", paths: ["gen.json"] },
-    { stage: "check/test", paths: ["golden.txt"] },
-  ]);
-});
-
-Deno.test("strandedByStage: a path a later stage RESTORES to committed state is not stranded", () => {
-  // The finished tree is what the proof vouches for: dirty mid-run, clean at the
-  // end, means nothing is left to commit.
-  const strands = strandedByStage(new Set(), [
-    snap("fix", "roundtrip.md"),
-    snap("build"),
-  ]);
-  assertEquals(strands, []);
-});
-
-Deno.test("strandedByStage: no snapshots (no stage group ran) strands nothing", () => {
-  assertEquals(strandedByStage(new Set(["wip.ts"]), []), []);
+  const cases: ReadonlyArray<{
+    name: string;
+    initial: Set<string>;
+    snapshots: StageSnapshot[];
+    expected: ReturnType<typeof strandedByStage>;
+  }> = [
+    {
+      name:
+        "a file clean at start, dirtied by the fix stage, is stranded and attributed",
+      initial: new Set(),
+      snapshots: [snap("fix", "docs/a.md")],
+      expected: [{ stage: "fix", paths: ["docs/a.md"] }],
+    },
+    {
+      name:
+        "a file ALREADY dirty before any stage is never stranded (inner loop)",
+      initial: new Set(["src/wip.ts"]),
+      snapshots: [snap("fix", "src/wip.ts")],
+      expected: [],
+    },
+    {
+      name: "mixes — only the newly-dirtied, committed-clean paths, sorted",
+      initial: new Set(["a-wip.ts"]),
+      snapshots: [snap("fix", "a-wip.ts", "z.md", "b.md")],
+      expected: [{ stage: "fix", paths: ["b.md", "z.md"] }],
+    },
+    {
+      name: "a no-op gate strands nothing",
+      initial: tree,
+      snapshots: [{ stage: "fix", dirty: tree }],
+      expected: [],
+    },
+    {
+      name: "each strand names the FIRST stage that dirtied it",
+      initial: new Set(),
+      snapshots: [
+        snap("fix", "a.md"),
+        snap("build", "a.md", "gen.json"),
+        snap("check/test", "a.md", "gen.json", "golden.txt"),
+      ],
+      expected: [
+        { stage: "fix", paths: ["a.md"] },
+        { stage: "build", paths: ["gen.json"] },
+        { stage: "check/test", paths: ["golden.txt"] },
+      ],
+    },
+    {
+      name: "a path a later stage RESTORES to committed state is not stranded",
+      initial: new Set(),
+      snapshots: [snap("fix", "roundtrip.md"), snap("build")],
+      expected: [],
+    },
+    {
+      name: "no snapshots (no stage group ran) strands nothing",
+      initial: new Set(["wip.ts"]),
+      snapshots: [],
+      expected: [],
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    assertEquals(
+      strandedByStage(row.initial, row.snapshots),
+      row.expected,
+      row.name,
+    );
+  });
 });
 
 // ── pure: the shared porcelain parser ───────────────────────────────────────────

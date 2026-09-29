@@ -22,6 +22,7 @@
  * and one of these fails the gate.
  */
 
+import { assertCases, assertCasesAsync } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
@@ -583,95 +584,138 @@ function setDifference(
   ).sort();
 }
 
-Deno.test("the purity case table stays honest against the full verb registry", () => {
-  // No stale exception: every excepted verb is still a real built-in, carries a
-  // reason, and is not ALSO swept (which would make the exception a lie).
-  for (const [verb, reason] of NOT_SWEPT) {
-    assert(
-      KNOWN_VERBS.has(verb),
-      `NOT_SWEPT lists "${verb}", which is not a built-in verb any more`,
-    );
-    assert(reason.trim().length > 0, `NOT_SWEPT("${verb}") needs a reason`);
-    assert(
-      !ENROLLED_VERBS.includes(verb),
-      `"${verb}" is both swept and excepted — drop one`,
-    );
-  }
-  // No stale case: every case enrols a verb the registry still owns.
-  for (const verb of ENROLLED_VERBS) {
-    assert(
-      KNOWN_VERBS.has(verb),
-      `the sweep enrols "${verb}", which is not a built-in verb any more`,
-    );
-  }
-  // Complete: every built-in verb is either swept or consciously excepted.
-  assertEquals(
-    unenrolledVerbs(KNOWN_VERBS, ENROLLED_VERBS, NOT_SWEPT.keys()),
-    [],
-    "every built-in verb must either be swept for --json purity or listed in NOT_SWEPT with a reason",
-  );
+Deno.test("JSON verb purity enrollment rejects unseen registry members", () => {
+  const cases = [
+    {
+      name: "the purity case table stays honest against the full verb registry",
+      check: () => {
+        // No stale exception: every excepted verb is still a real built-in, carries a
+        // reason, and is not ALSO swept (which would make the exception a lie).
+        for (const [verb, reason] of NOT_SWEPT) {
+          assert(
+            KNOWN_VERBS.has(verb),
+            `NOT_SWEPT lists "${verb}", which is not a built-in verb any more`,
+          );
+          assert(
+            reason.trim().length > 0,
+            `NOT_SWEPT("${verb}") needs a reason`,
+          );
+          assert(
+            !ENROLLED_VERBS.includes(verb),
+            `"${verb}" is both swept and excepted — drop one`,
+          );
+        }
+        // No stale case: every case enrols a verb the registry still owns.
+        for (const verb of ENROLLED_VERBS) {
+          assert(
+            KNOWN_VERBS.has(verb),
+            `the sweep enrols "${verb}", which is not a built-in verb any more`,
+          );
+        }
+        // Complete: every built-in verb is either swept or consciously excepted.
+        assertEquals(
+          unenrolledVerbs(KNOWN_VERBS, ENROLLED_VERBS, NOT_SWEPT.keys()),
+          [],
+          "every built-in verb must either be swept for --json purity or listed in NOT_SWEPT with a reason",
+        );
+      },
+    },
+    {
+      name:
+        "the reconciliation catches a fresh verb joining the registry unenrolled",
+      check: () => {
+        // Future-sibling proof: a brand-new verb under an unrelated name joins the
+        // registry, and the reconciliation names it with no case-table edit — the
+        // mechanism that forces every future verb into the sweep.
+        const withFreshVerb = new Set([...KNOWN_VERBS, "zz-fresh-verb"]);
+        assertEquals(
+          unenrolledVerbs(withFreshVerb, ENROLLED_VERBS, NOT_SWEPT.keys()),
+          ["zz-fresh-verb"],
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
-Deno.test("the reconciliation catches a fresh verb joining the registry unenrolled", () => {
-  // Future-sibling proof: a brand-new verb under an unrelated name joins the
-  // registry, and the reconciliation names it with no case-table edit — the
-  // mechanism that forces every future verb into the sweep.
-  const withFreshVerb = new Set([...KNOWN_VERBS, "zz-fresh-verb"]);
-  assertEquals(
-    unenrolledVerbs(withFreshVerb, ENROLLED_VERBS, NOT_SWEPT.keys()),
-    ["zz-fresh-verb"],
-  );
+Deno.test("JSON command-path purity enrollment rejects unseen nested contracts", () => {
+  const cases = [
+    {
+      name: "every public JSON command path has a behavioral purity case",
+      check: () => {
+        assertEquals(
+          setDifference(CONTRACTED_COMMAND_PATHS, ENROLLED_COMMAND_PATHS),
+          [],
+          "a public CLI result contract has no noisy --json behavioral case",
+        );
+        assertEquals(
+          setDifference(ENROLLED_COMMAND_PATHS, CONTRACTED_COMMAND_PATHS),
+          [],
+          "the purity sweep names a stale or uncontracted command path",
+        );
+      },
+    },
+    {
+      name:
+        "a future nested contract cannot hide behind an enrolled parent verb",
+      check: () => {
+        assertEquals(
+          setDifference(
+            [...CONTRACTED_COMMAND_PATHS, "config zz-future"],
+            ENROLLED_COMMAND_PATHS,
+          ),
+          ["config zz-future"],
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
-Deno.test("every public JSON command path has a behavioral purity case", () => {
-  assertEquals(
-    setDifference(CONTRACTED_COMMAND_PATHS, ENROLLED_COMMAND_PATHS),
-    [],
-    "a public CLI result contract has no noisy --json behavioral case",
-  );
-  assertEquals(
-    setDifference(ENROLLED_COMMAND_PATHS, CONTRACTED_COMMAND_PATHS),
-    [],
-    "the purity sweep names a stale or uncontracted command path",
-  );
-});
-
-Deno.test("a future nested contract cannot hide behind an enrolled parent verb", () => {
-  assertEquals(
-    setDifference(
-      [...CONTRACTED_COMMAND_PATHS, "config zz-future"],
-      ENROLLED_COMMAND_PATHS,
-    ),
-    ["config zz-future"],
-  );
-});
-
-Deno.test("every canonical predicate has a behavioral fixture, with no stale fixture", () => {
-  const contracts = CLI_JSON_PREDICATE_CONTRACTS.map((entry) => entry.id);
-  const fixtures = PREDICATE_FIXTURES.map((entry) => entry.contractId);
-  assertEquals(
-    setDifference(contracts, fixtures),
-    [],
-    "a canonical predicate contract has no true/false behavioral fixture",
-  );
-  assertEquals(
-    setDifference(fixtures, contracts),
-    [],
-    "the predicate fixture table names a stale contract",
-  );
-});
-
-Deno.test("a future predicate mode under an enrolled command cannot hide behind its default case", () => {
-  assertEquals(
-    setDifference(
-      [
-        ...CLI_JSON_PREDICATE_CONTRACTS.map((entry) => entry.id),
-        "zz-future-predicate",
-      ],
-      PREDICATE_FIXTURES.map((entry) => entry.contractId),
-    ),
-    ["zz-future-predicate"],
-  );
+Deno.test("JSON predicate purity enrollment rejects unseen predicate modes", () => {
+  const cases = [
+    {
+      name:
+        "every canonical predicate has a behavioral fixture, with no stale fixture",
+      check: () => {
+        const contracts = CLI_JSON_PREDICATE_CONTRACTS.map((entry) => entry.id);
+        const fixtures = PREDICATE_FIXTURES.map((entry) => entry.contractId);
+        assertEquals(
+          setDifference(contracts, fixtures),
+          [],
+          "a canonical predicate contract has no true/false behavioral fixture",
+        );
+        assertEquals(
+          setDifference(fixtures, contracts),
+          [],
+          "the predicate fixture table names a stale contract",
+        );
+      },
+    },
+    {
+      name:
+        "a future predicate mode under an enrolled command cannot hide behind its default case",
+      check: () => {
+        assertEquals(
+          setDifference(
+            [
+              ...CLI_JSON_PREDICATE_CONTRACTS.map((entry) => entry.id),
+              "zz-future-predicate",
+            ],
+            PREDICATE_FIXTURES.map((entry) => entry.contractId),
+          ),
+          ["zz-future-predicate"],
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("predicate modes preserve bare 0/1 and publish true/false JSON observations in both flag positions", async () => {
@@ -943,153 +987,176 @@ Deno.test("a pre-verb config error is still the uniform envelope (verb + single 
   });
 });
 
-Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint", async () => {
-  // The wire shape is defined once (result_serialization.ts) and printed once
-  // (emit.ts). The MCP server is the one other legitimate caller — it folds the
-  // serialized envelope into a JSON-RPC tool result, not onto stdout. Any other
-  // file calling serializeResult is a verb hand-rolling an emit that escapes the
-  // silence rule.
-  const allowed = new Set([
-    join("src", "shared", "result_serialization.ts"), // the definition
-    join("src", "shared", "emit.ts"), // the single print site
-    join("src", "engine", "mcp", "server.ts"), // builds the MCP tool result
-  ]);
-  const offenders: string[] = [];
-  for (
-    const rel of await structuralGuardScope({
-      guard: "tests/engine_json_purity_test.ts#result-serialization-callers",
-      universe: "authored-ts",
-      narrow: {
-        reason:
-          "Result serialization callers are production boundaries implemented beneath src; tests contain direct controls.",
-        include: (path) => path.startsWith("src/"),
+Deno.test("authored output boundaries preserve shared quiet result projection", async () => {
+  const cases = [
+    {
+      name:
+        "serializeResult reaches stdout ONLY through the emitResult chokepoint",
+      check: async () => {
+        // The wire shape is defined once (result_serialization.ts) and printed once
+        // (emit.ts). The MCP server is the one other legitimate caller — it folds the
+        // serialized envelope into a JSON-RPC tool result, not onto stdout. Any other
+        // file calling serializeResult is a verb hand-rolling an emit that escapes the
+        // silence rule.
+        const allowed = new Set([
+          join("src", "shared", "result_serialization.ts"), // the definition
+          join("src", "shared", "emit.ts"), // the single print site
+          join("src", "engine", "mcp", "server.ts"), // builds the MCP tool result
+        ]);
+        const offenders: string[] = [];
+        for (
+          const rel of await structuralGuardScope({
+            guard:
+              "tests/engine_json_purity_test.ts#result-serialization-callers",
+            universe: "authored-ts",
+            narrow: {
+              reason:
+                "Result serialization callers are production boundaries implemented beneath src; tests contain direct controls.",
+              include: (path) => path.startsWith("src/"),
+            },
+          })
+        ) {
+          if (allowed.has(rel)) {
+            continue;
+          }
+          const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+          if (/serializeResult\s*\(/.test(text)) {
+            offenders.push(rel);
+          }
+        }
+        assertEquals(
+          offenders,
+          [],
+          `serializeResult must only be emitted via emitResult (src/shared/emit.ts) or the MCP renderer.\n` +
+            `Hand-rolled envelope emission found in:\n  ${
+              offenders.join("\n  ")
+            }`,
+        );
       },
-    })
-  ) {
-    if (allowed.has(rel)) {
-      continue;
-    }
-    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
-    if (/serializeResult\s*\(/.test(text)) {
-      offenders.push(rel);
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    `serializeResult must only be emitted via emitResult (src/shared/emit.ts) or the MCP renderer.\n` +
-      `Hand-rolled envelope emission found in:\n  ${offenders.join("\n  ")}`,
-  );
-});
-
-Deno.test("source-engine subprocesses inherit the quiet Deno launcher", async () => {
-  const argv = engineRunArgs(["status", "--json"]);
-  assertEquals(
-    argv.slice(0, 3),
-    ["run", "--quiet", "--no-check"],
-    "Deno's launcher diagnostics must stay outside observed discern output",
-  );
-  assertEquals(argv.slice(-2), ["status", "--json"]);
-  assertEquals(argv.filter((arg) => arg === "--quiet"), ["--quiet"]);
-
-  // These paths are private inside engine_helpers. Any other test that names
-  // them has bypassed the chokepoint and can expose Deno's dependency-lock
-  // notices on stderr. await_readiness_guard_test.ts mentions the identifier
-  // only as inert source text for its own synthetic control.
-  const allowed = new Set([
-    "tests/engine_helpers.ts",
-    "tests/await_readiness_guard_test.ts",
-  ]);
-  const privateIdentifiers = [
-    ["MAIN", "TS"].join("_"),
-    ["DENO", "JSON"].join("_"),
-  ];
-  const offenders: string[] = [];
-  for (
-    const rel of await structuralGuardScope({
-      guard: "tests/engine_json_purity_test.ts#quiet-test-launcher-callers",
-      universe: "authored-ts",
-      narrow: {
-        reason:
-          "Only test sources can bypass the shared source-engine launcher; its two owning controls remain explicit exclusions.",
-        include: (path) => path.startsWith("tests/") && !allowed.has(path),
-      },
-    })
-  ) {
-    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
-    if (
-      privateIdentifiers.some((identifier) =>
-        new RegExp(`\\b${identifier}\\b`, "u").test(source)
-      )
-    ) {
-      offenders.push(rel);
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    `Source-engine subprocesses must use engineRunArgs():\n  ${
-      offenders.join("\n  ")
-    }`,
-  );
-});
-
-Deno.test("authored Markdown reaches agents only through the CLI and MCP result boundaries", async () => {
-  const allowed = new Set([
-    join("src", "shared", "result_markdown.ts"),
-    join("src", "shared", "emit.ts"),
-    join("src", "engine", "mcp", "server.ts"),
-  ]);
-  const offenders: string[] = [];
-  for (
-    const rel of await structuralGuardScope({
-      guard: "tests/engine_json_purity_test.ts#markdown-result-renderers",
-      universe: "authored-ts",
-      narrow: {
-        reason:
-          "Markdown result rendering is a production delivery boundary implemented beneath src; tests invoke it as controls.",
-        include: (path) => path.startsWith("src/"),
-      },
-    })
-  ) {
-    if (allowed.has(rel)) {
-      continue;
-    }
-    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
-    if (/renderResultMarkdown\s*\(/.test(source)) {
-      offenders.push(rel);
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    `Markdown result rendering bypassed the shared boundaries:\n  ${
-      offenders.join("\n  ")
-    }`,
-  );
-});
-
-Deno.test("CLI and MCP share the registered failure-recovery preparation", async () => {
-  const consumers = new Set([
-    join("src", "shared", "emit.ts"),
-    join("src", "engine", "mcp", "server.ts"),
-  ]);
-  const files = await structuralGuardScope({
-    guard: "tests/engine_json_purity_test.ts#failure-recovery-consumers",
-    universe: "authored-ts",
-    narrow: {
-      reason:
-        "Failure recovery is prepared at the CLI and MCP delivery boundaries.",
-      include: (rel) => consumers.has(rel),
     },
+    {
+      name: "source-engine subprocesses inherit the quiet Deno launcher",
+      check: async () => {
+        const argv = engineRunArgs(["status", "--json"]);
+        assertEquals(
+          argv.slice(0, 3),
+          ["run", "--quiet", "--no-check"],
+          "Deno's launcher diagnostics must stay outside observed discern output",
+        );
+        assertEquals(argv.slice(-2), ["status", "--json"]);
+        assertEquals(argv.filter((arg) => arg === "--quiet"), ["--quiet"]);
+
+        // These paths are private inside engine_helpers. Any other test that names
+        // them has bypassed the chokepoint and can expose Deno's dependency-lock
+        // notices on stderr. await_readiness_guard_test.ts mentions the identifier
+        // only as inert source text for its own synthetic control.
+        const allowed = new Set([
+          "tests/engine_helpers.ts",
+          "tests/await_readiness_guard_test.ts",
+        ]);
+        const privateIdentifiers = [
+          ["MAIN", "TS"].join("_"),
+          ["DENO", "JSON"].join("_"),
+        ];
+        const offenders: string[] = [];
+        for (
+          const rel of await structuralGuardScope({
+            guard:
+              "tests/engine_json_purity_test.ts#quiet-test-launcher-callers",
+            universe: "authored-ts",
+            narrow: {
+              reason:
+                "Only test sources can bypass the shared source-engine launcher; its two owning controls remain explicit exclusions.",
+              include: (path) =>
+                path.startsWith("tests/") && !allowed.has(path),
+            },
+          })
+        ) {
+          const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+          if (
+            privateIdentifiers.some((identifier) =>
+              new RegExp(`\\b${identifier}\\b`, "u").test(source)
+            )
+          ) {
+            offenders.push(rel);
+          }
+        }
+        assertEquals(
+          offenders,
+          [],
+          `Source-engine subprocesses must use engineRunArgs():\n  ${
+            offenders.join("\n  ")
+          }`,
+        );
+      },
+    },
+    {
+      name:
+        "authored Markdown reaches agents only through the CLI and MCP result boundaries",
+      check: async () => {
+        const allowed = new Set([
+          join("src", "shared", "result_markdown.ts"),
+          join("src", "shared", "emit.ts"),
+          join("src", "engine", "mcp", "server.ts"),
+        ]);
+        const offenders: string[] = [];
+        for (
+          const rel of await structuralGuardScope({
+            guard: "tests/engine_json_purity_test.ts#markdown-result-renderers",
+            universe: "authored-ts",
+            narrow: {
+              reason:
+                "Markdown result rendering is a production delivery boundary implemented beneath src; tests invoke it as controls.",
+              include: (path) => path.startsWith("src/"),
+            },
+          })
+        ) {
+          if (allowed.has(rel)) {
+            continue;
+          }
+          const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+          if (/renderResultMarkdown\s*\(/.test(source)) {
+            offenders.push(rel);
+          }
+        }
+        assertEquals(
+          offenders,
+          [],
+          `Markdown result rendering bypassed the shared boundaries:\n  ${
+            offenders.join("\n  ")
+          }`,
+        );
+      },
+    },
+    {
+      name: "CLI and MCP share the registered failure-recovery preparation",
+      check: async () => {
+        const consumers = new Set([
+          join("src", "shared", "emit.ts"),
+          join("src", "engine", "mcp", "server.ts"),
+        ]);
+        const files = await structuralGuardScope({
+          guard: "tests/engine_json_purity_test.ts#failure-recovery-consumers",
+          universe: "authored-ts",
+          narrow: {
+            reason:
+              "Failure recovery is prepared at the CLI and MCP delivery boundaries.",
+            include: (rel) => consumers.has(rel),
+          },
+        });
+        assertEquals(files.length, consumers.size);
+        for (const rel of files) {
+          const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+          assertStringIncludes(
+            text,
+            "withFailureRecoveryHint(",
+            `${rel} must prepare failures through the shared registered recovery floor`,
+          );
+        }
+      },
+    },
+  ];
+  await assertCasesAsync(cases, (row) => row.name, async (row) => {
+    await row.check();
   });
-  assertEquals(files.length, consumers.size);
-  for (const rel of files) {
-    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
-    assertStringIncludes(
-      text,
-      "withFailureRecoveryHint(",
-      `${rel} must prepare failures through the shared registered recovery floor`,
-    );
-  }
 });

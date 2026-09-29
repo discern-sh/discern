@@ -1,5 +1,6 @@
 /** Pure width and semantic-state guards for the static status dashboard. */
 
+import { assertCases } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { unexpectedTerminalControls } from "./helpers.ts";
 import { displayWidth } from "../src/lib/text.ts";
@@ -282,240 +283,918 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
   idle: { patch: {} },
 };
 
-Deno.test("status dashboard: verbose 39, 80, 104, and capped layouts keep equal color-free package facts", () => {
-  const fixture = data([
-    mainEntry(),
-    entry(),
-    entry({
-      path: "/repo.worktrees/beta-def456",
-      branch: "agent/beta-def456",
-      id: "beta-def456",
-      last_activity: "2026-08-03T10:00:00.000Z",
-    }),
-  ]);
-  for (const width of [39, 80, 104]) {
-    const noColor = render(fixture, width, false, undefined, true);
-    const color = render(fixture, width, true, undefined, true);
-    assertEquals(plain(color), noColor, `color changed words at ${width}`);
-    assertLinesFit(noColor, width);
-    assertLinesFit(color, width);
-    assertStringIncludes(noColor, "Fleet · 2 active worktrees");
-    assertStringIncludes(noColor, "Worktrees");
-    assertStringIncludes(squash(noColor), "Configured checks for this status");
-    assertStringIncludes(noColor, "DRIFT");
-    assertStringIncludes(noColor, "Worktree: alpha-abc123");
-    assertStringIncludes(noColor, "Branch: agent/alpha-abc123");
-    assert(!noColor.includes("AGENT"), noColor);
-  }
-  assertEquals(
-    render(fixture, 400, false, undefined, true),
-    render(fixture, STATUS_REPORT_MAX_WIDTH, false, undefined, true),
-  );
-  assertStringIncludes(
-    render(fixture, 400, false, undefined, true),
-    "agent/alpha-abc123",
-  );
-});
+Deno.test("status dashboards preserve complete facts across layout and terminal capabilities", () => {
+  const cases = [
+    {
+      name:
+        "status dashboard: verbose 39, 80, 104, and capped layouts keep equal color-free package facts",
+      check: () => {
+        const fixture = data([
+          mainEntry(),
+          entry(),
+          entry({
+            path: "/repo.worktrees/beta-def456",
+            branch: "agent/beta-def456",
+            id: "beta-def456",
+            last_activity: "2026-08-03T10:00:00.000Z",
+          }),
+        ]);
+        for (const width of [39, 80, 104]) {
+          const noColor = render(fixture, width, false, undefined, true);
+          const color = render(fixture, width, true, undefined, true);
+          assertEquals(
+            plain(color),
+            noColor,
+            `color changed words at ${width}`,
+          );
+          assertLinesFit(noColor, width);
+          assertLinesFit(color, width);
+          assertStringIncludes(noColor, "Fleet · 2 active worktrees");
+          assertStringIncludes(noColor, "Worktrees");
+          assertStringIncludes(
+            squash(noColor),
+            "Configured checks for this status",
+          );
+          assertStringIncludes(noColor, "DRIFT");
+          assertStringIncludes(noColor, "Worktree: alpha-abc123");
+          assertStringIncludes(noColor, "Branch: agent/alpha-abc123");
+          assert(!noColor.includes("AGENT"), noColor);
+        }
+        assertEquals(
+          render(fixture, 400, false, undefined, true),
+          render(fixture, STATUS_REPORT_MAX_WIDTH, false, undefined, true),
+        );
+        assertStringIncludes(
+          render(fixture, 400, false, undefined, true),
+          "agent/alpha-abc123",
+        );
+      },
+    },
+    {
+      name:
+        "status dashboard: truecolour, 256, 16, no-colour, and ASCII modes retain semantics and inert text",
+      check: () => {
+        const branch = "agent/evil\u001b[31m\tbell\u0007line\nend";
+        const id = "persona\u009bhidden";
+        const safeBranch = "agent/evil␛[31m␉bell␇line␊end";
+        const safeId = "persona<U+009B>hidden";
+        const fixture = data([
+          mainEntry(),
+          entry({
+            path: `/repo.worktrees/${id}`,
+            branch,
+            id,
+            behind: 2,
+            is_current: true,
+          }),
+        ]);
+        const modes = [
+          "no-color",
+          "ansi16",
+          "ansi256",
+          "truecolor",
+          "ascii",
+        ] as const satisfies readonly TerminalFixtureMode[];
+        const expectedDepth = {
+          "no-color": "none",
+          ansi16: "ansi16",
+          ansi256: "ansi256",
+          truecolor: "truecolor",
+          ascii: "none",
+        } as const;
+        const unicodeBaseline = renderStatusDashboard(fixture, undefined, {
+          terminal: terminalMode(80, "no-color"),
+          width: 80,
+          nowMs: NOW,
+          verbose: true,
+        });
+        for (const mode of modes) {
+          const context = terminalMode(80, mode);
+          assertEquals(context.capabilities.colorDepth, expectedDepth[mode]);
+          const output = renderStatusDashboard(fixture, undefined, {
+            terminal: context,
+            width: 80,
+            nowMs: NOW,
+            verbose: true,
+          });
+          const words = plain(output);
+          assertStringIncludes(words, safeBranch);
+          assertStringIncludes(words, safeId);
+          assertStringIncludes(words, "Behind");
+          assertStringIncludes(words, "current");
+          assert(!words.includes("\u001b[31m"));
+          assert(!words.includes("\u009b"));
+          assert(
+            unexpectedTerminalControls(words).length === 0,
+            `${mode} left a raw terminal control in package output`,
+          );
+          if (mode !== "ascii") {
+            assertEquals(
+              words,
+              unicodeBaseline,
+              `${mode} changed status facts`,
+            );
+          }
+          assertLinesFit(output, 80);
+        }
+      },
+    },
+    {
+      name:
+        "status dashboard: responsive regions retain status, evidence, and complete actions",
+      check: () => {
+        const branch = "agent/behind-abc123";
+        const fixture = data([
+          mainEntry({ is_current: false }),
+          entry({
+            path: "/repo.worktrees/behind-abc123",
+            branch,
+            id: "behind-abc123",
+            behind: 5,
+            is_current: true,
+          }),
+        ]);
 
-Deno.test("status dashboard: truecolour, 256, 16, no-colour, and ASCII modes retain semantics and inert text", () => {
-  const branch = "agent/evil\u001b[31m\tbell\u0007line\nend";
-  const id = "persona\u009bhidden";
-  const safeBranch = "agent/evil␛[31m␉bell␇line␊end";
-  const safeId = "persona<U+009B>hidden";
-  const fixture = data([
-    mainEntry(),
-    entry({
-      path: `/repo.worktrees/${id}`,
-      branch,
-      id,
-      behind: 2,
-      is_current: true,
-    }),
-  ]);
-  const modes = [
-    "no-color",
-    "ansi16",
-    "ansi256",
-    "truecolor",
-    "ascii",
-  ] as const satisfies readonly TerminalFixtureMode[];
-  const expectedDepth = {
-    "no-color": "none",
-    ansi16: "ansi16",
-    ansi256: "ansi256",
-    truecolor: "truecolor",
-    ascii: "none",
-  } as const;
-  const unicodeBaseline = renderStatusDashboard(fixture, undefined, {
-    terminal: terminalMode(80, "no-color"),
-    width: 80,
-    nowMs: NOW,
-    verbose: true,
+        const hints = hintTexts([
+          fire(HINTS["status-branch-behind"], {
+            behind: 5,
+            trunk: "main",
+            overlap: undefined,
+          }),
+        ]);
+        const expectedAction = interactiveHintTexts(hints)[0];
+        assert(expectedAction !== undefined);
+        for (const width of [39, 80, 104, 400]) {
+          for (const color of [false, true]) {
+            const output = render(fixture, width, color, hints, true);
+            const words = plain(output);
+            assertStringIncludes(words, branch);
+            assertStringIncludes(words, "Behind");
+            assertStringIncludes(words, "Git");
+            assertStringIncludes(words, "Proof");
+            assertStringIncludes(squash(words), expectedAction);
+            assertStringIncludes(words, "current");
+            assertLinesFit(output, width);
+          }
+        }
+      },
+    },
+    {
+      name:
+        "status dashboard: every long or differing identity survives every layout",
+      check: () => {
+        const id = `alternate-${"identity-".repeat(12)}abc123`;
+        const branch = `agent/${"canonical-".repeat(12)}branch-abc123`;
+        const fixture = data([
+          mainEntry(),
+          entry({
+            path: `/repo.worktrees/${id}`,
+            branch,
+            id,
+            is_current: true,
+          }),
+          entry({
+            path: "/repo.worktrees/detached-def456",
+            branch: "",
+            id: "detached-def456",
+          }),
+        ]);
+        for (const width of [39, 80, 104, 400]) {
+          const brief = render(fixture, width, true);
+          assert(!plain(brief).includes(branch), brief);
+          assert(!plain(brief).includes("abc123"), brief);
+          assert(!plain(brief).includes("def456"), brief);
+          assertStringIncludes(plain(brief), "Alternate identity");
+          assertLinesFit(brief, width);
+
+          const output = render(fixture, width, true, undefined, true);
+          const compactOutput = plain(output).replaceAll(/[\s│]/gu, "");
+          assertStringIncludes(compactOutput, branch);
+          assertStringIncludes(compactOutput, id);
+          assertStringIncludes(plain(output), "(detached)");
+          assertStringIncludes(plain(output), "current");
+          assertLinesFit(output, width);
+        }
+        assertEquals(
+          plain(render(fixture, 104, true, undefined, true)),
+          render(fixture, 104, false, undefined, true),
+          "styling must not alter either operational identity",
+        );
+        assertEquals(
+          presentFleetRow(entry({ branch: "plain-id", id: "plain-id" }), {
+            trunk: "main",
+            nowMs: NOW,
+          }).identity.secondary,
+          undefined,
+          "an equal unprefixed branch and worktree id must not render twice",
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
   });
-  for (const mode of modes) {
-    const context = terminalMode(80, mode);
-    assertEquals(context.capabilities.colorDepth, expectedDepth[mode]);
-    const output = renderStatusDashboard(fixture, undefined, {
-      terminal: context,
-      width: 80,
-      nowMs: NOW,
-      verbose: true,
-    });
-    const words = plain(output);
-    assertStringIncludes(words, safeBranch);
-    assertStringIncludes(words, safeId);
-    assertStringIncludes(words, "Behind");
-    assertStringIncludes(words, "current");
-    assert(!words.includes("\u001b[31m"));
-    assert(!words.includes("\u009b"));
-    assert(
-      unexpectedTerminalControls(words).length === 0,
-      `${mode} left a raw terminal control in package output`,
-    );
-    if (mode !== "ascii") {
-      assertEquals(words, unicodeBaseline, `${mode} changed status facts`);
-    }
-    assertLinesFit(output, 80);
-  }
 });
 
-Deno.test("status dashboard: responsive regions retain status, evidence, and complete actions", () => {
-  const branch = "agent/behind-abc123";
-  const fixture = data([
-    mainEntry({ is_current: false }),
-    entry({
-      path: "/repo.worktrees/behind-abc123",
-      branch,
-      id: "behind-abc123",
-      behind: 5,
-      is_current: true,
-    }),
-  ]);
+Deno.test("status dashboards preserve fleet identity, evidence, priorities, and next actions", () => {
+  const cases = [
+    {
+      name:
+        "status dashboard: task labels hide minted identity until duplicate names need it",
+      check: () => {
+        const unique = render(data([mainEntry(), entry()]), 72);
+        assertStringIncludes(unique, "Alpha");
+        assert(!unique.includes("alpha-abc123"), unique);
+        assert(!unique.includes("agent/alpha-abc123"), unique);
 
-  const hints = hintTexts([
-    fire(HINTS["status-branch-behind"], {
-      behind: 5,
-      trunk: "main",
-      overlap: undefined,
-    }),
-  ]);
-  const expectedAction = interactiveHintTexts(hints)[0];
-  assert(expectedAction !== undefined);
-  for (const width of [39, 80, 104, 400]) {
-    for (const color of [false, true]) {
-      const output = render(fixture, width, color, hints, true);
-      const words = plain(output);
-      assertStringIncludes(words, branch);
-      assertStringIncludes(words, "Behind");
-      assertStringIncludes(words, "Git");
-      assertStringIncludes(words, "Proof");
-      assertStringIncludes(squash(words), expectedAction);
-      assertStringIncludes(words, "current");
-      assertLinesFit(output, width);
-    }
-  }
-});
+        const duplicate = render(
+          data([
+            mainEntry(),
+            entry(),
+            entry({
+              path: "/repo.worktrees/alpha-def456",
+              branch: "agent/alpha-def456",
+              id: "alpha-def456",
+            }),
+          ]),
+          72,
+        );
+        assertStringIncludes(duplicate, "Alpha · abc123");
+        assertStringIncludes(duplicate, "Alpha · def456");
+      },
+    },
+    {
+      name:
+        "status dashboard: every typed row status is classified and rendered",
+      check: () => {
+        for (const kind of FLEET_ROW_STATUS_KINDS) {
+          const testCase = STATUS_CASES[kind];
+          const row = entry(testCase.patch);
+          const options: FleetRowPresentationOptions = {
+            trunk: "main",
+            nowMs: NOW,
+            ...(testCase.collisions === undefined
+              ? {}
+              : { collisions: testCase.collisions }),
+          };
+          const model = presentFleetRow(row, options);
+          assertEquals(model.kind, kind);
+          const output = render(
+            data([mainEntry(), row], {
+              ...(testCase.collisions === undefined
+                ? {}
+                : { fleet_collisions: [...testCase.collisions] }),
+            }),
+            72,
+            false,
+            undefined,
+            true,
+          );
+          assertStringIncludes(
+            output,
+            kind === "running" ? "Gate running · 2m" : model.label,
+          );
+          assertLinesFit(output, 72);
+        }
+      },
+    },
+    {
+      name:
+        "status dashboard: every proof-check state auto-enrols in the human vocabulary",
+      check: () => {
+        for (const status of GATE_PROOF_CHECK_STATUSES) {
+          const proof: GateProofCheckData = {
+            status,
+            ...((status === "unavailable" || status === "read_failed")
+              ? { reason: "fixture reason" }
+              : {}),
+          };
+          const row = entry({
+            clean: status === "dirty" ? false : true,
+            changed_files: status === "dirty" ? 1 : 0,
+            ahead: status === "honored" ? 1 : 0,
+            gate_proof: proof,
+            ...(status === "honored" ? { proof_honored: true } : {}),
+          });
+          const output = render(
+            data([mainEntry(), row]),
+            72,
+            false,
+            undefined,
+            true,
+          );
+          assert(
+            plain(output).split("\n").some((line) =>
+              line.includes("Proof") && line.includes(PROOF_LABELS[status])
+            ),
+            `${status} state is absent from the package-backed Proof row`,
+          );
+        }
+      },
+    },
+    {
+      name:
+        "status dashboard: activity, failure, divergence, and authority retain their hierarchy",
+      check: () => {
+        const failed = entry({
+          path: "/repo.worktrees/failed-111aaa",
+          branch: "agent/failed-111aaa",
+          id: "failed-111aaa",
+          last_action: {
+            verb: "done",
+            outcome: "failed",
+            failed_stage: "test",
+            at: "2026-08-03T11:50:00.000Z",
+          },
+        });
+        const running = entry({
+          path: "/repo.worktrees/running-222bbb",
+          branch: "agent/running-222bbb",
+          id: "running-222bbb",
+          clean: false,
+          changed_files: 2,
+          ahead: 8,
+          behind: 3,
+          gate_proof: { status: "dirty" },
+          running: {
+            verb: "done",
+            started: "2026-08-03T11:58:00.000Z",
+            elapsed_ms: 120_000,
+            typical_duration_ms: 120_000,
+          },
+        });
+        const observed = entry({
+          path: "/repo.worktrees/observed-333ccc",
+          branch: "agent/observed-333ccc",
+          id: "observed-333ccc",
+          clean: false,
+          changed_files: 3,
+          gate_proof: { status: "dirty" },
+          last_action: {
+            verb: "status",
+            outcome: "ok",
+            at: "2026-08-03T11:59:00.000Z",
+          },
+        });
+        const granted = entry({
+          path: "/repo.worktrees/granted-444ddd",
+          branch: "agent/granted-444ddd",
+          id: "granted-444ddd",
+          ahead: 1,
+          gate_proof: { status: "honored" },
+          proof_honored: true,
+          landing_authority: {
+            kind: "authorized",
+            source: "standing-grant",
+            scopes: ["map"],
+            standing_scopes: ["map"],
+          },
+        });
+        const approval = entry({
+          path: "/repo.worktrees/approval-555eee",
+          branch: "agent/approval-555eee",
+          id: "approval-555eee",
+          ahead: 1,
+          gate_proof: { status: "honored" },
+          proof_honored: true,
+          landing_authority: { kind: "conversation-required" },
+        });
+        const scoped = entry({
+          path: "/repo.worktrees/scoped-666fff",
+          branch: "agent/scoped-666fff",
+          id: "scoped-666fff",
+          ahead: 1,
+          gate_proof: { status: "honored" },
+          proof_honored: true,
+          landing_authority: {
+            kind: "conversation-required",
+            standing_scopes: ["map"],
+            uncovered: [{ path: "src/engine/status/tty.ts", scopes: ["code"] }],
+          },
+        });
+        const output = render(
+          data([
+            mainEntry(),
+            failed,
+            running,
+            observed,
+            granted,
+            approval,
+            scoped,
+          ]),
+          72,
+          true,
+          undefined,
+          true,
+        );
+        const words = plain(output);
+        assertStringIncludes(words, "last action done failed at test");
+        assertStringIncludes(words, "Gate running · 2m");
+        assertStringIncludes(words, "Activity: just now · usually 2m");
+        assertStringIncludes(words, "Git: 2 files changed · ↑8 ↓3");
+        assertStringIncludes(words, "Changed: Observed. In progress");
+        assertStringIncludes(words, "Git: 3 files changed");
+        assertStringIncludes(words, "last action status ok");
+        assertStringIncludes(
+          words,
+          "Landing: granted · standing grant for map",
+        );
+        assertStringIncludes(words, "Landing: needs approval");
+        assertStringIncludes(words, "Landing: scope-limited");
+        assert(!words.includes("2m of ~2m"));
+        assert(!words.includes("↓0"));
+        assert(!words.includes("▴────"));
+        assert(!words.includes("0 ahead"));
+        assertStringIncludes(output, terminal(72, true).tone("↑1", "accent"));
+        assertStringIncludes(output, terminal(72, true).tone("↓3", "warning"));
+        assertEquals(
+          words,
+          render(
+            data([
+              mainEntry(),
+              failed,
+              running,
+              observed,
+              granted,
+              approval,
+              scoped,
+            ]),
+            72,
+            false,
+            undefined,
+            true,
+          ),
+          "semantic facts must survive without colour",
+        );
+        assertLinesFit(output, 72);
+      },
+    },
+    {
+      name: "status dashboard: activity and staleness outrank branch lag",
+      check: () => {
+        const dirty = presentFleetRow(
+          entry({
+            clean: false,
+            changed_files: 2,
+            behind: 5,
+            gate_proof: { status: "dirty" },
+          }),
+          { trunk: "main", nowMs: NOW },
+        );
+        assertEquals(dirty.kind, "in-progress");
 
-Deno.test("status dashboard: every long or differing identity survives every layout", () => {
-  const id = `alternate-${"identity-".repeat(12)}abc123`;
-  const branch = `agent/${"canonical-".repeat(12)}branch-abc123`;
-  const fixture = data([
-    mainEntry(),
-    entry({
-      path: `/repo.worktrees/${id}`,
-      branch,
-      id,
-      is_current: true,
-    }),
-    entry({
-      path: "/repo.worktrees/detached-def456",
-      branch: "",
-      id: "detached-def456",
-    }),
-  ]);
-  for (const width of [39, 80, 104, 400]) {
-    const brief = render(fixture, width, true);
-    assert(!plain(brief).includes(branch), brief);
-    assert(!plain(brief).includes("abc123"), brief);
-    assert(!plain(brief).includes("def456"), brief);
-    assertStringIncludes(plain(brief), "Alternate identity");
-    assertLinesFit(brief, width);
+        const stale = presentFleetRow(
+          entry({
+            clean: false,
+            changed_files: 2,
+            ahead: 1,
+            behind: 5,
+            last_activity: "2026-07-20T12:00:00.000Z",
+            gate_proof: { status: "dirty" },
+          }),
+          { trunk: "main", nowMs: NOW },
+        );
+        assertEquals(stale.kind, "stale");
+      },
+    },
+    {
+      name:
+        "status dashboard: the fleet brief separates landing risks from worktree state",
+      check: () => {
+        const alpha = entry();
+        const beta = entry({
+          path: "/repo.worktrees/beta-def456",
+          branch: "agent/beta-def456",
+          id: "beta-def456",
+        });
+        const longRecord = `project/map/_adr/0253-${
+          "responsive-".repeat(8)
+        }first.md`;
+        const fixture = data([mainEntry(), alpha, beta], {
+          fleet_collisions: [{
+            branches: ["agent/alpha-abc123", "agent/beta-def456"],
+            overlap: ["src/shared/result.ts", "tests/result_test.ts"],
+            total: 2,
+          }],
+          adr_collisions: [{
+            number: "0253",
+            branches: ["agent/alpha-abc123", "agent/beta-def456"],
+            paths: [
+              longRecord,
+              "project/map/_adr/0253-second.md",
+            ],
+          }],
+        });
+        const brief = render(fixture, 60);
+        assertStringIncludes(brief, "Landing risks");
+        assertStringIncludes(brief, "2 shared files");
+        assertStringIncludes(brief, "ADR 0253");
+        assert(!brief.includes("Collision"), brief);
+        assert(!brief.includes("ATTENTION"), brief);
+        assert(!brief.includes("src/shared/result.ts"), brief);
 
-    const output = render(fixture, width, true, undefined, true);
-    const compactOutput = plain(output).replaceAll(/[\s│]/gu, "");
-    assertStringIncludes(compactOutput, branch);
-    assertStringIncludes(compactOutput, id);
-    assertStringIncludes(plain(output), "(detached)");
-    assertStringIncludes(plain(output), "current");
-    assertLinesFit(output, width);
-  }
-  assertEquals(
-    plain(render(fixture, 104, true, undefined, true)),
-    render(fixture, 104, false, undefined, true),
-    "styling must not alter either operational identity",
-  );
-  assertEquals(
-    presentFleetRow(entry({ branch: "plain-id", id: "plain-id" }), {
-      trunk: "main",
-      nowMs: NOW,
-    }).identity.secondary,
-    undefined,
-    "an equal unprefixed branch and worktree id must not render twice",
-  );
-});
+        const output = render(
+          fixture,
+          60,
+          false,
+          undefined,
+          true,
+        );
+        assertStringIncludes(output, "Fleet collision");
+        assertStringIncludes(output, "src/shared/result.ts");
+        assertStringIncludes(output, "ADR 0253 has multiple claims");
+        assertStringIncludes(output.replaceAll(/\s+/gu, ""), longRecord);
+        assert(!output.includes("data.fleet"), output);
+        assert(!output.includes("data.adr"), output);
+        assertLinesFit(output, 60);
+      },
+    },
+    {
+      name:
+        "status dashboard: removed worktree paths report their current contents and cleanup boundary",
+      check: () => {
+        const output = plain(render(
+          data([], {
+            reappeared_worktree_paths: [{
+              path: "/repo.worktrees/apollo-11",
+              removed_at: "2026-08-03T11:55:00.000Z",
+              kind: "directory",
+              contents: ["observer-state/checkpoint.bin"],
+              contents_truncated: false,
+              entries: 2,
+            }, {
+              path: "/repo.worktrees/voyager",
+              removed_at: "2026-08-03T11:50:00.000Z",
+              kind: "directory",
+              contents: ["project/.git/config"],
+              contents_truncated: false,
+              entries: 3,
+              cleanup_blocked_reason: "the path contains Git metadata",
+            }],
+          }),
+          80,
+          false,
+          undefined,
+          true,
+        ));
 
-Deno.test("status dashboard: task labels hide minted identity until duplicate names need it", () => {
-  const unique = render(data([mainEntry(), entry()]), 72);
-  assertStringIncludes(unique, "Alpha");
-  assert(!unique.includes("alpha-abc123"), unique);
-  assert(!unique.includes("agent/alpha-abc123"), unique);
+        assertStringIncludes(output, "ATTENTION");
+        assertStringIncludes(output, "/repo.worktrees/apollo-11");
+        assertStringIncludes(
+          output,
+          "discern removed the worktree 5m ago; the path is present again",
+        );
+        assertStringIncludes(output, "observer-state/checkpoint.bin");
+        assertStringIncludes(output, "Kept: the path contains Git metadata");
+        assertLinesFit(output, 80);
+      },
+    },
+    {
+      name:
+        "status dashboard: actionable package commands are accented while stored proof stays verbatim",
+      check: () => {
+        const behind = entry({ behind: 2 });
+        const proofUnavailable = entry({
+          path: "/repo.worktrees/proof-def456",
+          branch: "agent/proof-def456",
+          id: "proof-def456",
+          gate_proof: { status: "unavailable", reason: "admin dir missing" },
+        });
+        const hints = hintTexts([
+          fire(HINTS["status-branch-behind"], {
+            behind: 2,
+            trunk: "main",
+            overlap: undefined,
+          }),
+        ]);
+        const fixture = data([mainEntry(), behind, proofUnavailable], {
+          gate_proof: {
+            status: "honored",
+            proof:
+              "### Proof\n\nRun `discern standards` to inspect the measurements.",
+          },
+        });
+        const noColor = render(fixture, 104, false, hints, true);
+        const color = render(fixture, 104, true, hints, true);
 
-  const duplicate = render(
-    data([
-      mainEntry(),
-      entry(),
-      entry({
-        path: "/repo.worktrees/alpha-def456",
-        branch: "agent/alpha-def456",
-        id: "alpha-def456",
-      }),
-    ]),
-    72,
-  );
-  assertStringIncludes(duplicate, "Alpha · abc123");
-  assertStringIncludes(duplicate, "Alpha · def456");
-});
+        assertEquals(plain(color), noColor);
+        const accentDiscern = terminal(104, true).tone("discern", "accent");
+        const highlighted = color.split(`\`${accentDiscern}`).length - 1;
+        assert(
+          highlighted >= 5,
+          "fixture must exercise every actionable command route",
+        );
+        assertStringIncludes(
+          color,
+          `\`${accentDiscern} ${
+            terminal(104, true).tone("update", "accent")
+          }\``,
+        );
+        assertStringIncludes(
+          color,
+          "Run `discern standards` to inspect the measurements.",
+        );
+        assertLinesFit(color, 104);
+      },
+    },
+    {
+      name:
+        "status dashboard: landing risks do not replace proof readiness and landing authority",
+      check: () => {
+        const ready = entry({
+          ahead: 2,
+          gate_proof: { status: "honored" },
+          proof_honored: true,
+          landing_authority: {
+            kind: "authorized",
+            source: "standing-grant",
+            scopes: ["map"],
+            standing_scopes: ["map"],
+          },
+        });
+        const collision: StatusFleetCollision = {
+          branches: ["agent/alpha-abc123", "agent/beta-def456"],
+          overlap: ["project/map/shared.md"],
+          total: 1,
+        };
+        const model = presentFleetRow(ready, {
+          trunk: "main",
+          nowMs: NOW,
+          collisions: [collision],
+        });
+        assertEquals(model.kind, "ready");
+        assertEquals(model.landingReady, true);
+        assertEquals(model.authority?.label, "granted");
 
-Deno.test("status dashboard: every typed row status is classified and rendered", () => {
-  for (const kind of FLEET_ROW_STATUS_KINDS) {
-    const testCase = STATUS_CASES[kind];
-    const row = entry(testCase.patch);
-    const options: FleetRowPresentationOptions = {
-      trunk: "main",
-      nowMs: NOW,
-      ...(testCase.collisions === undefined
-        ? {}
-        : { collisions: testCase.collisions }),
-    };
-    const model = presentFleetRow(row, options);
-    assertEquals(model.kind, kind);
-    const output = render(
-      data([mainEntry(), row], {
-        ...(testCase.collisions === undefined
-          ? {}
-          : { fleet_collisions: [...testCase.collisions] }),
-      }),
-      72,
-      false,
-      undefined,
-      true,
-    );
-    assertStringIncludes(
-      output,
-      kind === "running" ? "Gate running · 2m" : model.label,
-    );
-    assertLinesFit(output, 72);
-  }
+        const output = render(
+          data([mainEntry(), ready], { fleet_collisions: [collision] }),
+          72,
+          false,
+          undefined,
+          true,
+        );
+        assertStringIncludes(output, "1 ready");
+        assertStringIncludes(output, "Landing risks");
+        assertStringIncludes(
+          output,
+          "Landing: granted · standing grant for map",
+        );
+        assertLinesFit(output, 72);
+      },
+    },
+    {
+      name: "status dashboard: unknown divergence is visible and never ready",
+      check: () => {
+        const unknown = entry({
+          ahead: "unknown",
+          behind: "unknown",
+          gate_proof: { status: "honored" },
+          proof_honored: true,
+        });
+        const model = presentFleetRow(unknown, {
+          trunk: "main",
+          nowMs: NOW,
+        });
+        assertEquals(model.landingReady, false);
+        assertEquals(model.kind, "idle");
+
+        const output = render(
+          data([mainEntry(), unknown]),
+          104,
+          false,
+          undefined,
+          true,
+        );
+        assertStringIncludes(output, "↑?");
+        assertStringIncludes(output, "↓?");
+      },
+    },
+    {
+      name:
+        "status dashboard: main and worktree fleet contexts show main once and keep current beside identity",
+      check: () => {
+        const current = entry({ is_current: true });
+        const main = data([mainEntry(), current]);
+        const mainOutput = render(main, 72);
+        assertEquals(mainOutput.match(/Main checkout/gu)?.length, 1);
+        assert(
+          mainOutput.indexOf("Main checkout") < mainOutput.indexOf("Fleet ·"),
+        );
+        assertStringIncludes(mainOutput, "voyager");
+        assertStringIncludes(
+          mainOutput,
+          "Main checkout main is clean and current.",
+        );
+        assert(!mainOutput.includes("Tasks"));
+        assert(!mainOutput.includes("plain_reading_grade"));
+        assert(!mainOutput.includes("Checks"), mainOutput);
+        assert(!mainOutput.includes("Standards: 2 configured"), mainOutput);
+        const mainVerbose = render(main, 72, false, undefined, true);
+        assertStringIncludes(mainVerbose, "Checks");
+        assertStringIncludes(mainVerbose, "Standards: 2 configured");
+
+        const worktree = data([mainEntry({ is_current: false }), current], {
+          location: "worktree",
+          root: "/repo.worktrees/alpha-abc123",
+          worktree: {
+            id: "alpha-abc123",
+            branch: "agent/alpha-abc123",
+            site: "voyager-alpha",
+            port: 17123,
+            db: "voyager_alpha",
+            seed: 3223225200,
+            resources: { cache: "voyager-alpha-cache" },
+          },
+          scopes: ["code", "previewable", "web"],
+          gate: { jobs: ["format", "test"], scope_gates: ["web"] },
+          git: {
+            branch: "agent/alpha-abc123",
+            trunk: "main",
+            clean: true,
+            changed_files: 0,
+            behind_trunk: 0,
+            ahead_trunk: 0,
+          },
+        });
+        const worktreeOutput = render(worktree, 72);
+        assertEquals(worktreeOutput.match(/Main checkout/gu)?.length, 1);
+        assertStringIncludes(worktreeOutput, "agent/alpha-abc123");
+        assertStringIncludes(worktreeOutput, "current");
+        assertStringIncludes(worktreeOutput, "Changed scopes: web");
+        assert(!worktreeOutput.includes("Change: code"));
+        assert(!worktreeOutput.includes("previewable"));
+        const checksAt = worktreeOutput.indexOf("Checks");
+        const environmentAt = worktreeOutput.indexOf("Local environment");
+        assert(checksAt >= 0 && environmentAt > checksAt);
+        assert(
+          !worktreeOutput.slice(checksAt, environmentAt).includes("Port:"),
+        );
+        assertStringIncludes(
+          worktreeOutput.slice(environmentAt),
+          "Port: 17123",
+        );
+        assertStringIncludes(
+          worktreeOutput.slice(environmentAt),
+          "Resources: cache=voyager-alpha-cache",
+        );
+      },
+    },
+    {
+      name:
+        "status dashboard: the main brief separates owner attention, landing risks, and next actions",
+      check: () => {
+        const stale = entry({
+          path: "/repo.worktrees/stale-def456",
+          branch: "agent/stale-def456",
+          id: "stale-def456",
+          clean: false,
+          changed_files: 2,
+          ahead: 4,
+          last_activity: "2026-07-20T12:00:00.000Z",
+          gate_proof: { status: "dirty" },
+        });
+        const collision: StatusFleetCollision = {
+          branches: ["agent/alpha-abc123", "agent/stale-def456"],
+          overlap: ["src/shared.ts"],
+          total: 1,
+        };
+        const hints = hintTexts([
+          fire(HINTS["status-fleet-member-stale"], {
+            total: 1,
+            names: ["stale-def456"],
+          }),
+          fire(HINTS["status-fleet-collisions"], {
+            total: 1,
+            pairs: ["alpha-abc123 ↔ stale-def456"],
+          }),
+        ]);
+        const output = render(
+          data([mainEntry(), entry(), stale], {
+            fleet_collisions: [collision],
+          }),
+          80,
+          false,
+          hints,
+        );
+
+        assertStringIncludes(output, "Owner attention");
+        assertStringIncludes(output, "Landing risks");
+        assertStringIncludes(output, "Activity: 2w ago");
+        assert(!output.includes("Next steps"), output);
+        assert(
+          !output.includes("Blocked: Status recommends an action."),
+          output,
+        );
+        assert(
+          output.indexOf("Owner attention") < output.indexOf("Landing risks"),
+        );
+        assertLinesFit(output, 80);
+      },
+    },
+    {
+      name:
+        "status dashboard: human hint projection and landing evidence stay concrete",
+      check: () => {
+        const ready = entry({
+          ahead: 1,
+          gate_proof: { status: "honored" },
+          proof_honored: true,
+        });
+        const hints = hintTexts([
+          fire(HINTS["status-fleet-member-ready"], {
+            total: 1,
+            names: ["alpha-abc123"],
+            trunk: "main",
+          }),
+          fire(HINTS["status-fleet-logbook-disabled"]),
+        ]);
+        assert(!(hints[0] ?? "").includes("git diff"));
+        assertStringIncludes(hints[0] ?? "", "The owner reviews");
+        assert(!(hints[0] ?? "").includes("data.fleet"));
+        const value = data([mainEntry(), ready], {
+          landed_proof: {
+            commit: "abcdef1234567890",
+            commit_at: "2026-08-03T11:00:00.000Z",
+            ref: "refs/notes/discern",
+            proof: {
+              branch: "agent/landed-123abc",
+              trunk: "main",
+              head: "abcdef123456",
+              files_total: 6,
+              insertions: 20,
+              deletions: 4,
+              line: "Proof: passed",
+              markdown:
+                "### Proof\n\nStored table row that may remain copyable.",
+            },
+          },
+        });
+        const output = render(value, 72, false, hints, true);
+        assertStringIncludes(output, "1 needs attention");
+        assertStringIncludes(output, "git diff main...<branch>");
+        assertStringIncludes(output, "discern status --verbose");
+        assertStringIncludes(squash(output), "complete branch and Proof");
+        assertStringIncludes(output, "Per-worktree actions aren't available");
+        assertStringIncludes(output, "6 files changed");
+        assertStringIncludes(output, "+20 −4");
+        assert(!squash(output).includes("6 files changed · +20 −4"));
+        assertStringIncludes(output, "1h ago");
+        assert(!output.includes("refs/notes/discern"));
+        assert(!output.includes("data.fleet"));
+        assertLinesFit(output, 72);
+
+        assert(value.landed_proof !== undefined);
+        for (
+          const [elapsed, age] of [
+            [0, "just now"],
+            [60_000, "1m ago"],
+            [3_600_000, "1h ago"],
+          ] as const
+        ) {
+          const aged = render(
+            {
+              ...value,
+              landed_proof: {
+                ...value.landed_proof,
+                commit_at: new Date(NOW - elapsed).toISOString(),
+              },
+            },
+            72,
+            false,
+            undefined,
+            true,
+          );
+          assertStringIncludes(squash(aged), `Age: ${age}`);
+        }
+
+        const verbose = render(
+          data([mainEntry(), ready], {
+            gate_proof: {
+              status: "honored",
+              proof: "### Proof\n\n| ran | result |\n| --- | --- |",
+            },
+          }),
+          48,
+          false,
+          undefined,
+          true,
+        );
+        assertStringIncludes(verbose, "| ran | result |");
+      },
+    },
+    {
+      name: "status dashboard: an empty fleet uses the package EmptyState",
+      check: () => {
+        const output = render(data([mainEntry()]), 72);
+        assertStringIncludes(output, "Empty");
+        assertStringIncludes(output, "No active worktrees");
+        assertLinesFit(output, 72);
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 const PROOF_LABELS = {
@@ -527,564 +1206,6 @@ const PROOF_LABELS = {
   unavailable: "unavailable",
   read_failed: "unreadable",
 } as const satisfies Record<GateProofCheckStatus, string>;
-
-Deno.test("status dashboard: every proof-check state auto-enrols in the human vocabulary", () => {
-  for (const status of GATE_PROOF_CHECK_STATUSES) {
-    const proof: GateProofCheckData = {
-      status,
-      ...((status === "unavailable" || status === "read_failed")
-        ? { reason: "fixture reason" }
-        : {}),
-    };
-    const row = entry({
-      clean: status === "dirty" ? false : true,
-      changed_files: status === "dirty" ? 1 : 0,
-      ahead: status === "honored" ? 1 : 0,
-      gate_proof: proof,
-      ...(status === "honored" ? { proof_honored: true } : {}),
-    });
-    const output = render(
-      data([mainEntry(), row]),
-      72,
-      false,
-      undefined,
-      true,
-    );
-    assert(
-      plain(output).split("\n").some((line) =>
-        line.includes("Proof") && line.includes(PROOF_LABELS[status])
-      ),
-      `${status} state is absent from the package-backed Proof row`,
-    );
-  }
-});
-
-Deno.test("status dashboard: activity, failure, divergence, and authority retain their hierarchy", () => {
-  const failed = entry({
-    path: "/repo.worktrees/failed-111aaa",
-    branch: "agent/failed-111aaa",
-    id: "failed-111aaa",
-    last_action: {
-      verb: "done",
-      outcome: "failed",
-      failed_stage: "test",
-      at: "2026-08-03T11:50:00.000Z",
-    },
-  });
-  const running = entry({
-    path: "/repo.worktrees/running-222bbb",
-    branch: "agent/running-222bbb",
-    id: "running-222bbb",
-    clean: false,
-    changed_files: 2,
-    ahead: 8,
-    behind: 3,
-    gate_proof: { status: "dirty" },
-    running: {
-      verb: "done",
-      started: "2026-08-03T11:58:00.000Z",
-      elapsed_ms: 120_000,
-      typical_duration_ms: 120_000,
-    },
-  });
-  const observed = entry({
-    path: "/repo.worktrees/observed-333ccc",
-    branch: "agent/observed-333ccc",
-    id: "observed-333ccc",
-    clean: false,
-    changed_files: 3,
-    gate_proof: { status: "dirty" },
-    last_action: {
-      verb: "status",
-      outcome: "ok",
-      at: "2026-08-03T11:59:00.000Z",
-    },
-  });
-  const granted = entry({
-    path: "/repo.worktrees/granted-444ddd",
-    branch: "agent/granted-444ddd",
-    id: "granted-444ddd",
-    ahead: 1,
-    gate_proof: { status: "honored" },
-    proof_honored: true,
-    landing_authority: {
-      kind: "authorized",
-      source: "standing-grant",
-      scopes: ["map"],
-      standing_scopes: ["map"],
-    },
-  });
-  const approval = entry({
-    path: "/repo.worktrees/approval-555eee",
-    branch: "agent/approval-555eee",
-    id: "approval-555eee",
-    ahead: 1,
-    gate_proof: { status: "honored" },
-    proof_honored: true,
-    landing_authority: { kind: "conversation-required" },
-  });
-  const scoped = entry({
-    path: "/repo.worktrees/scoped-666fff",
-    branch: "agent/scoped-666fff",
-    id: "scoped-666fff",
-    ahead: 1,
-    gate_proof: { status: "honored" },
-    proof_honored: true,
-    landing_authority: {
-      kind: "conversation-required",
-      standing_scopes: ["map"],
-      uncovered: [{ path: "src/engine/status/tty.ts", scopes: ["code"] }],
-    },
-  });
-  const output = render(
-    data([mainEntry(), failed, running, observed, granted, approval, scoped]),
-    72,
-    true,
-    undefined,
-    true,
-  );
-  const words = plain(output);
-  assertStringIncludes(words, "last action done failed at test");
-  assertStringIncludes(words, "Gate running · 2m");
-  assertStringIncludes(words, "Activity: just now · usually 2m");
-  assertStringIncludes(words, "Git: 2 files changed · ↑8 ↓3");
-  assertStringIncludes(words, "Changed: Observed. In progress");
-  assertStringIncludes(words, "Git: 3 files changed");
-  assertStringIncludes(words, "last action status ok");
-  assertStringIncludes(words, "Landing: granted · standing grant for map");
-  assertStringIncludes(words, "Landing: needs approval");
-  assertStringIncludes(words, "Landing: scope-limited");
-  assert(!words.includes("2m of ~2m"));
-  assert(!words.includes("↓0"));
-  assert(!words.includes("▴────"));
-  assert(!words.includes("0 ahead"));
-  assertStringIncludes(output, terminal(72, true).tone("↑1", "accent"));
-  assertStringIncludes(output, terminal(72, true).tone("↓3", "warning"));
-  assertEquals(
-    words,
-    render(
-      data([mainEntry(), failed, running, observed, granted, approval, scoped]),
-      72,
-      false,
-      undefined,
-      true,
-    ),
-    "semantic facts must survive without colour",
-  );
-  assertLinesFit(output, 72);
-});
-
-Deno.test("status dashboard: activity and staleness outrank branch lag", () => {
-  const dirty = presentFleetRow(
-    entry({
-      clean: false,
-      changed_files: 2,
-      behind: 5,
-      gate_proof: { status: "dirty" },
-    }),
-    { trunk: "main", nowMs: NOW },
-  );
-  assertEquals(dirty.kind, "in-progress");
-
-  const stale = presentFleetRow(
-    entry({
-      clean: false,
-      changed_files: 2,
-      ahead: 1,
-      behind: 5,
-      last_activity: "2026-07-20T12:00:00.000Z",
-      gate_proof: { status: "dirty" },
-    }),
-    { trunk: "main", nowMs: NOW },
-  );
-  assertEquals(stale.kind, "stale");
-});
-
-Deno.test("status dashboard: the fleet brief separates landing risks from worktree state", () => {
-  const alpha = entry();
-  const beta = entry({
-    path: "/repo.worktrees/beta-def456",
-    branch: "agent/beta-def456",
-    id: "beta-def456",
-  });
-  const longRecord = `project/map/_adr/0253-${"responsive-".repeat(8)}first.md`;
-  const fixture = data([mainEntry(), alpha, beta], {
-    fleet_collisions: [{
-      branches: ["agent/alpha-abc123", "agent/beta-def456"],
-      overlap: ["src/shared/result.ts", "tests/result_test.ts"],
-      total: 2,
-    }],
-    adr_collisions: [{
-      number: "0253",
-      branches: ["agent/alpha-abc123", "agent/beta-def456"],
-      paths: [
-        longRecord,
-        "project/map/_adr/0253-second.md",
-      ],
-    }],
-  });
-  const brief = render(fixture, 60);
-  assertStringIncludes(brief, "Landing risks");
-  assertStringIncludes(brief, "2 shared files");
-  assertStringIncludes(brief, "ADR 0253");
-  assert(!brief.includes("Collision"), brief);
-  assert(!brief.includes("ATTENTION"), brief);
-  assert(!brief.includes("src/shared/result.ts"), brief);
-
-  const output = render(
-    fixture,
-    60,
-    false,
-    undefined,
-    true,
-  );
-  assertStringIncludes(output, "Fleet collision");
-  assertStringIncludes(output, "src/shared/result.ts");
-  assertStringIncludes(output, "ADR 0253 has multiple claims");
-  assertStringIncludes(output.replaceAll(/\s+/gu, ""), longRecord);
-  assert(!output.includes("data.fleet"), output);
-  assert(!output.includes("data.adr"), output);
-  assertLinesFit(output, 60);
-});
-
-Deno.test("status dashboard: removed worktree paths report their current contents and cleanup boundary", () => {
-  const output = plain(render(
-    data([], {
-      reappeared_worktree_paths: [{
-        path: "/repo.worktrees/apollo-11",
-        removed_at: "2026-08-03T11:55:00.000Z",
-        kind: "directory",
-        contents: ["observer-state/checkpoint.bin"],
-        contents_truncated: false,
-        entries: 2,
-      }, {
-        path: "/repo.worktrees/voyager",
-        removed_at: "2026-08-03T11:50:00.000Z",
-        kind: "directory",
-        contents: ["project/.git/config"],
-        contents_truncated: false,
-        entries: 3,
-        cleanup_blocked_reason: "the path contains Git metadata",
-      }],
-    }),
-    80,
-    false,
-    undefined,
-    true,
-  ));
-
-  assertStringIncludes(output, "ATTENTION");
-  assertStringIncludes(output, "/repo.worktrees/apollo-11");
-  assertStringIncludes(
-    output,
-    "discern removed the worktree 5m ago; the path is present again",
-  );
-  assertStringIncludes(output, "observer-state/checkpoint.bin");
-  assertStringIncludes(output, "Kept: the path contains Git metadata");
-  assertLinesFit(output, 80);
-});
-
-Deno.test("status dashboard: actionable package commands are accented while stored proof stays verbatim", () => {
-  const behind = entry({ behind: 2 });
-  const proofUnavailable = entry({
-    path: "/repo.worktrees/proof-def456",
-    branch: "agent/proof-def456",
-    id: "proof-def456",
-    gate_proof: { status: "unavailable", reason: "admin dir missing" },
-  });
-  const hints = hintTexts([
-    fire(HINTS["status-branch-behind"], {
-      behind: 2,
-      trunk: "main",
-      overlap: undefined,
-    }),
-  ]);
-  const fixture = data([mainEntry(), behind, proofUnavailable], {
-    gate_proof: {
-      status: "honored",
-      proof:
-        "### Proof\n\nRun `discern standards` to inspect the measurements.",
-    },
-  });
-  const noColor = render(fixture, 104, false, hints, true);
-  const color = render(fixture, 104, true, hints, true);
-
-  assertEquals(plain(color), noColor);
-  const accentDiscern = terminal(104, true).tone("discern", "accent");
-  const highlighted = color.split(`\`${accentDiscern}`).length - 1;
-  assert(
-    highlighted >= 5,
-    "fixture must exercise every actionable command route",
-  );
-  assertStringIncludes(
-    color,
-    `\`${accentDiscern} ${terminal(104, true).tone("update", "accent")}\``,
-  );
-  assertStringIncludes(
-    color,
-    "Run `discern standards` to inspect the measurements.",
-  );
-  assertLinesFit(color, 104);
-});
-
-Deno.test("status dashboard: landing risks do not replace proof readiness and landing authority", () => {
-  const ready = entry({
-    ahead: 2,
-    gate_proof: { status: "honored" },
-    proof_honored: true,
-    landing_authority: {
-      kind: "authorized",
-      source: "standing-grant",
-      scopes: ["map"],
-      standing_scopes: ["map"],
-    },
-  });
-  const collision: StatusFleetCollision = {
-    branches: ["agent/alpha-abc123", "agent/beta-def456"],
-    overlap: ["project/map/shared.md"],
-    total: 1,
-  };
-  const model = presentFleetRow(ready, {
-    trunk: "main",
-    nowMs: NOW,
-    collisions: [collision],
-  });
-  assertEquals(model.kind, "ready");
-  assertEquals(model.landingReady, true);
-  assertEquals(model.authority?.label, "granted");
-
-  const output = render(
-    data([mainEntry(), ready], { fleet_collisions: [collision] }),
-    72,
-    false,
-    undefined,
-    true,
-  );
-  assertStringIncludes(output, "1 ready");
-  assertStringIncludes(output, "Landing risks");
-  assertStringIncludes(output, "Landing: granted · standing grant for map");
-  assertLinesFit(output, 72);
-});
-
-Deno.test("status dashboard: unknown divergence is visible and never ready", () => {
-  const unknown = entry({
-    ahead: "unknown",
-    behind: "unknown",
-    gate_proof: { status: "honored" },
-    proof_honored: true,
-  });
-  const model = presentFleetRow(unknown, {
-    trunk: "main",
-    nowMs: NOW,
-  });
-  assertEquals(model.landingReady, false);
-  assertEquals(model.kind, "idle");
-
-  const output = render(
-    data([mainEntry(), unknown]),
-    104,
-    false,
-    undefined,
-    true,
-  );
-  assertStringIncludes(output, "↑?");
-  assertStringIncludes(output, "↓?");
-});
-
-Deno.test("status dashboard: main and worktree fleet contexts show main once and keep current beside identity", () => {
-  const current = entry({ is_current: true });
-  const main = data([mainEntry(), current]);
-  const mainOutput = render(main, 72);
-  assertEquals(mainOutput.match(/Main checkout/gu)?.length, 1);
-  assert(mainOutput.indexOf("Main checkout") < mainOutput.indexOf("Fleet ·"));
-  assertStringIncludes(mainOutput, "voyager");
-  assertStringIncludes(mainOutput, "Main checkout main is clean and current.");
-  assert(!mainOutput.includes("Tasks"));
-  assert(!mainOutput.includes("plain_reading_grade"));
-  assert(!mainOutput.includes("Checks"), mainOutput);
-  assert(!mainOutput.includes("Standards: 2 configured"), mainOutput);
-  const mainVerbose = render(main, 72, false, undefined, true);
-  assertStringIncludes(mainVerbose, "Checks");
-  assertStringIncludes(mainVerbose, "Standards: 2 configured");
-
-  const worktree = data([mainEntry({ is_current: false }), current], {
-    location: "worktree",
-    root: "/repo.worktrees/alpha-abc123",
-    worktree: {
-      id: "alpha-abc123",
-      branch: "agent/alpha-abc123",
-      site: "voyager-alpha",
-      port: 17123,
-      db: "voyager_alpha",
-      seed: 3223225200,
-      resources: { cache: "voyager-alpha-cache" },
-    },
-    scopes: ["code", "previewable", "web"],
-    gate: { jobs: ["format", "test"], scope_gates: ["web"] },
-    git: {
-      branch: "agent/alpha-abc123",
-      trunk: "main",
-      clean: true,
-      changed_files: 0,
-      behind_trunk: 0,
-      ahead_trunk: 0,
-    },
-  });
-  const worktreeOutput = render(worktree, 72);
-  assertEquals(worktreeOutput.match(/Main checkout/gu)?.length, 1);
-  assertStringIncludes(worktreeOutput, "agent/alpha-abc123");
-  assertStringIncludes(worktreeOutput, "current");
-  assertStringIncludes(worktreeOutput, "Changed scopes: web");
-  assert(!worktreeOutput.includes("Change: code"));
-  assert(!worktreeOutput.includes("previewable"));
-  const checksAt = worktreeOutput.indexOf("Checks");
-  const environmentAt = worktreeOutput.indexOf("Local environment");
-  assert(checksAt >= 0 && environmentAt > checksAt);
-  assert(!worktreeOutput.slice(checksAt, environmentAt).includes("Port:"));
-  assertStringIncludes(worktreeOutput.slice(environmentAt), "Port: 17123");
-  assertStringIncludes(
-    worktreeOutput.slice(environmentAt),
-    "Resources: cache=voyager-alpha-cache",
-  );
-});
-
-Deno.test("status dashboard: the main brief separates owner attention, landing risks, and next actions", () => {
-  const stale = entry({
-    path: "/repo.worktrees/stale-def456",
-    branch: "agent/stale-def456",
-    id: "stale-def456",
-    clean: false,
-    changed_files: 2,
-    ahead: 4,
-    last_activity: "2026-07-20T12:00:00.000Z",
-    gate_proof: { status: "dirty" },
-  });
-  const collision: StatusFleetCollision = {
-    branches: ["agent/alpha-abc123", "agent/stale-def456"],
-    overlap: ["src/shared.ts"],
-    total: 1,
-  };
-  const hints = hintTexts([
-    fire(HINTS["status-fleet-member-stale"], {
-      total: 1,
-      names: ["stale-def456"],
-    }),
-    fire(HINTS["status-fleet-collisions"], {
-      total: 1,
-      pairs: ["alpha-abc123 ↔ stale-def456"],
-    }),
-  ]);
-  const output = render(
-    data([mainEntry(), entry(), stale], { fleet_collisions: [collision] }),
-    80,
-    false,
-    hints,
-  );
-
-  assertStringIncludes(output, "Owner attention");
-  assertStringIncludes(output, "Landing risks");
-  assertStringIncludes(output, "Activity: 2w ago");
-  assert(!output.includes("Next steps"), output);
-  assert(!output.includes("Blocked: Status recommends an action."), output);
-  assert(
-    output.indexOf("Owner attention") < output.indexOf("Landing risks"),
-  );
-  assertLinesFit(output, 80);
-});
-
-Deno.test("status dashboard: human hint projection and landing evidence stay concrete", () => {
-  const ready = entry({
-    ahead: 1,
-    gate_proof: { status: "honored" },
-    proof_honored: true,
-  });
-  const hints = hintTexts([
-    fire(HINTS["status-fleet-member-ready"], {
-      total: 1,
-      names: ["alpha-abc123"],
-      trunk: "main",
-    }),
-    fire(HINTS["status-fleet-logbook-disabled"]),
-  ]);
-  assert(!(hints[0] ?? "").includes("git diff"));
-  assertStringIncludes(hints[0] ?? "", "The owner reviews");
-  assert(!(hints[0] ?? "").includes("data.fleet"));
-  const value = data([mainEntry(), ready], {
-    landed_proof: {
-      commit: "abcdef1234567890",
-      commit_at: "2026-08-03T11:00:00.000Z",
-      ref: "refs/notes/discern",
-      proof: {
-        branch: "agent/landed-123abc",
-        trunk: "main",
-        head: "abcdef123456",
-        files_total: 6,
-        insertions: 20,
-        deletions: 4,
-        line: "Proof: passed",
-        markdown: "### Proof\n\nStored table row that may remain copyable.",
-      },
-    },
-  });
-  const output = render(value, 72, false, hints, true);
-  assertStringIncludes(output, "1 needs attention");
-  assertStringIncludes(output, "git diff main...<branch>");
-  assertStringIncludes(output, "discern status --verbose");
-  assertStringIncludes(squash(output), "complete branch and Proof");
-  assertStringIncludes(output, "Per-worktree actions aren't available");
-  assertStringIncludes(output, "6 files changed");
-  assertStringIncludes(output, "+20 −4");
-  assert(!squash(output).includes("6 files changed · +20 −4"));
-  assertStringIncludes(output, "1h ago");
-  assert(!output.includes("refs/notes/discern"));
-  assert(!output.includes("data.fleet"));
-  assertLinesFit(output, 72);
-
-  assert(value.landed_proof !== undefined);
-  for (
-    const [elapsed, age] of [
-      [0, "just now"],
-      [60_000, "1m ago"],
-      [3_600_000, "1h ago"],
-    ] as const
-  ) {
-    const aged = render(
-      {
-        ...value,
-        landed_proof: {
-          ...value.landed_proof,
-          commit_at: new Date(NOW - elapsed).toISOString(),
-        },
-      },
-      72,
-      false,
-      undefined,
-      true,
-    );
-    assertStringIncludes(squash(aged), `Age: ${age}`);
-  }
-
-  const verbose = render(
-    data([mainEntry(), ready], {
-      gate_proof: {
-        status: "honored",
-        proof: "### Proof\n\n| ran | result |\n| --- | --- |",
-      },
-    }),
-    48,
-    false,
-    undefined,
-    true,
-  );
-  assertStringIncludes(verbose, "| ran | result |");
-});
-
-Deno.test("status dashboard: an empty fleet uses the package EmptyState", () => {
-  const output = render(data([mainEntry()]), 72);
-  assertStringIncludes(output, "Empty");
-  assertStringIncludes(output, "No active worktrees");
-  assertLinesFit(output, 72);
-});
 
 Deno.test("status dashboard: every interactive status hint avoids machine-field directions", () => {
   const definitions = Object.values(HINTS) as unknown as readonly HintDef<

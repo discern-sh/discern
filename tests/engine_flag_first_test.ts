@@ -14,6 +14,7 @@
  * implements.
  */
 
+import { assertCases } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import type { Command } from "@cliffy/command";
@@ -60,131 +61,196 @@ const GLOBAL_FLAG_FORMS: readonly {
     : [flag],
 }));
 
-Deno.test("the global-flag registration includes both explicit result formats", () => {
-  // The matrices below iterate this set — an empty derivation would make
-  // every flag-first case silently vacuous.
-  assert(GLOBAL_FLAGS.length > 0, "no global flags derived from the root");
-  assert(GLOBAL_FLAGS.includes("--json"), GLOBAL_FLAGS.join(", "));
-  assert(GLOBAL_FLAGS.includes("--markdown"), GLOBAL_FLAGS.join(", "));
-  assert(GLOBAL_FLAGS.includes("--render"), GLOBAL_FLAGS.join(", "));
-  assert(!GLOBAL_FLAGS.includes("--md"), GLOBAL_FLAGS.join(", "));
-  assertEquals([...ROOT_GLOBAL_FLAG_TOKENS].sort(), GLOBAL_FLAGS);
-  assertEquals(
-    [...ROOT_GLOBAL_VALUE_FLAG_TOKENS].sort(),
-    GLOBAL_VALUE_FLAGS,
-  );
-  assertEquals(Object.keys(GLOBAL_VALUE_SAMPLES).sort(), GLOBAL_VALUE_FLAGS);
-});
-
-Deno.test("result-format help names representations without assigning audiences", () => {
-  const options = (buildCli(false) as unknown as Command).getOptions(true);
-  for (const format of Object.values(CLI_RESULT_FORMATS)) {
-    const option = options.find((candidate) =>
-      candidate.flags.includes(format.flag)
-    );
-    assert(option !== undefined, `missing ${format.flag}`);
-    assertEquals(option.description, format.description);
-    assert(
-      !/\b(?:agent|human|machine)[- ](?:readable|output)\b/i.test(
-        option.description,
-      ),
-      `${format.flag} assigns its format to an audience: ${option.description}`,
-    );
-  }
-});
-
-Deno.test("render is a secondary terminal convenience, outside the result-format set", () => {
-  assertEquals(Object.keys(CLI_RESULT_FORMATS), ["json", "markdown"]);
-  const options = (buildCli(false) as unknown as Command).getOptions(true);
-  const option = options.find((candidate) =>
-    candidate.flags.includes(CLI_RESULT_RENDER.flag)
-  );
-  assert(option !== undefined, `missing ${CLI_RESULT_RENDER.flag}`);
-  assertEquals(option.description, CLI_RESULT_RENDER.description);
-});
-
-Deno.test("raw child boundaries exclude every global-looking child flag", () => {
-  for (const [verb, boundary] of Object.entries(CLI_CHILD_BOUNDARIES)) {
-    for (const form of GLOBAL_FLAG_FORMS) {
-      const argv = boundary.kind === "delimiter"
-        ? [...form.tokens, verb, boundary.token, "fresh-relay", ...form.tokens]
-        : [...form.tokens, verb, "fresh-relay", ...form.tokens];
-      const expected = boundary.kind === "delimiter"
-        ? [...form.tokens, verb]
-        : [...form.tokens, verb, "fresh-relay"];
-      assertEquals(
-        discernOwnedArgv(
-          argv,
-          ROOT_GLOBAL_FLAG_TOKENS,
-          ROOT_GLOBAL_VALUE_FLAG_TOKENS,
-        ),
-        expected,
-        `${verb} let child flag ${form.flag} select a discern global mode`,
-      );
-    }
-  }
-});
-
-Deno.test("global option arity stays within the early router's supported grammar", () => {
-  const root = buildCli(false) as unknown as Command;
-  for (const option of root.getOptions(true)) {
-    if (option.global !== true) {
-      continue;
-    }
-    assert(
-      option.args.length <= 1,
-      `global flag ${option.flags.join("/")} takes more than one value`,
-    );
-    const argument = option.args[0];
-    if (argument === undefined) continue;
-    assertEquals(argument.optional, false);
-    assertEquals(argument.variadic, false);
-    assertEquals(argument.list, false);
-  }
-});
-
-Deno.test("resolveInvocation finds the verb past any run of global flags", () => {
-  const tokens = globalFlagTokens(buildCli(false) as unknown as Command);
-  const valueTokens = globalValueFlagTokens(
-    buildCli(false) as unknown as Command,
-  );
-  // Verb-first: the plain path stays the plain path.
-  assertEquals(resolveInvocation(["map", "--json"], tokens), {
-    verb: "map",
-    argsWithoutVerb: ["--json"],
-  });
-  // Each single global flag placed first.
-  for (const form of GLOBAL_FLAG_FORMS) {
-    assertEquals(
-      resolveInvocation(
-        [...form.tokens, "map", "x"],
-        tokens,
-        valueTokens,
-      ),
-      {
-        verb: "map",
-        argsWithoutVerb: [...form.tokens, "x"],
+Deno.test("global flag registrations preserve result, render, arity, and theme contracts", () => {
+  const cases = [
+    {
+      name:
+        "the global-flag registration includes both explicit result formats",
+      check: () => {
+        // The matrices below iterate this set — an empty derivation would make
+        // every flag-first case silently vacuous.
+        assert(
+          GLOBAL_FLAGS.length > 0,
+          "no global flags derived from the root",
+        );
+        assert(GLOBAL_FLAGS.includes("--json"), GLOBAL_FLAGS.join(", "));
+        assert(GLOBAL_FLAGS.includes("--markdown"), GLOBAL_FLAGS.join(", "));
+        assert(GLOBAL_FLAGS.includes("--render"), GLOBAL_FLAGS.join(", "));
+        assert(!GLOBAL_FLAGS.includes("--md"), GLOBAL_FLAGS.join(", "));
+        assertEquals([...ROOT_GLOBAL_FLAG_TOKENS].sort(), GLOBAL_FLAGS);
+        assertEquals(
+          [...ROOT_GLOBAL_VALUE_FLAG_TOKENS].sort(),
+          GLOBAL_VALUE_FLAGS,
+        );
+        assertEquals(
+          Object.keys(GLOBAL_VALUE_SAMPLES).sort(),
+          GLOBAL_VALUE_FLAGS,
+        );
       },
-    );
-  }
-  // Every global flag stacked before the verb.
-  const stacked = GLOBAL_FLAG_FORMS.flatMap((form) => form.tokens);
-  assertEquals(
-    resolveInvocation([...stacked, "map"], tokens, valueTokens).verb,
-    "map",
-  );
-  // Flags only: no verb at all (routes like bare `discern`).
-  assertEquals(resolveInvocation([...stacked], tokens, valueTokens), {
-    verb: undefined,
-    argsWithoutVerb: [...stacked],
+    },
+    {
+      name:
+        "result-format help names representations without assigning audiences",
+      check: () => {
+        const options = (buildCli(false) as unknown as Command).getOptions(
+          true,
+        );
+        for (const format of Object.values(CLI_RESULT_FORMATS)) {
+          const option = options.find((candidate) =>
+            candidate.flags.includes(format.flag)
+          );
+          assert(option !== undefined, `missing ${format.flag}`);
+          assertEquals(option.description, format.description);
+          assert(
+            !/\b(?:agent|human|machine)[- ](?:readable|output)\b/i.test(
+              option.description,
+            ),
+            `${format.flag} assigns its format to an audience: ${option.description}`,
+          );
+        }
+      },
+    },
+    {
+      name:
+        "render is a secondary terminal convenience, outside the result-format set",
+      check: () => {
+        assertEquals(Object.keys(CLI_RESULT_FORMATS), ["json", "markdown"]);
+        const options = (buildCli(false) as unknown as Command).getOptions(
+          true,
+        );
+        const option = options.find((candidate) =>
+          candidate.flags.includes(CLI_RESULT_RENDER.flag)
+        );
+        assert(option !== undefined, `missing ${CLI_RESULT_RENDER.flag}`);
+        assertEquals(option.description, CLI_RESULT_RENDER.description);
+      },
+    },
+    {
+      name:
+        "global option arity stays within the early router's supported grammar",
+      check: () => {
+        const root = buildCli(false) as unknown as Command;
+        for (const option of root.getOptions(true)) {
+          if (option.global !== true) {
+            continue;
+          }
+          assert(
+            option.args.length <= 1,
+            `global flag ${option.flags.join("/")} takes more than one value`,
+          );
+          const argument = option.args[0];
+          if (argument === undefined) continue;
+          assertEquals(argument.optional, false);
+          assertEquals(argument.variadic, false);
+          assertEquals(argument.list, false);
+        }
+      },
+    },
+    {
+      name: "--theme is a documented value-taking global with an auto default",
+      check: () => {
+        const root = buildCli(false) as unknown as Command;
+        const option = root.getOptions(true).find((candidate) =>
+          candidate.flags.includes(ROOT_GLOBAL_FLAGS.theme)
+        );
+        assert(option !== undefined);
+        assertEquals(option.typeDefinition, "<theme:string>");
+        assertStringIncludes(option.description, "Default: `auto`");
+        assertStringIncludes(option.description, "`--no-color` and `NO_COLOR`");
+        assertStringIncludes(option.description, "skip that check");
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
   });
-  assertEquals(
-    resolveInvocation(["--theme=light", "map"], tokens, valueTokens),
-    { verb: "map", argsWithoutVerb: ["--theme=light"] },
-  );
-  assertEquals(resolveInvocation([], tokens).verb, undefined);
-  // An UNKNOWN leading flag is not skipped — Cliffy owns that error.
-  assertEquals(resolveInvocation(["--bogus", "map"], tokens).verb, "--bogus");
+});
+
+Deno.test("early invocation routing respects global flags and raw child boundaries", () => {
+  const cases = [
+    {
+      name: "raw child boundaries exclude every global-looking child flag",
+      check: () => {
+        for (const [verb, boundary] of Object.entries(CLI_CHILD_BOUNDARIES)) {
+          for (const form of GLOBAL_FLAG_FORMS) {
+            const argv = boundary.kind === "delimiter"
+              ? [
+                ...form.tokens,
+                verb,
+                boundary.token,
+                "fresh-relay",
+                ...form.tokens,
+              ]
+              : [...form.tokens, verb, "fresh-relay", ...form.tokens];
+            const expected = boundary.kind === "delimiter"
+              ? [...form.tokens, verb]
+              : [...form.tokens, verb, "fresh-relay"];
+            assertEquals(
+              discernOwnedArgv(
+                argv,
+                ROOT_GLOBAL_FLAG_TOKENS,
+                ROOT_GLOBAL_VALUE_FLAG_TOKENS,
+              ),
+              expected,
+              `${verb} let child flag ${form.flag} select a discern global mode`,
+            );
+          }
+        }
+      },
+    },
+    {
+      name: "resolveInvocation finds the verb past any run of global flags",
+      check: () => {
+        const tokens = globalFlagTokens(buildCli(false) as unknown as Command);
+        const valueTokens = globalValueFlagTokens(
+          buildCli(false) as unknown as Command,
+        );
+        // Verb-first: the plain path stays the plain path.
+        assertEquals(resolveInvocation(["map", "--json"], tokens), {
+          verb: "map",
+          argsWithoutVerb: ["--json"],
+        });
+        // Each single global flag placed first.
+        for (const form of GLOBAL_FLAG_FORMS) {
+          assertEquals(
+            resolveInvocation(
+              [...form.tokens, "map", "x"],
+              tokens,
+              valueTokens,
+            ),
+            {
+              verb: "map",
+              argsWithoutVerb: [...form.tokens, "x"],
+            },
+          );
+        }
+        // Every global flag stacked before the verb.
+        const stacked = GLOBAL_FLAG_FORMS.flatMap((form) => form.tokens);
+        assertEquals(
+          resolveInvocation([...stacked, "map"], tokens, valueTokens).verb,
+          "map",
+        );
+        // Flags only: no verb at all (routes like bare `discern`).
+        assertEquals(resolveInvocation([...stacked], tokens, valueTokens), {
+          verb: undefined,
+          argsWithoutVerb: [...stacked],
+        });
+        assertEquals(
+          resolveInvocation(["--theme=light", "map"], tokens, valueTokens),
+          { verb: "map", argsWithoutVerb: ["--theme=light"] },
+        );
+        assertEquals(resolveInvocation([], tokens).verb, undefined);
+        // An UNKNOWN leading flag is not skipped — Cliffy owns that error.
+        assertEquals(
+          resolveInvocation(["--bogus", "map"], tokens).verb,
+          "--bogus",
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("pre-setup: the redirect fires for every global flag before every gated verb", async () => {
@@ -293,18 +359,6 @@ Deno.test("--md is not an alias for --markdown", async () => {
     assertEquals(result.code, 2, result.output);
     assertTerminalTextIncludes(result.output, 'Unknown option "--md"');
   });
-});
-
-Deno.test("--theme is a documented value-taking global with an auto default", () => {
-  const root = buildCli(false) as unknown as Command;
-  const option = root.getOptions(true).find((candidate) =>
-    candidate.flags.includes(ROOT_GLOBAL_FLAGS.theme)
-  );
-  assert(option !== undefined);
-  assertEquals(option.typeDefinition, "<theme:string>");
-  assertStringIncludes(option.description, "Default: `auto`");
-  assertStringIncludes(option.description, "`--no-color` and `NO_COLOR`");
-  assertStringIncludes(option.description, "skip that check");
 });
 
 Deno.test("background sensing is limited to auto-themed human terminal modes", () => {

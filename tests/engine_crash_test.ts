@@ -6,6 +6,7 @@
  * envelope for `--json` consumers, a logbook signature, and exit code 70.
  */
 
+import { assertCases } from "./assert_cases.ts";
 import {
   assert,
   assertEquals,
@@ -46,48 +47,59 @@ function captureTestCrashReport(
 
 // ── the signature (the logbook-safe reduction) ───────────────────────────────
 
-Deno.test("crashSignature: a dev-run stack trims its frame to the source tree", () => {
-  const err = new TypeError("Cannot read properties of undefined");
-  err.stack = [
+Deno.test("crashSignature preserves source attribution across stack and thrown-value shapes", () => {
+  const dev = new TypeError("Cannot read properties of undefined");
+  dev.stack = [
     "TypeError: Cannot read properties of undefined",
     "    at explode (file:///Users/someone/checkout/src/engine/dispatch.ts:42:7)",
     "    at file:///Users/someone/checkout/src/main.ts:9:1",
   ].join("\n");
-  assertEquals(crashSignature(err), {
-    name: "TypeError",
-    frame: "src/engine/dispatch.ts:42:7",
-  });
-});
-
-Deno.test("crashSignature: a compiled-binary virtual path trims identically", () => {
-  const err = new RangeError("boom");
-  err.stack = [
+  const compiled = new RangeError("boom");
+  compiled.stack = [
     "RangeError: boom",
     "    at run (file:///var/folders/xy/T/deno-compile-discern/src/engine/gate/plan.ts:3:12)",
   ].join("\n");
-  assertEquals(crashSignature(err), {
-    name: "RangeError",
-    frame: "src/engine/gate/plan.ts:3:12",
-  });
-});
-
-Deno.test("crashSignature: a frame outside the known trees keeps its last two segments", () => {
-  const err = new Error("boom");
-  err.stack = [
+  const external = new Error("boom");
+  external.stack = [
     "Error: boom",
     "    at f (file:///opt/somewhere/vendored/lib.ts:5:5)",
   ].join("\n");
-  assertEquals(crashSignature(err), {
-    name: "Error",
-    frame: "vendored/lib.ts:5:5",
-  });
-});
-
-Deno.test("crashSignature: a stackless error and a non-Error throw stay name-only", () => {
   const bare = new Error("no stack");
   delete bare.stack;
-  assertEquals(crashSignature(bare), { name: "Error" });
-  assertEquals(crashSignature("a thrown string"), { name: "throw" });
+  const cases: ReadonlyArray<{
+    name: string;
+    thrown: unknown;
+    expected: ReturnType<typeof crashSignature>;
+  }> = [
+    {
+      name: "a dev-run stack trims its frame to the source tree",
+      thrown: dev,
+      expected: { name: "TypeError", frame: "src/engine/dispatch.ts:42:7" },
+    },
+    {
+      name: "a compiled-binary virtual path trims identically",
+      thrown: compiled,
+      expected: { name: "RangeError", frame: "src/engine/gate/plan.ts:3:12" },
+    },
+    {
+      name: "a frame outside the known trees keeps its last two segments",
+      thrown: external,
+      expected: { name: "Error", frame: "vendored/lib.ts:5:5" },
+    },
+    {
+      name: "a stackless error stays name-only",
+      thrown: bare,
+      expected: { name: "Error" },
+    },
+    {
+      name: "a non-Error throw stays name-only",
+      thrown: "a thrown string",
+      expected: { name: "throw" },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    assertEquals(crashSignature(row.thrown), row.expected, row.name);
+  });
 });
 
 const hostileThrownValueCases: ReadonlyArray<{
@@ -131,15 +143,27 @@ const hostileThrownValueCases: ReadonlyArray<{
   },
 ];
 
-for (const fixture of hostileThrownValueCases) {
-  Deno.test(`captureCrashReport: a hostile thrown value cannot escape (${fixture.label})`, () => {
-    const report = captureTestCrashReport("status", fixture.make());
-    assertEquals(report.name, fixture.expectedName);
-    assertEquals(report.message, "The thrown value could not be inspected.");
-    assertEquals(report.stack, undefined);
-    assertEquals(report.signature, { name: fixture.expectedName });
-  });
-}
+Deno.test("captureCrashReport: hostile thrown values cannot escape", () => {
+  assertCases(
+    hostileThrownValueCases,
+    (fixture) => fixture.label,
+    (fixture) => {
+      const report = captureTestCrashReport("status", fixture.make());
+      assertEquals(report.name, fixture.expectedName, fixture.label);
+      assertEquals(
+        report.message,
+        "The thrown value could not be inspected.",
+        fixture.label,
+      );
+      assertEquals(report.stack, undefined, fixture.label);
+      assertEquals(
+        report.signature,
+        { name: fixture.expectedName },
+        fixture.label,
+      );
+    },
+  );
+});
 
 // ── the report and its renderings ────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+import { assertCasesAsync } from "./assert_cases.ts";
 import {
   assert,
   assertEquals,
@@ -114,61 +115,199 @@ async function seedTidyProject(root: string): Promise<void> {
   await write(join(root, "discern", "brief.md"), "#Brief\n");
 }
 
-Deno.test("embedded formatters are deterministic and preserve fenced code and TOML comments", async () => {
-  const markdown = [
-    "# Heading  ",
-    "",
-    "```md",
-    "#Inner stays compact",
-    "-   fence spacing stays",
-    "```",
-    "",
-    "> ```js",
-    "> const nested={spacing:   'stays'};",
-    "> ```",
-    "",
-  ].join("\n");
-  const markdownOnce = await formatMarkdownText("example.md", markdown);
-  assertMatch(markdownOnce, /^# Heading$/m);
-  assertEquals(fencedBlocks(markdownOnce), fencedBlocks(markdown));
-  assertStringIncludes(
-    markdownOnce,
-    "> ```js\n> const nested={spacing:   'stays'};\n> ```",
-  );
-  assertEquals(
-    await formatMarkdownText("example.md", markdownOnce),
-    markdownOnce,
-  );
+Deno.test("embedded formatters preserve source facts and converge across literals and the authored corpus", async () => {
+  const cases = [
+    {
+      name:
+        "embedded formatters are deterministic and preserve fenced code and TOML comments",
+      check: async () => {
+        const markdown = [
+          "# Heading  ",
+          "",
+          "```md",
+          "#Inner stays compact",
+          "-   fence spacing stays",
+          "```",
+          "",
+          "> ```js",
+          "> const nested={spacing:   'stays'};",
+          "> ```",
+          "",
+        ].join("\n");
+        const markdownOnce = await formatMarkdownText("example.md", markdown);
+        assertMatch(markdownOnce, /^# Heading$/m);
+        assertEquals(fencedBlocks(markdownOnce), fencedBlocks(markdown));
+        assertStringIncludes(
+          markdownOnce,
+          "> ```js\n> const nested={spacing:   'stays'};\n> ```",
+        );
+        assertEquals(
+          await formatMarkdownText("example.md", markdownOnce),
+          markdownOnce,
+        );
 
-  const toml = [
-    "# ── ruled banner ───────────────────────────",
-    "[project] # table comment",
-    'slug="example" # value comment',
-    "",
-  ].join("\n");
-  const tomlOnce = await formatTomlText("discern.toml", toml);
-  assertEquals(commentLines(tomlOnce), commentLines(toml));
-  assertEquals(await formatTomlText("discern.toml", tomlOnce), tomlOnce);
-});
+        const toml = [
+          "# ── ruled banner ───────────────────────────",
+          "[project] # table comment",
+          'slug="example" # value comment',
+          "",
+        ].join("\n");
+        const tomlOnce = await formatTomlText("discern.toml", toml);
+        assertEquals(commentLines(tomlOnce), commentLines(toml));
+        assertEquals(await formatTomlText("discern.toml", tomlOnce), tomlOnce);
+      },
+    },
+    {
+      name: "TOML formatting preserves a #:schema directive at byte zero",
+      check: async () => {
+        // `#:schema <url>` is a schema directive TOML editors read verbatim; a
+        // formatter that spaces it into `# :schema` turns real editor validation off
+        // for every file it writes. Ordinary comments keep their conventional form.
+        const withDirective = [
+          "#:schema https://example.invalid/config.schema.json",
+          "# an ordinary comment",
+          "[project]",
+          'slug = "example"',
+          "",
+        ].join("\n");
+        const formatted = await formatTomlText("discern.toml", withDirective);
+        assertEquals(
+          formatted.split("\n", 1)[0],
+          "#:schema https://example.invalid/config.schema.json",
+        );
+        assertStringIncludes(formatted, "\n# an ordinary comment\n");
+        assertEquals(
+          await formatTomlText("discern.toml", formatted),
+          formatted,
+        );
+      },
+    },
+    {
+      name: "the real map corpus and discern.toml are formatter-idempotent",
+      check: async () => {
+        const mapFiles = await structuralGuardScope({
+          guard: "tests/engine_tidy_test.ts#map-formatter-idempotence",
+          universe: "tracked-markdown",
+          narrow: {
+            reason:
+              "This formatter contract governs the configured project Map.",
+            include: (rel) => rel.startsWith("project/map/"),
+          },
+        });
+        let count = 0;
+        for (const rel of mapFiles) {
+          const path = join(REPO_ROOT, rel);
+          const before = await Deno.readTextFile(path);
+          const once = await formatMarkdownText(path, before);
+          assertEquals(
+            await formatMarkdownText(path, once),
+            once,
+            path,
+          );
+          assertEquals(fencedBlocks(once), fencedBlocks(before), path);
+          count += 1;
+        }
+        assert(count > 300);
 
-Deno.test("TOML formatting preserves a #:schema directive at byte zero", async () => {
-  // `#:schema <url>` is a schema directive TOML editors read verbatim; a
-  // formatter that spaces it into `# :schema` turns real editor validation off
-  // for every file it writes. Ordinary comments keep their conventional form.
-  const withDirective = [
-    "#:schema https://example.invalid/config.schema.json",
-    "# an ordinary comment",
-    "[project]",
-    'slug = "example"',
-    "",
-  ].join("\n");
-  const formatted = await formatTomlText("discern.toml", withDirective);
-  assertEquals(
-    formatted.split("\n", 1)[0],
-    "#:schema https://example.invalid/config.schema.json",
-  );
-  assertStringIncludes(formatted, "\n# an ordinary comment\n");
-  assertEquals(await formatTomlText("discern.toml", formatted), formatted);
+        const configPath = join(REPO_ROOT, "discern.toml");
+        const before = await Deno.readTextFile(configPath);
+        const once = await formatTomlText(configPath, before);
+        assertEquals(await formatTomlText(configPath, once), once);
+        assertEquals(commentLines(once), commentLines(before));
+      },
+    },
+    {
+      name:
+        "markdown formatting refuses unparseable frontmatter instead of rewriting it",
+      check: async () => {
+        // The incident shape: an unquoted `: ` inside a value turns the block into
+        // invalid YAML; a recovering formatter re-indents the flush-left siblings
+        // underneath it. The embedded formatter must refuse the file instead.
+        const incident = [
+          "---",
+          "name: repro-fixture",
+          "description: foo bar: baz",
+          "metadata:",
+          "  author: discern",
+          "  version: 1.0.0",
+          "---",
+          "",
+          "# Repro",
+          "",
+          "Body.",
+          "",
+        ].join("\n");
+        await assertRejects(
+          () => formatMarkdownText("SKILL.md", incident),
+          Error,
+          "not valid YAML",
+        );
+
+        // A future sibling of the same mechanism under unrelated names and in an
+        // unrelated container must be refused without any name-specific rule.
+        const sibling = [
+          "---",
+          "sprocket: gear: tooth",
+          "widgets:",
+          "  rim: brass",
+          "---",
+          "",
+          "Notes.",
+          "",
+        ].join("\n");
+        await assertRejects(
+          () => formatMarkdownText("notes.md", sibling),
+          Error,
+          "not valid YAML",
+        );
+
+        // An opening fence that never closes is a broken block, not content.
+        await assertRejects(
+          () => formatMarkdownText("doc.md", "---\ntitle: x\n\nBody.\n"),
+          Error,
+          "unterminated frontmatter fence",
+        );
+
+        // A list is valid YAML but not a frontmatter mapping.
+        await assertRejects(
+          () => formatMarkdownText("doc.md", "---\n- a\n- b\n---\n\nBody.\n"),
+          Error,
+          "must be a YAML mapping",
+        );
+      },
+    },
+    {
+      name: "markdown formatting preserves a valid frontmatter block verbatim",
+      check: async () => {
+        // Non-canonical YAML spacing must come through byte-for-byte while the
+        // Markdown body still formats.
+        const block = [
+          "---",
+          'description:     "a: quoted value"',
+          "metadata:",
+          "    author:   ada",
+          "---",
+        ].join("\n");
+        const input = `${block}\n\n#  Title\n\n-   item\n`;
+        const output = await formatMarkdownText("doc.md", input);
+        assert(
+          output.startsWith(`${block}\n`),
+          `frontmatter block must survive unchanged, got:\n${output}`,
+        );
+        assertStringIncludes(output, "# Title");
+        assertStringIncludes(output, "- item");
+
+        // Line endings follow the document-wide LF convention; the block's content
+        // is otherwise untouched.
+        const crlf = "---\r\ndescription: x\r\n---\r\n\r\n# T\r\n";
+        const crlfOut = await formatMarkdownText("doc.md", crlf);
+        assert(crlfOut.startsWith("---\ndescription: x\n---\n"), crlfOut);
+      },
+    },
+  ];
+  await assertCasesAsync(cases, (row) => row.name, async (row) => {
+    await row.check();
+  });
 });
 
 Deno.test("fresh setup writes tidy TOML without breaking ruled-banner regions", async () => {
@@ -307,37 +446,6 @@ Deno.test("a parse failure aborts bare tidy before any Markdown write", async ()
   });
 });
 
-Deno.test("the real map corpus and discern.toml are formatter-idempotent", async () => {
-  const mapFiles = await structuralGuardScope({
-    guard: "tests/engine_tidy_test.ts#map-formatter-idempotence",
-    universe: "tracked-markdown",
-    narrow: {
-      reason: "This formatter contract governs the configured project Map.",
-      include: (rel) => rel.startsWith("project/map/"),
-    },
-  });
-  let count = 0;
-  for (const rel of mapFiles) {
-    const path = join(REPO_ROOT, rel);
-    const before = await Deno.readTextFile(path);
-    const once = await formatMarkdownText(path, before);
-    assertEquals(
-      await formatMarkdownText(path, once),
-      once,
-      path,
-    );
-    assertEquals(fencedBlocks(once), fencedBlocks(before), path);
-    count += 1;
-  }
-  assert(count > 300);
-
-  const configPath = join(REPO_ROOT, "discern.toml");
-  const before = await Deno.readTextFile(configPath);
-  const once = await formatTomlText(configPath, before);
-  assertEquals(await formatTomlText(configPath, once), once);
-  assertEquals(commentLines(once), commentLines(before));
-});
-
 Deno.test("tidy fails on a misaligned fenced diagram, naming file, line, and column", async () => {
   await withTempDir(async (root) => {
     await seedTidyProject(root);
@@ -473,89 +581,6 @@ Deno.test("tidy --dry-run reports diagram findings and writes nothing", async ()
       "# Map\n\n-   item\n",
     );
   });
-});
-
-Deno.test("markdown formatting refuses unparseable frontmatter instead of rewriting it", async () => {
-  // The incident shape: an unquoted `: ` inside a value turns the block into
-  // invalid YAML; a recovering formatter re-indents the flush-left siblings
-  // underneath it. The embedded formatter must refuse the file instead.
-  const incident = [
-    "---",
-    "name: repro-fixture",
-    "description: foo bar: baz",
-    "metadata:",
-    "  author: discern",
-    "  version: 1.0.0",
-    "---",
-    "",
-    "# Repro",
-    "",
-    "Body.",
-    "",
-  ].join("\n");
-  await assertRejects(
-    () => formatMarkdownText("SKILL.md", incident),
-    Error,
-    "not valid YAML",
-  );
-
-  // A future sibling of the same mechanism under unrelated names and in an
-  // unrelated container must be refused without any name-specific rule.
-  const sibling = [
-    "---",
-    "sprocket: gear: tooth",
-    "widgets:",
-    "  rim: brass",
-    "---",
-    "",
-    "Notes.",
-    "",
-  ].join("\n");
-  await assertRejects(
-    () => formatMarkdownText("notes.md", sibling),
-    Error,
-    "not valid YAML",
-  );
-
-  // An opening fence that never closes is a broken block, not content.
-  await assertRejects(
-    () => formatMarkdownText("doc.md", "---\ntitle: x\n\nBody.\n"),
-    Error,
-    "unterminated frontmatter fence",
-  );
-
-  // A list is valid YAML but not a frontmatter mapping.
-  await assertRejects(
-    () => formatMarkdownText("doc.md", "---\n- a\n- b\n---\n\nBody.\n"),
-    Error,
-    "must be a YAML mapping",
-  );
-});
-
-Deno.test("markdown formatting preserves a valid frontmatter block verbatim", async () => {
-  // Non-canonical YAML spacing must come through byte-for-byte while the
-  // Markdown body still formats.
-  const block = [
-    "---",
-    'description:     "a: quoted value"',
-    "metadata:",
-    "    author:   ada",
-    "---",
-  ].join("\n");
-  const input = `${block}\n\n#  Title\n\n-   item\n`;
-  const output = await formatMarkdownText("doc.md", input);
-  assert(
-    output.startsWith(`${block}\n`),
-    `frontmatter block must survive unchanged, got:\n${output}`,
-  );
-  assertStringIncludes(output, "# Title");
-  assertStringIncludes(output, "- item");
-
-  // Line endings follow the document-wide LF convention; the block's content
-  // is otherwise untouched.
-  const crlf = "---\r\ndescription: x\r\n---\r\n\r\n# T\r\n";
-  const crlfOut = await formatMarkdownText("doc.md", crlf);
-  assert(crlfOut.startsWith("---\ndescription: x\n---\n"), crlfOut);
 });
 
 Deno.test("unparseable frontmatter aborts tidy md before any write", async () => {

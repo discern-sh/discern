@@ -19,6 +19,7 @@
  *     for reactivation or improvement before landing.
  */
 
+import { assertCases } from "./assert_cases.ts";
 import { commitSetupAuthoring } from "./fixtures/setup_completion_harness.ts";
 import {
   assert,
@@ -60,64 +61,223 @@ import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 // ── unit: classification + verdict, derived from [jobs] alone ───────────
 
-Deno.test("the assurance summary covers EXACTLY the known-capability SSOT", () => {
-  // Drive the guarantee off KNOWN_JOBS so a new capability auto-enrols in the
-  // report (fix-the-class): the summary's names must equal the SSOT, in its order.
-  const a = assessSetupAssurance(parseConfigOrThrow(""));
-  assertEquals(
-    a.known_jobs.map((job) => job.name),
-    Object.keys(KNOWN_JOBS),
-  );
-  assertEquals(a.total, Object.keys(KNOWN_JOBS).length);
+Deno.test("setup assurance preserves the capability inventory and applicable denominator", () => {
+  const cases = [
+    {
+      name: "the assurance summary covers EXACTLY the known-capability SSOT",
+      check: () => {
+        // Drive the guarantee off KNOWN_JOBS so a new capability auto-enrols in the
+        // report (fix-the-class): the summary's names must equal the SSOT, in its order.
+        const a = assessSetupAssurance(parseConfigOrThrow(""));
+        assertEquals(
+          a.known_jobs.map((job) => job.name),
+          Object.keys(KNOWN_JOBS),
+        );
+        assertEquals(a.total, Object.keys(KNOWN_JOBS).length);
+      },
+    },
+    {
+      name: "the verdict rolls up enforced coverage: full / partial / minimal",
+      check: () => {
+        const full = parseConfigOrThrow(
+          [
+            "[jobs]",
+            'format = "fmt"',
+            'build = "build"',
+            'lint = "lint"',
+            'typecheck = "tc"',
+            'test = "test"',
+            'smoke = "smoke"',
+          ].join("\n"),
+        );
+        assertEquals(assessSetupAssurance(full).verdict, "full");
+        assertEquals(assessSetupAssurance(full).enforced, 6);
+
+        const partial = parseConfigOrThrow('[jobs]\ntest = "test"\n');
+        assertEquals(assessSetupAssurance(partial).verdict, "partial");
+        assertEquals(assessSetupAssurance(partial).enforced, 1);
+
+        // A deferred capability does NOT count as enforced — coverage with only a no-op
+        // is minimal, never partial.
+        const deferred = parseConfigOrThrow('[jobs]\ntest = ":"\n');
+        assertEquals(assessSetupAssurance(deferred).verdict, "minimal");
+        assertEquals(assessSetupAssurance(deferred).enforced, 0);
+
+        assertEquals(
+          assessSetupAssurance(parseConfigOrThrow("")).verdict,
+          "minimal",
+        );
+
+        // A housekeeping-only config guards nothing of the project's own — the
+        // verdict is minimal, never partial, so the honest no-checks copy fires.
+        const housekeeping = parseConfigOrThrow(
+          '[jobs]\nformat = "discern tidy"\n',
+        );
+        assertEquals(assessSetupAssurance(housekeeping).enforced, 0);
+        assertEquals(assessSetupAssurance(housekeeping).verdict, "minimal");
+      },
+    },
+    {
+      name:
+        "a declared not-applicable job keeps the v1 state enum and leaves a full applicable denominator",
+      check: () => {
+        const config = parseConfigOrThrow(
+          [
+            "[setup]",
+            'not_applicable = ["build"]',
+            "",
+            "[jobs]",
+            'format = "fmt"',
+            'lint = "lint"',
+            'typecheck = "tc"',
+            'test = "test"',
+            'smoke = "smoke"',
+          ].join("\n"),
+        );
+        const assurance = assessSetupAssurance(config);
+        assertEquals(assurance.verdict, "full");
+        assertEquals(assurance.enforced, 5);
+        assertEquals(assurance.total, 5);
+        assertEquals(assurance.known_total, Object.keys(KNOWN_JOBS).length);
+        assertEquals(assurance.not_applicable, 1);
+
+        const build = assurance.known_jobs.find((job) => job.name === "build");
+        assertEquals(build, {
+          name: "build",
+          state: "absent",
+          not_applicable: true,
+        });
+        assertEquals(KnownJobAssuranceSchema.parse(build), build);
+        assertEquals(SetupAssuranceSchema.parse(assurance), assurance);
+      },
+    },
+    {
+      name:
+        "every known job auto-enrols in applicability and absent applicable jobs still keep coverage incomplete",
+      check: () => {
+        for (const name of Object.keys(KNOWN_JOBS)) {
+          const config = parseConfigOrThrow(
+            `[setup]\nnot_applicable = ["${name}"]\n`,
+          );
+          const assurance = assessSetupAssurance(config);
+          const row = assurance.known_jobs.find((job) => job.name === name);
+          assertEquals(row?.state, "absent");
+          assertEquals(row?.not_applicable, true);
+          assertEquals(assurance.total, Object.keys(KNOWN_JOBS).length - 1);
+        }
+
+        const incomplete = assessSetupAssurance(parseConfigOrThrow([
+          "[setup]",
+          'not_applicable = ["build"]',
+          "",
+          "[jobs]",
+          'test = "test"',
+        ].join("\n")));
+        assertEquals(incomplete.verdict, "partial");
+        assertEquals(incomplete.enforced, 1);
+        assertEquals(incomplete.total, Object.keys(KNOWN_JOBS).length - 1);
+        assertEquals(
+          incomplete.known_jobs.find((job) => job.name === "lint")?.state,
+          "absent",
+        );
+        assertEquals(
+          incomplete.known_jobs.find((job) => job.name === "lint")
+            ?.not_applicable,
+          undefined,
+        );
+      },
+    },
+    {
+      name:
+        "assessSetupAssurance attaches a deferred capability's reason from the raw toml",
+      check: () => {
+        const toml =
+          '[jobs]\ntest = ":"  # deferred until the runtime is fixed\n';
+        const a = assessSetupAssurance(parseConfigOrThrow(toml), toml);
+        const test = a.known_jobs.find((job) => job.name === "test");
+        assertEquals(test?.state, "deferred");
+        assertEquals(test?.reason, "deferred until the runtime is fixed");
+        // Without the raw toml, the state is still correct; only the reason is omitted.
+        const noRaw = assessSetupAssurance(parseConfigOrThrow(toml));
+        assertEquals(
+          noRaw.known_jobs.find((job) => job.name === "test")?.reason,
+          undefined,
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
-Deno.test("classifyKnownJob: enforced (real command) / deferred (no-op) / absent (omitted)", () => {
-  const config = parseConfigOrThrow(
-    [
-      "[jobs]",
-      'format = "deno fmt"', // a real command → enforced
-      'test = ":"', // the POSIX no-op → deferred
-      'lint = ""', // an empty command → deferred
-      // typecheck + build omitted → absent
-    ].join("\n"),
-  );
-  assertEquals(classifyKnownJob(config, "format"), "enforced");
-  assertEquals(classifyKnownJob(config, "test"), "deferred");
-  assertEquals(classifyKnownJob(config, "lint"), "deferred");
-  assertEquals(classifyKnownJob(config, "typecheck"), "absent");
-  assertEquals(classifyKnownJob(config, "build"), "absent");
-});
-
-Deno.test("a list capability with only no-op items is deferred, not enforced", () => {
-  const config = parseConfigOrThrow('[jobs]\ntest = ["", ":"]\n');
-  assertEquals(classifyKnownJob(config, "test"), "deferred");
-});
-
-Deno.test("a capability carrying only discern's own commands is deferred housekeeping, never enforced", () => {
-  // The seeded scaffold case: discern's own upkeep runs, but no project check —
-  // deferred on the wire (the closed public state vocabulary), with the additive
-  // self_supplied marker carrying the housekeeping distinction.
-  const seeded = parseConfigOrThrow('[jobs]\nformat = "discern tidy"\n');
-  assertEquals(classifyKnownJob(seeded, "format"), "deferred");
-  const format = assessSetupAssurance(seeded).known_jobs.find(
-    (job) => job.name === "format",
-  );
-  assertEquals(format?.state, "deferred");
-  assertEquals(format?.self_supplied, true);
-  // A project command alongside it carries the capability to enforced.
-  const mixed = parseConfigOrThrow(
-    '[jobs]\nformat = ["deno fmt", "discern tidy"]\n',
-  );
-  assertEquals(classifyKnownJob(mixed, "format"), "enforced");
-  // No-op items don't change the answer: filtered first, the remainder is
-  // still purely self-supplied.
-  const padded = parseConfigOrThrow('[jobs]\nformat = ["discern tidy", ":"]\n');
-  assertEquals(classifyKnownJob(padded, "format"), "deferred");
-  // A plain no-op deferral never carries the marker — the two deferral kinds
-  // stay distinguishable.
-  const noop = assessSetupAssurance(parseConfigOrThrow('[jobs]\ntest = ":"\n'))
-    .known_jobs.find((job) => job.name === "test");
-  assertEquals(noop?.self_supplied, undefined);
+Deno.test("known job classification distinguishes real, absent, no-op, and self-supplied commands", () => {
+  const cases = [
+    {
+      name:
+        "classifyKnownJob: enforced (real command) / deferred (no-op) / absent (omitted)",
+      check: () => {
+        const config = parseConfigOrThrow(
+          [
+            "[jobs]",
+            'format = "deno fmt"', // a real command → enforced
+            'test = ":"', // the POSIX no-op → deferred
+            'lint = ""', // an empty command → deferred
+            // typecheck + build omitted → absent
+          ].join("\n"),
+        );
+        assertEquals(classifyKnownJob(config, "format"), "enforced");
+        assertEquals(classifyKnownJob(config, "test"), "deferred");
+        assertEquals(classifyKnownJob(config, "lint"), "deferred");
+        assertEquals(classifyKnownJob(config, "typecheck"), "absent");
+        assertEquals(classifyKnownJob(config, "build"), "absent");
+      },
+    },
+    {
+      name: "a list capability with only no-op items is deferred, not enforced",
+      check: () => {
+        const config = parseConfigOrThrow('[jobs]\ntest = ["", ":"]\n');
+        assertEquals(classifyKnownJob(config, "test"), "deferred");
+      },
+    },
+    {
+      name:
+        "a capability carrying only discern's own commands is deferred housekeeping, never enforced",
+      check: () => {
+        // The seeded scaffold case: discern's own upkeep runs, but no project check —
+        // deferred on the wire (the closed public state vocabulary), with the additive
+        // self_supplied marker carrying the housekeeping distinction.
+        const seeded = parseConfigOrThrow('[jobs]\nformat = "discern tidy"\n');
+        assertEquals(classifyKnownJob(seeded, "format"), "deferred");
+        const format = assessSetupAssurance(seeded).known_jobs.find(
+          (job) => job.name === "format",
+        );
+        assertEquals(format?.state, "deferred");
+        assertEquals(format?.self_supplied, true);
+        // A project command alongside it carries the capability to enforced.
+        const mixed = parseConfigOrThrow(
+          '[jobs]\nformat = ["deno fmt", "discern tidy"]\n',
+        );
+        assertEquals(classifyKnownJob(mixed, "format"), "enforced");
+        // No-op items don't change the answer: filtered first, the remainder is
+        // still purely self-supplied.
+        const padded = parseConfigOrThrow(
+          '[jobs]\nformat = ["discern tidy", ":"]\n',
+        );
+        assertEquals(classifyKnownJob(padded, "format"), "deferred");
+        // A plain no-op deferral never carries the marker — the two deferral kinds
+        // stay distinguishable.
+        const noop = assessSetupAssurance(
+          parseConfigOrThrow('[jobs]\ntest = ":"\n'),
+        )
+          .known_jobs.find((job) => job.name === "test");
+        assertEquals(noop?.self_supplied, undefined);
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
+  });
 });
 
 Deno.test("EVERY built-in verb is self-supplied; a Project Script through the namespace is not", () => {
@@ -137,71 +297,6 @@ Deno.test("EVERY built-in verb is self-supplied; a Project Script through the na
   assert(!isSelfSuppliedCommand("deno fmt"));
 });
 
-Deno.test("the verdict rolls up enforced coverage: full / partial / minimal", () => {
-  const full = parseConfigOrThrow(
-    [
-      "[jobs]",
-      'format = "fmt"',
-      'build = "build"',
-      'lint = "lint"',
-      'typecheck = "tc"',
-      'test = "test"',
-      'smoke = "smoke"',
-    ].join("\n"),
-  );
-  assertEquals(assessSetupAssurance(full).verdict, "full");
-  assertEquals(assessSetupAssurance(full).enforced, 6);
-
-  const partial = parseConfigOrThrow('[jobs]\ntest = "test"\n');
-  assertEquals(assessSetupAssurance(partial).verdict, "partial");
-  assertEquals(assessSetupAssurance(partial).enforced, 1);
-
-  // A deferred capability does NOT count as enforced — coverage with only a no-op
-  // is minimal, never partial.
-  const deferred = parseConfigOrThrow('[jobs]\ntest = ":"\n');
-  assertEquals(assessSetupAssurance(deferred).verdict, "minimal");
-  assertEquals(assessSetupAssurance(deferred).enforced, 0);
-
-  assertEquals(assessSetupAssurance(parseConfigOrThrow("")).verdict, "minimal");
-
-  // A housekeeping-only config guards nothing of the project's own — the
-  // verdict is minimal, never partial, so the honest no-checks copy fires.
-  const housekeeping = parseConfigOrThrow('[jobs]\nformat = "discern tidy"\n');
-  assertEquals(assessSetupAssurance(housekeeping).enforced, 0);
-  assertEquals(assessSetupAssurance(housekeeping).verdict, "minimal");
-});
-
-Deno.test("a declared not-applicable job keeps the v1 state enum and leaves a full applicable denominator", () => {
-  const config = parseConfigOrThrow(
-    [
-      "[setup]",
-      'not_applicable = ["build"]',
-      "",
-      "[jobs]",
-      'format = "fmt"',
-      'lint = "lint"',
-      'typecheck = "tc"',
-      'test = "test"',
-      'smoke = "smoke"',
-    ].join("\n"),
-  );
-  const assurance = assessSetupAssurance(config);
-  assertEquals(assurance.verdict, "full");
-  assertEquals(assurance.enforced, 5);
-  assertEquals(assurance.total, 5);
-  assertEquals(assurance.known_total, Object.keys(KNOWN_JOBS).length);
-  assertEquals(assurance.not_applicable, 1);
-
-  const build = assurance.known_jobs.find((job) => job.name === "build");
-  assertEquals(build, {
-    name: "build",
-    state: "absent",
-    not_applicable: true,
-  });
-  assertEquals(KnownJobAssuranceSchema.parse(build), build);
-  assertEquals(SetupAssuranceSchema.parse(assurance), assurance);
-});
-
 Deno.test("result schema v1 keeps the three-state enum and accepts both legacy and additive assurance shapes", () => {
   assertEquals(KNOWN_JOB_STATES, ["enforced", "deferred", "absent"]);
   const legacy = {
@@ -218,39 +313,6 @@ Deno.test("result schema v1 keeps the three-state enum and accepts both legacy a
       not_applicable: true,
     }),
     { name: "build", state: "absent", not_applicable: true },
-  );
-});
-
-Deno.test("every known job auto-enrols in applicability and absent applicable jobs still keep coverage incomplete", () => {
-  for (const name of Object.keys(KNOWN_JOBS)) {
-    const config = parseConfigOrThrow(
-      `[setup]\nnot_applicable = ["${name}"]\n`,
-    );
-    const assurance = assessSetupAssurance(config);
-    const row = assurance.known_jobs.find((job) => job.name === name);
-    assertEquals(row?.state, "absent");
-    assertEquals(row?.not_applicable, true);
-    assertEquals(assurance.total, Object.keys(KNOWN_JOBS).length - 1);
-  }
-
-  const incomplete = assessSetupAssurance(parseConfigOrThrow([
-    "[setup]",
-    'not_applicable = ["build"]',
-    "",
-    "[jobs]",
-    'test = "test"',
-  ].join("\n")));
-  assertEquals(incomplete.verdict, "partial");
-  assertEquals(incomplete.enforced, 1);
-  assertEquals(incomplete.total, Object.keys(KNOWN_JOBS).length - 1);
-  assertEquals(
-    incomplete.known_jobs.find((job) => job.name === "lint")?.state,
-    "absent",
-  );
-  assertEquals(
-    incomplete.known_jobs.find((job) => job.name === "lint")
-      ?.not_applicable,
-    undefined,
   );
 });
 
@@ -315,20 +377,6 @@ Deno.test("deferralReason extracts an inline comment, scoped to [jobs]", () => {
   // mis-attributed.
   assertEquals(deferralReason(toml, "format"), undefined);
   assertEquals(deferralReason(toml, "lint"), undefined);
-});
-
-Deno.test("assessSetupAssurance attaches a deferred capability's reason from the raw toml", () => {
-  const toml = '[jobs]\ntest = ":"  # deferred until the runtime is fixed\n';
-  const a = assessSetupAssurance(parseConfigOrThrow(toml), toml);
-  const test = a.known_jobs.find((job) => job.name === "test");
-  assertEquals(test?.state, "deferred");
-  assertEquals(test?.reason, "deferred until the runtime is fixed");
-  // Without the raw toml, the state is still correct; only the reason is omitted.
-  const noRaw = assessSetupAssurance(parseConfigOrThrow(toml));
-  assertEquals(
-    noRaw.known_jobs.find((job) => job.name === "test")?.reason,
-    undefined,
-  );
 });
 
 // ── integration: the real `setup done` surfaces the assurance + landing ─────────

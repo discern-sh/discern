@@ -7,6 +7,7 @@
  * runTool.
  */
 
+import { assertCasesAsync } from "./assert_cases.ts";
 import { assert, assertEquals } from "@std/assert";
 import {
   createInstalledVersionResolver,
@@ -51,57 +52,75 @@ Deno.test("parseDiscernVersion: accepts discern's own shape, rejects everything 
   assertEquals(parseDiscernVersion("garbage"), undefined);
 });
 
-Deno.test("createInstalledVersionResolver: seeds from the running binary and re-probes only on replace", async () => {
-  // Drive the resolver with a mutable stat-key and a counted probe, so a real
-  // process is never spawned. The seed maps the running binary's stat → the
-  // version we ARE, spawn-free; a probe fires only when that key changes.
-  let key: string | undefined = "inode-A";
-  let probes = 0;
-  const resolve = createInstalledVersionResolver({
-    serverVersion: "9.0.0",
-    execPath: "/fake/discern",
-    statKey: () => key,
-    probeVersion: () => {
-      probes += 1;
-      return Promise.resolve("9.5.0");
+Deno.test("installed version resolution preserves cache keys and unavailable evidence", async () => {
+  const cases = [
+    {
+      name:
+        "createInstalledVersionResolver: seeds from the running binary and re-probes only on replace",
+      check: async () => {
+        // Drive the resolver with a mutable stat-key and a counted probe, so a real
+        // process is never spawned. The seed maps the running binary's stat → the
+        // version we ARE, spawn-free; a probe fires only when that key changes.
+        let key: string | undefined = "inode-A";
+        let probes = 0;
+        const resolve = createInstalledVersionResolver({
+          serverVersion: "9.0.0",
+          execPath: "/fake/discern",
+          statKey: () => key,
+          probeVersion: () => {
+            probes += 1;
+            return Promise.resolve("9.5.0");
+          },
+        });
+
+        // Steady state: the binary is unchanged, so the resolver returns the seeded
+        // server version without ever probing.
+        assertEquals(await resolve(), "9.0.0");
+        assertEquals(await resolve(), "9.0.0");
+        assertEquals(probes, 0, "an unchanged binary must never spawn a probe");
+
+        // The binary is replaced (new inode) → one probe resolves the new version…
+        key = "inode-B";
+        assertEquals(await resolve(), "9.5.0");
+        assertEquals(probes, 1);
+        // …and the result is cached against the new key: no re-probe while it holds.
+        assertEquals(await resolve(), "9.5.0");
+        assertEquals(
+          probes,
+          1,
+          "the resolved version is cached against the new key",
+        );
+
+        // A second replace probes again.
+        key = "inode-C";
+        assertEquals(await resolve(), "9.5.0");
+        assertEquals(probes, 2);
+      },
     },
-  });
-
-  // Steady state: the binary is unchanged, so the resolver returns the seeded
-  // server version without ever probing.
-  assertEquals(await resolve(), "9.0.0");
-  assertEquals(await resolve(), "9.0.0");
-  assertEquals(probes, 0, "an unchanged binary must never spawn a probe");
-
-  // The binary is replaced (new inode) → one probe resolves the new version…
-  key = "inode-B";
-  assertEquals(await resolve(), "9.5.0");
-  assertEquals(probes, 1);
-  // …and the result is cached against the new key: no re-probe while it holds.
-  assertEquals(await resolve(), "9.5.0");
-  assertEquals(probes, 1, "the resolved version is cached against the new key");
-
-  // A second replace probes again.
-  key = "inode-C";
-  assertEquals(await resolve(), "9.5.0");
-  assertEquals(probes, 2);
-});
-
-Deno.test("createInstalledVersionResolver: an unreadable binary resolves to undefined (no hint)", async () => {
-  // If the executable can't be statted, we can't compare — so the resolver returns
-  // undefined and the mismatch hint stays silent, never probing.
-  let probes = 0;
-  const resolve = createInstalledVersionResolver({
-    serverVersion: "9.0.0",
-    execPath: "/gone/discern",
-    statKey: () => undefined,
-    probeVersion: () => {
-      probes += 1;
-      return Promise.resolve("9.5.0");
+    {
+      name:
+        "createInstalledVersionResolver: an unreadable binary resolves to undefined (no hint)",
+      check: async () => {
+        // If the executable can't be statted, we can't compare — so the resolver returns
+        // undefined and the mismatch hint stays silent, never probing.
+        let probes = 0;
+        const resolve = createInstalledVersionResolver({
+          serverVersion: "9.0.0",
+          execPath: "/gone/discern",
+          statKey: () => undefined,
+          probeVersion: () => {
+            probes += 1;
+            return Promise.resolve("9.5.0");
+          },
+        });
+        assertEquals(await resolve(), undefined);
+        assertEquals(probes, 0);
+      },
     },
+  ];
+  await assertCasesAsync(cases, (row) => row.name, async (row) => {
+    await row.check();
   });
-  assertEquals(await resolve(), undefined);
-  assertEquals(probes, 0);
 });
 
 Deno.test("createInstalledVersionResolver: real defaults keep a stable process and reject a replaced non-discern executable", async () => {

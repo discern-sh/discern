@@ -9,6 +9,7 @@
  * Guards: claim:no-manual-configuration
  */
 
+import { assertCases } from "./assert_cases.ts";
 import { assert, assertStringIncludes } from "@std/assert";
 import {
   type CompletionContext,
@@ -60,204 +61,239 @@ const AGENTS = {
 
 // ── consentMessage ───────────────────────────────────────────────────────────
 
-Deno.test("consentMessage carries the verbatim-protected confirmations, relay facts, cost, reversibility, and worktree path", () => {
-  const msg = consentMessage({
-    worktreePath: WT,
-    ...WORKTREE_ENV,
-    docsExists: false,
-    gitRepo: true,
-    agents: AGENTS,
-  });
-  // The adaptive relay licence — the whole point of the script-not-stage-directions
-  // genre (ADR 0086): reword allowed, dropping a point not.
-  assertStringIncludes(
-    msg,
-    "as one natural conversation",
-  );
-  // The verbatim carve-out: quoted text is exempt from the adapt licence. A cold run
-  // showed the bare licence licenses trimming the question's second sentence.
-  assertStringIncludes(
-    msg,
-    "form the consent record",
-  );
-  // The recommendation explains the inherited outcome, gives the concrete switch
-  // route, and keeps provenance separate from capability.
-  assertStringIncludes(
-    msg,
-    "Everything I set up here is inherited by future sessions",
-  );
-  assertStringIncludes(msg, "strongest suitable reasoning model");
-  assertStringIncludes(msg, "switch models first");
-  assertStringIncludes(msg, "Provenance is advisory");
-  assertStringIncludes(msg, "Current provider/model (self-declared)");
-  assertStringIncludes(msg, "never copy the placeholder");
-  // The relay items are stated plainly, with jargon glossed once.
-  assertStringIncludes(
-    msg,
-    "Lasting outcome: future sessions inherit",
-  );
-  assertStringIncludes(msg, "separate task workspaces");
-  assertStringIncludes(msg, "maintained project guide");
-  // Placement stays consent: the tracked-by-default posture is disclosed — the
-  // agent files land committed so out-of-tool sessions can read them.
-  assertStringIncludes(msg, "selected-provider integration files");
-  // The footprint story in namespace terms (ADR 0099): one root file, one visible
-  // folder (the map glossed for a novice) — scoped to what discern itself OWNS, with
-  // the provider config files acknowledged as the user's own tools' integrations.
-  // The old blanket containment claim ("nothing else in your repo is touched") was
-  // an overclaim — `begin` also writes .mcp.json, agent settings, a gitignore block
-  // — and must never return.
-  assertStringIncludes(msg, "the root `discern.toml`");
-  assertStringIncludes(
-    msg,
-    "managed blocks in `.gitignore` and `.gitattributes`",
-  );
-  assertStringIncludes(msg, "agent files `CLAUDE.md`, `AGENTS.md`");
-  assertStringIncludes(
-    msg,
-    "Generated, Git-ignored provider skill directories",
-  );
-  assertStringIncludes(msg, "one Git repository has one root `discern.toml`");
-  assertStringIncludes(msg, "A monorepo uses that root install");
-  assertStringIncludes(
-    msg,
-    "independent nested Git repository is a separate project",
-  );
-  assertStringIncludes(
-    msg,
-    "preserve its workflows",
-  );
-  assertStringIncludes(
-    msg,
-    "write the maintained project guide and agent instructions",
-  );
-  assertStringIncludes(
-    msg,
-    "selected-provider integration files",
-  );
-  assertStringIncludes(msg, "normal MCP tool permissions still apply");
-  assertStringIncludes(msg, "preserves existing Shared-file permission rules");
-  assertStringIncludes(msg, "environment-file order is `.env`, `.env.local`");
-  assert(
-    !msg.includes("author the project's docs and instructions"),
-    "the setup plan must name the map rather than teach docs as its synonym",
-  );
-  assert(!msg.includes("Nothing else in your repo is touched"));
-  // The undo is NAMED, not alluded to: the branch mid-setup, `discern uninstall` after.
-  assertStringIncludes(msg, "discern uninstall");
-  // The honest time+token expectation and the safety frame.
-  assertStringIncludes(msg, "20–40 minutes");
-  assertStringIncludes(msg, "setup branch");
-  assertStringIncludes(msg, "No API key");
-  // The exact worktree path, and the confirmed command with no --map.
-  assertStringIncludes(msg, WT);
-  assertStringIncludes(msg, "--confirmed");
-  assert(!msg.includes("--map"), "the consent surface never mentions --map");
-  assert(!msg.includes("already has `docs/`"));
-  // The set is named to the human as a confirmation, not wired silently.
-  assertStringIncludes(
-    msg,
-    "I found Claude Code, Cursor installed on this machine",
-  );
-  assertStringIncludes(
-    msg,
-    "I recommend committing that detected set for this repository",
-  );
-  assertStringIncludes(msg, "not which tool or model is running");
-  assertStringIncludes(msg, "Keep it, or name a different set");
-  // The mechanics ride OUTSIDE the fence, agent-facing, with the REAL effective
-  // set as the example — copied verbatim it wires exactly what would have been
-  // wired anyway, so the example can't mislead.
-  assertStringIncludes(msg, "--agents claude_code,cursor");
-  const fenced = msg.split("end of message")[0] ?? "";
-  assert(
-    !fenced.includes("--agents"),
-    "the --agents mechanics are agent-facing — never inside the relayed message",
-  );
+Deno.test("setup consent messages preserve facts across project and provider contexts", () => {
+  const cases = [
+    {
+      name:
+        "consentMessage carries the verbatim-protected confirmations, relay facts, cost, reversibility, and worktree path",
+      check: () => {
+        const msg = consentMessage({
+          worktreePath: WT,
+          ...WORKTREE_ENV,
+          docsExists: false,
+          gitRepo: true,
+          agents: AGENTS,
+        });
+        // The adaptive relay licence — the whole point of the script-not-stage-directions
+        // genre (ADR 0086): reword allowed, dropping a point not.
+        assertStringIncludes(
+          msg,
+          "as one natural conversation",
+        );
+        // The verbatim carve-out: quoted text is exempt from the adapt licence. A cold run
+        // showed the bare licence licenses trimming the question's second sentence.
+        assertStringIncludes(
+          msg,
+          "form the consent record",
+        );
+        // The recommendation explains the inherited outcome, gives the concrete switch
+        // route, and keeps provenance separate from capability.
+        assertStringIncludes(
+          msg,
+          "Everything I set up here is inherited by future sessions",
+        );
+        assertStringIncludes(msg, "strongest suitable reasoning model");
+        assertStringIncludes(msg, "switch models first");
+        assertStringIncludes(msg, "Provenance is advisory");
+        assertStringIncludes(msg, "Current provider/model (self-declared)");
+        assertStringIncludes(msg, "never copy the placeholder");
+        // The relay items are stated plainly, with jargon glossed once.
+        assertStringIncludes(
+          msg,
+          "Lasting outcome: future sessions inherit",
+        );
+        assertStringIncludes(msg, "separate task workspaces");
+        assertStringIncludes(msg, "maintained project guide");
+        // Placement stays consent: the tracked-by-default posture is disclosed — the
+        // agent files land committed so out-of-tool sessions can read them.
+        assertStringIncludes(msg, "selected-provider integration files");
+        // The footprint story in namespace terms (ADR 0099): one root file, one visible
+        // folder (the map glossed for a novice) — scoped to what discern itself OWNS, with
+        // the provider config files acknowledged as the user's own tools' integrations.
+        // The old blanket containment claim ("nothing else in your repo is touched") was
+        // an overclaim — `begin` also writes .mcp.json, agent settings, a gitignore block
+        // — and must never return.
+        assertStringIncludes(msg, "the root `discern.toml`");
+        assertStringIncludes(
+          msg,
+          "managed blocks in `.gitignore` and `.gitattributes`",
+        );
+        assertStringIncludes(msg, "agent files `CLAUDE.md`, `AGENTS.md`");
+        assertStringIncludes(
+          msg,
+          "Generated, Git-ignored provider skill directories",
+        );
+        assertStringIncludes(
+          msg,
+          "one Git repository has one root `discern.toml`",
+        );
+        assertStringIncludes(msg, "A monorepo uses that root install");
+        assertStringIncludes(
+          msg,
+          "independent nested Git repository is a separate project",
+        );
+        assertStringIncludes(
+          msg,
+          "preserve its workflows",
+        );
+        assertStringIncludes(
+          msg,
+          "write the maintained project guide and agent instructions",
+        );
+        assertStringIncludes(
+          msg,
+          "selected-provider integration files",
+        );
+        assertStringIncludes(msg, "normal MCP tool permissions still apply");
+        assertStringIncludes(
+          msg,
+          "preserves existing Shared-file permission rules",
+        );
+        assertStringIncludes(
+          msg,
+          "environment-file order is `.env`, `.env.local`",
+        );
+        assert(
+          !msg.includes("author the project's docs and instructions"),
+          "the setup plan must name the map rather than teach docs as its synonym",
+        );
+        assert(!msg.includes("Nothing else in your repo is touched"));
+        // The undo is NAMED, not alluded to: the branch mid-setup, `discern uninstall` after.
+        assertStringIncludes(msg, "discern uninstall");
+        // The honest time+token expectation and the safety frame.
+        assertStringIncludes(msg, "20–40 minutes");
+        assertStringIncludes(msg, "setup branch");
+        assertStringIncludes(msg, "No API key");
+        // The exact worktree path, and the confirmed command with no --map.
+        assertStringIncludes(msg, WT);
+        assertStringIncludes(msg, "--confirmed");
+        assert(
+          !msg.includes("--map"),
+          "the consent surface never mentions --map",
+        );
+        assert(!msg.includes("already has `docs/`"));
+        // The set is named to the human as a confirmation, not wired silently.
+        assertStringIncludes(
+          msg,
+          "I found Claude Code, Cursor installed on this machine",
+        );
+        assertStringIncludes(
+          msg,
+          "I recommend committing that detected set for this repository",
+        );
+        assertStringIncludes(msg, "not which tool or model is running");
+        assertStringIncludes(msg, "Keep it, or name a different set");
+        // The mechanics ride OUTSIDE the fence, agent-facing, with the REAL effective
+        // set as the example — copied verbatim it wires exactly what would have been
+        // wired anyway, so the example can't mislead.
+        assertStringIncludes(msg, "--agents claude_code,cursor");
+        const fenced = msg.split("end of message")[0] ?? "";
+        assert(
+          !fenced.includes("--agents"),
+          "the --agents mechanics are agent-facing — never inside the relayed message",
+        );
 
-  assert(!msg.includes("git init"), "a git repo needs no git-init step");
-  assertStringIncludes(
-    msg,
-    "Before landing, the main shared version is unchanged",
-  );
-  assertStringIncludes(msg, SETUP_REVERSIBILITY.beforeLanding);
-  assertStringIncludes(msg, SETUP_REVERSIBILITY.uninstall);
-  const words = relayWordCount(msg);
-  assert(words > 0 && words <= 600, `base message body was ${words} words`);
-});
-
-Deno.test("consentMessage reassures about existing docs and never offers to adopt them (ADR 0131)", () => {
-  const withDocs = consentMessage({
-    worktreePath: WT,
-    ...WORKTREE_ENV,
-    docsExists: true,
-    gitRepo: true,
-    agents: AGENTS,
-  });
-  // The reassurance: the human's docs stay theirs; the map is a separate tree
-  // with its own named home.
-  assertStringIncludes(withDocs, "already has `docs/`");
-  assertStringIncludes(withDocs, "does not adopt or overwrite it");
-  assertStringIncludes(withDocs, SOURCE_PATHS.map.defaultPath);
-  // The retired adoption offer must never return: no question, no --map coda —
-  // pointing the map at human-curated docs is not something setup suggests.
-  assert(
-    !withDocs.includes("--map"),
-    "the existing-docs adoption offer must not return",
-  );
-  assert(!withDocs.includes("point discern at your existing docs"));
-
-  const words = relayWordCount(withDocs);
-  assert(words <= 650, `docs message body was ${words} words`);
-});
-
-Deno.test("consentMessage offers the undetected agent defaults as a consent point", () => {
-  // Nothing detected → the defaults are still a consent point, phrased honestly.
-  const defaulted = consentMessage({
-    worktreePath: WT,
-    ...WORKTREE_ENV,
-    docsExists: false,
-    gitRepo: true,
-    agents: {
-      wired: [consentProvider("claude_code")],
-      evidence: "no-evidence",
+        assert(!msg.includes("git init"), "a git repo needs no git-init step");
+        assertStringIncludes(
+          msg,
+          "Before landing, the main shared version is unchanged",
+        );
+        assertStringIncludes(msg, SETUP_REVERSIBILITY.beforeLanding);
+        assertStringIncludes(msg, SETUP_REVERSIBILITY.uninstall);
+        const words = relayWordCount(msg);
+        assert(
+          words > 0 && words <= 600,
+          `base message body was ${words} words`,
+        );
+      },
     },
-  });
-  assertStringIncludes(defaulted, "proposed default set is Claude Code");
-  assertStringIncludes(
-    defaulted,
-    "Keep it, name the tools you use, or choose none",
-  );
-});
+    {
+      name:
+        "consentMessage reassures about existing docs and never offers to adopt them (ADR 0131)",
+      check: () => {
+        const withDocs = consentMessage({
+          worktreePath: WT,
+          ...WORKTREE_ENV,
+          docsExists: true,
+          gitRepo: true,
+          agents: AGENTS,
+        });
+        // The reassurance: the human's docs stay theirs; the map is a separate tree
+        // with its own named home.
+        assertStringIncludes(withDocs, "already has `docs/`");
+        assertStringIncludes(withDocs, "does not adopt or overwrite it");
+        assertStringIncludes(withDocs, SOURCE_PATHS.map.defaultPath);
+        // The retired adoption offer must never return: no question, no --map coda —
+        // pointing the map at human-curated docs is not something setup suggests.
+        assert(
+          !withDocs.includes("--map"),
+          "the existing-docs adoption offer must not return",
+        );
+        assert(!withDocs.includes("point discern at your existing docs"));
 
-Deno.test("consentMessage conditions every isolation promise on git being present", () => {
-  const nonGit = consentMessage({
-    worktreePath: WT,
-    ...WORKTREE_ENV,
-    docsExists: false,
-    gitRepo: false,
-    agents: AGENTS,
+        const words = relayWordCount(withDocs);
+        assert(words <= 650, `docs message body was ${words} words`);
+      },
+    },
+    {
+      name:
+        "consentMessage offers the undetected agent defaults as a consent point",
+      check: () => {
+        // Nothing detected → the defaults are still a consent point, phrased honestly.
+        const defaulted = consentMessage({
+          worktreePath: WT,
+          ...WORKTREE_ENV,
+          docsExists: false,
+          gitRepo: true,
+          agents: {
+            wired: [consentProvider("claude_code")],
+            evidence: "no-evidence",
+          },
+        });
+        assertStringIncludes(defaulted, "proposed default set is Claude Code");
+        assertStringIncludes(
+          defaulted,
+          "Keep it, name the tools you use, or choose none",
+        );
+      },
+    },
+    {
+      name:
+        "consentMessage conditions every isolation promise on git being present",
+      check: () => {
+        const nonGit = consentMessage({
+          worktreePath: WT,
+          ...WORKTREE_ENV,
+          docsExists: false,
+          gitRepo: false,
+          agents: AGENTS,
+        });
+        // The unconditional branch promise must not survive into a directory where
+        // there is no git to deliver it — the plan leads with `git init` instead.
+        assert(
+          !nonGit.includes(
+            "I work on a dedicated `discern-setup` branch, so nothing touches your main branch",
+          ),
+          "a non-git consent must not promise the isolated branch unconditionally",
+        );
+        assertStringIncludes(nonGit, "git init");
+        assertStringIncludes(nonGit, "May I run `git init` here");
+        assertStringIncludes(
+          nonGit,
+          "After Git exists, before landing, the main shared version is unchanged",
+        );
+        // The agent's next step is to initialize git and re-run the preflight — the
+        // begin command comes after the repo actually exists.
+        assertStringIncludes(
+          nonGit,
+          "initialize git, re-run `discern setup verify`",
+        );
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
   });
-  // The unconditional branch promise must not survive into a directory where
-  // there is no git to deliver it — the plan leads with `git init` instead.
-  assert(
-    !nonGit.includes(
-      "I work on a dedicated `discern-setup` branch, so nothing touches your main branch",
-    ),
-    "a non-git consent must not promise the isolated branch unconditionally",
-  );
-  assertStringIncludes(nonGit, "git init");
-  assertStringIncludes(nonGit, "May I run `git init` here");
-  assertStringIncludes(
-    nonGit,
-    "After Git exists, before landing, the main shared version is unchanged",
-  );
-  // The agent's next step is to initialize git and re-run the preflight — the
-  // begin command comes after the repo actually exists.
-  assertStringIncludes(
-    nonGit,
-    "initialize git, re-run `discern setup verify`",
-  );
 });
 
 /** Count the human relay body, excluding its agent-facing framing and command. */
@@ -368,154 +404,177 @@ Deno.test("welcome derives its reversibility wording from the shared authority",
   assertStringIncludes(welcome, SETUP_REVERSIBILITY.uninstall);
 });
 
-Deno.test("completionMessage renders honest coverage for each verdict", () => {
-  const landing = {
-    inRepo: false,
-    branch: "",
-    target: "main",
-    onTarget: false,
-    onSetupBranch: false,
-  };
-  const full = completionMessage(completionContext(landing));
-  assertStringIncludes(full, "6 of 6 applicable protections");
-  assertStringIncludes(full, "Later agents start in Runtime");
-  assertStringIncludes(full, "Begin at `src/runtime.ts`");
-  assertStringIncludes(full, "The runtime owns command execution");
-  assertStringIncludes(full, "Every command preserves the child exit status");
-  assertStringIncludes(full, "Decision rules future work inherits (2)");
-  assertStringIncludes(
-    full,
-    "Future sessions load their project instructions from",
-  );
-  // The close restates the contained footprint the consent message promised —
-  // and names `discern uninstall` as the undo, since the branch-delete story
-  // retires once the setup accepts.
-  assertStringIncludes(full, "The installed footprint is");
-  assertStringIncludes(full, "`discern/` folder");
-  assertStringIncludes(full, "discern uninstall");
+Deno.test("setup completion messages preserve assurance, landing, and activation contexts", () => {
+  const cases = [
+    {
+      name: "completionMessage renders honest coverage for each verdict",
+      check: () => {
+        const landing = {
+          inRepo: false,
+          branch: "",
+          target: "main",
+          onTarget: false,
+          onSetupBranch: false,
+        };
+        const full = completionMessage(completionContext(landing));
+        assertStringIncludes(full, "6 of 6 applicable protections");
+        assertStringIncludes(full, "Later agents start in Runtime");
+        assertStringIncludes(full, "Begin at `src/runtime.ts`");
+        assertStringIncludes(full, "The runtime owns command execution");
+        assertStringIncludes(
+          full,
+          "Every command preserves the child exit status",
+        );
+        assertStringIncludes(full, "Decision rules future work inherits (2)");
+        assertStringIncludes(
+          full,
+          "Future sessions load their project instructions from",
+        );
+        // The close restates the contained footprint the consent message promised —
+        // and names `discern uninstall` as the undo, since the branch-delete story
+        // retires once the setup accepts.
+        assertStringIncludes(full, "The installed footprint is");
+        assertStringIncludes(full, "`discern/` folder");
+        assertStringIncludes(full, "discern uninstall");
 
-  assertStringIncludes(full, SETUP_REVERSIBILITY.uninstall);
-  assertStringIncludes(
-    full,
-    `${PROOF_LINE}\n\n─── end of message`,
-  );
-  assert(!full.includes(`• ${PROOF_LINE}`));
-  assertStringIncludes(full, "For Claude Code");
-  assertStringIncludes(full, "registered tool inventory");
-  assertStringIncludes(full, "`mcp__discern__discern_status`");
-  assertStringIncludes(full, "`discern doctor`");
-  assertStringIncludes(
-    full,
-    "Only after every applicable activation check succeeds",
-  );
-  assertStringIncludes(full, "project-guide areas (2 total)");
-  assertStringIncludes(full, "Still open (1)");
+        assertStringIncludes(full, SETUP_REVERSIBILITY.uninstall);
+        assertStringIncludes(
+          full,
+          `${PROOF_LINE}\n\n─── end of message`,
+        );
+        assert(!full.includes(`• ${PROOF_LINE}`));
+        assertStringIncludes(full, "For Claude Code");
+        assertStringIncludes(full, "registered tool inventory");
+        assertStringIncludes(full, "`mcp__discern__discern_status`");
+        assertStringIncludes(full, "`discern doctor`");
+        assertStringIncludes(
+          full,
+          "Only after every applicable activation check succeeds",
+        );
+        assertStringIncludes(full, "project-guide areas (2 total)");
+        assertStringIncludes(full, "Still open (1)");
 
-  const partial = completionMessage(completionContext(landing, "partial"));
-  assertStringIncludes(partial, "2 of 6 applicable protections");
-  assertStringIncludes(
-    partial,
-    "Not running yet: typecheck, test, build, smoke",
-  );
+        const partial = completionMessage(
+          completionContext(landing, "partial"),
+        );
+        assertStringIncludes(partial, "2 of 6 applicable protections");
+        assertStringIncludes(
+          partial,
+          "Not running yet: typecheck, test, build, smoke",
+        );
 
-  const minimal = completionMessage(completionContext(landing, "minimal"));
-  assertStringIncludes(minimal, "No quality checks are wired yet");
-  assertStringIncludes(minimal, "isn't a git repository");
-});
-
-Deno.test("completionMessage adapts the landing recommendation to where the work lives", () => {
-  const ctx = (
-    landing: {
-      inRepo: boolean;
-      branch: string;
-      target: string;
-      onTarget: boolean;
-      onSetupBranch: boolean;
+        const minimal = completionMessage(
+          completionContext(landing, "minimal"),
+        );
+        assertStringIncludes(minimal, "No quality checks are wired yet");
+        assertStringIncludes(minimal, "isn't a git repository");
+      },
     },
-  ) => completionMessage(completionContext(landing, "minimal"));
+    {
+      name:
+        "completionMessage adapts the landing recommendation to where the work lives",
+      check: () => {
+        const ctx = (
+          landing: {
+            inRepo: boolean;
+            branch: string;
+            target: string;
+            onTarget: boolean;
+            onSetupBranch: boolean;
+          },
+        ) => completionMessage(completionContext(landing, "minimal"));
 
-  assertStringIncludes(
-    ctx({
-      inRepo: true,
-      branch: "main",
-      target: "main",
-      onTarget: true,
-      onSetupBranch: false,
-    }),
-    "already lives on `main`",
-  );
-  const setupBranch = ctx({
-    inRepo: true,
-    branch: "discern-setup",
-    target: "main",
-    onTarget: false,
-    onSetupBranch: true,
+        assertStringIncludes(
+          ctx({
+            inRepo: true,
+            branch: "main",
+            target: "main",
+            onTarget: true,
+            onSetupBranch: false,
+          }),
+          "already lives on `main`",
+        );
+        const setupBranch = ctx({
+          inRepo: true,
+          branch: "discern-setup",
+          target: "main",
+          onTarget: false,
+          onSetupBranch: true,
+        });
+        assertStringIncludes(setupBranch, "discern setup accept");
+        assertStringIncludes(setupBranch, "not permission to merge");
+        assertStringIncludes(setupBranch, "decline");
+        assertStringIncludes(setupBranch, "I will wait");
+        // The user's OWN branch (an --allow-dirty in-place setup): `setup accept` would
+        // sweep that branch's own commits onto the trunk, so the recommendation is a
+        // manual merge, never the land command.
+        const ownBranch = ctx({
+          inRepo: true,
+          branch: "feature",
+          target: "main",
+          onTarget: false,
+          onSetupBranch: false,
+        });
+        assertStringIncludes(ownBranch, "usual Git workflow");
+        assertStringIncludes(ownBranch, "leave the branch for review");
+        assertStringIncludes(ownBranch, "decline it");
+        assertStringIncludes(ownBranch, "I will wait");
+        assert(
+          !ownBranch.includes("discern setup accept"),
+          `a non-setup branch must never be steered to setup accept:\n${ownBranch}`,
+        );
+        // Detached HEAD (no current branch) still names how to land it.
+        assertStringIncludes(
+          ctx({
+            inRepo: true,
+            branch: "",
+            target: "main",
+            onTarget: false,
+            onSetupBranch: false,
+          }),
+          "Check out `discern-setup`",
+        );
+      },
+    },
+    {
+      name:
+        "completionMessage withholds activation for missing agents or unlanded setup",
+      check: () => {
+        const landing = {
+          inRepo: false,
+          branch: "",
+          target: "main",
+          onTarget: false,
+          onSetupBranch: false,
+        };
+
+        const noAgents = completionMessage({
+          assurance: assurance("full"),
+          inventory: INVENTORY,
+          landing,
+          reactivation: { summary: "", per_agent: [] },
+          proofLine: PROOF_LINE,
+          unproven: false,
+        });
+        assert(
+          !noAgents.includes("start a fresh session"),
+          "an agent that wired nothing at session start is never told to restart",
+        );
+
+        const unlanded = completionMessage(completionContext({
+          inRepo: true,
+          branch: "discern-setup",
+          target: "main",
+          onTarget: false,
+          onSetupBranch: true,
+        }));
+        assertStringIncludes(unlanded, "`main` does not contain it yet");
+        assert(!unlanded.includes("start a fresh"));
+        assert(!unlanded.includes("discern improvement"));
+      },
+    },
+  ];
+  assertCases(cases, (row) => row.name, (row) => {
+    row.check();
   });
-  assertStringIncludes(setupBranch, "discern setup accept");
-  assertStringIncludes(setupBranch, "not permission to merge");
-  assertStringIncludes(setupBranch, "decline");
-  assertStringIncludes(setupBranch, "I will wait");
-  // The user's OWN branch (an --allow-dirty in-place setup): `setup accept` would
-  // sweep that branch's own commits onto the trunk, so the recommendation is a
-  // manual merge, never the land command.
-  const ownBranch = ctx({
-    inRepo: true,
-    branch: "feature",
-    target: "main",
-    onTarget: false,
-    onSetupBranch: false,
-  });
-  assertStringIncludes(ownBranch, "usual Git workflow");
-  assertStringIncludes(ownBranch, "leave the branch for review");
-  assertStringIncludes(ownBranch, "decline it");
-  assertStringIncludes(ownBranch, "I will wait");
-  assert(
-    !ownBranch.includes("discern setup accept"),
-    `a non-setup branch must never be steered to setup accept:\n${ownBranch}`,
-  );
-  // Detached HEAD (no current branch) still names how to land it.
-  assertStringIncludes(
-    ctx({
-      inRepo: true,
-      branch: "",
-      target: "main",
-      onTarget: false,
-      onSetupBranch: false,
-    }),
-    "Check out `discern-setup`",
-  );
-});
-
-Deno.test("completionMessage withholds activation for missing agents or unlanded setup", () => {
-  const landing = {
-    inRepo: false,
-    branch: "",
-    target: "main",
-    onTarget: false,
-    onSetupBranch: false,
-  };
-
-  const noAgents = completionMessage({
-    assurance: assurance("full"),
-    inventory: INVENTORY,
-    landing,
-    reactivation: { summary: "", per_agent: [] },
-    proofLine: PROOF_LINE,
-    unproven: false,
-  });
-  assert(
-    !noAgents.includes("start a fresh session"),
-    "an agent that wired nothing at session start is never told to restart",
-  );
-
-  const unlanded = completionMessage(completionContext({
-    inRepo: true,
-    branch: "discern-setup",
-    target: "main",
-    onTarget: false,
-    onSetupBranch: true,
-  }));
-  assertStringIncludes(unlanded, "`main` does not contain it yet");
-  assert(!unlanded.includes("start a fresh"));
-  assert(!unlanded.includes("discern improvement"));
 });

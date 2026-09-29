@@ -1,4 +1,5 @@
 /** Offline handoff, request-scoped effects, and direct clone-local reminder evidence. */
+import { assertCasesAsync } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
@@ -41,73 +42,201 @@ const record: ReleaseCheckRead = {
   value: { schema_version: 1, first_seen_at: new Date(first).toISOString() },
 };
 
-Deno.test("release plans exhaust invocation modes without effects during planning or dry-run", async () => {
-  for (const mode of ["cli", "json", "markdown", "desk"] as const) {
-    for (const stdinTty of [false, true]) {
-      for (const stdoutTty of [false, true]) {
-        for (const dryRun of [false, true]) {
-          const invocation = { mode, stdinTty, stdoutTty, dryRun };
-          const plan = planReleases(invocation, {
-            root: "/clone",
-            state: record,
-          }, { version: "7.8.1-rc.1+local", codename: "星の海" });
-          assertEquals(
-            new URL(plan.urls.html).searchParams.get("since"),
-            "7.8.1-rc.1+local",
-          );
-          assertEquals(new URL(plan.urls.json).pathname, "/releases.json");
-          assertEquals([...new URL(plan.urls.html).searchParams.keys()], [
-            "since",
-          ]);
-          let writes = 0;
-          let launches = 0;
+Deno.test("release plans and effects preserve explicit launch and evidence boundaries", async () => {
+  const cases = [
+    {
+      name:
+        "release plans exhaust invocation modes without effects during planning or dry-run",
+      check: async () => {
+        for (const mode of ["cli", "json", "markdown", "desk"] as const) {
+          for (const stdinTty of [false, true]) {
+            for (const stdoutTty of [false, true]) {
+              for (const dryRun of [false, true]) {
+                const invocation = { mode, stdinTty, stdoutTty, dryRun };
+                const plan = planReleases(invocation, {
+                  root: "/clone",
+                  state: record,
+                }, { version: "7.8.1-rc.1+local", codename: "星の海" });
+                assertEquals(
+                  new URL(plan.urls.html).searchParams.get("since"),
+                  "7.8.1-rc.1+local",
+                );
+                assertEquals(
+                  new URL(plan.urls.json).pathname,
+                  "/releases.json",
+                );
+                assertEquals([...new URL(plan.urls.html).searchParams.keys()], [
+                  "since",
+                ]);
+                let writes = 0;
+                let launches = 0;
+                const result = await applyReleases(plan, {
+                  now: () => due,
+                  write: (_root, version, now) => {
+                    assertEquals(version, plan.version);
+                    assertEquals(now, due);
+                    writes++;
+                    return Promise.resolve({ status: "saved" });
+                  },
+                  open: async (url) => {
+                    launches++;
+                    return await openInBrowser(url, {
+                      os: "darwin",
+                      run: () =>
+                        Promise.resolve({ success: true, code: 0, stderr: "" }),
+                    });
+                  },
+                });
+                assertEquals(writes, dryRun ? 0 : 1);
+                assertEquals(
+                  launches,
+                  !dryRun &&
+                    (mode === "desk" || mode === "cli" && stdinTty && stdoutTty)
+                    ? 1
+                    : 0,
+                );
+                assertEquals(result.data?.network_request, false);
+                assertEquals(result.data?.launch_attempted, launches === 1);
+                const reading = renderResultReading(
+                  result,
+                  resultPresenterForVerb("releases"),
+                );
+                assertStringIncludes(
+                  reading,
+                  dryRun
+                    ? "Would open this page"
+                    : launches === 1
+                    ? "Opening release notes"
+                    : "See what's changed",
+                );
+                assert(!reading.includes("Navigation was not verified"));
+                assert(
+                  ReleasesOutputSchema.safeParse(serializeResult(result))
+                    .success,
+                );
+              }
+            }
+          }
+        }
+      },
+    },
+    {
+      name:
+        "launcher failure and missing clone state preserve a usable successful URL handoff",
+      check: async () => {
+        for (const os of ["linux", "windows"] as const) {
+          const plan = planReleases({
+            mode: "desk",
+            stdinTty: false,
+            stdoutTty: false,
+            dryRun: false,
+          }, undefined);
           const result = await applyReleases(plan, {
-            now: () => due,
-            write: (_root, version, now) => {
-              assertEquals(version, plan.version);
-              assertEquals(now, due);
-              writes++;
-              return Promise.resolve({ status: "saved" });
-            },
-            open: async (url) => {
-              launches++;
-              return await openInBrowser(url, {
-                os: "darwin",
-                run: () =>
-                  Promise.resolve({ success: true, code: 0, stderr: "" }),
-              });
-            },
+            open: (url) =>
+              openInBrowser(url, {
+                os,
+                wsl: false,
+                run: () => {
+                  throw new Error("missing launcher");
+                },
+              }),
           });
-          assertEquals(writes, dryRun ? 0 : 1);
-          assertEquals(
-            launches,
-            !dryRun &&
-              (mode === "desk" || mode === "cli" && stdinTty && stdoutTty)
-              ? 1
-              : 0,
-          );
-          assertEquals(result.data?.network_request, false);
-          assertEquals(result.data?.launch_attempted, launches === 1);
-          const reading = renderResultReading(
+          assert(result.ok);
+          assertEquals(result.data?.launch_succeeded, false);
+          assertEquals(result.data?.launch_attempted, os === "linux");
+          const text = renderResultReading(
             result,
             resultPresenterForVerb("releases"),
           );
-          assertStringIncludes(
-            reading,
-            dryRun
-              ? "Would open this page"
-              : launches === 1
-              ? "Opening release notes"
-              : "See what's changed",
-          );
-          assert(!reading.includes("Navigation was not verified"));
-          assert(
-            ReleasesOutputSchema.safeParse(serializeResult(result)).success,
-          );
+          assertStringIncludes(text, plan.urls.html);
+          assertStringIncludes(text, plan.urls.json);
+          assertStringIncludes(text, "Couldn't open your browser");
+          assertEquals(result.data?.state_write.status, "skipped");
         }
-      }
-    }
-  }
+        let attempted = false;
+        const detectionFailure = await openInBrowser("https://example.test", {
+          os: "linux",
+          run: () => {
+            attempted = true;
+            return Promise.resolve({ success: true, code: 0, stderr: "" });
+          },
+        }, {
+          get: () => {
+            throw new Deno.errors.NotCapable("environment access denied");
+          },
+        });
+        assertEquals(attempted, false);
+        assertEquals(detectionFailure.status, "unsupported");
+        assert(detectionFailure.status === "unsupported");
+        assertStringIncludes(
+          detectionFailure.message,
+          "environment access denied",
+        );
+        assertEquals(
+          browserLaunch(
+            "https://discern.sh/releases?since=1.0.0",
+            "linux",
+            true,
+          ),
+          {
+            command: "wslview",
+            args: ["https://discern.sh/releases?since=1.0.0"],
+          },
+        );
+      },
+    },
+    {
+      name:
+        "failed timestamp writes remain honest and authorization guidance separates check and install",
+      check: async () => {
+        const result = await applyReleases(
+          planReleases({
+            mode: "json",
+            stdinTty: true,
+            stdoutTty: true,
+            dryRun: false,
+          }, { root: "/clone", state: record }),
+          {
+            now: () => due,
+            write: () =>
+              Promise.resolve({
+                status: "unavailable",
+                reason: "write denied",
+              }),
+            open: () => {
+              throw new Error("agent output must not launch");
+            },
+          },
+        );
+        assert(result.ok);
+        assertEquals(result.data?.state_write, {
+          status: "unavailable",
+          reason: "write denied",
+        });
+        const reading = renderResultReading(
+          result,
+          resultPresenterForVerb("releases"),
+        );
+        assertStringIncludes(reading, result.data?.urls.html ?? "missing");
+        assert(!reading.includes("timestamp"));
+        const guidance = fire(HINTS["release-check-sequence"]);
+        assertEquals(guidance.id, "release-check-sequence");
+        for (
+          const contract of [
+            "fetch the returned JSON URL",
+            "Report whether an update is available",
+            "Ask before checking if this reminder is the only prompt",
+            "If installation was requested",
+            "without asking again; otherwise ask before installing",
+            "Don't recommend downgrading or treating a prerelease as a stable update",
+          ]
+        ) assertStringIncludes(guidance.text, contract);
+      },
+    },
+  ];
+  await assertCasesAsync(cases, (row) => row.name, async (row) => {
+    await row.check();
+  });
 });
 
 Deno.test("UTC calendar interval refuses to invent age from unavailable, future, or invalid evidence", () => {
@@ -231,58 +360,6 @@ Deno.test("release evidence shares linked checkouts, preserves future schemas, a
   });
 });
 
-Deno.test("launcher failure and missing clone state preserve a usable successful URL handoff", async () => {
-  for (const os of ["linux", "windows"] as const) {
-    const plan = planReleases({
-      mode: "desk",
-      stdinTty: false,
-      stdoutTty: false,
-      dryRun: false,
-    }, undefined);
-    const result = await applyReleases(plan, {
-      open: (url) =>
-        openInBrowser(url, {
-          os,
-          wsl: false,
-          run: () => {
-            throw new Error("missing launcher");
-          },
-        }),
-    });
-    assert(result.ok);
-    assertEquals(result.data?.launch_succeeded, false);
-    assertEquals(result.data?.launch_attempted, os === "linux");
-    const text = renderResultReading(
-      result,
-      resultPresenterForVerb("releases"),
-    );
-    assertStringIncludes(text, plan.urls.html);
-    assertStringIncludes(text, plan.urls.json);
-    assertStringIncludes(text, "Couldn't open your browser");
-    assertEquals(result.data?.state_write.status, "skipped");
-  }
-  let attempted = false;
-  const detectionFailure = await openInBrowser("https://example.test", {
-    os: "linux",
-    run: () => {
-      attempted = true;
-      return Promise.resolve({ success: true, code: 0, stderr: "" });
-    },
-  }, {
-    get: () => {
-      throw new Deno.errors.NotCapable("environment access denied");
-    },
-  });
-  assertEquals(attempted, false);
-  assertEquals(detectionFailure.status, "unsupported");
-  assert(detectionFailure.status === "unsupported");
-  assertStringIncludes(detectionFailure.message, "environment access denied");
-  assertEquals(
-    browserLaunch("https://discern.sh/releases?since=1.0.0", "linux", true),
-    { command: "wslview", args: ["https://discern.sh/releases?since=1.0.0"] },
-  );
-});
-
 Deno.test("human codenames remain separate from numeric protocol and mismatch identity", () => {
   for (const version of ["7.8.0", "7.8.1", "7.8.2-rc.1+build"]) {
     for (const codename of [undefined, "星の海"]) {
@@ -384,46 +461,4 @@ Deno.test("release CLI works outside projects, prints each projection, and dry-r
     assertEquals(result.code, 0, result.stderr);
     assertEquals((await inspectReleaseCheck(root)).status, "missing");
   });
-});
-
-Deno.test("failed timestamp writes remain honest and authorization guidance separates check and install", async () => {
-  const result = await applyReleases(
-    planReleases({
-      mode: "json",
-      stdinTty: true,
-      stdoutTty: true,
-      dryRun: false,
-    }, { root: "/clone", state: record }),
-    {
-      now: () => due,
-      write: () =>
-        Promise.resolve({ status: "unavailable", reason: "write denied" }),
-      open: () => {
-        throw new Error("agent output must not launch");
-      },
-    },
-  );
-  assert(result.ok);
-  assertEquals(result.data?.state_write, {
-    status: "unavailable",
-    reason: "write denied",
-  });
-  const reading = renderResultReading(
-    result,
-    resultPresenterForVerb("releases"),
-  );
-  assertStringIncludes(reading, result.data?.urls.html ?? "missing");
-  assert(!reading.includes("timestamp"));
-  const guidance = fire(HINTS["release-check-sequence"]);
-  assertEquals(guidance.id, "release-check-sequence");
-  for (
-    const contract of [
-      "fetch the returned JSON URL",
-      "Report whether an update is available",
-      "Ask before checking if this reminder is the only prompt",
-      "If installation was requested",
-      "without asking again; otherwise ask before installing",
-      "Don't recommend downgrading or treating a prerelease as a stable update",
-    ]
-  ) assertStringIncludes(guidance.text, contract);
 });

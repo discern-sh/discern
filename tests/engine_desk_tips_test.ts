@@ -6,6 +6,7 @@
  * closed-set guard.
  */
 
+import { assertCases } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -262,119 +263,145 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
   );
 });
 
-Deno.test("unseen tips follow authored order — the curriculum", () => {
-  const tips = [tipOf("first"), tipOf("second"), tipOf("third")];
-  const state = freshTipSeenState("3.0.0");
-  const selected = selectTip(tips, contextOf(), state);
-  assertEquals(selected?.tip.id, "first");
-  assertEquals(selected?.newIn, undefined);
-});
-
-Deno.test("an unseen tip whose predicate holds outranks the curriculum", () => {
-  const tips = [
-    tipOf("opener"),
-    tipOf("contextual", { predicate: { kind: "standards-empty" } }),
-  ];
-  const selected = selectTip(
-    tips,
-    contextOf({ standards: [] }),
-    freshTipSeenState("3.0.0"),
-  );
-  assertEquals(selected?.tip.id, "contextual");
-});
-
-Deno.test("a tip whose predicate does not hold is not applicable, even for rotation", () => {
-  const tips = [
+Deno.test("selectTip follows applicability, arrival, curriculum, and rotation precedence", () => {
+  const filteredTips = [
     tipOf("contextual", { predicate: { kind: "standards-empty" } }),
     tipOf("evergreen"),
   ];
-  const ctx = contextOf();
-  const state = seen(freshTipSeenState("3.0.0"), [
+  const filteredState = seen(freshTipSeenState("3.0.0"), [
     ["contextual", "2026-07-01T00:00:00.000Z"],
     ["evergreen", "2026-07-02T00:00:00.000Z"],
   ]);
-  assertEquals(
-    selectTip(tips, ctx, state)?.tip.id,
-    "evergreen",
-    "rotation may only pick from the applicable pool",
-  );
-  assertEquals(
-    selectTip([tips[0] as RegisteredTip], ctx, state),
-    undefined,
-    "an all-filtered pool selects nothing",
-  );
-});
-
-Deno.test("an unseen tip newer than the baseline ranks first and carries its release", () => {
-  const tips = [
-    tipOf("contextual", { predicate: { kind: "standards-empty" } }),
-    tipOf("arrived", { since: "3.1.0" }),
+  const rotationTips = [tipOf("a"), tipOf("b"), tipOf("c")];
+  const cases: ReadonlyArray<{
+    name: string;
+    tips: RegisteredTip[];
+    context: TipContext;
+    state: TipSeenState;
+    expected:
+      | { id?: string; newIn?: string | undefined; rendered?: string }
+      | undefined;
+  }> = [
+    {
+      name: "unseen tips follow authored order — the curriculum",
+      tips: [tipOf("first"), tipOf("second"), tipOf("third")],
+      context: contextOf(),
+      state: freshTipSeenState("3.0.0"),
+      expected: { id: "first", newIn: undefined },
+    },
+    {
+      name: "an unseen tip whose predicate holds outranks the curriculum",
+      tips: [
+        tipOf("opener"),
+        tipOf("contextual", { predicate: { kind: "standards-empty" } }),
+      ],
+      context: contextOf({ standards: [] }),
+      state: freshTipSeenState("3.0.0"),
+      expected: { id: "contextual" },
+    },
+    {
+      name:
+        "a tip whose predicate does not hold is not applicable, even for rotation",
+      tips: filteredTips,
+      context: contextOf(),
+      state: filteredState,
+      expected: { id: "evergreen" },
+    },
+    {
+      name: "an all-filtered pool selects nothing",
+      tips: filteredTips.slice(0, 1),
+      context: contextOf(),
+      state: filteredState,
+      expected: undefined,
+    },
+    {
+      name:
+        "an unseen tip newer than the baseline ranks first and carries its release",
+      tips: [
+        tipOf("contextual", { predicate: { kind: "standards-empty" } }),
+        tipOf("arrived", { since: "3.1.0" }),
+      ],
+      context: contextOf({ standards: [] }),
+      state: freshTipSeenState("3.0.0"),
+      expected: {
+        id: "arrived",
+        newIn: "3.1.0",
+        rendered: "New in 3.1.0: Teaches arrived.",
+      },
+    },
+    {
+      name:
+        "a fresh state baselines at the current version, so nothing renders as new",
+      tips: [tipOf("shipped", { since: "1.4.0" }), tipOf("older")],
+      context: contextOf(),
+      state: freshTipSeenState("1.4.0"),
+      expected: {
+        id: "shipped",
+        newIn: undefined,
+        rendered: "Teaches shipped.",
+      },
+    },
+    {
+      name: "a malformed since tag orders low instead of throwing",
+      tips: [tipOf("odd", { since: "next" }), tipOf("plain")],
+      context: contextOf(),
+      state: freshTipSeenState("3.0.0"),
+      expected: { id: "odd", newIn: undefined },
+    },
+    {
+      name: "version comparison is numeric per segment, not lexicographic",
+      tips: [tipOf("ten", { since: "1.10.0" })],
+      context: contextOf(),
+      state: freshTipSeenState("1.9.0"),
+      expected: { newIn: "1.10.0" },
+    },
+    {
+      name: "rotation picks the least-recently-shown tip",
+      tips: rotationTips,
+      context: contextOf(),
+      state: seen(freshTipSeenState("3.0.0"), [
+        ["a", "2026-07-03T00:00:00.000Z"],
+        ["b", "2026-07-01T00:00:00.000Z"],
+        ["c", "2026-07-02T00:00:00.000Z"],
+      ]),
+      expected: { id: "b" },
+    },
+    {
+      name: "equal timestamps fall back to authored order",
+      tips: rotationTips,
+      context: contextOf(),
+      state: seen(freshTipSeenState("3.0.0"), [
+        ["b", "2026-07-01T00:00:00.000Z"],
+        ["a", "2026-07-01T00:00:00.000Z"],
+        ["c", "2026-07-02T00:00:00.000Z"],
+      ]),
+      expected: { id: "a" },
+    },
+    {
+      name: "an empty registry selects nothing",
+      tips: [],
+      context: contextOf(),
+      state: freshTipSeenState("3.0.0"),
+      expected: undefined,
+    },
   ];
-  const selected = selectTip(
-    tips,
-    contextOf({ standards: [] }),
-    freshTipSeenState("3.0.0"),
-  );
-  assertEquals(selected?.tip.id, "arrived");
-  assertEquals(selected?.newIn, "3.1.0");
-  assertEquals(
-    renderTipLine(selected as NonNullable<typeof selected>),
-    "New in 3.1.0: Teaches arrived.",
-  );
-});
-
-Deno.test("a fresh state baselines at the current version, so nothing renders as new", () => {
-  const tips = [tipOf("shipped", { since: "1.4.0" }), tipOf("older")];
-  const selected = selectTip(tips, contextOf(), freshTipSeenState("1.4.0"));
-  assertEquals(
-    selected?.tip.id,
-    "shipped",
-    "the entry still leads in authored order",
-  );
-  assertEquals(
-    selected?.newIn,
-    undefined,
-    "since equal to the baseline is not an arrival",
-  );
-  assertEquals(
-    renderTipLine(selected as NonNullable<typeof selected>),
-    "Teaches shipped.",
-  );
-});
-
-Deno.test("a malformed since tag orders low instead of throwing", () => {
-  const tips = [tipOf("odd", { since: "next" }), tipOf("plain")];
-  const selected = selectTip(tips, contextOf(), freshTipSeenState("3.0.0"));
-  assertEquals(selected?.tip.id, "odd");
-  assertEquals(selected?.newIn, undefined);
-});
-
-Deno.test("version comparison is numeric per segment, not lexicographic", () => {
-  const tips = [tipOf("ten", { since: "1.10.0" })];
-  const selected = selectTip(tips, contextOf(), freshTipSeenState("1.9.0"));
-  assertEquals(selected?.newIn, "1.10.0", "1.10.0 is newer than 1.9.0");
-});
-
-Deno.test("rotation picks the least-recently-shown tip, ties in authored order", () => {
-  const tips = [tipOf("a"), tipOf("b"), tipOf("c")];
-  const ctx = contextOf();
-  const state = seen(freshTipSeenState("3.0.0"), [
-    ["a", "2026-07-03T00:00:00.000Z"],
-    ["b", "2026-07-01T00:00:00.000Z"],
-    ["c", "2026-07-02T00:00:00.000Z"],
-  ]);
-  assertEquals(selectTip(tips, ctx, state)?.tip.id, "b");
-
-  const tied = seen(freshTipSeenState("3.0.0"), [
-    ["b", "2026-07-01T00:00:00.000Z"],
-    ["a", "2026-07-01T00:00:00.000Z"],
-    ["c", "2026-07-02T00:00:00.000Z"],
-  ]);
-  assertEquals(
-    selectTip(tips, ctx, tied)?.tip.id,
-    "a",
-    "equal timestamps fall back to authored order",
-  );
+  assertCases(cases, (row) => row.name, (row) => {
+    const selected = selectTip(row.tips, row.context, row.state);
+    if (row.expected === undefined) {
+      assertEquals(selected, undefined, row.name);
+      return;
+    }
+    assert(selected !== undefined, row.name);
+    if ("id" in row.expected) {
+      assertEquals(selected.tip.id, row.expected.id, row.name);
+    }
+    if ("newIn" in row.expected) {
+      assertEquals(selected.newIn, row.expected.newIn, row.name);
+    }
+    if ("rendered" in row.expected) {
+      assertEquals(renderTipLine(selected), row.expected.rendered, row.name);
+    }
+  });
 });
 
 Deno.test("no tip repeats until the applicable pool exhausts", () => {
@@ -404,13 +431,6 @@ Deno.test("selection is deterministic: identical inputs pick the identical tip",
   const first = selectTip(tips, ctx, state);
   const second = selectTip(tips, ctx, state);
   assertEquals(first?.tip.id, second?.tip.id);
-});
-
-Deno.test("an empty registry selects nothing", () => {
-  assertEquals(
-    selectTip([], contextOf(), freshTipSeenState("3.0.0")),
-    undefined,
-  );
 });
 
 Deno.test("marking a tip shown counts showings and advances the timestamp", () => {
