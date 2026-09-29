@@ -35,6 +35,7 @@ import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 import { CONFIG_PROSE } from "../src/shared/config_prose.ts";
 import { TEMPLATE_WIDTH } from "../src/shared/config_template_codegen.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
@@ -257,64 +258,72 @@ Deno.test("returns undefined for a section the template does not contain", async
   );
 });
 
-Deno.test("does not match a sub-table when asked for the top-level name", () => {
-  const t = [
-    "[worktree]",
-    "enabled = true",
-    "",
-    "[worktree.db]",
-    'clone = ""',
-  ].join("\n");
-  const block = sectionBlockFromTemplate(t, "worktree");
-  assertExists(block);
-  assertStringIncludes(block, "[worktree]");
-  assertStringIncludes(block, "enabled = true");
-  assert(!block.includes("[worktree.db]"), "stops before the sub-table header");
-});
-
-Deno.test("body ends at the next ruled doc block, not just the next header", () => {
-  // A section whose body is followed by the *doc block* of the next section: the
-  // ruled `# ───` line must bound the body so the next section's docs aren't
-  // swallowed. A leading section keeps [a]'s doc block off the top of the file
-  // (so it isn't mistaken for preamble).
-  const t = [
-    "[pre]",
-    "p = 0",
-    "",
-    "",
-    "# ───",
-    "# [a] — docs for a",
-    "# ───",
-    "",
-    "[a]",
-    "x = 1",
-    "",
-    "",
-    "# ───",
-    "# [b] — docs for b",
-    "# ───",
-    "",
-    "[b]",
-    "y = 2",
-  ].join("\n");
-  const block = sectionBlockFromTemplate(t, "a");
-  assertExists(block);
-  assertEquals(block, "# ───\n# [a] — docs for a\n# ───\n\n[a]\nx = 1");
-  assert(!block.includes("[b]") && !block.includes("docs for b"));
-});
-
-Deno.test("a comment run reaching the top of the file is treated as preamble, not a doc block", () => {
-  // Mirrors the real [meta] shape: a file-level preamble, then the first section.
-  const t = [
-    "# file preamble line 1",
-    "# file preamble line 2",
-    "",
-    "[first]",
-    "k = 1",
-  ].join("\n");
-  const block = sectionBlockFromTemplate(t, "first");
-  assertExists(block);
-  assertEquals(block, "[first]\nk = 1"); // preamble excluded
+Deno.test("template section extraction respects names and document boundaries", () => {
+  assertNamedCases({
+    "does not match a sub-table when asked for the top-level name":
+      (): undefined => {
+        const t = [
+          "[worktree]",
+          "enabled = true",
+          "",
+          "[worktree.db]",
+          'clone = ""',
+        ].join("\n");
+        const block = sectionBlockFromTemplate(t, "worktree");
+        assertExists(block);
+        assertStringIncludes(block, "[worktree]");
+        assertStringIncludes(block, "enabled = true");
+        assert(
+          !block.includes("[worktree.db]"),
+          "stops before the sub-table header",
+        );
+      },
+    "body ends at the next ruled doc block, not just the next header":
+      (): undefined => {
+        // A section whose body is followed by the *doc block* of the next section: the
+        // ruled `# ───` line must bound the body so the next section's docs aren't
+        // swallowed. A leading section keeps [a]'s doc block off the top of the file
+        // (so it isn't mistaken for preamble).
+        const t = [
+          "[pre]",
+          "p = 0",
+          "",
+          "",
+          "# ───",
+          "# [a] — docs for a",
+          "# ───",
+          "",
+          "[a]",
+          "x = 1",
+          "",
+          "",
+          "# ───",
+          "# [b] — docs for b",
+          "# ───",
+          "",
+          "[b]",
+          "y = 2",
+        ].join("\n");
+        const block = sectionBlockFromTemplate(t, "a");
+        assertExists(block);
+        assertEquals(block, "# ───\n# [a] — docs for a\n# ───\n\n[a]\nx = 1");
+        assert(!block.includes("[b]") && !block.includes("docs for b"));
+      },
+    "a comment run reaching the top of the file is treated as preamble, not a doc block":
+      (): undefined => {
+        // Mirrors the real [meta] shape: a file-level preamble, then the first section.
+        const t = [
+          "# file preamble line 1",
+          "# file preamble line 2",
+          "",
+          "[first]",
+          "k = 1",
+        ].join("\n");
+        const block = sectionBlockFromTemplate(t, "first");
+        assertExists(block);
+        assertEquals(block, "[first]\nk = 1"); // preamble excluded
+      },
+  });
 });
 
 Deno.test("readConfigTemplate resolves the bundled template", async () => {
@@ -357,41 +366,45 @@ Deno.test("managedBannersFromTemplate finds a ruled banner for every record fami
   }
 });
 
-Deno.test("scanManagedBanners ignores a fixed-section banner", () => {
-  const text = [
-    RULE,
-    "# [gate] — ergonomics for the parallel gate stages.",
-    RULE,
-    "",
-    "[gate]",
-    "stream_output = false",
-  ].join("\n");
-  assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), []);
-});
-
-Deno.test("scanManagedBanners requires a clean close — a blank breaks the block", () => {
-  const text = [
-    RULE,
-    "# [standards] — quality floors",
-    "", // a blank line before the closing rule: not a clean banner
-    RULE,
-  ].join("\n");
-  assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), []);
-});
-
-Deno.test("scanManagedBanners bounds a banner at its closing rule, never a following table", () => {
-  const text = [
-    RULE, // line 0
-    "# [standards] — quality floors", // 1
-    "#   limit  the floor/ceiling", // 2
-    RULE, // 3 — the close
-    "",
-    "[standards.coverage]",
-    "limit = 80",
-  ].join("\n");
-  assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), [
-    { family: "standards", start: 0, end: 3 },
-  ]);
+Deno.test("managed banner scanning requires complete bounded record banners", () => {
+  assertNamedCases({
+    "scanManagedBanners ignores a fixed-section banner": (): undefined => {
+      const text = [
+        RULE,
+        "# [gate] — ergonomics for the parallel gate stages.",
+        RULE,
+        "",
+        "[gate]",
+        "stream_output = false",
+      ].join("\n");
+      assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), []);
+    },
+    "scanManagedBanners requires a clean close \u2014 a blank breaks the block":
+      (): undefined => {
+        const text = [
+          RULE,
+          "# [standards] — quality floors",
+          "", // a blank line before the closing rule: not a clean banner
+          RULE,
+        ].join("\n");
+        assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), []);
+      },
+    "scanManagedBanners bounds a banner at its closing rule, never a following table":
+      (): undefined => {
+        const text = [
+          RULE, // line 0
+          "# [standards] — quality floors", // 1
+          "#   limit  the floor/ceiling", // 2
+          RULE, // 3 — the close
+          "",
+          "[standards.coverage]",
+          "limit = 80",
+        ].join("\n");
+        assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), [
+          { family: "standards", start: 0, end: 3 },
+        ]);
+      },
+  });
 });
 
 /** The commented example table for one inert checkpoint id: the contiguous

@@ -1,4 +1,3 @@
-import { assertCasesAsync } from "./assert_cases.ts";
 /**
  * The committed config artifacts stay in lockstep with their generators: the
  * JSON Schemas and the generated reference pages must equal the codegen output
@@ -13,6 +12,7 @@ import { assertCasesAsync } from "./assert_cases.ts";
  * not thin one side because the other exists.
  */
 
+import { assertCasesAsync } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";

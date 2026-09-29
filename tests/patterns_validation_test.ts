@@ -1,4 +1,5 @@
 /** Validation economics preserves verdict, identity and comparison boundaries. */
+
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   buildStreamFacts,
@@ -22,6 +23,7 @@ import {
   validation,
   verb,
 } from "./patterns_event_fixtures.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 Deno.test("patterns validation streaks require completed failures, not interruption or coordination", () => {
   for (const outcome of ["cancelled", "skipped", "unavailable"] as const) {
@@ -325,70 +327,81 @@ function report(detector: Detector, events: LogbookEvent[]): DetectorReport {
   return runDetector(detector, buildStreamFacts(events, "main"));
 }
 
-Deno.test("validation ordering requires positive execution evidence, not caller coordinates", () => {
-  const ordering = detector("sequence-anomaly");
-  const cases: Partial<VerbEvent>[][] = [
-    [{ verb: "accept", branch: "main" }, { verb: "accept", branch: "main" }],
-    [{ verb: "accept", outcome: "refused", error: "awaiting_consent" }, {
-      verb: "accept",
-      outcome: "refused",
-      error: "incomplete",
-    }],
-    Array.from({ length: 3 }, () => ({ verb: "done", gate_ran: false })),
-    Array.from({ length: 3 }, () => ({ verb: "done" })),
-    Array.from({ length: 3 }, () => ({
-      verb: "done",
-      gate_ran: true,
-      flags: ["rerun"],
-      validation: validation("passed", { mode: "full-gate" }),
-    })),
-    Array.from({ length: 3 }, (_, i) => ({
-      verb: "done",
-      gate_ran: true,
-      validation: validation("passed", {
-        mode: "full-gate",
-        setup: `setup-${i}`,
-      }),
-    })),
-  ];
-  for (const events of cases) {
-    assertEquals(
-      report(
-        ordering,
-        run(events.map((event, i) => ({
-          invocation: `observed-${i}`,
-          ...event,
-        }))),
-      ).findings,
-      [],
-      JSON.stringify(events),
-    );
-  }
-});
-
-Deno.test("validation ordering finds repeated green executions for an unrelated future job", () => {
-  const events = run(Array.from({ length: 3 }, (_, i) => ({
-    verb: "done",
-    gate_ran: true,
-    invocation: `physical-${i}`,
-    validation: validation("passed", {
-      mode: "full-gate",
-      job: "future-contract-check",
-    }),
-  })));
-  const findings = report(detector("sequence-anomaly"), events).findings;
-  assertEquals(findings.length, 1);
-  assertEquals(findings[0]?.evidence.repeated_executions, 2);
-  assert(findings[0]?.basis !== undefined);
-  const duplicateDelivery = [...events, ...events];
-  assertEquals(
-    report(detector("sequence-anomaly"), duplicateDelivery).findings,
-    findings,
-  );
-  const interrupted = events.flatMap((
-    event,
-  ) => [event, verb({ outcome: "failed" })]);
-  assertEquals(report(detector("sequence-anomaly"), interrupted).findings, []);
+Deno.test("validation ordering recognizes positive execution evidence across input variants", () => {
+  assertNamedCases({
+    "validation ordering requires positive execution evidence, not caller coordinates":
+      (): undefined => {
+        const ordering = detector("sequence-anomaly");
+        const cases: Partial<VerbEvent>[][] = [
+          [{ verb: "accept", branch: "main" }, {
+            verb: "accept",
+            branch: "main",
+          }],
+          [{ verb: "accept", outcome: "refused", error: "awaiting_consent" }, {
+            verb: "accept",
+            outcome: "refused",
+            error: "incomplete",
+          }],
+          Array.from({ length: 3 }, () => ({ verb: "done", gate_ran: false })),
+          Array.from({ length: 3 }, () => ({ verb: "done" })),
+          Array.from({ length: 3 }, () => ({
+            verb: "done",
+            gate_ran: true,
+            flags: ["rerun"],
+            validation: validation("passed", { mode: "full-gate" }),
+          })),
+          Array.from({ length: 3 }, (_, i) => ({
+            verb: "done",
+            gate_ran: true,
+            validation: validation("passed", {
+              mode: "full-gate",
+              setup: `setup-${i}`,
+            }),
+          })),
+        ];
+        for (const events of cases) {
+          assertEquals(
+            report(
+              ordering,
+              run(events.map((event, i) => ({
+                invocation: `observed-${i}`,
+                ...event,
+              }))),
+            ).findings,
+            [],
+            JSON.stringify(events),
+          );
+        }
+      },
+    "validation ordering finds repeated green executions for an unrelated future job":
+      (): undefined => {
+        const events = run(Array.from({ length: 3 }, (_, i) => ({
+          verb: "done",
+          gate_ran: true,
+          invocation: `physical-${i}`,
+          validation: validation("passed", {
+            mode: "full-gate",
+            job: "future-contract-check",
+          }),
+        })));
+        const findings = report(detector("sequence-anomaly"), events).findings;
+        assertEquals(findings.length, 1);
+        assertEquals(findings[0]?.evidence.repeated_executions, 2);
+        assert(findings[0]?.basis !== undefined);
+        const duplicateDelivery = [...events, ...events];
+        assertEquals(
+          report(detector("sequence-anomaly"), duplicateDelivery).findings,
+          findings,
+        );
+        const interrupted = events.flatMap((
+          event,
+        ) => [event, verb({ outcome: "failed" })]);
+        assertEquals(
+          report(detector("sequence-anomaly"), interrupted).findings,
+          [],
+        );
+      },
+  });
 });
 
 Deno.test("duration-creep excludes reused gates, unknown waits, duplicate deliveries, and missing size", () => {
@@ -449,137 +462,153 @@ function failFastLedgerEvents(
   );
 }
 
-Deno.test("fail-fast ledger distinguishes command observations from job-duration estimates", () => {
-  const audit = report(
-    detector("masked-failures"),
-    failFastLedgerEvents(100, 10),
-  );
-  const finding = audit.findings[0];
-  assert(finding !== undefined);
-  assertEquals(finding.evidence.cancelled_jobs, 4);
-  assertEquals(finding.evidence.later_distinct_failures, 4);
-  assertEquals(finding.evidence.additional_gate_rounds, 4);
-  assertEquals(finding.evidence.later_round_command_seconds, 40);
-  assertEquals(finding.evidence.estimated_job_tail_seconds, 400);
-  assertEquals(finding.evidence.tail_duration_samples, 4);
-  assertEquals(
-    finding.basis?.values.estimated_job_tail_seconds?.kind,
-    "estimated",
-  );
-  assertEquals(
-    finding.basis?.values.later_round_command_seconds?.kind,
-    "observed",
-  );
-  assert(!finding.next_step?.includes("fail_fast = false"));
-  assertStringIncludes(finding.observed, "does not establish");
-});
-
-Deno.test("fail-fast ledger does not choose a policy from unlike duration totals", () => {
-  const audit = report(
-    detector("masked-failures"),
-    failFastLedgerEvents(10, 100),
-  );
-  const finding = audit.findings[0];
-  assert(finding !== undefined);
-  assertEquals(finding.evidence.estimated_job_tail_seconds, 40);
-  assertEquals(finding.evidence.later_round_command_seconds, 400);
-  assertEquals(finding.evidence.recommendation_supported, 0);
-  assert(!finding.next_step?.includes("fail_fast = false"));
-  assertStringIncludes(finding.next_step ?? "", "controlled");
-});
-
-Deno.test("fail-fast ledger deduplicates delivery and keeps missing cancelled duration unknown", () => {
-  const events = failFastLedgerEvents(100, 10);
-  const duplicated = report(
-    detector("masked-failures"),
-    events.flatMap((event) => [event, event]),
-  );
-  assertEquals(duplicated.findings[0]?.evidence.additional_gate_rounds, 4);
-  assertEquals(duplicated.findings[0]?.evidence.tail_duration_samples, 4);
-  const missing = events.map((event): LogbookEvent =>
-    event.kind !== "verb" ? event : {
-      ...event,
-      steps: event.steps?.map((step) => {
-        if (step.outcome !== "cancelled") return step;
-        const { duration_s: _duration, ...rest } = step;
-        return rest;
-      }) ?? [],
-    }
-  );
-  const finding = report(detector("masked-failures"), missing).findings[0];
-  assert(finding !== undefined);
-  assertEquals(finding.evidence.unestimated_tail_jobs, 4);
-  assertEquals(finding.evidence.estimated_job_tail_seconds, undefined);
-});
-
-Deno.test("fail-fast ledger routes an unresolved tradeoff to a controlled experiment", () => {
-  const audit = report(
-    detector("masked-failures"),
-    failFastLedgerEvents(100, 100),
-  );
-  const finding = audit.findings[0];
-  assert(finding !== undefined);
-  assertStringIncludes(finding.next_step ?? "", "controlled");
-  assert(!finding.next_step?.includes("fail_fast = false"));
-});
-
-Deno.test("fail-fast ledger keeps invalid durations and unknown execution out of estimates", () => {
-  for (const invalid of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
-    const events = failFastLedgerEvents(100, 10).map((event): LogbookEvent =>
-      event.kind !== "verb" ? event : { ...event, duration_ms: invalid }
-    );
-    const finding = report(detector("masked-failures"), events).findings[0];
-    assert(finding !== undefined);
-    assertEquals(finding.evidence.additional_gate_rounds, 4);
-    assertEquals(finding.evidence.unknown_later_round_durations, 4);
-    assertEquals(finding.evidence.later_round_command_seconds, undefined);
-  }
-  const unknownExecution = failFastLedgerEvents(100, 10).map(
-    (event): LogbookEvent => {
-      if (event.kind !== "verb") return event;
-      const { gate_ran: _execution, ...rest } = event;
-      return rest;
-    },
-  );
-  const finding =
-    report(detector("masked-failures"), unknownExecution).findings[0];
-  assert(finding !== undefined);
-  assertEquals(finding.evidence.unestimated_tail_jobs, 4);
-  assertEquals(finding.evidence.estimated_job_tail_seconds, undefined);
-});
-
-Deno.test("fail-fast ledger never compares adjacent failures across setup boundaries", () => {
-  const events = failFastLedgerEvents(100, 10).map((event, index) =>
-    event.kind === "verb" && index % 2 === 1
-      ? { ...event, epoch: "other-setup" }
-      : event
-  );
-  const audit = runDetector(
-    detector("masked-failures"),
-    buildStreamFacts(events, "main"),
-  );
-  assertEquals(audit.findings, []);
-});
-
-Deno.test("fail-fast ledger preserves unknown sample identities and excludes cancellation without a failed verdict", () => {
-  const events = failFastLedgerEvents(100, 10);
-  const unidentified = events.map((event): LogbookEvent => {
-    if (event.kind !== "verb") return event;
-    const { invocation: _invocation, ...rest } = event;
-    return rest;
+Deno.test("fail-fast evidence retains estimates, unknowns, and comparison boundaries", () => {
+  assertNamedCases({
+    "fail-fast ledger distinguishes command observations from job-duration estimates":
+      (): undefined => {
+        const audit = report(
+          detector("masked-failures"),
+          failFastLedgerEvents(100, 10),
+        );
+        const finding = audit.findings[0];
+        assert(finding !== undefined);
+        assertEquals(finding.evidence.cancelled_jobs, 4);
+        assertEquals(finding.evidence.later_distinct_failures, 4);
+        assertEquals(finding.evidence.additional_gate_rounds, 4);
+        assertEquals(finding.evidence.later_round_command_seconds, 40);
+        assertEquals(finding.evidence.estimated_job_tail_seconds, 400);
+        assertEquals(finding.evidence.tail_duration_samples, 4);
+        assertEquals(
+          finding.basis?.values.estimated_job_tail_seconds?.kind,
+          "estimated",
+        );
+        assertEquals(
+          finding.basis?.values.later_round_command_seconds?.kind,
+          "observed",
+        );
+        assert(!finding.next_step?.includes("fail_fast = false"));
+        assertStringIncludes(finding.observed, "does not establish");
+      },
+    "fail-fast ledger does not choose a policy from unlike duration totals":
+      (): undefined => {
+        const audit = report(
+          detector("masked-failures"),
+          failFastLedgerEvents(10, 100),
+        );
+        const finding = audit.findings[0];
+        assert(finding !== undefined);
+        assertEquals(finding.evidence.estimated_job_tail_seconds, 40);
+        assertEquals(finding.evidence.later_round_command_seconds, 400);
+        assertEquals(finding.evidence.recommendation_supported, 0);
+        assert(!finding.next_step?.includes("fail_fast = false"));
+        assertStringIncludes(finding.next_step ?? "", "controlled");
+      },
+    "fail-fast ledger deduplicates delivery and keeps missing cancelled duration unknown":
+      (): undefined => {
+        const events = failFastLedgerEvents(100, 10);
+        const duplicated = report(
+          detector("masked-failures"),
+          events.flatMap((event) => [event, event]),
+        );
+        assertEquals(
+          duplicated.findings[0]?.evidence.additional_gate_rounds,
+          4,
+        );
+        assertEquals(duplicated.findings[0]?.evidence.tail_duration_samples, 4);
+        const missing = events.map((event): LogbookEvent =>
+          event.kind !== "verb" ? event : {
+            ...event,
+            steps: event.steps?.map((step) => {
+              if (step.outcome !== "cancelled") return step;
+              const { duration_s: _duration, ...rest } = step;
+              return rest;
+            }) ?? [],
+          }
+        );
+        const finding =
+          report(detector("masked-failures"), missing).findings[0];
+        assert(finding !== undefined);
+        assertEquals(finding.evidence.unestimated_tail_jobs, 4);
+        assertEquals(finding.evidence.estimated_job_tail_seconds, undefined);
+      },
+    "fail-fast ledger routes an unresolved tradeoff to a controlled experiment":
+      (): undefined => {
+        const audit = report(
+          detector("masked-failures"),
+          failFastLedgerEvents(100, 100),
+        );
+        const finding = audit.findings[0];
+        assert(finding !== undefined);
+        assertStringIncludes(finding.next_step ?? "", "controlled");
+        assert(!finding.next_step?.includes("fail_fast = false"));
+      },
+    "fail-fast ledger keeps invalid durations and unknown execution out of estimates":
+      (): undefined => {
+        for (const invalid of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+          const events = failFastLedgerEvents(100, 10).map((
+            event,
+          ): LogbookEvent =>
+            event.kind !== "verb" ? event : { ...event, duration_ms: invalid }
+          );
+          const finding =
+            report(detector("masked-failures"), events).findings[0];
+          assert(finding !== undefined);
+          assertEquals(finding.evidence.additional_gate_rounds, 4);
+          assertEquals(finding.evidence.unknown_later_round_durations, 4);
+          assertEquals(finding.evidence.later_round_command_seconds, undefined);
+        }
+        const unknownExecution = failFastLedgerEvents(100, 10).map(
+          (event): LogbookEvent => {
+            if (event.kind !== "verb") return event;
+            const { gate_ran: _execution, ...rest } = event;
+            return rest;
+          },
+        );
+        const finding =
+          report(detector("masked-failures"), unknownExecution).findings[0];
+        assert(finding !== undefined);
+        assertEquals(finding.evidence.unestimated_tail_jobs, 4);
+        assertEquals(finding.evidence.estimated_job_tail_seconds, undefined);
+      },
+    "fail-fast ledger never compares adjacent failures across setup boundaries":
+      (): undefined => {
+        const events = failFastLedgerEvents(100, 10).map((event, index) =>
+          event.kind === "verb" && index % 2 === 1
+            ? { ...event, epoch: "other-setup" }
+            : event
+        );
+        const audit = runDetector(
+          detector("masked-failures"),
+          buildStreamFacts(events, "main"),
+        );
+        assertEquals(audit.findings, []);
+      },
+    "fail-fast ledger preserves unknown sample identities and excludes cancellation without a failed verdict":
+      (): undefined => {
+        const events = failFastLedgerEvents(100, 10);
+        const unidentified = events.map((event): LogbookEvent => {
+          if (event.kind !== "verb") return event;
+          const { invocation: _invocation, ...rest } = event;
+          return rest;
+        });
+        const finding =
+          report(detector("masked-failures"), unidentified).findings[0];
+        assert(finding !== undefined);
+        assertEquals(finding.evidence.tail_duration_samples, 0);
+        assertEquals(finding.evidence.unestimated_tail_jobs, 4);
+        assertEquals(finding.evidence.estimated_job_tail_seconds, undefined);
+        const cancelled = events.map((event): LogbookEvent =>
+          event.kind !== "verb" ? event : {
+            ...event,
+            steps: event.steps?.map((step) =>
+              step.label === "lint" ? { ...step, outcome: "cancelled" } : step
+            ) ?? [],
+          }
+        );
+        assertEquals(
+          report(detector("masked-failures"), cancelled).findings,
+          [],
+        );
+      },
   });
-  const finding = report(detector("masked-failures"), unidentified).findings[0];
-  assert(finding !== undefined);
-  assertEquals(finding.evidence.tail_duration_samples, 0);
-  assertEquals(finding.evidence.unestimated_tail_jobs, 4);
-  assertEquals(finding.evidence.estimated_job_tail_seconds, undefined);
-  const cancelled = events.map((event): LogbookEvent =>
-    event.kind !== "verb" ? event : {
-      ...event,
-      steps: event.steps?.map((step) =>
-        step.label === "lint" ? { ...step, outcome: "cancelled" } : step
-      ) ?? [],
-    }
-  );
-  assertEquals(report(detector("masked-failures"), cancelled).findings, []);
 });

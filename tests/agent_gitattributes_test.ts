@@ -19,6 +19,7 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import type { ResolvedGeneratedGroup } from "../src/shared/generated_artifacts.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 /** Build resolved generated groups for concise test cases. */
 function groups(
@@ -34,90 +35,162 @@ function groups(
   }));
 }
 
-Deno.test("scope globs translate to equivalent root .gitattributes patterns", () => {
-  const cases = [
-    ["src/**", "src/**"],
-    ["/**", "**"],
-    ["/ui/", "**/ui/**"],
-    ["/vendor/generated/", "**/vendor/generated/**"],
-    ["src/", "src/**"],
-    ["*.view", "*.view"],
-    ["src/**/*.ts", "src/**/*.ts"],
-    ["?at.ts", "/?at.ts"],
-    ["README.generated.md", "/README.generated.md"],
-    ["schema/output.json", "/schema/output.json"],
-  ] as const;
+Deno.test("attribute glob translation retains exact mappings and refusals", () => {
+  assertNamedCases({
+    "scope globs translate to equivalent root .gitattributes patterns":
+      (): undefined => {
+        const cases = [
+          ["src/**", "src/**"],
+          ["/**", "**"],
+          ["/ui/", "**/ui/**"],
+          ["/vendor/generated/", "**/vendor/generated/**"],
+          ["src/", "src/**"],
+          ["*.view", "*.view"],
+          ["src/**/*.ts", "src/**/*.ts"],
+          ["?at.ts", "/?at.ts"],
+          ["README.generated.md", "/README.generated.md"],
+          ["schema/output.json", "/schema/output.json"],
+        ] as const;
 
-  for (const [scope, expected] of cases) {
-    assertEquals(translateScopeGlobToGitattributes(scope), {
-      ok: true,
-      source: scope,
-      pattern: expected,
-    });
-  }
+        for (const [scope, expected] of cases) {
+          assertEquals(translateScopeGlobToGitattributes(scope), {
+            ok: true,
+            source: scope,
+            pattern: expected,
+          });
+        }
+      },
+    "scope globs with no faithful attributes spelling are refused":
+      (): undefined => {
+        for (
+          const scope of [
+            "{schema,reference}/**",
+            "generated output/**",
+            "!private/**",
+            "./dist/**",
+            "generated/../dist/**",
+            "generated//dist/**",
+            "src\\**",
+            "src/?(draft).ts",
+          ]
+        ) {
+          const translated = translateScopeGlobToGitattributes(scope);
+          assertEquals(translated.ok, false, scope);
+          if (!translated.ok) {
+            assert(translated.reason.length > 0, scope);
+          }
+        }
+      },
+  });
 });
 
-Deno.test("scope globs with no faithful attributes spelling are refused", () => {
-  for (
-    const scope of [
-      "{schema,reference}/**",
-      "generated output/**",
-      "!private/**",
-      "./dist/**",
-      "generated/../dist/**",
-      "generated//dist/**",
-      "src\\**",
-      "src/?(draft).ts",
-    ]
-  ) {
-    const translated = translateScopeGlobToGitattributes(scope);
-    assertEquals(translated.ok, false, scope);
-    if (!translated.ok) {
-      assert(translated.reason.length > 0, scope);
-    }
-  }
-});
+Deno.test("attribute reconciliation preserves project bytes across create, replace, remove, and no-op inputs", () => {
+  assertNamedCases({
+    "one block composes generated, Linguist, and scoped Markdown attributes":
+      (): undefined => {
+        const declared = groups(
+          ["reference", ["reference/**", "README.generated.md"], true],
+          ["schemas", ["schema/**"]],
+        );
+        const result = reconcileDiscernGitattributes("", declared, [
+          "AGENTS.md",
+          "CLAUDE.md",
+        ], [
+          { surface: "map", path: "discern/map/**/*.md" },
+          { surface: "todo", path: "discern/TODO.md" },
+        ]);
 
-Deno.test("one block composes generated, Linguist, and scoped Markdown attributes", () => {
-  const declared = groups(
-    ["reference", ["reference/**", "README.generated.md"], true],
-    ["schemas", ["schema/**"]],
-  );
-  const result = reconcileDiscernGitattributes("", declared, [
-    "AGENTS.md",
-    "CLAUDE.md",
-  ], [
-    { surface: "map", path: "discern/map/**/*.md" },
-    { surface: "todo", path: "discern/TODO.md" },
-  ]);
+        assertEquals(result.operations, [
+          { kind: "create-block", path: ".gitattributes" },
+        ]);
+        assertStringIncludes(result.text, DISCERN_GITATTRIBUTES_BEGIN);
+        assertStringIncludes(
+          result.text,
+          "reference/** merge=discern-generated linguist-generated",
+        );
+        assertStringIncludes(
+          result.text,
+          "/README.generated.md merge=discern-generated linguist-generated",
+        );
+        assertStringIncludes(
+          result.text,
+          "schema/** merge=discern-generated\n",
+        );
+        assertStringIncludes(
+          result.text,
+          "/AGENTS.md merge=discern-generated diff=markdown",
+        );
+        assertStringIncludes(
+          result.text,
+          "/CLAUDE.md merge=discern-generated diff=markdown",
+        );
+        assertStringIncludes(result.text, "discern/map/**/*.md diff=markdown");
+        assertStringIncludes(result.text, "/discern/TODO.md diff=markdown");
+        assertEquals(result.text.includes("\n*.md diff=markdown"), false);
+        assertEquals(result.patterns.includes("discern/map/**/*.md"), false);
+        assertStringIncludes(result.text, DISCERN_GITATTRIBUTES_END);
+        assertEquals(result.refused, []);
+      },
+    "reconcile replaces only the marked bytes and is idempotent":
+      (): undefined => {
+        const before = "*.jpg binary\r\n\r\n";
+        const after = "\r\n*.md text eol=lf\r\n";
+        const stale = [
+          DISCERN_GITATTRIBUTES_BEGIN,
+          "old/** merge=discern-generated",
+          DISCERN_GITATTRIBUTES_END,
+          "",
+        ].join("\r\n");
+        const existing = `${before}${stale}${after}`;
+        const declared = groups(["schemas", ["schema/**"]]);
 
-  assertEquals(result.operations, [
-    { kind: "create-block", path: ".gitattributes" },
-  ]);
-  assertStringIncludes(result.text, DISCERN_GITATTRIBUTES_BEGIN);
-  assertStringIncludes(
-    result.text,
-    "reference/** merge=discern-generated linguist-generated",
-  );
-  assertStringIncludes(
-    result.text,
-    "/README.generated.md merge=discern-generated linguist-generated",
-  );
-  assertStringIncludes(result.text, "schema/** merge=discern-generated\n");
-  assertStringIncludes(
-    result.text,
-    "/AGENTS.md merge=discern-generated diff=markdown",
-  );
-  assertStringIncludes(
-    result.text,
-    "/CLAUDE.md merge=discern-generated diff=markdown",
-  );
-  assertStringIncludes(result.text, "discern/map/**/*.md diff=markdown");
-  assertStringIncludes(result.text, "/discern/TODO.md diff=markdown");
-  assertEquals(result.text.includes("\n*.md diff=markdown"), false);
-  assertEquals(result.patterns.includes("discern/map/**/*.md"), false);
-  assertStringIncludes(result.text, DISCERN_GITATTRIBUTES_END);
-  assertEquals(result.refused, []);
+        const first = reconcileDiscernGitattributes(existing, declared);
+        assertEquals(first.operations, [
+          { kind: "replace-block", path: ".gitattributes" },
+        ]);
+        assert(first.text.startsWith(before));
+        assert(first.text.endsWith(after));
+        assertStringIncludes(first.text, "schema/** merge=discern-generated");
+        assert(!first.text.includes("old/**"), first.text);
+
+        const second = reconcileDiscernGitattributes(first.text, declared);
+        assertEquals(second.operations, []);
+        assertEquals(second.text, first.text);
+      },
+    "empty config removes the managed block and preserves outside bytes":
+      (): undefined => {
+        const block = canonicalDiscernGitattributesBlock(
+          groups(["schemas", ["schema/**"]]),
+        ).text.replaceAll("\n", "\r\n");
+        const before = "*.jpg binary\r\n\r\n";
+        const after = "*.md text\r\n";
+        const existing = `${before}${block}${after}`;
+
+        const result = reconcileDiscernGitattributes(existing, []);
+        assertEquals(result.operations, [
+          { kind: "remove-block", path: ".gitattributes" },
+        ]);
+        assertEquals(result.text, `${before}${after}`);
+      },
+    "adding then removing a block round-trips project-owned lines":
+      (): undefined => {
+        const project = "*.jpg binary\r\n";
+        const added = reconcileDiscernGitattributes(
+          project,
+          groups(["schemas", ["schema/**"]]),
+        );
+        const removed = reconcileDiscernGitattributes(added.text, []);
+        assertEquals(removed.text, project);
+      },
+    "unused attributes management is a zero-byte no-op": (): undefined => {
+      assertEquals(reconcileDiscernGitattributes("", [], []), {
+        text: "",
+        operations: [],
+        patterns: [],
+        refused: [],
+      });
+    },
+  });
 });
 
 Deno.test("Markdown attributes derive from configured discern surfaces only", () => {
@@ -161,65 +234,5 @@ dir = "knowledge/"
     assertStringIncludes(plan.text, "/notes/discern-work.md diff=markdown");
     assertEquals(plan.text.includes("discern/brief.md"), false);
     assertEquals(plan.text.includes("knowledge/**/*.md"), false);
-  });
-});
-
-Deno.test("reconcile replaces only the marked bytes and is idempotent", () => {
-  const before = "*.jpg binary\r\n\r\n";
-  const after = "\r\n*.md text eol=lf\r\n";
-  const stale = [
-    DISCERN_GITATTRIBUTES_BEGIN,
-    "old/** merge=discern-generated",
-    DISCERN_GITATTRIBUTES_END,
-    "",
-  ].join("\r\n");
-  const existing = `${before}${stale}${after}`;
-  const declared = groups(["schemas", ["schema/**"]]);
-
-  const first = reconcileDiscernGitattributes(existing, declared);
-  assertEquals(first.operations, [
-    { kind: "replace-block", path: ".gitattributes" },
-  ]);
-  assert(first.text.startsWith(before));
-  assert(first.text.endsWith(after));
-  assertStringIncludes(first.text, "schema/** merge=discern-generated");
-  assert(!first.text.includes("old/**"), first.text);
-
-  const second = reconcileDiscernGitattributes(first.text, declared);
-  assertEquals(second.operations, []);
-  assertEquals(second.text, first.text);
-});
-
-Deno.test("empty config removes the managed block and preserves outside bytes", () => {
-  const block = canonicalDiscernGitattributesBlock(
-    groups(["schemas", ["schema/**"]]),
-  ).text.replaceAll("\n", "\r\n");
-  const before = "*.jpg binary\r\n\r\n";
-  const after = "*.md text\r\n";
-  const existing = `${before}${block}${after}`;
-
-  const result = reconcileDiscernGitattributes(existing, []);
-  assertEquals(result.operations, [
-    { kind: "remove-block", path: ".gitattributes" },
-  ]);
-  assertEquals(result.text, `${before}${after}`);
-});
-
-Deno.test("adding then removing a block round-trips project-owned lines", () => {
-  const project = "*.jpg binary\r\n";
-  const added = reconcileDiscernGitattributes(
-    project,
-    groups(["schemas", ["schema/**"]]),
-  );
-  const removed = reconcileDiscernGitattributes(added.text, []);
-  assertEquals(removed.text, project);
-});
-
-Deno.test("unused attributes management is a zero-byte no-op", () => {
-  assertEquals(reconcileDiscernGitattributes("", [], []), {
-    text: "",
-    operations: [],
-    patterns: [],
-    refused: [],
   });
 });

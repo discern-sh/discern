@@ -33,6 +33,7 @@ import { testTokens } from "./helpers.ts";
 import { z } from "@zod/zod";
 import { configSchema } from "../src/shared/config_schema.ts";
 import { objectView } from "../src/shared/config_codegen.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -69,41 +70,45 @@ Deno.test("every unit's what and why are short present-tense sentences", () => {
   }
 });
 
-Deno.test("every worked example validates against the live schema", () => {
-  for (const [path, prose] of Object.entries(registry)) {
-    for (const example of prose.examples ?? []) {
-      assert(
-        !example.lead.endsWith("."),
-        `[${path}] example lead ends without punctuation: ${example.lead}`,
-      );
-      const { issues } = parseConfig(example.toml);
-      assertEquals(
-        issues,
-        [],
-        `[${path}] example is not a valid config fragment:\n${example.toml}`,
-      );
-      const parsed = parseToml(example.toml) as Record<string, unknown>;
-      const family = path.split(".")[0] ?? path;
-      assert(
-        Object.hasOwn(parsed, family),
-        `[${path}] example must declare a table under [${family}]`,
-      );
-    }
-  }
-});
-
-Deno.test("every seeded entry validates once its scaffold tokens are filled", () => {
-  for (const [path, prose] of Object.entries(registry)) {
-    for (const seed of prose.seeds ?? []) {
-      const { text, unknown } = substituteTokens(seed.toml, testTokens());
-      assertEquals(unknown, [], `[${path}] seed names an unknown token`);
-      assertEquals(
-        parseConfig(text).issues,
-        [],
-        `[${path}] seed is not a valid config fragment:\n${text}`,
-      );
-    }
-  }
+Deno.test("config prose examples and seeded entries validate against the live schema", () => {
+  assertNamedCases({
+    "every worked example validates against the live schema": (): undefined => {
+      for (const [path, prose] of Object.entries(registry)) {
+        for (const example of prose.examples ?? []) {
+          assert(
+            !example.lead.endsWith("."),
+            `[${path}] example lead ends without punctuation: ${example.lead}`,
+          );
+          const { issues } = parseConfig(example.toml);
+          assertEquals(
+            issues,
+            [],
+            `[${path}] example is not a valid config fragment:\n${example.toml}`,
+          );
+          const parsed = parseToml(example.toml) as Record<string, unknown>;
+          const family = path.split(".")[0] ?? path;
+          assert(
+            Object.hasOwn(parsed, family),
+            `[${path}] example must declare a table under [${family}]`,
+          );
+        }
+      }
+    },
+    "every seeded entry validates once its scaffold tokens are filled":
+      (): undefined => {
+        for (const [path, prose] of Object.entries(registry)) {
+          for (const seed of prose.seeds ?? []) {
+            const { text, unknown } = substituteTokens(seed.toml, testTokens());
+            assertEquals(unknown, [], `[${path}] seed names an unknown token`);
+            assertEquals(
+              parseConfig(text).issues,
+              [],
+              `[${path}] seed is not a valid config fragment:\n${text}`,
+            );
+          }
+        }
+      },
+  });
 });
 
 Deno.test("every built-in checkpoint has exactly one summary line", () => {

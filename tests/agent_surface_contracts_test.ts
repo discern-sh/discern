@@ -32,6 +32,7 @@ import {
 } from "../scripts/agent_surface_contracts.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const config = await loadConfig(REPO_ROOT);
 
@@ -135,14 +136,42 @@ Deno.test("every derived operational surface has a prose-bound internal contract
   );
 });
 
-Deno.test("a read-only surface omits inapplicable recovery, authority, and relay fields", () => {
-  assertEquals(agentContractStructureIssues(READ_ONLY_CONTRACT), []);
-  const awaited = AGENT_SURFACE_CONTRACTS.get(
-    "skill:discern-await-the-fleet",
-  );
-  assert(awaited !== undefined);
-  assertEquals(awaited.effectful, false);
-  assertEquals(awaited.authority_sensitive, false);
+Deno.test("agent surface contracts: agentContractStructureIssues cases", () => {
+  assertNamedCases({
+    "a read-only surface omits inapplicable recovery, authority, and relay fields":
+      () => {
+        assertEquals(agentContractStructureIssues(READ_ONLY_CONTRACT), []);
+        const awaited = AGENT_SURFACE_CONTRACTS.get(
+          "skill:discern-await-the-fleet",
+        );
+        assert(awaited !== undefined);
+        assertEquals(awaited.effectful, false);
+        assertEquals(awaited.authority_sensitive, false);
+      },
+    "false classifications reject invented conditional ceremony": () => {
+      const cases = [
+        {
+          ...READ_ONLY_CONTRACT,
+          recovery: [{ text: "Retry." }],
+        },
+        {
+          ...READ_ONLY_CONTRACT,
+          authority: FULL_CONTRACT.authority,
+        },
+        {
+          ...READ_ONLY_CONTRACT,
+          relay: FULL_CONTRACT.relay,
+        },
+      ];
+      for (const contract of cases) {
+        const issues = agentContractStructureIssues(contract);
+        assert(issues.length > 0, JSON.stringify(contract));
+        assert(
+          issues.every((entry) => entry.message.includes("accepted form:")),
+        );
+      }
+    },
+  });
 });
 
 Deno.test("structural controls reject every incomplete field family", () => {
@@ -185,29 +214,6 @@ Deno.test("structural controls reject every incomplete field family", () => {
     );
   }
 });
-
-Deno.test("false classifications reject invented conditional ceremony", () => {
-  const cases = [
-    {
-      ...READ_ONLY_CONTRACT,
-      recovery: [{ text: "Retry." }],
-    },
-    {
-      ...READ_ONLY_CONTRACT,
-      authority: FULL_CONTRACT.authority,
-    },
-    {
-      ...READ_ONLY_CONTRACT,
-      relay: FULL_CONTRACT.relay,
-    },
-  ];
-  for (const contract of cases) {
-    const issues = agentContractStructureIssues(contract);
-    assert(issues.length > 0, JSON.stringify(contract));
-    assert(issues.every((entry) => entry.message.includes("accepted form:")));
-  }
-});
-
 Deno.test("prose evidence must exist and preserve action order", () => {
   assertEquals(
     agentContractEvidenceIssues(

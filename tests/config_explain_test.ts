@@ -21,97 +21,154 @@ import { renderTomlLiteral } from "../src/shared/toml_literal.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { gitInit } from "./engine_helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
-Deno.test("every documented unit explains itself with its what and why", () => {
-  for (const unit of configProseUnits()) {
-    const explanation = explainConfigPath(unit);
-    assert(explanation !== undefined, `${unit} should explain`);
-    assertEquals(explanation.path, unit);
-    assert(explanation.what !== undefined, `${unit} carries its what`);
-    assert(explanation.why !== undefined, `${unit} carries its why`);
-    assert(
-      explanation.reference.startsWith(`${CONFIG_REFERENCE_URL}#`),
-      `${unit} points at the manual`,
-    );
-    const rendered = renderConfigExplanation(explanation);
-    assertStringIncludes(rendered, `What: ${explanation.what}`);
-    assertStringIncludes(rendered, "Reference: ");
-  }
-});
+Deno.test("config explanations cover documented paths, current values, and absent targets", () => {
+  assertNamedCases({
+    "every documented unit explains itself with its what and why":
+      (): undefined => {
+        for (const unit of configProseUnits()) {
+          const explanation = explainConfigPath(unit);
+          assert(explanation !== undefined, `${unit} should explain`);
+          assertEquals(explanation.path, unit);
+          assert(explanation.what !== undefined, `${unit} carries its what`);
+          assert(explanation.why !== undefined, `${unit} carries its why`);
+          assert(
+            explanation.reference.startsWith(`${CONFIG_REFERENCE_URL}#`),
+            `${unit} points at the manual`,
+          );
+          const rendered = renderConfigExplanation(explanation);
+          assertStringIncludes(rendered, `What: ${explanation.what}`);
+          assertStringIncludes(rendered, "Reference: ");
+        }
+      },
+    "every named-table family explains its entry shape and every knob":
+      (): undefined => {
+        for (
+          const [family, entrySchema] of Object.entries(RECORD_ENTRY_SCHEMAS)
+        ) {
+          const explanation = explainConfigPath(`[${family}.<name>]`);
+          assert(
+            explanation !== undefined,
+            `${family} should explain its entry`,
+          );
+          assertEquals(explanation.kind, "family", family);
+          assertEquals(
+            explanation.params,
+            Object.keys(entrySchema.shape),
+            `${family} should list every entry knob`,
+          );
+          for (const knob of Object.keys(entrySchema.shape)) {
+            const key = explainConfigPath(`${family}.<name>.${knob}`);
+            assert(
+              key !== undefined,
+              `${family}.<name>.${knob} should explain`,
+            );
+            assertEquals(key.kind, "key", `${family}.<name>.${knob}`);
+          }
+        }
 
-Deno.test("every named-table family explains its entry shape and every knob", () => {
-  for (const [family, entrySchema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
-    const explanation = explainConfigPath(`[${family}.<name>]`);
-    assert(explanation !== undefined, `${family} should explain its entry`);
-    assertEquals(explanation.kind, "family", family);
-    assertEquals(
-      explanation.params,
-      Object.keys(entrySchema.shape),
-      `${family} should list every entry knob`,
-    );
-    for (const knob of Object.keys(entrySchema.shape)) {
-      const key = explainConfigPath(`${family}.<name>.${knob}`);
-      assert(key !== undefined, `${family}.<name>.${knob} should explain`);
-      assertEquals(key.kind, "key", `${family}.<name>.${knob}`);
-    }
-  }
+        const standards = explainConfigPath("[standards.<name>]");
+        assert(standards !== undefined);
+        assert(
+          (standards.examples?.length ?? 0) >= 2,
+          "the manual's examples travel",
+        );
+        assertEquals(explainConfigPath("standards")?.path, "standards");
+        assertEquals(
+          explainConfigPath("jobs")?.params,
+          Object.keys(RECORD_ENTRY_SCHEMAS.jobs.shape),
+          "the hybrid [jobs] section includes its custom-job params",
+        );
+      },
+    "a section key explains its type, default, and section": (): undefined => {
+      const key = explainConfigPath("gate.timeout");
+      assert(key !== undefined);
+      assertEquals(key.kind, "key");
+      assertEquals(key.type, "number");
+      assertEquals(key.default, "600");
+      assertStringIncludes(key.description ?? "", "seconds");
+      assertStringIncludes(renderConfigExplanation(key), "Default: 600.");
+      assertStringIncludes(renderConfigExplanation(key), "Its section:");
+    },
+    "a known job explains as a key of [jobs]": (): undefined => {
+      for (const name of Object.keys(KNOWN_JOBS)) {
+        const key = explainConfigPath(`jobs.${name}`);
+        assert(key !== undefined, `jobs.${name} should explain`);
+        assertEquals(key.kind, "key");
+        assertEquals(key.path, `jobs.${name}`);
+      }
+    },
+    "a family knob and a named entry resolve through the entry shape":
+      (): undefined => {
+        const current = parseToml(`[scopes.map]
+    paths = ["docs/**"]
+    neutral = true
+    `) as Record<string, unknown>;
+        const knob = explainConfigPath("scopes.<name>.paths");
+        assert(knob !== undefined);
+        assertEquals(knob.path, "scopes.<name>.paths");
+        assertEquals(knob.kind, "key");
 
-  const standards = explainConfigPath("[standards.<name>]");
-  assert(standards !== undefined);
-  assert(
-    (standards.examples?.length ?? 0) >= 2,
-    "the manual's examples travel",
-  );
-  assertEquals(explainConfigPath("standards")?.path, "standards");
-  assertEquals(
-    explainConfigPath("jobs")?.params,
-    Object.keys(RECORD_ENTRY_SCHEMAS.jobs.shape),
-    "the hybrid [jobs] section includes its custom-job params",
-  );
-});
+        const entry = explainConfigPath("scopes.map", current);
+        assert(entry !== undefined);
+        assertEquals(entry.kind, "family");
+        assertStringIncludes(entry.value ?? "", 'paths = ["docs/**"]');
 
-Deno.test("a section key explains its type, default, and section", () => {
-  const key = explainConfigPath("gate.timeout");
-  assert(key !== undefined);
-  assertEquals(key.kind, "key");
-  assertEquals(key.type, "number");
-  assertEquals(key.default, "600");
-  assertStringIncludes(key.description ?? "", "seconds");
-  assertStringIncludes(renderConfigExplanation(key), "Default: 600.");
-  assertStringIncludes(renderConfigExplanation(key), "Its section:");
-});
+        // The whole family renders each entry under its full dotted header.
+        const family = explainConfigPath("scopes", current);
+        assertStringIncludes(family?.value ?? "", "[scopes.map]\n");
 
-Deno.test("a known job explains as a key of [jobs]", () => {
-  for (const name of Object.keys(KNOWN_JOBS)) {
-    const key = explainConfigPath(`jobs.${name}`);
-    assert(key !== undefined, `jobs.${name} should explain`);
-    assertEquals(key.kind, "key");
-    assertEquals(key.path, `jobs.${name}`);
-  }
-});
+        const entryKnob = explainConfigPath("scopes.map.neutral", current);
+        assert(entryKnob !== undefined);
+        assertEquals(entryKnob.value, "true");
+      },
+    "current config documents round-trip with their full named-entry paths":
+      (): undefined => {
+        const cases = [
+          {
+            path: "standards.demo",
+            current: parseToml(`[standards.demo]
+    metric = "coverage"
+    direction = "up"
+    limit = 80
+    per = { lines = "src/**" }
+    scale = 1000
+    run = "echo"
+    `) as Record<string, unknown>,
+          },
+          {
+            path: "checkpoints.custom",
+            current: parseToml(`[checkpoints.custom]
+    paths = ["src/**"]
+    question = """
+    What could break?
+    What protects it?
+    """
+    `) as Record<string, unknown>,
+          },
+        ];
 
-Deno.test("a family knob and a named entry resolve through the entry shape", () => {
-  const current = parseToml(`[scopes.map]
-paths = ["docs/**"]
-neutral = true
-`) as Record<string, unknown>;
-  const knob = explainConfigPath("scopes.<name>.paths");
-  assert(knob !== undefined);
-  assertEquals(knob.path, "scopes.<name>.paths");
-  assertEquals(knob.kind, "key");
-
-  const entry = explainConfigPath("scopes.map", current);
-  assert(entry !== undefined);
-  assertEquals(entry.kind, "family");
-  assertStringIncludes(entry.value ?? "", 'paths = ["docs/**"]');
-
-  // The whole family renders each entry under its full dotted header.
-  const family = explainConfigPath("scopes", current);
-  assertStringIncludes(family?.value ?? "", "[scopes.map]\n");
-
-  const entryKnob = explainConfigPath("scopes.map.neutral", current);
-  assert(entryKnob !== undefined);
-  assertEquals(entryKnob.value, "true");
+        for (const { path, current } of cases) {
+          const explanation = explainConfigPath(path, current);
+          assert(
+            explanation?.value !== undefined,
+            `${path} should carry its value`,
+          );
+          assertEquals(
+            parseToml(explanation.value),
+            current,
+            `${path} should render the same config tree it read`,
+          );
+        }
+      },
+    "an unknown path explains nothing": (): undefined => {
+      assertEquals(explainConfigPath("nope"), undefined);
+      assertEquals(explainConfigPath("gate.nope"), undefined);
+      assertEquals(explainConfigPath("scopes.<name>.nope"), undefined);
+      assertEquals(explainConfigPath(""), undefined);
+    },
+  });
 });
 
 Deno.test("every supported TOML literal shape round-trips through the live parser", () => {
@@ -134,49 +191,6 @@ Deno.test("every supported TOML literal shape round-trips through the live parse
     const parsed = parseToml(`value = ${literal}`) as { value?: unknown };
     assertEquals(parsed.value, value, JSON.stringify(value));
   }
-});
-
-Deno.test("current config documents round-trip with their full named-entry paths", () => {
-  const cases = [
-    {
-      path: "standards.demo",
-      current: parseToml(`[standards.demo]
-metric = "coverage"
-direction = "up"
-limit = 80
-per = { lines = "src/**" }
-scale = 1000
-run = "echo"
-`) as Record<string, unknown>,
-    },
-    {
-      path: "checkpoints.custom",
-      current: parseToml(`[checkpoints.custom]
-paths = ["src/**"]
-question = """
-What could break?
-What protects it?
-"""
-`) as Record<string, unknown>,
-    },
-  ];
-
-  for (const { path, current } of cases) {
-    const explanation = explainConfigPath(path, current);
-    assert(explanation?.value !== undefined, `${path} should carry its value`);
-    assertEquals(
-      parseToml(explanation.value),
-      current,
-      `${path} should render the same config tree it read`,
-    );
-  }
-});
-
-Deno.test("an unknown path explains nothing", () => {
-  assertEquals(explainConfigPath("nope"), undefined);
-  assertEquals(explainConfigPath("gate.nope"), undefined);
-  assertEquals(explainConfigPath("scopes.<name>.nope"), undefined);
-  assertEquals(explainConfigPath(""), undefined);
 });
 
 Deno.test("config explain runs inside an install with the current value, and outside one without", async () => {

@@ -54,6 +54,7 @@ import { stripGeneratedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 const PROVIDER_HOOK_SEED_SCHEMA = z.object({
@@ -177,42 +178,188 @@ Deno.test("the shipped .gitignore fragment becomes the canonical marked block up
   );
 });
 
-Deno.test("every known agent declares at least one terminal-agent launcher (match-any)", () => {
-  // The desk's PATH scan iterates AGENT_NAMES × each provider's `binaries`, so a
-  // provider with an empty list can never be launched. Setup also treats any one
-  // of these launchers as baseline installation evidence.
-  for (const name of AGENT_NAMES) {
-    const p = providerFor(name);
-    assert(p !== undefined, `no provider for ${name}`);
-    assert(
-      p.binaries.length > 0 && p.binaries.every((b) => b.length > 0),
-      `${name}: empty binaries — declare the terminal-agent executable name(s) the desk can launch`,
-    );
-  }
-});
-
-Deno.test("every known agent declares one open and at most one continue CLI action", () => {
-  for (const name of AGENT_NAMES) {
-    const provider = providerFor(name);
-    assert(provider !== undefined, `no provider for ${name}`);
-    const kinds = provider.cli.actions.map((action) => action.kind);
-    assertEquals(
-      new Set(kinds).size,
-      kinds.length,
-      `${name}: duplicate desk CLI action kind`,
-    );
-    assert(
-      kinds.includes("open"),
-      `${name}: desk CLI integration must provide a fresh-session action`,
-    );
-    for (const action of provider.cli.actions) {
-      assert(action.label.trim().length > 0, `${name}: empty CLI action label`);
-      assert(
-        action.args.every((arg) => arg.length > 0),
-        `${name}: CLI argv must not contain empty arguments`,
-      );
-    }
-  }
+Deno.test("provider registry declarations cover launch, instruction, MCP, and trust contracts", () => {
+  assertNamedCases({
+    "every known agent declares at least one terminal-agent launcher (match-any)":
+      (): undefined => {
+        // The desk's PATH scan iterates AGENT_NAMES × each provider's `binaries`, so a
+        // provider with an empty list can never be launched. Setup also treats any one
+        // of these launchers as baseline installation evidence.
+        for (const name of AGENT_NAMES) {
+          const p = providerFor(name);
+          assert(p !== undefined, `no provider for ${name}`);
+          assert(
+            p.binaries.length > 0 && p.binaries.every((b) => b.length > 0),
+            `${name}: empty binaries — declare the terminal-agent executable name(s) the desk can launch`,
+          );
+        }
+      },
+    "every known agent declares one open and at most one continue CLI action":
+      (): undefined => {
+        for (const name of AGENT_NAMES) {
+          const provider = providerFor(name);
+          assert(provider !== undefined, `no provider for ${name}`);
+          const kinds = provider.cli.actions.map((action) => action.kind);
+          assertEquals(
+            new Set(kinds).size,
+            kinds.length,
+            `${name}: duplicate desk CLI action kind`,
+          );
+          assert(
+            kinds.includes("open"),
+            `${name}: desk CLI integration must provide a fresh-session action`,
+          );
+          for (const action of provider.cli.actions) {
+            assert(
+              action.label.trim().length > 0,
+              `${name}: empty CLI action label`,
+            );
+            assert(
+              action.args.every((arg) => arg.length > 0),
+              `${name}: CLI argv must not contain empty arguments`,
+            );
+          }
+        }
+      },
+    "registry aggregators stay total: one instruction file + a skills dir per known agent":
+      (): undefined => {
+        const instructionFiles = allInstructionFilePaths();
+        const skillsDirs = allSkillsDirs();
+        for (const name of AGENT_NAMES) {
+          const p = providerFor(name);
+          assert(p !== undefined, `no provider for ${name}`);
+          assert(
+            instructionFiles.includes(p.instructionFile.path),
+            `allInstructionFilePaths() is missing ${name}'s ${p.instructionFile.path} — it must derive from PROVIDERS, not a literal list`,
+          );
+          if (p.skillsDir !== undefined) {
+            assert(
+              skillsDirs.includes(p.skillsDir.path),
+              `allSkillsDirs() is missing ${name}'s ${p.skillsDir.path}`,
+            );
+          }
+        }
+        // The posture aggregator and the registry agree on the artifact set (no third
+        // encoding) — one entry per kind, straight from the per-kind aggregators.
+        const posture = agentArtifactPosture();
+        assert(
+          posture.instructionFiles.length === instructionFiles.length &&
+            posture.materializedDirs.length === skillsDirs.length &&
+            posture.localStateFiles.length === allLocalStateFiles().length,
+          "agentArtifactPosture() must be the union of the per-kind aggregators",
+        );
+      },
+    "every provider's instruction path derives from the catalogue's declaration":
+      (): undefined => {
+        // The catalogue owns the compiled-instruction path beside the native name and
+        // label; a provider entry that reverts to a literal path could drift from
+        // the vocabulary the logbook's instruction-parity findings name.
+        for (const name of AGENT_NAMES) {
+          const p = providerFor(name);
+          assert(p !== undefined, `no provider for ${name}`);
+          assertEquals(
+            p.instructionFile.path,
+            instructionPathForNative(name),
+            `${name}: instructionFile.path must come from instructionPathForNative`,
+          );
+        }
+      },
+    "instructions modelling stays sound: exactly one canonical, reuse-canonical reads it without duplicates":
+      (): undefined => {
+        // The invariant the reuse-canonical model rests on (deliverable 2): one provider
+        // holds the canonical full body; a reuse-canonical provider reads THAT file and
+        // discern emits no provider-specific file for it — so it can never leak a
+        // duplicate.
+        const canonicals = AGENT_NAMES
+          .map((n) => providerFor(n)?.instructionFile)
+          .filter((g) => g !== undefined && g.canonical)
+          .map((g) => g?.path);
+        assertEquals(
+          canonicals.length,
+          1,
+          `expected exactly one canonical agent file, got: ${
+            canonicals.join(", ")
+          }`,
+        );
+        const canonicalPath = canonicals[0];
+        for (const name of AGENT_NAMES) {
+          const gf = providerFor(name)?.instructionFile;
+          if (gf === undefined || emitsInstructionFile(gf)) {
+            continue; // only inspect reuse-canonical providers
+          }
+          assertEquals(
+            gf.path,
+            canonicalPath,
+            `${name}: a reuse-canonical provider must read the canonical ${canonicalPath}, not ${gf.path}`,
+          );
+          assertEquals(
+            gf.canonical,
+            false,
+            `${name}: reuseCanonical and canonical are mutually exclusive`,
+          );
+        }
+        // The emitted set never carries a path twice — a reuse-canonical provider's path
+        // collapses into the canonical's, so the aggregator stays free of duplicates.
+        const emitted = allInstructionFilePaths();
+        assertEquals(
+          emitted.length,
+          new Set(emitted).size,
+          `allInstructionFilePaths() must be duplicate-free, got: ${
+            emitted.join(", ")
+          }`,
+        );
+      },
+    "MCP coverage is accounted for every known agent (wired, or explicitly pending with a target)":
+      (): undefined => {
+        // The typed MCP-status forcing function (ADR 0051, deliverable 4): every provider
+        // accounts for its MCP wiring — a live integration, an explicit `pending` marker
+        // naming the committable file discern will write into, or `none`. Never the old
+        // silent `mcp?` gap. The union + the required `Provider.mcp` field make a missing
+        // declaration a COMPILE error; this asserts the runtime half (a pending status
+        // names a real target). It TIGHTENS automatically: a later plan flipping a pending
+        // to wired keeps this green with no edit.
+        for (const name of AGENT_NAMES) {
+          const p = providerFor(name);
+          assert(p !== undefined, `no provider for ${name}`);
+          const mcp = p.mcp;
+          switch (mcp.kind) {
+            case "wired":
+              assert(
+                mcp.integration.configFile.length > 0,
+                `${name}: a wired MCP must name its config file`,
+              );
+              break;
+            case "pending":
+              assert(
+                mcp.targetFile.length > 0 && mcp.targetFile.includes("."),
+                `${name}: a pending MCP must name the committable target file discern will write into (got "${mcp.targetFile}")`,
+              );
+              break;
+            case "none":
+              break; // an agent with no committable project-scoped MCP mechanism
+          }
+        }
+        // The reference implementation stays wired — a regression here is a real break,
+        // not a pending flip.
+        assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
+      },
+    "every known agent declares trust metadata, naming the action when trust is required":
+      (): undefined => {
+        // Trust-gate coverage (deliverable 5): `Provider.trust` is compile-required, so a
+        // new agent must declare it; this asserts the runtime half — a REQUIRED trust must
+        // name the action/bypass, or doctor would report "trust needed" with no "how".
+        for (const name of AGENT_NAMES) {
+          const p = providerFor(name);
+          assert(p !== undefined, `no provider for ${name}`);
+          if (p.trust.required) {
+            assert(
+              p.trust.actions.length > 0,
+              `${name}: a required trust must name the user-facing action/bypass`,
+            );
+          }
+        }
+      },
+  });
 });
 
 Deno.test("every known agent has registered mark, silhouette, and wordmark SVGs", async () => {
@@ -315,200 +462,69 @@ Deno.test("every known agent has registered mark, silhouette, and wordmark SVGs"
   );
 });
 
-Deno.test("registry aggregators stay total: one instruction file + a skills dir per known agent", () => {
-  const instructionFiles = allInstructionFilePaths();
-  const skillsDirs = allSkillsDirs();
-  for (const name of AGENT_NAMES) {
-    const p = providerFor(name);
-    assert(p !== undefined, `no provider for ${name}`);
-    assert(
-      instructionFiles.includes(p.instructionFile.path),
-      `allInstructionFilePaths() is missing ${name}'s ${p.instructionFile.path} — it must derive from PROVIDERS, not a literal list`,
-    );
-    if (p.skillsDir !== undefined) {
-      assert(
-        skillsDirs.includes(p.skillsDir.path),
-        `allSkillsDirs() is missing ${name}'s ${p.skillsDir.path}`,
-      );
-    }
-  }
-  // The posture aggregator and the registry agree on the artifact set (no third
-  // encoding) — one entry per kind, straight from the per-kind aggregators.
-  const posture = agentArtifactPosture();
-  assert(
-    posture.instructionFiles.length === instructionFiles.length &&
-      posture.materializedDirs.length === skillsDirs.length &&
-      posture.localStateFiles.length === allLocalStateFiles().length,
-    "agentArtifactPosture() must be the union of the per-kind aggregators",
-  );
-});
-
-Deno.test("every provider's instruction path derives from the catalogue's declaration", () => {
-  // The catalogue owns the compiled-instruction path beside the native name and
-  // label; a provider entry that reverts to a literal path could drift from
-  // the vocabulary the logbook's instruction-parity findings name.
-  for (const name of AGENT_NAMES) {
-    const p = providerFor(name);
-    assert(p !== undefined, `no provider for ${name}`);
-    assertEquals(
-      p.instructionFile.path,
-      instructionPathForNative(name),
-      `${name}: instructionFile.path must come from instructionPathForNative`,
-    );
-  }
-});
-
-Deno.test("instructions modelling stays sound: exactly one canonical, reuse-canonical reads it without duplicates", () => {
-  // The invariant the reuse-canonical model rests on (deliverable 2): one provider
-  // holds the canonical full body; a reuse-canonical provider reads THAT file and
-  // discern emits no provider-specific file for it — so it can never leak a
-  // duplicate.
-  const canonicals = AGENT_NAMES
-    .map((n) => providerFor(n)?.instructionFile)
-    .filter((g) => g !== undefined && g.canonical)
-    .map((g) => g?.path);
-  assertEquals(
-    canonicals.length,
-    1,
-    `expected exactly one canonical agent file, got: ${canonicals.join(", ")}`,
-  );
-  const canonicalPath = canonicals[0];
-  for (const name of AGENT_NAMES) {
-    const gf = providerFor(name)?.instructionFile;
-    if (gf === undefined || emitsInstructionFile(gf)) {
-      continue; // only inspect reuse-canonical providers
-    }
-    assertEquals(
-      gf.path,
-      canonicalPath,
-      `${name}: a reuse-canonical provider must read the canonical ${canonicalPath}, not ${gf.path}`,
-    );
-    assertEquals(
-      gf.canonical,
-      false,
-      `${name}: reuseCanonical and canonical are mutually exclusive`,
-    );
-  }
-  // The emitted set never carries a path twice — a reuse-canonical provider's path
-  // collapses into the canonical's, so the aggregator stays free of duplicates.
-  const emitted = allInstructionFilePaths();
-  assertEquals(
-    emitted.length,
-    new Set(emitted).size,
-    `allInstructionFilePaths() must be duplicate-free, got: ${
-      emitted.join(", ")
-    }`,
-  );
-});
-
-Deno.test("MCP coverage is accounted for every known agent (wired, or explicitly pending with a target)", () => {
-  // The typed MCP-status forcing function (ADR 0051, deliverable 4): every provider
-  // accounts for its MCP wiring — a live integration, an explicit `pending` marker
-  // naming the committable file discern will write into, or `none`. Never the old
-  // silent `mcp?` gap. The union + the required `Provider.mcp` field make a missing
-  // declaration a COMPILE error; this asserts the runtime half (a pending status
-  // names a real target). It TIGHTENS automatically: a later plan flipping a pending
-  // to wired keeps this green with no edit.
-  for (const name of AGENT_NAMES) {
-    const p = providerFor(name);
-    assert(p !== undefined, `no provider for ${name}`);
-    const mcp = p.mcp;
-    switch (mcp.kind) {
-      case "wired":
-        assert(
-          mcp.integration.configFile.length > 0,
-          `${name}: a wired MCP must name its config file`,
+Deno.test("provider ignore satellites distinguish tracked instructions from materialized and local paths", () => {
+  assertNamedCases({
+    "the seed .gitignore fragment TRACKS every known agent's compiled instruction file":
+      (): undefined => {
+        // Tracked-by-default: the compiled instruction files are committed so a bare
+        // clone (a cloud agent's only view) carries the same page a local session
+        // reads. An ignore rule for one is the regression this guards against.
+        for (const path of allInstructionFilePaths()) {
+          assert(
+            !fragmentIgnoresFile(path),
+            `templates/.gitignore.fragment ignores the compiled instruction file ${path}. ` +
+              `Instruction files are tracked by default — remove the rule; the managed block ` +
+              `enumerates only materialized dirs and machine-local state.`,
+          );
+        }
+      },
+    "the seed .gitignore fragment ignores EVERY known agent's materialized skills dir":
+      (): undefined => {
+        for (const dir of allSkillsDirs()) {
+          assert(
+            fragmentIgnoresDir(dir),
+            `templates/.gitignore.fragment does not ignore the materialized skills dir ${dir}. ` +
+              `Add "/${dir}/" to the fragment.`,
+          );
+        }
+      },
+    "the seed .gitignore fragment ignores EVERY known agent's machine-local state file":
+      (): undefined => {
+        for (const file of allLocalStateFiles()) {
+          assert(
+            fragmentIgnoresFile(file),
+            `templates/.gitignore.fragment does not ignore the machine-local state file ${file}. ` +
+              `Add "/${file}" to the fragment.`,
+          );
+        }
+      },
+    "every rule in the canonical block maps to a registry-declared materialized/local path":
+      (): undefined => {
+        // Enumerated ownership: the managed block claims exactly what discern
+        // materializes or keeps machine-local, and nothing more — so a user's own
+        // file (a slash command under .claude/, a committed instruction file) can never
+        // be swept up by an over-broad wildcard. Registry-driven: a new provider's
+        // paths auto-enrol; a hand-added rule with no registry backing fails here.
+        const posture = agentArtifactPosture();
+        const rules = FRAGMENT_LINES.filter(
+          (l) => l !== "" && !l.startsWith("#"),
         );
-        break;
-      case "pending":
-        assert(
-          mcp.targetFile.length > 0 && mcp.targetFile.includes("."),
-          `${name}: a pending MCP must name the committable target file discern will write into (got "${mcp.targetFile}")`,
-        );
-        break;
-      case "none":
-        break; // an agent with no committable project-scoped MCP mechanism
-    }
-  }
-  // The reference implementation stays wired — a regression here is a real break,
-  // not a pending flip.
-  assertEquals(providerFor("claude_code")?.mcp.kind, "wired");
-});
-
-Deno.test("every known agent declares trust metadata, naming the action when trust is required", () => {
-  // Trust-gate coverage (deliverable 5): `Provider.trust` is compile-required, so a
-  // new agent must declare it; this asserts the runtime half — a REQUIRED trust must
-  // name the action/bypass, or doctor would report "trust needed" with no "how".
-  for (const name of AGENT_NAMES) {
-    const p = providerFor(name);
-    assert(p !== undefined, `no provider for ${name}`);
-    if (p.trust.required) {
-      assert(
-        p.trust.actions.length > 0,
-        `${name}: a required trust must name the user-facing action/bypass`,
-      );
-    }
-  }
-});
-
-Deno.test("the seed .gitignore fragment TRACKS every known agent's compiled instruction file", () => {
-  // Tracked-by-default: the compiled instruction files are committed so a bare
-  // clone (a cloud agent's only view) carries the same page a local session
-  // reads. An ignore rule for one is the regression this guards against.
-  for (const path of allInstructionFilePaths()) {
-    assert(
-      !fragmentIgnoresFile(path),
-      `templates/.gitignore.fragment ignores the compiled instruction file ${path}. ` +
-        `Instruction files are tracked by default — remove the rule; the managed block ` +
-        `enumerates only materialized dirs and machine-local state.`,
-    );
-  }
-});
-
-Deno.test("the seed .gitignore fragment ignores EVERY known agent's materialized skills dir", () => {
-  for (const dir of allSkillsDirs()) {
-    assert(
-      fragmentIgnoresDir(dir),
-      `templates/.gitignore.fragment does not ignore the materialized skills dir ${dir}. ` +
-        `Add "/${dir}/" to the fragment.`,
-    );
-  }
-});
-
-Deno.test("the seed .gitignore fragment ignores EVERY known agent's machine-local state file", () => {
-  for (const file of allLocalStateFiles()) {
-    assert(
-      fragmentIgnoresFile(file),
-      `templates/.gitignore.fragment does not ignore the machine-local state file ${file}. ` +
-        `Add "/${file}" to the fragment.`,
-    );
-  }
-});
-
-Deno.test("every rule in the canonical block maps to a registry-declared materialized/local path", () => {
-  // Enumerated ownership: the managed block claims exactly what discern
-  // materializes or keeps machine-local, and nothing more — so a user's own
-  // file (a slash command under .claude/, a committed instruction file) can never
-  // be swept up by an over-broad wildcard. Registry-driven: a new provider's
-  // paths auto-enrol; a hand-added rule with no registry backing fails here.
-  const posture = agentArtifactPosture();
-  const rules = FRAGMENT_LINES.filter(
-    (l) => l !== "" && !l.startsWith("#"),
-  );
-  for (const rule of rules) {
-    assert(
-      !rule.startsWith("!"),
-      `the canonical block carries a negation (${rule}) — enumerated ownership needs none`,
-    );
-    const path = rule.replace(/^\//, "").replace(/\/$/, "");
-    assert(
-      posture.materializedDirs.includes(path) ||
-        posture.localStateFiles.includes(path),
-      `the canonical .gitignore block rule "${rule}" maps to no registry-declared ` +
-        `materialized dir or local-state file — the block may claim only what the ` +
-        `provider registry says discern materializes or keeps machine-local`,
-    );
-  }
+        for (const rule of rules) {
+          assert(
+            !rule.startsWith("!"),
+            `the canonical block carries a negation (${rule}) — enumerated ownership needs none`,
+          );
+          const path = rule.replace(/^\//, "").replace(/\/$/, "");
+          assert(
+            posture.materializedDirs.includes(path) ||
+              posture.localStateFiles.includes(path),
+            `the canonical .gitignore block rule "${rule}" maps to no registry-declared ` +
+              `materialized dir or local-state file — the block may claim only what the ` +
+              `provider registry says discern materializes or keeps machine-local`,
+          );
+        }
+      },
+  });
 });
 
 Deno.test("the seed instructions scope neutralizes EVERY known agent's materialized skills dir", () => {

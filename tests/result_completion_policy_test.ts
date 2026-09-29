@@ -39,675 +39,731 @@ import {
   PROOF_NOTE_MISSING,
   setupProofNoteRetry,
 } from "../src/shared/proof_note_recovery.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const registeredVerbs = CLI_JSON_RESULT_CONTRACTS.map((contract) =>
   contract.verb
 );
 
-Deno.test("completion policies cover every result contract exactly once", () => {
-  assertEquals(completionPolicyCoverage(registeredVerbs), {
-    missing: [],
-    stale: [],
-    duplicates: [],
-  });
+Deno.test("completion policy registry covers every contract, schema, and audited state", () => {
+  assertNamedCases({
+    "completion policies cover every result contract exactly once":
+      (): undefined => {
+        assertEquals(completionPolicyCoverage(registeredVerbs), {
+          missing: [],
+          stale: [],
+          duplicates: [],
+        });
 
-  const futureVerbs = [...registeredVerbs, "future orbit"];
-  assertEquals(completionPolicyCoverage(futureVerbs).missing, [
-    "future orbit",
-  ]);
+        const futureVerbs = [...registeredVerbs, "future orbit"];
+        assertEquals(completionPolicyCoverage(futureVerbs).missing, [
+          "future orbit",
+        ]);
 
-  const setupPolicy = RESULT_COMPLETION_POLICIES.setup;
-  assert(setupPolicy !== undefined);
-  const injected = [
-    ...Object.entries(RESULT_COMPLETION_POLICIES),
-    ["setup", setupPolicy] as const,
-    ["retired orbit", setupPolicy] as const,
-  ];
-  assertEquals(completionPolicyCoverage(registeredVerbs, injected), {
-    missing: [],
-    stale: ["retired orbit"],
-    duplicates: ["setup: 2"],
+        const setupPolicy = RESULT_COMPLETION_POLICIES.setup;
+        assert(setupPolicy !== undefined);
+        const injected = [
+          ...Object.entries(RESULT_COMPLETION_POLICIES),
+          ["setup", setupPolicy] as const,
+          ["retired orbit", setupPolicy] as const,
+        ];
+        assertEquals(completionPolicyCoverage(registeredVerbs, injected), {
+          missing: [],
+          stale: ["retired orbit"],
+          duplicates: ["setup: 2"],
+        });
+      },
+    "completion policies enroll schemas, MCP results, and every audited state":
+      (): undefined => {
+        const policyVerbs = Object.keys(RESULT_COMPLETION_POLICIES).sort();
+        assertEquals(policyVerbs, [...registeredVerbs].sort());
+
+        for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+          const policy = RESULT_COMPLETION_POLICIES[contract.verb];
+          assert(
+            policy !== undefined,
+            `${contract.verb} has no completion policy`,
+          );
+          assert(
+            contract.schema !== undefined,
+            `${contract.verb} has no schema`,
+          );
+          assert(
+            contract.presenter !== undefined,
+            `${contract.verb} has no presenter`,
+          );
+
+          assertEquals(
+            completionStateVerdict(policy, "required-success"),
+            true,
+            `${contract.verb}: required success`,
+          );
+          assertEquals(
+            completionStateVerdict(policy, "required-failure"),
+            false,
+            `${contract.verb}: required failure`,
+          );
+          assertEquals(
+            completionStateVerdict(policy, "refusal"),
+            false,
+            `${contract.verb}: refusal`,
+          );
+          assertEquals(
+            completionStateVerdict(policy, "partial-effect"),
+            false,
+            `${contract.verb}: partial effect`,
+          );
+          assertEquals(
+            completionStateVerdict(policy, "cancellation"),
+            policy.cancellation === "successful-no-effect",
+            `${contract.verb}: cancellation`,
+          );
+          assertEquals(
+            completionStateVerdict(policy, "no-op"),
+            policy.noOp === "success",
+            `${contract.verb}: no-op`,
+          );
+          assertEquals(
+            completionStateVerdict(policy, "optional-advisory"),
+            policy.optionalAdvisories.length > 0,
+            `${contract.verb}: optional advisory`,
+          );
+        }
+
+        for (const contract of MCP_RESULT_CONTRACTS) {
+          assert(
+            RESULT_COMPLETION_POLICIES[contract.verb] !== undefined,
+            `${contract.mcpTool} returns an ungoverned result`,
+          );
+        }
+      },
   });
 });
 
-Deno.test("completion policies enroll schemas, MCP results, and every audited state", () => {
-  const policyVerbs = Object.keys(RESULT_COMPLETION_POLICIES).sort();
-  assertEquals(policyVerbs, [...registeredVerbs].sort());
-
-  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
-    const policy = RESULT_COMPLETION_POLICIES[contract.verb];
-    assert(policy !== undefined, `${contract.verb} has no completion policy`);
-    assert(contract.schema !== undefined, `${contract.verb} has no schema`);
-    assert(
-      contract.presenter !== undefined,
-      `${contract.verb} has no presenter`,
-    );
-
-    assertEquals(
-      completionStateVerdict(policy, "required-success"),
-      true,
-      `${contract.verb}: required success`,
-    );
-    assertEquals(
-      completionStateVerdict(policy, "required-failure"),
-      false,
-      `${contract.verb}: required failure`,
-    );
-    assertEquals(
-      completionStateVerdict(policy, "refusal"),
-      false,
-      `${contract.verb}: refusal`,
-    );
-    assertEquals(
-      completionStateVerdict(policy, "partial-effect"),
-      false,
-      `${contract.verb}: partial effect`,
-    );
-    assertEquals(
-      completionStateVerdict(policy, "cancellation"),
-      policy.cancellation === "successful-no-effect",
-      `${contract.verb}: cancellation`,
-    );
-    assertEquals(
-      completionStateVerdict(policy, "no-op"),
-      policy.noOp === "success",
-      `${contract.verb}: no-op`,
-    );
-    assertEquals(
-      completionStateVerdict(policy, "optional-advisory"),
-      policy.optionalAdvisories.length > 0,
-      `${contract.verb}: optional advisory`,
-    );
-  }
-
-  for (const contract of MCP_RESULT_CONTRACTS) {
-    assert(
-      RESULT_COMPLETION_POLICIES[contract.verb] !== undefined,
-      `${contract.mcpTool} returns an ungoverned result`,
-    );
-  }
-});
-
-Deno.test("a failed required postcondition cannot remain ok true", () => {
-  const lying: DiscernResult = {
-    ok: true,
-    verb: "setup begin",
-    hints: hintTexts([
-      fire(HINTS["setup-refresh-artifact-failed"], {
-        message: "AGENTS.md could not be compiled",
-      }),
-    ]),
-    data: {
-      instruction_refresh: {
-        status: "partial",
-        compiled: [],
-        failures: [{
-          kind: "artifact",
-          evidence: "AGENTS.md could not be compiled",
-        }],
-        effects_preserved: true,
-        recovery: {
-          command: "discern refresh",
-          safe_to_retry: true,
+Deno.test("required completion outcomes preserve failures, successful effects, and registered recovery", () => {
+  assertNamedCases({
+    "a failed required postcondition cannot remain ok true": (): undefined => {
+      const lying: DiscernResult = {
+        ok: true,
+        verb: "setup begin",
+        hints: hintTexts([
+          fire(HINTS["setup-refresh-artifact-failed"], {
+            message: "AGENTS.md could not be compiled",
+          }),
+        ]),
+        data: {
+          instruction_refresh: {
+            status: "partial",
+            compiled: [],
+            failures: [{
+              kind: "artifact",
+              evidence: "AGENTS.md could not be compiled",
+            }],
+            effects_preserved: true,
+            recovery: {
+              command: "discern refresh",
+              safe_to_retry: true,
+            },
+          },
         },
+      };
+
+      const evaluated = evaluateResultCompletion(lying);
+      assertEquals(evaluated.ok, false);
+      if (evaluated.ok) return;
+      assertEquals(evaluated.error, "partial_refresh");
+      assert(evaluated.message?.includes("instruction refresh") === true);
+
+      const mcp = renderMcpResult(lying);
+      assertEquals(mcp.structuredContent.ok, false);
+      assertEquals(mcp.structuredContent.error, "partial_refresh");
+      assertEquals(mcp.isError, true);
+      assert(
+        mcp.content[0]?.text.includes("did not complete") === true,
+        "authored Markdown must project the same failed verdict",
+      );
+
+      const humanEnvelope = structuredClone(lying) as DiscernResult;
+      const observed = observeResult(humanEnvelope);
+      assertEquals(observed, humanEnvelope);
+      assertEquals(humanEnvelope.ok, false);
+      assertEquals(takeObservedResult()?.result.ok, false);
+    },
+    "cancelled applied steps cannot form a successful result":
+      (): undefined => {
+        const result = appliedResult("test", [{
+          step: {
+            kind: "job",
+            label: verbatimStepLabel("unit"),
+            disposition: "run",
+          },
+          outcome: "cancelled",
+        }]);
+        assertEquals(result.ok, false);
+        const completed = evaluateResultCompletion(result);
+        assertEquals(completed.ok, false);
+        if (completed.ok) return;
+        assertEquals(completed.error, "apply_failed");
+        assert(completed.message?.includes("cancelled") === true);
       },
-    },
-  };
-
-  const evaluated = evaluateResultCompletion(lying);
-  assertEquals(evaluated.ok, false);
-  if (evaluated.ok) return;
-  assertEquals(evaluated.error, "partial_refresh");
-  assert(evaluated.message?.includes("instruction refresh") === true);
-
-  const mcp = renderMcpResult(lying);
-  assertEquals(mcp.structuredContent.ok, false);
-  assertEquals(mcp.structuredContent.error, "partial_refresh");
-  assertEquals(mcp.isError, true);
-  assert(
-    mcp.content[0]?.text.includes("did not complete") === true,
-    "authored Markdown must project the same failed verdict",
-  );
-
-  const humanEnvelope = structuredClone(lying) as DiscernResult;
-  const observed = observeResult(humanEnvelope);
-  assertEquals(observed, humanEnvelope);
-  assertEquals(humanEnvelope.ok, false);
-  assertEquals(takeObservedResult()?.result.ok, false);
-});
-
-Deno.test("cancelled applied steps cannot form a successful result", () => {
-  const result = appliedResult("test", [{
-    step: {
-      kind: "job",
-      label: verbatimStepLabel("unit"),
-      disposition: "run",
-    },
-    outcome: "cancelled",
-  }]);
-  assertEquals(result.ok, false);
-  const completed = evaluateResultCompletion(result);
-  assertEquals(completed.ok, false);
-  if (completed.ok) return;
-  assertEquals(completed.error, "apply_failed");
-  assert(completed.message?.includes("cancelled") === true);
-});
-
-Deno.test("partial landing stays red and preserves exact effects", () => {
-  const evaluated = evaluateResultCompletion({
-    ok: true,
-    verb: "accept",
-    data: {
-      landing: {
-        recovery_performed: true,
-        trunk_landed: false,
-        worktree_removed: false,
-        branch_deleted: false,
-      },
-    },
-  });
-  assertEquals(evaluated.ok, false);
-  if (evaluated.ok) return;
-  assertEquals(evaluated.error, "partial_acceptance");
-  assertEquals(evaluated.data, {
-    landing: {
-      recovery_performed: true,
-      trunk_landed: false,
-      worktree_removed: false,
-      branch_deleted: false,
-    },
-  });
-  assertEquals(completionExitCode(0, evaluated), 1);
-});
-
-Deno.test("a landed trunk with a deliberately kept checkout is a complete landing", () => {
-  // Later commits or uncommitted changes keep the checkout and branch by
-  // design; the landing itself is whole and the verbatim landed sentence stands.
-  const evaluated = evaluateResultCompletion({
-    ok: true,
-    verb: "accept",
-    data: {
-      landing: {
-        recovery_performed: false,
-        trunk_landed: true,
-        worktree_removed: false,
-        branch_deleted: false,
-      },
-    },
-  });
-  assertEquals(evaluated.ok, true);
-});
-
-Deno.test("every typed required-postcondition evaluator rejects its planted failure", () => {
-  const failures: readonly DiscernResult[] = [
-    {
-      ok: true,
-      verb: "worktree setup",
-      steps: [{
-        step: {
-          kind: "refresh",
-          label: verbatimStepLabel("required refresh"),
-          disposition: "run",
+    "partial landing stays red and preserves exact effects": (): undefined => {
+      const evaluated = evaluateResultCompletion({
+        ok: true,
+        verb: "accept",
+        data: {
+          landing: {
+            recovery_performed: true,
+            trunk_landed: false,
+            worktree_removed: false,
+            branch_deleted: false,
+          },
         },
-        outcome: "failed",
-      }],
-    },
-    {
-      ok: true,
-      verb: "setup begin",
-      data: { phase: "fresh" },
-      steps: [{
-        step: {
-          kind: "refresh",
-          label: verbatimStepLabel("scaffold"),
-          disposition: "run",
-        },
-        outcome: "ok",
-      }],
-    },
-    {
-      ok: true,
-      verb: "refresh",
-      data: { errors: ["AGENTS.md write failed"] },
-    },
-    {
-      ok: true,
-      verb: "doctor",
-      data: {
-        checks: [{ status: "fail", name: "Git", detail: "unavailable" }],
-      },
-    },
-    {
-      ok: true,
-      verb: "done",
-      data: { failed_stage: "test" },
-    },
-    {
-      ok: true,
-      verb: "setup done",
-      data: { bootstrapped: false },
-    },
-    {
-      ok: true,
-      verb: "setup accept",
-      data: { landed: false },
-    },
-    {
-      ok: true,
-      verb: "accept",
-      data: {
+      });
+      assertEquals(evaluated.ok, false);
+      if (evaluated.ok) return;
+      assertEquals(evaluated.error, "partial_acceptance");
+      assertEquals(evaluated.data, {
         landing: {
           recovery_performed: true,
           trunk_landed: false,
           worktree_removed: false,
           branch_deleted: false,
         },
-      },
+      });
+      assertEquals(completionExitCode(0, evaluated), 1);
     },
-    {
-      ok: true,
-      verb: "skills eject",
-      data: {
-        materialized: {
-          copied: 0,
-          linked: 0,
-          pruned: 0,
-          errors: ["consumer directory unavailable"],
-        },
+    "a landed trunk with a deliberately kept checkout is a complete landing":
+      (): undefined => {
+        // Later commits or uncommitted changes keep the checkout and branch by
+        // design; the landing itself is whole and the verbatim landed sentence stands.
+        const evaluated = evaluateResultCompletion({
+          ok: true,
+          verb: "accept",
+          data: {
+            landing: {
+              recovery_performed: false,
+              trunk_landed: true,
+              worktree_removed: false,
+              branch_deleted: false,
+            },
+          },
+        });
+        assertEquals(evaluated.ok, true);
       },
-    },
-  ];
+    "every typed required-postcondition evaluator rejects its planted failure":
+      (): undefined => {
+        const failures: readonly DiscernResult[] = [
+          {
+            ok: true,
+            verb: "worktree setup",
+            steps: [{
+              step: {
+                kind: "refresh",
+                label: verbatimStepLabel("required refresh"),
+                disposition: "run",
+              },
+              outcome: "failed",
+            }],
+          },
+          {
+            ok: true,
+            verb: "setup begin",
+            data: { phase: "fresh" },
+            steps: [{
+              step: {
+                kind: "refresh",
+                label: verbatimStepLabel("scaffold"),
+                disposition: "run",
+              },
+              outcome: "ok",
+            }],
+          },
+          {
+            ok: true,
+            verb: "refresh",
+            data: { errors: ["AGENTS.md write failed"] },
+          },
+          {
+            ok: true,
+            verb: "doctor",
+            data: {
+              checks: [{ status: "fail", name: "Git", detail: "unavailable" }],
+            },
+          },
+          {
+            ok: true,
+            verb: "done",
+            data: { failed_stage: "test" },
+          },
+          {
+            ok: true,
+            verb: "setup done",
+            data: { bootstrapped: false },
+          },
+          {
+            ok: true,
+            verb: "setup accept",
+            data: { landed: false },
+          },
+          {
+            ok: true,
+            verb: "accept",
+            data: {
+              landing: {
+                recovery_performed: true,
+                trunk_landed: false,
+                worktree_removed: false,
+                branch_deleted: false,
+              },
+            },
+          },
+          {
+            ok: true,
+            verb: "skills eject",
+            data: {
+              materialized: {
+                copied: 0,
+                linked: 0,
+                pruned: 0,
+                errors: ["consumer directory unavailable"],
+              },
+            },
+          },
+        ];
 
-  for (const planted of failures) {
-    assertEquals(
-      evaluateResultCompletion(planted).ok,
-      false,
-      `${planted.verb} accepted a failed required postcondition`,
-    );
-  }
-});
-
-Deno.test("optional degradations stay green only as typed advisories", () => {
-  const optionalResource = evaluateResultCompletion({
-    ok: true,
-    verb: "worktree setup",
-    steps: [{
-      step: {
-        kind: "resource-create",
-        label: verbatimStepLabel("database"),
-        disposition: "run",
+        for (const planted of failures) {
+          assertEquals(
+            evaluateResultCompletion(planted).ok,
+            false,
+            `${planted.verb} accepted a failed required postcondition`,
+          );
+        }
       },
-      outcome: "failed",
-      advisory: {
-        kind: "optional-resource-unavailable",
-        evidence: ["database create exited non-zero"],
-        next_action: "Repair the create command and retry setup if needed.",
+    "policy-created failures retain registered recovery across every effect contract":
+      (): undefined => {
+        for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+          const policy = RESULT_COMPLETION_POLICIES[contract.verb];
+          if (!policy?.requiredPostconditions.includes("executed-steps")) {
+            continue;
+          }
+          const result: DiscernResult = {
+            ok: true,
+            verb: contract.verb,
+            steps: [{
+              step: {
+                kind: "job",
+                label: verbatimStepLabel("future orbit"),
+                disposition: "run",
+              },
+              outcome: "cancelled",
+            }],
+          };
+          const evaluated = evaluateResultCompletion(result);
+          assertEquals(evaluated.ok, false, contract.verb);
+          assertEquals(serializeResult(evaluated).ok, false, contract.verb);
+          assertEquals(
+            evaluateResultCompletion(evaluated),
+            evaluated,
+            "Evaluation must be idempotent",
+          );
+          assertEquals(renderMcpResult(result).isError, true, contract.verb);
+        }
+        const result: DiscernResult = {
+          ok: true,
+          verb: "accept",
+          data: {},
+          hints: hintTexts([
+            fire(HINTS["completion-pending"], {
+              action: "Inspect the recorded transition.",
+            }),
+          ]),
+        };
+        const evaluated = evaluateResultCompletion(result);
+        assertEquals(evaluated.hints?.[0], result.hints?.[0]);
       },
-    }],
+    "accept queue succeeds only with its recorded submission and no landing claim":
+      (): undefined => {
+        const revision = {
+          path: "/task",
+          branch: "agent/task",
+          head: "a".repeat(40),
+          proof: { candidate_id: "candidate", proof_id: "proof" },
+        };
+        const submission = {
+          state: "queued",
+          submission_id: "record",
+          submitted_at: "2026-09-14T00:00:00Z",
+          authority: { kind: "conversation-required" },
+        };
+        assertEquals(
+          evaluateResultCompletion({
+            ok: true,
+            verb: "accept",
+            data: { revision, submission },
+          }).ok,
+          true,
+        );
+        for (
+          const data of [
+            { submission },
+            { revision, submission: { ...submission, state: "planned" } },
+            { revision, submission: { ...submission, submission_id: "" } },
+            { revision, submission: { ...submission, submitted_at: "" } },
+            { revision, submission, landing: { trunk_landed: true } },
+          ]
+        ) {
+          assertEquals(
+            evaluateResultCompletion({ ok: true, verb: "accept", data }).ok,
+            false,
+          );
+        }
+      },
   });
-  assertEquals(optionalResource.ok, true);
-  assertEquals(
-    optionalResource.advisories?.[0]?.kind,
-    "optional-resource-unavailable",
-  );
+});
 
-  const proofNote = evaluateResultCompletion({
-    ok: true,
-    verb: "accept",
-    data: {
-      landing: {
-        recovery_performed: false,
-        trunk_landed: true,
-        worktree_removed: true,
-        branch_deleted: true,
+Deno.test("completion advisories require independent evidence and an exact recovery action", () => {
+  assertNamedCases({
+    "optional degradations stay green only as typed advisories":
+      (): undefined => {
+        const optionalResource = evaluateResultCompletion({
+          ok: true,
+          verb: "worktree setup",
+          steps: [{
+            step: {
+              kind: "resource-create",
+              label: verbatimStepLabel("database"),
+              disposition: "run",
+            },
+            outcome: "failed",
+            advisory: {
+              kind: "optional-resource-unavailable",
+              evidence: ["database create exited non-zero"],
+              next_action:
+                "Repair the create command and retry setup if needed.",
+            },
+          }],
+        });
+        assertEquals(optionalResource.ok, true);
+        assertEquals(
+          optionalResource.advisories?.[0]?.kind,
+          "optional-resource-unavailable",
+        );
+
+        const proofNote = evaluateResultCompletion({
+          ok: true,
+          verb: "accept",
+          data: {
+            landing: {
+              recovery_performed: false,
+              trunk_landed: true,
+              worktree_removed: true,
+              branch_deleted: true,
+            },
+            proof_note: {
+              fetch: {
+                status: "failed",
+                errors: ["remote note fetch failed"],
+              },
+              write: { status: "recorded" },
+            },
+          },
+        });
+        assertEquals(proofNote.ok, true);
+        assertEquals(
+          proofNote.advisories?.[0]?.kind,
+          "proof-recording-unavailable",
+        );
+        assertEquals(proofNote.advisories?.[0]?.evidence, [
+          "remote note fetch failed",
+        ]);
+
+        const checkpoint = evaluateResultCompletion({
+          ok: true,
+          verb: "checkpoints",
+          data: {
+            drops: [{
+              scope: "policy",
+              checkpoint: null,
+              mode: null,
+              reason: "merge_base_unresolved",
+              account: "Git could not resolve the merge base",
+            }],
+          },
+        });
+        assertEquals(checkpoint.ok, true);
+        assertEquals(
+          checkpoint.advisories?.[0]?.kind,
+          "checkpoint-evidence-dropped",
+        );
+
+        const authority = evaluateResultCompletion({
+          ok: true,
+          verb: "start",
+          data: {
+            landing_authority: {
+              kind: "unauthorized",
+              warnings: ["scope evidence was unavailable"],
+            },
+          },
+        });
+        assertEquals(authority.ok, true);
+        assertEquals(
+          authority.advisories?.[0]?.kind,
+          "landing-authority-unverified",
+        );
+
+        const upgrade = evaluateResultCompletion({
+          ok: true,
+          verb: "upgrade",
+          dry_run: true,
+          data: {
+            untranslated_gitattributes_patterns: [{
+              group: "generated bundle",
+              pattern: "{schema,reference}/**",
+              reason: "brace expansion is not representable",
+            }],
+          },
+        });
+        assertEquals(upgrade.ok, true);
+        assertEquals(
+          upgrade.advisories?.[0]?.kind,
+          "generated-attribute-pattern-untranslated",
+        );
       },
-      proof_note: {
-        fetch: {
-          status: "failed",
-          errors: ["remote note fetch failed"],
-        },
-        write: { status: "recorded" },
+    "an unrecorded Proof note's advisory names the retry its own landing kept":
+      (): undefined => {
+        const reason = "Git refused the notes commit";
+        const note = (status: string) => ({
+          fetch: { status: "local", errors: [] },
+          write: { status, reason },
+        });
+        const owed: Readonly<
+          Record<string, { data: Record<string, unknown>; retry: string }>
+        > = {
+          accept: {
+            data: {
+              landing: {
+                recovery_performed: false,
+                trunk_landed: true,
+                worktree_removed: false,
+                branch_deleted: false,
+              },
+            },
+            retry: ACCEPT_PROOF_NOTE_RETRY,
+          },
+          "setup accept": {
+            data: {
+              landed: true,
+              branch: "discern-setup",
+              target: "main",
+              branch_deleted: false,
+            },
+            retry: setupProofNoteRetry("discern-setup", "main"),
+          },
+        };
+        assertEquals(
+          Object.keys(owed).sort(),
+          Object.keys(PROOF_NOTE_RETRIES).sort(),
+        );
+        for (const [verb, { data, retry }] of Object.entries(owed)) {
+          const recorded = evaluateResultCompletion({
+            ok: true,
+            verb,
+            data: { ...data, proof_note: note("record_failed") },
+          });
+          assertEquals(recorded.ok, true, verb);
+          // The kept branch or checkout is the retry's vehicle, never leftover
+          // cleanup to delete.
+          assertEquals(recorded.advisories, [{
+            kind: "proof-recording-unavailable",
+            evidence: [reason],
+            next_action: retry,
+          }], verb);
+
+          const missing = evaluateResultCompletion({
+            ok: true,
+            verb,
+            data: { ...data, proof_note: note("missing_proof") },
+          });
+          assertEquals(
+            missing.advisories?.find((advisory) =>
+              advisory.kind === "proof-recording-unavailable"
+            )?.next_action,
+            PROOF_NOTE_MISSING,
+            verb,
+          );
+        }
+        assertThrows(
+          () =>
+            evaluateResultCompletion({
+              ok: true,
+              verb: "done",
+              data: { failed_stage: null, proof_note: note("record_failed") },
+            }),
+          Error,
+          "owes a Proof note but names no retry",
+        );
       },
-    },
+    "an advisory cannot waive completion without evidence and recovery":
+      (): undefined => {
+        assertThrows(
+          () =>
+            evaluateResultCompletion({
+              ok: true,
+              verb: "worktree setup",
+              advisories: [{
+                kind: "optional-resource-unavailable",
+                evidence: [],
+                next_action: "",
+              }],
+            }),
+          Error,
+          "needs non-blank evidence and next_action",
+        );
+      },
   });
-  assertEquals(proofNote.ok, true);
-  assertEquals(proofNote.advisories?.[0]?.kind, "proof-recording-unavailable");
-  assertEquals(proofNote.advisories?.[0]?.evidence, [
-    "remote note fetch failed",
-  ]);
+});
 
-  const checkpoint = evaluateResultCompletion({
-    ok: true,
-    verb: "checkpoints",
-    data: {
-      drops: [{
-        scope: "policy",
-        checkpoint: null,
-        mode: null,
-        reason: "merge_base_unresolved",
-        account: "Git could not resolve the merge base",
-      }],
-    },
+Deno.test("emergency completion separates preparation receipts from independent landing claims", () => {
+  assertNamedCases({
+    "emergency preparation success requires its receipt and excludes landing claims":
+      (): undefined => {
+        const prepared: DiscernResult = {
+          ok: true,
+          verb: "accept",
+          data: { emergency: { outcome: "prepared", preparation: "receipt" } },
+        };
+        assertEquals(evaluateResultCompletion(prepared).ok, true);
+        for (
+          const data of [
+            { emergency: { outcome: "prepared" } },
+            {
+              emergency: {
+                outcome: "prepared",
+                preparation: "receipt",
+                confirmation: "approval",
+              },
+            },
+            {
+              emergency: { outcome: "prepared", preparation: "receipt" },
+              proof: {},
+            },
+            {
+              emergency: { outcome: "prepared", preparation: "receipt" },
+              landing: {},
+            },
+          ]
+        ) {
+          assertEquals(
+            evaluateResultCompletion({ ...prepared, data }).ok,
+            false,
+          );
+        }
+      },
+    "emergency outcomes preserve success only for complete independent landing claims":
+      (): undefined => {
+        const emergency = {
+          outcome: "landed",
+          landing_id: "landing",
+          candidate_id: "candidate",
+          reason: "Restore service",
+          exceptions: [],
+          note: "published",
+          cleanup: "kept",
+        };
+        const result: DiscernResult = {
+          ok: true,
+          verb: "accept",
+          data: { emergency },
+        };
+        for (const cleanup of ["kept", "removed"]) {
+          assertEquals(
+            serializeResult({
+              ...result,
+              data: { emergency: { ...emergency, cleanup } },
+            }).ok,
+            true,
+          );
+        }
+        for (
+          const outcome of EmergencyDataSchema.shape.outcome.unwrap().options
+        ) {
+          if (outcome === "landed") continue;
+          assertEquals(
+            evaluateResultCompletion({
+              ...result,
+              data: { emergency: { ...emergency, outcome } },
+            }).ok,
+            false,
+            outcome,
+          );
+        }
+        for (
+          const field of [
+            "landing_id",
+            "candidate_id",
+            "reason",
+            "exceptions",
+            "note",
+            "cleanup",
+          ]
+        ) {
+          assertEquals(
+            evaluateResultCompletion({
+              ...result,
+              data: { emergency: { ...emergency, [field]: undefined } },
+            }).ok,
+            false,
+            field,
+          );
+        }
+        for (const note of ["pending", "failed"]) {
+          assertEquals(
+            evaluateResultCompletion({
+              ...result,
+              data: { emergency: { ...emergency, note } },
+            }).ok,
+            false,
+            note,
+          );
+        }
+        assertEquals(
+          evaluateResultCompletion({
+            ...result,
+            data: { emergency: { ...emergency, cleanup: "failed" } },
+          }).ok,
+          false,
+          "a failed cleanup is a partial emergency landing",
+        );
+        for (
+          const field of [
+            "proof",
+            "proof_line",
+            "proof_note",
+            "landing",
+            "queue",
+          ]
+        ) {
+          assertEquals(
+            evaluateResultCompletion({
+              ...result,
+              data: { emergency, [field]: {} },
+            })
+              .ok,
+            false,
+            field,
+          );
+        }
+        const failed: DiscernResult = {
+          ...result,
+          ok: false,
+          error: "partial_acceptance",
+        };
+        assertEquals(
+          evaluateResultCompletion(failed).ok,
+          false,
+          "A landed ref cannot hide failed settlement or convergence",
+        );
+      },
   });
-  assertEquals(checkpoint.ok, true);
-  assertEquals(checkpoint.advisories?.[0]?.kind, "checkpoint-evidence-dropped");
-
-  const authority = evaluateResultCompletion({
-    ok: true,
-    verb: "start",
-    data: {
-      landing_authority: {
-        kind: "unauthorized",
-        warnings: ["scope evidence was unavailable"],
-      },
-    },
-  });
-  assertEquals(authority.ok, true);
-  assertEquals(authority.advisories?.[0]?.kind, "landing-authority-unverified");
-
-  const upgrade = evaluateResultCompletion({
-    ok: true,
-    verb: "upgrade",
-    dry_run: true,
-    data: {
-      untranslated_gitattributes_patterns: [{
-        group: "generated bundle",
-        pattern: "{schema,reference}/**",
-        reason: "brace expansion is not representable",
-      }],
-    },
-  });
-  assertEquals(upgrade.ok, true);
-  assertEquals(
-    upgrade.advisories?.[0]?.kind,
-    "generated-attribute-pattern-untranslated",
-  );
-});
-
-Deno.test("an unrecorded Proof note's advisory names the retry its own landing kept", () => {
-  const reason = "Git refused the notes commit";
-  const note = (status: string) => ({
-    fetch: { status: "local", errors: [] },
-    write: { status, reason },
-  });
-  const owed: Readonly<
-    Record<string, { data: Record<string, unknown>; retry: string }>
-  > = {
-    accept: {
-      data: {
-        landing: {
-          recovery_performed: false,
-          trunk_landed: true,
-          worktree_removed: false,
-          branch_deleted: false,
-        },
-      },
-      retry: ACCEPT_PROOF_NOTE_RETRY,
-    },
-    "setup accept": {
-      data: {
-        landed: true,
-        branch: "discern-setup",
-        target: "main",
-        branch_deleted: false,
-      },
-      retry: setupProofNoteRetry("discern-setup", "main"),
-    },
-  };
-  assertEquals(
-    Object.keys(owed).sort(),
-    Object.keys(PROOF_NOTE_RETRIES).sort(),
-  );
-  for (const [verb, { data, retry }] of Object.entries(owed)) {
-    const recorded = evaluateResultCompletion({
-      ok: true,
-      verb,
-      data: { ...data, proof_note: note("record_failed") },
-    });
-    assertEquals(recorded.ok, true, verb);
-    // The kept branch or checkout is the retry's vehicle, never leftover
-    // cleanup to delete.
-    assertEquals(recorded.advisories, [{
-      kind: "proof-recording-unavailable",
-      evidence: [reason],
-      next_action: retry,
-    }], verb);
-
-    const missing = evaluateResultCompletion({
-      ok: true,
-      verb,
-      data: { ...data, proof_note: note("missing_proof") },
-    });
-    assertEquals(
-      missing.advisories?.find((advisory) =>
-        advisory.kind === "proof-recording-unavailable"
-      )?.next_action,
-      PROOF_NOTE_MISSING,
-      verb,
-    );
-  }
-  assertThrows(
-    () =>
-      evaluateResultCompletion({
-        ok: true,
-        verb: "done",
-        data: { failed_stage: null, proof_note: note("record_failed") },
-      }),
-    Error,
-    "owes a Proof note but names no retry",
-  );
-});
-
-Deno.test("an advisory cannot waive completion without evidence and recovery", () => {
-  assertThrows(
-    () =>
-      evaluateResultCompletion({
-        ok: true,
-        verb: "worktree setup",
-        advisories: [{
-          kind: "optional-resource-unavailable",
-          evidence: [],
-          next_action: "",
-        }],
-      }),
-    Error,
-    "needs non-blank evidence and next_action",
-  );
-});
-
-Deno.test("emergency preparation success requires its receipt and excludes landing claims", () => {
-  const prepared: DiscernResult = {
-    ok: true,
-    verb: "accept",
-    data: { emergency: { outcome: "prepared", preparation: "receipt" } },
-  };
-  assertEquals(evaluateResultCompletion(prepared).ok, true);
-  for (
-    const data of [
-      { emergency: { outcome: "prepared" } },
-      {
-        emergency: {
-          outcome: "prepared",
-          preparation: "receipt",
-          confirmation: "approval",
-        },
-      },
-      { emergency: { outcome: "prepared", preparation: "receipt" }, proof: {} },
-      {
-        emergency: { outcome: "prepared", preparation: "receipt" },
-        landing: {},
-      },
-    ]
-  ) assertEquals(evaluateResultCompletion({ ...prepared, data }).ok, false);
-});
-
-Deno.test("emergency outcomes preserve success only for complete independent landing claims", () => {
-  const emergency = {
-    outcome: "landed",
-    landing_id: "landing",
-    candidate_id: "candidate",
-    reason: "Restore service",
-    exceptions: [],
-    note: "published",
-    cleanup: "kept",
-  };
-  const result: DiscernResult = {
-    ok: true,
-    verb: "accept",
-    data: { emergency },
-  };
-  for (const cleanup of ["kept", "removed"]) {
-    assertEquals(
-      serializeResult({
-        ...result,
-        data: { emergency: { ...emergency, cleanup } },
-      }).ok,
-      true,
-    );
-  }
-  for (const outcome of EmergencyDataSchema.shape.outcome.unwrap().options) {
-    if (outcome === "landed") continue;
-    assertEquals(
-      evaluateResultCompletion({
-        ...result,
-        data: { emergency: { ...emergency, outcome } },
-      }).ok,
-      false,
-      outcome,
-    );
-  }
-  for (
-    const field of [
-      "landing_id",
-      "candidate_id",
-      "reason",
-      "exceptions",
-      "note",
-      "cleanup",
-    ]
-  ) {
-    assertEquals(
-      evaluateResultCompletion({
-        ...result,
-        data: { emergency: { ...emergency, [field]: undefined } },
-      }).ok,
-      false,
-      field,
-    );
-  }
-  for (const note of ["pending", "failed"]) {
-    assertEquals(
-      evaluateResultCompletion({
-        ...result,
-        data: { emergency: { ...emergency, note } },
-      }).ok,
-      false,
-      note,
-    );
-  }
-  assertEquals(
-    evaluateResultCompletion({
-      ...result,
-      data: { emergency: { ...emergency, cleanup: "failed" } },
-    }).ok,
-    false,
-    "a failed cleanup is a partial emergency landing",
-  );
-  for (
-    const field of ["proof", "proof_line", "proof_note", "landing", "queue"]
-  ) {
-    assertEquals(
-      evaluateResultCompletion({ ...result, data: { emergency, [field]: {} } })
-        .ok,
-      false,
-      field,
-    );
-  }
-  const failed: DiscernResult = {
-    ...result,
-    ok: false,
-    error: "partial_acceptance",
-  };
-  assertEquals(
-    evaluateResultCompletion(failed).ok,
-    false,
-    "A landed ref cannot hide failed settlement or convergence",
-  );
-});
-
-Deno.test("policy-created failures retain registered recovery across every effect contract", () => {
-  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
-    const policy = RESULT_COMPLETION_POLICIES[contract.verb];
-    if (!policy?.requiredPostconditions.includes("executed-steps")) continue;
-    const result: DiscernResult = {
-      ok: true,
-      verb: contract.verb,
-      steps: [{
-        step: {
-          kind: "job",
-          label: verbatimStepLabel("future orbit"),
-          disposition: "run",
-        },
-        outcome: "cancelled",
-      }],
-    };
-    const evaluated = evaluateResultCompletion(result);
-    assertEquals(evaluated.ok, false, contract.verb);
-    assertEquals(serializeResult(evaluated).ok, false, contract.verb);
-    assertEquals(
-      evaluateResultCompletion(evaluated),
-      evaluated,
-      "Evaluation must be idempotent",
-    );
-    assertEquals(renderMcpResult(result).isError, true, contract.verb);
-  }
-  const result: DiscernResult = {
-    ok: true,
-    verb: "accept",
-    data: {},
-    hints: hintTexts([
-      fire(HINTS["completion-pending"], {
-        action: "Inspect the recorded transition.",
-      }),
-    ]),
-  };
-  const evaluated = evaluateResultCompletion(result);
-  assertEquals(evaluated.hints?.[0], result.hints?.[0]);
-});
-
-Deno.test("accept queue succeeds only with its recorded submission and no landing claim", () => {
-  const revision = {
-    path: "/task",
-    branch: "agent/task",
-    head: "a".repeat(40),
-    proof: { candidate_id: "candidate", proof_id: "proof" },
-  };
-  const submission = {
-    state: "queued",
-    submission_id: "record",
-    submitted_at: "2026-09-14T00:00:00Z",
-    authority: { kind: "conversation-required" },
-  };
-  assertEquals(
-    evaluateResultCompletion({
-      ok: true,
-      verb: "accept",
-      data: { revision, submission },
-    }).ok,
-    true,
-  );
-  for (
-    const data of [
-      { submission },
-      { revision, submission: { ...submission, state: "planned" } },
-      { revision, submission: { ...submission, submission_id: "" } },
-      { revision, submission: { ...submission, submitted_at: "" } },
-      { revision, submission, landing: { trunk_landed: true } },
-    ]
-  ) {
-    assertEquals(
-      evaluateResultCompletion({ ok: true, verb: "accept", data }).ok,
-      false,
-    );
-  }
 });

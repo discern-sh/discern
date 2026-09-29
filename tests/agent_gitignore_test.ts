@@ -22,156 +22,246 @@ import { withTempDir } from "./helpers.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 import { agentArtifactPosture } from "../src/lib/providers.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const REPO = join(dirname(fromFileUrl(import.meta.url)), "..");
 const FRAGMENT = await Deno.readTextFile(
   join(REPO, "templates", ".gitignore.fragment"),
 );
 
-Deno.test("the .claude/* wildcard covers .claude/skills (no redundant rule added)", () => {
-  // Only the wildcard, no explicit /.claude/skills/ — must still count as covered.
-  const existing =
-    "/AGENTS.md\n/CLAUDE.md\n/GEMINI.md\n/.claude/*\n/.agents/skills/\n";
-  const lines = existing.split("\n").map((line) => line.trim());
-  assert(ignoreCovers(lines, ".claude/skills", true));
+Deno.test("ignore coverage recognizes ancestor wildcards for directories and files", () => {
+  assertNamedCases({
+    "the .claude/* wildcard covers .claude/skills (no redundant rule added)":
+      (): undefined => {
+        // Only the wildcard, no explicit /.claude/skills/ — must still count as covered.
+        const existing =
+          "/AGENTS.md\n/CLAUDE.md\n/GEMINI.md\n/.claude/*\n/.agents/skills/\n";
+        const lines = existing.split("\n").map((line) => line.trim());
+        assert(ignoreCovers(lines, ".claude/skills", true));
+      },
+    "an ancestor wildcard covers a NESTED instruction file too (no redundant rule)":
+      (): undefined => {
+        // File-coverage is ancestor-aware (symmetric with dir-coverage): `/.cursor/*`
+        // already ignores a nested instruction file `.cursor/rules.md`, so nothing is added.
+        const existing = "/.cursor/*\n";
+        const lines = existing.split("\n").map((line) => line.trim());
+        assert(ignoreCovers(lines, ".cursor/rules.md", false));
+      },
+  });
 });
 
-Deno.test("an ancestor wildcard covers a NESTED instruction file too (no redundant rule)", () => {
-  // File-coverage is ancestor-aware (symmetric with dir-coverage): `/.cursor/*`
-  // already ignores a nested instruction file `.cursor/rules.md`, so nothing is added.
-  const existing = "/.cursor/*\n";
-  const lines = existing.split("\n").map((line) => line.trim());
-  assert(ignoreCovers(lines, ".cursor/rules.md", false));
+Deno.test("managed ignore blocks derive coverage from declared artifacts and nested roots", () => {
+  assertNamedCases({
+    "canonical block auto-includes a hypothetical new agent's IGNORED artifacts only":
+      (): undefined => {
+        // Simulate a registry that grew another agent: its materialized dir and local
+        // state widen into the block; its compiled instruction file — tracked by
+        // default — never does.
+        const fragment =
+          `${DISCERN_GITIGNORE_BEGIN}\n/.agents/skills/\n${DISCERN_GITIGNORE_END}\n`;
+        const artifacts = {
+          instructionFiles: ["AGENTS.md", "CURSOR.md"],
+          materializedDirs: [".agents/skills", ".cursor/skills"],
+          localStateFiles: [".cursor/settings.local.json"],
+        };
+        const block = canonicalDiscernGitignoreBlock(fragment, artifacts);
+        assertStringIncludes(block, "/.cursor/skills/");
+        assertStringIncludes(block, "/.cursor/settings.local.json");
+        assert(!block.includes("/CURSOR.md"), block);
+        assert(!block.includes("/AGENTS.md"), block);
+      },
+    "the managed block covers exactly nested configured worktree roots":
+      (): undefined => {
+        const repo = "/project/repo";
+        const cases = [
+          { configured: "", expected: undefined },
+          { configured: ".claude/worktrees", expected: ".claude/worktrees" },
+          { configured: "/outside/worktrees", expected: undefined },
+          { configured: "/project/repo/.worktrees", expected: ".worktrees" },
+        ] as const;
+        for (const fixture of cases) {
+          const config = parseConfigOrThrow(`
+    [worktree]
+    root = "${fixture.configured}"
+    `);
+          const nested = nestedWorktreeIgnorePath(repo, config);
+          assertEquals(nested, fixture.expected, fixture.configured);
+          const block = canonicalDiscernGitignoreBlock(
+            FRAGMENT,
+            undefined,
+            undefined,
+            nested,
+          );
+          if (fixture.expected === undefined) {
+            assertEquals(
+              block.split("\n").some((line) =>
+                line.includes("worktree") && line.startsWith("/")
+              ),
+              false,
+            );
+          } else {
+            assert(
+              ignoreCovers(
+                block.split("\n").map((line) => line.trim()),
+                fixture.expected,
+                true,
+              ),
+              fixture.configured,
+            );
+          }
+        }
+      },
+  });
 });
 
-Deno.test("canonical block auto-includes a hypothetical new agent's IGNORED artifacts only", () => {
-  // Simulate a registry that grew another agent: its materialized dir and local
-  // state widen into the block; its compiled instruction file — tracked by
-  // default — never does.
-  const fragment =
-    `${DISCERN_GITIGNORE_BEGIN}\n/.agents/skills/\n${DISCERN_GITIGNORE_END}\n`;
-  const artifacts = {
-    instructionFiles: ["AGENTS.md", "CURSOR.md"],
-    materializedDirs: [".agents/skills", ".cursor/skills"],
-    localStateFiles: [".cursor/settings.local.json"],
-  };
-  const block = canonicalDiscernGitignoreBlock(fragment, artifacts);
-  assertStringIncludes(block, "/.cursor/skills/");
-  assertStringIncludes(block, "/.cursor/settings.local.json");
-  assert(!block.includes("/CURSOR.md"), block);
-  assert(!block.includes("/AGENTS.md"), block);
-});
+Deno.test("ignore reconciliation preserves user rules across current and legacy block inputs", () => {
+  assertNamedCases({
+    "an install already carrying the canonical block is an untouched no-op":
+      (): undefined => {
+        const existing = [
+          "node_modules/",
+          "",
+          canonicalDiscernGitignoreBlock(FRAGMENT).trimEnd(),
+          "",
+          "coverage/",
+          "",
+        ].join("\n");
+        const result = reconcileDiscernGitignore(existing, FRAGMENT);
+        assertEquals(result.operations, []);
+        assertEquals(result.text, existing);
+      },
+    "an unterminated old block absorbs only exact owned rows":
+      (): undefined => {
+        const messy = [
+          DISCERN_GITIGNORE_BEGIN,
+          "...",
+          "/AGENTS.md",
+          "/CLAUDE.md",
+          "...",
+          "/.agents/skills/",
+          "# Per-branch work evidence captured by the gate (runtime store, not source).",
+          "",
+          "# --- macOS ---",
+          ".DS_Store",
+          "**/.DS_Store",
+          "",
+          "# discern: materialized/compiled artifacts (re-published on upgrade)",
+          "",
+          "# discern: generated/ephemeral artifacts",
+          "/GEMINI.md",
+          "",
+        ].join("\n");
 
-Deno.test("an install already carrying the canonical block is an untouched no-op", () => {
-  const existing = [
-    "node_modules/",
-    "",
-    canonicalDiscernGitignoreBlock(FRAGMENT).trimEnd(),
-    "",
-    "coverage/",
-    "",
-  ].join("\n");
-  const result = reconcileDiscernGitignore(existing, FRAGMENT);
-  assertEquals(result.operations, []);
-  assertEquals(result.text, existing);
-});
+        const result = reconcileDiscernGitignore(messy, FRAGMENT);
+        assert(
+          result.text.startsWith(canonicalDiscernGitignoreBlock(FRAGMENT)),
+        );
+        assertStringIncludes(
+          result.text,
+          "# --- macOS ---\n.DS_Store\n**/.DS_Store",
+        );
+        assertOneDiscernBlock(result.text);
+        assertStringIncludes(
+          result.text,
+          "# discern: materialized/compiled artifacts (re-published on upgrade)",
+        );
+        assertStringIncludes(result.text, "/GEMINI.md");
+      },
+    "user lines before and after a legacy block are preserved":
+      (): undefined => {
+        const existing = [
+          "build/",
+          "",
+          DISCERN_GITIGNORE_BEGIN,
+          "/CLAUDE.md",
+          "",
+          "# Project-owned ignores",
+          "coverage/",
+          "!/AGENTS.md",
+          "",
+        ].join("\n");
 
-Deno.test("an unterminated old block absorbs only exact owned rows", () => {
-  const messy = [
-    DISCERN_GITIGNORE_BEGIN,
-    "...",
-    "/AGENTS.md",
-    "/CLAUDE.md",
-    "...",
-    "/.agents/skills/",
-    "# Per-branch work evidence captured by the gate (runtime store, not source).",
-    "",
-    "# --- macOS ---",
-    ".DS_Store",
-    "**/.DS_Store",
-    "",
-    "# discern: materialized/compiled artifacts (re-published on upgrade)",
-    "",
-    "# discern: generated/ephemeral artifacts",
-    "/GEMINI.md",
-    "",
-  ].join("\n");
+        const result = reconcileDiscernGitignore(existing, FRAGMENT);
+        assertStringIncludes(
+          result.text,
+          `build/\n\n${canonicalDiscernGitignoreBlock(FRAGMENT)}`,
+        );
+        assertStringIncludes(
+          result.text,
+          `${DISCERN_GITIGNORE_END}\n\n# Project-owned ignores\ncoverage/\n!/AGENTS.md\n`,
+        );
+      },
+    "only exact canonical standalone rules are absorbed": (): undefined => {
+      const existing = [
+        "dist/",
+        "/CLAUDE.md",
+        "# Project-owned ignores",
+        "/.agents/skills/",
+        "coverage/",
+        "",
+      ].join("\n");
 
-  const result = reconcileDiscernGitignore(messy, FRAGMENT);
-  assert(result.text.startsWith(canonicalDiscernGitignoreBlock(FRAGMENT)));
-  assertStringIncludes(
-    result.text,
-    "# --- macOS ---\n.DS_Store\n**/.DS_Store",
-  );
-  assertOneDiscernBlock(result.text);
-  assertStringIncludes(
-    result.text,
-    "# discern: materialized/compiled artifacts (re-published on upgrade)",
-  );
-  assertStringIncludes(result.text, "/GEMINI.md");
-});
+      const result = reconcileDiscernGitignore(existing, FRAGMENT);
+      assertOneDiscernBlock(result.text);
+      assertStringIncludes(result.text, "dist/");
+      assertStringIncludes(result.text, "# Project-owned ignores");
+      assertStringIncludes(result.text, "coverage/");
+      assert(result.text.includes("/CLAUDE.md"), result.text);
+      assertEquals(
+        result.text.match(/^\/\.agents\/skills\/$/gm)?.length,
+        1,
+        "the standalone owned rule is absorbed into the one managed block",
+      );
+    },
+    "every user-authored rule outside a marked block survives byte-for-byte":
+      (): undefined => {
+        const userRules = [
+          "# discern's managed ignore rules: only the skills directories it",
+          "/.claude/",
+          ".claude/*",
+          "!.claude/settings.json",
+          ".discern/",
+          "/.ai/skills/",
+          ".discern-rescue",
+          "/AGENTS.md",
+        ];
+        const existing = `# Project rules\n${userRules.join("\n")}\n`;
+        const result = reconcileDiscernGitignore(existing, FRAGMENT);
+        assert(result.text.startsWith(existing), result.text);
+      },
+    "reconcile narrows a previous install's over-wide block to enumerated ownership":
+      (): undefined => {
+        // The block earlier versions shipped ignored the compiled instruction files and
+        // wildcarded /.claude/*. Reconcile must rewrite it to the narrow form so the
+        // previously ignored instruction files become trackable, with user rules intact.
+        const legacyBlock = [
+          DISCERN_GITIGNORE_BEGIN,
+          "# These are discern's agent files, materialized skills,",
+          "# and local provider state.",
+          "/AGENTS.md",
+          "/CLAUDE.md",
+          "/GEMINI.md",
+          "/.claude/*",
+          "!/.claude/settings.json",
+          "/.agents/skills/",
+          DISCERN_GITIGNORE_END,
+        ].join("\n");
+        const existing = `dist/\n\n${legacyBlock}\n\ncoverage/\n`;
 
-Deno.test("user lines before and after a legacy block are preserved", () => {
-  const existing = [
-    "build/",
-    "",
-    DISCERN_GITIGNORE_BEGIN,
-    "/CLAUDE.md",
-    "",
-    "# Project-owned ignores",
-    "coverage/",
-    "!/AGENTS.md",
-    "",
-  ].join("\n");
-
-  const result = reconcileDiscernGitignore(existing, FRAGMENT);
-  assertStringIncludes(
-    result.text,
-    `build/\n\n${canonicalDiscernGitignoreBlock(FRAGMENT)}`,
-  );
-  assertStringIncludes(
-    result.text,
-    `${DISCERN_GITIGNORE_END}\n\n# Project-owned ignores\ncoverage/\n!/AGENTS.md\n`,
-  );
-});
-
-Deno.test("only exact canonical standalone rules are absorbed", () => {
-  const existing = [
-    "dist/",
-    "/CLAUDE.md",
-    "# Project-owned ignores",
-    "/.agents/skills/",
-    "coverage/",
-    "",
-  ].join("\n");
-
-  const result = reconcileDiscernGitignore(existing, FRAGMENT);
-  assertOneDiscernBlock(result.text);
-  assertStringIncludes(result.text, "dist/");
-  assertStringIncludes(result.text, "# Project-owned ignores");
-  assertStringIncludes(result.text, "coverage/");
-  assert(result.text.includes("/CLAUDE.md"), result.text);
-  assertEquals(
-    result.text.match(/^\/\.agents\/skills\/$/gm)?.length,
-    1,
-    "the standalone owned rule is absorbed into the one managed block",
-  );
-});
-
-Deno.test("every user-authored rule outside a marked block survives byte-for-byte", () => {
-  const userRules = [
-    "# discern's managed ignore rules: only the skills directories it",
-    "/.claude/",
-    ".claude/*",
-    "!.claude/settings.json",
-    ".discern/",
-    "/.ai/skills/",
-    ".discern-rescue",
-    "/AGENTS.md",
-  ];
-  const existing = `# Project rules\n${userRules.join("\n")}\n`;
-  const result = reconcileDiscernGitignore(existing, FRAGMENT);
-  assert(result.text.startsWith(existing), result.text);
+        const result = reconcileDiscernGitignore(existing, FRAGMENT);
+        assertStringIncludes(
+          result.text,
+          canonicalDiscernGitignoreBlock(FRAGMENT),
+        );
+        assert(!result.text.includes("/AGENTS.md"), result.text);
+        assert(!result.text.includes("/CLAUDE.md"), result.text);
+        assert(!result.text.includes("/GEMINI.md"), result.text);
+        assert(!result.text.includes("/.claude/*"), result.text);
+        assertOneDiscernBlock(result.text);
+        assertStringIncludes(result.text, "dist/");
+        assertStringIncludes(result.text, "coverage/");
+      },
+  });
 });
 
 Deno.test("marked legacy ownership is exactly the provider artifact registry", () => {
@@ -186,76 +276,6 @@ Deno.test("marked legacy ownership is exactly the provider artifact registry", (
       ]),
     ].sort(),
   );
-});
-
-Deno.test("the managed block covers exactly nested configured worktree roots", () => {
-  const repo = "/project/repo";
-  const cases = [
-    { configured: "", expected: undefined },
-    { configured: ".claude/worktrees", expected: ".claude/worktrees" },
-    { configured: "/outside/worktrees", expected: undefined },
-    { configured: "/project/repo/.worktrees", expected: ".worktrees" },
-  ] as const;
-  for (const fixture of cases) {
-    const config = parseConfigOrThrow(`
-[worktree]
-root = "${fixture.configured}"
-`);
-    const nested = nestedWorktreeIgnorePath(repo, config);
-    assertEquals(nested, fixture.expected, fixture.configured);
-    const block = canonicalDiscernGitignoreBlock(
-      FRAGMENT,
-      undefined,
-      undefined,
-      nested,
-    );
-    if (fixture.expected === undefined) {
-      assertEquals(
-        block.split("\n").some((line) =>
-          line.includes("worktree") && line.startsWith("/")
-        ),
-        false,
-      );
-    } else {
-      assert(
-        ignoreCovers(
-          block.split("\n").map((line) => line.trim()),
-          fixture.expected,
-          true,
-        ),
-        fixture.configured,
-      );
-    }
-  }
-});
-
-Deno.test("reconcile narrows a previous install's over-wide block to enumerated ownership", () => {
-  // The block earlier versions shipped ignored the compiled instruction files and
-  // wildcarded /.claude/*. Reconcile must rewrite it to the narrow form so the
-  // previously ignored instruction files become trackable, with user rules intact.
-  const legacyBlock = [
-    DISCERN_GITIGNORE_BEGIN,
-    "# These are discern's agent files, materialized skills,",
-    "# and local provider state.",
-    "/AGENTS.md",
-    "/CLAUDE.md",
-    "/GEMINI.md",
-    "/.claude/*",
-    "!/.claude/settings.json",
-    "/.agents/skills/",
-    DISCERN_GITIGNORE_END,
-  ].join("\n");
-  const existing = `dist/\n\n${legacyBlock}\n\ncoverage/\n`;
-
-  const result = reconcileDiscernGitignore(existing, FRAGMENT);
-  assertStringIncludes(result.text, canonicalDiscernGitignoreBlock(FRAGMENT));
-  assert(!result.text.includes("/AGENTS.md"), result.text);
-  assert(!result.text.includes("/CLAUDE.md"), result.text);
-  assert(!result.text.includes("/GEMINI.md"), result.text);
-  assert(!result.text.includes("/.claude/*"), result.text);
-  assertOneDiscernBlock(result.text);
-  assertStringIncludes(result.text, "dist/");
-  assertStringIncludes(result.text, "coverage/");
 });
 
 Deno.test("ensureDiscernGitignoreBlock: no .gitignore creates the canonical block", async () => {

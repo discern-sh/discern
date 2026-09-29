@@ -29,6 +29,7 @@ import { PROVIDERS } from "../src/lib/providers.ts";
 import { fakeEnv } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 
 const AGENT_SIGNAL_SOURCE_FILES = await structuralGuardScope({
   guard: "tests/agent_signals_test.ts#production-agent-signal-boundaries",
@@ -173,79 +174,84 @@ const ENVIRONMENT_CASES: readonly EnvironmentCase[] = [
   },
 ];
 
-Deno.test("agent catalogue: covers laravel/agent-detector's stated agents and derives the native provider set", () => {
-  assertEquals(
-    AGENT_CATALOGUE.map((identity) => identity.id),
-    [
-      "cursor",
-      "claude",
-      "cowork",
-      "devin",
-      "replit",
-      "gemini",
-      "codex",
-      "v0",
-      "augment-cli",
-      "opencode",
-      "amp",
-      "copilot",
-      "antigravity",
-      "pi",
-      "kiro-cli",
-      "custom",
-    ],
-  );
-  const nativeEntries = AGENT_CATALOGUE.filter((entry) =>
-    "nativeName" in entry && "nativeOrder" in entry
-  ).sort((a, b) => a.nativeOrder - b.nativeOrder);
-  assertEquals(
-    nativeEntries.map((entry) => entry.nativeOrder),
-    nativeEntries.map((_entry, index) => index),
-    "native provider order must be unique and contiguous",
-  );
-  assertEquals(
-    [...AGENT_NAMES],
-    nativeEntries.map((entry) => entry.nativeName),
-    "AGENT_NAMES must remain a projection of the catalogue, never a second list",
-  );
-  for (const name of AGENT_NAMES) {
-    const identity = AGENT_CATALOGUE.find((entry) =>
-      "nativeName" in entry && entry.nativeName === name
-    );
-    assert(identity !== undefined, `${name}: missing catalogue identity`);
-    assertEquals(
-      PROVIDERS[name].label,
-      identity.label,
-      `${name}: provider label must come from the shared catalogue`,
-    );
-  }
-});
-
-Deno.test("agent catalogue: every source class carries a lifetime and every identity a label", () => {
-  assertEquals(
-    Object.keys(AGENT_SIGNAL_SOURCE_LIFETIMES).sort(),
-    [...AGENT_SIGNAL_SOURCES].sort(),
-    "the lifetime record must stay total over the source union",
-  );
-  for (const source of AGENT_SIGNAL_SOURCES) {
-    const lifetime = AGENT_SIGNAL_SOURCE_LIFETIMES[source];
-    assert(
-      lifetime === "invocation" || lifetime === "ambient",
-      `${source}: unclassified lifetime`,
-    );
-  }
-  for (const identity of AGENT_CATALOGUE) {
-    assertEquals(
-      agentLabel(identity.id),
-      identity.label,
-      `${identity.id}: label lookup must come from the catalogue`,
-    );
-  }
-  assertEquals(
-    agentLabel("some-future-agent"),
-    "some-future-agent",
-    "an id this release doesn't know must fall back to itself, never throw",
-  );
+Deno.test("agent catalogue declarations preserve native membership, labels, and signal lifetimes", () => {
+  assertNamedCases({
+    "agent catalogue: covers laravel/agent-detector's stated agents and derives the native provider set":
+      (): undefined => {
+        assertEquals(
+          AGENT_CATALOGUE.map((identity) => identity.id),
+          [
+            "cursor",
+            "claude",
+            "cowork",
+            "devin",
+            "replit",
+            "gemini",
+            "codex",
+            "v0",
+            "augment-cli",
+            "opencode",
+            "amp",
+            "copilot",
+            "antigravity",
+            "pi",
+            "kiro-cli",
+            "custom",
+          ],
+        );
+        const nativeEntries = AGENT_CATALOGUE.filter((entry) =>
+          "nativeName" in entry && "nativeOrder" in entry
+        ).sort((a, b) => a.nativeOrder - b.nativeOrder);
+        assertEquals(
+          nativeEntries.map((entry) => entry.nativeOrder),
+          nativeEntries.map((_entry, index) => index),
+          "native provider order must be unique and contiguous",
+        );
+        assertEquals(
+          [...AGENT_NAMES],
+          nativeEntries.map((entry) => entry.nativeName),
+          "AGENT_NAMES must remain a projection of the catalogue, never a second list",
+        );
+        for (const name of AGENT_NAMES) {
+          const identity = AGENT_CATALOGUE.find((entry) =>
+            "nativeName" in entry && entry.nativeName === name
+          );
+          assert(identity !== undefined, `${name}: missing catalogue identity`);
+          assertEquals(
+            PROVIDERS[name].label,
+            identity.label,
+            `${name}: provider label must come from the shared catalogue`,
+          );
+        }
+      },
+    "agent catalogue: every source class carries a lifetime and every identity a label":
+      (): undefined => {
+        assertEquals(
+          Object.keys(AGENT_SIGNAL_SOURCE_LIFETIMES).sort(),
+          [...AGENT_SIGNAL_SOURCES].sort(),
+          "the lifetime record must stay total over the source union",
+        );
+        for (const source of AGENT_SIGNAL_SOURCES) {
+          const lifetime = AGENT_SIGNAL_SOURCE_LIFETIMES[source];
+          assert(
+            lifetime === "invocation" || lifetime === "ambient",
+            `${source}: unclassified lifetime`,
+          );
+        }
+        for (const identity of AGENT_CATALOGUE) {
+          assertEquals(
+            agentLabel(identity.id),
+            identity.label,
+            `${identity.id}: label lookup must come from the catalogue`,
+          );
+        }
+        assertEquals(
+          agentLabel("some-future-agent"),
+          "some-future-agent",
+          "an id this release doesn't know must fall back to itself, never throw",
+        );
+      },
+  });
 });
 
 Deno.test("agent detection is imported only by the two logbook recording chokepoints", async () => {
@@ -515,73 +521,78 @@ Deno.test("agent signals: every catalogue MCP name auto-enrols at record time an
   );
 });
 
-Deno.test("effective identity: current MCP interpretation replaces stale derived evidence without losing independent sources", () => {
-  const driver = {
-    agent_signals: [
-      {
-        agent: "codex",
-        source: "mcp-client" as const,
-        markers: ["clientInfo.title"],
+Deno.test("effective agent identity preserves independent evidence while refreshing MCP interpretation", () => {
+  assertNamedCases({
+    "effective identity: current MCP interpretation replaces stale derived evidence without losing independent sources":
+      (): undefined => {
+        const driver = {
+          agent_signals: [
+            {
+              agent: "codex",
+              source: "mcp-client" as const,
+              markers: ["clientInfo.title"],
+            },
+            {
+              agent: "cursor",
+              source: "process-environment" as const,
+              markers: ["CURSOR_AGENT"],
+            },
+            {
+              agent: "cursor",
+              source: "process-environment" as const,
+              markers: ["AI_AGENT", "CURSOR_AGENT"],
+            },
+          ],
+          mcp_client: { name: "cursor-vscode", version: "1" },
+        };
+        const before = structuredClone(driver);
+        assertEquals(effectiveAgentSignals({ driver }), [
+          {
+            agent: "cursor",
+            source: "process-environment",
+            markers: ["CURSOR_AGENT", "AI_AGENT"],
+          },
+          {
+            agent: "cursor",
+            source: "mcp-client",
+            markers: ["clientInfo.name"],
+          },
+        ]);
+        assertEquals(
+          driver,
+          before,
+          "the effective view must never mutate the event",
+        );
       },
-      {
-        agent: "cursor",
-        source: "process-environment" as const,
-        markers: ["CURSOR_AGENT"],
+    "effective identity: a writer's MCP signal remains when the current catalogue has no interpretation":
+      (): undefined => {
+        assertEquals(
+          effectiveAgentSignals({
+            driver: {
+              agent_signals: [{
+                agent: "future-agent",
+                source: "mcp-client",
+                markers: ["clientInfo.name"],
+              }],
+              mcp_client: { name: "future-client", version: "1" },
+            },
+          }),
+          [{
+            agent: "future-agent",
+            source: "mcp-client",
+            markers: ["clientInfo.name"],
+          }],
+        );
+        assertEquals(
+          effectiveAgentSignals({
+            driver: {
+              mcp_client: { name: "mystery-agent", version: "1" },
+            },
+          }),
+          [],
+        );
       },
-      {
-        agent: "cursor",
-        source: "process-environment" as const,
-        markers: ["AI_AGENT", "CURSOR_AGENT"],
-      },
-    ],
-    mcp_client: { name: "cursor-vscode", version: "1" },
-  };
-  const before = structuredClone(driver);
-  assertEquals(effectiveAgentSignals({ driver }), [
-    {
-      agent: "cursor",
-      source: "process-environment",
-      markers: ["CURSOR_AGENT", "AI_AGENT"],
-    },
-    {
-      agent: "cursor",
-      source: "mcp-client",
-      markers: ["clientInfo.name"],
-    },
-  ]);
-  assertEquals(
-    driver,
-    before,
-    "the effective view must never mutate the event",
-  );
-});
-
-Deno.test("effective identity: a writer's MCP signal remains when the current catalogue has no interpretation", () => {
-  assertEquals(
-    effectiveAgentSignals({
-      driver: {
-        agent_signals: [{
-          agent: "future-agent",
-          source: "mcp-client",
-          markers: ["clientInfo.name"],
-        }],
-        mcp_client: { name: "future-client", version: "1" },
-      },
-    }),
-    [{
-      agent: "future-agent",
-      source: "mcp-client",
-      markers: ["clientInfo.name"],
-    }],
-  );
-  assertEquals(
-    effectiveAgentSignals({
-      driver: {
-        mcp_client: { name: "mystery-agent", version: "1" },
-      },
-    }),
-    [],
-  );
+  });
 });
 
 Deno.test("agent signals: Cursor's name-only MCP identifier classifies as Cursor", async () => {
