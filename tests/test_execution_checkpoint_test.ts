@@ -110,6 +110,17 @@ Deno.test("test execution checkpoint: selected cases", () => {
           ] as const
         ) assertEquals(selected(base, after), fires, label);
       },
+    "test cost recognizes MCP client process creation": () => {
+      const imports = 'import { spawnMcp } from "./mcp_client.ts";';
+      assertEquals(
+        selected(
+          imports,
+          `${imports}
+async function example() { await using client = await spawnMcp(dir); }`,
+        ),
+        true,
+      );
+    },
     "test cost follows fixture wrappers, namespace imports, and re-exports":
       () => {
         const extra = [
