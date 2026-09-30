@@ -11,7 +11,6 @@ import {
 import { denoRunInvocation } from "../site/dev_invocation.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { moduleSpecifiers } from "./design_system_dependency.ts";
-import { withTempDir } from "./helpers.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -126,11 +125,9 @@ Deno.test("the helper loads without the site's package graph, so it can serve an
   );
 });
 
-Deno.test("the preview task's sandbox admits the helper's repository lookup and supervised child", async () => {
-  // The helper runs under its task's own permission flags, not the test
-  // runner's, so an engine read those flags omit only fails when someone
-  // previews. Run the helper's effectful dependencies under exactly those
-  // flags, taken from the task the Project Script delegates to.
+Deno.test("the site Project Script delegates to the site helper task", async () => {
+  // The helper's sandbox is the task's own permission flags; the shared
+  // local design-system suite runs its effectful dependencies under them.
   const script = await Deno.readTextFile(
     join(ROOT, "project/scripts/site-design-system"),
   );
@@ -142,37 +139,4 @@ Deno.test("the preview task's sandbox admits the helper's repository lookup and 
   );
   const invocation = denoRunInvocation(config.tasks[task] ?? "");
   assertEquals(invocation?.entry, "scripts/site_local_design_system.ts");
-  const flags = invocation?.permissionFlags ?? [];
-  await withTempDir(async (dir) => {
-    const probe = join(dir, "probe.ts");
-    await Deno.writeTextFile(
-      probe,
-      [
-        `import { mainRepoPath } from ${
-          JSON.stringify(
-            toFileUrl(join(ROOT, "src/shared/main_repo.ts")).href,
-          )
-        };`,
-        `import { runOwnedChild } from ${
-          JSON.stringify(
-            toFileUrl(join(ROOT, "src/engine/owned_child.ts")).href,
-          )
-        };`,
-        `await mainRepoPath(${JSON.stringify(ROOT)});`,
-        `const result = await runOwnedChild(Deno.execPath(), { args: ["eval", ""] });`,
-        "Deno.exit(result.status.code);",
-      ].join("\n"),
-    );
-    const output = await new Deno.Command(Deno.execPath(), {
-      args: ["run", "--config", join(ROOT, "deno.json"), ...flags, probe],
-      cwd: ROOT,
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    assertEquals(
-      output.success,
-      true,
-      new TextDecoder().decode(output.stderr),
-    );
-  });
 });

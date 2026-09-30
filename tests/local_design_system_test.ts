@@ -15,12 +15,25 @@ import {
   withLocalDesignSystem,
 } from "../scripts/local_design_system.ts";
 import {
+  cliDesignSystemCommand,
+  DESK_CHECK_TARGETS,
+  parseCliDesignSystemArgs,
+} from "../scripts/cli_local_design_system.ts";
+import { denoRunInvocation } from "../site/dev_invocation.ts";
+import { mainRepoPath } from "../src/shared/main_repo.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+import {
   authoredImportSpecifiers,
   moduleSpecifiers,
 } from "./design_system_dependency.ts";
 import { withTempDir } from "./helpers.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
+
+/** The link a temporary config records. */
+const LinkedConfigSchema = z.object({ links: z.array(z.string()) })
+  .passthrough();
 
 /** Write a minimal package checkout exposing exactly `exports`. */
 async function writeLocalPackage(
@@ -283,7 +296,10 @@ Deno.test("a CLI link proves every consumed export locally and leaves the depend
         for (const resolution of link.resolutions.values()) {
           assert(isLocalPackageResolution(resolution, canonical), resolution);
         }
-        const written = JSON.parse(await Deno.readTextFile(link.configPath));
+        const written = decodeWith(
+          LinkedConfigSchema,
+          await Deno.readTextFile(link.configPath),
+        );
         assertEquals(written.links, [canonical]);
         return 7;
       },
@@ -399,6 +415,7 @@ Deno.test("the local design-system helpers load no design-system module", async 
     const helper of [
       "scripts/local_design_system.ts",
       "scripts/site_local_design_system.ts",
+      "scripts/cli_local_design_system.ts",
     ]
   ) {
     const modules = await moduleSpecifiers(join(ROOT, helper));
@@ -413,5 +430,169 @@ Deno.test("the local design-system helpers load no design-system module", async 
       modules.includes(toFileUrl(join(ROOT, helper)).href),
       `${helper} graph was not read`,
     );
+  }
+});
+
+/** The task table each helper's permission flags are read from. */
+const DenoTasksSchema = z.object({ tasks: z.record(z.string(), z.string()) });
+
+Deno.test("each helper task's sandbox finds the main checkout and supervises a child", async () => {
+  // A helper runs under its task's own permission flags, not the test
+  // runner's. Git reports a denied environment read as a failed run rather
+  // than an exception, so the probe must return the lookup's value: a clean
+  // exit alone would hide a helper that cannot find its default checkout.
+  const expected = await mainRepoPath(ROOT);
+  assert(expected !== undefined);
+  const config = decodeWith(
+    DenoTasksSchema,
+    await Deno.readTextFile(join(ROOT, "deno.json")),
+  );
+  for (
+    const [task, entry] of [
+      ["site:design-system", "scripts/site_local_design_system.ts"],
+      ["cli:design-system", "scripts/cli_local_design_system.ts"],
+    ] as const
+  ) {
+    const invocation = denoRunInvocation(config.tasks[task] ?? "");
+    assertEquals(invocation?.entry, entry, task);
+    await withTempDir(async (dir) => {
+      const probe = join(dir, "probe.ts");
+      await Deno.writeTextFile(
+        probe,
+        [
+          `import { mainRepoPath } from ${
+            JSON.stringify(
+              toFileUrl(join(ROOT, "src/shared/main_repo.ts")).href,
+            )
+          };`,
+          `import { runOwnedChild } from ${
+            JSON.stringify(
+              toFileUrl(join(ROOT, "src/engine/owned_child.ts")).href,
+            )
+          };`,
+          `console.log(JSON.stringify(await mainRepoPath(${
+            JSON.stringify(ROOT)
+          })));`,
+          `const result = await runOwnedChild(Deno.execPath(), { args: ["eval", ""] });`,
+          "Deno.exit(result.status.code);",
+        ].join("\n"),
+      );
+      const output = await new Deno.Command(Deno.execPath(), {
+        args: [
+          "run",
+          "--config",
+          join(ROOT, "deno.json"),
+          ...(invocation?.permissionFlags ?? []),
+          probe,
+        ],
+        cwd: ROOT,
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      assertEquals(
+        output.success,
+        true,
+        new TextDecoder().decode(output.stderr),
+      );
+      assertEquals(
+        decodeWith(z.string(), new TextDecoder().decode(output.stdout)),
+        expected,
+        `${task} cannot find the main checkout under its own flags`,
+      );
+    });
+  }
+});
+
+Deno.test("CLI loop arguments name a checkout, a mode, and its operands", () => {
+  assertEquals(parseCliDesignSystemArgs(["check"]), {
+    mode: "check",
+    operands: [],
+  });
+  assertEquals(
+    parseCliDesignSystemArgs([
+      "--",
+      "--checkout",
+      "/work/kit",
+      "desk",
+      "--project",
+      "/tmp/sandbox/project",
+      "--",
+      "--theme",
+      "light",
+    ]),
+    {
+      checkout: "/work/kit",
+      mode: "desk",
+      project: "/tmp/sandbox/project",
+      operands: ["--theme", "light"],
+    },
+  );
+  assertEquals(
+    parseCliDesignSystemArgs(["test", "tests/a_test.ts", "tests/b_test.ts"])
+      .operands,
+    ["tests/a_test.ts", "tests/b_test.ts"],
+  );
+  for (
+    const [args, message] of [
+      [[], "choose a mode"],
+      [["serve"], "choose a mode"],
+      [["--checkout"], "--checkout needs a value"],
+      [["test"], "name the test files"],
+      [["capture", "a", "b"], "at most one output directory"],
+      [["check", "--watch"], "takes no options"],
+      [["desk", "--theme"], "after --"],
+    ] as const
+  ) {
+    assertThrows(() => parseCliDesignSystemArgs(args), TypeError, message);
+  }
+});
+
+Deno.test("every CLI loop child runs this source under the one linked config", () => {
+  const config = "/tmp/link/deno.json";
+  const deno = "/usr/local/bin/deno";
+  const main = join(ROOT, "src/main.ts");
+  const configsIn = (args: readonly string[]): string[] =>
+    args.flatMap((argument, index) =>
+      argument === "--config" ? [args[index + 1] ?? ""] : []
+    );
+  const plan = (args: readonly string[]) =>
+    cliDesignSystemCommand(parseCliDesignSystemArgs(args), config, deno);
+
+  const desk = plan(["desk", "--project", "/tmp/sandbox/project"]);
+  assertEquals(desk.args, ["run", "--config", config, "-A", main, "desk"]);
+  assertEquals(desk.cwd, "/tmp/sandbox/project");
+
+  const capture = plan(["capture", "/tmp/gallery"]);
+  assertEquals(capture.args.slice(0, 8), [
+    "run",
+    "--config",
+    config,
+    "-A",
+    main,
+    "queue",
+    "--",
+    deno,
+  ]);
+  assert(capture.args.includes(join(ROOT, "scripts/desk_capture.ts")));
+  assertEquals(configsIn(capture.args), [config, config, config]);
+
+  const test = plan(["test", "tests/engine_desk_live_test.ts"]);
+  assertEquals(test.args.slice(4, 7), [main, "queue", "--"]);
+  assert(test.args.includes(join(ROOT, "scripts/run_tests.ts")));
+  assertEquals(configsIn(test.args), [config, config, config]);
+  assertEquals(test.args.at(-1), "tests/engine_desk_live_test.ts");
+
+  const check = plan(["check"]);
+  assertEquals(check.args.slice(0, 3), ["check", "--config", config]);
+  assertEquals(
+    check.args.slice(3),
+    DESK_CHECK_TARGETS.map((target) => join(ROOT, target)),
+  );
+  assertEquals(plan(["check", "src/main.ts"]).args.slice(3), ["src/main.ts"]);
+});
+
+Deno.test("the default check targets exist", async () => {
+  for (const target of DESK_CHECK_TARGETS) {
+    await Deno.stat(join(ROOT, target));
   }
 });
