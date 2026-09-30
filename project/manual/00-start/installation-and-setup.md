@@ -23,17 +23,15 @@ aliases:
 
 # Install and set up discern
 
-By the end of this tutorial, every coding session in your project will start from your project's own instructions. Each task will get its own copy of the project, and a change will count as finished only when your project's own commands, such as its tests and linter, pass on it.
+By the end of this tutorial, every coding session in your project will start from your project's instructions. Each task will get its own copy of the project, and a change will count as finished only when your project's own commands, such as its tests and linter, pass on it.
 
-Your agent does most of the work. You install one program, answer the questions only you can answer, and review the setup before it lands on your shared branch. The [next tutorial](first-real-change.md) then takes you through a small change you can see.
+Your agent does most of the work, while you answer its questions and review the setup before it lands on your shared branch.
 
 ## Before you begin
 
-You need a project and a coding agent that discern supports: Claude Code, Codex, Gemini, Cursor, or GitHub Copilot. discern runs on macOS and Linux, and on Windows through WSL 2. It works through Git, so if your project folder isn't a Git repository yet, your agent asks before it creates one. [Platforms and providers](../30-reference/platforms-and-providers.md) lists the exact requirements.
+You need a project and a coding agent that discern supports: Claude Code, Codex, Gemini, Cursor, or GitHub Copilot. discern runs on macOS and Linux, and on Windows through WSL 2. If your project isn't in Git yet, your agent asks before it creates a repository. [Platforms and providers](../30-reference/platforms-and-providers.md) lists the requirements.
 
-Installing takes about a minute. Setup takes one working session, usually 20 to 40 minutes of agent time and a meaningful number of tokens. Your agent studies the project and writes what every later session will rely on, so use the strongest reasoning model you have for this step.
-
-Stay close at the start and at the end: your agent asks its questions first, does the technical work, and then brings the result back for your review. While it works, it asks only when it needs a decision from you.
+Installing takes about a minute. Setup usually takes 20 to 40 minutes of agent time and a meaningful number of tokens. Use the strongest reasoning model you have, because setup writes what every later session relies on.
 
 ## 1. Install discern
 
@@ -51,9 +49,7 @@ curl -fsSL https://discern.sh/install | sh
 
 <!-- /discern-workflow -->
 
-The installer downloads one program and verifies its checksum before installing it. It doesn't change your project, and your project doesn't need Deno or Node for discern.
-
-If the main download address isn't available, use the fallback installer:
+The installer verifies the program's checksum and doesn't change your project. If the main download address is down, use the fallback installer:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/discern-sh/discern/main/install.sh | sh
@@ -61,70 +57,58 @@ curl -fsSL https://raw.githubusercontent.com/discern-sh/discern/main/install.sh 
 
 ## 2. Ask your agent to set up the project
 
-Open a coding-agent session in your project and say:
+In a coding-agent session in your project, say:
 
 > "Set this project up with discern. Explain the choices I need to make, and show me what future sessions will inherit before we land the setup."
 
-Before it writes anything, your agent brings you a proposal. It names the model doing the setup, so you can switch to a stronger one before work begins. It suggests a name for the project, which coding tools to connect, and where task workspaces will live, and it gives the expected time and token cost.
-
-Answer in plain words: confirm the project name or correct it, and tell the agent anything important about the project that it has missed. Say your project is a reading-list app. You might add:
+Before it writes anything, your agent names its model, so you can switch to a stronger one first. It also proposes a project name, which coding tools to connect, and where task workspaces go. Answer in plain words, and add anything important it missed. Say your project is a reading-list app. You might add:
 
 > "This app helps people keep track of books they want to read. Keeping their saved lists safe matters more than adding new features quickly."
 
-For a routine choice the agent marks as safe to hand over, you can say "use your recommendation". Choices about cost, data, new dependencies, wider access, or rules for future work always need your own decision.
-
-Your go-ahead lets the agent set things up on a separate branch, and nothing lands until you decide at the end.
+When your agent offers to make a routine call for you, you can say "use your recommendation". Choices about cost, data, new dependencies, wider access, or rules for future work always need your decision.
 
 ## 3. Setup works on its own branch
 
-Your agent creates a branch called `discern-setup`, a separate line of work in Git, and works there, so your shared branch doesn't change until you land the setup.
+Once you give the go-ahead, your agent works on a branch called `discern-setup`, so your shared branch doesn't change until you land the setup.
 
-The agent studies the project and connects the commands your project already runs, such as its formatter, build, and test suite, to the **gate**: the commands every change must pass before it counts as finished. For the reading-list app, that might be its linter and the tests that check saved lists survive a restart. The agent also writes the project's instructions, a guide to how the project works called the **map**, and a list of deferred work. It saves its work in small commits and tells you what it has learned as it goes.
+Your agent connects the commands your project already runs, such as its build, linter, and tests, to the **gate**: the commands every change must pass before it counts as finished. It also writes the project's instructions, a list of deferred work, and the **map**, your project's guide to how it works, which your agents keep current.
 
-You don't need to watch every command. When a question needs you, the agent explains what's at stake and what it recommends, and when a test fails, the agent investigates it as part of setup. If progress stops, see [Setup and integrations](../40-troubleshooting/setup-and-integrations.md).
-
-If the session ends before setup finishes, open a new session and ask your agent to carry on with setup. discern records its progress, so finished steps aren't repeated.
+You don't need to watch every command. Your agent commits as it goes, investigates failing tests itself, and brings you only the decisions that need you. If the session ends early, ask a new one to carry on from setup's recorded progress. If progress stops, see [Setup and integrations](../40-troubleshooting/setup-and-integrations.md).
 
 ## 4. Setup proves itself
 
-Before it calls setup complete, your agent runs `discern setup done`. discern checks the setup and runs the full gate, both in your project folder and in a temporary **worktree**, a separate copy of the project created the way every future task's copy will be. Every future task runs in such a copy, so setup doesn't count as complete until the gate passes there too.
+Before it calls setup complete, your agent runs `discern setup done`. discern runs the full gate in your project folder and again in a temporary **worktree**, a separate copy of the project made the way every future task's copy will be. Setup isn't complete until the gate passes there too.
 
-When it passes, discern records **Proof**: a record of which of your project's commands passed on one exact commit, a saved version of the code. The agent's report ends with a line like this one, with your own branch details and counts:
+When it passes, discern records **Proof** of which commands passed on setup's exact commit. Your agent's report ends with a line like this:
 
 > **Proof:** Gate passed for `discern-setup` at `4561b231d9c4` · 26 files changed (+1758 −0) vs `main` · View the full Proof: `discern status --verbose`
 
-The code after `at` names the commit the commands ran on, the file count shows how much setup changed, and the last command shows the full record. The report also says which commands the gate now runs, and anything setup couldn't connect yet. Ask your agent to explain it in terms of your project.
-
-If the agent reports setup as **unproven**, this step isn't finished: the agent fixes what the report names and runs `discern setup done` again before setup can land.
+The report also lists the commands the gate now runs, and anything setup couldn't connect. If the report says setup is **unproven**, your agent fixes what it names and runs `discern setup done` again.
 
 ## 5. Review and land setup
 
-Check that the setup describes the project you want future agents to work on. Ask:
+Check that setup describes your project correctly. Ask:
 
-> "Walk me through the important setup changes. Show me where the project's purpose and working rules are recorded, explain what the tests and other checks can catch, and point out anything that still needs attention."
+> "Walk me through the important setup changes. Show me where you recorded the project's purpose and rules, what the tests can catch, and anything that still needs attention."
 
-Read the short instructions and the start of the map, looking for mistakes about the project's purpose, priorities, or assumptions. For the reading-list app, the instructions should say what you told the agent: keeping saved lists safe comes before new features. [After setup](after-setup.md) explains what each new file does. If you review code, ask the agent to point out changes to existing tests, settings, or app files.
+Read the instructions and the start of the map for mistakes about the project's purpose or priorities. For the reading-list app, the instructions should say that keeping saved lists safe comes first. [After setup](after-setup.md) explains each new file. If you review code, ask which existing files setup changed.
 
-If something is wrong or unclear, ask for a fix. The agent runs `discern setup done` again, because the earlier Proof covered different files.
-
-When you're happy with it, say:
+If something is wrong, ask for a fix. Your agent runs `discern setup done` again, because the earlier Proof covered different files. When you're happy with it, say:
 
 > "Land the setup."
 
-Your agent runs `discern setup accept`, which checks the Proof and moves the setup onto your shared branch. If you'd like to see what it will do first, ask for a preview: the agent runs `discern setup accept --dry-run`, which changes nothing. You can also leave the branch for later review.
+Your agent runs `discern setup accept`, which checks the Proof and moves the setup onto your shared branch. You can ask for a preview first, or leave the branch for later review.
 
 ## 6. Restart your agent
 
-Open a fresh session in your project. Coding tools load instructions and tools when a session starts, so a fresh session is the real test of what setup prepared. Ask:
+Coding tools load instructions and tools when a session starts, so open a fresh one and ask:
 
 > "Check that discern is active in this session, and summarize the project instructions you loaded."
 
-When setup lands, the agent's report names the exact check for your coding tool: the new agent calls one of discern's tools, such as `discern_status`, and confirms it answers. Files on disk don't prove that a session can use them, so this step checks the running session. For the reading-list app, the summary should say that saved lists come first.
-
-If the tool is missing, follow the recovery steps the landing report gives for your tool, or ask your agent to check the installation: it runs `discern doctor`, which changes nothing. [Connect a coding agent](../20-guides/connect-a-coding-agent.md) has more detail.
+The landing report names the check for your coding tool, such as calling `discern_status` and confirming it answers. For the reading-list app, the summary should say that saved lists come first. If the tool is missing, follow the report's recovery steps, or ask your agent to run `discern doctor`, which changes nothing. [Connect a coding agent](../20-guides/connect-a-coding-agent.md) has more detail.
 
 ## What you now have
 
-Setup is on your shared branch, its gate passes, and a fresh session can use discern. Every later session starts from the instructions and map your agent wrote, so the app's priorities reach every agent without you repeating them. Your agents keep those files current as the project changes.
+Setup is on your shared branch, its gate passes, and a fresh session can use discern. Every later session starts from the instructions and map your agent wrote, so you don't have to repeat your priorities.
 
-Next, [make and review your first change](first-real-change.md). It uses a small change you can see, and shows how your own review fits with the Proof your agent brings back.
+Next, [make and review your first change](first-real-change.md), a small one you can see.
