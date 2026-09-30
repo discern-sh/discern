@@ -2,6 +2,7 @@
 
 import { captureTerminalFrame } from "discern-design-system/cli/interactive/testing";
 import { dirname, join } from "@std/path";
+import { assertChildDesignSystemGraph } from "../../scripts/local_design_system.ts";
 import { ensureDir } from "@std/fs";
 import {
   projectTerminalHtml,
@@ -240,12 +241,13 @@ export async function captureDiscernCommand(
 export function terminalCaptureCompileArguments(
   repoRoot: string,
   destination: string,
+  config: string = join(repoRoot, "deno.json"),
 ): string[] {
   return [
     "compile",
     "--cached-only",
     "--config",
-    join(repoRoot, "deno.json"),
+    config,
     "--node-modules-dir=none",
     "-A",
     "--output",
@@ -254,14 +256,21 @@ export function terminalCaptureCompileArguments(
   ];
 }
 
-/** Compile the current checkout into the binary whose product output is captured. */
+/**
+ * Compile the current checkout into the binary whose product output is
+ * captured. The binary must render with the same design-system build this
+ * process projects its screens with, so a linked config is refused unless this
+ * process runs under it too.
+ */
 export async function compileDiscernCaptureBinary(
   repoRoot: string,
   destination: string,
+  config: string = join(repoRoot, "deno.json"),
 ): Promise<void> {
+  assertChildDesignSystemGraph(config);
   await ensureDir(dirname(destination));
   const result = await new Deno.Command(Deno.execPath(), {
-    args: terminalCaptureCompileArguments(repoRoot, destination),
+    args: terminalCaptureCompileArguments(repoRoot, destination, config),
     cwd: repoRoot,
     env: { DENO_NO_UPDATE_CHECK: "1" },
     stdout: "piped",

@@ -47,6 +47,7 @@ import { withoutDeskSessionEnv } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { assertChildDesignSystemGraph } from "../scripts/local_design_system.ts";
 import {
   readDirIfExists,
   readTextIfExists,
@@ -157,6 +158,16 @@ const WORKTREE_CORE_HARNESS = join(
   "worktree_core_harness.ts",
 );
 
+/** How one repository-source subprocess resolves its dependencies. */
+export interface SourceRunOptions {
+  /**
+   * Deno config for the child, defaulting to the committed repository config.
+   * A local design-system loop passes its temporary linked config here; the
+   * child must load the same design-system build as this process.
+   */
+  readonly config?: string;
+}
+
 /**
  * Build the argv for one repository-source subprocess. Deno's own dependency
  * and lock diagnostics are launcher noise, not program output; `--quiet`
@@ -165,11 +176,14 @@ const WORKTREE_CORE_HARNESS = join(
 export function repoSourceRunArgs(
   entrypoint: string,
   args: readonly string[],
+  options: SourceRunOptions = {},
 ): string[] {
+  const config = options.config ?? DENO_JSON;
+  assertChildDesignSystemGraph(config);
   return quietDenoRunArgs([
     "--no-check",
     "--config",
-    DENO_JSON,
+    config,
     "-A",
     entrypoint,
     ...args,
@@ -177,8 +191,11 @@ export function repoSourceRunArgs(
 }
 
 /** Build the one canonical argv for a source-engine subprocess. */
-export function engineRunArgs(args: readonly string[]): string[] {
-  return repoSourceRunArgs(MAIN_TS, args);
+export function engineRunArgs(
+  args: readonly string[],
+  options: SourceRunOptions = {},
+): string[] {
+  return repoSourceRunArgs(MAIN_TS, args, options);
 }
 
 /** One path inside the fresh map default, derived from the path registry. */

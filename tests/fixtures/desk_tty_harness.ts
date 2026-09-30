@@ -726,6 +726,11 @@ export async function runDeskTty(
     readonly input: readonly DeskTtyInputPhase[];
     readonly env?: Readonly<Record<string, string>>;
     readonly timeoutMs?: number;
+    /**
+     * Deno config for the harness child and the Desk it launches; both share
+     * it, so a local design-system loop never mixes package builds.
+     */
+    readonly config?: string;
   },
 ): Promise<DeskTtyRunResult> {
   assertGeometry(options.geometry);
@@ -813,21 +818,13 @@ export async function runDeskTty(
     };
   });
 
-    const targetArgs = [
-    "desk",
-    ...(colorMode === "color" ? ["--theme", options.theme ?? "dark"] : []),
-    ...(colorMode === "no-color-flag" ? ["--no-color"] : []),
-  ];
-    const childArgs = [
-    "--child",
-    "--result",
-    resultPath,
-    "--resize-dir",
-    resizeDir,
-    "--",
-    Deno.execPath(),
-    ...engineRunArgs(targetArgs),
-  ];
+    const launch = deskTtyLaunchArgs({
+      colorMode,
+      theme: options.theme ?? "dark",
+      resultPath,
+      resizeDir,
+      ...(options.config === undefined ? {} : { config: options.config }),
+    });
     const colorEnv = colorMode === "color"
     ? { NO_COLOR: "", FORCE_COLOR: "1" }
     : colorMode === "no-color-env"
@@ -835,7 +832,7 @@ export async function runDeskTty(
     : { NO_COLOR: "", FORCE_COLOR: "" };
     const process = await runPtyProcess({
       command: Deno.execPath(),
-      args: repoSourceRunArgs(HARNESS_PATH, childArgs),
+      args: launch,
       cwd: project.root,
       env: await engineEnv({
         TERM: "xterm-256color",
@@ -885,6 +882,38 @@ export async function runDeskTty(
       },
     };
   }, { parent: project.parent, prefix: "desk-session-" });
+}
+
+/**
+ * The argv that starts the child-side sentinel, which in turn runs the source
+ * Desk. Both processes receive the same Deno config, so a local design-system
+ * loop can never pair a sentinel on one package build with a Desk on another.
+ */
+export function deskTtyLaunchArgs(options: {
+  readonly colorMode: DeskTtyColorMode;
+  readonly theme: "light" | "dark";
+  readonly resultPath: string;
+  readonly resizeDir: string;
+  readonly config?: string;
+}): string[] {
+  const source = options.config === undefined
+    ? {}
+    : { config: options.config };
+  const targetArgs = [
+    "desk",
+    ...(options.colorMode === "color" ? ["--theme", options.theme] : []),
+    ...(options.colorMode === "no-color-flag" ? ["--no-color"] : []),
+  ];
+  return repoSourceRunArgs(HARNESS_PATH, [
+    "--child",
+    "--result",
+    options.resultPath,
+    "--resize-dir",
+    options.resizeDir,
+    "--",
+    Deno.execPath(),
+    ...engineRunArgs(targetArgs, source),
+  ], source);
 }
 
 function assertGeometry(geometry: PtyGeometry): void {

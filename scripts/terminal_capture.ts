@@ -30,6 +30,7 @@ interface CaptureTaskOptions {
   readonly theme: "dark" | "light";
   readonly script?: string | undefined;
   readonly keyframe?: string | undefined;
+  readonly config?: string | undefined;
 }
 
 export const TERMINAL_REVIEW_GUIDE =
@@ -54,6 +55,9 @@ Options:
   --theme <dark|light>              HTML background theme (default: dark)
   --script <path>                   JSON readiness/input phases for an interactive capture
   --keyframe <name>                 Render one named frame captured by --script
+  --config <path>                   Deno config for the captured binary; a linked
+                                    design-system config needs this task to run
+                                    under the same config
 
 With no arguments after --, <name> is the Discern verb. Use "help" for root
 --help. Artifacts default to .scratch/terminal-captures/.
@@ -77,7 +81,7 @@ function artifactName(name: string): string {
 }
 
 /** Parse the small dev-task interface without involving the product CLI. */
-function parseOptions(args: readonly string[]): CaptureTaskOptions {
+export function parseOptions(args: readonly string[]): CaptureTaskOptions {
   if (args.length === 0 || args.includes("--help")) {
     console.log(HELP.trimEnd());
     Deno.exit(args.length === 0 ? 1 : 0);
@@ -97,6 +101,7 @@ function parseOptions(args: readonly string[]): CaptureTaskOptions {
   let theme: "dark" | "light" = "dark";
   let script: string | undefined;
   let keyframe: string | undefined;
+  let config: string | undefined;
   for (let at = 1; at < taskArgs.length; at += 1) {
     const arg = taskArgs[at];
     switch (arg) {
@@ -141,6 +146,10 @@ function parseOptions(args: readonly string[]): CaptureTaskOptions {
         keyframe = optionValue(taskArgs, at);
         at += 1;
         break;
+      case "--config":
+        config = resolve(optionValue(taskArgs, at));
+        at += 1;
+        break;
       default:
         throw new TypeError(`unknown terminal capture option: ${arg}`);
     }
@@ -174,6 +183,7 @@ function parseOptions(args: readonly string[]): CaptureTaskOptions {
     theme,
     ...(script === undefined ? {} : { script }),
     ...(keyframe === undefined ? {} : { keyframe }),
+    ...(config === undefined ? {} : { config }),
   };
 }
 
@@ -297,7 +307,11 @@ async function main(args: readonly string[]): Promise<void> {
       temp,
       Deno.build.os === "windows" ? "discern.exe" : "discern",
     );
-    await compileDiscernCaptureBinary(REPO_ROOT, executable);
+    await compileDiscernCaptureBinary(
+      REPO_ROOT,
+      executable,
+      options.config,
+    );
     const input = options.script === undefined
       ? undefined
       : await readInputScript(options.script);

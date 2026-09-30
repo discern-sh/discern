@@ -21,6 +21,7 @@ import {
   withDeskTtyProject,
 } from "../tests/fixtures/desk_tty_harness.ts";
 import type { PtyGeometry } from "../tests/fixtures/pty_process.ts";
+import { assertChildDesignSystemGraph } from "./local_design_system.ts";
 
 /** Observe a complete named state before sending its next key sequence. */
 function phase(
@@ -53,16 +54,54 @@ function declaredFrames(input: readonly DeskTtyInputPhase[]): string[] {
   );
 }
 
+/** Where the gallery writes, and the Deno config every captured Desk runs under. */
+export interface DeskGalleryTarget {
+  readonly directory: string;
+  /** A linked design-system config; this process must run under it too. */
+  readonly config?: string;
+}
+
+/** Read `[<output directory>] [--config <deno.json>]`. */
+export function parseDeskCaptureArgs(
+  args: readonly string[],
+): DeskGalleryTarget {
+  let directory: string | undefined;
+  let config: string | undefined;
+  for (let at = 0; at < args.length; at += 1) {
+    const argument = args[at] ?? "";
+    if (argument === "--config") {
+      const value = args[at + 1];
+      if (value === undefined || value.startsWith("-")) {
+        throw new TypeError("--config needs a Deno config path");
+      }
+      config = resolve(value);
+      at += 1;
+    } else if (argument.startsWith("-")) {
+      throw new TypeError(`unknown desk capture option: ${argument}`);
+    } else if (directory === undefined) {
+      directory = argument;
+    } else {
+      throw new TypeError("pass at most one output directory");
+    }
+  }
+  return {
+    directory: resolve(directory ?? ".scratch/desk-review"),
+    ...(config === undefined ? {} : { config }),
+  };
+}
+
 /** Capture a production journey and keep per-viewport evidence, never stitched scrollback. */
 async function capture(
   project: DeskTtyProject,
-  directory: string,
+  target: DeskGalleryTarget,
   name: string,
   geometry: PtyGeometry,
   input: readonly DeskTtyInputPhase[],
 ): Promise<string[]> {
+  const { directory } = target;
   const plain = geometry.columns === 40;
   const result = await runDeskTty(project, {
+    ...(target.config === undefined ? {} : { config: target.config }),
     geometry,
     input,
     colorMode: plain ? "no-color-env" : "color",
@@ -113,7 +152,9 @@ async function capture(
 
 /** Produce the bounded review gallery without asserting current pixels as expected output. */
 async function main(): Promise<void> {
-  const directory = resolve(Deno.args[0] ?? ".scratch/desk-review");
+  const target = parseDeskCaptureArgs(Deno.args);
+  if (target.config !== undefined) assertChildDesignSystemGraph(target.config);
+  const { directory } = target;
   await Deno.mkdir(directory, { recursive: true });
   const artifacts: string[] = [];
   await withRealPtyBoundary({
@@ -182,7 +223,7 @@ async function main(): Promise<void> {
           artifacts.push(
             ...await capture(
               project,
-              directory,
+              target,
               empty ? "empty" : "fleet",
               geometry,
               input,
@@ -191,7 +232,7 @@ async function main(): Promise<void> {
         }
         if (empty) {
           artifacts.push(
-            ...await capture(project, directory, "manual", {
+            ...await capture(project, target, "manual", {
               columns: 80,
               rows: 24,
             }, [
@@ -226,7 +267,7 @@ async function main(): Promise<void> {
           return;
         }
         artifacts.push(
-          ...await capture(project, directory, "failure", {
+          ...await capture(project, target, "failure", {
             columns: 80,
             rows: 24,
           }, [
@@ -241,7 +282,7 @@ async function main(): Promise<void> {
           ]),
         );
         artifacts.push(
-          ...await capture(project, directory, "missing-proof", {
+          ...await capture(project, target, "missing-proof", {
             columns: 80,
             rows: 24,
           }, [
@@ -267,7 +308,7 @@ async function main(): Promise<void> {
           ]
         ) {
           artifacts.push(
-            ...await capture(project, directory, "review", geometry, [
+            ...await capture(project, target, "review", geometry, [
               phase("overview", ["Tasks (16)", "/ find"], "\r"),
               phase(
                 "controls",
@@ -308,7 +349,7 @@ async function main(): Promise<void> {
       deskFleetFixture([deskFleetEntry("drop-review-a1b2c3")]),
       async (project) => {
         artifacts.push(
-          ...await capture(project, directory, "drop", {
+          ...await capture(project, target, "drop", {
             columns: 80,
             rows: 24,
           }, [
