@@ -247,7 +247,7 @@ Deno.test("discern checkpoint policy: checkpoint cases", () => {
       );
       assertFalse(Object.hasOwn(CONFIG.checkpoints, "map-conventions"));
     },
-    "test execution checkpoint selects authored tests while leaving inert fixtures outside review":
+    "test execution checkpoint delegates fixture reachability to its when selector":
       () => {
         const definition = checkpoint("test-execution-cost");
         assertEquals(definition.mode, "stop");
@@ -258,7 +258,7 @@ Deno.test("discern checkpoint policy: checkpoint cases", () => {
           const [path, holds] of [
             ["tests/fresh_test.ts", true],
             ["tests/nested/fresh_helper.ts", true],
-            ["tests/fixtures/inert.ts", false],
+            ["tests/fixtures/runtime_helper.ts", true],
             ["src/fresh.ts", false],
           ] as const
         ) {

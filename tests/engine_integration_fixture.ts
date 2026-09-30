@@ -14,6 +14,7 @@ type CountedInstallCase = readonly [
  * Own the counter outside the copied checkout for the whole named journey.
  * Every step awaits its real producers, then removes their counter even on
  * failure. The next case must observe absence before driving its own copy.
+ * Select this helper using project/map/80-development/test-execution-review.md.
  */
 export async function withCountedPristineInstalls(
   t: Deno.TestContext,

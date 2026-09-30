@@ -121,6 +121,84 @@ async function example() { await using client = await spawnMcp(dir); }`,
         true,
       );
     },
+    "test cost recognizes in-process surveys and gate results": () => {
+      for (
+        const [module, name] of [
+          ["status/status", "statusResult"],
+          ["gate/prepare", "prepareResult"],
+          ["gate/test_job", "testResult"],
+        ]
+      ) {
+        const imports =
+          `import { ${name} as observe } from "../src/engine/${module}.ts";`;
+        assertEquals(
+          selected(imports, `${imports} await observe(dir);`),
+          true,
+          name,
+        );
+      }
+    },
+    "call-count adapters and callable aliases retain their expensive boundary":
+      () => {
+        const base = `${IMPORT}
+import { countedCalls } from "./counted_calls.ts";
+const wrapped = countedCalls(invoke);
+const observe = wrapped.run;`;
+        assertEquals(selected(base, `${base} await observe(dir);`), true);
+        assertEquals(selected(base, `${base} await wrapped.run(dir);`), true);
+        assertEquals(
+          selected(base, `${base} const alias = observe; await alias(dir);`),
+          true,
+        );
+      },
+    "test cost follows expensive named callbacks in pristine pools": () => {
+      for (
+        const [module, name] of [
+          ["engine_surface_fixture", "withPristineInstalls"],
+          ["engine_integration_fixture", "withCountedPristineInstalls"],
+        ]
+      ) {
+        const source = (entries: string): string =>
+          `${IMPORT}
+import { ${name} as pool } from "./${module}.ts";
+async function scenario() { ${CALL} }
+async function cheap() { assertEquals(1, 1); }
+const cases = [${entries}] as const;
+await pool(t, cheap, cases);`;
+        const one = '["first", scenario]';
+        assertEquals(
+          selected(source(one), source(`${one}, ["second", scenario]`)),
+          true,
+          name,
+        );
+        assertEquals(
+          selected(source(one), source(`${one}, ["cheap", cheap]`)),
+          false,
+          name,
+        );
+        assertEquals(
+          selected(source(`${one}, ["second", scenario]`), source(one)),
+          false,
+          name,
+        );
+        assertEquals(
+          selected(source(one), source('["renamed", scenario]')),
+          false,
+          name,
+        );
+        // One expensive seed with assertion-only cases stays one seed as cases grow.
+        const seed = (entries: string): string =>
+          source(entries).replace(
+            "pool(t, cheap, cases)",
+            "pool(t, scenario, cases)",
+          );
+        assertEquals(
+          selected(seed('["a", cheap]'), seed('["a", cheap], ["b", cheap]')),
+          false,
+          name,
+        );
+      }
+    },
     "test cost follows fixture wrappers, namespace imports, and re-exports":
       () => {
         const extra = [
@@ -250,6 +328,79 @@ Deno.test("test cost refreshes unchanged callers when dependencies change", () =
   }
 });
 
+Deno.test("test cost enrolls runtime fixture dependencies and reports the changed cause", () => {
+  const fixturePath = "tests/fixtures/cases.ts";
+  const fixture = (text: string): TestExecutionSource => ({
+    path: fixturePath,
+    text,
+  });
+  const source = {
+    path: PATH,
+    text: `${IMPORT}
+import { cases } from "./fixtures/cases.ts";
+for (const entry of cases) { ${CALL} }`,
+  };
+  const before = [source, fixture("export const cases = [1];")];
+  const after = [source, fixture("export const cases = [1, 2];")];
+  assertEquals(
+    testExecutionGrowth(before, after, new Set([fixturePath])).map(({ path }) =>
+      path
+    ),
+    [fixturePath],
+  );
+  assertEquals(testExecutionGrowth(after, before, new Set([fixturePath])), []);
+  for (
+    const text of [
+      'import type { cases } from "./fixtures/cases.ts";',
+      'const path = "./fixtures/cases.ts";',
+    ]
+  ) {
+    const inert = { path: PATH, text };
+    assertEquals(
+      testExecutionGrowth(
+        [inert],
+        [inert, fixture("function {")],
+        new Set([fixturePath]),
+      ),
+      [],
+    );
+  }
+  for (
+    const text of [
+      'export { cases } from "./fixtures/cases.ts";',
+      'await import("./fixtures/cases.ts");',
+    ]
+  ) {
+    const runtime = { path: PATH, text };
+    assertThrows(
+      () =>
+        testExecutionGrowth(
+          [runtime],
+          [runtime, fixture("function {")],
+          new Set([fixturePath]),
+        ),
+      Error,
+      "cannot parse",
+    );
+  }
+});
+
+Deno.test("incidental dependency edits do not inherit an independently changed caller's growth", () => {
+  const helper = { path: "tests/helper.ts", text: "export const value = 1;" };
+  const before = {
+    path: PATH,
+    text: `${IMPORT} import { value } from "./helper.ts"; ${CALL}`,
+  };
+  const after = { ...before, text: before.text + CALL };
+  assertEquals(
+    testExecutionGrowth([before, helper], [after, {
+      ...helper,
+      text: helper.text + " // explanation",
+    }], new Set([PATH, helper.path])).map(({ path }) => path),
+    [PATH],
+  );
+});
+
 Deno.test("test cost rejects malformed sources outside the changed subjects", () => {
   const subject = { path: PATH, text: `${IMPORT} ${CALL}` };
   const malformed = { path: "tests/unrelated.ts", text: "function {" };
@@ -305,12 +456,18 @@ Deno.test("test cost counts hand-rolled engine spawns through the invocation bui
 
 Deno.test("test cost host reads committed and dirty candidate bytes without running the fixture", async () => {
   await withTempDir(async (dir) => {
-    await Deno.mkdir(`${dir}/tests`);
+    await Deno.mkdir(`${dir}/tests/fixtures`, { recursive: true });
+    const helperPath = "tests/fixtures/helper.ts";
+    const helper = "export async function ready() {}";
+    await Deno.writeTextFile(`${dir}/${helperPath}`, helper);
     await Deno.writeTextFile(`${dir}/${PATH}`, IMPORT);
     await gitInit(dir);
     const commit = await gitOut(dir, "rev-parse", "HEAD");
     const before = await committedExecutionSources(dir, commit);
-    assertEquals(before, [{ path: PATH, text: IMPORT }]);
+    assertEquals(before, [{ path: PATH, text: IMPORT }, {
+      path: helperPath,
+      text: helper,
+    }]);
     await Deno.writeTextFile(
       `${dir}/${PATH}`,
       `${IMPORT} async function example() { ${CALL} }`,
@@ -341,6 +498,28 @@ Deno.test("test cost host reads committed and dirty candidate bytes without runn
     await Deno.writeTextFile(`${dir}/${PATH}`, IMPORT);
     assertEquals((await runMatcher(dir, input)).code, 10);
     assertEquals((await runMatcher(dir, {})).code, 1);
+    await Deno.writeTextFile(
+      `${dir}/${PATH}`,
+      'import { ready } from "./fixtures/helper.ts"; await ready();',
+    );
+    await Deno.writeTextFile(
+      `${dir}/${helperPath}`,
+      'import { runAgent } from "../engine_helpers.ts"; export async function ready() { await runAgent(dir, ["done"]); }',
+    );
+    assertEquals(
+      (await matchingExecutionChanges(dir, {
+        ...input,
+        changed_files: [...input.changed_files, {
+          ...input.changed_files[0],
+          path: helperPath,
+          kind: "modified",
+          insertions: 1,
+          deletions: 1,
+          binary: false,
+        }],
+      })).map(({ path }) => path),
+      [PATH, helperPath],
+    );
     await Deno.remove(`${dir}/${PATH}`);
     assertEquals(
       await matchingExecutionChanges(dir, {

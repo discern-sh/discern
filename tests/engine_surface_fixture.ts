@@ -1,7 +1,7 @@
 /**
  * Pool same-prefix subprocess cases onto pristine copies of ONE scaffolded
- * install. The subprocess scaffold (`setup begin` and its follow-ups) that every
- * case used to repeat runs once per top-level test; each case then edits and
+ * install. The subprocess scaffold (`setup begin` and its follow-ups) runs once
+ * per top-level test; each case then edits and
  * asserts its own untouched copy, so no case can observe another's writes and
  * the copy count, not the scaffold count, grows with the case count.
  *
@@ -30,6 +30,7 @@ export type PooledInstallCase = readonly [
  * a fresh copy of it. Steps run in sequence under the parent test's temp
  * directory. Each step removes its copy and sibling worktrees before the next
  * step starts, and keeps its original name in the failure report.
+ * Select this helper using project/map/80-development/test-execution-review.md.
  */
 export async function withPristineInstalls(
   t: Deno.TestContext,

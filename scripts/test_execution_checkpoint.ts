@@ -24,10 +24,9 @@ export const TEST_EXECUTION_CHECKPOINT_ID = "test-execution-cost";
 const MAX_BYTES = 32 * 1024 * 1024;
 const MAX_FILES = 2_048;
 
-/** Executable test modules and helpers; inert fixtures are not review subjects. */
+/** Candidate test sources; runtime reachability separates helpers from specimens. */
 function isExecutionSource(path: string): boolean {
-  return path.startsWith("tests/") && path.endsWith(".ts") &&
-    !path.startsWith("tests/fixtures/");
+  return path.startsWith("tests/") && path.endsWith(".ts");
 }
 
 /** Read bounded Git bytes through the shared isolated capability. */

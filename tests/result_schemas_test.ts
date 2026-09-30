@@ -73,7 +73,8 @@ import {
 } from "../src/shared/result_contracts.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
-import { testResult } from "../src/engine/gate/test_job.ts";
+import { countedCalls } from "./counted_calls.ts";
+import { testResult as rawTestResult } from "../src/engine/gate/test_job.ts";
 import { standardsResult } from "../src/engine/gate/standards.ts";
 import { standardsProposeResult } from "../src/engine/gate/standard_proposals.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
@@ -1157,6 +1158,9 @@ const DONE_FAITHFULNESS_CASE = defineFaithfulnessCase(
   });
 });
 
+const testCalls = countedCalls(rawTestResult);
+const testResult = testCalls.run;
+
 const PREPARE_TEST_FAITHFULNESS_CASE = defineFaithfulnessCase(
   "prepare/test results are faithful (clean and failing)",
   ["prepare", "test"],
@@ -1170,17 +1174,19 @@ const PREPARE_TEST_FAITHFULNESS_CASE = defineFaithfulnessCase(
       await prepareResult(dir),
       "prepare clean public schema",
     );
-    const unconfigured = await testResult(dir);
-    expectValid(
-      DatalessEnvelopeSchema,
-      unconfigured,
-      "test unconfigured",
-    );
-    expectFaithful(
-      "test",
-      unconfigured,
-      "test unconfigured public schema",
-    );
+    await testCalls.expectCalls(1, async () => {
+      const unconfigured = await testResult(dir);
+      expectValid(
+        DatalessEnvelopeSchema,
+        unconfigured,
+        "test unconfigured",
+      );
+      expectFaithful(
+        "test",
+        unconfigured,
+        "test unconfigured public schema",
+      );
+    });
 
     await writeConfig(
       dir,

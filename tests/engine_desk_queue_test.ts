@@ -11,7 +11,7 @@ import {
   FakeTerminalIO,
 } from "discern-design-system/cli/interactive/testing";
 import type { DeskReading } from "../src/engine/desk/reading.ts";
-import { statusResult } from "../src/engine/status/status.ts";
+import { statusResult as rawStatusResult } from "../src/engine/status/status.ts";
 import type { StatusData } from "../src/shared/result_schemas.ts";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
 import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
@@ -31,6 +31,10 @@ import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { waitForPendingCondition } from "./waiting.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { countedCalls } from "./counted_calls.ts";
+
+const statusCalls = countedCalls(rawStatusResult);
+const statusResult = statusCalls.run;
 
 /** Replace only human input; the survey, plans, grants and all effects are production. */
 async function action(
@@ -39,41 +43,45 @@ async function action(
   action: DeskAction,
   review?: (request: DeskReading) => Promise<boolean>,
 ): Promise<void> {
-  let data: StatusData | undefined;
-  const choices = [path, action, "\x00back", "\x00quit"];
-  const select = (): string => choices.shift() ?? "\x00quit";
-  const code = await runDesk({ cliModel: TEST_CLI_MODEL }, {
-    canInteract: () => true,
-    inDeskSession: () => false,
-    findRoot: () => root,
-    status: async (path) => {
-      const result = await statusResult(path, { all: true });
-      if (result.data) data = result.data;
-      return result;
-    },
-    application: (options) =>
-      scriptedDeskEffects(options, select, () => {
-        assert(
-          data !== undefined,
-          "Desk must survey before displaying actions",
-        );
-        return data;
-      }, () => {}),
-    select,
-    screen: async (request) => {
-      const apply = request.confirmation !== undefined &&
-        (await review?.(request) ?? true);
-      const keys = request.confirmation === undefined
-        ? encodeTerminalKeys("escape")
-        : apply
-        ? encodeTerminalKeys("tab", "down", "enter")
-        : encodeTerminalKeys("tab", "enter");
-      const io = new FakeTerminalIO([keys], { columns: 80, rows: 24 });
-      return await readDeskScreen(request, { io, interactive: () => true });
-    },
-    pause: () => {},
+  let requestedSurveys = 0;
+  await statusCalls.expectCalls(() => requestedSurveys, async () => {
+    let data: StatusData | undefined;
+    const choices = [path, action, "\x00back", "\x00quit"];
+    const select = (): string => choices.shift() ?? "\x00quit";
+    const code = await runDesk({ cliModel: TEST_CLI_MODEL }, {
+      canInteract: () => true,
+      inDeskSession: () => false,
+      findRoot: () => root,
+      status: async (path) => {
+        requestedSurveys++;
+        const result = await statusResult(path, { all: true });
+        if (result.data) data = result.data;
+        return result;
+      },
+      application: (options) =>
+        scriptedDeskEffects(options, select, () => {
+          assert(
+            data !== undefined,
+            "Desk must survey before displaying actions",
+          );
+          return data;
+        }, () => {}),
+      select,
+      screen: async (request) => {
+        const apply = request.confirmation !== undefined &&
+          (await review?.(request) ?? true);
+        const keys = request.confirmation === undefined
+          ? encodeTerminalKeys("escape")
+          : apply
+          ? encodeTerminalKeys("tab", "down", "enter")
+          : encodeTerminalKeys("tab", "enter");
+        const io = new FakeTerminalIO([keys], { columns: 80, rows: 24 });
+        return await readDeskScreen(request, { io, interactive: () => true });
+      },
+      pause: () => {},
+    });
+    assertEquals(code, 0);
   });
-  assertEquals(code, 0);
 }
 
 Deno.test("Desk queues idle proven efforts, preserves grants and producer counts, and Accept walks them", async () => {

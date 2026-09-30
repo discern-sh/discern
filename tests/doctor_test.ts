@@ -22,7 +22,7 @@ import { measureText, stripAnsi } from "discern-design-system/cli";
 import {
   assertTerminalTextIncludes,
   fakeEnv,
-  runCli,
+  runCli as rawRunCli,
   unexpectedTerminalControls,
   withTempDir,
 } from "./helpers.ts";
@@ -71,6 +71,10 @@ import {
 import { withPristineInstalls } from "./engine_surface_fixture.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { countedCalls } from "./counted_calls.ts";
+
+const cliCalls = countedCalls(rawRunCli);
+const runCli = cliCalls.run;
 
 const DOCTOR_DIAGNOSTIC_ROUND_TRIP_SCHEMA = z.object({
   name: z.string(),
@@ -1129,25 +1133,26 @@ Deno.test("doctor schema, job, and command-probe checks run over pristine copies
     ],
     [
       "doctor: explicitly inapplicable lifecycles do not trigger a known-job warning",
-      async (dir) => {
-        await removeTidyFormatJob(dir, true);
-        const path = join(dir, "discern.toml");
-        const editor = new TomlEditor(await Deno.readTextFile(path));
-        const knownJobNames = Object.keys(KNOWN_JOBS);
-        editor.setStringArray("setup.not_applicable", knownJobNames);
-        await writeDiscernToml(path, editor.toString());
-        assertEquals(
-          (await loadConfig(dir)).setup.not_applicable,
-          knownJobNames,
-        );
+      (dir) =>
+        cliCalls.expectCalls(0, async () => {
+          await removeTidyFormatJob(dir, true);
+          const path = join(dir, "discern.toml");
+          const editor = new TomlEditor(await Deno.readTextFile(path));
+          const knownJobNames = Object.keys(KNOWN_JOBS);
+          editor.setStringArray("setup.not_applicable", knownJobNames);
+          await writeDiscernToml(path, editor.toString());
+          assertEquals(
+            (await loadConfig(dir)).setup.not_applicable,
+            knownJobNames,
+          );
 
-        const { code, payload } = await runDoctorJson(dir);
-        assertEquals(code, 0, JSON.stringify(payload.data.checks));
-        const jobs = check(payload, "known jobs");
-        assertEquals(jobs.status, "ok");
-        assertEquals(jobs.warn, undefined);
-        assertStringIncludes(jobs.detail, "no known jobs apply");
-      },
+          const { code, payload } = await runDoctorJson(dir);
+          assertEquals(code, 0, JSON.stringify(payload.data.checks));
+          const jobs = check(payload, "known jobs");
+          assertEquals(jobs.status, "ok");
+          assertEquals(jobs.warn, undefined);
+          assertStringIncludes(jobs.detail, "no known jobs apply");
+        }),
     ],
     [
       "doctor: missing tidy fails during setup but is informational after bootstrap",
