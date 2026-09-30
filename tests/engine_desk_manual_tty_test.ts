@@ -6,8 +6,17 @@ import { ptyOutputContains, runPtyProcess } from "./fixtures/pty_process.ts";
 import { APPLICATION_FIXTURE_ROOT } from "./fixtures/terminal_application_capture.ts";
 import { realPtyTest } from "./real_pty.ts";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  gitInit,
+  repoSourceRunArgs,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+
+const MANUAL_PROCESS = join(
+  APPLICATION_FIXTURE_ROOT,
+  "tests/fixtures/desk_manual_process.ts",
+);
 
 /** The bundled page the Desk opens: addressed by path, never by its prose. */
 const BUNDLED_PAGE = "20-guides/delegate-work.md";
@@ -91,17 +100,7 @@ realPtyTest({
       await gitInit(root);
       const result = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "-A",
-          "--config",
-          join(APPLICATION_FIXTURE_ROOT, "deno.json"),
-          join(
-            APPLICATION_FIXTURE_ROOT,
-            "tests/fixtures/desk_manual_process.ts",
-          ),
-          manual,
-        ],
+        args: repoSourceRunArgs(MANUAL_PROCESS, [manual]),
         cwd: root,
         geometry: { columns: 80, rows: 24 },
         env: { NO_COLOR: "1" },
@@ -172,16 +171,7 @@ realPtyTest({
       const view = await bundledPageView();
       const bundled = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "-A",
-          "--config",
-          join(APPLICATION_FIXTURE_ROOT, "deno.json"),
-          join(
-            APPLICATION_FIXTURE_ROOT,
-            "tests/fixtures/desk_manual_process.ts",
-          ),
-        ],
+        args: repoSourceRunArgs(MANUAL_PROCESS, []),
         cwd: root,
         geometry: { columns: 80, rows: 24 },
         env: { NO_COLOR: "1" },

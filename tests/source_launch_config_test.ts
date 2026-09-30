@@ -1,7 +1,8 @@
 /**
- * Every source launcher takes one explicit Deno config and hands it to each
- * process it starts, and every one refuses a config that would load a
- * different design-system build from the process launching it.
+ * Every launcher of a child whose terminal output a test or tool projects takes
+ * one explicit Deno config and hands it to each process it starts, and every
+ * one refuses a config that would load a different design-system build from
+ * the process launching it.
  */
 
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
@@ -11,6 +12,7 @@ import { localDesignSystemConfig } from "../scripts/local_design_system.ts";
 import { parseOptions } from "../scripts/terminal_capture.ts";
 import { engineRunArgs, repoSourceRunArgs } from "./engine_helpers.ts";
 import { deskTtyLaunchArgs } from "./fixtures/desk_tty_harness.ts";
+import { applicationProcessArgs } from "./fixtures/terminal_application_capture.ts";
 import {
   compileDiscernCaptureBinary,
   terminalCaptureCompileArguments,
@@ -105,6 +107,7 @@ Deno.test("a pinned process refuses to launch or compile against a linked config
       const launch of [
         () => engineRunArgs(["desk"], { config: linked }),
         () => repoSourceRunArgs("/harness.ts", [], { config: linked }),
+        () => applicationProcessArgs(linked),
         () =>
           deskTtyLaunchArgs({
             colorMode: "no-color-env",

@@ -1,5 +1,6 @@
 /** Product-owned launch and readiness for the small terminal adoption fixture. */
 import { fromFileUrl, join } from "@std/path";
+import { assertChildDesignSystemGraph } from "../../scripts/local_design_system.ts";
 import { captureTerminalFrame } from "discern-design-system/cli/interactive/testing";
 import { TERMINAL_APPLICATION_MINIMUM } from "discern-design-system/cli/interactive";
 import {
@@ -12,10 +13,15 @@ export const APPLICATION_FIXTURE_ROOT = fromFileUrl(
   new URL("../../", import.meta.url),
 );
 
-/** Command arguments keep compilation and package resolution in the consumer. */
+/**
+ * Command arguments keep compilation and package resolution in the consumer.
+ * The child must load the same design-system build as the process projecting
+ * its frames, so a config linking another build is refused here.
+ */
 export function applicationProcessArgs(
   config = join(APPLICATION_FIXTURE_ROOT, "deno.json"),
 ): string[] {
+  assertChildDesignSystemGraph(config);
   return [
     "run",
     "--config",
