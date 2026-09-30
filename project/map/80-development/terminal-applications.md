@@ -42,3 +42,22 @@ Ordinary commands, subprocesses, builds and tests resolve the exact published pa
 Fix generic component gaps in an owner-assigned package effort. Prove and release those changes through that repository's procedure before changing discern's exact pin. Verify the published public exports, run `deno install` to generate the lock, and run `deno task codegen` and `deno task site:build` for notices and site assets. Recheck affected terminal, document-browser and web consumers against that release. Publication and pushes require owner authority.
 
 The [local package preview](../90-site/the-design-system.md#local-package-iteration) supports an explicitly selected source for visual iteration; its temporary configuration never establishes release evidence for ordinary commands or the gate.
+
+## Develop against a local package
+
+Run discern's CLI surfaces against an unreleased package checkout with the `cli:design-system` task. It defaults to the design system's repository checked out beside discern's Git main checkout; `--checkout` selects another, such as a package worktree:
+
+```sh
+deno task cli:design-system check
+deno task cli:design-system --checkout /path/to/design-system-worktree test tests/engine_desk_live_test.ts
+deno task cli:design-system capture .scratch/desk-local
+deno task cli:design-system desk --project .scratch/desk-sandbox/project
+```
+
+`check` type-checks the CLI entry, every desk module, and the desk's test fixtures and scripts, or the modules you name. `test` runs the named files through the suite runner, and `capture` runs the desk gallery; each holds a test-queue slot. `desk` opens the desk from this checkout's source in `--project`, a path relative to this checkout.
+
+The task shares the site preview's link lifecycle in [`local_design_system.ts`](../../../scripts/local_design_system.ts), with the CLI export set: the package root, `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection`. It checks that the checkout exports each one and proves each resolves inside it. It writes one untracked Deno config and runs every child under that config, including the test-queue wrapper. It then refuses the run if `deno.json` or `deno.lock` changed. [`local_design_system_test.ts`](../../../tests/local_design_system_test.ts) ties the export set to the specifiers the CLI entry graphs import. It also keeps the helpers' own module graphs free of the package, so they still load under the pin after discern adopts an API only the linked checkout has.
+
+Source launchers take the config as an explicit parameter, never an environment variable: `engineRunArgs` and `repoSourceRunArgs`, `runDeskTty`, the capture compiler, and the application fixture. `scripts/desk_capture.ts` and `terminal:capture` accept `--config <path>`. Each launcher refuses a child config that would load a different package build from the process launching it, so a test or capture never projects one build's output with another's parser. A suite that launches the desk in a PTY therefore needs its launcher to pass the config; run such journeys through `capture`. [`source_launch_config_test.ts`](../../../tests/source_launch_config_test.ts) holds the launchers.
+
+Local runs are visual and integration evidence for the package change. The gate, and any Proof, still run against the exact published pin.

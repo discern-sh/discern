@@ -109,7 +109,7 @@ The capture condition states the complete screen the named frame will be used to
 
 [`terminal_command_capture.ts`](../../../tests/fixtures/terminal_command_capture.ts) composes the repository's shared PTY process driver ([`pty_process.ts`](../../../tests/fixtures/pty_process.ts)) with the published `@discern-sh/design-system/cli/projection` surface. The thin adapter delegates generic transport to `discern-design-system/cli/interactive/testing` while retaining repository environment policy, test admission, and evidence. The package sets the kernel terminal size before the command starts. It also supports readiness-gated input and named intermediate frames for interactive command capture; non-interactive command captures need neither. Capture tasks declare the control-rendering and platform-transport contracts through the same [`real_pty.ts`](../../../tests/real_pty.ts) authority as the test canaries.
 
-The task compiles the current checkout to a temporary binary before the PTY run. This keeps Deno launcher's own startup controls out of discern's screen while ensuring the capture represents the current source rather than a frozen `dist/` build. A `docs` capture points that binary at the checkout's current `project/map`, so it does not depend on docs bundled into an older executable. The temporary binary is removed after the artifact is written. Interactive captures retain each named frame and project the last settled full-frame repaint instead of a transcript containing superseded picker frames.
+The task compiles the current checkout to a temporary binary before the PTY run. This keeps Deno launcher's own startup controls out of discern's screen while ensuring the capture represents the current source rather than a frozen `dist/` build. A `docs` capture points that binary at the checkout's current `project/map`, so it does not depend on docs bundled into an older executable. The temporary binary is removed after the artifact is written. `--config <path>` compiles it under another Deno config, such as the local package loop's linked one; the task must then run under that config too, and it refuses a mismatch. Interactive captures retain each named frame and project the last settled full-frame repaint instead of a transcript containing superseded picker frames.
 
 Complete alternate-screen paints go through `captureTerminalFrame` from the package testing export with the observed geometry. It requires exactly one viewport of complete cell rows and rejects partial or oversized frames. This bounded protocol does not interpret arbitrary cursor movement. Existing inline consumers retain the local settled-inline path; the desk's foreground action journeys retain their specialized cursor fixture. Capture its bounded overview and task application with the package complete-frame protocol. Both paths normalize PTY line endings, while a remaining live repaint refuses the artifact.
 
@@ -125,7 +125,7 @@ The [application fixture](terminal-applications.md) uses complete package paints
 discern queue -- deno run -A scripts/terminal_application_capture.ts
 ```
 
-The script prints HTML paths under `.scratch/terminal-application/` and retains raw transcripts, bounded frames, and geometry inspections alongside them. It observes complete frames before Tab or Escape and validates the chosen color mode. The canonical color journey also records foreground-child input and the restored application frame. Its optional output directory and child Deno config arguments support development against an explicitly linked package worktree. Such captures verify local source; the published-consumer gate still requires the immutable package pin.
+The script prints HTML paths under `.scratch/terminal-application/` and retains raw transcripts, bounded frames, and geometry inspections alongside them. It observes complete frames before Tab or Escape and validates the chosen color mode. The canonical color journey also records foreground-child input and the restored application frame. Its optional output directory and child Deno config arguments support development against an explicitly linked package worktree; the script must run under that same config, because the fixture refuses a child that loads a different package build. Such captures verify local source; the published-consumer gate still requires the immutable package pin.
 
 Inspect each generated frame in the browser using the review procedure above. The native tests separately verify resizing, pending-read release, foreground child input, and application return.
 
@@ -137,7 +137,24 @@ Run the production desk against disposable fixture repositories and retain named
 discern queue -- deno run -A scripts/desk_capture.ts
 ```
 
-The [capture script](../../../scripts/desk_capture.ts) covers empty and large fleets, long command lists, complete Proof reading and return, narrow and short viewports, light and dark themes, and the minimum-size notice. Its HTML index links separate terminal viewports. Render and inspect each relevant HTML frame before judging a change; these artifacts are review evidence, not fixed screenshot expectations. The [Desk PTY fixture](../../../tests/fixtures/desk_tty_harness.ts) retains raw named paints for the package capture helper and its specialized cursor accounting for inline foreground journeys. A named Desk frame waits until no complete-viewport repaint is still arriving, and the script refuses a journey whose frames differ from the ones it declared, so the gallery never drops or truncates a frame. [`settled_keyframe_test.ts`](../../../tests/settled_keyframe_test.ts) sweeps every byte prefix of a repaint through each keyframe condition that feeds a strict projection.
+The optional first argument names the output directory. To review an unreleased package change, run the gallery through the [local package loop](terminal-applications.md#develop-against-a-local-package), which passes its linked config to the script with `--config` and runs the script under it:
+
+```sh
+deno task cli:design-system capture .scratch/desk-local
+```
+
+The [capture script](../../../scripts/desk_capture.ts) covers empty and large fleets, long command lists, complete Proof reading and return, narrow and short viewports, light and dark themes, and the minimum-size notice. Its HTML index links separate terminal viewports. Render and inspect each relevant HTML frame before judging a change; these artifacts are review evidence, not fixed screenshot expectations. The [Desk PTY fixture](../../../tests/fixtures/desk_tty_harness.ts) retains raw named paints for the package capture helper and its specialized cursor accounting for inline foreground journeys. A named desk frame waits until no complete-viewport repaint is still arriving, and the script refuses a journey whose frames differ from the ones it declared, so the gallery never drops or truncates a frame. [`settled_keyframe_test.ts`](../../../tests/settled_keyframe_test.ts) sweeps every byte prefix of a repaint through each named-frame readiness condition that feeds a strict projection.
+
+### Desk sandbox
+
+For hands-on review, build a persistent project seeded with one task per desk state:
+
+```sh
+deno run -A scripts/desk_sandbox.ts .scratch/desk-sandbox
+deno task cli:design-system desk --project .scratch/desk-sandbox/project
+```
+
+The [sandbox script](../../../scripts/desk_sandbox.ts) builds its fleet with the desk PTY fixture's keep mode. Real Git and engine state carry every fact: commits behind main, backdated activity, a running and a failed check in the logbook, uncommitted files, incomplete setup, a queued pre-authorized task proven by the real gate, and three parked branches closed by Park. The script prints the facts it only approximates, such as Proof age. `--replace` rebuilds a directory the script created and refuses any other. Open the sandbox with this checkout's source, as the script prints, or through the local package loop as above. The fixture's `createDeskTtyProject` gives galleries and tests the same fleets without the sandbox's persistence.
 
 ## Flagship evidence
 
