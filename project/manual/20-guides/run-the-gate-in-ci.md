@@ -16,83 +16,62 @@ aliases:
 
 # Run the gate in CI
 
-Your code-hosting service can run the same commands discern runs on your machine, taken from the same list in your project's configuration. So a change that passes on your laptop but fails on another system is caught before it merges, and you don't keep a second list of checks for CI.
+Your code-hosting service can run the commands discern runs on your machine, from the same list in your project's configuration. So a change that passes on your laptop but breaks on another system is caught before it merges. You don't keep a second list of checks.
 
-Continuous integration, or **CI**, runs your project's commands whenever a change reaches a service such as GitHub. Say your agent's recipe search passes every test on your Mac, and you want to know it also passes on Linux before it merges.
+Continuous integration, or **CI**, runs your project's commands whenever a change reaches a service such as GitHub. Say your agent's recipe search passes every test on your Mac, and you want to know it passes on Linux.
 
 ## What a CI report can and can't do
 
-The **gate** runs your project's own commands, such as its formatter, linter, type checker, and test suite. In CI, discern runs it in report mode. The report shows what passed on that CI machine, and anyone can read it, but it doesn't finish the task.
-
-The task still finishes in its **worktree**, the separate copy of the project where your agent works. There, an ordinary `discern done` produces **Proof**, discern's record of which of your project's commands passed on exactly which commit. A CI report never produces Proof, so it can't let a change land. A **checkpoint** is a review question your agent answers on certain changes, and CI lists those questions without answering them.
-
-|                      | CI report            | Proof from `discern done`     |
-| -------------------- | -------------------- | ----------------------------- |
-| Where it runs        | Your CI service      | The task's worktree           |
-| Checkpoint questions | Listed, not answered | Answered by the agent         |
-| Lets the change land | No                   | Yes, once you give permission |
+In CI, discern runs the **gate** in report mode. The gate is your project's own commands, such as its linter and tests, which must all pass before a change counts as finished. The report shows what passed on that machine. It never produces **Proof**, discern's record of which commands passed on one exact commit, so it can't let a change land. Landing still needs Proof from an ordinary `discern done` in the task's **worktree**, the separate copy of the project where your agent works, and your permission.
 
 ## Ask for the workflow
 
-Once the project is set up with discern, ask your agent:
+Ask your agent:
 
-> "Run the same checks in CI that discern runs here, on Linux as well as macOS. Keep useful failure output, and show me that the workflow fails for a known broken change and passes once it's fixed. Tell me about any repository setting I need to change."
+> "Run the same checks in CI that discern runs here, on Linux and macOS. Show me the workflow failing on a broken change and passing once it's fixed. Tell me about any repository setting I need to change."
 
-Decide which systems and runtimes CI should cover, or ask your agent to suggest them. discern doesn't ship a CI template, so your agent writes the workflow for your hosting service, and the CI setup and any secrets stay with that service.
+discern doesn't ship a CI template, so your agent writes the workflow, and secrets stay with your hosting service.
 
 ## What the workflow does
 
-**It installs a fixed discern version.** The workflow sets the version with the installer's `DISCERN_VERSION` setting. Pick at least the version in `discern.toml` under `[meta].managed_version`, because an older discern won't run the gate. When you upgrade the project, raise the CI version in the same change.
+**It installs a fixed discern version,** set with the installer's `DISCERN_VERSION`. Use at least the version in `discern.toml` under `[meta].managed_version`, because an older discern won't run the gate. When you upgrade the project, raise the CI version in the same change.
 
-**It installs your runtimes and locked dependencies first.** The gate runs its commands side by side, so installing first keeps them from racing to set up their tools.
+**It installs your runtimes and locked dependencies first,** so the gate's parallel commands don't race to set up their tools.
 
-**It fetches a commit to compare with.** discern compares your project's rules before and after the change, so it catches a change that loosens a **standard**, one of the measured limits your project holds, or edits a checkpoint. Comparing a change with itself would hide that. The workflow fetches the commit to compare with:
+**It fetches a commit to compare with:** the pull request's base, the commit before a push, or, for a new branch's first push, your **trunk**, the shared branch where changes land. discern compares your project's rules against that commit, so it catches a change that loosens a measured limit or edits a **checkpoint**, a review question your agent answers on certain changes.
 
-- for a pull request, the commit it's based on;
-- for a push, the commit before the push;
-- for the first push of a new branch, your **trunk**, the shared branch where changes land.
-
-**It runs the gate in report mode.** From the repository root:
+**It runs the gate in report mode** from the repository root.
 
 ```sh
 discern done --ci --standalone --policy-base refs/discern/ci-policy-base --markdown
 ```
 
-- `--ci` lists checkpoint questions without answering them, so the questions don't decide whether the run passes.
-- `--standalone` runs the checks without recording Proof.
-- `--policy-base` names the commit to compare with. It works only with the other two options.
-- `--markdown` writes a readable result to the job log. Use `--json` if a later step needs the fields.
-
-Even when every command passes, the report says it issued no Proof:
+`--ci` lists checkpoint questions without answering them, and `--standalone` records no Proof. Even when every command passes, the report says so:
 
 ```text
 - Checkpoint review: reported and was not enforced; no review was needed.
 - Gate Proof: `diagnostic` (Standalone feedback does not issue Proof. A full discern done run on this clean committed tree does.).
 ```
 
-The command exits with a failure status when a check fails. Keep that status, so a later step that uploads logs can't turn a failed gate into a passing job.
+Keep the command's failure exit status. Otherwise, a later step that uploads logs could turn a failed gate into a passing job.
 
 ## Catch files the commit forgot
 
-If a formatter or code generator changes a tracked file during the run, the gate fails, because the commit didn't include what the project's own tools produce. The fix belongs to the task: your agent runs `discern prepare` in its worktree, commits the rewritten files, and pushes again.
-
-You can also add `git diff --exit-code` after the gate. It catches a rewritten file even when another check failed first.
+If a formatter or code generator rewrites a tracked file during the run, the commit missed its output, so the gate fails. Your agent runs `discern prepare` in its worktree, commits the rewritten files, and pushes again.
 
 ## When CI fails
 
-Say the search tests pass on your Mac but fail on Linux. Give the result to the agent working on that change:
+Now say the search tests fail on Linux. Give the result to the agent working on that change:
 
-> "Investigate this CI failure in the existing task. Tell me whether it's a problem in the code or a difference in the CI system, fix the cause, and bring back the checked result."
+> "Investigate this CI failure in the existing task. Tell me whether it's the code or the CI system, fix the cause, and bring back the checked result."
 
-Your agent reads the captured output, runs the command that reproduces the failure, and fixes the cause, then commits and runs `discern done` again. [Fix a red gate](fix-a-red-gate.md) explains that recovery.
+Your agent reproduces the failure, fixes the cause, commits, and runs `discern done` again, as [Fix a red gate](fix-a-red-gate.md) explains.
 
-If the report lists a checkpoint question, the task's agent answers it in the worktree. If it answers that the question isn't met, the change needs your decision before it lands.
+If the report lists a checkpoint question, the task's agent answers it in its worktree. An unmet answer needs your decision before the change lands.
 
 ## Require the check before merging
 
-Your hosting service can require the CI job to pass before a pull request merges. On GitHub, that's a branch protection rule. Your agent can name the job and explain the setting, and you may need to turn it on yourself.
-
-A required CI check doesn't give discern permission to land anything. Landing still needs current Proof from the task's worktree, and your permission. [Finish and land a change](finish-and-land-a-change.md) covers that step.
+On GitHub, a branch protection rule can require the CI job to pass before a pull request merges. Your agent can name the job, and you may need to turn the rule on yourself.
 
 ## Allow merge commits on your trunk
 
@@ -102,10 +81,6 @@ On GitHub, the branch protection rule **Require linear history** refuses any pus
 
 ## When it's done
 
-Test the workflow on a throwaway branch. First push a change with a failing test, then push the fix:
+Test the workflow on a throwaway branch: push a change with a failing test, then the fix. The failing change should fail the required job, with output that explains why. The fix should pass, with no files rewritten during the run.
 
-- the failing change makes the required job fail, with output that explains why;
-- the fix passes, with no files rewritten during the run;
-- neither run produces Proof that could land a change.
-
-From then on, every change gets checked on each system you chose, and a failure goes straight back to the agent that can fix it. The [CLI reference](../30-reference/cli-reference.md) lists every option and exit code. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) describes report-only results.
+From then on, every change gets checked on each system you chose. The [CLI reference](../30-reference/cli-reference.md) lists every option and exit code.

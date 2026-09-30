@@ -26,40 +26,38 @@ aliases:
 
 # Guides
 
-Each guide takes something you want to get done to a result you can recognize: what to ask your agent, what your agent does with the request, and how you'll know it worked or why it stopped. The example requests show that your intent, in your own words, is what your agent needs, so you don't need to learn discern's commands.
+Each guide shows what to ask your agent, what it does, and how you'll know it worked or why it stopped. You ask in your own words, without learning discern's commands.
 
-If discern is new to your project, start with [Install and set up discern](../00-start/installation-and-setup.md).
+New to discern? Start with [Install and set up discern](../00-start/installation-and-setup.md).
 
 ## Make and review changes
 
-- [Finish and land a change](finish-and-land-a-change.md): review a finished change, and decide whether it joins your project.
-- [Land an urgent repair](land-an-urgent-repair.md): land a fix now, and run its tests and other required commands straight afterwards.
-- [Fix a red gate](fix-a-red-gate.md): find out which test or other required command failed, and have your agent fix the cause.
-- [Recover an interrupted task](recover-an-interrupted-task.md): pick up after a session ends or a command stops partway.
+- [Finish and land a change](finish-and-land-a-change.md): review a change and decide whether it lands.
+- [Land an urgent repair](land-an-urgent-repair.md): land a fix now, and check it afterwards.
+- [Fix a red gate](fix-a-red-gate.md): have your agent fix a failing test or command.
+- [Recover an interrupted task](recover-an-interrupted-task.md): pick up where a session or command stopped.
 
 ## Give your agents more work
 
-- [Delegate substantial work](delegate-work.md): turn a big goal into tasks with clear results and owners.
-- [Coordinate parallel tasks](coordinate-parallel-tasks.md): keep several tasks moving at once, each in its own copy of the project.
-- [Wait for another task](wait-for-another-task.md): let one agent pick up another's work without you passing messages.
+- [Delegate substantial work](delegate-work.md): turn a big goal into clear tasks.
+- [Coordinate parallel tasks](coordinate-parallel-tasks.md): keep several tasks moving at once.
+- [Wait for another task](wait-for-another-task.md): let agents build on each other's work without you relaying messages.
 
 ## Keep what the project learns
 
-- [Write project instructions](write-project-instructions.md): give every future session a rule to follow.
-- [Maintain the project map](maintain-project-map.md): keep your project's guide to itself useful as it grows.
-- [Create and manage skills](create-and-manage-skills.md): use discern's playbooks, and write your own for work that repeats.
-- [Set and raise standards](set-and-raise-standards.md): turn a measured gain into a limit that later changes must meet.
-- [Place and answer checkpoints](place-and-answer-checkpoints.md): have your agent answer a review question when a certain change happens.
-- [Improve how your agents work](improve-the-practice.md): use your project's own history to choose what to improve next.
+- [Write project instructions](write-project-instructions.md): give every future session your rules.
+- [Maintain the project map](maintain-project-map.md): keep your project's guide to itself useful.
+- [Create and manage skills](create-and-manage-skills.md): use discern's playbooks, and write your own.
+- [Set and raise standards](set-and-raise-standards.md): keep a measured gain from slipping back.
+- [Place and answer checkpoints](place-and-answer-checkpoints.md): have your agent answer a review question on certain changes.
+- [Improve how your agents work](improve-the-practice.md): choose what to improve from your project's history.
 
 ## Look after your setup
 
-- [Connect a coding agent](connect-a-coding-agent.md): add another coding tool, and check that it can use discern.
-- [Run the gate in CI](run-the-gate-in-ci.md): run your project's required tests and tools on your continuous integration server.
-- [Maintain or remove discern](maintain-or-remove-discern.md): check, upgrade, or remove discern, and keep the work you wrote.
+- [Connect a coding agent](connect-a-coding-agent.md): add a coding tool and check its connection.
+- [Run the gate in CI](run-the-gate-in-ci.md): run your required commands in continuous integration.
+- [Maintain or remove discern](maintain-or-remove-discern.md): upgrade or remove discern, and keep your work.
 
 ## When a result doesn't match the guide
 
-A guide describes the usual path, and each result discern returns names the next step for your project as it stands at that moment. So when a result doesn't match a guide, go by the result: ask your agent to explain what it says happened and to follow its recovery steps.
-
-[Understand](../10-understand/README.md) explains the ideas behind the guides, [Reference](../30-reference/README.md) has the exact commands and settings, and [Troubleshooting](../40-troubleshooting/README.md) starts from the symptoms you can see.
+A guide describes the usual path, and each result names the next step for your project now. When they differ, go by the result, and have your agent follow the recovery steps it names. [Troubleshooting](../40-troubleshooting/README.md) starts from the symptoms you can see.
