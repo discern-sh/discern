@@ -12,10 +12,12 @@ import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
-import type {
-  StatusData,
-  StatusFleetEntry,
-} from "../src/shared/result_schemas.ts";
+import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
+import {
+  fleetEntry,
+  mainFleetEntry,
+  statusData,
+} from "./fixtures/status_fleet.ts";
 import {
   defineTip,
   type RegisteredTip,
@@ -44,38 +46,21 @@ const CONFIG = configSchema.parse({
 });
 
 /** Build a clean worktree row and override only the status facts a tip predicate needs. */
-function fleetEntry(
+function worktree(
   branch: string,
   patch: Partial<StatusFleetEntry> = {},
 ): StatusFleetEntry {
-  return {
-    path: `/worktrees/${branch}`,
-    is_main: false,
-    is_current: false,
-    branch,
-    clean: true,
-    changed_files: 0,
-    ahead: 0,
-    behind: 0,
-    ...patch,
-  };
+  return fleetEntry({ branch, ...patch });
 }
 
 /** Construct a tip survey with a canonical main row plus chosen standards and worktrees. */
 function contextOf(
   patch: { standards?: string[]; fleet?: StatusFleetEntry[] } = {},
 ): TipContext {
-  const data: StatusData = {
-    location: "main",
-    root: "/project",
-    worktree: null,
-    git: null,
-    standards: patch.standards ?? ["coverage"],
-    fleet: [
-      fleetEntry("main", { is_main: true, is_current: true, path: "/project" }),
-      ...(patch.fleet ?? []),
-    ],
-  };
+  const data = statusData(
+    [mainFleetEntry(), ...(patch.fleet ?? [])],
+    { git: null, standards: patch.standards ?? ["coverage"] },
+  );
   return { data, config: CONFIG };
 }
 
@@ -131,7 +116,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     false,
   );
 
-  const unauthorized = [fleetEntry("agent/a"), fleetEntry("agent/b")];
+  const unauthorized = [worktree("agent/a"), worktree("agent/b")];
   assertEquals(
     tipPredicateHolds(
       { kind: "no-landing-authority" },
@@ -146,7 +131,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "no-landing-authority" },
       contextOf({
-        fleet: [fleetEntry("agent/a")],
+        fleet: [worktree("agent/a")],
       }),
     ),
     false,
@@ -157,10 +142,10 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
       { kind: "no-landing-authority" },
       contextOf({
         fleet: [
-          fleetEntry("agent/a", {
+          worktree("agent/a", {
             landing_authority: { kind: "authorized", source: "effort-grant" },
           }),
-          fleetEntry("agent/b"),
+          worktree("agent/b"),
         ],
       }),
     ),
@@ -172,13 +157,13 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
       { kind: "no-landing-authority" },
       contextOf({
         fleet: [
-          fleetEntry("agent/a", {
+          worktree("agent/a", {
             landing_authority: {
               kind: "conversation-required",
               standing_scopes: ["map"],
             },
           }),
-          fleetEntry("agent/b"),
+          worktree("agent/b"),
         ],
       }),
     ),
@@ -190,7 +175,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "branch-behind-trunk" },
       contextOf({
-        fleet: [fleetEntry("agent/a", { behind: 2 })],
+        fleet: [worktree("agent/a", { behind: 2 })],
       }),
     ),
     true,
@@ -199,7 +184,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "branch-behind-trunk" },
       contextOf({
-        fleet: [fleetEntry("agent/a")],
+        fleet: [worktree("agent/a")],
       }),
     ),
     false,
@@ -209,7 +194,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "ready-to-review" },
       contextOf({
-        fleet: [fleetEntry("agent/a", { proof_honored: true })],
+        fleet: [worktree("agent/a", { proof_honored: true })],
       }),
     ),
     true,
@@ -218,7 +203,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "ready-to-review" },
       contextOf({
-        fleet: [fleetEntry("agent/a")],
+        fleet: [worktree("agent/a")],
       }),
     ),
     false,
@@ -228,7 +213,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "contained-worktree" },
       contextOf({
-        fleet: [fleetEntry("agent/a", { contained_in: "agent/b" })],
+        fleet: [worktree("agent/a", { contained_in: "agent/b" })],
       }),
     ),
     true,
@@ -237,7 +222,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "contained-worktree" },
       contextOf({
-        fleet: [fleetEntry("agent/a")],
+        fleet: [worktree("agent/a")],
       }),
     ),
     false,
@@ -247,7 +232,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "fleet-min-size", min: 2 },
       contextOf({
-        fleet: [fleetEntry("agent/a"), fleetEntry("agent/b")],
+        fleet: [worktree("agent/a"), worktree("agent/b")],
       }),
     ),
     true,
@@ -256,7 +241,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "fleet-min-size", min: 3 },
       contextOf({
-        fleet: [fleetEntry("agent/a"), fleetEntry("agent/b")],
+        fleet: [worktree("agent/a"), worktree("agent/b")],
       }),
     ),
     false,

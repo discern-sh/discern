@@ -11,6 +11,7 @@ import type {
   StatusData,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
+import { fleetEntry, statusData } from "./fixtures/status_fleet.ts";
 import type { SelectionRequestOptions } from "../src/lib/terminal_interaction.ts";
 import { makeOut, type Out } from "../src/engine/output.ts";
 import {
@@ -63,40 +64,30 @@ function transcript(): Transcript {
 }
 
 /** Build one ordinary fleet row. */
-function fleetEntry(
+function worktreeRow(
   path: string,
   branch: string,
   patch: Partial<StatusFleetEntry> = {},
 ): StatusFleetEntry {
-  return {
+  return fleetEntry({
     path,
     branch,
-    is_main: false,
-    is_current: false,
-    clean: true,
-    changed_files: 0,
-    ahead: 0,
-    behind: 0,
     last_activity: "2026-08-23T11:00:00Z",
     ...patch,
-  };
+  });
 }
 
 /** Build the fleet-led status payload the picker consumes. */
-function statusData(fleet: StatusFleetEntry[]): StatusData {
-  return {
-    location: "main",
+function pickerStatus(fleet: StatusFleetEntry[]): StatusData {
+  return statusData(fleet, {
     root: "/main",
-    worktree: null,
     git: null,
-    standards: [],
-    fleet,
     unlanded_branches: ["agent/orphaned"],
     contained_refs: [{
       branch: "agent/stage-a",
       contained_in: "agent/stage-b",
     }],
-  };
+  });
 }
 
 /** Deterministic runtime with overrideable seams. */
@@ -107,10 +98,10 @@ function scriptedRuntime(
   const root = resolve("/project");
   const main = resolve("/main");
   const target = resolve("/worktrees/other");
-  const data = statusData([
-    fleetEntry(main, "main", { is_main: true }),
-    fleetEntry(root, "agent/current"),
-    fleetEntry(target, "agent/other", {
+  const data = pickerStatus([
+    worktreeRow(main, "main", { is_main: true }),
+    worktreeRow(root, "agent/current"),
+    worktreeRow(target, "agent/other", {
       id: "other-a1b2c3",
       clean: false,
       changed_files: 2,
@@ -191,9 +182,9 @@ Deno.test("worktree picker rows derive branch, Git, Proof, and activity facts fr
   const current = resolve("/project");
   const rows = buildWorktreeShellRows(
     [
-      fleetEntry(resolve("/main"), "main", { is_main: true }),
-      fleetEntry(current, "agent/current"),
-      fleetEntry(resolve("/worktrees/review"), "agent/review", {
+      worktreeRow(resolve("/main"), "main", { is_main: true }),
+      worktreeRow(current, "agent/current"),
+      worktreeRow(resolve("/worktrees/review"), "agent/review", {
         clean: false,
         changed_files: 2,
         ahead: 3,

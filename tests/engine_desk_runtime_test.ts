@@ -22,6 +22,11 @@ import type {
   StatusData,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
+import {
+  mainFleetEntry,
+  observedFleetEntry,
+  statusData,
+} from "./fixtures/status_fleet.ts";
 import { Logger } from "../src/lib/log.ts";
 import {
   type ConfirmationRequestOptions,
@@ -111,50 +116,18 @@ function transcript(
   };
 }
 
-/** Build a clean fleet row while letting each runtime case override only relevant status facts. */
+/** A fully observed row at `path`, active an hour before the fixed clock. */
 function fleetEntry(
   branch: string,
   path: string,
   patch: Partial<StatusFleetEntry> = {},
 ): StatusFleetEntry {
-  return {
-    path,
-    is_main: false,
-    is_current: false,
+  return observedFleetEntry({
     branch,
-    branch_reachable: true,
-    filesystem: { state: "directory" },
-    setup: { state: "ready", marker: "present" },
-    clean: true,
-    changed_files: 0,
-    ahead: 0,
-    behind: 0,
+    path,
     last_activity: "2026-07-11T11:00:00Z",
     ...patch,
-  };
-}
-
-/** Build a minimal status survey for a chosen location and fleet. */
-function statusData(
-  fleet: StatusFleetEntry[] = [],
-  location: StatusData["location"] = "main",
-): StatusData {
-  return {
-    location,
-    root: ROOT,
-    project: "demo",
-    worktree: null,
-    git: {
-      branch: "main",
-      trunk: "main",
-      clean: true,
-      changed_files: 0,
-      behind_trunk: 0,
-      ahead_trunk: 0,
-    },
-    standards: [],
-    fleet,
-  };
+  });
 }
 
 const CONTEXT: LifecycleContext = {
@@ -220,6 +193,46 @@ function startedFleetEntry(started: StartData): StatusFleetEntry {
     id: started.id,
     task: started.task,
   });
+}
+
+/** Start seams that record each request and add the started task to later surveys. */
+interface ScriptedStart {
+  readonly requests: Array<Parameters<DeskRuntime["startPlan"]>[1]>;
+  /** The task `start` produced, once it ran. */
+  created(): StartData | undefined;
+  /** A main-checkout survey of `fleet`, plus the started task once it exists. */
+  survey(fleet: StatusFleetEntry[], patch?: Partial<StatusData>): StatusData;
+  startPlan: DeskRuntime["startPlan"];
+  start: DeskRuntime["start"];
+}
+
+/** Script task creation; `plan` fixes retained start facts beyond the request. */
+function scriptedStart(
+  plan: Partial<PreparedStart["plan"]> = {},
+): ScriptedStart {
+  const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
+  let created: StartData | undefined;
+  return {
+    requests,
+    created: () => created,
+    survey: (fleet, patch = {}) =>
+      statusData([
+        ...fleet,
+        ...(created === undefined ? [] : [startedFleetEntry(created)]),
+      ], patch),
+    startPlan: (_ctx, request) => {
+      requests.push(request);
+      return preparedStart(request.title ?? "Generated title", {
+        ...plan,
+        from: request.from ?? "main",
+        ...(request.brief === undefined ? {} : { brief: request.brief }),
+      });
+    },
+    start: (_ctx, prepared) => {
+      created = startedTask(prepared);
+      return created;
+    },
+  };
 }
 
 interface ScriptedSelectionValue<T> {
@@ -292,10 +305,7 @@ function scriptedRuntime(
   output: Transcript,
   patch: Partial<DeskRuntime> = {},
 ): DeskRuntime {
-  const main = fleetEntry("main", ROOT, {
-    is_main: true,
-    is_current: true,
-  });
+  const main = mainFleetEntry(ROOT);
   const data = statusData([main]);
   let latest = data;
   const select = patch.select ?? (() => QUIT);
@@ -577,7 +587,10 @@ Deno.test("Desk scripted surveys preserve session boundaries, refresh, and tip b
               inDeskSession: () => true,
               status: () => {
                 surveyed = true;
-                return { ok: true, data: statusData([], "worktree") };
+                return {
+                  ok: true,
+                  data: statusData([], { location: "worktree" }),
+                };
               },
             }),
           ),
@@ -593,9 +606,7 @@ Deno.test("Desk scripted surveys preserve session boundaries, refresh, and tip b
       name: "dirty main is inspectable without offering agent work",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
+        const main = mainFleetEntry(ROOT, {
           clean: false,
           changed_files: 2,
         });
@@ -650,10 +661,7 @@ Deno.test("Desk scripted surveys preserve session boundaries, refresh, and tip b
       name: "recent completed tasks expose bounded local landing evidence",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const data: StatusData = {
           ...statusData([main]),
           recent_completed_tasks: [{
@@ -736,7 +744,10 @@ Deno.test("Desk scripted surveys preserve session boundaries, refresh, and tip b
           await runDesk(
             {},
             scriptedRuntime(worktree, {
-              status: () => ({ ok: true, data: statusData([], "worktree") }),
+              status: () => ({
+                ok: true,
+                data: statusData([], { location: "worktree" }),
+              }),
               mainRepoPath: () => "/main-checkout",
             }),
           ),
@@ -775,10 +786,7 @@ Deno.test("Desk scripted surveys preserve session boundaries, refresh, and tip b
       name: "desk Refresh replaces the root menu from a fresh fleet survey",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const created = fleetEntry(
           "agent/newly-created-a1b2c3",
           "/worktrees/newly-created-a1b2c3",
@@ -812,10 +820,7 @@ Deno.test("Desk scripted surveys preserve session boundaries, refresh, and tip b
       name: "Park refreshes a removed checkout into its resumable branch",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const effort = fleetEntry(
           "agent/park-refresh",
           "/worktrees/park-refresh",
@@ -867,97 +872,61 @@ Deno.test("Desk scripted surveys preserve session boundaries, refresh, and tip b
         assertStringIncludes(joined(output), effort.branch);
       },
     },
-    {
-      name: "a lifecycle refusal refreshes a task that landed outside the Desk",
+    ...[
+      {
+        name: "landed",
+        refusal: "The selected task landed before Park could apply.",
+        shown: "The selected task landed before Park could apply.",
+        after: (main: StatusFleetEntry, effort: StatusFleetEntry) =>
+          statusData([main], {
+            recent_completed_tasks: [{
+              branch: effort.branch,
+              head: "b".repeat(40),
+              completed_at: "2026-07-11T12:00:00.000Z",
+            }],
+          }),
+        reported: "Task landed",
+      },
+      {
+        name: "removed",
+        refusal: "The selected task no longer has a registered checkout.",
+        // The refusal wraps in the frame; its unwrapped tail is enough.
+        shown: "registered checkout.",
+        after: (main: StatusFleetEntry) => statusData([main]),
+        reported: "Task no longer observed",
+      },
+    ].map((outcome) => ({
+      name:
+        `a lifecycle refusal refreshes a task ${outcome.name} outside the Desk`,
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const effort = fleetEntry(
-          "agent/external-land",
-          "/worktrees/external-land",
-          {
-            ahead: 1,
-          },
+          `agent/external-${outcome.name}`,
+          `/worktrees/external-${outcome.name}`,
+          { ahead: 1 },
         );
-        let landed = false;
+        let changed = false;
         const choices = [effort.path, "park", QUIT];
         const runtime = scriptedRuntime(output, {
           status: () => ({
             ok: true,
-            data: landed
-              ? {
-                ...statusData([main]),
-                recent_completed_tasks: [{
-                  branch: effort.branch,
-                  head: "b".repeat(40),
-                  completed_at: "2026-07-11T12:00:00.000Z",
-                }],
-              }
+            data: changed
+              ? outcome.after(main, effort)
               : statusData([main, effort]),
           }),
           select: () => choices.shift() ?? QUIT,
           park: () => {
-            landed = true;
-            throw new WorktreeGitError(
-              "The selected task landed before Park could apply.",
-            );
+            changed = true;
+            throw new WorktreeGitError(outcome.refusal);
           },
         });
 
         assertEquals(await runDesk({}, runtime), 0);
-        assertStringIncludes(
-          joined(output),
-          "The selected task landed before Park could apply.",
-        );
-        assertStringIncludes(
-          joined(output),
-          "Task landed",
-        );
+        assertStringIncludes(joined(output), outcome.shown);
+        assertStringIncludes(joined(output), outcome.reported);
       },
-    },
-    {
-      name:
-        "a lifecycle refusal reports an externally removed task and refreshes",
-      check: async () => {
-        const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
-        const effort = fleetEntry(
-          "agent/external-remove",
-          "/worktrees/external-remove",
-          {
-            ahead: 1,
-          },
-        );
-        let removed = false;
-        const choices = [effort.path, "park", QUIT];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({
-            ok: true,
-            data: statusData(removed ? [main] : [main, effort]),
-          }),
-          select: () => choices.shift() ?? QUIT,
-          park: () => {
-            removed = true;
-            throw new WorktreeGitError(
-              "The selected task no longer has a registered checkout.",
-            );
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertStringIncludes(
-          joined(output),
-          "registered checkout.",
-        );
-        assertStringIncludes(joined(output), "Task no longer observed");
-      },
-    },
+    })),
     {
       name: "desk rotates the tip across sessions through the seen-state",
       check: async () => {
@@ -1024,7 +993,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
           ahead: 2,
         });
         const data = statusData([
-          fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+          mainFleetEntry(ROOT),
           effort,
         ]);
         const choices = [
@@ -1161,7 +1130,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
           },
         );
         const data = statusData([
-          fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+          mainFleetEntry(ROOT),
           effort,
         ]);
         const choices = [effort.path, BACK, QUIT];
@@ -1200,10 +1169,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
         const branch = "agent/stable-identity";
         const path = "/worktrees/stable-identity";
         let currentTitle = oldTitle;
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const task = (): StatusFleetEntry =>
           fleetEntry(branch, path, {
             id: "stable-identity",
@@ -1268,10 +1234,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
         "desk final checks use the shared core and return to refreshed Proof",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const effort = fleetEntry(
           "agent/final-checks",
           "/worktrees/final-checks",
@@ -1377,10 +1340,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
       check: async () => {
         for (const action of ["done", "accept"] as const) {
           const output = transcript();
-          const main = fleetEntry("main", ROOT, {
-            is_main: true,
-            is_current: true,
-          });
+          const main = mainFleetEntry(ROOT);
           const effort = fleetEntry("agent/reading", "/worktrees/reading", {
             ahead: 1,
             ...(action === "done"
@@ -1669,7 +1629,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
             cases[action].entry ?? {},
           );
           const data = statusData([
-            fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+            mainFleetEntry(ROOT),
             effort,
           ]);
           const choices = [effort.path, ...cases[action].choices];
@@ -1706,10 +1666,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
           behind: 1,
           gate_proof: { status: "honored" },
         });
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const data = statusData([main, effort]);
 
         const updateOutput = transcript();
@@ -1884,10 +1841,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
       name: "Park cancellation keeps the checkout without calling apply",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const effort = fleetEntry(
           "agent/park-cancel",
           "/worktrees/park-cancel",
@@ -1921,10 +1875,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
       name:
         "desk reclaims a contained checkout only through its explicit confirmation",
       check: async () => {
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const spent = fleetEntry("agent/stage-a", "/worktrees/stage-a", {
           ahead: 1,
           contained_in: "agent/stage-b",
@@ -2032,7 +1983,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
                 status: () => ({
                   ok: true,
                   data: statusData([
-                    fleetEntry("main", ROOT, { is_main: true }),
+                    mainFleetEntry(ROOT, { is_current: false }),
                     effort,
                   ]),
                 }),
@@ -2068,10 +2019,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
         "desk starts a named task and focuses its ready worktree immediately",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const startedEntry = fleetEntry(
           "agent/desk-launchers",
           "/worktrees/desk-launchers",
@@ -2143,10 +2091,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
       name: "desk uses a generated codename only after the explicit fallback",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const random = fleetEntry(
           "agent/random-codename",
           "/worktrees/random-codename",
@@ -2184,10 +2129,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
     {
       name: "expanded creation retains trunk, live-task, and unlanded bases",
       check: async () => {
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const live = fleetEntry(
           "agent/existing-task",
           "/worktrees/existing-task",
@@ -2218,52 +2160,28 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
             QUIT,
           ];
           const confirmations = [true];
-          const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
           const grants: Array<{ path: string; branch: string }> = [];
           const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> =
             [];
-          let created: StartData | undefined;
+          const slug = testCase.name.replaceAll(" ", "-");
+          const started = scriptedStart({
+            id: `created-from-${slug}`,
+            branch: `agent/created-from-${slug}`,
+            worktreePath: `/worktrees/created-from-${slug}`,
+            resources: [{ name: "database", identity: "demo_created_task" }],
+          });
           const runtime = scriptedRuntime(output, {
             status: () => ({
               ok: true,
-              data: {
-                ...statusData([
-                  main,
-                  live,
-                  ...(created === undefined
-                    ? []
-                    : [startedFleetEntry(created)]),
-                ]),
+              data: started.survey([main, live], {
                 unlanded_branches: [orphan],
-              },
+              }),
             }),
             select: () => choices.shift() ?? QUIT,
             input: () => inputs.shift() ?? "",
             confirm: () => confirmations.shift() ?? false,
-            startPlan: (_ctx, request) => {
-              requests.push(request);
-              return preparedStart(request.title ?? "Generated title", {
-                id: `created-from-${testCase.name.replaceAll(" ", "-")}`,
-                branch: `agent/created-from-${
-                  testCase.name.replaceAll(" ", "-")
-                }`,
-                worktreePath: `/worktrees/created-from-${
-                  testCase.name.replaceAll(" ", "-")
-                }`,
-                from: request.from ?? "main",
-                ...(request.brief === undefined
-                  ? {}
-                  : { brief: request.brief }),
-                resources: [{
-                  name: "database",
-                  identity: "demo_created_task",
-                }],
-              });
-            },
-            start: (_ctx, prepared) => {
-              created = startedTask(prepared);
-              return created;
-            },
+            startPlan: started.startPlan,
+            start: started.start,
             grantEffort: (path, branch) => {
               grants.push({ path, branch });
               return {
@@ -2278,7 +2196,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
           });
 
           assertEquals(await runDesk({}, runtime), 0, testCase.name);
-          assertEquals(requests, [{
+          assertEquals(started.requests, [{
             worktreeRoot: "/project.worktrees",
             title,
             brief,
@@ -2306,7 +2224,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
           assertStringIncludes(text, "Noagentwilllaunch");
           assertStringIncludes(
             text,
-            created?.path.replaceAll(/\s+/gu, "") ?? "",
+            started.created()?.path.replaceAll(/\s+/gu, "") ?? "",
           );
         }
       },
@@ -2315,10 +2233,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
       name: "compact creation opens the remembered available agent",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const config = configSchema.parse({
           project: { slug: "demo", agents: ["codex"] },
           repository: { trunk: "main" },
@@ -2331,15 +2246,12 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
           args: readonly string[];
           cwd: string;
         }> = [];
-        let created: StartData | undefined;
+        const started = scriptedStart();
         const runtime = scriptedRuntime(output, {
           loadConfig: () => config,
           status: () => ({
             ok: true,
-            data: statusData([
-              main,
-              ...(created === undefined ? [] : [startedFleetEntry(created)]),
-            ]),
+            data: started.survey([main]),
           }),
           detectAgents: () => [{ name: "codex", binary: "codex" }],
           readPreferences: () => ({
@@ -2352,10 +2264,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
             return choices.shift() ?? QUIT;
           },
           input: () => "Human title",
-          start: (_ctx, prepared) => {
-            created = startedTask(prepared);
-            return created;
-          },
+          start: started.start,
           interactive: (command, args, cwd) => {
             launches.push({ command, args, cwd });
             return 0;
@@ -2386,27 +2295,18 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
         "an unavailable preference write leaves creation intact and explains the fallback",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const choices = [START_TASK, "codename", "compact", "none", BACK, QUIT];
         const confirmations = [true];
-        let created: StartData | undefined;
+        const started = scriptedStart();
         const runtime = scriptedRuntime(output, {
           status: () => ({
             ok: true,
-            data: statusData([
-              main,
-              ...(created === undefined ? [] : [startedFleetEntry(created)]),
-            ]),
+            data: started.survey([main]),
           }),
           select: () => choices.shift() ?? QUIT,
           confirm: () => confirmations.shift() ?? false,
-          start: (_ctx, prepared) => {
-            created = startedTask(prepared);
-            return created;
-          },
+          start: started.start,
           writePreferences: () => ({
             status: "unavailable",
             reason: "the repository preference store is read-only",
@@ -2414,7 +2314,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
         });
 
         assertEquals(await runDesk({}, runtime), 0);
-        assert(created !== undefined);
+        assert(started.created() !== undefined);
         assertStringIncludes(joined(output), "Desk preferences were not saved");
         assertStringIncludes(joined(output), "preference store is read-only");
         assertStringIncludes(joined(output), "current task is unchanged");
@@ -2425,10 +2325,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
       name: "task creation cannot approve future authored source",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const choices = [
           START_TASK,
           "codename",
@@ -2439,23 +2336,17 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
           QUIT,
         ];
         const confirmations = [true];
-        let created: StartData | undefined;
+        const started = scriptedStart();
         let grants = 0;
         const runtime = scriptedRuntime(output, {
           status: () => ({
             ok: true,
-            data: statusData([
-              main,
-              ...(created === undefined ? [] : [startedFleetEntry(created)]),
-            ]),
+            data: started.survey([main]),
           }),
           select: () => choices.shift() ?? QUIT,
           input: () => "",
           confirm: () => confirmations.shift() ?? false,
-          start: (_ctx, prepared) => {
-            created = startedTask(prepared);
-            return created;
-          },
+          start: started.start,
           grantEffort: () => {
             grants++;
             throw new Error("creation must not call the grant writer");
@@ -2463,7 +2354,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
         });
 
         assertEquals(await runDesk({}, runtime), 0);
-        assert(created !== undefined);
+        assert(started.created() !== undefined);
         assertEquals(grants, 0);
         assertStringIncludes(
           joined(output),
@@ -2475,10 +2366,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
       name: "a stale remembered agent falls back to an explicit choice",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const config = configSchema.parse({
           project: { slug: "demo", agents: ["gemini"] },
           repository: { trunk: "main" },
@@ -2493,15 +2381,12 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
         ];
         let agentMenu = "";
         let launchCount = 0;
-        let created: StartData | undefined;
+        const started = scriptedStart();
         const runtime = scriptedRuntime(output, {
           loadConfig: () => config,
           status: () => ({
             ok: true,
-            data: statusData([
-              main,
-              ...(created === undefined ? [] : [startedFleetEntry(created)]),
-            ]),
+            data: started.survey([main]),
           }),
           detectAgents: () => [{ name: "gemini", binary: "gemini" }],
           readPreferences: () => ({
@@ -2515,10 +2400,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
             }
             return choices.shift() ?? QUIT;
           },
-          start: (_ctx, prepared) => {
-            created = startedTask(prepared);
-            return created;
-          },
+          start: started.start,
           interactive: () => {
             launchCount++;
             return 0;
@@ -2603,10 +2485,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
 
         for (const testCase of cases) {
           const output = transcript();
-          const main = fleetEntry("main", ROOT, {
-            is_main: true,
-            is_current: true,
-          });
+          const main = mainFleetEntry(ROOT);
           const choices = [...testCase.choices];
           let inputCalls = 0;
           let confirmCalls = 0;
@@ -2658,10 +2537,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
       name: "an unlanded branch can be inspected or resumed by its exact ref",
       check: async () => {
         const branch = "agent/orphan-修复";
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
 
         const inspectOutput = transcript();
         const inspectChoices = [
@@ -2729,45 +2605,25 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
           "Retain the branch's committed base.",
         ];
         const confirmations = [true];
-        const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
-        let created: StartData | undefined;
+        const started = scriptedStart();
         assertEquals(
           await runDesk(
             {},
             scriptedRuntime(resumeOutput, {
               status: () => ({
                 ok: true,
-                data: {
-                  ...statusData([
-                    main,
-                    ...(created === undefined
-                      ? []
-                      : [startedFleetEntry(created)]),
-                  ]),
-                  unlanded_branches: [branch],
-                },
+                data: started.survey([main], { unlanded_branches: [branch] }),
               }),
               select: () => resumeChoices.shift() ?? QUIT,
               input: () => inputs.shift() ?? "",
               confirm: () => confirmations.shift() ?? false,
-              startPlan: (_ctx, request) => {
-                requests.push(request);
-                return preparedStart(request.title ?? "Generated title", {
-                  from: request.from ?? "main",
-                  ...(request.brief === undefined
-                    ? {}
-                    : { brief: request.brief }),
-                });
-              },
-              start: (_ctx, prepared) => {
-                created = startedTask(prepared);
-                return created;
-              },
+              startPlan: started.startPlan,
+              start: started.start,
             }),
           ),
           0,
         );
-        assertEquals(requests, [{
+        assertEquals(started.requests, [{
           worktreeRoot: "/project.worktrees",
           title: "Resume orphan work",
           brief: "Retain the branch's committed base.",
@@ -2780,10 +2636,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
       name: "a live task starts a follow-up from its exact branch tip",
       check: async () => {
         const output = transcript();
-        const main = fleetEntry("main", ROOT, {
-          is_main: true,
-          is_current: true,
-        });
+        const main = mainFleetEntry(ROOT);
         const parent = fleetEntry(
           "agent/parent-task",
           "/worktrees/parent-task",
@@ -2804,19 +2657,14 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
           "Build on the selected task's committed tip.",
         ];
         const confirmations = [true];
-        const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
         const preferences: Array<
           Parameters<DeskRuntime["writePreferences"]>[1]
         > = [];
-        let created: StartData | undefined;
+        const started = scriptedStart();
         const runtime = scriptedRuntime(output, {
           status: () => ({
             ok: true,
-            data: statusData([
-              main,
-              parent,
-              ...(created === undefined ? [] : [startedFleetEntry(created)]),
-            ]),
+            data: started.survey([main, parent]),
           }),
           readPreferences: () => ({
             schema_version: 1,
@@ -2825,17 +2673,8 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
           select: () => choices.shift() ?? QUIT,
           input: () => inputs.shift() ?? "",
           confirm: () => confirmations.shift() ?? false,
-          startPlan: (_ctx, request) => {
-            requests.push(request);
-            return preparedStart(request.title ?? "Generated title", {
-              from: request.from ?? "main",
-              ...(request.brief === undefined ? {} : { brief: request.brief }),
-            });
-          },
-          start: (_ctx, prepared) => {
-            created = startedTask(prepared);
-            return created;
-          },
+          startPlan: started.startPlan,
+          start: started.start,
           writePreferences: (_root, value) => {
             preferences.push(value);
             return { status: "saved" };
@@ -2843,7 +2682,7 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
         });
 
         assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(requests, [{
+        assertEquals(started.requests, [{
           worktreeRoot: "/project.worktrees",
           title: "Follow-up: preserve metadata",
           brief: "Build on the selected task's committed tip.",
@@ -2872,7 +2711,7 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
         const output = transcript();
         const effort = fleetEntry("agent/agents", "/worktrees/agents");
         const data = statusData([
-          fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+          mainFleetEntry(ROOT),
           effort,
         ]);
         const worktreeConfig = configSchema.parse({
@@ -3009,7 +2848,7 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
           gate_proof: { status: "honored" },
         });
         const data = statusData([
-          fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+          mainFleetEntry(ROOT),
           effort,
         ]);
         const choices = [
@@ -3095,7 +2934,7 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
         const empty = fleetEntry("agent/empty", "/worktrees/empty");
         const scripted = fleetEntry("agent/scripted", "/worktrees/scripted");
         const data = statusData([
-          fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+          mainFleetEntry(ROOT),
           empty,
           scripted,
         ]);
@@ -3186,7 +3025,7 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
           "/worktrees/script-arguments",
         );
         const data = statusData([
-          fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+          mainFleetEntry(ROOT),
           scripted,
         ]);
         const choices = [

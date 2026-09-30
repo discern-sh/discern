@@ -24,6 +24,11 @@ import {
   type StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import {
+  fleetEntry,
+  mainFleetEntry,
+  statusData,
+} from "./fixtures/status_fleet.ts";
+import {
   FLEET_ROW_STATUS_KINDS,
   type FleetRowPresentationOptions,
   type FleetRowStatusKind,
@@ -53,38 +58,24 @@ function squash(text: string): string {
 function entry(
   patch: Partial<StatusFleetEntry> = {},
 ): StatusFleetEntry {
-  return {
+  return fleetEntry({
     path: "/repo.worktrees/alpha-abc123",
-    is_main: false,
-    is_current: false,
     branch: "agent/alpha-abc123",
     id: "alpha-abc123",
-    clean: true,
-    changed_files: 0,
-    ahead: 0,
-    behind: 0,
     last_activity: "2026-08-03T11:00:00.000Z",
     gate_proof: { status: "missing" },
     ...patch,
-  };
+  });
 }
 
 /** Main-checkout row carried by the fleet collector. */
 function mainEntry(
   patch: Partial<StatusFleetEntry> = {},
 ): StatusFleetEntry {
-  return {
-    path: "/repo",
-    is_main: true,
-    is_current: true,
-    branch: "main",
-    clean: true,
-    changed_files: 0,
-    ahead: 0,
-    behind: 0,
+  return mainFleetEntry("/repo", {
     last_activity: "2026-08-03T11:30:00.000Z",
     ...patch,
-  };
+  });
 }
 
 /** Complete status envelope data for pure dashboard fixtures. */
@@ -92,11 +83,9 @@ function data(
   fleet: StatusFleetEntry[] | undefined,
   patch: Partial<StatusData> = {},
 ): StatusData {
-  return {
-    location: "main",
+  return statusData(fleet, {
     root: "/repo",
     project: "voyager",
-    worktree: null,
     git: {
       branch: "main",
       trunk: "main",
@@ -106,9 +95,8 @@ function data(
       ahead_trunk: 0,
     },
     standards: ["coverage", "plain_reading_grade"],
-    ...(fleet === undefined ? {} : { fleet }),
     ...patch,
-  };
+  });
 }
 
 /** Render a fixture at a deterministic clock. */

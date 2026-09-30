@@ -35,48 +35,21 @@ import type {
   StatusData,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
+import { statusData, taskFleetEntry } from "./fixtures/status_fleet.ts";
 import { assertTerminalTextIncludes } from "./helpers.ts";
 import { ManualScheduler } from "./manual_scheduler.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 
-/** A healthy task from the status authority, with per-case observations. */
+/** A healthy task with current Proof, as the status authority reports it. */
 function entry(
   id: string,
   patch: Partial<StatusFleetEntry> = {},
 ): StatusFleetEntry {
-  return {
-    id,
-    path: `/tasks/${id}`,
-    branch: `agent/${id}`,
-    is_main: false,
-    is_current: false,
-    clean: true,
+  return taskFleetEntry(id, {
     ahead: 1,
-    behind: 0,
-    filesystem: { state: "directory" },
-    setup: { state: "ready", marker: "present" },
     gate_proof: { status: "honored" },
     ...patch,
-  };
-}
-/** A projected status response with no inferred submission. */
-function data(fleet: StatusFleetEntry[] = []): StatusData {
-  return {
-    location: "main",
-    root: "/project",
-    project: "Example",
-    worktree: null,
-    git: {
-      branch: "main",
-      trunk: "main",
-      clean: true,
-      changed_files: 0,
-      behind_trunk: 0,
-      ahead_trunk: 0,
-    },
-    standards: [],
-    fleet,
-  };
+  });
 }
 /** Observe outstanding reads while retaining the package testing protocol. */
 class CountedTerminal extends FakeTerminalIO {
@@ -106,7 +79,7 @@ async function session(patch: Partial<LiveDeskDependencies> = {}): Promise<{
   const scheduler = new ManualScheduler();
   let context: TerminalApplicationContext<DeskChoice> | undefined;
   const options = liveDesk({
-    observe: () => Promise.resolve(data([entry("alpha"), entry("beta")])),
+    observe: () => Promise.resolve(statusData([entry("alpha"), entry("beta")])),
     capabilities: (row) => Promise.resolve(row),
     tip: () => Promise.resolve("One stable teaching line."),
     perform: () => Promise.resolve(),
@@ -164,7 +137,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
           observe: () =>
             ++calls === 1
               ? Promise.resolve(
-                data(
+                statusData(
                   Array.from(
                     { length: 100 },
                     (_, i) => entry(`task-${String(i).padStart(3, "0")}`),
@@ -191,7 +164,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
           () => test.state().positions.tasks?.selectedId === "task-090",
           "filtered selection survives Back",
         );
-        pending.resolve(data([entry("task-090"), entry("task-001")]));
+        pending.resolve(statusData([entry("task-090"), entry("task-001")]));
         await waitUntil(
           () => test.state().view.title.includes("Refreshing") === false,
           "refresh settles",
@@ -204,7 +177,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
       name:
         "Desk retains the last good fleet after failure and Retry replaces it",
       check: async () => {
-        let observed = data([entry("alpha")]);
+        let observed = statusData([entry("alpha")]);
         let fail = false;
         const test = await session({
           observe: () =>
@@ -225,7 +198,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
           "Alpha",
         );
         fail = false;
-        observed = data([entry("beta")]);
+        observed = statusData([entry("beta")]);
         test.io.enqueue("r");
         await waitUntil(
           () => test.state().positions.tasks?.selectedId === "beta",
@@ -248,7 +221,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
         );
         await test.stop();
         const writes = test.io.writes.length;
-        pending.resolve(data([entry("late")]));
+        pending.resolve(statusData([entry("late")]));
         await pending.promise;
         assertEquals(test.io.writes.length, writes);
         const failed = await session({
@@ -262,7 +235,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
     {
       name: "Desk stale actions never fall through to a neighboring task",
       check: async () => {
-        let observed = data([entry("alpha"), entry("beta")]);
+        let observed = statusData([entry("alpha"), entry("beta")]);
         const performed: DeskChoice[] = [];
         const test = await session({
           observe: () => Promise.resolve(observed),
@@ -277,7 +250,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
           () => test.state().view.regions[0].id === "task:alpha:actions",
           "alpha controls",
         );
-        observed = data([entry("beta")]);
+        observed = statusData([entry("beta")]);
         test.io.enqueueKeys("down", "down", "down", "enter");
         await waitUntil(
           () => test.state().view.title.includes("no action ran"),
@@ -297,7 +270,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
       name:
         "Desk rechecks running state and preserves reading and focus through foreground return",
       check: async () => {
-        let observed = data([entry("alpha")]);
+        let observed = statusData([entry("alpha")]);
         let effects = 0;
         const test = await session({
           observe: () => Promise.resolve(observed),
@@ -314,7 +287,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
               "accept",
           "Accept selected",
         );
-        observed = data([
+        observed = statusData([
           entry("alpha", {
             running: {
               verb: "done",
@@ -329,7 +302,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
           "fresh refusal",
         );
         assertEquals(effects, 0);
-        observed = data([entry("alpha")]);
+        observed = statusData([entry("alpha")]);
         test.io.enqueue("r");
         await waitUntil(
           () => !test.state().view.title.includes("Refreshing"),
@@ -411,7 +384,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
       name:
         "Desk preserves detail reading, task identity and overview search through Back and resize",
       check: async () => {
-        const observed = data([
+        const observed = statusData([
           entry("alpha", { path: `/tasks/${"long path ".repeat(150)}` }),
           entry("beta"),
         ]);
@@ -481,12 +454,12 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
       name:
         "Desk retains known tasks when a successful status envelope cannot observe Git or fleet",
       check: async () => {
-        let observed = data([entry("alpha")]);
+        let observed = statusData([entry("alpha")]);
         const test = await session({
           observe: () => Promise.resolve(observed),
         });
         await test.ready();
-        observed = { ...data(), git: null };
+        observed = { ...statusData(), git: null };
         test.io.enqueue("r");
         await waitUntil(
           () => test.state().view.title.includes("Stale"),
@@ -515,7 +488,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
       name:
         "Desk capability discovery survives faster status refreshes without publishing stale task facts",
       check: async () => {
-        let observed = data([entry("alpha")]);
+        let observed = statusData([entry("alpha")]);
         const pending = Promise.withResolvers<
           ReturnType<typeof buildDeskRows>[number]
         >();
@@ -542,7 +515,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
         );
         assert(capabilityRow);
         for (let i = 0; i < 3; i++) {
-          observed = data([
+          observed = statusData([
             entry("alpha", { clean: false, gate_proof: { status: "dirty" } }),
           ]);
           test.io.enqueue("r");
@@ -598,7 +571,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
         const test = await session({
           observe: () => {
             observations++;
-            return Promise.resolve(data([entry("alpha"), entry("beta")]));
+            return Promise.resolve(statusData([entry("alpha"), entry("beta")]));
           },
           perform: () => {
             effects++;
@@ -730,7 +703,7 @@ Deno.test("Desk application views keep independent facts, controls, and viewport
           ) {
             for (const unicode of [false, true]) {
               for (const theme of ["light", "dark"] as const) {
-                const fleet = data(
+                const fleet = statusData(
                   Array.from({ length: count }, (_, i) => entry(`task-${i}`)),
                 );
                 const tasks = buildDeskRows(
@@ -802,7 +775,7 @@ Deno.test("Desk application views keep independent facts, controls, and viewport
       name:
         "Proof, authority, submission revision, activity and advisory overlap remain independent",
       check: () => {
-        const fleet = data([
+        const fleet = statusData([
           entry("alpha", {
             landing_authority: { kind: "authorized", source: "effort-grant" },
           }),

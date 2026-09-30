@@ -13,6 +13,7 @@ import {
   type StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
+import { observedFleetEntry } from "./fixtures/status_fleet.ts";
 import {
   agentLaunchArgs,
   buildAgentLaunches,
@@ -50,22 +51,13 @@ function minutesAgo(minutes: number): string {
 /** A healthy linked-worktree survey row; override only the fact under test. */
 function entry(over: Partial<StatusFleetEntry> = {}): StatusFleetEntry {
   const branch = over.branch ?? "agent/x";
-  return {
-    path: `/tmp/fleet/${branch}`,
-    is_main: false,
-    is_current: false,
+  return observedFleetEntry({
     branch,
-    branch_reachable: true,
-    filesystem: { state: "directory" },
-    setup: { state: "ready", marker: "present" },
-    clean: true,
-    changed_files: 0,
-    ahead: 0,
-    behind: 0,
+    path: `/tmp/fleet/${branch}`,
     last_activity: daysAgo(0),
     gate_proof: { status: "missing" },
     ...over,
-  };
+  });
 }
 
 /** Build a complete decision from the standard fixture and optional evidence. */
