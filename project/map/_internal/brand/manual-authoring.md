@@ -17,6 +17,18 @@ Lead with what the reader gets. Use the most precise words the reader already kn
 
 The model pages show all of this at work. Read them before drafting.
 
+## Keep it short
+
+A new reader decides from the first screen whether the manual is for them, and every sentence spends attention they could give their own project. Say each thing once, in the fewest words that keep it exact.
+
+- **Budget the page.** Aim for about 1,000 prose words on a tutorial, guide, or explanation, about 1,400 on a troubleshooting page, and about 300 on a section index. A page well over its budget usually carries a second job, or material another page owns.
+- **Give the reason once.** Name the worry and the payoff in a sentence where the concept enters. Later sections act on it without arguing it again.
+- **Define in a clause.** Take a term's first use from the register bridge's documentation first use, and keep it to a phrase beside the term.
+- **Link instead of retelling.** Where another page is a concept's home, give the sentence or two this page needs, then link.
+- **Leave runtime detail to results and Reference.** Flags, receipts, retention periods, and continuations stay out of teaching pages unless the reader must recognize them to act. Troubleshooting keeps the exact messages people search for.
+
+The `public_doc_leaf_density` standard holds the manual's ratio of findable sections to prose words, so a page that grows without adding a findable section can fail the gate.
+
 ## Lead with what the reader gets
 
 The first paragraph renders as the page's large introduction, above the first `##` heading. It tells the reader what they get, in the terms of their own situation:
@@ -253,6 +265,7 @@ Reject a draft that turns into any of these:
 - **runtime transcript:** every flag, receipt, and continuation of an agent-only path copied into a guide;
 - **repository shorthand:** local paths, test fixtures, ADR numbers, or team vocabulary the reader needs to understand the page;
 - **duplicate reference:** a guide or explanation that repeats the flags, fields, defaults, or limits Reference owns;
+- **retold home:** a page that re-explains a concept, procedure, or list another page owns, instead of giving the sentence it needs and linking;
 - **marketing flourish:** emotional language that hides the state, scope, or next step;
 - **agent blame:** prose that mocks or judges the coding agent instead of describing the product boundary;
 - **false certainty:** green becomes "correct", Proof becomes defect detection, landed becomes live, or an old conversation becomes permission;
@@ -314,6 +327,7 @@ Then confirm that:
 - one example runs through the page, set as a scene and followed to its outcome;
 - every term is defined where it first appears;
 - each limit appears once, where it changes a decision, and strong claims are exact instead of hedged;
+- the page is near its budget, and each concept another page owns gets a sentence or two before its link;
 - requests read as the reader's intent, in quotation marks;
 - where it reads naturally, the page shows one real artifact;
 - every claim and example matches the live product;
