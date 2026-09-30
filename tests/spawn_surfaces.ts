@@ -160,22 +160,22 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
     role: "registered-boundary",
   },
   {
+    path: "scripts/local_design_system.ts",
+    enclosingFunction: "capturedCommand",
+    publication: "repository-tooling",
+    operation: "probe a temporary local design-system link",
+    reason:
+      "the local design-system helpers resolve package exports under an untracked Deno config and need the exact captured result",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
     path: "scripts/release_command.ts",
     enclosingFunction: "runReleaseCommand",
     publication: "repository-tooling",
     operation: "run a captured release verification or coordination command",
     reason:
       "release tools share a captured command boundary with explicit arguments and environment overrides",
-    may: ["other"],
-    role: "registered-boundary",
-  },
-  {
-    path: "scripts/site_local_design_system.ts",
-    enclosingFunction: "capturedCommand",
-    publication: "repository-tooling",
-    operation: "run a local design-system helper command",
-    reason:
-      "the site helper launches a Deno task with repository-tooling permissions and returns its exact capture",
     may: ["other"],
     role: "registered-boundary",
   },

@@ -104,6 +104,13 @@ export {
   inspectGitSnapshot,
 } from "./git_snapshot.ts";
 import { discoverGit, discoverGitDirs } from "../../shared/git_discovery.ts";
+import {
+  firstWorktreePath,
+  git,
+  mainRepoPath,
+  realPathOr,
+} from "../../shared/main_repo.ts";
+export { mainRepoPath } from "../../shared/main_repo.ts";
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
@@ -155,21 +162,6 @@ export function missingIntegrationBranchWarning(branch: string): string {
   return fire(HINTS["missing-trunk-branch"], { branch }).text;
 }
 
-/**
- * Thin binding to the shared git runner, preserving this module's positional
- * `(args, cwd?)` call shape used throughout the worktree git mechanics. An omitted
- * `cwd` means "run in the process directory" — resolved to {@link Deno.cwd} here so
- * the choice is explicit at the runGit boundary, which requires the execution root
- * rather than inheriting it. The spawn itself — GIT_BIN, decoding, the no-git
- * fallback — lives once in {@link runGit}.
- */
-function git(args: string[], cwd: string = Deno.cwd()): Promise<GitResult> {
-  return runGit(args, {
-    cwd,
-    quiesceDescendants: true,
-  });
-}
-
 /** Build the typed failure for a Git read whose exit code is not a predicate. */
 function gitReadFailure(
   operation: string,
@@ -201,51 +193,11 @@ export async function gitVersion(): Promise<string | undefined> {
   return line === "" ? undefined : line;
 }
 
-/** Canonicalize a path, retaining an absent path for missing-target workflows. */
-async function realPathOr(path: string): Promise<string> {
-  try {
-    return await Deno.realPath(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return path;
-    throw error;
-  }
-}
-
 /** Read the first line of a regular file, or undefined when absent or another kind. */
 async function firstLine(path: string): Promise<string | undefined> {
   if (!(await fileExists(path))) return undefined;
   const text = await readTextIfExists(path);
   return text?.split("\n")[0] ?? (text === undefined ? undefined : "");
-}
-
-/** The first `worktree ` path printed by `git worktree list --porcelain`. */
-async function firstWorktreePath(cwd?: string): Promise<string | undefined> {
-  const run = await git(["worktree", "list", "--porcelain"], cwd);
-  if (!run.success) {
-    return undefined;
-  }
-  for (const line of run.stdout.split("\n")) {
-    if (line.startsWith("worktree ")) {
-      return line.slice("worktree ".length);
-    }
-  }
-  return undefined;
-}
-
-/**
- * Resolve the MAIN repository path — the first `worktree` entry of `git worktree
- * list --porcelain`, canonicalized. Returns undefined when not in a git repo or
- * the path does not exist. Mirrors `main_repo_path`.
- */
-export async function mainRepoPath(cwd?: string): Promise<string | undefined> {
-  const first = await firstWorktreePath(cwd);
-  if (first === undefined || first === "") {
-    return undefined;
-  }
-  if (!(await directoryExists(first))) {
-    return undefined;
-  }
-  return await realPathOr(first);
 }
 
 /** Resolved git directories for the cwd: the per-worktree dir and the shared one. */

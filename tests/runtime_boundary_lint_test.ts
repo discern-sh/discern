@@ -36,8 +36,8 @@ const BOUNDARY_EXCEPTIONS: readonly BoundaryException[] = [
       "The function proves a non-array record and the one green field it consumes before returning the broad record type.",
   },
   {
-    path: "scripts/site_local_design_system.ts",
-    enclosingFunction: "readJsonObject",
+    path: "scripts/local_design_system.ts",
+    enclosingFunction: "parseJsonObject",
     rule: "asserted-json-boundary",
     reason:
       "The preceding null, array, and object checks completely establish the asserted JsonObject alias.",

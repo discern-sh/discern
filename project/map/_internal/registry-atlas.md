@@ -5141,8 +5141,8 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `scripts/canon_editor/pipeline.ts#mapProseGate`
   - `scripts/cli_install.ts#capture`
   - `scripts/coverage.ts#denoCommand`
+  - `scripts/local_design_system.ts#capturedCommand`
   - `scripts/release_command.ts#runReleaseCommand`
-  - `scripts/site_local_design_system.ts#capturedCommand`
   - `scripts/use_compiled_build.ts#buildHostBinary`
   - `scripts/vale_toolchain.ts#runExactVale`
   - `scripts/vale_toolchain.ts#extractVale`
@@ -5746,12 +5746,12 @@ Every callback-scoped scratch directory used by a standalone repository tool, wi
   - `fta-analysis`
   - `install-fixture-capture`
   - `map-prose-stage`
+  - `local-design-system`
   - `manual-build-stage`
   - `manual-prose-stage`
   - `release-gate`
   - `release-smoke`
   - `site-deployment`
-  - `site-design-system`
   - `site-prose-stage`
   - `terminal-capture`
   - `terminal-fixture-binary`

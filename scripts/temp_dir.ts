@@ -66,6 +66,12 @@ export const TOOL_TEMP_DIR_KINDS = {
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
+  "local-design-system": {
+    purpose: "temporary Deno config linking a local design-system checkout",
+    prefix: "discern-local-design-system-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
   "manual-build-stage": {
     purpose: "validated manual assembled beside its atomic build destination",
     prefix: "discern-manual-stage-",
@@ -94,12 +100,6 @@ export const TOOL_TEMP_DIR_KINDS = {
   "site-deployment": {
     purpose: "committed archives used to stage one website deployment",
     prefix: "discern-site-deployment-",
-    recursiveCleanup: true,
-    preserveOnFailure: false,
-  },
-  "site-design-system": {
-    purpose: "local design-system preview configuration",
-    prefix: "discern-site-design-system-",
     recursiveCleanup: true,
     preserveOnFailure: false,
   },

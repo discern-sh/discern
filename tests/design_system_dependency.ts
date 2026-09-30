@@ -1,5 +1,5 @@
 /** Immutable package contract shared by CLI and web consumer checks. */
-import { fromFileUrl } from "@std/path";
+import { fromFileUrl, toFileUrl } from "@std/path";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
 
@@ -24,12 +24,17 @@ const DENO_INFO_SCHEMA = z.object({
   modules: z.array(
     z.object({
       specifier: z.string().optional(),
+      dependencies: z.array(
+        z.object({ specifier: z.string() }).passthrough(),
+      ).optional(),
     }).passthrough(),
   ).optional(),
 }).passthrough();
 
+type DenoInfo = z.infer<typeof DENO_INFO_SCHEMA>;
+
 /** Read Deno's resolved module graph for one repository entrypoint. */
-export async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
+async function denoInfo(entrypoint: string): Promise<DenoInfo> {
   const output = await new Deno.Command(Deno.execPath(), {
     args: ["info", "--json", entrypoint],
     cwd: ROOT,
@@ -39,11 +44,33 @@ export async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
   if (!output.success) {
     throw new Error(new TextDecoder().decode(output.stderr));
   }
-  const info = decodeWith(
-    DENO_INFO_SCHEMA,
-    new TextDecoder().decode(output.stdout),
-  );
-  return (info.modules ?? []).flatMap((module) =>
+  return decodeWith(DENO_INFO_SCHEMA, new TextDecoder().decode(output.stdout));
+}
+
+/** Every resolved module specifier in one repository entrypoint's graph. */
+export async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
+  return ((await denoInfo(entrypoint)).modules ?? []).flatMap((module) =>
     module.specifier === undefined ? [] : [module.specifier]
   );
+}
+
+/**
+ * The bare import specifiers this repository's own modules write, across one
+ * entrypoint's graph, that start with `prefix`.
+ */
+export async function authoredImportSpecifiers(
+  entrypoint: string,
+  prefix: string,
+): Promise<string[]> {
+  const repository = toFileUrl(ROOT).href;
+  const found = new Set<string>();
+  for (const module of (await denoInfo(entrypoint)).modules ?? []) {
+    if (module.specifier?.startsWith(repository) !== true) continue;
+    for (const dependency of module.dependencies ?? []) {
+      if (dependency.specifier.startsWith(prefix)) {
+        found.add(dependency.specifier);
+      }
+    }
+  }
+  return [...found].sort();
 }

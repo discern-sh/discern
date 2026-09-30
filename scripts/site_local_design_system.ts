@@ -3,20 +3,17 @@
  * changing the committed exact JSR dependency.
  */
 
-import { dirname, fromFileUrl, join, resolve, toFileUrl } from "@std/path";
+import { join } from "@std/path";
 import { denoRunInvocation } from "../site/dev_invocation.ts";
-import { runOwnedChild } from "../src/engine/owned_child.ts";
-import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
-import { mainRepoPath } from "../src/engine/worktree/git.ts";
-import { withToolTempDir } from "./temp_dir.ts";
-
-const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
-const PACKAGE_NAME = "@discern-sh/design-system";
-const PACKAGE_NAME_SPECIFIER = `jsr:${PACKAGE_NAME}`;
-const PACKAGE_EXPORTS = [".", "./react", "./runtime"] as const;
-const PACKAGE_REPOSITORY = "discern-design-system";
-const SEMVER_PATTERN =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+import {
+  designSystemSpecifier,
+  inheritedCommand,
+  REPO_ROOT,
+  resolveDesignSystemCheckout,
+  runLocalDesignSystemTool,
+  SITE_DESIGN_SYSTEM_EXPORTS,
+  withLocalDesignSystem,
+} from "./local_design_system.ts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -53,186 +50,25 @@ function parseLocalDesignSystemArgs(
     }
     packageRoot = argument;
   }
-  if (packageRoot !== undefined && packageRoot.trim() === "") {
-    throw new Error("the design-system checkout path cannot be empty");
-  }
   return { buildOnly, packageRoot };
 }
 
 /**
  * Resolve an explicit override or the conventional package checkout beside
- * discern's Git main checkout. The main-checkout query keeps this stable when
- * the helper runs from a linked worktree.
+ * discern's Git main checkout.
  */
 export async function resolveLocalDesignSystemArgs(
   args: readonly string[],
-  resolveMainCheckout: () => Promise<string | undefined>,
+  resolveMainCheckout?: () => Promise<string | undefined>,
 ): Promise<LocalDesignSystemArgs> {
   const parsed = parseLocalDesignSystemArgs(args);
-  if (parsed.packageRoot !== undefined) {
-    return { buildOnly: parsed.buildOnly, packageRoot: parsed.packageRoot };
-  }
-  const mainCheckout = await resolveMainCheckout();
-  if (mainCheckout === undefined) {
-    throw new Error(
-      "could not locate discern's main checkout; pass a design-system checkout",
-    );
-  }
   return {
     buildOnly: parsed.buildOnly,
-    packageRoot: join(dirname(mainCheckout), PACKAGE_REPOSITORY),
+    packageRoot: await resolveDesignSystemCheckout(
+      parsed.packageRoot,
+      resolveMainCheckout,
+    ),
   };
-}
-
-/**
- * Point the temporary alias at a linked checkout without mutating the base.
- * The alias names no version: Deno uses a link only when its version satisfies
- * the import, so an exact version would silently fall back to the registry as
- * soon as the checkout bumped its own while the preview kept serving.
- */
-export function localDesignSystemConfig(
-  base: Readonly<JsonObject>,
-  packageRoot: string,
-): JsonObject {
-  const imports = base.imports;
-  if (
-    imports === null || typeof imports !== "object" || Array.isArray(imports)
-  ) {
-    throw new Error("discern's deno.json must declare imports");
-  }
-  return {
-    ...base,
-    imports: {
-      ...imports,
-      "discern-design-system": PACKAGE_NAME_SPECIFIER,
-    },
-    links: [packageRoot],
-    lock: false,
-    nodeModulesDir: "none",
-  };
-}
-
-/** Assert the selected directory exposes the package surface discern consumes. */
-export function assertLocalDesignSystemPackage(
-  config: unknown,
-  path: string,
-): asserts config is JsonObject & { readonly version: string } {
-  if (config === null || typeof config !== "object") {
-    throw new Error(`${path}/deno.json must contain an object`);
-  }
-  const candidate = config as JsonObject;
-  if (candidate.name !== PACKAGE_NAME) {
-    throw new Error(`${path} must be the ${PACKAGE_NAME} package`);
-  }
-  if (
-    typeof candidate.version !== "string" ||
-    !SEMVER_PATTERN.test(candidate.version)
-  ) {
-    throw new Error(`${path}/deno.json must declare a semantic version`);
-  }
-  const exports = candidate.exports;
-  if (exports === null || typeof exports !== "object") {
-    throw new Error(`${path}/deno.json must declare package exports`);
-  }
-  const available = exports as JsonObject;
-  for (const required of PACKAGE_EXPORTS) {
-    if (typeof available[required] !== "string") {
-      throw new Error(`${path}/deno.json must export ${required}`);
-    }
-  }
-}
-
-/** Whether Deno resolved a package export from the selected local directory. */
-export function isLocalPackageResolution(
-  resolution: string,
-  packageRoot: string,
-): boolean {
-  const rootUrl = toFileUrl(
-    packageRoot.endsWith("/") ? packageRoot : `${packageRoot}/`,
-  ).href;
-  return resolution.startsWith(rootUrl);
-}
-
-/** Decode a JSON file whose root must be an object. */
-async function readJsonObject(path: string): Promise<JsonObject> {
-  const value: unknown = JSON.parse(await Deno.readTextFile(path));
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${path} must contain a JSON object`);
-  }
-  return value as JsonObject;
-}
-
-/** Run one child with captured output for a preflight probe. */
-async function capturedCommand(
-  args: readonly string[],
-): Promise<Deno.CommandOutput> {
-  return await new Deno.Command(Deno.execPath(), {
-    args: [...args],
-    cwd: REPO_ROOT,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-}
-
-/** Run the long-lived build or server as an inherited-terminal child. */
-async function inheritedCommand(args: readonly string[]): Promise<number> {
-  const result = await runOwnedChild(Deno.execPath(), {
-    args,
-    cwd: REPO_ROOT,
-    resumeAfterInterrupt: true,
-  });
-  return result.interruptedBy === null
-    ? result.status.code
-    : SIGNAL_EXIT_CODES[result.interruptedBy] ?? 1;
-}
-
-/** Prove the temporary config resolves the public runtime export locally. */
-async function proveLocalResolution(
-  configPath: string,
-  packageRoot: string,
-): Promise<string> {
-  const probe = await capturedCommand([
-    "eval",
-    "--config",
-    configPath,
-    'console.log(import.meta.resolve("discern-design-system/runtime"))',
-  ]);
-  const stdout = new TextDecoder().decode(probe.stdout).trim();
-  if (!probe.success) {
-    const stderr = new TextDecoder().decode(probe.stderr).trim();
-    throw new Error(stderr || "Deno could not resolve the local package");
-  }
-  if (!isLocalPackageResolution(stdout, packageRoot)) {
-    throw new Error(
-      `local package preflight resolved ${stdout || "nothing"}`,
-    );
-  }
-  return stdout;
-}
-
-/** Read the tracked dependency files so the helper can prove it left no link. */
-async function dependencySnapshots(): Promise<ReadonlyMap<string, string>> {
-  const snapshots = new Map<string, string>();
-  for (const name of ["deno.json", "deno.lock"]) {
-    const path = join(REPO_ROOT, name);
-    snapshots.set(path, await Deno.readTextFile(path));
-  }
-  return snapshots;
-}
-
-/** Refuse a run that changed the consumer's committed dependency surfaces. */
-async function assertDependencySnapshots(
-  snapshots: ReadonlyMap<string, string>,
-): Promise<void> {
-  const changed: string[] = [];
-  for (const [path, before] of snapshots) {
-    if (await Deno.readTextFile(path) !== before) changed.push(path);
-  }
-  if (changed.length > 0) {
-    throw new Error(
-      `local preview changed committed dependency files: ${changed.join(", ")}`,
-    );
-  }
 }
 
 /** Arguments for a one-shot site build through the temporary link. */
@@ -250,7 +86,7 @@ function buildArgs(configPath: string): string[] {
 }
 
 /** The consumer config's watch task command, the linked server's flag source. */
-export function watchTaskCommand(rootConfig: JsonObject): string {
+export function watchTaskCommand(rootConfig: Readonly<JsonObject>): string {
   const tasks = rootConfig.tasks;
   const command =
     typeof tasks === "object" && tasks !== null && !Array.isArray(tasks)
@@ -315,7 +151,7 @@ Git main checkout. Pass another checkout as the positional argument to
 override it.
 It writes an untracked temporary Deno config whose alias names no version, so
 the link holds for an ahead or behind checkout and through a version bump made
-while it serves. It verifies that the public export resolves locally and leaves
+while it serves. It verifies that the public exports resolve locally and leaves
 deno.json and deno.lock unchanged. Without --build-only it serves and watches
 both repositories.`);
 }
@@ -326,65 +162,33 @@ async function main(): Promise<number> {
     printHelp();
     return 0;
   }
-  const options = await resolveLocalDesignSystemArgs(
-    Deno.args,
-    () => mainRepoPath(REPO_ROOT),
-  );
-  const packageRoot = await Deno.realPath(resolve(options.packageRoot));
-  const packageConfigPath = join(packageRoot, "deno.json");
-  const packageConfig = await readJsonObject(packageConfigPath);
-  assertLocalDesignSystemPackage(packageConfig, packageRoot);
-
-  const rootConfigPath = join(REPO_ROOT, "deno.json");
-  const rootConfig = await readJsonObject(rootConfigPath);
-  if (rootConfig.workspace !== undefined) {
-    throw new Error(
-      "the temporary-link helper requires discern's single-package config",
-    );
-  }
-  const snapshots = await dependencySnapshots();
-  return await withToolTempDir("site-design-system", async (temporaryRoot) => {
-    const temporaryConfig = join(temporaryRoot, "deno.json");
-    await Deno.writeTextFile(
-      temporaryConfig,
-      `${
-        JSON.stringify(
-          localDesignSystemConfig(rootConfig, packageRoot),
-          null,
-          2,
-        )
-      }\n`,
-    );
-
-    const resolution = await proveLocalResolution(
-      temporaryConfig,
-      packageRoot,
-    );
-    console.log(`Using local design system: ${packageRoot}`);
-    console.log(`Resolved runtime: ${resolution}`);
-    const exitCode = await inheritedCommand(
-      options.buildOnly ? buildArgs(temporaryConfig) : serverArgs(
-        temporaryConfig,
-        packageRoot,
-        watchTaskCommand(rootConfig),
-      ),
-    );
-    if (options.buildOnly && exitCode === 0) {
+  const options = await resolveLocalDesignSystemArgs(Deno.args);
+  return await withLocalDesignSystem(
+    options.packageRoot,
+    SITE_DESIGN_SYSTEM_EXPORTS,
+    async (link) => {
       console.log(
-        "Built the local design-system preview; refresh the browser.",
+        `Resolved runtime: ${
+          link.resolutions.get(designSystemSpecifier("./runtime"))
+        }`,
       );
-    }
-    await assertDependencySnapshots(snapshots);
-    return exitCode;
-  });
+      const exitCode = await inheritedCommand(
+        options.buildOnly ? buildArgs(link.configPath) : serverArgs(
+          link.configPath,
+          link.packageRoot,
+          watchTaskCommand(link.rootConfig),
+        ),
+      );
+      if (options.buildOnly && exitCode === 0) {
+        console.log(
+          "Built the local design-system preview; refresh the browser.",
+        );
+      }
+      return exitCode;
+    },
+  );
 }
 
 if (import.meta.main) {
-  try {
-    Deno.exit(await main());
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`site-design-system: ${message}`);
-    Deno.exit(1);
-  }
+  await runLocalDesignSystemTool("site-design-system", main);
 }

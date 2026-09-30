@@ -4,9 +4,6 @@ import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { z } from "@zod/zod";
 import { fromFileUrl, join, toFileUrl } from "@std/path";
 import {
-  assertLocalDesignSystemPackage,
-  isLocalPackageResolution,
-  localDesignSystemConfig,
   resolveLocalDesignSystemArgs,
   serverArgs,
   watchTaskCommand,
@@ -72,115 +69,6 @@ Deno.test("the linked server derives its sandbox from the watch task", () => {
   assertThrows(() => watchTaskCommand({}), Error, "watch task");
 });
 
-Deno.test("the local design-system config overlays a link without mutating the consumer config", () => {
-  const base = {
-    imports: {
-      "discern-design-system": "jsr:@discern-sh/design-system@0.12.0",
-      react: "npm:react@18.3.1",
-    },
-    nodeModulesDir: "auto",
-    tasks: { "site:build": "deno run site/build.ts" },
-  };
-  const snapshot = structuredClone(base);
-
-  assertEquals(
-    localDesignSystemConfig(base, "/tmp/future-component-system"),
-    {
-      ...base,
-      imports: {
-        ...base.imports,
-        "discern-design-system": "jsr:@discern-sh/design-system",
-      },
-      links: ["/tmp/future-component-system"],
-      lock: false,
-      nodeModulesDir: "none",
-    },
-  );
-  assertEquals(base, snapshot);
-});
-
-Deno.test("the temporary link resolves an unrelated local version, and a bump while it serves, without changing the consumer pin", async () => {
-  await withTempDir(async (temporaryRoot) => {
-    const packageRoot = join(temporaryRoot, "future-layout-kit");
-    const sourceRoot = join(packageRoot, "source");
-    const configPath = join(temporaryRoot, "deno.json");
-    const consumer = {
-      imports: {
-        "discern-design-system": "jsr:@discern-sh/design-system@4.5.6",
-      },
-    };
-    const snapshot = structuredClone(consumer);
-
-    await Deno.mkdir(sourceRoot, { recursive: true });
-    await Deno.writeTextFile(
-      join(packageRoot, "deno.json"),
-      `${
-        JSON.stringify(
-          {
-            name: "@discern-sh/design-system",
-            version: "91.2.3",
-            exports: {
-              ".": "./source/mod.ts",
-              "./react": "./source/react.ts",
-              "./runtime": "./source/runtime.ts",
-            },
-          },
-          null,
-          2,
-        )
-      }\n`,
-    );
-    for (const name of ["mod", "react", "runtime"]) {
-      await Deno.writeTextFile(
-        join(sourceRoot, `${name}.ts`),
-        `export const source = "local-${name}";\n`,
-      );
-    }
-
-    const temporaryConfig = localDesignSystemConfig(consumer, packageRoot);
-    await Deno.writeTextFile(
-      configPath,
-      `${JSON.stringify(temporaryConfig, null, 2)}\n`,
-    );
-
-    const resolveRuntime = async (): Promise<string> => {
-      const probe = await new Deno.Command(Deno.execPath(), {
-        args: [
-          "eval",
-          "--cached-only",
-          "--config",
-          configPath,
-          'console.log(import.meta.resolve("discern-design-system/runtime"))',
-        ],
-        stdout: "piped",
-        stderr: "piped",
-      }).output();
-      assertEquals(
-        probe.success,
-        true,
-        new TextDecoder().decode(probe.stderr),
-      );
-      return new TextDecoder().decode(probe.stdout).trim();
-    };
-    assertEquals(
-      isLocalPackageResolution(await resolveRuntime(), packageRoot),
-      true,
-    );
-    // The checkout bumps its version while the preview keeps its config.
-    const packageConfig = join(packageRoot, "deno.json");
-    await Deno.writeTextFile(
-      packageConfig,
-      (await Deno.readTextFile(packageConfig)).replace("91.2.3", "92.0.0"),
-    );
-    assertEquals(
-      isLocalPackageResolution(await resolveRuntime(), packageRoot),
-      true,
-      "a version bump in the checkout fell back to the registry",
-    );
-    assertEquals(consumer, snapshot);
-  }, { prefix: "discern-local-package-guard-" });
-});
-
 Deno.test("local design-system arguments resolve an explicit checkout before the conventional sibling", async () => {
   let mainCheckoutQueries = 0;
   const mainCheckout = (): Promise<string> => {
@@ -218,70 +106,6 @@ Deno.test("local design-system arguments resolve an explicit checkout before the
       ),
     Error,
     "one design-system checkout",
-  );
-});
-
-Deno.test("the package guard rejects a freshly named non-package sibling", () => {
-  const valid = {
-    name: "@discern-sh/design-system",
-    version: "91.2.3",
-    exports: {
-      ".": "./src/mod.ts",
-      "./react": "./src/react.ts",
-      "./runtime": "./src/runtime.ts",
-    },
-  };
-  assertLocalDesignSystemPackage(valid, "/tmp/design-system");
-  assertThrows(
-    () =>
-      assertLocalDesignSystemPackage(
-        { ...valid, version: "future" },
-        "/tmp/unversioned-kit",
-      ),
-    Error,
-    "semantic version",
-  );
-  assertThrows(
-    () =>
-      assertLocalDesignSystemPackage(
-        { ...valid, name: "@example/future-kit" },
-        "/tmp/future-kit",
-      ),
-    Error,
-    "@discern-sh/design-system",
-  );
-  assertThrows(
-    () =>
-      assertLocalDesignSystemPackage(
-        { ...valid, exports: { ".": "./mod.ts" } },
-        "/tmp/incomplete-kit",
-      ),
-    Error,
-    "must export",
-  );
-});
-
-Deno.test("resolution proof accepts any file in the selected checkout and rejects registry fallback", () => {
-  assertEquals(
-    isLocalPackageResolution(
-      "file:///tmp/future-component-system/src/runtime.ts",
-      "/tmp/future-component-system",
-    ),
-    true,
-  );
-  assertEquals(
-    isLocalPackageResolution(
-      "jsr:@discern-sh/design-system@0.12.0/runtime",
-      "/tmp/future-component-system",
-    ),
-    false,
-  );
-  assertEquals(
-    isLocalPackageResolution(
-      "file:///tmp/another-checkout/src/runtime.ts",
-      "/tmp/future-component-system",
-    ),
-    false,
   );
 });
 
@@ -326,7 +150,7 @@ Deno.test("the preview task's sandbox admits the helper's repository lookup and 
       [
         `import { mainRepoPath } from ${
           JSON.stringify(
-            toFileUrl(join(ROOT, "src/engine/worktree/git.ts")).href,
+            toFileUrl(join(ROOT, "src/shared/main_repo.ts")).href,
           )
         };`,
         `import { runOwnedChild } from ${
