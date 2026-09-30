@@ -55,6 +55,7 @@ export const DESK_CHECK_TARGETS = [
   "tests/fixtures/desk_tty_harness.ts",
   "tests/fixtures/desk_scripted_application.ts",
   "scripts/desk_capture.ts",
+  "scripts/desk_sandbox.ts",
 ] as const;
 
 const USAGE = `Run discern's CLI against a local design-system checkout

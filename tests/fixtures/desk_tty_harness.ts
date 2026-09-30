@@ -1,4 +1,4 @@
-import { recordCompleteGateFixture } from "../complete_gate_fixture.ts";
+import { completeGateFixture } from "../complete_gate_fixture.ts";
 /**
  * Real-terminal contract for the production Desk.
  *
@@ -48,6 +48,7 @@ import {
 import {
   pinValidatedTree,
   preflightAdminStateWrites,
+  recordGateOutcome,
 } from "../../src/engine/gate/proof.ts";
 import { configEpoch } from "../../src/engine/logbook/epoch.ts";
 import { LOGBOOK_SCHEMA_VERSION, type LogbookEvent } from "../../src/engine/logbook/schema.ts";
@@ -58,11 +59,21 @@ import {
   engineEnv,
   engineRunArgs,
   git,
+  gitAt,
   gitInit,
   gitOut,
   repoSourceRunArgs,
   scaffoldEngine,
 } from "../engine_helpers.ts";
+import { Logger } from "../../src/lib/log.ts";
+import { acceptLandingResult } from "../../src/engine/worktree/accept.ts";
+import {
+  type LifecycleContext,
+  lifecycleContext,
+} from "../../src/engine/worktree/lifecycle.ts";
+import { worktreeParkResult } from "../../src/engine/worktree/park.ts";
+import { finishResult } from "../../src/engine/gate/finish.ts";
+import { TEST_CLI_MODEL } from "../cli_model.ts";
 import { withTempDir } from "../temp_dir.ts";
 import {
   acceptedProjection,
@@ -166,6 +177,15 @@ export interface DeskFleetEntryFixture {
   readonly landingAuthority: DeskLandingAuthorityFixture;
   readonly availability: DeskAvailabilityFixture;
   readonly setup: "ready" | "incomplete";
+  /** Commits main gains after this task branches from it. */
+  readonly behindCommits: number;
+  /** How long ago the task's Git activity happened; absent means now. */
+  readonly idleMs?: number;
+  /**
+   * Prove the head with the real gate, then join the landing queue through the
+   * real queue-only acceptance, as the Desk's own Join the queue does.
+   */
+  readonly queued: boolean;
 }
 
 export interface DeskCollisionFixture {
@@ -176,6 +196,8 @@ export interface DeskCollisionFixture {
 
 export interface DeskOrphanBranchFixture {
   readonly name: string;
+  /** Close the checkout through the real Park core, keeping task metadata. */
+  readonly parked: boolean;
 }
 
 export interface DeskFleetFixture {
@@ -252,12 +274,28 @@ export function deskFleetEntry(
     readonly landingAuthority?: DeskLandingAuthorityFixture;
     readonly availability?: DeskAvailabilityFixture;
     readonly setup?: DeskFleetEntryFixture["setup"];
+    readonly behindCommits?: number;
+    readonly idleMs?: number;
+    readonly queued?: boolean;
   } = {},
 ): DeskFleetEntryFixture {
   if (name.trim() === "") throw new TypeError("Desk fleet entry name is empty");
-  const aheadCommits = options.aheadCommits ?? 0;
-  if (!Number.isSafeInteger(aheadCommits) || aheadCommits < 0) {
-    throw new TypeError("Desk aheadCommits must be a non-negative integer");
+  const aheadCommits = countOption("aheadCommits", options.aheadCommits);
+  const behindCommits = countOption("behindCommits", options.behindCommits);
+  if (
+    options.idleMs !== undefined &&
+    (!Number.isSafeInteger(options.idleMs) || options.idleMs < 0)
+  ) {
+    throw new TypeError("Desk idleMs must be a non-negative integer");
+  }
+  const queued = options.queued ?? false;
+  if (
+    queued &&
+    (options.proof === undefined || options.proof.presentation !== undefined)
+  ) {
+    throw new TypeError(
+      "a queued Desk fleet entry needs real Proof without a presentation override",
+    );
   }
   return {
     name,
@@ -270,7 +308,19 @@ export function deskFleetEntry(
       deskLandingAuthority("conversation-required"),
     availability: options.availability ?? deskMissingAgentsAndScripts(),
     setup: options.setup ?? "ready",
+    behindCommits,
+    ...(options.idleMs === undefined ? {} : { idleMs: options.idleMs }),
+    queued,
   };
+}
+
+/** Read one optional non-negative commit count. */
+function countOption(name: string, value: number | undefined): number {
+  const count = value ?? 0;
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new TypeError(`Desk ${name} must be a non-negative integer`);
+  }
+  return count;
 }
 
 /** Build pairwise changed-path evidence; the status core derives collisions. */
@@ -281,9 +331,12 @@ export function deskCollision(
   return { path, entries: [...entries] };
 }
 
-/** Build a branch without a checkout for the Desk header's orphan account. */
-export function deskOrphanBranch(name: string): DeskOrphanBranchFixture {
-  return { name };
+/** Build a branch without a checkout, optionally closed by Park. */
+export function deskOrphanBranch(
+  name: string,
+  options: { readonly parked?: boolean } = {},
+): DeskOrphanBranchFixture {
+  return { name, parked: options.parked ?? false };
 }
 
 /** Compose a caller-owned fleet in a few lines. */
@@ -318,10 +371,21 @@ export async function withDeskTtyProject<T>(
   run: (project: DeskTtyProject) => Promise<T>,
 ): Promise<T> {
   return await withTempDir(async (parent) => {
-    const root = join(parent, "project");
-    const project = await materialiseDeskProject(parent, root, fixture);
-    return await run(project);
+    return await run(await createDeskTtyProject(parent, fixture));
   }, { prefix: "discern-desk-tty-" });
+}
+
+/**
+ * Keep-mode materialisation: build the project under `parent/project`, with its
+ * worktrees beside it, and leave both for the caller to use and remove. The
+ * main checkout and worktree root share `parent`, so removing `parent` removes
+ * every checkout the fixture made.
+ */
+export async function createDeskTtyProject(
+  parent: string,
+  fixture: DeskFleetFixture,
+): Promise<DeskTtyProject> {
+  return await materialiseDeskProject(parent, join(parent, "project"), fixture);
 }
 
 async function materialiseDeskProject(
@@ -332,24 +396,36 @@ async function materialiseDeskProject(
   await Deno.mkdir(root, { recursive: true });
   await scaffoldEngine(root);
   await gitInit(root);
+  const nowMs = SYSTEM_CLOCK.wallNow();
+  const activeAt = (entry: DeskFleetEntryFixture): string | undefined =>
+    entry.idleMs === undefined
+      ? undefined
+      : new Date(nowMs - entry.idleMs).toISOString();
   const worktrees = new Map<string, string>();
-  for (const entry of fixture.entries) {
+  // A task created before main advances falls behind by what main gains after.
+  const creationOrder = [...fixture.entries].sort((left, right) =>
+    right.behindCommits - left.behindCommits
+  );
+  const mostBehind = creationOrder[0]?.behindCommits ?? 0;
+  let advanced = 0;
+  for (const entry of creationOrder) {
     if (worktrees.has(entry.name)) {
       throw new TypeError(`duplicate Desk fleet entry ${entry.name}`);
     }
-    worktrees.set(entry.name, await addWorktree(root, entry.name));
+    advanced = await advanceMain(
+      root,
+      advanced,
+      mostBehind - entry.behindCommits,
+    );
+    worktrees.set(
+      entry.name,
+      await addWorktree(root, entry.name, activeAt(entry)),
+    );
     const worktree = requiredWorktree(worktrees, entry.name);
-    if (entry.setup === "ready") {
-      const readyMarker = await readySentinelPath(worktree);
-      if (readyMarker === undefined) {
-        throw new Error(
-          `could not resolve Desk fixture ready marker for ${worktree}`,
-        );
-      }
-      await ensureDir(dirname(readyMarker));
-      await Deno.writeTextFile(readyMarker, "");
-    }
+    if (entry.setup === "ready") await markSetupReady(worktree);
   }
+
+  await advanceMain(root, advanced, mostBehind);
 
   const collisionFiles = new Map<string, DeskFixtureFile[]>();
   for (const collision of fixture.collisions) {
@@ -371,13 +447,18 @@ async function materialiseDeskProject(
 
   for (const entry of fixture.entries) {
     const worktree = requiredWorktree(worktrees, entry.name);
+    const at = activeAt(entry);
     let committed = false;
     for (let index = 0; index < entry.aheadCommits; index += 1) {
       await writeFixtureFile(worktree, {
-        path: `.desk-fixture/commit-${index + 1}.txt`,
+        path: `${fixtureDirectory(entry.name)}/commit-${index + 1}.txt`,
         contents: `${entry.name} commit ${index + 1}\n`,
       });
-      await commitFixture(worktree, `Add ${entry.name} fixture commit ${index + 1}`);
+      await commitFixture(
+        worktree,
+        `Add ${entry.name} fixture commit ${index + 1}`,
+        at,
+      );
       committed = true;
     }
     const committedFiles = [
@@ -386,7 +467,7 @@ async function materialiseDeskProject(
     ];
     if (committedFiles.length > 0) {
       for (const file of committedFiles) await writeFixtureFile(worktree, file);
-      await commitFixture(worktree, `Add ${entry.name} fleet state`);
+      await commitFixture(worktree, `Add ${entry.name} fleet state`, at);
       committed = true;
     }
     if (entry.availability.scripts === "available") {
@@ -398,21 +479,23 @@ async function materialiseDeskProject(
       await ensureDir(dirname(script));
       await Deno.writeTextFile(script, "#!/bin/sh\nexit 0\n");
       await Deno.chmod(script, 0o755);
-      await commitFixture(worktree, `Add ${entry.name} fixture script`);
+      await commitFixture(worktree, `Add ${entry.name} fixture script`, at);
       committed = true;
     }
     if (entry.proof !== undefined && !committed) {
       await writeFixtureFile(worktree, {
-        path: ".desk-fixture/proof-subject.txt",
+        path: `${fixtureDirectory(entry.name)}/proof-subject.txt`,
         contents: `${entry.name} proof subject\n`,
       });
-      await commitFixture(worktree, `Add ${entry.name} proof subject`);
+      await commitFixture(worktree, `Add ${entry.name} proof subject`, at);
     }
   }
 
   for (const entry of fixture.entries) {
     const worktree = requiredWorktree(worktrees, entry.name);
-    if (entry.proof !== undefined) {
+    if (entry.queued) {
+      await proveWithGate(worktree);
+    } else if (entry.proof !== undefined) {
       await materialiseProof(worktree, entry.proof);
     }
     if (entry.landingAuthority.kind === "effort-grant") {
@@ -422,7 +505,14 @@ async function materialiseDeskProject(
         "2026-08-23T12:00:00.000Z",
       );
     }
-    for (const file of entry.dirtyFiles) await writeFixtureFile(worktree, file);
+    if (entry.queued) await queueForLanding(worktree);
+    const at = activeAt(entry);
+    for (const file of entry.dirtyFiles) {
+      await writeFixtureFile(worktree, file);
+      if (at !== undefined) {
+        await Deno.utime(join(worktree, file.path), new Date(at), new Date(at));
+      }
+    }
   }
 
   const commonGitDir = await gitOut(root, "rev-parse", "--absolute-git-dir");
@@ -443,11 +533,16 @@ async function materialiseDeskProject(
     }
     const orphanWorktree = await addWorktree(root, orphan.name);
     await writeFixtureFile(orphanWorktree, {
-      path: ".desk-fixture/orphan-subject.txt",
+      path: `${fixtureDirectory(orphan.name)}/orphan-subject.txt`,
       contents: `${orphan.name} unlanded work\n`,
     });
     await commitFixture(orphanWorktree, `Add ${orphan.name} orphan fixture`);
-    await git(root, "worktree", "remove", orphanWorktree);
+    if (orphan.parked) {
+      await markSetupReady(orphanWorktree);
+      await parkFixture(root, orphanWorktree);
+    } else {
+      await git(root, "worktree", "remove", orphanWorktree);
+    }
   }
 
   const allAgentsMissing = fixture.entries.every((entry) =>
@@ -459,6 +554,24 @@ async function materialiseDeskProject(
     worktrees,
     env: allAgentsMissing ? { PATH: SAFE_SYSTEM_PATH } : {},
   };
+}
+
+/**
+ * Where one task's generated files live. Each task writes only its own paths,
+ * so overlap between tasks comes solely from declared collisions.
+ */
+function fixtureDirectory(name: string): string {
+  return `.desk-fixture/${name}`;
+}
+
+/** Record that a fixture checkout finished setup, as setup's own marker does. */
+async function markSetupReady(worktree: string): Promise<void> {
+  const readyMarker = await readySentinelPath(worktree);
+  if (readyMarker === undefined) {
+    throw new Error(`could not resolve Desk fixture ready marker for ${worktree}`);
+  }
+  await ensureDir(dirname(readyMarker));
+  await Deno.writeTextFile(readyMarker, "");
 }
 
 function requiredWorktree(
@@ -482,9 +595,83 @@ async function writeFixtureFile(
   await Deno.writeTextFile(path, file.contents ?? `${file.path}\n`);
 }
 
-async function commitFixture(root: string, message: string): Promise<void> {
+async function commitFixture(
+  root: string,
+  message: string,
+  at?: string,
+): Promise<void> {
   await git(root, "add", "-A");
-  await git(root, "commit", "-q", "-m", message, "--no-gpg-sign");
+  const args = ["commit", "-q", "-m", message, "--no-gpg-sign"];
+  await (at === undefined ? git(root, ...args) : gitAt(root, at, ...args));
+}
+
+/** Add empty main commits until main has gained `to` since the fixture began. */
+async function advanceMain(
+  root: string,
+  from: number,
+  to: number,
+): Promise<number> {
+  for (let index = from; index < to; index += 1) {
+    await git(
+      root,
+      "commit",
+      "--allow-empty",
+      "-q",
+      "-m",
+      `Advance main ${index + 1}`,
+      "--no-gpg-sign",
+    );
+  }
+  return Math.max(from, to);
+}
+
+/** A quiet lifecycle context for fixture effects run through public cores. */
+async function fixtureContext(root: string): Promise<LifecycleContext> {
+  return await lifecycleContext(root, new Logger({ json: true, noColor: true }));
+}
+
+/** Prove the committed head through the real gate core, in process. */
+async function proveWithGate(worktree: string): Promise<void> {
+  const result = await finishResult(worktree, {
+    surface: { kind: "quiet" },
+    cliModel: TEST_CLI_MODEL,
+  });
+  if (!result.ok) {
+    throw new Error(
+      `could not prove Desk fixture ${worktree}: ${result.message ?? result.error}`,
+    );
+  }
+}
+
+/** Record the task's proven head in the landing queue, as Join the queue does. */
+async function queueForLanding(worktree: string): Promise<void> {
+  const result = await acceptLandingResult(await fixtureContext(worktree), {
+    queueOnly: true,
+    dryRun: false,
+    confirmed: false,
+    variance: [],
+    approveStandard: [],
+    met: [],
+  });
+  if (!result.ok) {
+    throw new Error(
+      `could not queue Desk fixture ${worktree}: ${result.message ?? result.error}`,
+    );
+  }
+}
+
+/** Close one checkout through Park, which keeps its branch and task metadata. */
+async function parkFixture(root: string, worktree: string): Promise<void> {
+  const result = await worktreeParkResult(
+    await fixtureContext(root),
+    worktree,
+    false,
+  );
+  if (!result.ok) {
+    throw new Error(
+      `could not park Desk fixture ${worktree}: ${result.message ?? result.error}`,
+    );
+  }
 }
 
 async function materialiseProof(
@@ -502,12 +689,18 @@ async function materialiseProof(
   if (!preflight.ok) {
     throw new Error(`could not preflight Desk fixture Proof at ${preflight.path}`);
   }
-  const recorded = await recordCompleteGateFixture(
+  // A real gate records the complete evidence inside the Proof it vouches
+  // with; landing and queueing read it from there.
+  const complete = await completeGateFixture(worktree);
+  const recorded = await recordGateOutcome(
     worktree,
     preflight.authority,
     true,
     await pinValidatedTree(worktree),
-    selected,
+    { ...selected, completion: complete.proof.completion },
+    undefined,
+    "strict",
+    complete.pointer,
   );
   if (recorded.status !== "recorded") {
     throw new Error(`could not record Desk fixture Proof: ${recorded.status}`);

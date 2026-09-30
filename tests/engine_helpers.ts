@@ -857,10 +857,35 @@ export async function gitInit(dir: string): Promise<void> {
  * For tests that need to commit a baseline, branch, or stage extra files.
  */
 export async function git(dir: string, ...args: string[]): Promise<void> {
-  const c = new Deno.Command("git", {
+  await gitWithEnvironment(dir, {}, args);
+}
+
+/**
+ * Like {@link git}, but records every author, committer, and reflog time the
+ * command writes at `at` (ISO-8601), so a fixture can hold genuinely old work.
+ */
+export async function gitAt(
+  dir: string,
+  at: string,
+  ...args: string[]
+): Promise<void> {
+  await gitWithEnvironment(
+    dir,
+    { GIT_AUTHOR_DATE: at, GIT_COMMITTER_DATE: at },
     args,
+  );
+}
+
+/** Run one hermetic git command with extra environment facts. */
+async function gitWithEnvironment(
+  dir: string,
+  environment: Readonly<Record<string, string>>,
+  args: readonly string[],
+): Promise<void> {
+  const c = new Deno.Command("git", {
+    args: [...args],
     cwd: dir,
-    env: GIT_ISOLATION,
+    env: { ...GIT_ISOLATION, ...environment },
     stdout: "null",
     stderr: "piped",
   });
@@ -963,8 +988,12 @@ export function worktreePath(mainDir: string, name: string): string {
 export async function addWorktree(
   mainDir: string,
   name: string,
+  at?: string,
 ): Promise<string> {
   const worktree = worktreePath(mainDir, name);
-  await git(mainDir, "worktree", "add", worktree, "-b", `agent/${name}`);
+  const args = ["worktree", "add", worktree, "-b", `agent/${name}`];
+  await (at === undefined
+    ? git(mainDir, ...args)
+    : gitAt(mainDir, at, ...args));
   return worktree;
 }
