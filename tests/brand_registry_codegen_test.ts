@@ -4,10 +4,10 @@
  * committed page matches its renderer byte-for-byte and carries the
  * generated banner, every citation token resolves against the live tables
  * (`CLAIMS` in `scripts/brand/claims.ts` among them), the registry's sets
- * keep unique ids, every pillar cites the claims ledger, and the
- * do-not-claim list stays non-empty. The assertions iterate the registry,
- * so a newly converted document enrols here the moment its row flips to
- * generated.
+ * keep unique ids, every pillar cites the claims ledger, the do-not-claim
+ * list stays non-empty, and product language keeps the glossary's casing.
+ * The assertions iterate the registry, so a newly converted document enrols
+ * here the moment its row flips to generated.
  */
 
 import {
@@ -18,7 +18,12 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import { directoryExists, fileExists } from "../src/shared/fs_presence.ts";
-import { CONCEPTS, TRANSLATIONS } from "../scripts/brand/bridge.ts";
+import {
+  CONCEPTS,
+  productLanguage,
+  TRANSLATIONS,
+} from "../scripts/brand/bridge.ts";
+import { runningProseCaseRules } from "../scripts/glossary_registry.ts";
 import { CLAIMS, DO_NOT_CLAIM } from "../scripts/brand/claims.ts";
 import { COPY_PATTERNS } from "../scripts/brand/patterns.ts";
 import { PROPOSED_MECHANICAL_CHECKS } from "../scripts/brand/mechanical_checks.ts";
@@ -63,6 +68,7 @@ import { skillFrontmatterIssues } from "../src/lib/skills.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { assertNamedCases } from "./assert_cases.ts";
+import { bannedPhraseLines, runningMarkdownProse } from "./vocab_scan.ts";
 
 Deno.test("every generated brand page matches its renderer (run `deno task codegen`)", async () => {
   const docs = generatedBrandDocuments();
@@ -314,6 +320,48 @@ Deno.test("brand registry codegen: contracts", () => {
         );
       }
       assert(DO_NOT_CLAIM.length > 0, "DO_NOT_CLAIM must not be empty");
+    },
+    "product language keeps the glossary's running-prose casing": () => {
+      // The bridge's shared facts and documentation forms, and every voice
+      // but the brand's, write each concept but Proof in lowercase. The
+      // brand voice and the bridge's brand forms may capitalize a named
+      // product object, so they stay out of the scan; a new register enrolls.
+      const voices = REGISTERS.filter((register) => register !== "brand");
+      const sources = [
+        ...productLanguage(),
+        ...voices.flatMap((register) => [
+          {
+            origin: `${voiceSkillRel(register)} description`,
+            text: VOICES[register].description,
+          },
+          { origin: voiceSkillRel(register), text: renderVoiceSkill(register) },
+        ]),
+      ];
+      const offenders = sources.flatMap(({ origin, text }) =>
+        runningProseCaseRules().flatMap((rule) =>
+          bannedPhraseLines(
+            origin,
+            runningMarkdownProse(text),
+            new RegExp(rule.pattern, "g"),
+          ).map((finding) => `${finding}: write ${rule.expected}`)
+        )
+      );
+      assertEquals(
+        offenders,
+        [],
+        `product language capitalizes Proof and its family only:\n  ${
+          offenders.join("\n  ")
+        }`,
+      );
+    },
+    "documentation first uses leave the closing period to the renderer": () => {
+      for (const concept of CONCEPTS) {
+        if ("instead" in concept.docs) continue;
+        assert(
+          !concept.docs.firstUse.endsWith("."),
+          `${concept.id}: the concept map adds the first use's period`,
+        );
+      }
     },
   });
 });

@@ -673,7 +673,7 @@ export const PRACTICE_DEFERRED_CONSUMERS: readonly DeferredConsumer[] = [
     id: "brand-concept-row",
     file: "scripts/brand/bridge.ts",
     what: "the practice row of the brand concept map",
-    sha256: "3b10f7c90a12f5d12e2390e590c8ca955364243b9ea1edab46ca959036c28b71",
+    sha256: "7b54d713c5429b38d779d02db604663231500b332c8691193f40c8591ae98f44",
     until: "the brand registry derives its practice row from this canon",
   },
   {

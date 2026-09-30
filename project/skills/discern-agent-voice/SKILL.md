@@ -1,6 +1,6 @@
 ---
 name: discern-agent-voice
-description: "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON instructions, setup briefs, Skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting."
+description: "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON instructions, setup briefs, skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting."
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -29,7 +29,7 @@ Use for:
 - MCP tool descriptions;
 - JSON result instructions;
 - setup instructions;
-- Skills;
+- skills;
 - hints and guardrails;
 - machine-readable documentation;
 - `llms.txt` reference content;
@@ -262,7 +262,7 @@ A setup step is work to perform now, not a checklist to paraphrase as a report.
 
 ### Skill
 
-A strong Skill contains:
+A strong skill contains:
 
 - trigger and scope;
 - goal stated as an outcome;
@@ -273,7 +273,7 @@ A strong Skill contains:
 - common failure modes;
 - handoff and review loop.
 
-Do not ship a Skill that merely restates behavior an ordinary request already elicits reliably.
+Do not ship a skill that merely restates behavior an ordinary request already elicits reliably.
 
 ### Delegated brief
 
@@ -405,7 +405,7 @@ Avoid marketing headlines without explanatory context.
 
 ### Paired completion: stronger
 
-> The Gate is green, the upload retry test covers the failure class, and a person retrying an interrupted upload sees one successful completion without duplicate data.
+> The gate is green, the upload retry test covers the failure class, and a person retrying an interrupted upload sees one successful completion without duplicate data.
 
 ## Anti-patterns
 
@@ -418,7 +418,7 @@ Reject agent copy that:
 - repeats a refusal without explaining what must change;
 - recommends retrying an unchanged deterministic input for a different result;
 - tells the agent to compose a relay when exact wording matters;
-- treats a green Gate as the end of semantic validation;
+- treats a green gate as the end of semantic validation;
 - hides a human decision inside routine narration;
 - spends context explaining product philosophy during a narrow operation;
 - makes jokes inside failure or authority-critical instructions;

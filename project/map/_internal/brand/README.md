@@ -51,7 +51,7 @@ Readiness gives that ambition a practical expression. The [`readiness-canon.md`]
 | [`consequence-canon.md`](consequence-canon.md)                                                    | Canonical       | States what changes for the person and the coding agent once the benefits hold: second-order consequences, each deductive on cited benefits and claims and evidence-classed for the behavior it predicts. |                         |
 | [`boundary-canon.md`](boundary-canon.md)                                                          | Canonical       | Defines discern's behavioral refusals, mistaken-identity discriminators, and checkable structural absences from one evidence-backed boundary registry.                                                    |                         |
 | [`messaging.md`](messaging.md)                                                                    | Canonical       | Turns the positioning into the grid, message territories, ledger-backed fact lines, descriptions, heroes, CTAs, proof order, and the line tests.                                                          |                         |
-| [`register-bridge.md`](register-bridge.md)                                                        | Canonical       | Prevents product ontology from directly dictating brand copy; maps product truth into human situations and benefits.                                                                                      |                         |
+| [`register-bridge.md`](register-bridge.md)                                                        | Canonical       | Maps each product concept to the human situation it answers, its first use and reason in documentation, and its brand expression, so product ontology never dictates brand copy.                          |                         |
 | [`claims-and-evidence.md`](claims-and-evidence.md)                                                | Canonical       | States the strongest defensible public claims, evidence, conditions, and forbidden inferences.                                                                                                            |                         |
 | [`visual-identity.md`](visual-identity.md)                                                        | Canonical       | Records the visual system: the Editorial Engineering aesthetic, the ◮ mark, its recursive extended language, and the `@discern-sh/design-system` package.                                                 |                         |
 | [`project/skills/discern-brand-voice/SKILL.md`](../../../skills/discern-brand-voice/SKILL.md)     | Canonical skill | Produces engaging, premium public-facing copy.                                                                                                                                                            |                         |
@@ -116,7 +116,7 @@ Read:
 1. the product glossary and relevant product documentation;
 2. the `discern-product-voice` skill;
 3. `claims-and-evidence.md` when a public-facing promise is involved;
-4. `register-bridge.md` only when a product concept must be introduced to a new audience.
+4. `register-bridge.md` when introducing a product concept or saying why it matters.
 
 ### Agent-operational copy
 

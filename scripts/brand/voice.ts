@@ -9,15 +9,32 @@
  * inherits the signed-off voices as materialized skills.
  */
 
+import { CONCEPTS } from "./bridge.ts";
 import {
   type BannedMove,
   type BannedWord,
+  type Concept,
   generatedBrandBanner,
   type Register,
   type VoiceDefinition,
   type VoiceRule,
   type VoiceSection,
 } from "./model.ts";
+
+/**
+ * A concept's documentation first use from the register bridge, quoted the
+ * way the product voice's term examples show it, so the voice and the bridge
+ * can never teach different forms.
+ */
+function documentationFirstUse(id: (typeof CONCEPTS)[number]["id"]): string {
+  const concept: Concept | undefined = CONCEPTS.find((candidate) =>
+    candidate.id === id
+  );
+  if (concept === undefined || "instead" in concept.docs) {
+    throw new Error(`the register bridge gives ${id} no documentation term`);
+  }
+  return `“${concept.docs.firstUse}”`;
+}
 
 /** The shared strategic documents every public-brand writing path reads. */
 export const BRAND_FOUNDATION_READING_STEPS = [
@@ -661,7 +678,7 @@ When editing copy that predates this skill, bring it up to this standard rather 
 2. read the relevant command, config, workflow, or result contract;
 3. consult the generated canon or source registry;
 4. use \`claims-and-evidence.md\` when the surface makes a public promise;
-5. use \`register-bridge.md\` when introducing a term to a non-technical human.
+5. use \`register-bridge.md\` when introducing a product term or saying why it matters.
 
 Never invent a synonym for a canonical product concept merely to avoid repetition.
 
@@ -678,7 +695,7 @@ If the live behavior, authority boundary, or canonical term cannot be verified, 
 Examples:
 
 - The branch is two commits behind \`main\`.
-- This exact tree already passed the Gate.
+- This exact tree already passed the gate.
 - Setup is incomplete.
 - The worktree has uncommitted changes.
 - The recorded grant does not cover \`src/main.ts\`.
@@ -689,7 +706,7 @@ Do not begin with apology, encouragement, blame, or vague emotion.`,
           id: "name-the-object-in-the-state",
           title: "Name the object in the state",
           body:
-            `Describe the branch, tree, worktree, Proof, Standard, file, path, command, permission, or evidence.
+            `Describe the branch, tree, worktree, Proof, standard, file, path, command, permission, or evidence.
 
 Do not describe the agent as careless, confused, bad, untrustworthy, or incompetent.
 
@@ -720,7 +737,7 @@ Explain why:
 
 - a changed commit invalidates a Proof;
 - an unchanged red tree should not be rerun without an attested probe;
-- a branch cannot weaken a Standard;
+- a branch cannot weaken a standard;
 - work belongs in its worktree;
 - acceptance requires authority at the landing boundary.
 
@@ -771,7 +788,7 @@ It should make the system easier to use without weakening precision.
 
 Good:
 
-> The work remains in its worktree, ready for an update and another Gate run.
+> The work remains in its worktree, ready for an update and another gate run.
 
 Avoid:
 
@@ -790,7 +807,7 @@ For analytical surfaces:
 - name confounders;
 - recommend investigation rather than pronounce a verdict.
 
-For Patterns, cohorts may be compared. Agents are not graded or ranked.`,
+In the pattern report, cohorts may be compared. Agents are not graded or ranked.`,
         },
         {
           id: "own-faults-hand-over-credit",
@@ -829,15 +846,15 @@ Once a product term exists, use it identically across:
 - setup;
 - public technical pages.
 
-### Introduce technical terms for broader humans
+### Introduce product terms
 
-First use may include a plain-language explanation:
+Define a product term in the sentence where it first appears, by what it's made of in the reader's project, then use the canonical term:
 
-- “an isolated workspace for one task (a worktree)”;
-- “the project's final quality check (the gate)”;
-- “evidence for the exact committed change (Proof).”
+- ${documentationFirstUse("gate")};
+- ${documentationFirstUse("worktree")};
+- ${documentationFirstUse("proof")}.
 
-After introduction, use the canonical term.
+\`register-bridge.md\` gives every concept's documentation first use and its one-sentence reason to care.
 
 ### Audiences and gates
 
@@ -847,8 +864,8 @@ Formats and features are described by capability, never by the reader they were 
 
 - **\`--json\` / \`--markdown\`** are result formats. Describe what they emit; never call one agent-facing or human-facing — people, agents, and tools choose either.
 - **terminal** names the decorated rendering a TTY receives.
-- **interactive** names features whose real gate is a terminal (the Desk, lifecycle confirmations, the expanded \`--verbose\` dashboard): "interactive only", never "human only".
-- **human** and **owner** are reserved for genuinely human concepts — consent, review, "report to your owner", the Desk as the human view over work in progress. Do not dilute these to "user" or "CLI" when the human role is the point.
+- **interactive** names features whose real gate is a terminal (the desk, lifecycle confirmations, the expanded \`--verbose\` dashboard): "interactive only", never "human only".
+- **human** and **owner** are reserved for genuinely human concepts — consent, review, "report to your owner", the desk as the human view over work in progress. Do not dilute these to "user" or "CLI" when the human role is the point.
 
 ### Proof
 
@@ -908,7 +925,7 @@ Review sentences around the machine state \`honored\` so they read naturally; in
         {
           id: "avoid-pronouns",
           text:
-            `Avoid pronouns when “it” could refer to the branch, Gate, Proof, or command.`,
+            `Avoid pronouns when “it” could refer to the branch, gate, Proof, or command.`,
         },
         {
           id: "keep-diagnostic-detail-close",
@@ -1059,7 +1076,7 @@ Better:
 
 ### Exact failure: stronger
 
-> The \`test\` job failed. Run \`npm test -- upload-retry\` to reproduce the first diagnostic, fix it, then run that command again. Commit the final tree and run \`discern done\`; the Gate runs the complete test stage.
+> The \`test\` job failed. Run \`npm test -- upload-retry\` to reproduce the first diagnostic, fix it, then run that command again. Commit the final tree and run \`discern done\`; the gate runs the complete test stage.
 
 ### Blaming the agent: reject
 
@@ -1067,7 +1084,7 @@ Better:
 
 ### Object-state wording: stronger
 
-> The branch is two commits behind \`main\`. Run \`discern update\` before the next Gate run.
+> The branch is two commits behind \`main\`. Run \`discern update\` before the next gate run.
 
 ### Overclaiming success: reject
 
@@ -1075,7 +1092,7 @@ Better:
 
 ### Scoped success: stronger
 
-> The exact committed tree passed the configured Gate and held its Standards. Exercise the changed workflow, then decide whether to accept it.
+> The exact committed tree passed the configured gate and held its standards. Exercise the changed workflow, then decide whether to accept it.
 
 ### Abstract documentation: reject
 
@@ -1117,7 +1134,7 @@ Better:
         {
           id: "says-done-without-distinguishing",
           text:
-            `says “done” without distinguishing Gate, exercise, acceptance, and landing;`,
+            `says “done” without distinguishing gate, exercise, acceptance, and landing;`,
         },
         {
           id: "claims-safety-or-correctness-outside-the-evidence",
@@ -1202,7 +1219,7 @@ Better:
   },
   agent: {
     description:
-      "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON instructions, setup briefs, Skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting.",
+      "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON instructions, setup briefs, skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting.",
     title: "discern agent voice",
     sections: [{
       kind: "prose",
@@ -1225,7 +1242,7 @@ Use for:
 - MCP tool descriptions;
 - JSON result instructions;
 - setup instructions;
-- Skills;
+- skills;
 - hints and guardrails;
 - machine-readable documentation;
 - \`llms.txt\` reference content;
@@ -1475,7 +1492,7 @@ A setup step is work to perform now, not a checklist to paraphrase as a report.
 
 ### Skill
 
-A strong Skill contains:
+A strong skill contains:
 
 - trigger and scope;
 - goal stated as an outcome;
@@ -1486,7 +1503,7 @@ A strong Skill contains:
 - common failure modes;
 - handoff and review loop.
 
-Do not ship a Skill that merely restates behavior an ordinary request already elicits reliably.
+Do not ship a skill that merely restates behavior an ordinary request already elicits reliably.
 
 ### Delegated brief
 
@@ -1658,7 +1675,7 @@ Avoid marketing headlines without explanatory context.`,
 
 ### Paired completion: stronger
 
-> The Gate is green, the upload retry test covers the failure class, and a person retrying an interrupted upload sees one successful completion without duplicate data.`,
+> The gate is green, the upload retry test covers the failure class, and a person retrying an interrupted upload sees one successful completion without duplicate data.`,
     }, {
       kind: "rules",
       id: "anti-patterns",
@@ -1698,7 +1715,7 @@ Avoid marketing headlines without explanatory context.`,
         },
         {
           id: "treats-a-green-gate-as-the-end",
-          text: `treats a green Gate as the end of semantic validation;`,
+          text: `treats a green gate as the end of semantic validation;`,
         },
         {
           id: "hides-a-human-decision",

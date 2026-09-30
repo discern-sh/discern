@@ -34,7 +34,7 @@ Before writing:
 2. read the relevant command, config, workflow, or result contract;
 3. consult the generated canon or source registry;
 4. use `claims-and-evidence.md` when the surface makes a public promise;
-5. use `register-bridge.md` when introducing a term to a non-technical human.
+5. use `register-bridge.md` when introducing a product term or saying why it matters.
 
 Never invent a synonym for a canonical product concept merely to avoid repetition.
 
@@ -49,7 +49,7 @@ Lead with what is true now.
 Examples:
 
 - The branch is two commits behind `main`.
-- This exact tree already passed the Gate.
+- This exact tree already passed the gate.
 - Setup is incomplete.
 - The worktree has uncommitted changes.
 - The recorded grant does not cover `src/main.ts`.
@@ -58,7 +58,7 @@ Do not begin with apology, encouragement, blame, or vague emotion.
 
 ### 2. Name the object in the state
 
-Describe the branch, tree, worktree, Proof, Standard, file, path, command, permission, or evidence.
+Describe the branch, tree, worktree, Proof, standard, file, path, command, permission, or evidence.
 
 Do not describe the agent as careless, confused, bad, untrustworthy, or incompetent.
 
@@ -86,7 +86,7 @@ Explain why:
 
 - a changed commit invalidates a Proof;
 - an unchanged red tree should not be rerun without an attested probe;
-- a branch cannot weaken a Standard;
+- a branch cannot weaken a standard;
 - work belongs in its worktree;
 - acceptance requires authority at the landing boundary.
 
@@ -133,7 +133,7 @@ It should make the system easier to use without weakening precision.
 
 Good:
 
-> The work remains in its worktree, ready for an update and another Gate run.
+> The work remains in its worktree, ready for an update and another gate run.
 
 Avoid:
 
@@ -151,7 +151,7 @@ For analytical surfaces:
 - name confounders;
 - recommend investigation rather than pronounce a verdict.
 
-For Patterns, cohorts may be compared. Agents are not graded or ranked.
+In the pattern report, cohorts may be compared. Agents are not graded or ranked.
 
 ### 9. Own faults, hand over credit
 
@@ -186,15 +186,15 @@ Once a product term exists, use it identically across:
 - setup;
 - public technical pages.
 
-### Introduce technical terms for broader humans
+### Introduce product terms
 
-First use may include a plain-language explanation:
+Define a product term in the sentence where it first appears, by what it's made of in the reader's project, then use the canonical term:
 
-- “an isolated workspace for one task (a worktree)”;
-- “the project's final quality check (the gate)”;
-- “evidence for the exact committed change (Proof).”
+- “the **gate**: your project's own commands, such as its linter and tests, which must all pass before a change counts as finished”;
+- “a **worktree**: a separate copy of the project on its own branch, where one task's work happens”;
+- “**Proof**: discern's record of which of your project's commands passed on one exact commit”.
 
-After introduction, use the canonical term.
+`register-bridge.md` gives every concept's documentation first use and its one-sentence reason to care.
 
 ### Audiences and gates
 
@@ -204,8 +204,8 @@ Formats and features are described by capability, never by the reader they were 
 
 - **`--json` / `--markdown`** are result formats. Describe what they emit; never call one agent-facing or human-facing — people, agents, and tools choose either.
 - **terminal** names the decorated rendering a TTY receives.
-- **interactive** names features whose real gate is a terminal (the Desk, lifecycle confirmations, the expanded `--verbose` dashboard): "interactive only", never "human only".
-- **human** and **owner** are reserved for genuinely human concepts — consent, review, "report to your owner", the Desk as the human view over work in progress. Do not dilute these to "user" or "CLI" when the human role is the point.
+- **interactive** names features whose real gate is a terminal (the desk, lifecycle confirmations, the expanded `--verbose` dashboard): "interactive only", never "human only".
+- **human** and **owner** are reserved for genuinely human concepts — consent, review, "report to your owner", the desk as the human view over work in progress. Do not dilute these to "user" or "CLI" when the human role is the point.
 
 ### Proof
 
@@ -229,7 +229,7 @@ Review sentences around the machine state `honored` so they read naturally; in h
 - Put commands in code formatting.
 - Keep path, branch, and identifier spellings exact.
 - Use a list when several independent facts must survive relay.
-- Avoid pronouns when “it” could refer to the branch, Gate, Proof, or command.
+- Avoid pronouns when “it” could refer to the branch, gate, Proof, or command.
 - Keep diagnostic detail close to the state it supports.
 - Spend "never" and "always" on real guarantees; cut the absolute that is there for cadence.
 - State each limit once, where it changes what the reader does. Don't repeat a caveat for reassurance or stack hedges around certain behavior.
@@ -362,7 +362,7 @@ Better:
 
 ### Exact failure: stronger
 
-> The `test` job failed. Run `npm test -- upload-retry` to reproduce the first diagnostic, fix it, then run that command again. Commit the final tree and run `discern done`; the Gate runs the complete test stage.
+> The `test` job failed. Run `npm test -- upload-retry` to reproduce the first diagnostic, fix it, then run that command again. Commit the final tree and run `discern done`; the gate runs the complete test stage.
 
 ### Blaming the agent: reject
 
@@ -370,7 +370,7 @@ Better:
 
 ### Object-state wording: stronger
 
-> The branch is two commits behind `main`. Run `discern update` before the next Gate run.
+> The branch is two commits behind `main`. Run `discern update` before the next gate run.
 
 ### Overclaiming success: reject
 
@@ -378,7 +378,7 @@ Better:
 
 ### Scoped success: stronger
 
-> The exact committed tree passed the configured Gate and held its Standards. Exercise the changed workflow, then decide whether to accept it.
+> The exact committed tree passed the configured gate and held its standards. Exercise the changed workflow, then decide whether to accept it.
 
 ### Abstract documentation: reject
 
@@ -410,7 +410,7 @@ Reject copy that:
 
 - changes canonical nouns for variety;
 - hides the exact object behind “something” or “it”;
-- says “done” without distinguishing Gate, exercise, acceptance, and landing;
+- says “done” without distinguishing gate, exercise, acceptance, and landing;
 - claims safety or correctness outside the evidence;
 - blames or praises an agent's character;
 - gives several possible next actions when one is clearly preferred;

@@ -192,27 +192,61 @@ export interface HeroSystem {
 }
 
 /**
- * One row of the register bridge's core concept map. The fields are the
- * table's columns: `productRole` is “Exact product role”, `plainFirstUse` is
- * “Plain-language first use”, `prominence` is “Use prominently?”, and
- * `doNotImply` is “Do not imply”.
+ * How documentation, the product register, introduces one concept: a precise
+ * first use with the one reason it matters, or, for a concept documentation
+ * has no term for, what it writes instead. Every concept declares one, so a
+ * new concept cannot enter the bridge without its documentation form being
+ * decided in the same change.
+ */
+export type ConceptDocs =
+  | {
+    /** The term's first use, defined by what it's made of in the reader's
+     * project; rendered with a closing period, so it carries none. */
+    readonly firstUse: string;
+    /** The one sentence a page says, once, where the concept first matters. */
+    readonly reason: string;
+  }
+  | {
+    /** What documentation writes in place of a term it doesn't use. */
+    readonly instead: string;
+  };
+
+/** How brand copy introduces and weighs one concept. */
+export interface ConceptBrand {
+  /** The ordinary-language first use, with the product noun after its
+   * meaning, in the brand voice's casing. */
+  readonly firstUse: string;
+  readonly interpretation: string;
+  /** Whether, and where, brand copy gives the concept prominence. */
+  readonly prominence: string;
+}
+
+/**
+ * One concept of the register bridge's core concept map. The product role,
+ * the human situation, and the limits serve both registers; `docs` and
+ * `brand` hold each register's own forms. Product language (the role, the
+ * limits, and every documentation form) follows the glossary's running-prose
+ * casing, which the bridge's `productLanguage()` exposes to the casing guard.
  */
 export interface Concept {
   readonly id: string;
-  /** The display name, bolded in the table's first column. */
+  /** The display name: the concept's heading in the map. */
   readonly name: string;
+  /** The exact product truth, in product language. */
   readonly productRole: string;
+  /** The human moment in which the concept matters. */
   readonly humanSituation: string;
-  readonly brandInterpretation: string;
-  readonly plainFirstUse: string;
-  readonly prominence: string;
+  /** What neither register may claim or suggest about the concept. */
   readonly doNotImply: string;
+  readonly docs: ConceptDocs;
+  readonly brand: ConceptBrand;
 }
 
 /** One product-to-brand translation worked example. */
 export interface Translation {
   readonly id: string;
   readonly title: string;
+  /** The fact being translated, in product language. */
   readonly productTruth: string;
   readonly weakLiteralTranslation: string;
   readonly betterHumanTranslations: readonly string[];

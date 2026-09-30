@@ -119,7 +119,7 @@ export const BRAND_DOCUMENTS = [
     file: "register-bridge.md",
     status: "Canonical",
     job:
-      "Prevents product ontology from directly dictating brand copy; maps product truth into human situations and benefits.",
+      "Maps each product concept to the human situation it answers, its first use and reason in documentation, and its brand expression, so product ontology never dictates brand copy.",
     mode: { kind: "generated", render: renderBridgeDoc },
   },
   {

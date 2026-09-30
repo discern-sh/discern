@@ -89,7 +89,7 @@ export const READING_PATHS = [
       "the product glossary and relevant product documentation;",
       "the `discern-product-voice` skill;",
       "`claims-and-evidence.md` when a public-facing promise is involved;",
-      "`register-bridge.md` only when a product concept must be introduced to a new audience.",
+      "`register-bridge.md` when introducing a product concept or saying why it matters.",
     ],
   },
   {
