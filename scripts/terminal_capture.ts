@@ -102,53 +102,52 @@ export function parseOptions(args: readonly string[]): CaptureTaskOptions {
   let script: string | undefined;
   let keyframe: string | undefined;
   let config: string | undefined;
-  for (let at = 1; at < taskArgs.length; at += 1) {
+  let at = 1;
+  /** Consume the value that follows the current option. */
+  const value = (): string => {
+    const found = optionValue(taskArgs, at);
+    at += 1;
+    return found;
+  };
+  for (; at < taskArgs.length; at += 1) {
     const arg = taskArgs[at];
     switch (arg) {
       case "--geometry": {
-        const value = optionValue(taskArgs, at);
-        if (!(value in TERMINAL_CAPTURE_GEOMETRIES)) {
-          throw new TypeError(`unknown terminal geometry: ${value}`);
+        const name = value();
+        if (!(name in TERMINAL_CAPTURE_GEOMETRIES)) {
+          throw new TypeError(`unknown terminal geometry: ${name}`);
         }
-        geometry = value as TerminalCaptureGeometryName;
-        at += 1;
+        geometry = name as TerminalCaptureGeometryName;
         break;
       }
       case "--output":
-        output = optionValue(taskArgs, at);
-        at += 1;
+        output = value();
         break;
       case "--cwd":
-        cwd = resolve(optionValue(taskArgs, at));
-        at += 1;
+        cwd = resolve(value());
         break;
       case "--locale":
-        locale = optionValue(taskArgs, at);
-        at += 1;
+        locale = value();
         break;
       case "--no-color":
         color = false;
         break;
       case "--theme": {
-        const value = optionValue(taskArgs, at);
-        if (value !== "dark" && value !== "light") {
-          throw new TypeError(`unknown HTML theme: ${value}`);
+        const name = value();
+        if (name !== "dark" && name !== "light") {
+          throw new TypeError(`unknown HTML theme: ${name}`);
         }
-        theme = value;
-        at += 1;
+        theme = name;
         break;
       }
       case "--script":
-        script = resolve(optionValue(taskArgs, at));
-        at += 1;
+        script = resolve(value());
         break;
       case "--keyframe":
-        keyframe = optionValue(taskArgs, at);
-        at += 1;
+        keyframe = value();
         break;
       case "--config":
-        config = resolve(optionValue(taskArgs, at));
-        at += 1;
+        config = resolve(value());
         break;
       default:
         throw new TypeError(`unknown terminal capture option: ${arg}`);
