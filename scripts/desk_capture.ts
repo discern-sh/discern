@@ -22,6 +22,7 @@ import {
 } from "../tests/fixtures/desk_tty_harness.ts";
 import type { PtyGeometry } from "../tests/fixtures/pty_process.ts";
 import { assertChildDesignSystemGraph } from "./local_design_system.ts";
+import { parseToolArguments } from "./tool_arguments.ts";
 
 /** Observe a complete named state before sending its next key sequence. */
 function phase(
@@ -65,28 +66,14 @@ export interface DeskGalleryTarget {
 export function parseDeskCaptureArgs(
   args: readonly string[],
 ): DeskGalleryTarget {
-  let directory: string | undefined;
-  let config: string | undefined;
-  for (let at = 0; at < args.length; at += 1) {
-    const argument = args[at] ?? "";
-    if (argument === "--config") {
-      const value = args[at + 1];
-      if (value === undefined || value.startsWith("-")) {
-        throw new TypeError("--config needs a Deno config path");
-      }
-      config = resolve(value);
-      at += 1;
-    } else if (argument.startsWith("-")) {
-      throw new TypeError(`unknown desk capture option: ${argument}`);
-    } else if (directory === undefined) {
-      directory = argument;
-    } else {
-      throw new TypeError("pass at most one output directory");
-    }
-  }
+  const parsed = parseToolArguments(args, {
+    values: ["--config"],
+    operand: "output directory",
+  });
+  const config = parsed.values.get("--config");
   return {
-    directory: resolve(directory ?? ".scratch/desk-review"),
-    ...(config === undefined ? {} : { config }),
+    directory: resolve(parsed.operand ?? ".scratch/desk-review"),
+    ...(config === undefined ? {} : { config: resolve(config) }),
   };
 }
 

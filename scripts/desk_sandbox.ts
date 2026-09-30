@@ -10,6 +10,7 @@
 
 import { dirname, fromFileUrl, join, resolve } from "@std/path";
 import { fileExists, readDirIfExists } from "../src/shared/fs_presence.ts";
+import { parseToolArguments } from "./tool_arguments.ts";
 import {
   createDeskTtyProject,
   deskCollision,
@@ -119,24 +120,17 @@ export interface DeskSandboxRequest {
 export function parseDeskSandboxArgs(
   args: readonly string[],
 ): DeskSandboxRequest {
-  let directory: string | undefined;
-  let replace = false;
-  for (const argument of args) {
-    if (argument === "--") continue;
-    if (argument === "--replace") {
-      replace = true;
-    } else if (argument.startsWith("-")) {
-      throw new TypeError(`unknown desk sandbox option: ${argument}`);
-    } else if (directory === undefined) {
-      directory = argument;
-    } else {
-      throw new TypeError("pass exactly one sandbox directory");
-    }
-  }
-  if (directory === undefined) {
+  const parsed = parseToolArguments(args, {
+    flags: ["--replace"],
+    operand: "sandbox directory",
+  });
+  if (parsed.operand === undefined) {
     throw new TypeError("name the directory to build the sandbox in");
   }
-  return { directory: resolve(directory), replace };
+  return {
+    directory: resolve(parsed.operand),
+    replace: parsed.flags.has("--replace"),
+  };
 }
 
 /** Clear the target, refusing any directory this script did not create. */

@@ -23,6 +23,7 @@ import {
 import { runAgent } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
+import { fileExists } from "../src/shared/fs_presence.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 
 const DAY = 86_400_000;
@@ -78,35 +79,34 @@ Deno.test("sandbox arguments name one directory and an optional rebuild", () => 
   assertThrows(
     () => parseDeskSandboxArgs(["a", "b"]),
     TypeError,
-    "exactly one",
+    "at most one",
   );
   assertThrows(() => parseDeskSandboxArgs(["--force"]), TypeError, "unknown");
 });
 
 Deno.test("the sandbox replaces only a directory it marked as its own", async () => {
-  await withTempDir(async (directory) => {
-    const target = join(directory, "box");
-    await prepareSandboxDirectory({ directory: target, replace: false });
-    await Deno.mkdir(target);
-    await Deno.writeTextFile(join(target, "notes.txt"), "keep me\n");
-    await assertRejects(
-      () => prepareSandboxDirectory({ directory: target, replace: true }),
-      Error,
-      "is not a Desk sandbox",
-    );
-    assertEquals(
-      await Deno.readTextFile(join(target, "notes.txt")),
-      "keep me\n",
-    );
-    await Deno.writeTextFile(join(target, SANDBOX_MARKER), "");
-    await assertRejects(
-      () => prepareSandboxDirectory({ directory: target, replace: false }),
-      Error,
-      "--replace",
-    );
-    await prepareSandboxDirectory({ directory: target, replace: true });
-    await assertRejects(() => Deno.stat(target), Deno.errors.NotFound);
-  });
+  const cases = [
+    { marked: false, replace: true, refusal: "is not a Desk sandbox" },
+    { marked: true, replace: false, refusal: "--replace" },
+    { marked: true, replace: true, refusal: undefined },
+  ] as const;
+  for (const { marked, replace, refusal } of cases) {
+    await withTempDir(async (parent) => {
+      const directory = join(parent, "box");
+      await prepareSandboxDirectory({ directory, replace });
+      await Deno.mkdir(directory);
+      const kept = join(directory, "notes.txt");
+      await Deno.writeTextFile(kept, "keep me\n");
+      if (marked) await Deno.writeTextFile(join(directory, SANDBOX_MARKER), "");
+      const prepared = prepareSandboxDirectory({ directory, replace });
+      if (refusal !== undefined) {
+        await assertRejects(() => prepared, Error, refusal);
+      } else {
+        await prepared;
+      }
+      assertEquals(await fileExists(kept), refusal !== undefined);
+    });
+  }
 });
 
 Deno.test("fixture knobs produce real behind, idle, queue, park, and overlap state", async () => {

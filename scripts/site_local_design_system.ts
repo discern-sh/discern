@@ -14,6 +14,7 @@ import {
   SITE_DESIGN_SYSTEM_EXPORTS,
   withLocalDesignSystem,
 } from "./local_design_system.ts";
+import { parseToolArguments } from "./tool_arguments.ts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -21,36 +22,6 @@ type JsonObject = Record<string, unknown>;
 export interface LocalDesignSystemArgs {
   readonly buildOnly: boolean;
   readonly packageRoot: string;
-}
-
-interface ParsedLocalDesignSystemArgs {
-  readonly buildOnly: boolean;
-  readonly packageRoot: string | undefined;
-}
-
-/** Parse the flags and optional checkout override supplied by the operator. */
-function parseLocalDesignSystemArgs(
-  args: readonly string[],
-): ParsedLocalDesignSystemArgs {
-  let buildOnly = false;
-  let packageRoot: string | undefined;
-  for (const argument of args) {
-    if (argument === "--") {
-      continue;
-    }
-    if (argument === "--build-only") {
-      buildOnly = true;
-      continue;
-    }
-    if (argument.startsWith("-")) {
-      throw new Error(`unknown option: ${argument}`);
-    }
-    if (packageRoot !== undefined) {
-      throw new Error("pass exactly one design-system checkout");
-    }
-    packageRoot = argument;
-  }
-  return { buildOnly, packageRoot };
 }
 
 /**
@@ -61,11 +32,14 @@ export async function resolveLocalDesignSystemArgs(
   args: readonly string[],
   resolveMainCheckout?: () => Promise<string | undefined>,
 ): Promise<LocalDesignSystemArgs> {
-  const parsed = parseLocalDesignSystemArgs(args);
+  const parsed = parseToolArguments(args, {
+    flags: ["--build-only"],
+    operand: "design-system checkout",
+  });
   return {
-    buildOnly: parsed.buildOnly,
+    buildOnly: parsed.flags.has("--build-only"),
     packageRoot: await resolveDesignSystemCheckout(
-      parsed.packageRoot,
+      parsed.operand,
       resolveMainCheckout,
     ),
   };
