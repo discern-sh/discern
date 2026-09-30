@@ -46,6 +46,13 @@ function phase(
   };
 }
 
+/** Every frame a journey declares, in capture order; each must become one artifact. */
+function declaredFrames(input: readonly DeskTtyInputPhase[]): string[] {
+  return input.flatMap((step) =>
+    step.capture === undefined ? [] : [step.capture.name]
+  );
+}
+
 /** Capture a production journey and keep per-viewport evidence, never stitched scrollback. */
 async function capture(
   project: DeskTtyProject,
@@ -67,8 +74,16 @@ async function capture(
   });
   assertEquals(result.code, 0, result.transcript);
   assert(result.terminal.restored && result.terminal.noChild);
+  const states = declaredFrames(input);
+  assertEquals(
+    Object.keys(result.keyframes),
+    states,
+    `${name} ${geometry.columns}x${geometry.rows} returned a different frame set than it declared`,
+  );
   const artifacts: string[] = [];
-  for (const [state, raw] of Object.entries(result.keyframes)) {
+  for (const state of states) {
+    const raw = result.keyframes[state];
+    assert(raw !== undefined, `${name} lost its declared ${state} frame`);
     const frame = captureTerminalFrame(raw, geometry, {
       theme: geometry.rows === 50 ? "light" : "dark",
     });

@@ -2,7 +2,11 @@
 import { fromFileUrl, join } from "@std/path";
 import { captureTerminalFrame } from "discern-design-system/cli/interactive/testing";
 import { TERMINAL_APPLICATION_MINIMUM } from "discern-design-system/cli/interactive";
-import { type PtyGeometry, type PtyOutputCondition } from "./pty_process.ts";
+import {
+  acceptedProjection,
+  type PtyGeometry,
+  type PtyOutputCondition,
+} from "./pty_process.ts";
 
 export const APPLICATION_FIXTURE_ROOT = fromFileUrl(
   new URL("../../", import.meta.url),
@@ -35,12 +39,10 @@ export function applicationFrameReady(
     : content;
   return {
     description: `complete ${size.columns}x${size.rows} application frame`,
-    test: ({ phaseStdout }) => {
-      try {
-        return captureTerminalFrame(phaseStdout, size).frame.includes(marker);
-      } catch {
-        return false;
-      }
-    },
+    test: ({ phaseStdout }) =>
+      acceptedProjection(
+        (transcript) => captureTerminalFrame(transcript, size).frame,
+        phaseStdout,
+      )?.includes(marker) === true,
   };
 }

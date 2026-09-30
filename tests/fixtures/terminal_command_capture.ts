@@ -8,9 +8,11 @@ import {
   projectTerminalSpans,
 } from "discern-design-system/cli/projection";
 import {
+  acceptedProjection,
   type PtyGeometry,
   type PtyInputPhase,
   runPtyProcess,
+  settledKeyframeCondition,
 } from "./pty_process.ts";
 
 /** Named geometries shared by the task, fixtures, and future journey harnesses. */
@@ -121,6 +123,41 @@ export function settledInteractiveTerminalFrame(output: string, geometry?: PtyGe
     .replaceAll("\x1b]11;?\x1b\\", "");
 }
 
+/** The strict screen projection a capture applies to its final and named screens. */
+export function terminalCaptureProjection(
+  geometry: PtyGeometry,
+  staticOutput: boolean,
+): (output: string) => string {
+  return staticOutput
+    ? normalizePtyLineEndings
+    : (output) => settledInteractiveTerminalFrame(output, geometry);
+}
+
+/**
+ * Hold every named keyframe until the capture's own projection accepts it, so a
+ * repaint whose markers arrived before its final row cannot become evidence.
+ */
+export function settledTerminalCaptureInput(
+  input: readonly PtyInputPhase[],
+  geometry: PtyGeometry,
+  staticOutput: boolean,
+): PtyInputPhase[] {
+  const project = terminalCaptureProjection(geometry, staticOutput);
+  return input.map((phase) =>
+    phase.capture === undefined ? phase : {
+      ...phase,
+      capture: {
+        name: phase.capture.name,
+        when: settledKeyframeCondition(
+          phase.capture.when,
+          (transcript) => acceptedProjection(project, transcript) !== undefined,
+          `as a settled ${geometry.columns}x${geometry.rows} screen`,
+        ),
+      },
+    }
+  );
+}
+
 /** Apply named normalizers without changing their declared order. */
 function applyNormalizers(
   output: string,
@@ -162,9 +199,9 @@ export async function captureDiscernCommand(
       NO_COLOR: color ? "" : "1",
       FORCE_COLOR: color ? "1" : "",
     },
-    ...(options.input === undefined
-      ? { keepInputOpen: true }
-      : { input: options.input }),
+    ...(options.input === undefined ? { keepInputOpen: true } : {
+      input: settledTerminalCaptureInput(options.input, geometry, staticOutput),
+    }),
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
   });
   const normalizers = options.normalizers ?? [];
@@ -173,14 +210,9 @@ export async function captureDiscernCommand(
     args: options.args,
     cwd: options.cwd,
   };
+  const project = terminalCaptureProjection(geometry, staticOutput);
   const normalized = (output: string): string =>
-    applyNormalizers(
-      staticOutput
-        ? normalizePtyLineEndings(output)
-        : settledInteractiveTerminalFrame(output, geometry),
-      normalizers,
-      context,
-    );
+    applyNormalizers(project(output), normalizers, context);
   return {
     schemaVersion: 1,
     name: options.name,

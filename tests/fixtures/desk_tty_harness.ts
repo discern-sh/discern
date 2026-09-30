@@ -28,7 +28,10 @@ import {
   measureText,
 } from "discern-design-system/cli";
 import type { TerminalKeyName } from "discern-design-system/cli/interactive";
-import { encodeTerminalKeys } from "discern-design-system/cli/interactive/testing";
+import {
+  encodeTerminalKeys,
+  settledTerminalFrame,
+} from "discern-design-system/cli/interactive/testing";
 import {
   projectTerminalSpans,
   type TerminalSpanStyle,
@@ -62,10 +65,13 @@ import {
 } from "../engine_helpers.ts";
 import { withTempDir } from "../temp_dir.ts";
 import {
+  acceptedProjection,
   type PtyGeometry,
   type PtyInputPhase,
   type PtyObservedOutput,
+  type PtyOutputCondition,
   runPtyProcess,
+  settledKeyframeCondition,
 } from "./pty_process.ts";
 import { TEST_PROCESS_TIMEOUT_MS } from "../waiting.ts";
 import { z } from "@zod/zod";
@@ -83,6 +89,10 @@ const MARKER_OPEN = "\uE000";
 const MARKER_CLOSE = "\uE001";
 const SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const FOCUS_PREFIXES = ["› [", "› ○ ", "> [", "> o ", "›   ", ">   "] as const;
+// The package painter's two protocols: a complete-viewport repaint erases the
+// display and homes the cursor; an inline frame erases below its own origin.
+const COMPLETE_REPAINT = "\x1b[2J\x1b[H";
+const INLINE_ERASE = "\x1b[J";
 
 const PTY_GEOMETRY_SCHEMA = z.object({
   columns: z.number().int().positive(),
@@ -791,20 +801,12 @@ export async function runDeskTty(
         : {
           capture: {
             name: capture.name,
-            when: {
-              description: describeDeskCapture(capture),
-              test: (output: PtyObservedOutput): boolean =>
-                deskCaptureReady(
-                  capture,
-                  normaliseDeskTranscript(
-                    capture.name,
-                    output.transcript,
-                    options.geometry,
-                    resizeTimeline.slice(0, phaseResizeCount),
-                    phaseGeometry,
-                  ),
-                ),
-            },
+            when: deskKeyframeCondition(
+              capture,
+              options.geometry,
+              () => resizeTimeline.slice(0, phaseResizeCount),
+              phaseGeometry,
+            ),
           },
         }),
       steps: steps as [typeof steps[number], ...typeof steps[number][]],
@@ -923,6 +925,55 @@ function assertDeskCapture(capture: DeskTtyCapture): void {
   if (markers.length === 0 && focusMarkers === undefined) {
     throw new TypeError("Desk PTY keyframe needs an observable screen condition");
   }
+}
+
+/**
+ * Whether the transcript's latest paint is a complete-viewport repaint that has
+ * not fully arrived. An inline paint that erases below its own origin after the
+ * last full repaint owns the screen instead; it has no complete-frame form.
+ */
+export function deskRepaintInFlight(
+  transcript: string,
+  geometry: PtyGeometry,
+): boolean {
+  const repaint = transcript.lastIndexOf(COMPLETE_REPAINT);
+  return repaint >= 0 && transcript.lastIndexOf(INLINE_ERASE) < repaint &&
+    acceptedProjection(
+        (saved) => settledTerminalFrame(saved, geometry),
+        transcript,
+      ) === undefined;
+}
+
+/**
+ * The readiness condition for one named Desk keyframe. The visible screen must
+ * show the capture's markers, and no complete-viewport repaint may still be
+ * arriving, so every full-frame keyframe a gallery or journey receives
+ * projects through the strict package capture.
+ */
+export function deskKeyframeCondition(
+  capture: DeskTtyCapture,
+  initialGeometry: PtyGeometry,
+  resizes: () => readonly DeskTerminalResize[],
+  phaseGeometry: PtyGeometry,
+): PtyOutputCondition {
+  return settledKeyframeCondition(
+    {
+      description: describeDeskCapture(capture),
+      test: (output: PtyObservedOutput): boolean =>
+        deskCaptureReady(
+          capture,
+          normaliseDeskTranscript(
+            capture.name,
+            output.transcript,
+            initialGeometry,
+            resizes(),
+            phaseGeometry,
+          ),
+        ),
+    },
+    (transcript) => !deskRepaintInFlight(transcript, phaseGeometry),
+    `with no ${phaseGeometry.columns}x${phaseGeometry.rows} repaint in flight`,
+  );
 }
 
 function describeDeskCapture(capture: DeskTtyCapture): string {

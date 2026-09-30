@@ -103,7 +103,7 @@ Pass the file with `--script`. With no `--keyframe`, the artifact shows the jour
 deno task terminal:capture docs-reader --script .scratch/terminal-captures/docs-reader.json --keyframe document -- docs
 ```
 
-The capture condition states the complete screen the named frame will be used to judge. Use `delayMs` only when elapsed time is itself part of the interaction. Prefer an observable `waitFor` marker for ordinary input readiness. A step that intentionally sends a lone Escape byte must declare `allowLoneEscape: true`; otherwise the driver rejects a plan whose scheduling could change a multi-byte key sequence into cancellation.
+The capture condition states the complete screen the named frame will be used to judge. The task saves a named frame only once its own screen projection accepts the transcript: a pseudo-terminal delivers one repaint across several reads, and markers in a frame's last row are visible before that row's padding arrives. Use `delayMs` only when elapsed time is itself part of the interaction. Prefer an observable `waitFor` marker for ordinary input readiness. A step that intentionally sends a lone Escape byte must declare `allowLoneEscape: true`; otherwise the driver rejects a plan whose scheduling could change a multi-byte key sequence into cancellation.
 
 ## What the task captures
 
@@ -137,7 +137,7 @@ Run the production desk against disposable fixture repositories and retain named
 discern queue -- deno run -A scripts/desk_capture.ts
 ```
 
-The [capture script](../../../scripts/desk_capture.ts) covers empty and large fleets, long command lists, complete Proof reading and return, narrow and short viewports, light and dark themes, and the minimum-size notice. Its HTML index links separate terminal viewports. Render and inspect each relevant HTML frame before judging a change; these artifacts are review evidence, not fixed screenshot expectations. The [Desk PTY fixture](../../../tests/fixtures/desk_tty_harness.ts) retains raw named paints for the package capture helper and its specialized cursor accounting for inline foreground journeys.
+The [capture script](../../../scripts/desk_capture.ts) covers empty and large fleets, long command lists, complete Proof reading and return, narrow and short viewports, light and dark themes, and the minimum-size notice. Its HTML index links separate terminal viewports. Render and inspect each relevant HTML frame before judging a change; these artifacts are review evidence, not fixed screenshot expectations. The [Desk PTY fixture](../../../tests/fixtures/desk_tty_harness.ts) retains raw named paints for the package capture helper and its specialized cursor accounting for inline foreground journeys. A named Desk frame waits until no complete-viewport repaint is still arriving, and the script refuses a journey whose frames differ from the ones it declared, so the gallery never drops or truncates a frame. [`settled_keyframe_test.ts`](../../../tests/settled_keyframe_test.ts) sweeps every byte prefix of a repaint through each keyframe condition that feeds a strict projection.
 
 ## Flagship evidence
 

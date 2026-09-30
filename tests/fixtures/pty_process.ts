@@ -1,5 +1,6 @@
 /** Product admission and evidence around the package's generic PTY transport. */
 import {
+  type PtyOutputCondition,
   type PtyProcessOptions as PackagePtyProcessOptions,
   type PtyProcessResult,
   runPtyProcess as packageRunPtyProcess,
@@ -72,4 +73,34 @@ export async function runPtyProcess(
     transcript: result.transcript,
   });
   return result;
+}
+
+/** A strict projection's result, or undefined while it rejects the transcript. */
+export function acceptedProjection<T>(
+  project: (transcript: string) => T,
+  transcript: string,
+): T | undefined {
+  try {
+    return project(transcript);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Hold a keyframe condition until the transcript it would save has settled. A
+ * PTY delivers one repaint across several reads, and markers in a frame's
+ * final row become visible before that row's padding and style reset arrive,
+ * so a marker-only condition can save a frame that a strict projection of the
+ * saved transcript then rejects.
+ */
+export function settledKeyframeCondition(
+  condition: PtyOutputCondition,
+  settled: (transcript: string) => boolean,
+  settledDescription: string,
+): PtyOutputCondition {
+  return {
+    description: `${condition.description}, ${settledDescription}`,
+    test: (output) => condition.test(output) && settled(output.transcript),
+  };
 }
