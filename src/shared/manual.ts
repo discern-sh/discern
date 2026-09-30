@@ -152,7 +152,7 @@ export const MANUAL_ALIAS_OWNER_OVERRIDES: Readonly<Record<string, string>> = {
   "maintain-project-map": "guide-maintain-project-map",
   "map maintenance": "guide-maintain-project-map",
   "open question": "explanation-checkpoints",
-  "patterns": "explanation-evidence-and-improvement",
+  "patterns": "guide-improve-the-practice",
   "practice": "explanation-practice-and-roles",
   "practice health": "guide-improve-the-practice",
   "prerequisites": "reference-platforms-and-providers",

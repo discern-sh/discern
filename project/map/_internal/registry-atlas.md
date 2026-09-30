@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 928     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 924     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 2       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -106,7 +106,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 16      | —                | node `published-contracts`  |
-| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 51      | —                | node `bundled-docs`         |
+| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 49      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
 | [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 54      | —                | node `bundled-docs`         |
@@ -480,7 +480,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 928
+- Members: 924
   - `/`
   - `/install`
   - `/llms.txt`
@@ -504,8 +504,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs.md`
   - `/docs/start`
   - `/docs/start.md`
-  - `/docs/start/evaluate-discern`
-  - `/docs/start/evaluate-discern.md`
+  - `/docs/start/how-discern-works`
+  - `/docs/start/how-discern-works.md`
   - `/docs/start/installation-and-setup`
   - `/docs/start/installation-and-setup.md`
   - `/docs/start/first-real-change`
@@ -514,8 +514,6 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/start/after-setup.md`
   - `/docs/understand`
   - `/docs/understand.md`
-  - `/docs/understand/how-discern-works`
-  - `/docs/understand/how-discern-works.md`
   - `/docs/understand/proof`
   - `/docs/understand/proof.md`
   - `/docs/understand/worktrees-and-trunk`
@@ -526,8 +524,6 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/understand/standards.md`
   - `/docs/understand/instructions-skills-and-map`
   - `/docs/understand/instructions-skills-and-map.md`
-  - `/docs/understand/evidence-and-improvement`
-  - `/docs/understand/evidence-and-improvement.md`
   - `/docs/understand/local-control`
   - `/docs/understand/local-control.md`
   - `/docs/guides`
@@ -4255,21 +4251,19 @@ The machine-stable vocabulary for explicitly optional degradation that may coexi
 Every strictly admitted published product-manual page, identified by its stable authored page id.
 
 - Source: `src/lib/manual.ts` — `buildManualProjection`
-- Members: 51
+- Members: 49
   - `manual-home`
   - `start-index`
-  - `start-evaluate-discern`
+  - `explanation-practice-and-roles`
   - `start-installation-and-setup`
   - `start-first-real-change`
   - `start-after-setup`
   - `understand-index`
-  - `explanation-practice-and-roles`
   - `explanation-proof`
   - `explanation-worktrees-and-trunk`
   - `explanation-checkpoints`
   - `explanation-standards`
   - `explanation-instructions-skills-and-map`
-  - `explanation-evidence-and-improvement`
   - `explanation-local-control`
   - `guide-index`
   - `guide-finish-and-land-a-change`

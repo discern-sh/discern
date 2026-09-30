@@ -65,7 +65,7 @@ Jump to: [A](#accept) · [C](#checkpoint) · [D](#declaration) · [E](#effort) �
 
 ### Advisory
 
-Advice from discern about where to look, which never blocks your work. [Coupling](../20-guides/improve-the-practice.md#follow-the-finding-into-the-work), [patterns](../10-understand/evidence-and-improvement.md), [impact](https://discern.sh/docs/reference/cli-reference#discern-impact), and [improvement](../20-guides/improve-the-practice.md) all give advice, and so do `advise` checkpoints. A finding can prompt your agent to investigate, and it never fails a [gate](#gate) check. In discern's results, advice arrives in `hints`. The separate `advisories` field lists problems a command worked around while still succeeding.
+Advice from discern about where to look, which never blocks your work. [Coupling](../20-guides/improve-the-practice.md#follow-the-finding-into-the-work), [patterns](../20-guides/improve-the-practice.md), [impact](https://discern.sh/docs/reference/cli-reference#discern-impact), and [improvement](../20-guides/improve-the-practice.md) all give advice, and so do `advise` checkpoints. A finding can prompt your agent to investigate, and it never fails a [gate](#gate) check. In discern's results, advice arrives in `hints`. The separate `advisories` field lists problems a command worked around while still succeeding.
 
 ### Agent file
 
@@ -177,15 +177,15 @@ discern's record that a stop checkpoint has asked your agent a question about a 
 
 ### Patterns
 
-discern's report on what keeps happening in your project's work, read from its local history. `discern patterns` reads the [logbook](#logbook) for patterns such as repeated gate failures, avoidable steps, slow checks, and changes in [standard](#standard) measurements. Each finding gives its counts, with the total they came from, and a next step. When the logbook doesn't hold enough evidence, the report says so. `discern patterns --stats` shows what went well instead. The report is [advisory](#advisory), and it has nothing to report when the project doesn't record a logbook. See [practice patterns](../10-understand/evidence-and-improvement.md).
+discern's report on what keeps happening in your project's work, read from its local history. `discern patterns` reads the [logbook](#logbook) for patterns such as repeated gate failures, avoidable steps, slow checks, and changes in [standard](#standard) measurements. Each finding gives its counts, with the total they came from, and a next step. When the logbook doesn't hold enough evidence, the report says so. `discern patterns --stats` shows what went well instead. The report is [advisory](#advisory), and it has nothing to report when the project doesn't record a logbook. See [practice patterns](../20-guides/improve-the-practice.md).
 
 ### Placement is consent
 
-The rule that putting content where discern manages it gives discern and your agents permission to maintain it. The default locations carry that permission, and your agents treat anything stale there as a problem to fix. Pointing a configuration key at another location grants it explicitly, because you chose the path. The rule covers only the content discern manages. Your agent's other work and your project's jobs run under their own permissions. See [design principles](../10-understand/how-discern-works.md) and [files and ownership](files-and-ownership.md).
+The rule that putting content where discern manages it gives discern and your agents permission to maintain it. The default locations carry that permission, and your agents treat anything stale there as a problem to fix. Pointing a configuration key at another location grants it explicitly, because you chose the path. The rule covers only the content discern manages. Your agent's other work and your project's jobs run under their own permissions. See [design principles](../00-start/how-discern-works.md) and [files and ownership](files-and-ownership.md).
 
 ### Practice
 
-The way of working discern sets up in your project, which carries over from one session to the next. Each session starts with the project's instructions. Each task gets its own [worktree](#worktree), passes your project's [gate](#gate), meets your [standards](#standard), and finishes with [Proof](#proof) of which checks passed. Nothing lands without [landing authority](#landing-authority) that you control. Bundled [skills](#skill) guide your agents as they delegate work, keep what the project learns, and fix problems at their cause. You set the direction and make the decisions that matter, and your agents run the workflow. See [the practice](../10-understand/how-discern-works.md).
+The way of working discern sets up in your project, which carries over from one session to the next. Each session starts with the project's instructions. Each task gets its own [worktree](#worktree), passes your project's [gate](#gate), meets your [standards](#standard), and finishes with [Proof](#proof) of which checks passed. Nothing lands without [landing authority](#landing-authority) that you control. Bundled [skills](#skill) guide your agents as they delegate work, keep what the project learns, and fix problems at their cause. You set the direction and make the decisions that matter, and your agents run the workflow. See [the practice](../00-start/how-discern-works.md).
 
 ### Progress handle
 

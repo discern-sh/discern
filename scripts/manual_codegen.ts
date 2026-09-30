@@ -40,7 +40,7 @@ export const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "20-quality-gate/standards.md": "explanation-standards",
   "20-quality-gate/coupling.md":
     "guide-improve-the-practice#follow-the-finding-into-the-work",
-  "20-quality-gate/patterns.md": "explanation-evidence-and-improvement",
+  "20-quality-gate/patterns.md": "guide-improve-the-practice",
   "20-quality-gate/improvement.md": "guide-improve-the-practice",
   "20-quality-gate/tidy.md": "guide-maintain-or-remove-discern",
   "30-worktrees/README.md": "explanation-worktrees-and-trunk",

@@ -26,7 +26,7 @@ aliases:
 
 The **logbook** is discern's local record of how work goes in your project: which commands ran, how long they took, and how they ended. It holds names and numbers, never your code, prompts, command output, or file contents, and it never leaves your machine. This page defines what it records, what reads it, how to read its reports and stats, and how to archive or reset it.
 
-Say your agent runs `discern done` on the recipe search branch three times before it commits the change, and each run refuses because the tree has uncommitted edits. Each run adds lines to the logbook, and discern reads them back to point out the pattern. Recording needs to be on to collect that evidence, and history you already have stays readable after recording stops. To put the findings to use, read [Learn from your project's history](../10-understand/evidence-and-improvement.md).
+Say your agent runs `discern done` on the recipe search branch three times before it commits the change, and each run refuses because the tree has uncommitted edits. Each run adds lines to the logbook, and discern reads them back to point out the pattern. Recording needs to be on to collect that evidence, and history you already have stays readable after recording stops. To put the findings to use, read [Improve how your agents work](../20-guides/improve-the-practice.md).
 
 | Find                                  | Go to                                                         |
 | ------------------------------------- | ------------------------------------------------------------- |
@@ -112,7 +112,7 @@ discern patterns --stats
 
 An accepted change is a successful `accept`, and its size comes from the recorded change counts. The gate's streaks count consecutive `done` runs in stream order. A branch is a first-try green only when its first `done` ended green, so the recipe search branch, whose first `done` refused, isn't one. The summed command duration includes waits for a test slot and runs that overlapped, so it's neither elapsed time nor compute time.
 
-A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](../10-understand/evidence-and-improvement.md#what-the-detectors-watch) matches them. So a cycle needs both ends on record: an accept whose start predates the logbook counts as accepted, but adds no cycle.
+A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](../20-guides/improve-the-practice.md#what-the-detectors-watch) matches them. So a cycle needs both ends on record: an accept whose start predates the logbook counts as accepted, but adds no cycle.
 
 For the overlap reading, a branch is in flight from its first analyzed event to its last, including any pause inside that window. A branch stops counting after its last event, and the [trunk](glossary.md#trunk), your project's shared branch, isn't a change.
 
@@ -296,7 +296,7 @@ An invocation's `surface` is `cli` or `mcp`. Its `outcome` is `ok`, `failed`, `p
 - **`partial`** marks an error after an effect that can't be undone.
 - **`crash`** appears only when discern hits an unexpected error. It holds the error's class name, such as `"TypeError"`, and one trimmed code location. The logbook leaves out the message and stack, which a saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds in full.
 - **`tip_ids`** appears only when the [desk](glossary.md#desk) showed a tip, and carries the tip's registry id as is. The tip-adoption reader joins that id to the tip's declared commands.
-- **`consent`** feeds the landing-authority detectors described in [practice patterns](../10-understand/evidence-and-improvement.md).
+- **`consent`** feeds the landing-authority detectors described in [practice patterns](../20-guides/improve-the-practice.md).
 - **`checkpoints`** carries the open-question and variance lifecycle as metadata: ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times. The unmet rationale never lands here.
 
 A `begin` event carries the run's identity. Its `verb` event adds the outcome and `duration_ms`. Capped test runs add `waited_ms`, including `0`, while uncapped runs and older events leave it out. Readers work out the execution time as `duration_ms - (waited_ms ?? 0)` for priors and suite health, and end-to-end statistics keep the wall time.

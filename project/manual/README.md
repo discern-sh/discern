@@ -17,7 +17,7 @@ aliases:
 
 discern lets you hand coding agents substantial work, such as a whole feature, without coordinating every task yourself, explaining your project again each session, or taking an agent's word that the tests passed. Your project also gets better as the work goes on, because each gain you lock in, such as higher test coverage or a smaller download, holds for every change that follows.
 
-Your agent runs discern for you, so this manual covers your side of the work: asking for what you want, reading what comes back, and deciding what joins your project. If you're still deciding whether discern fits, start with [Evaluate discern](00-start/evaluate-discern.md).
+Your agent runs discern for you, so this manual covers your side of the work: asking for what you want, reading what comes back, and deciding what joins your project. If you're still deciding whether discern fits, start with [How discern works](00-start/how-discern-works.md).
 
 ## Start here
 

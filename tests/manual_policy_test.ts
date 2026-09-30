@@ -228,9 +228,9 @@ Deno.test("generated Map links land on the manual's home for their concept", asy
   // concept, and a section the destination doesn't have.
   assertEquals(
     (await conceptLinkIssues({
-      "20-quality-gate/coupling.md": "explanation-evidence-and-improvement",
+      "20-quality-gate/coupling.md": "explanation-standards",
       "20-quality-gate/patterns.md":
-        "explanation-evidence-and-improvement#no-such-section",
+        "guide-improve-the-practice#no-such-section",
     }, manual)).length,
     2,
   );

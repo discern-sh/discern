@@ -15,7 +15,7 @@ export const SITE_FOOTER_GROUPS = [
   {
     title: "Begin",
     links: [
-      { label: "What is discern?", href: "/docs/start/evaluate-discern" },
+      { label: "What is discern?", href: "/docs/start/how-discern-works" },
       { label: "Install discern", href: "/docs/start/installation-and-setup" },
       { label: "Understand discern", href: "/docs/understand" },
     ],
@@ -24,8 +24,8 @@ export const SITE_FOOTER_GROUPS = [
     title: "Explore",
     links: [
       {
-        label: "How discern works",
-        href: "/docs/understand/how-discern-works",
+        label: "Worktrees and trunk",
+        href: "/docs/understand/worktrees-and-trunk",
       },
       { label: "Proof", href: "/docs/understand/proof" },
       { label: "Checkpoints", href: "/docs/understand/checkpoints" },
