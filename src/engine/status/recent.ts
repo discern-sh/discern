@@ -4,6 +4,7 @@ import type {
   StatusData,
   StatusFleetEntry,
 } from "../../shared/result_schemas.ts";
+import { ERROR_SLUGS, type ErrorSlug } from "../../shared/result.ts";
 import { recordedTaskMetadataData } from "../../shared/task_metadata.ts";
 import {
   type BranchLogbookActivity,
@@ -113,6 +114,14 @@ export function latestActivity(
   return logbookMs > gitMs ? logbookAt : gitAt;
 }
 
+/** The recorded slug when this build still knows it. A slug an older writer
+ * recorded and a later release retired stays out of the typed row. */
+function knownErrorSlug(value: string | undefined): ErrorSlug | undefined {
+  return value === undefined
+    ? undefined
+    : ERROR_SLUGS.find((slug) => slug === value);
+}
+
 /** Join one fleet row to the bounded logbook read for its branch. */
 export function applyLogbookActivity(
   entry: StatusFleetEntry,
@@ -128,6 +137,7 @@ export function applyLogbookActivity(
     activity.lastEventAt,
   );
   if (activity.lastAction !== undefined) {
+    const error = knownErrorSlug(activity.lastAction.error);
     entry.last_action = {
       verb: activity.lastAction.verb,
       outcome: activity.lastAction.outcome,
@@ -135,6 +145,7 @@ export function applyLogbookActivity(
       ...(activity.lastAction.failedStage !== undefined
         ? { failed_stage: activity.lastAction.failedStage }
         : {}),
+      ...(error === undefined ? {} : { error }),
     };
   }
   if (activity.running !== undefined) {

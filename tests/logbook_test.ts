@@ -975,6 +975,59 @@ Deno.test("fleet activity derives current liveness and duration from event evide
       },
       {
         name:
+          "fleet activity: observation completions never replace the last task action",
+        check: (): void => {
+          const now = Date.parse("2026-07-19T12:10:00.000Z");
+          const at = (minute: number): string =>
+            `2026-07-19T12:0${minute}:00.000Z`;
+          const failed: VerbEvent = {
+            ...verbEventAt(at(1)),
+            verb: "done",
+            outcome: "failed",
+            failed_stage: "test",
+            error: "gate_failed",
+          };
+          const observations = ["status", "progress", "doctor", "map", "docs"]
+            .map((verb, index): VerbEvent => ({
+              ...verbEventAt(at(index + 2)),
+              verb,
+            }));
+          const derived = deriveFleetLogbookActivity(
+            [failed, ...observations],
+            "current",
+            now,
+          ).byBranch.get("main");
+          assertEquals(derived?.lastAction, {
+            verb: "done",
+            outcome: "failed",
+            at: at(1),
+            failedStage: "test",
+            error: "gate_failed",
+          });
+          assertEquals(
+            derived?.lastEventAt,
+            at(6),
+            "observations still count as activity",
+          );
+
+          const exported = deriveFleetLogbookActivity(
+            [failed, {
+              ...verbEventAt(at(7)),
+              verb: "docs",
+              flags: ["output"],
+            }],
+            "current",
+            now,
+          ).byBranch.get("main");
+          assertEquals(
+            exported?.lastAction?.verb,
+            "docs",
+            "a docs export writes files, so it is the task's last action",
+          );
+        },
+      },
+      {
+        name:
           "fleet activity: a later conflicting completion retires an older unmatched begin",
         check: (): void => {
           const now = Date.parse("2026-07-19T12:10:00.000Z");

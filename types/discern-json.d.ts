@@ -5759,6 +5759,7 @@ export type DiscernStatusResult = DiscernResultState & {
         outcome: string;
         at: string;
         failed_stage?: string;
+        error?: string;
       };
       running?: {
         verb: string;

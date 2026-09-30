@@ -21,6 +21,7 @@ import {
   type VerbEvent,
 } from "./schema.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { logbookVerbIsEffectful } from "../../shared/verbs.ts";
 import {
   operationEffectPolicy,
   type OperationLockBoundary,
@@ -41,6 +42,20 @@ export interface LastCompletedAction {
   outcome: LogbookOutcome;
   at: string;
   failedStage?: string;
+  /** The result envelope's machine-stable error slug, when it carried one. */
+  error?: string;
+}
+
+/**
+ * Whether a completion can stand as a branch's last action. An invocation the
+ * verb registry classifies as observation (`status`, `progress`, `map` and
+ * `docs` reads, `doctor`, ...) reports on the task without changing it, so
+ * its completion never replaces the evidence a failed or refused verb left.
+ */
+export function isTaskAction(
+  event: Pick<VerbEvent, "verb" | "flags">,
+): boolean {
+  return logbookVerbIsEffectful(event.verb, event.flags ?? []);
 }
 
 /** One fresh begin event whose paired completion is absent. */
@@ -420,7 +435,7 @@ export function deriveFleetLogbookActivity(
         branchActivity.lastEventAt = event.at;
       }
       if (
-        event.kind === "verb" &&
+        event.kind === "verb" && isTaskAction(event) &&
         (branchActivity.lastAction === undefined ||
           event.at >= branchActivity.lastAction.at)
       ) {
@@ -431,6 +446,7 @@ export function deriveFleetLogbookActivity(
           ...(event.failed_stage !== undefined
             ? { failedStage: event.failed_stage }
             : {}),
+          ...(event.error !== undefined ? { error: event.error } : {}),
         };
       }
     }

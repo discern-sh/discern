@@ -405,6 +405,7 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
       clean: true,
       outcome,
       ...(failedStage !== undefined ? { failed_stage: failedStage } : {}),
+      ...(outcome === "failed" ? { error: "gate_failed" } : {}),
       duration_ms: durationMs,
       epoch,
     });
@@ -421,6 +422,10 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
           "failed",
           "test",
         ),
+        {
+          ...completion("agent/beta", "beta-status", at(5 * 60_000), 1_000),
+          verb: "status",
+        },
         {
           schema: LOGBOOK_SCHEMA_VERSION,
           at: at(2 * 60_000 + 30_000),
@@ -479,7 +484,8 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
       outcome: "failed",
       at: at(12 * 60_000 + 30_000),
       failed_stage: "test",
-    });
+      error: "gate_failed",
+    }, "a later status observation must not replace the failed Gate");
     assertEquals(beta.running, undefined);
 
     const human = await runAgent(dir, ["status", "--verbose"]);

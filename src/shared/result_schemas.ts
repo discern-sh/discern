@@ -1768,6 +1768,9 @@ const statusFleetLastActionSchema = z.strictObject({
   outcome: openVocabulary("x-discern-fleet-action-outcomes"),
   at: z.string(),
   failed_stage: z.string().optional(),
+  /** The verb's machine-stable error slug, when it refused or failed with
+   * one (`awaiting_consent`, `awaiting_variance`, ...). */
+  error: openVocabulary("x-discern-error-slugs").optional(),
 });
 
 const statusFleetRunningSchema = z.strictObject({

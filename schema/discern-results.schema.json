@@ -23469,6 +23469,10 @@
                           },
                           "failed_stage": {
                             "type": "string"
+                          },
+                          "error": {
+                            "type": "string",
+                            "x-discern-vocabulary": "x-discern-error-slugs"
                           }
                         },
                         "required": [
