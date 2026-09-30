@@ -264,30 +264,11 @@ function pooledWork(
 }
 
 /** Static array sizes ignore case values; dynamic selectors remain syntax evidence. */
-function iterationKey(
-  node: ts.Node,
-  checker: ts.TypeChecker,
-  seen = new Set<ts.Node>(),
-): string {
-  if (seen.has(node)) return "dynamic";
-  seen.add(node);
-  if (
-    ts.isAsExpression(node) || ts.isParenthesizedExpression(node) ||
-    ts.isSatisfiesExpression(node)
-  ) {
-    return iterationKey(node.expression, checker, seen);
-  }
-  if (ts.isArrayLiteralExpression(node)) return `array:${node.elements.length}`;
-  if (ts.isIdentifier(node)) {
-    const declaration = symbolAt(checker, node)?.valueDeclaration;
-    if (
-      declaration !== undefined && ts.isVariableDeclaration(declaration) &&
-      declaration.initializer !== undefined
-    ) {
-      return iterationKey(declaration.initializer, checker, seen);
-    }
-  }
-  return syntaxKey(node.getText());
+function iterationKey(node: ts.Node, checker: ts.TypeChecker): string {
+  const value = staticValue(node, checker);
+  return ts.isArrayLiteralExpression(value)
+    ? `array:${value.elements.length}`
+    : syntaxKey(value.getText());
 }
 
 /** Ignore comments and formatting without evaluating runtime values. */
