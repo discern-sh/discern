@@ -75,7 +75,7 @@ Ask your agent:
 
 When your agent retries, discern reads that record. If `main` moved, the retry finishes the remaining steps, without landing the change twice or asking for your permission again. If `main` didn't move, the retry undoes the attempt and says what stood in the way.
 
-The result names the surviving checkout, where your agent carries on. Every discern command that changes your project can preview its plan, so your agent checks what a retry would do first.
+The result's `data.root` field names the surviving checkout, where your agent carries on. Every discern command that changes your project can preview its plan, so your agent checks what a retry would do first.
 
 ```sh
 discern accept --dry-run
