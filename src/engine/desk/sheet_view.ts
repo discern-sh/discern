@@ -22,9 +22,10 @@ import type {
   ApplicationDisclosure,
   ApplicationForm,
   ApplicationFormField,
+  ApplicationRun,
   ApplicationSheet,
 } from "discern-design-system/cli/interactive";
-import { renderPlan } from "../../shared/result.ts";
+import { PLAN_DISPOSITION_LABELS, renderPlan } from "../../shared/result.ts";
 import type { EnginePlan } from "../../shared/result.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
 import {
@@ -32,11 +33,7 @@ import {
   DESK_COMMAND_LABELS,
   labelName,
 } from "../../shared/desk_vocabulary.ts";
-import {
-  createCliBlock,
-  renderCodeBlockCli,
-  renderMarkdownCli,
-} from "discern-design-system/cli";
+import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
 import {
   DESK_ACTION_REGISTRY,
   type DeskAgentLaunch,
@@ -221,7 +218,67 @@ function changesContent(
   ];
 }
 
-/** The plan disclosure: the exact shared rendering, line for line. */
+/** A rendered plan step: its disposition word, then the rest. */
+const PLAN_STEP = new RegExp(
+  `^(${Object.values(PLAN_DISPOSITION_LABELS).join("|")})\\s+(.+)$`,
+  "u",
+);
+
+/** A rendered plan detail: `Label: value`. */
+const PLAN_DETAIL = /^([^:]{1,40}):\s+(.+)$/u;
+
+/**
+ * The exact shared rendering of a plan as sheet text, word for word: its
+ * title, then each group (Context, Steps, …) with its details and steps as
+ * label and value rows, so a long value wraps under its value rather than
+ * under the label, and nothing reads as a console dump.
+ */
+export function planBlocks(plan: EnginePlan): ApplicationDetailBlock[] {
+  const [title = plan.title, ...rest] = planLines(plan);
+  const blocks: ApplicationDetailBlock[] = [{
+    kind: "text",
+    runs: [{ text: title.trim(), role: "title" }],
+  }];
+  let section: { title: string; blocks: ApplicationDetailBlock[] } | undefined;
+  let rows: { label: string; value: ApplicationRun[][] }[] = [];
+  const flush = (): void => {
+    if (rows.length > 0) section?.blocks.push({ kind: "facts", rows });
+    rows = [];
+  };
+  const close = (): void => {
+    flush();
+    if (section !== undefined) {
+      blocks.push({ kind: "section", ...section });
+    }
+    section = undefined;
+  };
+  // The shared renderer opens each group with its label after a blank line.
+  let opening = true;
+  for (const line of rest) {
+    const text = line.trim();
+    if (text === "") {
+      opening = true;
+      continue;
+    }
+    if (opening || section === undefined) {
+      close();
+      section = { title: text, blocks: [] };
+      opening = false;
+      continue;
+    }
+    const fact = PLAN_STEP.exec(text) ?? PLAN_DETAIL.exec(text);
+    if (fact === null) {
+      flush();
+      section.blocks.push({ kind: "text", runs: [{ text }] });
+    } else {
+      rows.push({ label: fact[1] ?? "", value: [[{ text: fact[2] ?? "" }]] });
+    }
+  }
+  close();
+  return blocks;
+}
+
+/** The plan disclosure: the exact shared rendering, as sheet text. */
 function planDisclosure(plan: EnginePlan): ApplicationDisclosure {
   return {
     id: "plan",
@@ -230,13 +287,7 @@ function planDisclosure(plan: EnginePlan): ApplicationDisclosure {
     openHint: "Hide plan",
     key: "d",
     fieldKey: "ctrl-t",
-    // A code block wraps every line losslessly, so the plan reads exactly.
-    content: [{
-      kind: "block",
-      content: createCliBlock(renderCodeBlockCli, {
-        code: planLines(plan).join("\n"),
-      }),
-    }],
+    content: planBlocks(plan),
   };
 }
 

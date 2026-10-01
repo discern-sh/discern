@@ -729,7 +729,10 @@ Deno.test("a review opens on its safe choice; letters never confirm; Escape keep
       await desk.press(key ?? "");
       assert(layer()?.open.includes(id ?? "") === true, `${key} opens ${id}`);
     }
-    await desk.shows("Branch: agent/alpha");
+    await desk.until(
+      () => /Branch\s+agent\/alpha/u.test(desk.screen()),
+      "the plan's branch",
+    );
     await desk.escape(() => desk.top() === undefined, "Escape keeps");
     assertEquals(landed, []);
   });
@@ -903,13 +906,21 @@ Deno.test("a late review read for one task never fills another task's sheet", as
       }
     }
     await desk.settleForm();
+    const planTarget = (path: string) =>
+      new RegExp(`Target\\s+${path.replaceAll("/", "\\/")}`, "u");
     await desk.press("d");
-    await desk.shows("Target: /worktrees/beta");
+    await desk.until(
+      () => planTarget("/worktrees/beta").test(desk.screen()),
+      "Beta's plan",
+    );
     releaseAlpha();
     await desk.until(() => alphaRead, "Alpha's late read to finish");
     // One more key lets the session paint whatever that read changed.
     await desk.press("tab");
-    assertStringIncludes(desk.screen(), "Target: /worktrees/beta");
+    assert(
+      planTarget("/worktrees/beta").test(desk.screen()),
+      "Beta's plan stays",
+    );
     assert(
       !desk.screen().includes("for Alpha?"),
       "the sheet still asks about Beta",

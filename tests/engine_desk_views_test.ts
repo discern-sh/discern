@@ -11,6 +11,11 @@ import {
   type TerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import { proofLineBlock } from "../src/engine/desk/inspector_view.ts";
+import { planBlocks, planLines } from "../src/engine/desk/sheet_view.ts";
+import {
+  BUILT_IN_STEP_LABELS,
+  verbatimStepLabel,
+} from "../src/shared/result.ts";
 import { testTerminalCapabilities } from "discern-design-system/cli/interactive/testing";
 import {
   DESK_OFFLINE_FAILURES,
@@ -311,6 +316,68 @@ Deno.test("a running row's meter fills only once its usual time has passed, and 
     survey: { ...live.survey, failures: DESK_OFFLINE_FAILURES },
   };
   assert(!meterTones(offline).includes("accent"), "a frozen meter is faint");
+});
+
+Deno.test("a technical plan reads as sheet text, every word of the shared rendering kept", () => {
+  const plan = {
+    title: "Acceptance plan",
+    details: [
+      "Branch:        agent/manual",
+      "From worktree: /tmp/project.worktrees/manual",
+      "Into trunk:    /tmp/project (fast-forward main, delete agent/manual)",
+      "No pre-authorization is recorded",
+    ],
+    steps: [
+      {
+        kind: "tracked-refresh-check" as const,
+        label: BUILT_IN_STEP_LABELS.trackedRefreshLandingBoundary,
+        disposition: "gate" as const,
+        note: "verify the refresh plan",
+      },
+      {
+        kind: "git" as const,
+        label: BUILT_IN_STEP_LABELS.fastForwardTrunk,
+        disposition: "run" as const,
+      },
+      {
+        kind: "repository-ensure" as const,
+        label: verbatimStepLabel("deno install --frozen"),
+        disposition: "run" as const,
+        group: "Repository ensure",
+      },
+    ],
+  };
+  const blocks = planBlocks(plan);
+  const words = (text: string): string[] =>
+    text.replaceAll(":", " ").split(/\s+/u).filter((word) => word !== "");
+  const shown = blocks.flatMap((block): string[] => {
+    if (block.kind === "text") return block.runs.map((run) => run.text);
+    if (block.kind !== "section") return [];
+    return [
+      block.title,
+      ...block.blocks.flatMap((inner): string[] =>
+        inner.kind === "facts"
+          ? inner.rows.flatMap((row) => [
+            row.label,
+            ...row.value.flat().map((run) => run.text),
+          ])
+          : inner.kind === "text"
+          ? inner.runs.map((run) => run.text)
+          : []
+      ),
+    ];
+  });
+  assertEquals(
+    words(shown.join(" ")),
+    words(planLines(plan).join(" ")),
+    "every word of the shared rendering, in order",
+  );
+  const context = blocks[1];
+  assert(context?.kind === "section" && context.title === "Context");
+  assert(
+    context.blocks.some((block) => block.kind === "text"),
+    "a detail that isn't a label and value stays a line of its own",
+  );
 });
 
 Deno.test("every row state's inspector and strip render in status's words", () => {

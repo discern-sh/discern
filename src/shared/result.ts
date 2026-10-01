@@ -1440,7 +1440,10 @@ export function dimBlock(text: string, dim: RenderSink["dim"]): string {
 }
 
 /** Short, human label for each disposition. */
-const DISPOSITION_LABEL: Record<StepDisposition, string> = {
+/** The word a rendered plan shows before each step, by its disposition. */
+export const PLAN_DISPOSITION_LABELS: Readonly<
+  Record<StepDisposition, string>
+> = {
   run: "run",
   skip: "skip",
   gate: "check",
@@ -1502,7 +1505,7 @@ export function renderPlan(sink: RenderSink, plan: EnginePlan): void {
       const indent = step.group !== undefined && step.group !== ""
         ? "    "
         : "  ";
-      const label = DISPOSITION_LABEL[step.disposition].padEnd(6);
+      const label = PLAN_DISPOSITION_LABELS[step.disposition].padEnd(6);
       const note = step.note !== undefined ? sink.dim(` — ${step.note}`) : "";
       return {
         group: step.group,
