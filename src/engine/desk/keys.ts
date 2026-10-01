@@ -240,6 +240,12 @@ const LIST_GESTURES = [
   ...commandKeys("global"),
 ] as const;
 
+/**
+ * Zoom's words for the package keys it gives its own meanings: Up and Down
+ * walk to the next task, Left returns.
+ */
+export const ZOOM_HINT_LABELS = { walk: "Next task", back: "Back" } as const;
+
 /** The one key map, per layer. */
 export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
   {

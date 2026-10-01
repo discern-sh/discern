@@ -37,7 +37,7 @@ import { compareTaskTitles } from "../status/fleet_rows.ts";
 import { positiveCount } from "../status/row_facts.ts";
 import { type DeskRow, deskRowId } from "./model.ts";
 import { DESK_COMMAND_REGISTRY } from "./commands.ts";
-import { DESK_KEYS, PACKAGE_RESERVED_KEYS } from "./keys.ts";
+import { DESK_KEYS, PACKAGE_RESERVED_KEYS, ZOOM_HINT_LABELS } from "./keys.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
 import type {
   DeskIntent,
@@ -553,6 +553,35 @@ function footer(
   };
 }
 
+/** The keys zoom gives its own meanings, which no row hint may claim there. */
+const ZOOM_KEYS: readonly string[] = ["up", "down", "space", "left"];
+
+/**
+ * The footer while details are zoomed: the row's next step, then Up and
+ * Down to the next task, then the row's own keys; on the right only Back
+ * and Actions, so the task's keys keep the room.
+ */
+function zoomFooter(
+  footer: TerminalApplicationView<DeskIntent>["footer"],
+): TerminalApplicationView<DeskIntent>["footer"] {
+  const free = (hint: KeyHint): boolean =>
+    (typeof hint.key === "string" ? [hint.key] : hint.key).every((key) =>
+      !ZOOM_KEYS.includes(key)
+    );
+  const [primary, ...rest] = footer.left;
+  return {
+    left: [
+      ...(primary === undefined ? [] : [primary]),
+      { key: ["up", "down"], label: ZOOM_HINT_LABELS.walk },
+      ...rest.filter(free),
+    ],
+    right: [
+      { key: "left", label: ZOOM_HINT_LABELS.back },
+      ...(footer.right ?? []).filter((hint) => hint.key === "."),
+    ],
+  };
+}
+
 /** The base-layer bindings: every key the inbox key maps give a meaning that
  * the package does not already own. Static, so it is built once. */
 export function deskKeymap(): ApplicationKeyBinding<DeskIntent>[] {
@@ -601,7 +630,11 @@ export function deskView(
   const needYou = needYouCount(state);
   const message = messageLine(state.message ?? state.warning);
   const layers = deskLayers(state, env);
-  const shown = body(state, env);
+  const listed = body(state, env);
+  const base = footer(state, ui, listed);
+  const shown = listed.kind === "master-detail"
+    ? { ...listed, zoomFooter: zoomFooter(base) }
+    : listed;
   const view: TerminalApplicationView<DeskIntent> = {
     header: {
       leading: [
@@ -630,7 +663,7 @@ export function deskView(
     },
     body: shown,
     ...(message === undefined ? {} : { message }),
-    footer: footer(state, ui, shown),
+    footer: base,
     ...(layers.length === 0 ? {} : { layers }),
     windowTitle: needYou === 0 ? project : `${project} · ${needYou} need you`,
     ...(state.preferences.mouse === true ? { input: { mouse: true } } : {}),

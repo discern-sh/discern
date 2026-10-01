@@ -1114,3 +1114,22 @@ Deno.test("a result sheet's next step names exactly the buttons it offers", () =
     }
   }
 });
+
+Deno.test("zoom's footer walks to the next task and keeps the task's keys", () => {
+  const view = deskView(
+    desk(statusData([mainFleetEntry(), task({ ahead: 2 })])),
+    { ...PRODUCT_UI, selected: "task" },
+    ENV,
+  );
+  assert(view.body.kind === "master-detail");
+  const zoom = view.body.zoomFooter;
+  assert(zoom !== undefined);
+  assertEquals(zoom.left[0], view.footer.left[0], "the next step leads");
+  assertEquals(zoom.left[1], { key: ["up", "down"], label: "Next task" });
+  assertEquals(zoom.right?.map((hint) => hint.label), ["Back", "Actions"]);
+  assertEquals(
+    zoom.left.slice(2),
+    view.footer.left.slice(1),
+    "every key of the task's own stays",
+  );
+});
