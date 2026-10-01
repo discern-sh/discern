@@ -31,7 +31,7 @@ Gate-family dashboards project scheduler facts, injected time, and viewport with
 
 ## Step-label ownership
 
-[`BUILT_IN_STEP_LABELS`](../../../src/shared/result.ts) owns the stable labels for operations discern performs. Its values use kebab-case. Terminal, JSON, Markdown, and MCP results, the logbook, and the execution model consume those same values.
+[`BUILT_IN_STEP_LABELS`](../../../src/shared/result.ts) owns the stable labels for operations discern performs. Its values use kebab-case. Terminal, JSON, Markdown, and MCP results, the logbook, and the execution model consume those same values. People watching an operation read [`STEP_HUMAN_LABELS`](../../../src/shared/step_labels.ts) instead: one short phrase per built-in label, keyed the same way, so a new operation cannot reach a progress view without its words.
 
 Configured job, scope, standard, resource, command, and path identifiers stay outside the registry. `verbatimStepLabel` marks that boundary in TypeScript and preserves the configured spelling on every output surface.
 

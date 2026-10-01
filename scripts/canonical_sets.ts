@@ -1138,7 +1138,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "src/shared/result.ts",
       exportName: "BUILT_IN_STEP_LABELS",
     },
-    guards: ["tests/built_in_step_labels_test.ts"],
+    guards: [
+      "tests/built_in_step_labels_test.ts",
+      "tests/engine_step_labels_guard_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {
