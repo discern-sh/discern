@@ -28,21 +28,52 @@ const PACKAGE_REPOSITORY = "discern-design-system";
 const SEMVER_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
-/** Package exports the public site's preview requires. */
-export const SITE_DESIGN_SYSTEM_EXPORTS = [
-  ".",
-  "./react",
-  "./runtime",
-] as const;
+/**
+ * Every surface the local loop links: the package exports it consumes and the
+ * entry modules whose graphs import them. The loop proves only the exports a
+ * surface names, so its test holds each entry graph inside its surface's set:
+ * a new import cannot run against the link unverified.
+ */
+export const LOCAL_DESIGN_SYSTEM_SURFACES = {
+  /** The public site: its build and its preview server. */
+  site: {
+    exports: [
+      ".",
+      "./cli",
+      "./cli/interactive",
+      "./cli/projection",
+      "./react",
+      "./runtime",
+    ],
+    entrypoints: ["site/build.ts", "site/dev.ts"],
+  },
+  /** The CLI, the Desk, and the tooling that drives and captures them. */
+  cli: {
+    exports: [
+      ".",
+      "./cli",
+      "./cli/interactive",
+      "./cli/interactive/testing",
+      "./cli/projection",
+    ],
+    entrypoints: [
+      "src/main.ts",
+      "scripts/desk_capture.ts",
+      "scripts/desk_sandbox.ts",
+      "scripts/terminal_capture.ts",
+      "tests/fixtures/desk_tty_harness.ts",
+      "tests/fixtures/desk_scripted_application.ts",
+    ],
+  },
+} as const;
+
+/** Package exports the public site's build and preview import. */
+export const SITE_DESIGN_SYSTEM_EXPORTS =
+  LOCAL_DESIGN_SYSTEM_SURFACES.site.exports;
 
 /** Package exports the CLI, the Desk, and their capture tooling import. */
-export const CLI_DESIGN_SYSTEM_EXPORTS = [
-  ".",
-  "./cli",
-  "./cli/interactive",
-  "./cli/interactive/testing",
-  "./cli/projection",
-] as const;
+export const CLI_DESIGN_SYSTEM_EXPORTS =
+  LOCAL_DESIGN_SYSTEM_SURFACES.cli.exports;
 
 type JsonObject = Record<string, unknown>;
 

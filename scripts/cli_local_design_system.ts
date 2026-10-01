@@ -12,6 +12,7 @@ import { join } from "@std/path";
 import {
   CLI_DESIGN_SYSTEM_EXPORTS,
   inheritedCommand,
+  LOCAL_DESIGN_SYSTEM_SURFACES,
   REPO_ROOT,
   resolveDesignSystemCheckout,
   runLocalDesignSystemTool,
@@ -46,16 +47,12 @@ export interface CliDesignSystemCommand {
 const MAIN = join(REPO_ROOT, "src/main.ts");
 
 /**
- * The modules `check` type-checks when none are named: the CLI entry, every
- * Desk module, and the harnesses and scripts that drive the Desk.
+ * The modules `check` type-checks when none are named: every CLI surface's
+ * entry module, and every Desk module.
  */
 export const DESK_CHECK_TARGETS = [
-  "src/main.ts",
+  ...LOCAL_DESIGN_SYSTEM_SURFACES.cli.entrypoints,
   "src/engine/desk/",
-  "tests/fixtures/desk_tty_harness.ts",
-  "tests/fixtures/desk_scripted_application.ts",
-  "scripts/desk_capture.ts",
-  "scripts/desk_sandbox.ts",
 ] as const;
 
 const USAGE = `Run discern's CLI against a local design-system checkout

@@ -9,6 +9,7 @@ import {
   designSystemGraphMismatch,
   designSystemSpecifier,
   isLocalPackageResolution,
+  LOCAL_DESIGN_SYSTEM_SURFACES,
   localDesignSystemConfig,
   resolveDesignSystemCheckout,
   SITE_DESIGN_SYSTEM_EXPORTS,
@@ -378,31 +379,28 @@ Deno.test("this pinned process refuses a linked child config and accepts its own
   });
 });
 
-Deno.test("the CLI export set covers every design-system specifier the CLI surfaces import", async () => {
-  // The local loop proves only the exports it names. A CLI-side module that
+Deno.test("each surface's export set covers every design-system specifier its graphs import", async () => {
+  // The local loop proves only the exports a surface names. A module that
   // imports another package export would run against the link unverified, so
-  // every graph the CLI modes launch must stay inside the declared set.
-  const declared = new Set<string>(
-    CLI_DESIGN_SYSTEM_EXPORTS.map(designSystemSpecifier),
-  );
+  // every graph a surface launches must stay inside that surface's set.
   for (
-    const entrypoint of [
-      "src/main.ts",
-      "scripts/desk_capture.ts",
-      "scripts/terminal_capture.ts",
-      "tests/fixtures/desk_tty_harness.ts",
-    ]
+    const [surface, { exports, entrypoints }] of Object.entries(
+      LOCAL_DESIGN_SYSTEM_SURFACES,
+    )
   ) {
-    const imported = await authoredImportSpecifiers(
-      join(ROOT, entrypoint),
-      "discern-design-system",
-    );
-    assert(imported.length > 0, `${entrypoint} imports no package export`);
-    assertEquals(
-      imported.filter((specifier) => !declared.has(specifier)),
-      [],
-      `${entrypoint} imports package exports the CLI link does not prove`,
-    );
+    const declared = new Set<string>(exports.map(designSystemSpecifier));
+    for (const entrypoint of entrypoints) {
+      const imported = await authoredImportSpecifiers(
+        join(ROOT, entrypoint),
+        "discern-design-system",
+      );
+      assert(imported.length > 0, `${entrypoint} imports no package export`);
+      assertEquals(
+        imported.filter((specifier) => !declared.has(specifier)),
+        [],
+        `${entrypoint} imports package exports the ${surface} link does not prove`,
+      );
+    }
   }
 });
 
