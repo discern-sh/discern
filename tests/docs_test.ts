@@ -12,6 +12,7 @@ import {
   assert,
   assertEquals,
   assertExists,
+  assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
@@ -42,6 +43,7 @@ import {
   DOCS_AGENT_CONTEXT_HINT,
   docsBrowseNavigationChoices,
   docsBrowseProjection,
+  readDocsBrowser,
   renderDocsCorpusHeader,
   renderExternalDecisionsNotice,
 } from "../src/commands/docs.ts";
@@ -611,6 +613,45 @@ realPtyTest({
       assert(!process.transcript.includes("Press Enter to continue."));
     });
   },
+});
+
+Deno.test("a browser another application opens reads its corpus once, or says why it can't", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const request = await readDocsBrowser(
+      "map",
+      { dir: docs, exitLabel: "Back to the host" },
+      dir,
+    );
+    assertStringIncludes(request.message, "discern map — ");
+    assert(
+      request.entries.some((entry) =>
+        entry.kind === "exit" && entry.name === "Back to the host"
+      ),
+    );
+    assert(
+      request.entries.some((entry) =>
+        entry.kind === "document" && entry.source.includes("Welcome.")
+      ),
+    );
+    assertEquals(request.resolveLink, resolveDocsBrowserLink);
+    const empty = join(dir, "empty");
+    await Deno.mkdir(empty);
+    await assertRejects(
+      () => readDocsBrowser("map", { dir: empty, exitLabel: "Back" }, dir),
+      Error,
+      "no Markdown files under",
+    );
+    await assertRejects(
+      () =>
+        readDocsBrowser("map", {
+          dir: join(dir, "missing"),
+          exitLabel: "Back",
+        }, dir),
+      Error,
+      "no map directory",
+    );
+  });
 });
 
 Deno.test("promoted and complete manual entries keep distinct picker values", async () => {
