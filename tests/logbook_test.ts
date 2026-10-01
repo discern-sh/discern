@@ -1024,6 +1024,21 @@ Deno.test("fleet activity derives current liveness and duration from event evide
             "docs",
             "a docs export writes files, so it is the task's last action",
           );
+
+          const previewed = deriveFleetLogbookActivity(
+            [failed, ...["done", "accept"].map((verb, index): VerbEvent => ({
+              ...verbEventAt(at(index + 7)),
+              verb,
+              dry_run: true,
+            }))],
+            "current",
+            now,
+          ).byBranch.get("main");
+          assertEquals(
+            previewed?.lastAction?.outcome,
+            "failed",
+            "a preview applies nothing, so it never replaces the failure",
+          );
         },
       },
       {

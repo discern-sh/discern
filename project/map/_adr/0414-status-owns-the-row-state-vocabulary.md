@@ -27,7 +27,7 @@ Each state has a group, a label of at most 13 cells, a glyph with an ASCII form 
 
 `presentFleetRow` returns the state, group and look beside the status kind. The status dashboard groups rows by decision with case-folded titles inside, and `discern enter` lists tasks the same way with the same labels. The Desk's redesign reads the same table. Fleet hints that name ready, authorized or stale tasks take their members from the state, so a hint and the row it names cannot disagree.
 
-Structured status gains additive `state` and `group` on each task row, published as open vocabularies; `landing_authority` and every other wire shape stay as they were. `last_action` gains the envelope's `error` slug, and it ignores completions the verb registry classifies as observation, so an agent's `discern status` no longer replaces a failed Gate.
+Structured status gains additive `state` and `group` on each task row, published as open vocabularies; `landing_authority` and every other wire shape stay as they were. `last_action` gains the envelope's `error` slug, and it ignores completions the verb registry classifies as observation and `--dry-run` previews, so an agent's `discern status` or a landing preview no longer replaces a failed Gate.
 
 ### Amendment to ADR 0318
 

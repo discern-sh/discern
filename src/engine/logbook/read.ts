@@ -49,13 +49,15 @@ export interface LastCompletedAction {
 /**
  * Whether a completion can stand as a branch's last action. An invocation the
  * verb registry classifies as observation (`status`, `progress`, `map` and
- * `docs` reads, `doctor`, ...) reports on the task without changing it, so
- * its completion never replaces the evidence a failed or refused verb left.
+ * `docs` reads, `doctor`, ...) reports on the task without changing it, and
+ * a preview (`--dry-run`) applies nothing, so neither completion replaces the
+ * evidence a failed or refused verb left.
  */
 export function isTaskAction(
-  event: Pick<VerbEvent, "verb" | "flags">,
+  event: Pick<VerbEvent, "verb" | "flags" | "dry_run">,
 ): boolean {
-  return logbookVerbIsEffectful(event.verb, event.flags ?? []);
+  return event.dry_run !== true &&
+    logbookVerbIsEffectful(event.verb, event.flags ?? []);
 }
 
 /** One fresh begin event whose paired completion is absent. */
