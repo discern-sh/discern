@@ -189,6 +189,28 @@ export interface DeskActivity {
   readonly output?: string;
 }
 
+/** How one activity ended, in the words Session activity and the exit list use. */
+export type DeskActivityEnding = "done" | "didn't complete" | "stopped";
+
+/** How one activity ended. */
+export function activityEnding(entry: DeskActivity): DeskActivityEnding {
+  if (entry.ended === "stopped") return "stopped";
+  return (entry.ended ?? (entry.ok ? "done" : "failed")) === "done"
+    ? "done"
+    : "didn't complete";
+}
+
+/** How many of its last written lines Session activity shows for an entry. */
+export const DESK_ACTIVITY_SUMMARY_LINES = 3;
+
+/** The last lines an activity wrote, blank lines left out. */
+export function activityOutputSummary(entry: DeskActivity): readonly string[] {
+  return (entry.output ?? "").split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() !== "")
+    .slice(-DESK_ACTIVITY_SUMMARY_LINES);
+}
+
 /**
  * One Desk-owned effect running beside the screen: the reviewed step it
  * applies, what it is called, the plan and command it follows, and its

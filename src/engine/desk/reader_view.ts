@@ -9,6 +9,7 @@
 import type {
   ApplicationActionHint,
   ApplicationDetailBlock,
+  ApplicationGlyph,
   ApplicationReader,
   ApplicationRun,
 } from "discern-design-system/cli/interactive";
@@ -28,12 +29,15 @@ import { DESK_KEYS, type DeskKeyBinding } from "./keys.ts";
 import { deskRowId } from "./model.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
 import type { DeskChangesEvidence } from "./contracts.ts";
-import type {
-  DeskIntent,
-  DeskLoad,
-  DeskMarkdownReading,
-  DeskProductState,
-  DeskReaderSubject,
+import {
+  activityEnding,
+  activityOutputSummary,
+  type DeskActivityEnding,
+  type DeskIntent,
+  type DeskLoad,
+  type DeskMarkdownReading,
+  type DeskProductState,
+  type DeskReaderSubject,
 } from "./desk_state.ts";
 import { branchTitle, rowRef } from "./desk_transitions.ts";
 import { ageText, diffRuns, glyph } from "./inspector_view.ts";
@@ -342,7 +346,22 @@ function mainBlocks(
   ];
 }
 
-/** This session's activity, newest first. */
+/** The mark an activity's ending leads with. */
+function endingMark(ending: DeskActivityEnding): ApplicationGlyph {
+  switch (ending) {
+    case "done":
+      return glyph(DESK_GLYPHS.done, "success");
+    case "stopped":
+      return glyph(DESK_GLYPHS.attention, "warning");
+    case "didn't complete":
+      return glyph(DESK_GLYPHS.failed, "danger");
+  }
+}
+
+/**
+ * This session's activity, newest first: each command exactly as it ran,
+ * when and how it ended with its message, and the last lines it wrote.
+ */
 function activityBlocks(
   state: DeskProductState,
   env: DeskReaderEnv,
@@ -352,18 +371,27 @@ function activityBlocks(
   }
   return [{
     kind: "marks",
-    items: [...state.activity].reverse().map((entry) => ({
-      mark: entry.ok
-        ? glyph(DESK_GLYPHS.done, "success")
-        : glyph(DESK_GLYPHS.failed, "danger"),
-      runs: [{ text: entry.command, role: "code" as const }],
-      lines: [[{
-        text: `${relativeAge(new Date(entry.at).toISOString(), env.now)}${
-          entry.summary === undefined ? "" : ` · ${entry.summary}`
-        }`,
-        tone: "muted" as const,
-      }]],
-    })),
+    items: [...state.activity].reverse().map((entry) => {
+      const ending = activityEnding(entry);
+      return {
+        mark: endingMark(ending),
+        runs: [{ text: entry.command, role: "code" as const }],
+        lines: [
+          [{
+            text: [
+              relativeAge(new Date(entry.at).toISOString(), env.now),
+              ending,
+              ...(entry.summary === undefined ? [] : [entry.summary]),
+            ].join(" · "),
+            tone: "muted" as const,
+          }],
+          ...activityOutputSummary(entry).map((line) => [{
+            text: line,
+            tone: "faint" as const,
+          }]),
+        ],
+      };
+    }),
   }];
 }
 
@@ -677,7 +705,7 @@ export function deskReader(
         blocks: operation === undefined
           ? [
             text(
-              `It has ended; ${DESK_COMMAND_LABELS.activity} keeps what it wrote.`,
+              `It has ended; ${DESK_COMMAND_LABELS.activity} keeps how it ended and its last lines.`,
             ),
           ]
           : outputBlocks(operation.output, operation.command),

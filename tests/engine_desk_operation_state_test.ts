@@ -383,6 +383,46 @@ Deno.test("quitting while an operation runs asks first; Quit anyway leaves", () 
   );
 });
 
+Deno.test("Session activity reads each command, how it ended, and its last lines", () => {
+  const started = confirmed(landing(), actionStep("accept")).state;
+  const done = settle(
+    started,
+    {
+      command: "discern accept --target agent/alpha --confirmed",
+      ok: true,
+      message: { tone: "success", text: "Landed Alpha on main" },
+    },
+    "ran",
+    "Fast-forwarding main\n\nRecording the Proof note\nRemoving the checkout\nDeleting agent/alpha\n",
+  ).state;
+  const reading = open(done, { kind: "reader", reader: { kind: "activity" } })
+    .state;
+  const view = deskView(reading, PRODUCT_UI, {
+    ...PRODUCT_VIEW_ENV,
+    root: "/project",
+  });
+  const reader = view.layers?.find((layer) => layer.id === "reader-activity");
+  assert(reader?.kind === "reader", "Session activity is open");
+  const [marks] = reader.blocks;
+  assert(marks?.kind === "marks");
+  const [entry] = marks.items;
+  assertEquals(
+    entry?.runs.map((run) => [run.text, run.role]),
+    [["discern accept --target agent/alpha --confirmed", "code"]],
+    "the command exactly as it ran",
+  );
+  assertEquals(
+    entry?.lines?.map((line) => line.map((run) => run.text).join("")),
+    [
+      "just now · done · Landed Alpha on main",
+      "Recording the Proof note",
+      "Removing the checkout",
+      "Deleting agent/alpha",
+    ],
+    "when and how it ended, then the last lines it wrote",
+  );
+});
+
 Deno.test("the exit log names each command in full with how it ended", () => {
   const started = confirmed(landing(), actionStep("accept")).state;
   const done = settle(started, {

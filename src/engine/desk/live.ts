@@ -43,6 +43,7 @@ import type {
   DeskPreferencesWriteResult,
 } from "./preferences.ts";
 import {
+  activityEnding,
   type DeskEffect,
   type DeskEvent,
   type DeskIntent,
@@ -174,14 +175,6 @@ export function failedOutcome(error: unknown, command: string): DeskOutcome {
     };
 }
 
-/** How one activity entry ended, in the words the exit log uses. */
-function endedWords(entry: DeskProductState["activity"][number]): string {
-  if (entry.ended === "stopped") return "stopped";
-  return (entry.ended ?? (entry.ok ? "done" : "failed")) === "done"
-    ? "done"
-    : "didn't complete";
-}
-
 /**
  * The lines printed on the terminal's own screen when the Desk exits: each
  * command this session ran, in full so it can be copied, and how it ended.
@@ -196,7 +189,9 @@ export function deskEpilogue(
     { text: ` · ${ended}` },
   ];
   return [
-    ...state.activity.map((entry) => line(entry.command, endedWords(entry))),
+    ...state.activity.map((entry) =>
+      line(entry.command, activityEnding(entry))
+    ),
     ...[...state.operations.values()].map((operation) =>
       line(operation.command, "stopped")
     ),
