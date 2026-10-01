@@ -46,7 +46,9 @@ import {
   lifecycleContext,
   WorktreeGitError,
   worktreeReclaimContained,
+  worktreeReclaimContainedPlan,
 } from "../src/engine/worktree/lifecycle.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { readySentinelPath } from "../src/engine/worktree/git.ts";
 import { awaitResult } from "../src/engine/await/await.ts";
 import { LOGBOOK_SCHEMA_VERSION } from "../src/engine/logbook/schema.ts";
@@ -493,6 +495,21 @@ Deno.test("worktreeReclaimContained reclaims one validated stage and refuses a n
       "a dirty stage must refuse, never reclaim",
     );
     assert(await targetExists(b), "a refused target is left untouched");
+
+    // Its plan names the stage, what holds it, and the records it ends.
+    const submission = await gitAdminStatePath(a, "submission");
+    assert(submission !== undefined);
+    await Deno.mkdir(dirname(submission), { recursive: true });
+    await Deno.writeTextFile(submission, "queued submission fixture\n");
+    const planned = await worktreeReclaimContainedPlan(ctx, basename(a));
+    assertEquals(planned.subject.branch, "agent/a");
+    assertEquals(planned.subject.containingBranch, "agent/b");
+    assertEquals(planned.subject.endsGrant, false);
+    assertEquals(planned.subject.leavesQueue, true);
+    assertEquals(planned.details?.slice(-2), [
+      "Landing grant:    none recorded",
+      "Landing queue:    left",
+    ]);
 
     // The validated stage reclaims: checkout gone, ref kept.
     const fact = await worktreeReclaimContained(ctx, basename(a));

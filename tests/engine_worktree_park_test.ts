@@ -16,6 +16,7 @@ import {
   buildStartPlan,
   lifecycleContext,
 } from "../src/engine/worktree/lifecycle.ts";
+import { worktreeParkPlan } from "../src/engine/worktree/park.ts";
 import {
   listParkedTaskMetadata,
   readParkedTaskMetadata,
@@ -170,6 +171,19 @@ Deno.test("worktree park keeps committed work and metadata while removing the ch
     assertTerminalTextIncludes(preview.output, "Landing grant: removed");
     assertTerminalTextIncludes(preview.output, "Proof: removed with checkout");
     assert(await targetExists(worktree));
+    const ctx = await lifecycleContext(
+      await Deno.realPath(dir),
+      new Logger({ json: true, noColor: true }),
+    );
+    const planned = await worktreeParkPlan(ctx, "parked");
+    assertEquals(planned.subject.endsGrant, true);
+    assertEquals(planned.subject.leavesQueue, false);
+    assert(
+      planned.details?.some((line) =>
+        /^Landing queue: +not queued$/.test(line)
+      ),
+      planned.details?.join("\n"),
+    );
 
     const applied = await runAgent(dir, [
       "worktree",
