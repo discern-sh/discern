@@ -17,6 +17,7 @@ import type { DiscernResult } from "./result.ts";
 import { evaluateResultCompletion } from "./result_completion.ts";
 import { serializeResult } from "./result_serialization.ts";
 import { observeResult } from "./result_capture.ts";
+import { captureLine } from "./output_capture.ts";
 import { withFailureRecoveryHint } from "./hints.ts";
 import {
   renderResultMarkdown,
@@ -105,5 +106,5 @@ export function emitResult(result: DiscernResult): void {
   const output = markdown === undefined
     ? JSON.stringify(serializeResult(prepared))
     : (resultMarkdownTerminalRenderer?.(markdown) ?? markdown).trimEnd();
-  console.log(output);
+  if (!captureLine("stdout", output)) console.log(output);
 }

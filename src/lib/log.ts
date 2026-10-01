@@ -13,6 +13,7 @@
 import type { DiscernResult, RenderSink } from "../shared/result.ts";
 import { emitResult } from "../shared/emit.ts";
 import { observeResult } from "../shared/result_capture.ts";
+import { captureLine } from "../shared/output_capture.ts";
 import {
   makeNarration,
   makeOutputSink,
@@ -78,8 +79,12 @@ export class Logger {
     // mode gets the silent sink so one selected result stays the entire output.
     this.#sink = this.json ? silentOutputSink() : makeOutputSink({
       kind: "line",
-      stdout: (line: string): void => console.log(line),
-      stderr: (line: string): void => console.error(line),
+      stdout: (line: string): void => {
+        if (!captureLine("stdout", line)) console.log(line);
+      },
+      stderr: (line: string): void => {
+        if (!captureLine("stderr", line)) console.error(line);
+      },
     });
     this.#narration = makeNarration(this.#sink, this.terminal, {
       narration: this.humanStream,

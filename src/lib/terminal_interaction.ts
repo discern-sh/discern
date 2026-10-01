@@ -41,6 +41,7 @@ import {
   type TerminalIO,
 } from "discern-design-system/cli/interactive";
 import { bestEffortSync } from "../shared/best_effort.ts";
+import { currentOutputCapture } from "../shared/output_capture.ts";
 import {
   type AgentName,
   DEFAULTS,
@@ -133,6 +134,8 @@ export function canInteract(
   env: EnvReader = Deno.env,
   streams: () => { stdin: boolean; stdout: boolean } = observeTerminalStreams,
 ): boolean {
+  // Work whose output is captured runs beside a screen it does not own.
+  if (currentOutputCapture() !== undefined) return false;
   return interactionAllowed(yes, plainMode, jsonMode, env, streams);
 }
 
@@ -615,6 +618,11 @@ function requireInteraction(
   if (plainMode || jsonMode) {
     throw new Error(
       `${name} needs an interactive terminal; remove --plain and --json, leave CI, and attach terminal stdin and stdout.`,
+    );
+  }
+  if (currentOutputCapture() !== undefined) {
+    throw new Error(
+      `${name} needs the terminal, but this work runs beside a live screen that owns it.`,
     );
   }
   if (!(runtime.interactive ?? canInteract)(false)) {

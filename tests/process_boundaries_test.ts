@@ -1,6 +1,9 @@
 /** Structural and census guards for production process output and exit. */
 
 import { assert, assertEquals } from "@std/assert";
+import { join } from "@std/path";
+import { Node, Project, SyntaxKind } from "ts-morph";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 import {
   directProcessSitesInSource,
   processExitBoundaryFindings,
@@ -164,4 +167,38 @@ Deno.test("live process boundary registries bind every src call exactly", async 
     processExitBoundaryCount(),
     Object.keys(PROCESS_EXIT_BOUNDARIES).length,
   );
+});
+
+Deno.test("every process output boundary yields to the scope's output capture", async () => {
+  const sites = await validateProcessBoundaries();
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+  });
+  const findings: string[] = [];
+  for (const site of sites.output) {
+    const source = project.getSourceFile(site.path) ??
+      project.createSourceFile(
+        site.path,
+        await Deno.readTextFile(join(REPO_ROOT, site.path)),
+      );
+    const call = source.getDescendantsOfKind(SyntaxKind.CallExpression).find(
+      (candidate) => {
+        const at = source.getLineAndColumnAtPos(candidate.getStart());
+        return at.line === site.line && at.column === site.column;
+      },
+    );
+    const owner = call?.getFirstAncestor((ancestor) =>
+      Node.isFunctionDeclaration(ancestor) || Node.isArrowFunction(ancestor) ||
+      Node.isFunctionExpression(ancestor) || Node.isMethodDeclaration(ancestor)
+    );
+    const text = owner?.getText() ?? "";
+    if (!text.includes("captureBytes(") && !text.includes("captureLine(")) {
+      findings.push(
+        `${site.path}:${site.line} (${site.operation}) writes past the output capture`,
+      );
+    }
+  }
+  assertEquals(findings, []);
 });

@@ -8,6 +8,7 @@
  */
 
 import type { RenderSink } from "../shared/result.ts";
+import { captureBytes } from "../shared/output_capture.ts";
 import {
   makeNarration,
   makeOutputSink,
@@ -23,30 +24,34 @@ import {
 
 const ENCODER = new TextEncoder();
 
-/** Write a string fully to stderr. */
+/** Write a string fully to stderr, or to the scope's output capture. */
 export function writeStderr(s: string): void {
   const bytes = ENCODER.encode(s);
+  if (captureBytes("stderr", bytes)) return;
   let n = 0;
   while (n < bytes.length) {
     n += Deno.stderr.writeSync(bytes.subarray(n));
   }
 }
 
-/** Write a string fully to stdout. */
+/** Write a string fully to stdout, or to the scope's output capture. */
 export function writeStdout(s: string): void {
   const bytes = ENCODER.encode(s);
+  if (captureBytes("stdout", bytes)) return;
   let n = 0;
   while (n < bytes.length) {
     n += Deno.stdout.writeSync(bytes.subarray(n));
   }
 }
 
-/** A raw-byte writer targeting stdout or stderr (for the job runner's output). */
+/** A raw-byte writer targeting stdout or stderr (for the job runner's
+ * output), or the output capture of the scope that writes. */
 export function byteWriter(
   stream: "stdout" | "stderr",
 ): (b: Uint8Array) => void {
   const target = stream === "stdout" ? Deno.stdout : Deno.stderr;
   return (b: Uint8Array): void => {
+    if (captureBytes(stream, b)) return;
     let n = 0;
     while (n < b.length) {
       n += target.writeSync(b.subarray(n));
