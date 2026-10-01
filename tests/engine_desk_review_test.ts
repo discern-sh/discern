@@ -70,6 +70,7 @@ import {
   scriptedDeskRuntime,
 } from "./fixtures/desk_session.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { WorktreeGitError } from "../src/engine/worktree/lifecycle.ts";
 
 /** A task that is ready to land, with a recorded head and Proof. */
 function readyTask(
@@ -828,4 +829,93 @@ Deno.test("review sheets open on their safe choice at every geometry the redesig
       await desk.escape(() => desk.top() === undefined, "Escape keeps");
     });
   }
+});
+
+Deno.test("apply re-observes the task and runs nothing when what the review bound moved, ran, or left", async () => {
+  const head = "3f9c2e1".padEnd(40, "0");
+  const cases: Array<{
+    readonly name: string;
+    readonly after: () => StatusFleetEntry[];
+    readonly says: string;
+    readonly reviewsAgain: boolean;
+  }> = [
+    {
+      name: "a new commit",
+      after: () => [landable("4a5b6c7".padEnd(40, "0"))],
+      says: "Changed since you reviewed it: a new commit; nothing ran",
+      reviewsAgain: true,
+    },
+    {
+      name: "a running verb",
+      after: () => [{
+        ...landable(head),
+        running: {
+          verb: "done",
+          started: "2026-07-11T11:59:00.000Z",
+          elapsed_ms: 1_000,
+        },
+      }],
+      says: "done is running in Alpha; nothing ran",
+      reviewsAgain: false,
+    },
+    {
+      name: "a task that left",
+      after: () => [],
+      says: "Alpha is gone; nothing ran",
+      reviewsAgain: false,
+    },
+  ];
+  for (const testCase of cases) {
+    const landed: unknown[] = [];
+    let moved = false;
+    await withReview({
+      cliModel: TEST_CLI_MODEL,
+      runtime: {
+        status: () => ({
+          ok: true,
+          data: deskSurvey(moved ? testCase.after() : [landable(head)]),
+        }),
+        ...landing(landed),
+      },
+    }, async (desk) => {
+      await desk.select("alpha");
+      await desk.press("l");
+      await desk.opened(LAND);
+      await desk.settleForm();
+      moved = true;
+      await desk.confirm();
+      await desk.shows(testCase.says);
+      if (testCase.reviewsAgain) await desk.opened(LAND);
+      assertEquals(landed, [], `${testCase.name}: nothing landed`);
+    });
+  }
+});
+
+Deno.test("an update that stops becomes a result sheet with its next steps", async () => {
+  const entry = deskTaskEntry("agent/behind", "/worktrees/behind", {
+    id: "behind",
+    ahead: 1,
+    behind: 3,
+    clean: true,
+  });
+  await withReview({
+    runtime: {
+      status: () => ({ ok: true, data: deskSurvey([entry]) }),
+      update: () => {
+        throw new WorktreeGitError("Merging main stopped: a.ts conflicts");
+      },
+    },
+  }, async (desk) => {
+    await desk.select("behind");
+    await desk.press("u");
+    await desk.opened("review-update-review");
+    await desk.confirm();
+    await desk.opened("result");
+    await desk.shows("Behind wasn't updated");
+    await desk.shows("Merging main stopped: a.ts conflicts");
+    assertEquals(
+      desk.state().layers.result?.focusedControlId,
+      "button:safe",
+    );
+  });
 });
