@@ -254,6 +254,19 @@ Deno.test("a stopped setup reads Error only for a recorded failure", () => {
     }),
     '"Error"',
   );
+  // With no step record, nothing names a step: no Setup fact repeats the
+  // explanation, and the explanation promises no failed step to resume.
+  const unrecorded = facts({
+    setup: {
+      ...failed.setup,
+      state: "incomplete",
+      marker: "missing",
+      journal: { ...journal, steps: [] },
+    },
+  });
+  assert(!unrecorded.includes('"Setup"'), unrecorded);
+  assert(!unrecorded.includes("step that failed"), unrecorded);
+  assertStringIncludes(unrecorded, "Retrying runs setup again.");
 });
 
 Deno.test("a running row's meter fills only once its usual time has passed, and dims when frozen", () => {

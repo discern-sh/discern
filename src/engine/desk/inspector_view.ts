@@ -246,7 +246,11 @@ function collisionFacts(
   return facts;
 }
 
-/** The Setup and Error facts for a checkout whose setup stopped. */
+/**
+ * The Setup and Error facts for a checkout whose setup stopped. Setup says
+ * where it stopped, or that its record is unreadable; with no step record
+ * it has nothing to add to the explanation, so it is left out.
+ */
 function setupFacts(
   row: DeskRow,
 ): { label: string; value: ApplicationRun[][] }[] {
@@ -254,16 +258,13 @@ function setupFacts(
   if (setup === undefined || setup.state === "ready") return [];
   const steps = setup.journal?.steps ?? [];
   const stopped = steps.findIndex((step) => step.state !== "completed");
-  const facts: { label: string; value: ApplicationRun[][] }[] = [{
-    label: "Setup",
-    value: [[{
-      text: row.decision.state === "setup-unknown"
-        ? "Couldn't read the setup record"
-        : steps.length > 0 && stopped >= 0
-        ? `Stopped at step ${stopped + 1} of ${steps.length}`
-        : "Stopped before it finished",
-    }]],
-  }];
+  const where = row.decision.state === "setup-unknown"
+    ? "Couldn't read the setup record"
+    : steps.length > 0 && stopped >= 0
+    ? `Stopped at step ${stopped + 1} of ${steps.length}`
+    : undefined;
+  const facts: { label: string; value: ApplicationRun[][] }[] =
+    where === undefined ? [] : [{ label: "Setup", value: [[{ text: where }]] }];
   // A recorded failure is an error; a repair that needs the owner says why.
   // A safe retry needs no words here: the explanation already says so.
   const failure = setup.journal?.reason;

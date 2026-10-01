@@ -273,8 +273,11 @@ export const TASK_ROW_SENTENCES = {
   },
   "setup-retry": {
     qualifier: setupQualifier,
-    explanation: () =>
-      "Setup stopped partway through. Retrying resumes from the step that failed; finished steps are skipped.",
+    // Without a step record there is no failed step to name.
+    explanation: (facts) =>
+      setupQualifier(facts) === undefined
+        ? "Setup stopped before it finished. Retrying runs setup again."
+        : "Setup stopped partway through. Retrying resumes from the step that failed; finished steps are skipped.",
     attention: degradedAttention("setup-incomplete"),
   },
   "setup-manual": {

@@ -819,7 +819,7 @@ export const DESK_ACTION_REGISTRY = {
     next: ["setup-retry"],
     also: [],
     summary: (_context: DeskActionContext): string =>
-      "Resume setup from the step that failed",
+      "Run setup again, skipping finished steps",
     reviewTitle: (context: DeskActionContext): string =>
       `${actionName("retry_setup")} for ${context.title}?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -827,8 +827,8 @@ export const DESK_ACTION_REGISTRY = {
       workingDirectory: "task",
     }),
     consequence: [
-      line("changes", "Resumes setup from the step that failed"),
-      line("keeps", "Finished steps are skipped"),
+      line("changes", "Runs setup again"),
+      line("keeps", "Steps recorded as finished are skipped"),
     ],
     confirmation: confirm("Keep", "Retry"),
     binding: ["setup-step", "worktree-identity"],
