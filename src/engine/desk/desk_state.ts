@@ -552,7 +552,7 @@ export type DeskTerminalEffect = Extract<
 export function isTerminalEffect(
   effect: DeskEffect,
 ): effect is DeskTerminalEffect {
-  return (TERMINAL_EFFECT_KINDS as readonly string[]).includes(effect.kind);
+  return TERMINAL_EFFECT_KINDS.some((kind) => kind === effect.kind);
 }
 
 /** One transition's result. */
