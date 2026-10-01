@@ -54,6 +54,7 @@ import {
   taskOperation,
   toast,
   updateLayer,
+  withoutFinishedRun,
   withRows,
 } from "./desk_transitions.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
@@ -970,8 +971,10 @@ function operationSettled(
     : outcome.ok
     ? "done" as const
     : "failed" as const;
+  const data = withoutFinishedRun(state.data, operation);
   let next: DeskProductState = withRows({
     ...state,
+    ...(data === undefined ? {} : { data }),
     operations,
     activity: [...state.activity, {
       at: event.now,

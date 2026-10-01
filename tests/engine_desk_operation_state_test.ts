@@ -13,7 +13,7 @@ import {
   type DeskProductState,
   layerId,
 } from "../src/engine/desk/desk_state.ts";
-import { open } from "../src/engine/desk/desk_transitions.ts";
+import { open, withRows } from "../src/engine/desk/desk_transitions.ts";
 import type {
   DeskFlowStep,
   DeskOutcome,
@@ -250,6 +250,46 @@ Deno.test("a success closes the progress with its message and records the run", 
     done.state.rows.find((row) => row.entry.id === "alpha")?.entry.running,
     undefined,
     "the row stops showing the run",
+  );
+});
+
+Deno.test("the Desk's own run times its row, and its end clears it before the next survey", () => {
+  const started = confirmed(landing(), actionStep("accept")).state;
+  const id = onlyOperation(started);
+  const operation = started.operations.get(id);
+  assert(operation !== undefined && started.data !== undefined);
+  // Status reads the run from the begin event it records, a little later.
+  const recorded = new Date(operation.startedAt + 3_000).toISOString();
+  const observed = withRows({
+    ...started,
+    data: {
+      ...started.data,
+      fleet: (started.data.fleet ?? []).map((entry) =>
+        entry.id === "alpha"
+          ? {
+            ...entry,
+            running: { verb: "accept", started: recorded, elapsed_ms: 0 },
+          }
+          : entry
+      ),
+    },
+  });
+  const row = (state: typeof observed) =>
+    state.rows.find((candidate) => candidate.entry.id === "alpha");
+  assertEquals(
+    row(observed)?.entry.running?.started,
+    new Date(operation.startedAt).toISOString(),
+    "the row runs from when this Desk started it",
+  );
+  const done = settle(observed, {
+    command: "discern accept --target agent/alpha --confirmed",
+    ok: true,
+    message: { tone: "success", text: "Landed Alpha on main" },
+  });
+  assertEquals(
+    row(done.state)?.entry.running,
+    undefined,
+    "the row stops running as the run ends, not at the next survey",
   );
 });
 

@@ -230,8 +230,9 @@ function withOperation(
   operations: ReadonlyMap<string, DeskOperation>,
   observedAt: number,
 ): StatusFleetEntry {
-  if (entry.running !== undefined) return entry;
   const id = deskRowId({ entry });
+  // This Desk's own run is the authority on its task: status sees it only
+  // through the logbook event the run records, a little after it starts.
   const operation = [...operations.values()].find((candidate) =>
     candidate.taskId === id
   );
@@ -266,6 +267,28 @@ export function observedRows(
       ? row
       : withDeskCapabilities(row, capabilities, now);
   });
+}
+
+/**
+ * The observation without the run this Desk just finished on a task: status
+ * read it from the logbook while it ran, and the next survey will agree.
+ */
+export function withoutFinishedRun(
+  data: StatusData | undefined,
+  operation: Pick<DeskOperation, "taskId" | "verb">,
+): StatusData | undefined {
+  if (data?.fleet === undefined || operation.taskId === undefined) return data;
+  return {
+    ...data,
+    fleet: data.fleet.map((entry) => {
+      if (
+        deskRowId({ entry }) !== operation.taskId ||
+        entry.running?.verb !== operation.verb
+      ) return entry;
+      const { running: _finished, ...idle } = entry;
+      return idle;
+    }),
+  };
 }
 
 /** Rebuild the rows from the adopted observation, as operations changed. */
