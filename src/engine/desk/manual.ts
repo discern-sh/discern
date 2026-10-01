@@ -8,10 +8,8 @@
  */
 
 import type { TerminalApplicationCommand } from "discern-design-system/cli/interactive";
-import {
-  type DocsBrowserRequest,
-  openDocsBrowserChoice,
-} from "../../commands/docs.ts";
+import type { DocsBrowserRequest } from "../../commands/docs.ts";
+import { openDocsBrowserChoice } from "../../commands/docs_links.ts";
 import type { BrowserOpenResult } from "../../lib/open_browser.ts";
 import {
   markdownBrowserCommand,

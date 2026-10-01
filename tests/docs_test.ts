@@ -39,14 +39,16 @@ import { COMMAND_SYNONYM_SUGGESTIONS } from "../src/shared/vocabulary.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
 import { stageBundledManual } from "../scripts/build.ts";
 import {
-  approvedDocsExternalUrl,
   DOCS_AGENT_CONTEXT_HINT,
   docsBrowseNavigationChoices,
   docsBrowseProjection,
   renderDocsCorpusHeader,
   renderExternalDecisionsNotice,
-  resolveDocsBrowserLink,
 } from "../src/commands/docs.ts";
+import {
+  approvedDocsExternalUrl,
+  resolveDocsBrowserLink,
+} from "../src/commands/docs_links.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";

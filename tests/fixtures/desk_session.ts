@@ -57,10 +57,8 @@ import type {
 } from "../../src/engine/worktree/lifecycle.ts";
 import { freshTipSeenState } from "../../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../../src/lib/version.ts";
-import {
-  type DocsBrowserRequest,
-  resolveDocsBrowserLink,
-} from "../../src/commands/docs.ts";
+import type { DocsBrowserRequest } from "../../src/commands/docs.ts";
+import { resolveDocsBrowserLink } from "../../src/commands/docs_links.ts";
 import { fixtureEffortGrant } from "../effort_grant_fixtures.ts";
 import {
   mainFleetEntry,

@@ -14,7 +14,7 @@ The design system rebuilt its Markdown browser on the same application runtime t
 
 **The session reads the manual once, as it starts.** An action must return its command synchronously, so the Desk reads the manual beside its other start-up reads and the command paints at once. Until the read lands, or when it fails, choosing it leaves a message and opens nothing. `discern docs` and the Desk read the corpus through one loader, [`readDocsBrowser`](../../../src/commands/docs.ts), and build the same browser request.
 
-**Pages open while the screen stays.** Inside the Desk, **Read the docs online** and a followed web link open the system browser through a package background command; one policy, `openDocsBrowserChoice`, decides what may open for both hosts, and a refusal or a browser that can't open shows inside the manual. Standalone `discern docs` still restores the terminal before it opens a page, because a standalone browser request returns what its reader chose.
+**Pages open while the screen stays.** Inside the Desk, **Read the docs online** and a followed web link open the system browser through a package background command; one policy, [`openDocsBrowserChoice`](../../../src/commands/docs_links.ts), decides what may open for both hosts, and a refusal or a browser that can't open shows inside the manual. Standalone `discern docs` still restores the terminal before it opens a page, because a standalone browser request returns what its reader chose.
 
 **The reader's place lasts the session.** Each opening resumes where the reader last left the manual. While the manual is open the Desk's surveys, running-time ticks and evidence reads wait as they do for a foreground child, and resume when it closes; operations beside the screen keep running.
 
