@@ -17,6 +17,7 @@ import {
   type DeskAction,
   type DeskRow,
   deskRowId,
+  rememberedLaunch,
   unavailableSentence,
 } from "./model.ts";
 import type { DeskCommand } from "../../shared/desk_vocabulary.ts";
@@ -155,11 +156,15 @@ function form(
   });
 }
 
-/** Run one available action on a task, from any route. */
+/**
+ * Run one available action on a task, from any route. Open agent runs the
+ * remembered launch, or the only one, unless the route asks to `choose`.
+ */
 function startAction(
   state: DeskProductState,
   action: DeskAction,
   row: DeskRow,
+  choose = false,
 ): DeskTransition {
   const taskId = deskRowId(row);
   switch (action) {
@@ -182,10 +187,13 @@ function startAction(
       const enabled = row.agentLaunches.filter((launch) =>
         launch.availability !== "disabled"
       );
-      const only = enabled.length === 1 ? enabled[0] : undefined;
-      return only === undefined
+      const direct = choose
+        ? undefined
+        : rememberedLaunch(row, state.preferences.last_agent) ??
+          (enabled.length === 1 ? enabled[0] : undefined);
+      return direct === undefined
         ? open(state, { kind: "agents", taskId })
-        : launch(state, taskId, only.id);
+        : launch(state, taskId, direct.id);
     }
     case "scripts":
       return row.scripts.length === 0
@@ -263,6 +271,7 @@ function actionIntent(
   state: DeskProductState,
   action: DeskAction,
   id: string,
+  choose = false,
 ): DeskTransition {
   const ref = rowRef(state, id);
   if (ref?.kind !== "task") return UNCHANGED(state);
@@ -275,7 +284,7 @@ function actionIntent(
       toast(state, "warning", unavailableSentence(offer.label, offer.reason)),
     );
   }
-  return startAction(state, action, ref.row);
+  return startAction(state, action, ref.row, choose);
 }
 
 /** A row's Enter: its next step, or its menu when it has none. */
@@ -755,7 +764,12 @@ export function intentTransition(
     case "next":
       return nextIntent(state, intent.id, ui);
     case "action":
-      return actionIntent(state, intent.action, intent.id);
+      return actionIntent(
+        state,
+        intent.action,
+        intent.id,
+        intent.choose === true,
+      );
     case "command":
       return commandIntent(state, intent.command, intent.ref);
     case "select":

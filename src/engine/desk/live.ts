@@ -241,6 +241,8 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
   >();
   const finished = new Map<string, DeskOutcome>();
   let tipRequested = false;
+  /** Tasks whose first discovery is under way. */
+  const discovering = new Set<string>();
   let selected: string | undefined;
   let slotGeneration = 0;
   let slotBusy = false;
@@ -461,6 +463,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
             hints,
             exceptionArgvs,
           });
+          discover();
           settle();
           if (!tipRequested) {
             tipRequested = true;
@@ -484,6 +487,30 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
       const tip = await deps.tip(data);
       if (tip !== undefined) dispatch({ kind: "tip", tip });
     });
+  };
+
+  /**
+   * Agent and script discovery for every listed task not yet discovered,
+   * once each, so a next step that opens an agent is honest before its row
+   * was ever selected. The selection reads its own again as it settles.
+   */
+  const discover = (): void => {
+    if (!alive || foreground) return;
+    for (const row of state.rows) {
+      const taskId = deskRowId(row);
+      if (state.capabilities.has(taskId) || discovering.has(taskId)) continue;
+      discovering.add(taskId);
+      own(
+        deps.flows.capabilities(state, row).then((capabilities) => {
+          dispatch({
+            kind: "capabilities",
+            taskId,
+            capabilities,
+            now: deps.now(),
+          });
+        }).finally(() => discovering.delete(taskId)),
+      );
+    }
   };
 
   /** Read the settled selection's capabilities and evidence. */

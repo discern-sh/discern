@@ -133,6 +133,7 @@ async function runAgent(
   return {
     command: commandEvidence([launch.binary, ...invocation.args]),
     ok: code === 0,
+    lastAgent: launch.agent,
     back: {
       label: launch.providerLabel,
       taskId,

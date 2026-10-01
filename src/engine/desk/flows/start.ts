@@ -232,6 +232,7 @@ async function startApply(
     ok: true,
     message: { tone: "success", text: `Created ${started.task.title}` },
     select: started.path,
+    ...(launch === undefined ? {} : { lastAgent: launch.agent }),
   };
 }
 

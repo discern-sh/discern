@@ -1785,36 +1785,47 @@ Deno.test("Open agent lists configured agents, explains missing ones, and launch
   }, async (desk) => {
     await desk.select("agents");
     await desk.until(() => discovered > 0, "agent discovery");
-    for (const [index, launch] of ["open", "continue"].entries()) {
-      await desk.press("a");
-      await desk.opened("agents");
-      const screen = desk.screen();
-      assertStringIncludes(screen, "Claude Code");
-      assertStringIncludes(screen, "Codex");
-      assert(
-        !screen.includes("Gemini"),
-        "detected but unconfigured stays hidden",
-      );
-      await desk.choose(`claude_code:${launch}`);
-      await desk.until(() => launches.length === index + 1, launch);
-      await desk.shows("Back from Claude Code");
-    }
+    // Nothing is remembered yet, so `a` asks which launch.
+    await desk.press("a");
+    await desk.opened("agents");
+    const screen = desk.screen();
+    assertStringIncludes(screen, "Claude Code");
+    assertStringIncludes(screen, "Codex");
+    assert(
+      !screen.includes("Gemini"),
+      "detected but unconfigured stays hidden",
+    );
+    await desk.choose("claude_code:open");
+    await desk.until(() => launches.length === 1, "the new session");
+    await desk.shows("Back from Claude Code");
+    // Now `a` runs the remembered agent at once, picking up its last
+    // conversation.
+    await desk.press("a");
+    await desk.until(() => launches.length === 2, "the remembered launch");
+    await desk.shows("Back from Claude Code");
+    // The actions menu's Open agent still offers every launch.
+    await desk.press(".");
+    await desk.opened("actions");
+    await desk.choose("agent");
+    await desk.opened("agents");
+    assertEquals(
+      desk.state().layers.agents?.focusedControlId,
+      "item:claude_code:continue",
+      "the picker starts on the remembered launch",
+    );
+    await desk.choose("claude_code:open");
+    await desk.until(() => launches.length === 3, "the chosen launch");
+    await desk.shows("Back from Claude Code");
   });
-  assertEquals(launches, [
-    {
-      command: "claude",
-      args: [],
-      cwd: effort.path,
-      env: { [DESK_SESSION_ENV]: "1" },
-    },
-    {
-      command: "claude",
-      args: ["--continue"],
-      cwd: effort.path,
-      env: { [DESK_SESSION_ENV]: "1" },
-    },
-  ]);
+  const session = (args: readonly string[]) => ({
+    command: "claude",
+    args,
+    cwd: effort.path,
+    env: { [DESK_SESSION_ENV]: "1" },
+  });
+  assertEquals(launches, [session([]), session(["--continue"]), session([])]);
   assertEquals(preferences.map((value) => value.last_agent), [
+    "claude_code",
     "claude_code",
     "claude_code",
   ]);

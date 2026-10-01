@@ -11,6 +11,7 @@
  */
 
 import type { EnginePlan } from "../../shared/result.ts";
+import type { AgentName } from "../../lib/config.ts";
 import type { DeskCommand } from "../../shared/desk_vocabulary.ts";
 import type { SubmissionRevision } from "../../shared/result_schemas.ts";
 import type { Out } from "../output.ts";
@@ -228,6 +229,8 @@ export interface DeskOutcome {
   readonly back?: DeskChildReturn;
   /** What a page opened beside the screen left to read, as Markdown. */
   readonly reading?: string;
+  /** The agent it opened, which the session remembers from now on. */
+  readonly lastAgent?: AgentName;
 }
 
 /** A terminal owner that returned, and the task it worked in. */

@@ -749,6 +749,130 @@ Deno.test("routes to a group or Parked select what exists and name what doesn't"
   );
 });
 
+Deno.test("a and Enter run the remembered agent's launch; the actions menu offers every launch", () => {
+  const launches: DeskAgentLaunch[] = (["open", "continue"] as const).map((
+    kind,
+  ) => ({
+    id: `claude_code:${kind}`,
+    agent: "claude_code",
+    providerLabel: "Claude Code",
+    binary: "claude",
+    kind,
+    label: kind,
+    args: kind === "continue" ? ["--continue"] : [],
+    availability: "enabled",
+  }));
+  const discovered = (state: DeskProductState, taskId: string) =>
+    deskProduct(state, {
+      kind: "capabilities",
+      taskId,
+      capabilities: { scripts: [], agentLaunches: launches },
+      now: NOW,
+    }).state;
+  const remembered = (state: DeskProductState): DeskProductState => ({
+    ...state,
+    preferences: { ...state.preferences, last_agent: "claude_code" },
+  });
+  const listed = remembered(
+    discovered(
+      discovered(
+        observedDesk(
+          survey([
+            editing("alpha"),
+            taskFleetEntry("fresh", { gate_proof: { status: "missing" } }),
+          ]),
+        ),
+        "alpha",
+      ),
+      "fresh",
+    ),
+  );
+  const ran = (state: DeskProductState, value: DeskIntent, selected: string) =>
+    intent(state, value, { ...UI, selected }).effects;
+  // Returning to a task with work picks up its last conversation.
+  assertEquals(ran(listed, { kind: "key", key: "a" }, "alpha"), [{
+    kind: "child",
+    child: { kind: "agent", taskId: "alpha", launch: "claude_code:continue" },
+  }]);
+  assertEquals(ran(listed, { kind: "next", id: "alpha" }, "alpha"), [{
+    kind: "child",
+    child: { kind: "agent", taskId: "alpha", launch: "claude_code:continue" },
+  }]);
+  // An empty task has nothing to continue.
+  assertEquals(ran(listed, { kind: "key", key: "a" }, "fresh"), [{
+    kind: "child",
+    child: { kind: "agent", taskId: "fresh", launch: "claude_code:open" },
+  }]);
+  const menu = intent(listed, {
+    kind: "action",
+    action: "agent",
+    id: "alpha",
+    choose: true,
+  }, { ...UI, selected: "alpha" });
+  assertEquals(layerIds(menu.state), ["agents"]);
+  // Without a remembered agent, `a` asks.
+  const forgotten = { ...listed, preferences: { schema_version: 2 as const } };
+  assertEquals(
+    layerIds(
+      intent(forgotten, { kind: "key", key: "a" }, { ...UI, selected: "alpha" })
+        .state,
+    ),
+    ["agents"],
+  );
+  // A launch the session opens is remembered for its later toggles.
+  const back = deskProduct(forgotten, {
+    kind: "returned",
+    outcome: { command: "claude", ok: true, lastAgent: "claude_code" },
+    now: NOW,
+  }).state;
+  assertEquals(back.preferences.last_agent, "claude_code");
+});
+
+Deno.test("an agent next step is offered before discovery reads its agents", () => {
+  // Checks failed on Beta and Gamma is empty: both need an agent next.
+  const listed = observedDesk(
+    survey([
+      editing("alpha"),
+      taskFleetEntry("beta", {
+        last_action: {
+          verb: "done",
+          outcome: "failed",
+          at: "2026-07-11T11:00:00Z",
+        },
+      }),
+      taskFleetEntry("gamma", { gate_proof: { status: "missing" } }),
+    ]),
+  );
+  assertEquals(
+    listed.rows.map((row) => [row.task.name, row.decision.next?.action]),
+    [["Beta", "agent"], ["Alpha", "agent"], ["Gamma", "agent"]],
+  );
+  for (const row of listed.rows) {
+    assertEquals(row.discovered, false);
+    if (row.decision.next?.action === "agent") {
+      assertEquals(row.decision.next.availability, "enabled", row.task.name);
+    }
+  }
+  const palette = deskView(listed, UI, ENV).layers;
+  assertEquals(palette, undefined);
+  const opened = open(listed, { kind: "palette" }).state;
+  const view = deskView(opened, UI, ENV).layers?.[0];
+  assert(view?.kind === "palette");
+  const needs = view.sections.find((section) => section.title === "Needs you");
+  assertEquals(
+    needs?.items.filter((item) => item.id.startsWith("next:")).length ?? 0,
+    listed.rows.filter((row) =>
+      row.decision.group === "review" || row.decision.group === "attention"
+    ).length,
+    "every task the header counts has its next step in the palette",
+  );
+  // The picker says it is finding agents until discovery reads them.
+  const picker =
+    deskLayers(open(listed, { kind: "agents", taskId: "alpha" }).state, ENV)[0];
+  assert(picker?.kind === "menu");
+  assertStringIncludes(JSON.stringify(picker.aside), "Finding agents…");
+});
+
 Deno.test("an agent launch refuses when unavailable and shows a stored brief before an agent without a prompt option", () => {
   const briefed = observedDesk(survey([
     taskFleetEntry("alpha", {

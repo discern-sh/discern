@@ -309,6 +309,24 @@ export function agentLaunchArgs(
   };
 }
 
+/**
+ * The launch Open agent runs without asking, for the agent the owner last
+ * used: its Continue, which is what returning to a task usually wants, or
+ * its New session when the task has nothing to continue yet. Absent when no
+ * agent is remembered, or it can't open here.
+ */
+export function rememberedLaunch(
+  row: Pick<DeskRow, "agentLaunches" | "decision">,
+  agent: AgentName | undefined,
+): DeskAgentLaunch | undefined {
+  if (agent === undefined) return undefined;
+  const ready = row.agentLaunches.filter((launch) =>
+    launch.agent === agent && launch.availability !== "disabled"
+  );
+  const preferred = row.decision.state === "empty" ? "open" : "continue";
+  return ready.find((launch) => launch.kind === preferred) ?? ready[0];
+}
+
 /** The human task name plus an optional minted-id disambiguator. */
 export type DeskTaskLabel = WorktreeTaskLabel;
 
@@ -428,6 +446,11 @@ export interface DeskRow {
   readonly scriptsUnavailableReason?: string;
   readonly agentLaunches: readonly DeskAgentLaunch[];
   readonly capabilityError?: string;
+  /**
+   * Whether agent and script discovery has run for this task. Until it has,
+   * Open agent is offered and its picker says it is finding agents.
+   */
+  readonly discovered: boolean;
   /** The observation this row's decision was built from. */
   readonly observation: DeskObservationContext;
   readonly decision: DeskDecision;
@@ -457,6 +480,7 @@ export function withDeskCapabilities(
     ...(inventory.capabilityError === undefined ? {} : {
       capabilityError: inventory.capabilityError,
     }),
+    discovered: true,
     observation,
     decision: buildDeskDecision(row.entry, {
       ...observation,
@@ -528,7 +552,8 @@ export interface DeskActionFacts {
   /** Status's row state for this task. */
   readonly state: FleetTaskRowStateId;
   readonly effortGranted: boolean;
-  readonly agentLaunches: readonly DeskAgentLaunch[];
+  /** Absent until discovery has run for this task. */
+  readonly agentLaunches?: readonly DeskAgentLaunch[];
   readonly capabilityError?: string;
   readonly trunk: string;
   readonly mainCheckout?: DeskMainCheckoutFacts;
@@ -656,7 +681,7 @@ function mainCheckoutReason(facts: DeskActionFacts): string | undefined {
 
 /** Whether at least one configured agent command can run. */
 function hasAvailableAgent(facts: DeskActionFacts): boolean {
-  return facts.agentLaunches.some((launch) =>
+  return (facts.agentLaunches ?? []).some((launch) =>
     launch.availability !== "disabled"
   );
 }
@@ -1111,6 +1136,9 @@ export const DESK_ACTION_REGISTRY = {
         return "Follow its recovery steps before opening an agent.";
       }
       if (facts.capabilityError !== undefined) return facts.capabilityError;
+      // Discovery hasn't run yet: offered, and the picker says it is finding
+      // agents, so the offer never flickers to unavailable.
+      if (facts.agentLaunches === undefined) return undefined;
       if (hasAvailableAgent(facts)) return undefined;
       const reason = facts.agentLaunches.find((launch) =>
         launch.availability === "disabled"
@@ -1712,7 +1740,9 @@ export function buildDeskDecision(
     state: presentation.state,
     effortGranted: authority.status === "granted" &&
       authority.source === "effort-grant",
-    agentLaunches: options.agentLaunches ?? [],
+    ...(options.agentLaunches === undefined
+      ? {}
+      : { agentLaunches: options.agentLaunches }),
     ...(options.capabilityError === undefined
       ? {}
       : { capabilityError: options.capabilityError }),
@@ -1959,7 +1989,7 @@ export function buildDeskRows(
     )
     .map((entry): DeskRow => {
       const scripts = scriptsByPath.get(entry.path) ?? [];
-      const agentLaunches = agentLaunchesByPath.get(entry.path) ?? [];
+      const agentLaunches = agentLaunchesByPath.get(entry.path);
       const scriptsUnavailableReason = scriptsUnavailableReasons?.get(
         entry.path,
       );
@@ -1968,15 +1998,17 @@ export function buildDeskRows(
         entry,
         task: taskLabel(entry),
         scripts,
-        agentLaunches,
+        agentLaunches: agentLaunches ?? [],
         ...(scriptsUnavailableReason === undefined
           ? {}
           : { scriptsUnavailableReason }),
         ...(capabilityError === undefined ? {} : { capabilityError }),
+        discovered: agentLaunches !== undefined ||
+          capabilityError !== undefined,
         observation,
         decision: buildDeskDecision(entry, {
           ...observation,
-          agentLaunches,
+          ...(agentLaunches === undefined ? {} : { agentLaunches }),
           ...(capabilityError === undefined ? {} : { capabilityError }),
         }),
       };

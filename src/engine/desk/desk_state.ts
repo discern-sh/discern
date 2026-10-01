@@ -344,6 +344,11 @@ export type DeskIntent =
     readonly kind: "action";
     readonly action: DeskAction;
     readonly id: string;
+    /**
+     * Offer every choice the action has rather than the one remembered: the
+     * actions menu's Open agent shows the launch picker.
+     */
+    readonly choose?: boolean;
   }
   | {
     readonly kind: "command";
@@ -931,6 +936,20 @@ const OUTCOME_MARKS = {
   muted: DESK_GLYPHS.separator,
 } as const;
 
+/**
+ * The session's preferences once an outcome says which agent it opened: the
+ * effect already saved it, and later toggles must not write it away.
+ */
+function remembering(
+  state: DeskProductState,
+  outcome: DeskOutcome,
+): DeskProductState {
+  return outcome.lastAgent === undefined ? state : {
+    ...state,
+    preferences: { ...state.preferences, last_agent: outcome.lastAgent },
+  };
+}
+
 /** An effect or child returned the terminal: show what it left. */
 function returned(
   state: DeskProductState,
@@ -938,7 +957,7 @@ function returned(
 ): DeskTransition {
   const { outcome } = event;
   let next: DeskProductState = {
-    ...state,
+    ...remembering(state, outcome),
     activity: [...state.activity, {
       at: event.now,
       command: outcome.command,
@@ -1093,7 +1112,7 @@ function operationSettled(
   // fleet as the operation left it: a reading taken mid-change is never
   // shown as where the task now stands.
   let next: DeskProductState = withRows({
-    ...state,
+    ...remembering(state, outcome),
     operations,
     activity: [...state.activity, {
       at: event.now,

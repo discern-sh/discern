@@ -67,7 +67,10 @@ function entry(over: Partial<StatusFleetEntry> = {}): StatusFleetEntry {
   });
 }
 
-/** Build a complete decision from the standard fixture and optional evidence. */
+/**
+ * Build a complete decision from the standard fixture and optional evidence,
+ * after discovery found no agents unless `options` says otherwise.
+ */
 function decide(
   over: Partial<StatusFleetEntry> = {},
   options: Partial<Parameters<typeof buildDeskDecision>[1]> = {},
@@ -75,6 +78,7 @@ function decide(
   return buildDeskDecision(entry(over), {
     trunk: TRUNK,
     nowMs: NOW,
+    agentLaunches: [],
     ...options,
   });
 }

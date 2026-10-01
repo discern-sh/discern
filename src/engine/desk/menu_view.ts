@@ -24,6 +24,7 @@ import {
   type DeskAgentLaunch,
   type DeskRow,
   deskRowId,
+  rememberedLaunch,
   unavailableSentence,
 } from "./model.ts";
 import type {
@@ -74,7 +75,14 @@ export function actionsMenu(row: DeskRow): ApplicationMenu<DeskIntent> {
           id: offer.action,
           label: offer.label,
           ...(offer.key === undefined ? {} : { key: offer.key }),
-          action: { kind: "action", action: offer.action, id },
+          // The menu's Open agent shows every launch; its key and Enter on
+          // the row run the remembered one.
+          action: {
+            kind: "action",
+            action: offer.action,
+            id,
+            ...(offer.action === "agent" ? { choose: true } : {}),
+          },
           ...(section === "danger" ? { tone: "danger" as const } : {}),
           description: [{ text: offer.summary }],
         }));
@@ -205,14 +213,23 @@ export function agentsMenu(
 ): ApplicationMenu<DeskIntent> {
   const ref = rowRef(state, taskId);
   if (ref?.kind !== "task") return goneMenu(state, "agents", taskId);
+  const title = `${DESK_ACTION_LABELS.agent} in ${ref.row.task.name}`;
+  if (!ref.row.discovered) {
+    return {
+      kind: "menu",
+      id: "agents",
+      scope: "item",
+      title,
+      aside: [{ text: "Finding agents…", tone: "faint" }],
+      sections: [],
+      footnote: [{ text: agentFootnote(state, ref.row) }],
+    };
+  }
   const launches = ref.row.agentLaunches;
   const providers = [
     ...new Set(launches.map((launch) => launch.providerLabel)),
   ];
-  const remembered = launches.find((launch) =>
-    launch.agent === state.preferences.last_agent &&
-    launch.availability !== "disabled"
-  );
+  const remembered = rememberedLaunch(ref.row, state.preferences.last_agent);
   const available = providers.filter((provider) =>
     launches.some((launch) =>
       launch.providerLabel === provider && launch.availability !== "disabled"
@@ -236,7 +253,7 @@ export function agentsMenu(
     kind: "menu",
     id: "agents",
     scope: "item",
-    title: `${DESK_ACTION_LABELS.agent} in ${ref.row.task.name}`,
+    title,
     ...(remembered === undefined ? {} : { initialItemId: remembered.id }),
     sections: available.map((provider, index) => ({
       title: provider,
