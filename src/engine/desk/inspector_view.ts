@@ -54,6 +54,11 @@ export interface DeskInspection {
   readonly observedAt?: number;
   /** Surveys are failing: running rows stop counting. */
   readonly frozen: boolean;
+  /**
+   * A layer is open over the inspector: it shows only its head (the title,
+   * state, explanation and facts), which the screen above a layer shows whole.
+   */
+  readonly receded?: boolean;
   /** Tier-two evidence for this row, once read. */
   readonly evidence?: DeskEvidence;
 }
@@ -678,6 +683,17 @@ export function taskBlocks(
         }],
       }]
       : []),
+    ...(inspection.receded === true ? [] : taskTail(row, inspection)),
+  ];
+}
+
+/** What follows a task's head: next steps, setup, artifacts and identity. */
+function taskTail(
+  row: DeskRow,
+  inspection: DeskInspection,
+): ApplicationDetailBlock[] {
+  const { entry } = row;
+  return [
     ...nextBlock(row),
     ...setupSteps(row),
     ...artifacts(row, inspection),
@@ -745,7 +761,6 @@ export function parkedBlocks(
     task.branch === branch
   );
   const look = FLEET_ROW_STATES.parked;
-  const evidence = inspection.evidence;
   return [
     { kind: "heading", title, aside: [{ text: branch, tone: "faint" }] },
     {
@@ -780,6 +795,14 @@ export function parkedBlocks(
         }]),
       ],
     },
+    ...(inspection.receded === true ? [] : parkedTail(inspection)),
+  ];
+}
+
+/** What follows a parked branch's head: its next steps and its commits. */
+function parkedTail(inspection: DeskInspection): ApplicationDetailBlock[] {
+  const evidence = inspection.evidence;
+  return [
     nextSection([
       {
         key: "enter",
@@ -893,11 +916,11 @@ export function landedBlocks(
       ],
     },
     ...(task.proof_line === undefined ? [] : [proofLineBlock(task.proof_line)]),
-    nextSection([{
+    ...(inspection.receded === true ? [] : [nextSection([{
       key: "enter",
       label: DESK_COMMAND_LABELS.landed_proof,
       description: "The Proof recorded when it landed",
       primary: true,
-    }]),
+    }])]),
   ];
 }
