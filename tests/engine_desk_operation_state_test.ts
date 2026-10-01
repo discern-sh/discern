@@ -431,6 +431,41 @@ Deno.test("a landing's success takes what it landed out of the list at once and 
   assertEquals(surveyed.message, done.message);
 });
 
+Deno.test("a landing that stopped after landing its own task takes that task out too", () => {
+  const started = confirmed(
+    reviewed(
+      observedDesk(productSurvey([editingTask("alpha"), editingTask("beta")])),
+      actionStep("accept"),
+    ),
+    actionStep("accept"),
+  ).state;
+  const done = settle(started, {
+    command: "discern accept --target agent/alpha --confirmed",
+    ok: false,
+    message: { tone: "warning", text: "Alpha landed; Beta didn't" },
+    result: {
+      title: "Alpha landed; Beta didn't",
+      tone: "warning",
+      lines: [],
+      command: "discern accept --target agent/alpha --confirmed",
+      taskId: "beta",
+    },
+    left: [{ taskId: "alpha", title: "Alpha", reason: "landed" }],
+  }).state;
+  assertEquals(done.rows.map((row) => row.entry.id), ["beta"]);
+  assertEquals(layers(done).at(-1), "result");
+  const moved = deskProduct(done, {
+    kind: "selection-moved",
+    itemId: "alpha",
+    move: { kind: "removed", replacement: "beta" },
+  }).state;
+  assertEquals(
+    moved.message,
+    done.message,
+    "the result sheet already says it landed",
+  );
+});
+
 Deno.test("a row its own operation moves keeps the operation's message", () => {
   const started = confirmed(landing(), actionStep("accept")).state;
   const regrouped = deskProduct(started, {

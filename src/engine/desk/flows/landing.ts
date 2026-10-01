@@ -206,26 +206,35 @@ const ACCEPT_FLOW: DeskFlow = {
       ...(revision === undefined ? {} : { expected: revision }),
       ...(cliModel === undefined ? {} : { cliModel }),
     });
-    if (result !== undefined && !result.ok) {
-      return failedWith(context, step, "accept", result, command);
-    }
-    // The queue walk lands what followed it; say which landed too.
-    const walked = (result?.data?.landings ?? []).filter((landing) =>
-      !landing.selected && landing.status === "landed"
-    ).map((landing) => landing.branch);
+    // The selected task and the queued tasks the walk landed leave the
+    // inbox, whether or not the walk went on to stop.
+    const landed = (result?.data?.landings ?? []).filter((landing) =>
+      landing.status === "landed"
+    );
+    const walked = landed.filter((landing) => !landing.selected)
+      .map((landing) => landing.branch);
     const left = [
-      row,
+      ...(result === undefined || result.ok ||
+          landed.some((landing) => landing.selected)
+        ? [row]
+        : []),
       ...walked.flatMap((branch) => {
         const follower = context.state.rows.find((candidate) =>
           candidate.entry.branch === branch
         );
         return follower === undefined ? [] : [follower];
       }),
-    ].map((landed) => ({
-      taskId: deskRowId(landed),
-      title: landed.task.name,
+    ].map((task) => ({
+      taskId: deskRowId(task),
+      title: task.task.name,
       reason: "landed" as const,
     }));
+    if (result !== undefined && !result.ok) {
+      return {
+        ...failedWith(context, step, "accept", result, command),
+        ...(left.length === 0 ? {} : { left }),
+      };
+    }
     return {
       ...succeeded(
         command,

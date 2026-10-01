@@ -276,6 +276,11 @@ export interface DeskOperation {
 export interface DeskDeparture {
   readonly title: string;
   readonly reason: "landed" | "parked" | "resumed" | "removed";
+  /**
+   * The operation that took it out already said so, in its message or its
+   * result sheet, so its departure says nothing more.
+   */
+  readonly announced?: boolean;
 }
 
 /** The survey's progress: one at a time, with a single queued follow-up. */
@@ -806,7 +811,7 @@ function selectionMoved(
   if (event.move.kind === "removed") {
     const departure = state.departed.get(event.itemId);
     return {
-      state: departure === undefined
+      state: departure === undefined || departure.announced === true
         ? state
         : toast(state, "muted", departureMessage(departure, state.trunk)),
       effects: [],
@@ -1139,7 +1144,8 @@ function operationSettled(
   });
   if (shown) next = closeLayer(next, "progress");
   const effects: DeskEffect[] = [];
-  const left = ended === "done" ? outcome.left ?? [] : [];
+  // What it reports it took out of the inbox, even when it went on to stop.
+  const left = ended === "stopped" ? [] : outcome.left ?? [];
   const tasks = [
     ...(operation.taskId === undefined ? [] : [operation.taskId]),
     ...left.map((task) => task.taskId),
@@ -1206,7 +1212,11 @@ function leaving(
   const departed = new Map(state.departed);
   const gone = new Set(state.gone);
   for (const task of left) {
-    departed.set(task.taskId, { title: task.title, reason: task.reason });
+    departed.set(task.taskId, {
+      title: task.title,
+      reason: task.reason,
+      announced: true,
+    });
     gone.add(task.taskId);
   }
   return withRows({ ...state, departed, gone });
