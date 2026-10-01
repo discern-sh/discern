@@ -77,9 +77,15 @@ export function applicationView(
   };
 }
 
-/** The fixture's one binding: `q` leaves from anywhere on the base layer. */
+/**
+ * The fixture's bindings: `q` leaves from anywhere on the base layer, and so
+ * does Escape once nothing is left to close. A lone Escape arrives while the
+ * reader still waits for a continuation byte, so leaving on it exercises the
+ * cancellation of a pending native read.
+ */
 export const APPLICATION_KEYMAP: readonly ApplicationKeyBinding<string>[] = [
   { key: "q", action: "quit" },
+  { key: "escape", action: "quit" },
 ];
 
 /** Publish asynchronously without putting discovery or effects in key handlers. */
