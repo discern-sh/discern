@@ -37,6 +37,17 @@ export const DESK_GLYPHS = {
   brand: { unicode: DISCERN_MARK, ascii: "" },
 } as const satisfies Record<string, DeskGlyph>;
 
+/**
+ * The mark a message of each tone leads with. The mark alone carries the
+ * tone; the sentence after it reads in neutral text.
+ */
+export const MESSAGE_MARKS = {
+  success: DESK_GLYPHS.done,
+  warning: DESK_GLYPHS.attention,
+  danger: DESK_GLYPHS.failed,
+  muted: DESK_GLYPHS.separator,
+} as const satisfies Record<string, DeskGlyph>;
+
 /** The mark each consequence and result line leads with. */
 export const CONSEQUENCE_GLYPHS = {
   evidence: DESK_GLYPHS.done,

@@ -32,10 +32,12 @@ import {
   landedRowId,
   open,
   parkedRowId,
+  toast,
 } from "../src/engine/desk/desk_transitions.ts";
 import {
   deskKeymap,
   deskView,
+  messageLine,
   meterCells,
 } from "../src/engine/desk/inbox_view.ts";
 import {
@@ -917,4 +919,26 @@ Deno.test("the inbox shows a running task's meter and time and the overlap flag"
     FLEET_ROW_STATES.parked.label.length > 0,
     true,
   );
+});
+
+Deno.test("only a message's mark carries its tone; its words stay neutral", () => {
+  const tones = ["success", "warning", "danger", "muted", "accent"] as const;
+  for (const tone of tones) {
+    const message = toast(freshDesk(), tone, "Something happened", {
+      detail: "what it found",
+    }).message;
+    const line = messageLine(message);
+    assert(line !== undefined);
+    assertEquals(line.tone, "muted", `${tone}: the line's own tone`);
+    const marked = message?.mark !== undefined;
+    if (tone !== "muted" && tone !== "accent") {
+      assert(marked, `${tone}: a toned message leads with its mark`);
+      assertEquals(line.runs[0]?.tone, tone, `${tone}: its mark's tone`);
+    }
+    const words = line.runs.slice(marked ? 1 : 0);
+    const toned = words.filter((run) =>
+      run.tone !== undefined && !["ink", "muted", "faint"].includes(run.tone)
+    );
+    assertEquals(toned, [], `${tone}: its words carry no tone`);
+  }
 });

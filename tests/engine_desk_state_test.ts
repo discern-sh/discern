@@ -588,10 +588,16 @@ Deno.test("a returning effect leaves its message, its result, and one refresh", 
   assertEquals(back.effects, [{ kind: "survey", generation: 2 }]);
   const counted = observe(back.state, survey([editing("alpha", 5)]));
   assertEquals(
-    counted.state.message?.text,
-    "Back from the shell · Alpha: 3 more files changed",
+    [counted.state.message?.text, counted.state.message?.detail],
+    ["Back from the shell", "Alpha: 3 more files changed"],
   );
   assertEquals(counted.state.pendingReturn, undefined);
+  // A child that changed nothing still names its task and the result.
+  const unchanged = observe(back.state, survey([editing("alpha", 2)]));
+  assertEquals(
+    unchanged.state.message?.detail,
+    "Alpha: no new changes",
+  );
 
   const failed = deskProduct(listed, {
     kind: "returned",

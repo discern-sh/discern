@@ -426,8 +426,34 @@ function liveness(
   return state.survey.inFlight ? "busy" : "idle";
 }
 
-/** The message row: a toast, the tip, or a persistent warning. */
-function messageLine(
+/**
+ * The words of a message after its mark: muted, except an outcome (a
+ * success or a failure), whose sentence reads in ink; a detail that names
+ * what was found reads in ink after the lead.
+ */
+function messageWords(message: DeskMessage): ApplicationRun[] {
+  if (message.topic === "tip") {
+    return [
+      { text: "Tip", tone: "faint" },
+      { text: "   " },
+      ...inlineRuns(message.text),
+    ];
+  }
+  const outcome = message.tone === "success" || message.tone === "danger";
+  return [
+    { text: message.text, ...(outcome ? { tone: "ink" as const } : {}) },
+    ...(message.detail === undefined ? [] : [
+      { text: " · " },
+      { text: message.detail, tone: "ink" as const },
+    ]),
+  ];
+}
+
+/**
+ * The message row: a toast, the tip, or a persistent warning. Only the
+ * leading mark carries the message's tone; the line itself stays muted.
+ */
+export function messageLine(
   message: DeskMessage | undefined,
 ): ApplicationMessage | undefined {
   if (message === undefined) return undefined;
@@ -437,17 +463,11 @@ function messageLine(
       ascii: `${message.mark.ascii}  `,
       tone: message.tone === "muted" ? "faint" as const : message.tone,
     }]),
-    ...(message.topic === "tip"
-      ? [
-        { text: "Tip", tone: "faint" as const },
-        { text: "   " },
-        ...inlineRuns(message.text),
-      ]
-      : [{ text: message.text }]),
+    ...messageWords(message),
   ];
   return {
     id: message.id,
-    tone: message.tone === "accent" ? "muted" : message.tone,
+    tone: "muted",
     runs,
     ...(message.key === undefined ? {} : {
       trailing: [

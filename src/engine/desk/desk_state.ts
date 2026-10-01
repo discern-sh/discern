@@ -63,7 +63,7 @@ import {
 } from "./desk_transitions.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
 import { relativeAge } from "../status/row_facts.ts";
-import { DESK_GLYPHS } from "./glyphs.ts";
+import { DESK_GLYPHS, MESSAGE_MARKS } from "./glyphs.ts";
 import { FLEET_ROW_GROUPS } from "../../shared/fleet_row_vocabulary.ts";
 
 /**
@@ -198,8 +198,11 @@ export interface DeskMessage {
   readonly id: string;
   /** What the message is about. */
   readonly topic: DeskMessageTopic;
+  /** The tone of the message's mark; its words read in neutral text. */
   readonly tone: "success" | "warning" | "danger" | "muted" | "accent";
   readonly text: string;
+  /** What it found, after the lead and in ink: a return's result. */
+  readonly detail?: string;
   /** A leading glyph such as `!` or `←`. */
   readonly mark?: { readonly unicode: string; readonly ascii: string };
   /** A key hint at the far right, such as `r Retry`. */
@@ -711,19 +714,23 @@ function returnMessage(
   const row = state.rows.find((candidate) =>
     deskRowId(candidate) === pending.taskId
   );
-  const changed = row?.entry.changed_files;
+  if (row === undefined) return state;
+  const changed = row.entry.changed_files;
   const delta = changed === undefined || pending.changedBefore === undefined
     ? 0
     : changed - pending.changedBefore;
-  if (row === undefined || delta === 0) return state;
-  return toast(
-    state,
-    "accent",
-    `Back from ${pending.label} · ${rowTitle(row)}: ${Math.abs(delta)} ${
-      delta > 0 ? "more" : "fewer"
-    } file${Math.abs(delta) === 1 ? "" : "s"} changed`,
-    { mark: DESK_GLYPHS.back, topic: "return" },
-  );
+  const count = Math.abs(delta);
+  return toast(state, "accent", `Back from ${pending.label}`, {
+    mark: DESK_GLYPHS.back,
+    topic: "return",
+    detail: `${rowTitle(row)}: ${
+      delta === 0
+        ? "no new changes"
+        : `${count} ${delta > 0 ? "more" : "fewer"} file${
+          count === 1 ? "" : "s"
+        } changed`
+    }`,
+  });
 }
 
 /** A failed survey: Retrying after one, Offline after two. */
@@ -958,14 +965,6 @@ function scriptsRead(
   };
 }
 
-/** The mark an outcome's message leads with, by its tone. */
-const OUTCOME_MARKS = {
-  success: DESK_GLYPHS.done,
-  warning: DESK_GLYPHS.attention,
-  danger: DESK_GLYPHS.failed,
-  muted: DESK_GLYPHS.separator,
-} as const;
-
 /**
  * The session's preferences once an outcome says which agent it opened: the
  * effect already saved it, and later toggles must not write it away.
@@ -1000,7 +999,7 @@ function returned(
   // A result sheet is the failure's message; a toast would only repeat it.
   if (outcome.message !== undefined && outcome.result === undefined) {
     next = toast(next, outcome.message.tone, outcome.message.text, {
-      mark: OUTCOME_MARKS[outcome.message.tone],
+      mark: MESSAGE_MARKS[outcome.message.tone],
     });
   } else if (outcome.back !== undefined) {
     next = toast(next, "accent", `Back from ${outcome.back.label}`, {
@@ -1188,14 +1187,14 @@ function operationSettled(
       effects.push(...opened.effects);
     } else {
       next = toast(next, sheet.tone, sheet.title, {
-        mark: OUTCOME_MARKS[sheet.tone],
+        mark: MESSAGE_MARKS[sheet.tone],
         ...about,
       });
     }
   } else {
     if (outcome.message !== undefined) {
       next = toast(next, outcome.message.tone, outcome.message.text, {
-        mark: OUTCOME_MARKS[outcome.message.tone],
+        mark: MESSAGE_MARKS[outcome.message.tone],
         ...about,
       });
     }

@@ -24,6 +24,7 @@ import {
   type DeskReviewAlternative,
 } from "./flow_types.ts";
 import { DESK_COMMANDS } from "./commands.ts";
+import { MESSAGE_MARKS } from "./glyphs.ts";
 import {
   buildDeskRows,
   DESK_ACTIONS,
@@ -463,12 +464,16 @@ export function toast(
   state: DeskProductState,
   tone: DeskMessage["tone"],
   text: string,
-  extra: Pick<DeskMessage, "mark" | "key" | "tasks"> & {
+  extra: Pick<DeskMessage, "mark" | "key" | "tasks" | "detail"> & {
     readonly topic?: DeskMessageTopic;
   } = {},
 ): DeskProductState {
   const serial = state.serial + 1;
   const { topic = "notice", ...rest } = extra;
+  // A toned message always leads with its mark, which alone carries the tone.
+  const mark = tone === "success" || tone === "warning" || tone === "danger"
+    ? { mark: MESSAGE_MARKS[tone] }
+    : {};
   return {
     ...state,
     serial,
@@ -477,6 +482,7 @@ export function toast(
       topic,
       tone,
       text,
+      ...mark,
       ...rest,
     },
   };
