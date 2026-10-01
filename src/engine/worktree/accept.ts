@@ -176,6 +176,8 @@ import {
 } from "./lifecycle.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import { type AcceptPlan, acceptPlanToEngine } from "./plan.ts";
+import { acceptPreviewFacts } from "./accept_preview.ts";
+import { countAhead } from "./containment.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { discardSupersededComposition } from "./integration_landing.ts";
 import {
@@ -544,7 +546,7 @@ async function buildAcceptPlan(
     effort.ctx.config.worktree.track_ignored_drift,
   );
   await assertMainCheckoutReady(effort);
-  return landingPlan(effort, ignoredFileChanges);
+  return { ...landingPlan(effort, ignoredFileChanges), integrated: !direct };
 }
 
 // ── progress and partial effects ─────────────────────────────────────────────
@@ -1230,6 +1232,7 @@ async function previewLanding(
   confirmed: boolean,
   drops: CheckpointDrop[],
   direct: boolean,
+  tip: string,
 ): Promise<DiscernResult<AcceptData>> {
   const enginePlan = acceptPlanToEngine(plan);
   const checkpointState = subject.atHead
@@ -1280,6 +1283,23 @@ async function previewLanding(
   );
   preview.data = {
     revision: subjectRevision(effort, subject),
+    preview: acceptPreviewFacts({
+      effort: effort.id,
+      head: subject.head,
+      proof: subject.proof,
+      standardApprovals: subject.proof.standard_proposals?.length ?? 0,
+      commits: await countAhead(effort.mainRepo, tip, subject.head),
+      ...(direct
+        ? {}
+        : { behind: await countAhead(effort.mainRepo, subject.head, tip) }),
+      authority,
+      submitted: subject.submission !== undefined,
+      ignored: plan.ignoredFileChanges,
+      rows,
+      ...(checkpointState === undefined
+        ? {}
+        : { checkpoints: checkpointState }),
+    }),
     ...(allDrops.length > 0 ? { checkpoint_drops: allDrops } : {}),
   };
   return preview;
@@ -1559,6 +1579,7 @@ async function landEffortOnce(
         request.confirmed,
         subject.drops,
         direct,
+        tip,
       );
     }
     const decision = await decideLanding(

@@ -1576,8 +1576,78 @@ const QueueSubmissionDataSchema = z.strictObject({
 });
 export type QueueSubmissionData = z.infer<typeof QueueSubmissionDataSchema>;
 
+/** A queued submission a landing preview names: the effort, its branch, and
+ * the exact revision. */
+const AcceptPreviewSubmissionSchema = z.strictObject({
+  effort: z.string(),
+  branch: z.string(),
+  head: z.string(),
+});
+
+/**
+ * What a landing preview found, as facts rather than sentences: the revision
+ * that lands with its commits and its Proof's diff stats, whether the trunk
+ * moved so the landing composes first, the authority it lands under, the
+ * further queued landings it walks, a landing it waits behind, ignored files
+ * its checkout removal discards, the records it ends, and the owner
+ * decisions or fresh checks it still needs.
+ */
+export const AcceptPreviewSchema = z.strictObject({
+  lands: z.strictObject({
+    head: z.string(),
+    /** Absent when Git could not count the commits. */
+    commits: z.number().int().nonnegative().optional(),
+    files: z.number().int().nonnegative(),
+    insertions: z.number().int().nonnegative(),
+    deletions: z.number().int().nonnegative(),
+  }),
+  /** Present when the trunk moved after the Proof: the landing composes the
+   * submission with the trunk and proves the combined tree first. */
+  integrates: z.strictObject({
+    /** Trunk commits the submission lacks; absent when Git could not count. */
+    behind: z.number().int().nonnegative().optional(),
+  }).optional(),
+  authority: z.strictObject({
+    kind: decisionVocabulary("x-discern-landing-authority-kinds"),
+    source: openVocabulary("x-discern-consent-sources").optional(),
+    /** Standing scopes that cover this exact tree. */
+    scopes: z.array(z.string()).optional(),
+    /** Changed paths a recorded standing grant covers. */
+    covered_paths: z.number().int().nonnegative(),
+    /** Changed paths that keep this landing on the conversational path. */
+    uncovered_paths: z.number().int().nonnegative(),
+  }),
+  /** Further pre-authorized, ready submissions the queue walk lands next. */
+  queue_walk: z.array(AcceptPreviewSubmissionSchema),
+  /** A landing another call is running; this one waits for its turn. */
+  landing_in_progress: AcceptPreviewSubmissionSchema.optional(),
+  /** Ignored roots changed since setup that the checkout removal discards. */
+  ignored_roots: z.array(z.string()).optional(),
+  /** The landing consumes the effort's landing pre-authorization. */
+  ends_grant: z.boolean(),
+  /** The landing consumes the effort's landing queue entry. */
+  leaves_queue: z.boolean(),
+  /** Checkpoint ids declared unmet, each needing an owner variance. */
+  variances: z.array(z.string()).optional(),
+  /** Standard limit changes awaiting the owner's exact approval. */
+  standard_approvals: z.number().int().positive().optional(),
+  /** Checkpoint conclusions missing or stale: the checks must run again. */
+  stale_declarations: z.array(z.string()).optional(),
+}).meta({
+  id: "DiscernAcceptPreview",
+  description:
+    "What a landing preview found, as facts: the revision that lands with " +
+    "its commits and diff stats, whether the trunk moved so the landing " +
+    "composes first, its authority, the queue walk after it, a landing it " +
+    "waits behind, discarded ignored roots, the grant and queue entry it " +
+    "consumes, and owner decisions or fresh checks it still needs.",
+});
+export type AcceptPreviewData = z.infer<typeof AcceptPreviewSchema>;
+
 export const AcceptDataSchema = z.strictObject({
   revision: SubmissionRevisionSchema.optional(),
+  /** Present on a landing preview (`--dry-run`): what it found, as facts. */
+  preview: AcceptPreviewSchema.optional(),
   /** Present for CLI `accept queue` / MCP action: queue. */
   submission: QueueSubmissionDataSchema.optional(),
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),

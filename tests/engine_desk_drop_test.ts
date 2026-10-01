@@ -11,7 +11,8 @@ import {
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
-import { git } from "./engine_helpers.ts";
+import { git, gitOut } from "./engine_helpers.ts";
+import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 
 Deno.test("Drop refuses stale content, revision and branch reviews, then applies only the refreshed exact plan", async () => {
   await withTempDir(async (root) => {
@@ -75,5 +76,35 @@ Deno.test("Drop refuses stale content, revision and branch reviews, then applies
       () => worktreeDrop(ctx, path, { force: true, expected: fresh.subject }),
       WorktreeGitError,
     );
+  });
+});
+
+Deno.test("Drop's plan names the landing records it ends, and a grant recorded after review refuses the apply", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(root);
+    const ctx = await lifecycleContext(
+      root,
+      new Logger({ json: true, noColor: true }),
+    );
+    const reviewed = await worktreeDropPlan(ctx, path);
+    assertEquals(
+      [reviewed.subject.endsGrant, reviewed.subject.leavesQueue],
+      [false, false],
+    );
+    await grantEffort(
+      path,
+      await gitOut(path, "branch", "--show-current"),
+      "2026-09-12T10:00:00.000Z",
+    );
+    const granted = await worktreeDropPlan(ctx, path);
+    assertEquals(granted.subject.endsGrant, true);
+    assert(granted.details.includes("Landing grant:  removed"));
+    await assertRejects(
+      () =>
+        worktreeDrop(ctx, path, { force: true, expected: reviewed.subject }),
+      WorktreeGitError,
+      "reviewed Drop target or its work changed",
+    );
+    assert(await targetExists(path));
   });
 });

@@ -89,7 +89,6 @@ async function buildParkPlan(
       { cause: error },
     );
   }
-  const grantPath = await gitAdminStatePath(removal.targetPath, "effortGrant");
   const proofPath = await gitAdminStatePath(removal.targetPath, "gateProof");
   return {
     task,
@@ -101,18 +100,20 @@ async function buildParkPlan(
       entries: removal.entries,
       title: task.title,
       keepsBrief: task.brief !== undefined,
-      removesGrant: grantPath !== undefined && await fileExists(grantPath),
+      endsGrant: removal.endsGrant,
+      leavesQueue: removal.leavesQueue,
       removesProof: proofPath !== undefined && await fileExists(proofPath),
     },
   };
 }
 
-/** Exact read-only Park plan for the CLI and Desk. */
+/** Exact read-only Park plan for the CLI and Desk, with the facts it projects. */
 export async function worktreeParkPlan(
   ctx: LifecycleContext,
   target: string,
-): Promise<EnginePlan> {
-  return parkPlanToEngine((await buildParkPlan(ctx, target)).plan);
+): Promise<EnginePlan & { subject: ParkPlan }> {
+  const { plan } = await buildParkPlan(ctx, target);
+  return { ...parkPlanToEngine(plan), subject: plan };
 }
 
 /** Compare the facts whose movement would invalidate a reviewed Park plan. */

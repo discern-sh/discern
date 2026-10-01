@@ -235,7 +235,7 @@ async function nearestContainer(
 }
 
 /** Commits reachable from `to` but not `from` — the container's lead. */
-async function countAhead(
+export async function countAhead(
   repoRoot: string,
   from: string,
   to: string,

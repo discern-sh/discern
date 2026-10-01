@@ -802,6 +802,42 @@ export type DiscernIntegrationJudgment = {
   awaiting: Array<string>;
 };
 
+export type DiscernAcceptPreview = {
+  lands: {
+    head: string;
+    commits?: number;
+    files: number;
+    insertions: number;
+    deletions: number;
+  };
+  integrates?: {
+    behind?: number;
+  };
+  authority: {
+    kind: "authorized" | "conversation-required";
+    source?: string;
+    scopes?: Array<string>;
+    covered_paths: number;
+    uncovered_paths: number;
+  };
+  queue_walk: Array<{
+    effort: string;
+    branch: string;
+    head: string;
+  }>;
+  landing_in_progress?: {
+    effort: string;
+    branch: string;
+    head: string;
+  };
+  ignored_roots?: Array<string>;
+  ends_grant: boolean;
+  leaves_queue: boolean;
+  variances?: Array<string>;
+  standard_approvals?: number;
+  stale_declarations?: Array<string>;
+};
+
 export type DiscernAuthorizedVariance = {
   checkpoint: string;
   definition_hash: string;
@@ -6277,6 +6313,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         proof_id: string;
       };
     };
+    preview?: DiscernAcceptPreview;
     submission?: {
       state: string;
       authority: {

@@ -191,6 +191,8 @@ import {
   type PrunePlan,
   prunePlanIsEmpty,
   prunePlanToEngine,
+  type ReclaimPlan,
+  reclaimPlanToEngine,
   type SetupPlan,
   setupPlanToEngine,
   type SetupStepDesc,
@@ -207,7 +209,7 @@ import {
   preserveDropRecoveryCommit,
   preserveDropRecoveryRef,
 } from "./recovery_refs.ts";
-import { buildRemovalPlan } from "./removal_plan.ts";
+import { buildRemovalPlan, checkoutRecordEnds } from "./removal_plan.ts";
 import {
   classifyOrphans,
   createResources,
@@ -4650,37 +4652,19 @@ async function containedReclaimCandidate(
   return match;
 }
 
-/** Exact read-only reclaim plan for a selected Desk task. */
+/** Exact read-only reclaim plan for a selected Desk task, with its facts. */
 export async function worktreeReclaimContainedPlan(
   ctx: LifecycleContext,
   target: string,
-): Promise<EnginePlan> {
+): Promise<EnginePlan & { subject: ReclaimPlan }> {
   const match = await containedReclaimCandidate(ctx, target);
-  return {
-    title: "Contained checkout reclaim plan",
-    details: [
-      `Branch kept:      ${match.branch}`,
-      `Checkout removed: ${match.path}`,
-      `Contained in:     ${match.containingBranch}`,
-    ],
-    steps: [{
-      kind: "resource-destroy",
-      label: BUILT_IN_STEP_LABELS.teardownResources,
-      disposition: "run",
-      note: "destroy resources recorded for this checkout",
-    }, {
-      kind: "git",
-      label: BUILT_IN_STEP_LABELS.removeWorktree,
-      disposition: "run",
-      note: match.path,
-    }, {
-      kind: "git",
-      label: BUILT_IN_STEP_LABELS.deleteBranch,
-      disposition: "skip",
-      note:
-        `${match.branch} is kept because its commits are contained in ${match.containingBranch}`,
-    }],
+  const subject: ReclaimPlan = {
+    targetPath: match.path,
+    branch: match.branch,
+    containingBranch: match.containingBranch,
+    ...await checkoutRecordEnds(match.path),
   };
+  return { ...reclaimPlanToEngine(subject), subject };
 }
 
 /** Map the real prune/sweep/GC/reclaim outcomes to `--json` step results. */

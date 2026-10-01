@@ -125,6 +125,9 @@ export interface AcceptPlan {
   hasResources: boolean;
   /** Ignored-file drift detected against the setup-time baseline, when enabled. */
   ignoredFileChanges: IgnoredFileChangeSummary;
+  /** The trunk moved after the Proof: the landing moves the trunk to the
+   * combined commit an integration worktree proved, not to the branch. */
+  integrated?: boolean;
 }
 
 /**
@@ -149,7 +152,9 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     kind: "git",
     label: BUILT_IN_STEP_LABELS.fastForwardTrunk,
     disposition: "run",
-    note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
+    note: plan.integrated === true
+      ? `${plan.trunk} → the combined commit an integration worktree proves from ${plan.worktreeBranch} and ${plan.trunk}, in ${plan.mainRepo}`
+      : `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
   });
   steps.push({
     kind: "git",
@@ -502,12 +507,20 @@ export function setupPlanToEngine(plan: SetupPlan): EnginePlan {
 
 // ── drop ──────────────────────────────────────────────────────────────────────
 
+/** The landing records a checkout's removal ends with it. */
+export interface CheckoutRecordEnds {
+  /** Its landing pre-authorization is recorded and goes with the checkout. */
+  readonly endsGrant: boolean;
+  /** Its landing queue entry is recorded and goes with the checkout. */
+  readonly leavesQueue: boolean;
+}
+
 /** The read-only diagnosis a `worktree drop` acts on: the resolved target, what
  * discarding it would lose (uncommitted changes, unmerged commits — the
  * `--force` blockers), and the resources to tear down. Built from the main
  * checkout; a plan exists even when blocked, so `--dry-run` can show what a
  * `--force` WOULD discard. */
-export interface DropPlan {
+export interface DropPlan extends CheckoutRecordEnds {
   /** Content identity for the reviewed uncommitted work; absent when unreadable. */
   state?: string;
   /** The resolved worktree's canonical path. */
@@ -537,7 +550,7 @@ export interface DropPlan {
 }
 
 /** A healthy checkout removal that retains its branch and human task wording. */
-export interface ParkPlan {
+export interface ParkPlan extends CheckoutRecordEnds {
   targetPath: string;
   id: string;
   branch: string;
@@ -545,8 +558,60 @@ export interface ParkPlan {
   entries: LedgerItem[];
   title: string;
   keepsBrief: boolean;
-  removesGrant: boolean;
   removesProof: boolean;
+}
+
+/** A contained checkout's removal: its branch rides in another live branch. */
+export interface ReclaimPlan extends CheckoutRecordEnds {
+  readonly targetPath: string;
+  readonly branch: string;
+  readonly containingBranch: string;
+}
+
+/** Project a contained-checkout reclaim onto the shared plan renderer. */
+export function reclaimPlanToEngine(plan: ReclaimPlan): EnginePlan {
+  return {
+    title: "Contained checkout reclaim plan",
+    details: [
+      `Branch kept:      ${plan.branch}`,
+      `Checkout removed: ${plan.targetPath}`,
+      `Contained in:     ${plan.containingBranch}`,
+      ...landingRecordDetails(plan),
+    ],
+    steps: [{
+      kind: "resource-destroy",
+      label: BUILT_IN_STEP_LABELS.teardownResources,
+      disposition: "run",
+      note: "destroy resources recorded for this checkout",
+    }, {
+      kind: "git",
+      label: BUILT_IN_STEP_LABELS.removeWorktree,
+      disposition: "run",
+      note: plan.targetPath,
+    }, {
+      kind: "git",
+      label: BUILT_IN_STEP_LABELS.deleteBranch,
+      disposition: "skip",
+      note:
+        `${plan.branch} is kept because its commits are contained in ${plan.containingBranch}`,
+    }],
+  };
+}
+
+/** The plan details naming the landing records a removal ends, with labels
+ * padded to the plan's own label column. */
+function landingRecordDetails(
+  ends: CheckoutRecordEnds,
+  width = "Checkout removed: ".length,
+): string[] {
+  return [
+    `${"Landing grant:".padEnd(width)}${
+      ends.endsGrant ? "removed" : "none recorded"
+    }`,
+    `${"Landing queue:".padEnd(width)}${
+      ends.leavesQueue ? "left" : "not queued"
+    }`,
+  ];
 }
 
 /** Project Park's distinct artifact contract onto the shared plan renderer. */
@@ -557,7 +622,7 @@ export function parkPlanToEngine(plan: ParkPlan): EnginePlan {
       `Branch kept:      ${plan.branch} at ${plan.head}`,
       `Task metadata:    ${plan.title}${plan.keepsBrief ? " with brief" : ""}`,
       `Checkout removed: ${plan.targetPath}`,
-      `Landing grant:    ${plan.removesGrant ? "removed" : "none recorded"}`,
+      ...landingRecordDetails(plan),
       `Proof:            ${
         plan.removesProof ? "removed with checkout" : "none recorded"
       }`,
@@ -627,13 +692,14 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
       : plan.branchKeepReason ?? `${plan.branch} is kept`,
   });
   const details = [
-    `Worktree: ${plan.id}`,
-    `Path:     ${plan.targetPath}`,
-    `Branch:   ${plan.branch !== "" ? plan.branch : "(detached)"}`,
-    `Revision: ${plan.head}`,
+    `Worktree:       ${plan.id}`,
+    `Path:           ${plan.targetPath}`,
+    `Branch:         ${plan.branch !== "" ? plan.branch : "(detached)"}`,
+    `Revision:       ${plan.head}`,
+    ...landingRecordDetails(plan, "Landing grant:  ".length),
   ];
   if (plan.blockers.length > 0) {
-    details.push(`Discards: ${plan.blockers.join("; ")}`);
+    details.push(`Discards:       ${plan.blockers.join("; ")}`);
   }
   return { title: "Drop plan", details, steps };
 }

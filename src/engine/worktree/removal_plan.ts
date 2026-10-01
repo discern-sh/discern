@@ -24,6 +24,30 @@ import { entriesForWorktree } from "./resources.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import type { DropPlan } from "./plan.ts";
 import { resolveWorktreeTarget } from "./target_resolution.ts";
+import { fileExists } from "../../shared/fs_presence.ts";
+import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import type { CheckoutRecordEnds } from "./plan.ts";
+
+/**
+ * The landing records a checkout's removal ends, because they live with the
+ * checkout: its landing pre-authorization and its landing queue entry. An
+ * unreadable checkout ends neither as far as anyone can tell.
+ */
+export async function checkoutRecordEnds(
+  path: string,
+): Promise<CheckoutRecordEnds> {
+  const recorded = async (
+    key: "effortGrant" | "submission",
+  ): Promise<boolean> => {
+    const file = await gitAdminStatePath(path, key);
+    return file !== undefined && await fileExists(file);
+  };
+  const [endsGrant, leavesQueue] = await Promise.all([
+    recorded("effortGrant"),
+    recorded("submission"),
+  ]);
+  return { endsGrant, leavesQueue };
+}
 
 /** Bind destructive review to changed content, including untracked files and symlinks. */
 async function removalState(path: string): Promise<string> {
@@ -209,5 +233,8 @@ export async function buildRemovalPlan(
       : {}),
     blockers,
     entries,
+    ...(match.snapshot === undefined
+      ? { endsGrant: false, leavesQueue: false }
+      : await checkoutRecordEnds(match.path)),
   };
 }

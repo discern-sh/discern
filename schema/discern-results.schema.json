@@ -25607,6 +25607,9 @@
                     "proof"
                   ]
                 },
+                "preview": {
+                  "$ref": "#/$defs/DiscernAcceptPreview"
+                },
                 "submission": {
                   "type": "object",
                   "properties": {
@@ -31846,6 +31849,172 @@
         "awaiting"
       ],
       "description": "The served decision moment of a retained integration composition: the receipt a continuation must name, the decision kind that continues it, and the checkpoint ids awaiting that decision."
+    },
+    "DiscernAcceptPreview": {
+      "title": "DiscernAcceptPreview",
+      "type": "object",
+      "properties": {
+        "lands": {
+          "type": "object",
+          "properties": {
+            "head": {
+              "type": "string"
+            },
+            "commits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "files": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "insertions": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "deletions": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "head",
+            "files",
+            "insertions",
+            "deletions"
+          ]
+        },
+        "integrates": {
+          "type": "object",
+          "properties": {
+            "behind": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "authority": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "authorized",
+                "conversation-required"
+              ],
+              "x-discern-vocabulary": "x-discern-landing-authority-kinds"
+            },
+            "source": {
+              "type": "string",
+              "x-discern-vocabulary": "x-discern-consent-sources"
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "covered_paths": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "uncovered_paths": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "kind",
+            "covered_paths",
+            "uncovered_paths"
+          ]
+        },
+        "queue_walk": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "effort": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "head": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "effort",
+              "branch",
+              "head"
+            ]
+          }
+        },
+        "landing_in_progress": {
+          "type": "object",
+          "properties": {
+            "effort": {
+              "type": "string"
+            },
+            "branch": {
+              "type": "string"
+            },
+            "head": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "effort",
+            "branch",
+            "head"
+          ]
+        },
+        "ignored_roots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ends_grant": {
+          "type": "boolean"
+        },
+        "leaves_queue": {
+          "type": "boolean"
+        },
+        "variances": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "standard_approvals": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "stale_declarations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "lands",
+        "authority",
+        "queue_walk",
+        "ends_grant",
+        "leaves_queue"
+      ],
+      "description": "What a landing preview found, as facts: the revision that lands with its commits and diff stats, whether the trunk moved so the landing composes first, its authority, the queue walk after it, a landing it waits behind, discarded ignored roots, the grant and queue entry it consumes, and owner decisions or fresh checks it still needs."
     },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",
