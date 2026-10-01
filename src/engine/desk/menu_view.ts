@@ -147,12 +147,53 @@ export function branchMenu(
   };
 }
 
-/** The command a launch runs, as the picker shows it. */
+/** The command a launch runs, as the picker describes it. */
 function launchCommand(launch: DeskAgentLaunch): string {
   return commandEvidence([launch.binary, ...launch.args]);
 }
 
-/** Each configured agent's launches, unavailable ones with their reason. */
+/** A launch named by what it does, and the sentence that says more. */
+function launchWords(
+  launch: DeskAgentLaunch,
+): { readonly label: string; readonly detail?: string } {
+  return launch.kind === "continue"
+    ? { label: "Continue", detail: "picks up the last conversation" }
+    : { label: "New session" };
+}
+
+/** Why a configured agent can't open, in a few words beside its name. */
+function unavailableWords(launch: DeskAgentLaunch): string {
+  return launch.reason?.includes("PATH") === true
+    ? "not on your PATH"
+    : "unavailable";
+}
+
+/** What opening an agent does to the window, and what it shares. */
+function agentFootnote(row: DeskRow): string {
+  const shared =
+    row.decision.collisions.flatMap((collision) =>
+      collision.kind === "changed_files"
+        ? [
+          `Shares ${
+            collision.paths[0] ?? "files"
+          } with ${collision.otherBranch}.`,
+        ]
+        : []
+    )[0];
+  const brief = row.entry.task?.brief === undefined
+    ? undefined
+    : "A new session starts with the task's brief.";
+  return [
+    "The agent takes over this window. Exit it to come back here.",
+    ...(shared === undefined ? [] : [shared]),
+    ...(brief === undefined ? [] : [brief]),
+  ].join(" ");
+}
+
+/**
+ * Each configured agent's launches, by what they do, with the remembered
+ * launch highlighted; agents that can't open are listed with why.
+ */
 export function agentsMenu(
   state: DeskProductState,
   taskId: string,
@@ -167,33 +208,70 @@ export function agentsMenu(
     launch.agent === state.preferences.last_agent &&
     launch.availability !== "disabled"
   );
+  const available = providers.filter((provider) =>
+    launches.some((launch) =>
+      launch.providerLabel === provider && launch.availability !== "disabled"
+    )
+  );
+  const unavailable = providers.flatMap((provider) => {
+    const launch = launches.find((candidate) =>
+      candidate.providerLabel === provider
+    );
+    return available.includes(provider) || launch === undefined ? [] : [{
+      id: `unavailable:${provider}`,
+      label: provider,
+      sentence: launch.reason ?? unavailableWords(launch),
+      words: unavailableWords(launch),
+    }];
+  });
+  // Continue first: it is what returning to a task usually wants.
+  const order = (launch: DeskAgentLaunch): number =>
+    launch.kind === "continue" ? 0 : 1;
   return {
     kind: "menu",
     id: "agents",
     scope: "item",
     title: `${DESK_ACTION_LABELS.agent} in ${ref.row.task.name}`,
     ...(remembered === undefined ? {} : { initialItemId: remembered.id }),
-    sections: providers.map((provider) => ({
+    sections: available.map((provider, index) => ({
       title: provider,
       items: launches.filter((launch) =>
         launch.providerLabel === provider && launch.availability !== "disabled"
-      ).map((launch) => ({
-        id: launch.id,
-        label: launch.label,
-        action: { kind: "launch", taskId, launch: launch.id },
-        detail: [{ text: launchCommand(launch), tone: "faint" as const }],
-      })),
-      unavailable: launches.filter((launch) =>
-        launch.providerLabel === provider && launch.availability === "disabled"
-      ).map((launch) => ({
-        id: launch.id,
-        label: launch.label,
-        sentence: launch.reason ?? `${launch.label} is unavailable.`,
-      })),
+      ).sort((left, right) => order(left) - order(right)).map((launch) => {
+        const words = launchWords(launch);
+        return {
+          id: launch.id,
+          label: words.label,
+          action: { kind: "launch", taskId, launch: launch.id },
+          ...(words.detail === undefined
+            ? {}
+            : { detail: [{ text: words.detail, tone: "faint" as const }] }),
+          description: [{ text: launchCommand(launch), tone: "faint" }],
+        };
+      }),
+      ...(index === available.length - 1 && unavailable.length > 0
+        ? {
+          unavailable: unavailable.map((item) => ({
+            id: item.id,
+            label: `${item.label}  ${item.words}`,
+            sentence: item.sentence,
+          })),
+        }
+        : {}),
     })),
-    footnote: [{
-      text: "The agent takes over this window. Exit it to come back here.",
-    }],
+    ...(available.length === 0 && unavailable.length > 0
+      ? {
+        unavailable: {
+          title: "Unavailable",
+          items: unavailable.map((item) => ({
+            id: item.id,
+            label: item.label,
+            sentence: item.sentence,
+          })),
+        },
+      }
+      : {}),
+    footnote: [{ text: agentFootnote(ref.row) }],
   };
 }
 
