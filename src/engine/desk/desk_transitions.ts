@@ -427,18 +427,58 @@ export function resurvey(state: DeskProductState): DeskTransition {
   };
 }
 
+/**
+ * What a message on the message line is about: the session tip, a return
+ * from a child the Desk lent the terminal to, the offline warning, or any
+ * other notice.
+ */
+export const DESK_MESSAGE_TOPICS = [
+  "tip",
+  "return",
+  "offline",
+  "notice",
+] as const;
+
+/** One message topic ({@linkcode DESK_MESSAGE_TOPICS}). */
+export type DeskMessageTopic = typeof DESK_MESSAGE_TOPICS[number];
+
+/** A message's id: its topic, then the serial that makes it unique. */
+export function deskMessageId(topic: DeskMessageTopic, serial: number): string {
+  return `${topic}-${serial}`;
+}
+
+/**
+ * The topic a message id leads with, for a reader that knows only the id,
+ * such as a state report naming the message on screen.
+ */
+export function deskMessageTopic(
+  id: string | undefined,
+): DeskMessageTopic | undefined {
+  const topic = id?.slice(0, id.lastIndexOf("-"));
+  return DESK_MESSAGE_TOPICS.find((candidate) => candidate === topic);
+}
+
 /** Show one message, replacing any message already shown. */
 export function toast(
   state: DeskProductState,
   tone: DeskMessage["tone"],
   text: string,
-  extra: Pick<DeskMessage, "mark" | "key" | "tip" | "tasks"> = {},
+  extra: Pick<DeskMessage, "mark" | "key" | "tasks"> & {
+    readonly topic?: DeskMessageTopic;
+  } = {},
 ): DeskProductState {
   const serial = state.serial + 1;
+  const { topic = "notice", ...rest } = extra;
   return {
     ...state,
     serial,
-    message: { id: `message-${serial}`, tone, text, ...extra },
+    message: {
+      id: deskMessageId(topic, serial),
+      topic,
+      tone,
+      text,
+      ...rest,
+    },
   };
 }
 

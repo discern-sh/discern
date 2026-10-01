@@ -397,7 +397,7 @@ realPtyTest({
             size,
             "pager-return",
             "the reader after the pager",
-            both(deskLayerOpen("reader-changes"), deskMessage("Back from")),
+            both(deskLayerOpen("reader-changes"), deskMessage("return")),
             { keys: ["escape"], allowLoneEscape: true },
           ),
           phase(size, undefined, "back at rest", deskAtRest(), {
@@ -443,21 +443,21 @@ realPtyTest({
             size,
             "escape-at-root",
             "the task at rest with its tip",
-            both(deskAtRest(task), deskMessage("Tip")),
+            both(deskAtRest(task), deskMessage("tip")),
             { keys: ["escape"], allowLoneEscape: true },
           ),
           phase(
             size,
             undefined,
             "the tip dismissed",
-            both(deskAtRest(task), (capture) => !deskMessage("Tip")(capture)),
+            both(deskAtRest(task), (capture) => !deskMessage("tip")(capture)),
             { keys: ["escape"], allowLoneEscape: true },
           ),
           phase(
             size,
             undefined,
             "the Escape answered",
-            both(deskAtRest(task), deskMessage("q quits")),
+            both(deskAtRest(task), deskMessage("notice")),
             { input: "." },
           ),
           phase(

@@ -27,6 +27,9 @@ import {
 } from "../src/engine/desk/desk_state.ts";
 import {
   DESK_LAYER_DEPTH,
+  DESK_MESSAGE_TOPICS,
+  deskMessageId,
+  deskMessageTopic,
   formValuesKey,
   open,
   parkedRowId,
@@ -135,6 +138,20 @@ Deno.test("one survey runs at a time and a refresh during one queues exactly one
   assertEquals(settled.state.survey.followUp, false);
 });
 
+Deno.test("every message's id names its topic, which a state report reader recovers", () => {
+  for (const topic of DESK_MESSAGE_TOPICS) {
+    assertEquals(deskMessageTopic(deskMessageId(topic, 12)), topic);
+  }
+  assertEquals(deskMessageTopic("operation-3"), undefined);
+  assertEquals(deskMessageTopic(undefined), undefined);
+  const tipped = deskProduct(observedDesk(survey([editing("alpha")])), {
+    kind: "tip",
+    tip: "Press `?` for keys",
+  }).state.message;
+  assertEquals(deskMessageTopic(tipped?.id), "tip");
+  assertEquals(tipped?.topic, "tip");
+});
+
 Deno.test("a failed survey retries once before the Desk says it is offline", () => {
   const live = observedDesk(survey([editing("alpha")]));
   const header = (state: DeskProductState): string =>
@@ -155,6 +172,7 @@ Deno.test("a failed survey retries once before the Desk says it is offline", () 
   assertStringIncludes(header(offline.state), "stale");
   const warning = offline.state.warning;
   assert(warning !== undefined);
+  assertEquals(deskMessageTopic(warning.id), "offline");
   assertEquals(warning.persistent, true);
   assertEquals(warning.key, { key: "r", label: "Retry" });
   assertStringIncludes(warning.text, "showing what was seen 2m ago");

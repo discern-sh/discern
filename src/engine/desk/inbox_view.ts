@@ -436,7 +436,7 @@ function messageLine(
       ascii: `${message.mark.ascii}  `,
       tone: message.tone === "muted" ? "faint" as const : message.tone,
     }]),
-    ...(message.tip === true
+    ...(message.topic === "tip"
       ? [
         { text: "Tip", tone: "faint" as const },
         { text: "   " },
@@ -455,7 +455,7 @@ function messageLine(
       ],
     }),
     ...(message.persistent === true ? {} : {
-      dismiss: message.tip === true
+      dismiss: message.topic === "tip"
         ? { onKey: true }
         : { afterMs: DESK_TOAST_MS, onKey: true },
     }),

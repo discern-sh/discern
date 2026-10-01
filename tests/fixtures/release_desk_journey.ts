@@ -68,13 +68,8 @@ export async function releaseDeskJourney(
     // asserted.
     const due = geometry.columns < 40 ? "check" : "check due";
     // The release information reader, once the page has been handed over:
-    // its loading line gives way to what the browser did. TODO(R-9): the
-    // state report doesn't say a reader's content is pending, so this reads
-    // the loading line's words.
-    const result = both(
-      deskLayerOpen("reader-opened"),
-      (capture) => !capture.text.includes("Opening the release page"),
-    );
+    // its loading line gives way to what the browser did.
+    const result = deskLayerReady("reader-opened");
     const leave = { keys: ["escape" as const], allowLoneEscape: true };
     const input: DeskTtyInputPhase[] = [
       phase(geometry, "empty", "the empty Desk", empty, { keys: ["ctrl-k"] }),

@@ -25,6 +25,7 @@ import {
   type DeskFrameTest,
   deskLandingAuthority,
   deskLayerOpen,
+  deskLayerReady,
   deskProof,
   deskSettledPhase,
   type DeskTtyInputPhase,
@@ -122,10 +123,7 @@ function confirmLanding(): DeskTtyInputPhase[] {
       SIZE,
       "land-review",
       "the landing review read, on its safe choice",
-      both(
-        deskFocused(REVIEW, "button:safe"),
-        (capture) => !capture.text.includes("Checking current state"),
-      ),
+      both(deskFocused(REVIEW, "button:safe"), deskLayerReady(REVIEW)),
       { keys: ["right"] },
     ),
     phase(

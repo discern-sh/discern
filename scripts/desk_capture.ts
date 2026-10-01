@@ -3,11 +3,11 @@
  * brief's sandbox fleet and projected by the package.
  *
  * Every phase waits for a settled package frame whose state report names the
- * screen (the selected row, the open layer, the focused control, zoom), so
- * the journeys survive copy changes. Words are read only for what the report
- * cannot say yet (a loading review or detail, a message, the header's
- * liveness; request R-9) and for data a journey typed or a fixture holds. The gallery is for visual judgment against
- * the mockups, not for screenshot comparison tests.
+ * screen (the selected row, the open layer and whether it waits, the focused
+ * control, zoom, the message on the message line, the header's liveness), so
+ * the journeys survive copy changes. Words are read only for data a journey
+ * typed or a fixture holds. The gallery is for visual judgment against the
+ * mockups, not for screenshot comparison tests.
  */
 import { assert, assertEquals } from "@std/assert";
 import { join, resolve } from "@std/path";
@@ -658,7 +658,7 @@ function offlineJourney(
       "offline",
       (capture) =>
         capture.state?.selectedItemId === GLOSSARY &&
-        capture.text.includes("Offline"),
+        capture.state.liveness === "stale",
       { effect: async () => await Deno.writeTextFile(config, saved) },
       text("q"),
     ),
@@ -677,7 +677,7 @@ function returnJourney(size: PtyGeometry): DeskTtyInputPhase[] {
       "back from the agent",
       (capture) =>
         capture.state?.selectedItemId === GLOSSARY &&
-        deskMessage("more files changed")(capture),
+        deskMessage("return")(capture),
       text("q"),
     ),
   ];

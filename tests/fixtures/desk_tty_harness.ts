@@ -23,6 +23,10 @@ import { completeGateFixture } from "../complete_gate_fixture.ts";
  */
 
 import { SYSTEM_CLOCK } from "../../src/shared/clock.ts";
+import {
+  type DeskMessageTopic,
+  deskMessageTopic,
+} from "../../src/engine/desk/desk_transitions.ts";
 import { ensureDir } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
@@ -1071,32 +1075,19 @@ interface ChildTerminalEvidence {
 /** What a settled frame must show before a phase's input goes in. */
 export type DeskFrameTest = (capture: TerminalFrameCapture) => boolean;
 
-/**
- * The words a frame shows while it waits on the Desk: a review still reading
- * its plan, and evidence or tasks still loading. TODO(R-9): the package's
- * state report does not say whether the top layer is loading or the detail
- * pending, so readiness reads these words; replace them with the report's
- * fields once it carries them.
- */
-const DESK_PENDING_WORDS = {
-  review: "Checking current state",
-  detail: ["Reading", "Loading"],
-} as const;
-
 /** The inbox at rest: a row selected, its evidence read, no layer open. */
 export function deskAtRest(id?: string): DeskFrameTest {
   return (capture) =>
     capture.state?.topLayerId === undefined &&
     capture.state?.selectedItemId !== undefined &&
     (id === undefined || capture.state.selectedItemId === id) &&
-    DESK_PENDING_WORDS.detail.every((word) => !capture.text.includes(word));
+    capture.state.detailPending !== true;
 }
 
 /** The selected item's details zoomed to fill the body, its evidence read. */
 export function deskZoomed(): DeskFrameTest {
   return (capture) =>
-    capture.state?.zoomed === true &&
-    DESK_PENDING_WORDS.detail.every((word) => !capture.text.includes(word));
+    capture.state?.zoomed === true && capture.state.detailPending !== true;
 }
 
 /** A project with no tasks: the empty body, its New task hint focused. */
@@ -1111,11 +1102,11 @@ export function deskLayerOpen(id: string): DeskFrameTest {
   return (capture) => capture.state?.topLayerId === id;
 }
 
-/** A review or form on top whose plan has arrived. */
+/** A layer on top that waits on nothing: a review's plan has arrived. */
 export function deskLayerReady(id: string): DeskFrameTest {
   return (capture) =>
     capture.state?.topLayerId === id &&
-    !capture.text.includes(DESK_PENDING_WORDS.review);
+    capture.state.topLayerPending === false;
 }
 
 /** Focus on one control of the top layer, such as `field:title`. */
@@ -1123,12 +1114,9 @@ export function deskFocused(layer: string, control: string): DeskFrameTest {
   return (capture) => capture.state?.focusedControlId === `${layer}:${control}`;
 }
 
-/**
- * The message line shows `text`. TODO(R-9): the package's state report
- * names no message, so this reads the frame's words.
- */
-export function deskMessage(text: string): DeskFrameTest {
-  return (capture) => capture.text.includes(text);
+/** The message line shows a message about `topic`. */
+export function deskMessage(topic: DeskMessageTopic): DeskFrameTest {
+  return (capture) => deskMessageTopic(capture.state?.messageId) === topic;
 }
 
 /**

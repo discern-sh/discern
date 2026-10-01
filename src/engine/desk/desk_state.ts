@@ -46,6 +46,8 @@ import {
   closeLayer,
   departureMessage,
   departures,
+  deskMessageId,
+  type DeskMessageTopic,
   formValuesKey,
   heldForOperations,
   layerId,
@@ -189,16 +191,19 @@ export type DeskLayer =
 
 /** One line on the message row. */
 export interface DeskMessage {
-  /** Unique per message, so a dismissal names exactly one. */
+  /**
+   * Unique per message, so a dismissal names exactly one; it leads with the
+   * message's topic ({@linkcode deskMessageId}).
+   */
   readonly id: string;
+  /** What the message is about. */
+  readonly topic: DeskMessageTopic;
   readonly tone: "success" | "warning" | "danger" | "muted" | "accent";
   readonly text: string;
   /** A leading glyph such as `!` or `←`. */
   readonly mark?: { readonly unicode: string; readonly ascii: string };
   /** A key hint at the far right, such as `r Retry`. */
   readonly key?: { readonly key: string; readonly label: string };
-  /** The session tip: the first key dismisses it. */
-  readonly tip?: boolean;
   /** Persistent warnings stay until their cause clears or Escape. */
   readonly persistent?: boolean;
   /**
@@ -717,7 +722,7 @@ function returnMessage(
     `Back from ${pending.label} · ${rowTitle(row)}: ${Math.abs(delta)} ${
       delta > 0 ? "more" : "fewer"
     } file${Math.abs(delta) === 1 ? "" : "s"} changed`,
-    { mark: DESK_GLYPHS.back },
+    { mark: DESK_GLYPHS.back, topic: "return" },
   );
 }
 
@@ -745,7 +750,8 @@ function observationFailed(
       ...next,
       serial,
       warning: {
-        id: state.warning?.id ?? `offline-${serial}`,
+        id: state.warning?.id ?? deskMessageId("offline", serial),
+        topic: "offline",
         tone: "warning",
         text: state.survey.observedAt === undefined
           ? "Couldn't read tasks"
@@ -999,6 +1005,7 @@ function returned(
   } else if (outcome.back !== undefined) {
     next = toast(next, "accent", `Back from ${outcome.back.label}`, {
       mark: DESK_GLYPHS.back,
+      topic: "return",
     });
   }
   if (outcome.back !== undefined) {
@@ -1256,7 +1263,7 @@ export function deskProduct(
     case "tip":
       return {
         state: toast({ ...state, tip: event.tip }, "muted", event.tip, {
-          tip: true,
+          topic: "tip",
         }),
         effects: [],
       };
