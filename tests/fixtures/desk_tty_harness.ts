@@ -72,6 +72,7 @@ import {
   gitAt,
   gitInit,
   gitOut,
+  gitWithInput,
   repoSourceRunArgs,
   runAgent,
   scaffoldEngine,
@@ -705,18 +706,26 @@ async function advanceMain(
   from: number,
   to: number,
 ): Promise<number> {
+  if (to <= from) return from;
+  // One fast-import writes every empty commit: hundreds of separate `git
+  // commit` processes were slow and could fail creating their temp files.
+  const branch = await gitOut(root, "symbolic-ref", "--short", "HEAD");
+  const committer = await gitOut(root, "var", "GIT_COMMITTER_IDENT");
+  const encoder = new TextEncoder();
+  const commits: string[] = [];
   for (let index = from; index < to; index += 1) {
-    await git(
-      root,
-      "commit",
-      "--allow-empty",
-      "-q",
-      "-m",
-      `Advance main ${index + 1}`,
-      "--no-gpg-sign",
+    const message = `Advance main ${index + 1}`;
+    commits.push(
+      `commit refs/heads/${branch}`,
+      `committer ${committer}`,
+      `data ${encoder.encode(message).length}`,
+      message,
+      ...(index === from ? [`from refs/heads/${branch}^0`] : []),
+      "",
     );
   }
-  return Math.max(from, to);
+  await gitWithInput(root, `${commits.join("\n")}\n`, "fast-import", "--quiet");
+  return to;
 }
 
 /** A quiet lifecycle context for fixture effects run through public cores. */

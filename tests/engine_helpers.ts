@@ -876,16 +876,30 @@ export async function gitAt(
   );
 }
 
+/**
+ * Run one hermetic git command that reads `input` on standard input, such as
+ * `git fast-import` writing many commits in one process.
+ */
+export async function gitWithInput(
+  dir: string,
+  input: string,
+  ...args: string[]
+): Promise<void> {
+  await gitWithEnvironment(dir, {}, args, input);
+}
+
 /** Run one hermetic git command with extra environment facts. */
 async function gitWithEnvironment(
   dir: string,
   environment: Readonly<Record<string, string>>,
   args: readonly string[],
+  input?: string,
 ): Promise<void> {
   const c = new Deno.Command("git", {
     args: [...args],
     cwd: dir,
     env: { ...GIT_ISOLATION, ...environment },
+    ...(input === undefined ? {} : { stdin: "piped" as const }),
     stdout: "null",
     stderr: "piped",
   });
@@ -901,10 +915,24 @@ async function gitWithEnvironment(
       ),
       () => c.output(),
     )
-    : await c.output();
+    : input === undefined
+    ? await c.output()
+    : await outputWithInput(c, input);
   if (!success) {
     throw new Error(`git ${args.join(" ")} failed: ${DECODER.decode(stderr)}`);
   }
+}
+
+/** Spawn `command`, write `input` to its standard input, and await it. */
+async function outputWithInput(
+  command: Deno.Command,
+  input: string,
+): Promise<Deno.CommandOutput> {
+  const child = command.spawn();
+  const writer = child.stdin.getWriter();
+  await writer.write(new TextEncoder().encode(input));
+  await writer.close();
+  return await child.output();
 }
 
 const fixtureWorktreeCreations = new Map<string, Promise<void>>();
