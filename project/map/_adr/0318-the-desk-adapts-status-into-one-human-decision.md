@@ -3,8 +3,9 @@
 > **Amendments.**
 >
 > - **[ADR 0398](0398-the-desk-is-a-live-human-control-panel.md) — presentation:** supersedes urgency grouping, recommendations, the transactional list/pick loop and scrollback-dependent boards with a bounded live application. Lifecycle truth, identity, action safety and consent remain in force.
+> - **[ADR 0414](0414-status-owns-the-row-state-vocabulary.md) — row-state vocabulary:** status owns the row states, labels, glyphs and groups that status, `discern enter` and the Desk render. The `DESK_STATE_BY_STATUS_KIND` mapping and the rule that a positive behind count recommends Update are removed from this record; honored Proof can still land behind the trunk. The single classifier is reaffirmed.
 
-**Status**: presentation superseded by [ADR 0398](0398-the-desk-is-a-live-human-control-panel.md); lifecycle and consent contracts retained; extends the Desk in [ADR 0119](0119-bare-discern-opens-the-operators-desk.md), consumes the Fleet row projection from [ADR 0255](0255-status-is-a-measured-responsive-dashboard.md), and preserves the landing-risk separation from [ADR 0281](0281-main-fleet-status-is-a-decision-brief.md).
+**Status**: presentation superseded by [ADR 0398](0398-the-desk-is-a-live-human-control-panel.md); row vocabulary amended by [ADR 0414](0414-status-owns-the-row-state-vocabulary.md); lifecycle and consent contracts retained; extends the Desk in [ADR 0119](0119-bare-discern-opens-the-operators-desk.md), consumes the Fleet row projection from [ADR 0255](0255-status-is-a-measured-responsive-dashboard.md), and preserves the landing-risk separation from [ADR 0281](0281-main-fleet-status-is-a-decision-brief.md).
 
 ## Context
 
@@ -18,10 +19,10 @@ The action menu and later renderers also need disabled reasons, recommendations,
 
 **Status classifies each Fleet row; the Desk adapts that classification into one complete `DeskDecision`.** The Desk does not probe Git, Proof, authority, activity, or collisions and does not implement another row-status precedence.
 
-- `presentFleetRow()` remains the canonical row classifier and compatibility adapter for the survey's complete `gate_proof` inspection. `DESK_STATE_BY_STATUS_KIND` exhaustively maps its closed kinds into `needs_attention`, `ready_to_review`, `working`, `paused`, or `empty`.
-- Changed-file and ADR collisions remain pairwise landing evidence rather than status kinds. A collision can place an otherwise ready or working row in `needs_attention` while retaining its original status kind in the decision.
+- `presentFleetRow()` remains the canonical row classifier and compatibility adapter for the survey's complete `gate_proof` inspection.
+- Changed-file and ADR collisions remain pairwise landing evidence rather than status kinds.
 - `DeskDecision` carries the state, source status kind, short headline, ordered factual details, human-decision flag, landing readiness, typed Proof, authority and collision facts, every action offer, and at most one recommendation. Renderers arrange those fields; they do not reinterpret raw status.
-- `DESK_ACTIONS` is the closed action vocabulary. Every decision contains every member exactly once as enabled or disabled. A disabled offer names one observed reason, and a recommendation can name only an enabled offer. A known positive behind count disables Accept and recommends Update.
+- `DESK_ACTIONS` is the closed action vocabulary. Every decision contains every member exactly once as enabled or disabled. A disabled offer names one observed reason, and a recommendation can name only an enabled offer.
 - Capability facts that only the Desk discovers, such as Project Scripts and available agent launchers, affect action availability but never redefine status. Containment can recommend reclaim while retaining the status-derived state.
 - The model is pure. Time, the trunk name, survey collisions, and Desk capabilities are inputs. Lifecycle cores still revalidate every mutation at execution time and remain authoritative when facts change after the survey.
 

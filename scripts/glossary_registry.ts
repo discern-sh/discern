@@ -93,8 +93,12 @@ export type GlossaryPlainRendering =
     match?: false;
   };
 
-/** How the term is cased when it names the product concept in running prose. */
-export type RunningProseCase = "lowercase" | "proof-family";
+/**
+ * How the term is cased when it names the product concept in running prose.
+ * An `interface-label` names words the product shows verbatim (a row state or
+ * group), so prose quotes it as displayed and no casing rule applies.
+ */
+export type RunningProseCase = "lowercase" | "proof-family" | "interface-label";
 
 /** One glossary entry: the canonical term and its display and matching data. */
 export interface GlossaryEntry {
@@ -159,6 +163,7 @@ export function runningProseCaseRules(
   const context = String.raw`(?:\b|_)[A-Za-z][\w-]*\s+`;
   const rules: RunningProseCaseRule[] = [];
   for (const entry of glossary) {
+    if (entry.runningCase === "interface-label") continue;
     if (entry.runningCase === "proof-family") {
       if (entry.term === "Proof") {
         rules.push({
@@ -361,6 +366,61 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: { phrase: "the agent's recorded no, with the reason" },
     definition:
       "Your agent's recorded answer that a change doesn't satisfy a checkpoint question, with its reason. The [gate](#gate) still runs. [Proof](#proof) carries the reason for you to review, and the change can't land until you approve a [variance](#variance). The reason stays in the Proof and, after landing, in the [Proof note](#proof-note), so it must hold no secrets. discern keeps the reason out of the [logbook](#logbook). If your agent fixes the problem, it can replace the answer with met.",
+  },
+  {
+    term: "Approved to land",
+    runningCase: "interface-label",
+    plain: {
+      keep:
+        "a label the product shows verbatim, in plain words already; prose quotes it as displayed",
+      match: false,
+    },
+    definition:
+      "The group of tasks whose checks passed and that a grant lets land without asking you again. A task here reads Approved, or Queued with its place in the landing queue once its agent submits it. A queued task lands with the next landing, or now if you land it yourself. `discern status`, `discern enter`, and the [desk](#desk) list this group after the tasks that need you. See [row states](../30-worktrees/status.md#row-states).",
+  },
+  {
+    term: "Wants to land",
+    runningCase: "interface-label",
+    plain: {
+      keep:
+        "a label the product shows verbatim, in plain words already; prose quotes it as displayed",
+      match: false,
+    },
+    definition:
+      "A task whose checks passed and whose agent asked to land it, so it waits only for your approval. It sits under Ready for review. Approve it in the conversation, and your agent runs `discern accept --confirmed`, or land it from the [desk](#desk). See [landing authority](../30-worktrees/landing-authority.md).",
+  },
+  {
+    term: "Exception",
+    runningCase: "interface-label",
+    plain: {
+      keep:
+        "a label the product shows verbatim, in plain words already; prose quotes it as displayed",
+      match: false,
+    },
+    definition:
+      "A decision only you can make before a task lands despite something its checks flagged: a [variance](#variance) for a checkpoint question its agent answered unmet, or your approval of a proposed change to a [standard](#standard)'s limit. A task waiting for one reads Exception under Ready for review. No grant covers an exception. Your agent hands you the exact `discern accept` command, with one `--variance` or `--approve-standard` for each decision. See [row states](../30-worktrees/status.md#row-states).",
+  },
+  {
+    term: "Didn't land",
+    runningCase: "interface-label",
+    plain: {
+      keep:
+        "a label the product shows verbatim, in plain words already; prose quotes it as displayed",
+      match: false,
+    },
+    definition:
+      "A task whose last `discern accept` failed, so nothing landed. It sits under Needs attention. Its agent fixes the cause, such as a conflict with newer work on the [trunk](#trunk) or a check that failed on the combined code, then runs `discern done` again before landing. See [row states](../30-worktrees/status.md#row-states).",
+  },
+  {
+    term: "Needs attention",
+    runningCase: "interface-label",
+    plain: {
+      keep:
+        "a label the product shows verbatim, in plain words already; prose quotes it as displayed",
+      match: false,
+    },
+    definition:
+      "The group of tasks that stopped and need someone to act: a failed or refused command, a setup or landing that didn't finish, a record discern can't read, or work nobody has touched for a week. Each row says what happened and who moves next. With Ready for review, it makes up the count of tasks that need you. See [row states](../30-worktrees/status.md#row-states).",
   },
   {
     term: "Variance",

@@ -10,16 +10,19 @@ aliases:
   - accept
   - advisory
   - agent file
+  - approved to land
   - checkpoint
   - coupling
   - declaration
   - declared met
   - declared unmet
   - desk
+  - didn't land
   - discern
   - discern version
   - effort
   - engine
+  - exception
   - file ownership
   - fleet
   - gate
@@ -35,6 +38,7 @@ aliases:
   - map
   - migration
   - namespace
+  - needs attention
   - open question
   - patterns
   - placement is consent
@@ -58,6 +62,7 @@ aliases:
   - trunk
   - update
   - variance
+  - wants to land
   - worktree
   - worktree resource
 ---
@@ -70,7 +75,7 @@ Look up a term used in the project or its documentation. Each definition links t
 
 These names are canonical — every page uses them identically, no synonyms ([ADR 0169](../_adr/0169-the-launch-glossary-canon.md)); running prose capitalizes Proof and its family only ([ADR 0373](../_adr/0373-proof-alone-carries-product-concept-capitals.md)). For how they relate, read [concepts](concepts.md).
 
-Jump to: [A](#accept) · [C](#checkpoint) · [D](#declaration) · [E](#effort) · [F](#file-ownership) · [G](#gate) · [I](#improvement-review) · [L](#landing-authority) · [M](#map) · [N](#namespace) · [O](#open-question) · [P](#patterns) · [Q](#question) · [S](#schema-version) · [T](#tidy) · [U](#update) · [V](#variance) · [W](#worktree)
+Jump to: [A](#accept) · [C](#checkpoint) · [D](#declaration) · [E](#effort) · [F](#file-ownership) · [G](#gate) · [I](#improvement-review) · [L](#landing-authority) · [M](#map) · [N](#namespace) · [O](#open-question) · [P](#patterns) · [Q](#question) · [S](#schema-version) · [T](#tidy) · [U](#update) · [V](#variance) · [W](#wants-to-land)
 
 ### Accept
 
@@ -83,6 +88,10 @@ Advice from discern about where to look, which never blocks your work. [Coupling
 ### Agent file
 
 An instruction file your coding agent reads when it works on your project. `discern refresh` writes one for each coding agent listed in `[project].agents`. Claude Code reads `CLAUDE.md`, Gemini reads `GEMINI.md`, and Codex, Cursor, and GitHub Copilot share `AGENTS.md`. Without that key, discern writes the files for Claude Code and Codex. Each file holds discern's built-in instructions, followed by your [instruction source](#instruction-source). When discern writes `AGENTS.md`, the other files import it instead of repeating it. Git tracks the files by default, so anyone who clones the project gets the same instructions. To change them, edit your instruction source and run `discern refresh`. The gate fails if an agent file no longer matches its source. See [agent instructions](../40-agent-instructions/).
+
+### Approved to land
+
+The group of tasks whose checks passed and that a grant lets land without asking you again. A task here reads Approved, or Queued with its place in the landing queue once its agent submits it. A queued task lands with the next landing, or now if you land it yourself. `discern status`, `discern enter`, and the [desk](#desk) list this group after the tasks that need you. See [row states](../30-worktrees/status.md#row-states).
 
 ### Checkpoint
 
@@ -108,6 +117,10 @@ Your agent's recorded answer that a change doesn't satisfy a checkpoint question
 
 The interactive view that opens when you run `discern` in your main checkout. It shows every task in progress and what you can do with each. `discern desk` opens it too, and both need an interactive terminal. Run from a task's worktree, either command points you back to the main checkout instead. From the desk you can see the [fleet](#fleet), start a task, and act on the selected worktree. You can also open any configured coding agent installed on your `PATH`. Actions that can't run yet appear as unavailable, with the reason. The desk is the only place you can pre-authorize a task to land once green, or revoke that grant. See [the desk](../30-worktrees/the-desk.md).
 
+### Didn't land
+
+A task whose last `discern accept` failed, so nothing landed. It sits under Needs attention. Its agent fixes the cause, such as a conflict with newer work on the [trunk](#trunk) or a check that failed on the combined code, then runs `discern done` again before landing. See [row states](../30-worktrees/status.md#row-states).
+
 ### discern
 
 A tool that lets you hand real work to coding agents and still decide what joins your project. It gives each task its own [worktree](#worktree) and runs your project's [gate](#gate) before a change counts as finished. It holds your quality limits, keeps what the project learns for later sessions, and lands a change only with permission. It's one self-contained program that needs only Git, and it has no AI model of its own. Your coding agent does the thinking and runs discern's commands.
@@ -123,6 +136,10 @@ One task, carried from its first edit through review until it lands. A [worktree
 ### Engine
 
 The part of discern that runs the everyday workflow inside a project. Its commands include `discern done`, `discern prepare`, `discern status`, `discern update`, and `discern accept`. The [installer](#installer) commands set a project up, and the engine's commands work inside it. Both parts are TypeScript, compiled into one program. The engine runs the jobs, scopes, standards, and worktree settings your project declares, so it works with any language or framework. It includes discern's formatter, [tidy](#tidy).
+
+### Exception
+
+A decision only you can make before a task lands despite something its checks flagged: a [variance](#variance) for a checkpoint question its agent answered unmet, or your approval of a proposed change to a [standard](#standard)'s limit. A task waiting for one reads Exception under Ready for review. No grant covers an exception. Your agent hands you the exact `discern accept` command, with one `--variance` or `--approve-standard` for each decision. See [row states](../30-worktrees/status.md#row-states).
 
 ### File ownership
 
@@ -183,6 +200,10 @@ A numbered step that updates your project's discern setup to a newer format. A s
 ### Namespace
 
 The folder that holds your project's own discern content, `discern/` by default. It holds the [map](#map), your [instruction source](#instruction-source), your own [skills](#skill) and [project scripts](#project-script), the project brief from setup, and the `TODO.md` list of deferred work. Everything in it belongs to your project. Configuration can move each of these except the brief, which stays at `discern/brief.md` ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). `discern.toml` stays at the project root.
+
+### Needs attention
+
+The group of tasks that stopped and need someone to act: a failed or refused command, a setup or landing that didn't finish, a record discern can't read, or work nobody has touched for a week. Each row says what happened and who moves next. With Ready for review, it makes up the count of tasks that need you. See [row states](../30-worktrees/status.md#row-states).
 
 ### Open question
 
@@ -275,6 +296,10 @@ Your project's shared branch, usually `main`, where finished changes land. `[rep
 ### Variance
 
 Your permission to land a change even though your agent answered a checkpoint question unmet. Only you can approve one, in the current conversation. General permission to land doesn't cover it, and neither does any grant. Your agent records your approval with `discern accept --confirmed --variance <id>`, naming every unmet checkpoint. The variance covers that exact [declaration](#declaration), its reason, and the commit that lands. The checkpoint keeps asking its question of later work. See [checkpoints](../20-quality-gate/checkpoints.md).
+
+### Wants to land
+
+A task whose checks passed and whose agent asked to land it, so it waits only for your approval. It sits under Ready for review. Approve it in the conversation, and your agent runs `discern accept --confirmed`, or land it from the [desk](#desk). See [landing authority](../30-worktrees/landing-authority.md).
 
 ### Worktree
 

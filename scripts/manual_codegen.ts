@@ -45,6 +45,7 @@ export const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
   "20-quality-gate/tidy.md": "guide-maintain-or-remove-discern",
   "30-worktrees/README.md": "explanation-worktrees-and-trunk",
   "30-worktrees/landing-authority.md": "explanation-proof",
+  "30-worktrees/status.md": "reference-worktrees-and-status#row-states",
   "30-worktrees/the-desk.md": "guide-coordinate-parallel-tasks",
   "30-worktrees/desk-tips.md": "guide-coordinate-parallel-tasks",
   "30-worktrees/the-resources.md":

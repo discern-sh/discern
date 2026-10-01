@@ -387,6 +387,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0410 — The public contract programme closes before the first tag](0410-the-public-contract-programme-closes-before-the-first-tag.md)
 - [0411 — Validation input identity streams complete bytes](0411-validation-input-identity-streams-complete-bytes.md)
 - [0412 — Site deployment composes website source with a released product snapshot](0412-site-deployment-composes-two-verified-snapshots.md)
+- [0414 — Status owns the row-state vocabulary](0414-status-owns-the-row-state-vocabulary.md)
 
 <!-- END GENERATED: current ADR records -->
 
