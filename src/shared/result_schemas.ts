@@ -1743,6 +1743,9 @@ const statusGitSchema = z.strictObject({
   clean: z.boolean(),
   /** Count of ordinary `git status --porcelain` entries. */
   changed_files: z.number(),
+  /** Count of those entries that change tracked content, staged or not.
+   * Untracked files are excluded: a landing refuses only on these. */
+  tracked_changes: z.number().optional(),
   behind_trunk: GitCountSchema.nullable(),
   /** Null when the trunk branch doesn't exist locally — there is nothing to
    * count against, and an honest null beats a fabricated 0. */

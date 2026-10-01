@@ -1026,11 +1026,14 @@ Deno.test("fleet activity derives current liveness and duration from event evide
           );
 
           const previewed = deriveFleetLogbookActivity(
-            [failed, ...["done", "accept"].map((verb, index): VerbEvent => ({
-              ...verbEventAt(at(index + 7)),
-              verb,
-              dry_run: true,
-            }))],
+            [
+              failed,
+              ...["done", "accept"].map((verb, index): VerbEvent => ({
+                ...verbEventAt(at(index + 7)),
+                verb,
+                dry_run: true,
+              })),
+            ],
             "current",
             now,
           ).byBranch.get("main");

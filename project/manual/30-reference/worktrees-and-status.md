@@ -200,7 +200,7 @@ Every task in the [fleet](glossary.md#fleet) is a separate [effort](glossary.md#
 
 #### Git and Proof states
 
-Ahead and behind counts are non-negative integers when known, and `"unknown"` after a failed or malformed count. `git.behind_trunk` is `null` in the main checkout, and when the trunk branch doesn't exist locally. `git.ahead_trunk` is `null` when the trunk branch doesn't exist locally. Missing evidence can't establish that a task is ready or that its work is contained elsewhere.
+Ahead and behind counts are non-negative integers when known, and `"unknown"` after a failed or malformed count. `git.behind_trunk` is `null` in the main checkout, and when the trunk branch doesn't exist locally. `git.ahead_trunk` is `null` when the trunk branch doesn't exist locally. Missing evidence can't establish that a task is ready or that its work is contained elsewhere. `git.clean` is Git's ordinary answer, so an untracked file makes it `false`; `git.tracked_changes` counts only changed tracked files, which are the only changes in the main checkout that stop a landing.
 
 Proof inspection reports `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored marker includes compact facts: the branch, the trunk, the validated commit, the diff counts, and the Proof line. Report-only evidence can't be used for landing. A valid Proof links the current clean commit, the worktree's own committed tip, to its complete evidence, and status never runs the gate to produce one. [Proof](../10-understand/proof.md#the-exact-commit-it-covers) explains what it covers.
 

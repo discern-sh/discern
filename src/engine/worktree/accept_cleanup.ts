@@ -8,7 +8,7 @@
  */
 
 import { commandEvidence } from "../../shared/command_evidence.ts";
-import { parsePorcelainZ } from "../../shared/git_paths.ts";
+import { isTrackedChange, parsePorcelainZ } from "../../shared/git_paths.ts";
 import { BUILT_IN_STEP_LABELS } from "../../shared/result.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { proofNoteOwed } from "../../shared/proof_note_recovery.ts";
@@ -106,7 +106,7 @@ export async function assertMainCheckoutReady(
   const mainBranch = mainBranchRun.stdout.trim() !== ""
     ? mainBranchRun.stdout.trim()
     : "(detached)";
-  if (parsePorcelainZ(mainStatus.stdout).length > 0) {
+  if (parsePorcelainZ(mainStatus.stdout).some(isTrackedChange)) {
     throw new WorktreeGitError(
       `Main checkout at ${mainRepo} has uncommitted tracked changes on '${mainBranch}'. Commit or stash them, then re-run \`discern accept\`; acceptance will not move your main-checkout work for you. Your worktree branch '${effort.branch}' is untouched and still holds all its commits.`,
     );

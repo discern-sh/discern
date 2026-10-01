@@ -328,6 +328,7 @@ export async function statusResult(
       trunk: mainBranch,
       clean: snap.clean,
       changed_files: snap.changedFiles,
+      tracked_changes: snap.trackedChanges,
       behind_trunk: behind,
       ahead_trunk: trunkExists ? snap.ahead : null,
       ...(overlapInfo !== undefined

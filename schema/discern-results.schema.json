@@ -22575,6 +22575,9 @@
                         "changed_files": {
                           "type": "number"
                         },
+                        "tracked_changes": {
+                          "type": "number"
+                        },
                         "behind_trunk": {
                           "anyOf": [
                             {

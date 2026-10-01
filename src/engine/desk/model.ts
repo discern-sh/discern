@@ -25,6 +25,7 @@ import type { FleetRowGroup } from "../../shared/fleet_row_vocabulary.ts";
 import {
   DESK_ACTION_LABELS,
   DESK_ACTIONS,
+  DESK_COMMAND_LABELS,
   type DeskAction,
   labelName,
 } from "../../shared/desk_vocabulary.ts";
@@ -420,12 +421,14 @@ export interface DeskObservationContext {
   readonly exceptionArgvs?: ReadonlyMap<string, readonly string[]>;
 }
 
-/** The main checkout's facts that decide whether a landing can start. */
+/** The main checkout's facts that decide whether a landing can start: the
+ * same preconditions acceptance checks before it moves the trunk. */
 export interface DeskMainCheckoutFacts {
-  /** False when tracked changes would make a landing refuse. */
-  readonly clean?: boolean;
-  /** True when generated files on main are out of date. */
-  readonly pendingRefresh: boolean;
+  /** Changed tracked paths, which a landing refuses on; untracked files
+   * never block it. Absent when the observation could not count them. */
+  readonly trackedChanges?: number;
+  /** The branch checked out there, when known; a landing needs the trunk. */
+  readonly branch?: string;
 }
 
 /** One selectable effort and its already-complete decision. */
@@ -693,14 +696,17 @@ function awaitedDeclarationReason(
     : undefined;
 }
 
-/** Landing refuses while main has tracked changes or stale generated files. */
+/** Landing refuses while the main checkout has tracked changes or another
+ * branch checked out; acceptance checks exactly these before it starts. */
 function mainCheckoutReason(facts: DeskActionFacts): string | undefined {
   const main = facts.mainCheckout;
-  if (main?.clean === false) {
-    return `${facts.trunk} has uncommitted tracked changes, so landing would refuse. Clean it first from Main checkout.`;
+  const place = labelName(DESK_COMMAND_LABELS.main_checkout);
+  if (main?.trackedChanges !== undefined && main.trackedChanges > 0) {
+    return `The main checkout has uncommitted tracked changes, so landing would refuse. Commit or stash them first; ${place} shows them.`;
   }
-  return main?.pendingRefresh === true
-    ? `${facts.trunk} has generated files out of date, so landing would refuse. Refresh them first from Main checkout.`
+  return main?.branch !== undefined && main.branch !== "" &&
+      main.branch !== facts.trunk
+    ? `The main checkout is on ${main.branch}, not ${facts.trunk}, so landing would refuse. Switch it back to ${facts.trunk} first.`
     : undefined;
 }
 
@@ -1730,13 +1736,18 @@ export async function deskExceptionArgvs(
   );
 }
 
-/** The main-checkout facts that decide whether landing can start. */
+/** The main-checkout facts that decide whether landing can start. A clean
+ * checkout has no tracked changes; an older observation without the tracked
+ * count leaves it unknown rather than counting untracked files. */
 export function deskMainCheckoutFacts(
-  data: Pick<StatusData, "git" | "pending_tracked_refresh">,
+  data: Pick<StatusData, "git">,
 ): DeskMainCheckoutFacts {
+  const git = data.git;
+  if (git === undefined || git === null) return {};
+  const trackedChanges = git.tracked_changes ?? (git.clean ? 0 : undefined);
   return {
-    ...(data.git?.clean === undefined ? {} : { clean: data.git.clean }),
-    pendingRefresh: (data.pending_tracked_refresh?.length ?? 0) > 0,
+    ...(trackedChanges === undefined ? {} : { trackedChanges }),
+    ...(git.branch === "" ? {} : { branch: git.branch }),
   };
 }
 

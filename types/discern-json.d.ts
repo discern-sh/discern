@@ -5608,6 +5608,7 @@ export type DiscernStatusResult = DiscernResultState & {
       trunk: string;
       clean: boolean;
       changed_files: number;
+      tracked_changes?: number;
       behind_trunk: number | "unknown" | null;
       ahead_trunk: number | "unknown" | null;
       incoming_overlap?: Array<string>;

@@ -2,6 +2,7 @@
 
 import { join } from "@std/path";
 import {
+  isTrackedChange,
   parsePorcelainZ,
   type PorcelainEntry,
 } from "../../shared/git_paths.ts";
@@ -24,6 +25,8 @@ export interface GitSnapshot {
   clean: boolean;
   /** Count of changed paths reported by porcelain status. */
   changedFiles: number;
+  /** Count of changed tracked paths, the changes a landing refuses on. */
+  trackedChanges: number;
   /** Commits on HEAD not yet in the integration branch. */
   ahead: GitCount;
   /** Commits on the integration branch not yet in HEAD. */
@@ -109,6 +112,7 @@ export async function inspectGitSnapshot(
       branch,
       clean: dirtyEntries.length === 0,
       changedFiles: dirtyEntries.length,
+      trackedChanges: dirtyEntries.filter(isTrackedChange).length,
       ahead,
       behind,
       ...(lastActivity !== undefined ? { lastActivity } : {}),

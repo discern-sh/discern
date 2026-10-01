@@ -10,6 +10,7 @@ import { configSchema } from "../src/shared/config_schema.ts";
 import {
   GATE_PROOF_CHECK_STATUSES,
   type GateProofCheckStatus,
+  type StatusData,
   type StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
@@ -28,6 +29,7 @@ import {
   type DeskConsequenceMark,
   type DeskDecision,
   deskExceptionArgvs,
+  deskMainCheckoutFacts,
   taskLabel,
 } from "../src/engine/desk/model.ts";
 import { presentFleetRow } from "../src/engine/status/fleet_rows.ts";
@@ -1495,30 +1497,71 @@ Deno.test("Land hands owner exceptions to the CLI and waits for a landable main"
   }
 
   const proven = { ahead: 1, gate_proof: { status: "honored" as const } };
-  const dirtyMain = decide(proven, {
-    mainCheckout: { clean: false, pendingRefresh: false },
-  });
-  const staleMain = decide(proven, {
-    mainCheckout: { clean: true, pendingRefresh: true },
-  });
-  for (
-    const [decision, reason] of [
-      [dirtyMain, "main has uncommitted tracked changes"],
-      [staleMain, "main has generated files out of date"],
-    ] as const
-  ) {
+  const mainGit = (patch: Partial<NonNullable<StatusData["git"]>>) =>
+    deskMainCheckoutFacts({
+      git: {
+        branch: "main",
+        trunk: "main",
+        clean: true,
+        changed_files: 0,
+        tracked_changes: 0,
+        behind_trunk: 0,
+        ahead_trunk: 0,
+        ...patch,
+      },
+    });
+  const refusals = [
+    [
+      "tracked changes",
+      mainGit({ clean: false, changed_files: 1, tracked_changes: 1 }),
+      "The main checkout has uncommitted tracked changes",
+    ],
+    [
+      "another branch",
+      mainGit({ branch: "spike" }),
+      "The main checkout is on spike, not main",
+    ],
+  ] as const;
+  for (const [name, mainCheckout, reason] of refusals) {
+    const decision = decide(proven, { mainCheckout });
     const accept = offer(decision, "accept");
-    assert(accept.availability === "disabled");
-    assertStringIncludes(accept.reason, reason);
+    assert(accept.availability === "disabled", name);
+    assertStringIncludes(accept.reason, reason, name);
     assertEquals(
       offer(decision, "submit").availability,
       "enabled",
-      "queueing records the version without touching main",
+      `${name}: queueing records the version without touching main`,
     );
   }
-  assertEquals(
-    offer(decide(proven, { mainCheckout: { pendingRefresh: false } }), "accept")
-      .availability,
-    "enabled",
-  );
+  // Acceptance refuses only on tracked changes and the checked-out branch:
+  // an untracked file, or generated files a landing refreshes afterwards,
+  // never block it.
+  for (
+    const [name, mainCheckout] of [
+      [
+        "an untracked file",
+        mainGit({ clean: false, changed_files: 1, tracked_changes: 0 }),
+      ],
+      [
+        "an older observation of a clean checkout",
+        deskMainCheckoutFacts({
+          git: {
+            branch: "main",
+            trunk: "main",
+            clean: true,
+            changed_files: 0,
+            behind_trunk: 0,
+            ahead_trunk: 0,
+          },
+        }),
+      ],
+      ["no observation", {}],
+    ] as const
+  ) {
+    assertEquals(
+      offer(decide(proven, { mainCheckout }), "accept").availability,
+      "enabled",
+      name,
+    );
+  }
 });

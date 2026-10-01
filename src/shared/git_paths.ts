@@ -97,6 +97,12 @@ export interface PorcelainEntry {
   origPath?: string;
 }
 
+/** Whether a porcelain entry is a change to tracked content: staged or
+ * unstaged, never an untracked (`??`) or ignored (`!!`) path. */
+export function isTrackedChange(entry: PorcelainEntry): boolean {
+  return entry.status !== "??" && entry.status !== "!!";
+}
+
 /**
  * Parse `git status --porcelain=v1 -z` output. Each record is `XY <path>`;
  * a rename/copy record (`R`/`C` in either status column) is followed by ONE

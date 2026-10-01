@@ -17,7 +17,10 @@ import type {
   StatusFleetEntry,
   StatusWireData,
 } from "../src/shared/result_schemas.ts";
-import { buildDeskDecision } from "../src/engine/desk/model.ts";
+import {
+  buildDeskDecision,
+  deskMainCheckoutFacts,
+} from "../src/engine/desk/model.ts";
 import { gitSnapshot, readySentinelPath } from "../src/engine/worktree/git.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
@@ -591,6 +594,31 @@ Deno.test("a pristine worktree beside a dirty main checkout raises the divergenc
     await Deno.writeTextFile(join(wt, "real-work.txt"), "here\n");
     const cleared = await statusJson(wt);
     assertLacksHint(cleared, HINTS["silent-worktree-divergence"], params);
+
+    // The stray file is untracked: Git calls the main checkout unclean, but
+    // landing refuses only on tracked changes, so the desk still offers it.
+    const proven: StatusFleetEntry = {
+      path: wt,
+      branch: "agent/aimed-here",
+      is_main: false,
+      is_current: false,
+      clean: true,
+      ahead: 1,
+      gate_proof: { status: "honored" },
+    };
+    const landing = async (): Promise<[number | undefined, string]> => {
+      const main = (await statusJson(dir)).data;
+      const decision = buildDeskDecision(proven, {
+        trunk: "main",
+        nowMs: SYSTEM_CLOCK.wallNow(),
+        mainCheckout: deskMainCheckoutFacts(main),
+      });
+      const land = decision.actions.find((offer) => offer.action === "accept");
+      return [main.git?.tracked_changes, land?.availability ?? "missing"];
+    };
+    assertEquals(await landing(), [0, "enabled"]);
+    await git(dir, "add", "misplaced-edit.txt");
+    assertEquals(await landing(), [1, "disabled"]);
   });
 });
 
