@@ -131,7 +131,7 @@ import {
   unboundCompositionRefusal,
 } from "./accept_support.ts";
 import { walkQueue } from "./accept_walk.ts";
-import { recordSteps, stepStarted } from "../plan_steps.ts";
+import { recordSteps, reportStep, stepStarted } from "../plan_steps.ts";
 import {
   cloneLandingConsent,
   recordLandingProofNote,
@@ -531,6 +531,8 @@ async function buildAcceptPlan(
         } Acceptance will not remove this worktree until the merge check can run.`,
       );
     }
+    const boundary = BUILT_IN_STEP_LABELS.trackedRefreshLandingBoundary;
+    stepStarted(boundary);
     const trackedRefresh = await planTrackedRefresh(
       effort.path,
       effort.ctx.config,
@@ -539,8 +541,10 @@ async function buildAcceptPlan(
       trackedRefresh.unavailable !== undefined ||
       trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0
     ) {
+      reportStep(boundary, "failed");
       throw new WorktreeGitError(trackedRefreshAcceptRefusal(trackedRefresh));
     }
+    reportStep(boundary, "finished");
   }
   const ignoredFileChanges = await inspectIgnoredFileChanges(
     effort.path,

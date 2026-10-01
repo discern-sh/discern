@@ -35,7 +35,10 @@ import {
   type StepResult,
   verbatimStepLabel,
 } from "../src/shared/result.ts";
-import { addWorktree, gitInit, scaffoldEngine } from "./engine_helpers.ts";
+import { addWorktree, git, gitInit, scaffoldEngine } from "./engine_helpers.ts";
+import { acceptLandingResult } from "../src/engine/worktree/accept.ts";
+import { finishResult } from "../src/engine/gate/finish.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { withTempDir } from "./helpers.ts";
 
 /** Collect every step fact `work` reports, in order. */
@@ -213,6 +216,58 @@ Deno.test("plan steps: every step Park records reached its observers as it settl
         step.state === "started"
       ),
       "the removal reports when it begins",
+    );
+  });
+});
+
+Deno.test("plan steps: every step a direct landing plans reaches its observers", async () => {
+  await withTempDir(async (directory) => {
+    const root = await Deno.realPath(directory);
+    await scaffoldEngine(root);
+    await gitInit(root);
+    const worktree = await addWorktree(root, "landing-task");
+    const marker = await readySentinelPath(worktree);
+    assert(marker !== undefined);
+    await Deno.mkdir(dirname(marker), { recursive: true });
+    await Deno.writeTextFile(marker, "");
+    await Deno.writeTextFile(join(worktree, "landed.txt"), "landed\n");
+    await git(worktree, "add", "-A");
+    await git(worktree, "commit", "-q", "-m", "Land a file", "--no-gpg-sign");
+    const proven = await finishResult(worktree, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
+    assert(proven.ok, proven.message);
+    const ctx = await lifecycleContext(
+      worktree,
+      new Logger({ json: true, noColor: true }),
+    );
+    const request = {
+      target: worktree,
+      confirmed: true,
+      variance: [],
+      approveStandard: [],
+      met: [],
+      cliModel: TEST_CLI_MODEL,
+    };
+    const preview = await acceptLandingResult(ctx, {
+      ...request,
+      dryRun: true,
+    });
+    assert(preview.ok && preview.plan !== undefined, preview.message);
+    const { value, steps } = await stepsOf(() =>
+      acceptLandingResult(ctx, { ...request, dryRun: false })
+    );
+    assert(value.ok, value.message);
+    const unreported = preview.plan.steps.filter((planned) =>
+      !steps.some((step) =>
+        step.label === planned.label && step.state !== "started"
+      )
+    ).map((planned) => planned.label);
+    assertEquals(
+      unreported,
+      [],
+      "the progress shows every planned step as it settles, none inferred",
     );
   });
 });
