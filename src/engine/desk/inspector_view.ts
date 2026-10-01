@@ -154,6 +154,19 @@ export function checkoutPathRuns(path: string, root: string): ApplicationRun[] {
   return [{ text: `/${first}/…/${last}`, ascii: `/${first}/.../${last}` }];
 }
 
+/**
+ * The faint line under a task's title: its branch, without the prefix every
+ * task branch shares. A branch named `<prefix><id>` reads as its id, which
+ * fits the inspector where the whole ref would be cut; View changes shows
+ * the whole branch.
+ */
+export function branchLine(branch: string, id: string): string {
+  if (branch === "") return id;
+  return id !== "" && branch.length > id.length && branch.endsWith(id)
+    ? id
+    : branch;
+}
+
 /** The Checks fact: the run in progress, the failed run, or the Proof. */
 function checksFact(
   row: DeskRow,
@@ -672,7 +685,7 @@ export function taskBlocks(
       kind: "heading",
       title: row.task.name,
       aside: [{
-        text: entry.branch === "" ? deskRowId(row) : entry.branch,
+        text: branchLine(entry.branch, deskRowId(row)),
         tone: "faint",
       }],
     },
@@ -733,7 +746,11 @@ function taskTail(
             label: "Path",
             value: [checkoutPathRuns(entry.path, inspection.root)],
           },
-          { label: "Id", value: [[{ text: deskRowId(row) }]] },
+          // The id is the checkout's own folder name, which Path already
+          // ends with; it shows only when it differs.
+          ...(entry.path.split("/").at(-1) === deskRowId(row)
+            ? []
+            : [{ label: "Id", value: [[{ text: deskRowId(row) }]] }]),
           ...(entry.task?.created_from === undefined ? [] : [{
             label: "From",
             value: [[{

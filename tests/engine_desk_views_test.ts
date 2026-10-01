@@ -12,6 +12,7 @@ import {
   validateTerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import {
+  branchLine,
   checkoutPathRuns,
   proofLineBlock,
 } from "../src/engine/desk/inspector_view.ts";
@@ -423,6 +424,58 @@ Deno.test("a checkout's path reads short in the inspector and whole in View chan
     env,
   ).layers?.[0];
   assertStringIncludes(said(reading), worktree);
+});
+
+Deno.test("a task's identifier shows once under its title and once in its path", () => {
+  assertEquals(branchLine("agent/tidy-b8c9d0", "tidy-b8c9d0"), "tidy-b8c9d0");
+  assertEquals(branchLine("feature/login", "tidy-b8c9d0"), "feature/login");
+  assertEquals(branchLine("", "tidy-b8c9d0"), "tidy-b8c9d0");
+  const id = "tidy-scripts-b8c9d0";
+  const state = desk(
+    statusData([
+      mainFleetEntry(),
+      fleetEntry({ id, branch: `agent/${id}`, path: `/work/project/${id}` }),
+    ]),
+  );
+  const view = deskView(state, { ...PRODUCT_UI, selected: id }, ENV);
+  assert(view.body.kind === "master-detail");
+  const blocks = view.body.detail.content[id] ?? [];
+  const heading = blocks[0];
+  assert(heading?.kind === "heading");
+  assertEquals(heading.aside, [{ text: id, tone: "faint" }]);
+  const identity = blocks.find((block) =>
+    block.kind === "section" && block.title === "Identity"
+  );
+  assert(identity?.kind === "section");
+  const labels = identity.blocks.flatMap((block) =>
+    block.kind === "facts" ? block.rows.map((row) => row.label) : []
+  );
+  assertEquals(labels, ["Path"], "the id is the path's own last name");
+  const reading = deskView(
+    open(state, {
+      kind: "reader",
+      reader: {
+        kind: "changes",
+        taskId: id,
+        load: {
+          state: "ready",
+          value: {
+            trunk: "main",
+            proof: { status: "honored" },
+            commits: "",
+            files: [],
+            insertions: 0,
+            deletions: 0,
+            failures: [],
+            diffCommand: "git diff main...HEAD",
+          },
+        },
+      },
+    }).state,
+    PRODUCT_UI,
+    ENV,
+  ).layers?.[0];
+  assertStringIncludes(said(reading), `agent/${id}`);
 });
 
 Deno.test("the keys reader groups each meaning's keys into one readable row", () => {

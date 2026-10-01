@@ -463,9 +463,15 @@ function changesBlocks(
           ? []
           : [{ label: "Landing", value: [[{ text: authority }]] }]),
         { label: "Changes", value: [totals] },
-        // The inspector shortens it; here it is whole, to copy.
+        // The inspector shortens both; here they are whole, to copy.
         ...(ref?.kind === "task"
-          ? [{ label: "Path", value: [[{ text: ref.row.entry.path }]] }]
+          ? [
+            { label: "Path", value: [[{ text: ref.row.entry.path }]] },
+            ...(ref.row.entry.branch === "" ? [] : [{
+              label: "Branch",
+              value: [[{ text: ref.row.entry.branch }]],
+            }]),
+          ]
           : []),
       ],
     },
