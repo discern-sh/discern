@@ -1036,25 +1036,39 @@ async function packageInteractionRuntime(
   };
 }
 
-type PackageInteractionOperation<Options, Value> = (
+type PackageInteractionOperation<
+  Options,
+  Value,
+  Extra extends readonly unknown[],
+> = (
   options: Options,
   runtime: PackageInteractionRuntime,
+  ...extra: Extra
 ) => Promise<Value>;
 
-/** Run every public request through one cancellation and restoration boundary. */
-async function runInteractionRequest<Options, Value>(
-  operation: PackageInteractionOperation<Options, Value>,
+/**
+ * Run every public request through one cancellation and restoration
+ * boundary. Arguments after the session options reach the package request
+ * after its runtime, as its own handlers do.
+ */
+async function runInteractionRequest<
+  Options,
+  Value,
+  Extra extends readonly unknown[] = [],
+>(
+  operation: PackageInteractionOperation<Options, Value, Extra>,
   options: Options,
   runtime: TerminalInteractionRuntime,
   sessionOptions: PackageInteractionSessionOptions = {
     leadingBoundary: true,
     terminateUnexpectedFrame: true,
   },
+  ...extra: Extra
 ): Promise<Value> {
   const session = await packageInteractionRuntime(runtime, sessionOptions);
   let outcome = "value";
   try {
-    return await operation(options, session.runtime);
+    return await operation(options, session.runtime, ...extra);
   } catch (error) {
     if (error instanceof PackageInteractionCancelled) {
       outcome = "cancelled";
@@ -1186,8 +1200,7 @@ export async function requestMarkdownBrowser<Action>(
   const answers = packageMarkdownBrowserHandlers(handlers.respond, entries);
   try {
     const result = await runInteractionRequest(
-      (packageOptions: PackageMarkdownBrowserOptions<Action>, session) =>
-        packageRequestMarkdownBrowser(packageOptions, session, answers),
+      packageRequestMarkdownBrowser<Action>,
       packageMarkdownBrowserOptions(options, entries),
       runtime,
       {
@@ -1198,6 +1211,7 @@ export async function requestMarkdownBrowser<Action>(
             ? `refused:${error.reason}`
             : undefined,
       },
+      answers,
     );
     return productMarkdownBrowserResult(result, entries);
   } catch (error) {
