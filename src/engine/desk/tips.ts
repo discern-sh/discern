@@ -65,6 +65,9 @@ export function tipPredicateHolds(
       return efforts(ctx).some((entry) => entry.contained_in !== undefined);
     case "fleet-min-size":
       return efforts(ctx).length >= predicate.min;
+    case "parked-branch":
+      return (ctx.data.parked_tasks?.length ?? 0) > 0 ||
+        (ctx.data.unlanded_branches?.length ?? 0) > 0;
   }
 }
 

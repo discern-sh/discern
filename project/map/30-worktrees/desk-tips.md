@@ -11,7 +11,7 @@ aliases:
 
 _Each desk session reserves one quiet teaching line._
 
-The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). It shows on the message line at first and clears with the first key; **Tip of the session** in the command palette opens its full text. The package fits that line within the viewport. Narrow fitting and redraws do not select or record another tip.
+The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). It shows on the message line once the first survey lands and clears with the first key; **Tip of the session** in the command palette's Help section opens its full text. The package fits that line within the viewport. Narrow fitting and redraws do not select or record another tip.
 
 ## How the tip is chosen
 
@@ -30,7 +30,7 @@ Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the logboo
 
 ## What a tip may say
 
-Tips educate about capability; alarms about state belong to the task's visible status and `discern status`. Every action remains available without its tip. A tip that names a desk control quotes its registered label from the [desk vocabulary](../../../src/shared/desk_vocabulary.ts), so a relabel reaches the tips; the [label guard](../../../tests/engine_desk_label_guard_test.ts) refuses a typed copy and any quoted name that is not a control. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener teaches the inbox: groups by next decision, Enter for the next step, `.` for every action, and Ctrl+K for any command.
+Tips educate about capability; alarms about state belong to the task's visible status and `discern status`. Every action remains available without its tip. A tip that names a desk control quotes its registered label from the [desk vocabulary](../../../src/shared/desk_vocabulary.ts), so a relabel reaches the tips; the [label guard](../../../tests/engine_desk_label_guard_test.ts) refuses a typed copy and any quoted name that is not a control. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener teaches the inbox: groups by next decision, Enter for the next step, `.` for every action, and Ctrl+K for any command. The desk lessons after the basics teach the actions menu with its unavailable reasons, the palette's search, Space to zoom the details, **Parked branches** with **Resume…** (only while a branch is kept without a checkout), and the opt-in mouse.
 
 ## Where it lives in code
 

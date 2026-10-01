@@ -58,6 +58,66 @@ Rendered line:
 
 > `discern enter` opens another working copy at the same project-relative folder in a child shell. Exit it to return.
 
+## `desk-actions-menu`
+
+- Relevance: At least one task is in flight.
+- Predicate: `fleet-min-size`
+- Since: —
+- Teaches: `desk`
+- Follow-through: —
+
+Rendered line:
+
+> Press . (or Right) on a task to list every action with its key, including the ones that can't run yet and why.
+
+## `desk-command-palette`
+
+- Relevance: Evergreen — the desk's second lesson.
+- Predicate: —
+- Since: —
+- Teaches: `desk`
+- Follow-through: —
+
+Rendered line:
+
+> Ctrl+K searches every desk command, task, and parked branch, with the tasks that need you listed first.
+
+## `desk-zoom-details`
+
+- Relevance: At least one task is in flight.
+- Predicate: `fleet-min-size`
+- Since: —
+- Teaches: `desk`
+- Follow-through: —
+
+Rendered line:
+
+> Space shows the selected task's details full screen; Up and Down move between tasks there, and Escape returns.
+
+## `desk-parked-branches`
+
+- Relevance: A branch is kept without a checkout.
+- Predicate: `parked-branch`
+- Since: —
+- Teaches: `desk`, `worktrees`
+- Follow-through: —
+
+Rendered line:
+
+> "Parked branches" in Ctrl+K lists branches kept without a checkout. "Resume…" gives one a checkout again, with its title and brief.
+
+## `desk-mouse-opt-in`
+
+- Relevance: Evergreen — the desk's final lesson.
+- Predicate: —
+- Since: —
+- Teaches: `desk`
+- Follow-through: —
+
+Rendered line:
+
+> "Turn mouse on" in Ctrl+K lets clicks and the wheel move through the desk. Shift-drag still selects text.
+
 ## `prepare-fast-feedback`
 
 - Relevance: Evergreen — the daily loop opener.

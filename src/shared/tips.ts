@@ -27,7 +27,7 @@ import {
   positional,
   renderCommandRefsCli,
 } from "./command_reference.ts";
-import { DESK_ACTION_LABELS } from "./desk_vocabulary.ts";
+import { DESK_ACTION_LABELS, DESK_COMMAND_LABELS } from "./desk_vocabulary.ts";
 
 /** A Desk label as a tip quotes it: in double quotes, exactly as shown. */
 function quoted(label: string): string {
@@ -99,7 +99,9 @@ export type TipPredicate =
   /** Some effort's work is already contained in another live branch. */
   | Readonly<{ kind: "contained-worktree" }>
   /** At least `min` efforts are in flight. */
-  | Readonly<{ kind: "fleet-min-size"; min: number }>;
+  | Readonly<{ kind: "fleet-min-size"; min: number }>
+  /** Some branch is kept without a checkout: parked, or never landed. */
+  | Readonly<{ kind: "parked-branch" }>;
 
 /**
  * A data-only declaration of what observable action a shown tip invites,
@@ -262,6 +264,65 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.enter} opens another working copy at the same ` +
       "project-relative folder in a child shell. Exit it to return.",
+  }),
+
+  // ── The desk: every control is a key away from the task list. ──────────
+
+  defineTip({
+    id: "desk-actions-menu",
+    when: "At least one task is in flight.",
+    predicate: { kind: "fleet-min-size", min: 1 },
+    features: ["desk"],
+    example: undefined,
+    template: (): string =>
+      "Press . (or Right) on a task to list every action with its key, " +
+      "including the ones that can't run yet and why.",
+  }),
+
+  defineTip({
+    id: "desk-command-palette",
+    when: "Evergreen — the desk's second lesson.",
+    features: ["desk"],
+    example: undefined,
+    template: (): string =>
+      "Ctrl+K searches every desk command, task, and parked branch, with " +
+      "the tasks that need you listed first.",
+  }),
+
+  defineTip({
+    id: "desk-zoom-details",
+    when: "At least one task is in flight.",
+    predicate: { kind: "fleet-min-size", min: 1 },
+    features: ["desk"],
+    example: undefined,
+    template: (): string =>
+      "Space shows the selected task's details full screen; " +
+      "Up and Down move between tasks there, and Escape returns.",
+  }),
+
+  defineTip({
+    id: "desk-parked-branches",
+    when: "A branch is kept without a checkout.",
+    predicate: { kind: "parked-branch" },
+    features: ["desk", "worktrees"],
+    example: undefined,
+    template: (): string =>
+      `${quoted(DESK_COMMAND_LABELS.parked)} in Ctrl+K lists branches kept ` +
+      `without a checkout. ${
+        quoted(DESK_COMMAND_LABELS.resume)
+      } gives one a checkout again, with its title and brief.`,
+  }),
+
+  defineTip({
+    id: "desk-mouse-opt-in",
+    when: "Evergreen — the desk's final lesson.",
+    features: ["desk"],
+    example: undefined,
+    template: (): string =>
+      `${
+        quoted(DESK_COMMAND_LABELS.mouse)
+      } in Ctrl+K lets clicks and the wheel move through the desk. ` +
+      "Shift-drag still selects text.",
   }),
 
   // ── Daily loop: get fast feedback before the final Proof. ───────────────
