@@ -2,6 +2,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { stripAnsi } from "discern-design-system/cli";
+import { encodeTerminalKeys } from "discern-design-system/cli/interactive/testing";
 import {
   inspectReleaseCheck,
   releaseReminderDue,
@@ -78,6 +79,12 @@ export async function releaseDeskJourney(
         "check due",
         "/ find",
       ], "\r"),
+      // The browser opens only after the disclosure's explicit Open.
+      phase(
+        "confirm",
+        ["Check for updates?", "Nothing is installed"],
+        encodeTerminalKeys("tab", "down", "enter"),
+      ),
       ...(geometry.rows <= 10
         ? [
           phase("reader", ["Release information", "Esc back"], "\x1b[6~"),

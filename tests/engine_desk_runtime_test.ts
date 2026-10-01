@@ -3240,6 +3240,43 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
     },
     {
       name:
+        "Check for updates asks before it opens a browser, and Cancel opens nothing",
+      check: async () => {
+        const output = transcript();
+        const choices = ["releases", QUIT];
+        const asked: Array<{
+          message: string;
+          options: ConfirmationRequestOptions;
+        }> = [];
+        let opened = 0;
+        assertEquals(
+          await runDesk(
+            {},
+            scriptedRuntime(output, {
+              select: () => choices.shift() ?? QUIT,
+              confirm: (message, options) => {
+                asked.push({ message, options });
+                return false;
+              },
+              openBrowser: () => {
+                opened++;
+                throw new Error("a declined disclosure must open nothing");
+              },
+            }),
+          ),
+          0,
+        );
+        assertEquals(asked, [{
+          message: "Check for updates?",
+          options: { defaultTo: false, noLabel: "Cancel", yesLabel: "Open" },
+        }]);
+        assertEquals(opened, 0);
+        assertStringIncludes(joined(output), "Nothing is installed");
+        assertStringIncludes(joined(output), DISCERN_VERSION);
+      },
+    },
+    {
+      name:
         "desk suspends into the shared manual and returns without a success pause",
       check: async () => {
         for (const code of [0, 1]) {

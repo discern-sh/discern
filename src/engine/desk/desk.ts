@@ -126,6 +126,7 @@ import {
   type DeskAction,
   type DeskActionOffer,
   type DeskAgentLaunch,
+  type DeskConfirmationPolicy,
   deskExceptionArgvs,
   deskObservation,
   type DeskRow,
@@ -174,6 +175,11 @@ import {
   type DeskReviewFile,
 } from "./contracts.ts";
 import { liveDesk } from "./live.ts";
+import {
+  commandConsequenceLines,
+  DESK_COMMAND_REGISTRY,
+  type DeskCommand,
+} from "./commands.ts";
 import type { DeskChoice } from "./application_view.ts";
 import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
 import { renderResultReading } from "../../shared/emit.ts";
@@ -414,6 +420,39 @@ function configuredEditorCommand(
   editor: string | undefined = Deno.env.get("EDITOR")?.trim(),
 ): string | undefined {
   return visual || editor;
+}
+
+/**
+ * Ask before a desk command whose registry declares a confirmation, showing
+ * every consequence the command declares. True only when the person chose
+ * the command's effect button; a command without a confirmation runs.
+ */
+async function confirmCommand(
+  command: DeskCommand,
+  data: StatusData,
+  runtime: DeskRuntime,
+): Promise<boolean> {
+  const policy: DeskConfirmationPolicy =
+    DESK_COMMAND_REGISTRY[command].confirmation;
+  if (policy.kind === "none") return true;
+  const facts = {
+    data,
+    version: DISCERN_VERSION,
+    ...(data.git?.trunk === undefined ? {} : { trunk: data.git.trunk }),
+  };
+  return await runtime.screen({
+    title: labelName(DESK_COMMAND_LABELS[command]),
+    source: commandConsequenceLines(command, facts)
+      .map((line) => `- ${deskLiteral(line.text)}`).join("\n"),
+    confirmation: {
+      question: `${labelName(DESK_COMMAND_LABELS[command])}?`,
+      options: {
+        defaultTo: false,
+        noLabel: policy.noLabel,
+        yesLabel: policy.yesLabel,
+      },
+    },
+  }) === "apply";
 }
 
 /** Review the authoritative plan with a locally scrollable reading region. */
@@ -2540,6 +2579,7 @@ export async function runDesk(
             case "recent":
               return await showRecentCompleted(root, data, runtime);
             case "releases": {
+              if (!await confirmCommand("updates", data, runtime)) return;
               const result = await executeDeskOperation(root, {
                 command: "releases",
               }, () =>
