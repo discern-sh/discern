@@ -25,7 +25,7 @@ import {
 } from "../../shared/desk_vocabulary.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
 import { proofHuman, queueHuman, relativeAge } from "../status/row_facts.ts";
-import { DESK_KEYS, type DeskKeyBinding } from "./keys.ts";
+import { DESK_KEYS, type DeskKeyBinding, JUMP_GROUP_READS } from "./keys.ts";
 import { deskRowId } from "./model.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
 import type { DeskChangesEvidence } from "./contracts.ts";
@@ -83,13 +83,17 @@ function loaded<T>(
   return blocks(load.value);
 }
 
-/** Bindings with one meaning, collected per label in key-map order. */
+/**
+ * Bindings with one meaning, collected per label in key-map order; an
+ * alternative the reader leaves to the manual is skipped.
+ */
 function keyItems(
   bindings: readonly DeskKeyBinding[],
   label: (binding: DeskKeyBinding) => string | undefined,
 ): { key: string[]; label: string }[] {
   const items: { key: string[]; label: string }[] = [];
   for (const binding of bindings) {
+    if (binding.listed === false) continue;
     const words = label(binding);
     if (words === undefined) continue;
     const existing = items.find((item) => item.label === words);
@@ -105,8 +109,21 @@ function keysReader(state: DeskProductState): ApplicationReader<DeskIntent> {
   const gesture = (names: readonly string[]) => (binding: DeskKeyBinding) =>
     binding.meaning.kind === "gesture" &&
       names.includes(binding.meaning.gesture)
-      ? binding.meaning.label
+      ? binding.meaning.reads ?? binding.meaning.label
       : undefined;
+  // Parked's key is the number after the groups', so it reads with them.
+  const parkedJump = (binding: DeskKeyBinding) =>
+    binding.meaning.kind === "command" && binding.meaning.command === "parked"
+      ? JUMP_GROUP_READS
+      : undefined;
+  const either = (
+    ...labels: ((binding: DeskKeyBinding) => string | undefined)[]
+  ) =>
+  (binding: DeskKeyBinding) =>
+    labels.reduce<string | undefined>(
+      (found, label) => found ?? label(binding),
+      undefined,
+    );
   const section = (
     title: string,
     items: { key: string[]; label: string }[],
@@ -122,33 +139,31 @@ function keysReader(state: DeskProductState): ApplicationReader<DeskIntent> {
     title: DESK_COMMAND_LABELS.keys,
     columns: 2,
     blocks: [
-      section(
-        "Move",
-        keyItems(
-          DESK_KEYS.inbox,
-          gesture([
-            "move",
-            "first",
-            "last",
-            "next-group",
-            "jump-group",
-            "details",
-            "page",
-          ]),
-        ),
-      ),
-      section("Act", [
+      section("Move", [
+        ...keyItems(DESK_KEYS.inbox, gesture(["move"])),
         ...keyItems(
           DESK_KEYS.inbox,
-          gesture(["next-step", "actions", "filter", "palette", "dismiss"]),
+          gesture(["next-group", "previous-group"]),
         ),
+        ...keyItems(
+          DESK_KEYS.inbox,
+          either(gesture(["jump-group"]), parkedJump),
+        ),
+        ...keyItems(DESK_KEYS.inbox, gesture(["first", "last"])),
+        ...keyItems(DESK_KEYS.inbox, gesture(["details", "page"])),
+      ]),
+      section("Act", [
+        ...keyItems(DESK_KEYS.inbox, gesture(["next-step", "actions"])),
+        ...keyItems(DESK_KEYS.inbox, gesture(["filter", "palette"])),
         ...keyItems(
           DESK_KEYS.inbox,
           (binding) =>
-            binding.meaning.kind === "command"
+            binding.meaning.kind === "command" &&
+              parkedJump(binding) === undefined
               ? DESK_COMMAND_LABELS[binding.meaning.command]
               : undefined,
         ),
+        ...keyItems(DESK_KEYS.inbox, gesture(["dismiss"])),
       ]),
       section(
         "Task",
@@ -561,8 +576,24 @@ function changesKeys(
   ];
 }
 
+/** What Escape does in a reader, in the key map's words. */
+const READER_ESCAPE = ((): string => {
+  const meaning = DESK_KEYS.reader.find((binding) => binding.key === "escape")
+    ?.meaning;
+  return meaning?.kind === "gesture" ? meaning.label : "Close";
+})();
+
 /** One reader layer. */
 export function deskReader(
+  state: DeskProductState,
+  reader: DeskReaderSubject,
+  env: DeskReaderEnv,
+): ApplicationReader<DeskIntent> {
+  return { ...readerLayer(state, reader, env), escapeLabel: READER_ESCAPE };
+}
+
+/** One reader layer's contents. */
+function readerLayer(
   state: DeskProductState,
   reader: DeskReaderSubject,
   env: DeskReaderEnv,

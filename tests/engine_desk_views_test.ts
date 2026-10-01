@@ -47,6 +47,7 @@ import {
   toggleLabel,
 } from "../src/engine/desk/header_view.ts";
 import { deskRowId } from "../src/engine/desk/model.ts";
+import { DESK_KEYS } from "../src/engine/desk/keys.ts";
 import { actionsMenu } from "../src/engine/desk/menu_view.ts";
 import { taskEvidenceSubject } from "../src/engine/desk/evidence.ts";
 import type { DeskReview } from "../src/engine/desk/flow_types.ts";
@@ -484,19 +485,63 @@ Deno.test("the keys reader groups each meaning's keys into one readable row", ()
     { kind: "reader", reader: { kind: "keys" } },
   ).state;
   const frame = render(deskView(state, PRODUCT_UI, ENV), 80, 60);
-  // Arrow pairs touch, other one-cell keys stand a space apart, a run of
-  // digits reads as a range, and wider names keep the slash.
+  // Arrow pairs touch, other one-cell keys stand a space apart, and a run
+  // of digits reads as a range, Parked's key with the groups'. The package
+  // still joins keys wider than a cell with a slash (TODO(R-21)).
   for (
     const row of [
       /↑↓ k j\s+Move\b/u,
+      /Tab[ /]⇧Tab\s+Next or previous group\b/u,
+      /1–6\s+Jump to a group\b/u,
+      /Home[ /]End\s+First or last row\b/u,
+      /Space\s+Zoom details\b/u,
+      /PgUp[ /]PgDn\s+Scroll details\b/u,
       /→ \.\s+Actions\b/u,
-      /1–5\s+Go to group\b/u,
-      /\^K\/:\s+Commands\b/u,
-      /←→\s+Buttons\b/u,
+      /\^K[ /]:\s+Commands\b/u,
+      / q\s+Quit\b/u,
+      /Esc\s+Clear filter, leave zoom\b/u,
+      /←→\s+Move between buttons\b/u,
+      /Esc\s+The safe choice\b/u,
+      /d[ /]\^T\s+Technical plan\b/u,
+      /Esc Close\b/u,
     ]
   ) {
     assert(row.test(frame), `${row} in\n${frame}`);
   }
+  // Alternatives left to the manual keep each row short.
+  for (const left of ["⇧↑", "^C"]) {
+    assert(!frame.includes(left), `${left} in\n${frame}`);
+  }
+});
+
+Deno.test("the keys reader lists every key the inbox and a review answer to", () => {
+  const view = deskView(
+    open(desk(statusData([mainFleetEntry(), task({ ahead: 2 })])), {
+      kind: "reader",
+      reader: { kind: "keys" },
+    }).state,
+    PRODUCT_UI,
+    ENV,
+  );
+  const reader = view.layers?.[0];
+  assert(reader?.kind === "reader");
+  const listed = new Set(
+    reader.blocks.flatMap((block) =>
+      block.kind === "section"
+        ? block.blocks.flatMap((inner) =>
+          inner.kind === "hints"
+            ? inner.items.flatMap((item) =>
+              typeof item.key === "string" ? [item.key] : [...item.key]
+            )
+            : []
+        )
+        : []
+    ),
+  );
+  const missing = DESK_KEYS.inbox.filter((binding) =>
+    binding.listed !== false && !listed.has(binding.key)
+  ).map((binding) => binding.key);
+  assertEquals(missing, [], "every inbox key the reader doesn't list");
 });
 
 Deno.test("an open layer leaves the inspector beneath it whole", () => {
