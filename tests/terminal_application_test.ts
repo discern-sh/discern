@@ -26,6 +26,7 @@ import {
   applicationView,
   consumerApplication,
 } from "./fixtures/terminal_application.ts";
+import { assertTerminalTextIncludes } from "./helpers.ts";
 
 Deno.test("application policy refuses before effects and preserves package capability refusal", async () => {
   const io = new FakeTerminalIO([], { interactive: false });
@@ -65,7 +66,7 @@ Deno.test("application updates, availability and foreground return share the pro
   );
   assertEquals(children, 1);
   assertEquals(state.lists.actions?.selectedId, "quit");
-  assertStringIncludes(
+  assertTerminalTextIncludes(
     captureTerminalFrame(io.output(), io.size()).text,
     "Refresh complete",
   );

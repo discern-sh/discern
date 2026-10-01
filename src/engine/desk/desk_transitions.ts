@@ -285,7 +285,7 @@ export function departureMessage(
 }
 
 /**
- * Why a layer's subject can no longer be acted on, once it left the inbox:
+ * Why a layer's subject that left the inbox can't be acted on:
  * `<title> is gone: <reason>`.
  */
 export function goneSentence(

@@ -138,7 +138,7 @@ function policy(step: DeskFlowStep): DeskConfirmationPolicy {
     : DESK_COMMAND_REGISTRY[step.command].confirmation;
 }
 
-/** Why a step can no longer run: its task left the inbox while asked. */
+/** Why a step can't run: its task left the inbox while its sheet was open. */
 function gone(
   state: DeskProductState,
   step: DeskFlowStep,
