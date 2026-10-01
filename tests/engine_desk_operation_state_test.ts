@@ -380,6 +380,57 @@ Deno.test("a survey adopted while an operation runs shows the tasks it changes a
   );
 });
 
+Deno.test("a landing's success takes what it landed out of the list at once and keeps its message", () => {
+  const two = observedDesk(
+    productSurvey([
+      editingTask("alpha"),
+      editingTask("beta"),
+      editingTask("gamma"),
+    ]),
+  );
+  const started = confirmed(
+    reviewed(two, actionStep("accept")),
+    actionStep("accept"),
+  ).state;
+  const done = settle(started, {
+    command: "discern accept --target agent/alpha --confirmed",
+    ok: true,
+    message: {
+      tone: "success",
+      text: "Landed Alpha on main · Beta landed too",
+    },
+    left: [
+      { taskId: "alpha", title: "Alpha", reason: "landed" },
+      { taskId: "beta", title: "Beta", reason: "landed" },
+    ],
+  }).state;
+  assertEquals(
+    done.rows.map((row) => row.entry.id),
+    ["gamma"],
+    "no Land… offer stays on a task that landed",
+  );
+  assertEquals(done.message?.text, "Landed Alpha on main · Beta landed too");
+  for (const itemId of ["alpha", "beta"]) {
+    const moved = deskProduct(done, {
+      kind: "selection-moved",
+      itemId,
+      move: { kind: "removed", replacement: "gamma" },
+    }).state;
+    assertEquals(moved.message, done.message, `${itemId}'s move says nothing`);
+  }
+  // The next survey is the truth: what it lists, the list shows.
+  const surveyed = deskProduct(done, {
+    kind: "observed",
+    generation: done.survey.generation,
+    now: PRODUCT_NOW + 70_000,
+    data: productSurvey([editingTask("beta"), editingTask("gamma")]),
+    hints: [],
+    exceptionArgvs: new Map(),
+  }).state;
+  assertEquals(surveyed.rows.map((row) => row.entry.id), ["beta", "gamma"]);
+  assertEquals(surveyed.message, done.message);
+});
+
 Deno.test("a row its own operation moves keeps the operation's message", () => {
   const started = confirmed(landing(), actionStep("accept")).state;
   const regrouped = deskProduct(started, {

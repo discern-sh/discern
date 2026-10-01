@@ -895,10 +895,11 @@ async function landingJourney(target: DeskGalleryTarget): Promise<string[]> {
       STANDARD,
       "toast",
       "the landing's message",
-      // Once a survey after both landings reads: no row is landing.
+      // The success message itself (not the Landed group's fold row), with
+      // no row still landing.
       (capture) =>
         capture.state?.topLayerId === undefined &&
-        capture.text.includes("Landed") &&
+        capture.text.includes("✓  Landed Manual concision") &&
         !capture.text.includes("Landing") &&
         capture.state?.selectedItemId !== MANUAL,
       text("q"),

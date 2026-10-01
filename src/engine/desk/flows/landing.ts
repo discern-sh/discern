@@ -22,6 +22,7 @@ import {
   deskExceptionArgvs,
   deskObservation,
   type DeskRow,
+  deskRowId,
 } from "../model.ts";
 import { taskTitleOf } from "../desk_transitions.ts";
 import type { DeskPlanFacts } from "../review_facts.ts";
@@ -211,14 +212,32 @@ const ACCEPT_FLOW: DeskFlow = {
     // The queue walk lands what followed it; say which landed too.
     const walked = (result?.data?.landings ?? []).filter((landing) =>
       !landing.selected && landing.status === "landed"
-    ).map((landing) => taskTitleOf(context.state, landing.branch));
-    return succeeded(
-      command,
-      [
-        `Landed ${row.task.name} on ${context.config.repository.trunk}`,
-        ...walked.map((title) => `${title} landed too`),
-      ].join(" · "),
-    );
+    ).map((landing) => landing.branch);
+    const left = [
+      row,
+      ...walked.flatMap((branch) => {
+        const follower = context.state.rows.find((candidate) =>
+          candidate.entry.branch === branch
+        );
+        return follower === undefined ? [] : [follower];
+      }),
+    ].map((landed) => ({
+      taskId: deskRowId(landed),
+      title: landed.task.name,
+      reason: "landed" as const,
+    }));
+    return {
+      ...succeeded(
+        command,
+        [
+          `Landed ${row.task.name} on ${context.config.repository.trunk}`,
+          ...walked.map((branch) =>
+            `${taskTitleOf(context.state, branch)} landed too`
+          ),
+        ].join(" · "),
+      ),
+      left,
+    };
   },
 };
 

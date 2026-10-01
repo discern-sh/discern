@@ -231,6 +231,15 @@ export interface DeskOutcome {
   readonly reading?: string;
   /** The agent it opened, which the session remembers from now on. */
   readonly lastAgent?: AgentName;
+  /** The tasks it took out of the inbox, and why, such as a landing's. */
+  readonly left?: readonly DeskLeftTask[];
+}
+
+/** One task an effect took out of the inbox. */
+export interface DeskLeftTask {
+  readonly taskId: string;
+  readonly title: string;
+  readonly reason: "landed" | "parked" | "removed";
 }
 
 /** A terminal owner that returned, and the task it worked in. */

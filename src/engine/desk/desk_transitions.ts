@@ -344,11 +344,15 @@ export function observedRows(
     new Map(),
     deskObservation(data, { trunk: state.trunk, nowMs: now, exceptionArgvs }),
   );
-  return rows.map((row) => {
-    const capabilities = state.capabilities.get(deskRowId(row));
-    return capabilities === undefined
-      ? row
-      : withDeskCapabilities(row, capabilities, now);
+  return rows.flatMap((row) => {
+    const id = deskRowId(row);
+    if (state.gone.has(id)) return [];
+    const capabilities = state.capabilities.get(id);
+    return [
+      capabilities === undefined
+        ? row
+        : withDeskCapabilities(row, capabilities, now),
+    ];
   });
 }
 
@@ -428,7 +432,7 @@ export function toast(
   state: DeskProductState,
   tone: DeskMessage["tone"],
   text: string,
-  extra: Pick<DeskMessage, "mark" | "key" | "tip" | "taskId"> = {},
+  extra: Pick<DeskMessage, "mark" | "key" | "tip" | "tasks"> = {},
 ): DeskProductState {
   const serial = state.serial + 1;
   return {

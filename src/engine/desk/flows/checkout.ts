@@ -131,10 +131,17 @@ const DROP_FLOW: DeskFlow = {
         next: step,
       };
     }
-    return succeeded(
-      command,
-      `Dropped ${row.task.name}; its last commit is kept for a while`,
-    );
+    return {
+      ...succeeded(
+        command,
+        `Dropped ${row.task.name}; its last commit is kept for a while`,
+      ),
+      left: [{
+        taskId: deskRowId(row),
+        title: row.task.name,
+        reason: "removed",
+      }],
+    };
   },
 };
 
@@ -216,6 +223,8 @@ interface CheckoutEffect {
   /** What it is called while it runs, and the success message, for the task's title. */
   readonly running: (title: string) => string;
   readonly done: (title: string) => string;
+  /** Why the task leaves the inbox once it has run, when it does. */
+  readonly leaves?: "parked" | "removed";
 }
 
 /** What a removal's plan subject ends, as review facts. */
@@ -258,7 +267,16 @@ function checkoutEffectFlow(effect: CheckoutEffect): DeskFlow {
       const { row, offer } = stepOffer(context, step, effect.action);
       const ctx = await lifecycle(context, row.entry.path);
       await effect.run(context.runtime, ctx, row.entry.path);
-      return succeeded(offerCommand(offer), effect.done(row.task.name));
+      return {
+        ...succeeded(offerCommand(offer), effect.done(row.task.name)),
+        ...(effect.leaves === undefined ? {} : {
+          left: [{
+            taskId: deskRowId(row),
+            title: row.task.name,
+            reason: effect.leaves,
+          }],
+        }),
+      };
     },
   };
 }
@@ -271,6 +289,7 @@ const PARK_FLOW = checkoutEffectFlow({
   run: async (runtime, ctx, path) => await runtime.park(ctx, path),
   running: (title) => `Parking ${title}`,
   done: (title) => `Parked ${title}; its branch is kept`,
+  leaves: "parked",
 });
 
 /** Reclaim: the contained checkout's removal with what it ends. */
@@ -281,6 +300,7 @@ const RECLAIM_FLOW = checkoutEffectFlow({
   run: async (runtime, ctx, path) => await runtime.reclaim(ctx, path),
   running: (title) => `Reclaiming ${title}'s checkout`,
   done: (title) => `Reclaimed ${title}'s checkout; its branch is kept`,
+  leaves: "removed",
 });
 
 /** Retry setup: the setup plan, then setup from the step that failed. */

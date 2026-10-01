@@ -28,6 +28,7 @@ import type {
   DeskChild,
   DeskChildReturn,
   DeskFlowStep,
+  DeskLeftTask,
   DeskOutcome,
   DeskResultSheet,
   DeskReview,
@@ -201,10 +202,11 @@ export interface DeskMessage {
   /** Persistent warnings stay until their cause clears or Escape. */
   readonly persistent?: boolean;
   /**
-   * The task an operation's outcome concerns: while this message shows, a
-   * move its row makes because of that outcome says nothing more.
+   * The tasks an operation's outcome concerns, such as a landing and the
+   * queued tasks that landed with it: while this message shows, a move
+   * their rows make because of that outcome says nothing more.
    */
-  readonly taskId?: string;
+  readonly tasks?: readonly string[];
 }
 
 /** One effect or child this session ran, for Session activity and exit. */
@@ -312,6 +314,11 @@ export interface DeskProductState {
   readonly tip?: string;
   readonly activity: readonly DeskActivity[];
   readonly departed: ReadonlyMap<string, DeskDeparture>;
+  /**
+   * Tasks a finished operation took out of the inbox, kept out of the list
+   * until the next survey reads the fleet as it left it.
+   */
+  readonly gone: ReadonlySet<string>;
   readonly pendingReturn?: DeskPendingReturn;
   /** A checkout an effect created, selected once a survey lists it. */
   readonly pendingSelect?: string;
@@ -602,6 +609,7 @@ export function initialDeskProduct(options: {
     preferences: options.preferences,
     activity: [],
     departed: new Map(),
+    gone: new Set(),
     operations: new Map(),
     manual: { state: "loading" },
     serial: 0,
@@ -638,11 +646,13 @@ function observed(
     return { state, effects: [] };
   }
   const data = heldForOperations(state, event.data);
-  const rows = observedRows(state, data, event.exceptionArgvs, event.now);
+  // The survey reads the fleet as finished operations left it.
+  const fresh = { ...state, gone: new Set<string>() };
+  const rows = observedRows(fresh, data, event.exceptionArgvs, event.now);
   // Layers stay as the owner left them: a layer whose subject left the inbox
   // says so until the owner closes it.
   let next: DeskProductState = {
-    ...state,
+    ...fresh,
     data,
     hints: event.hints,
     rows,
@@ -791,7 +801,7 @@ function selectionMoved(
   // A row this session's own operation moves already has its message.
   if (
     taskOperation(state, event.itemId) !== undefined ||
-    state.message?.taskId === event.itemId
+    state.message?.tasks?.includes(event.itemId) === true
   ) return { state, effects: [] };
   if (event.move.kind === "removed") {
     const departure = state.departed.get(event.itemId);
@@ -1129,9 +1139,15 @@ function operationSettled(
   });
   if (shown) next = closeLayer(next, "progress");
   const effects: DeskEffect[] = [];
-  const about = operation.taskId === undefined
-    ? {}
-    : { taskId: operation.taskId };
+  const left = ended === "done" ? outcome.left ?? [] : [];
+  const tasks = [
+    ...(operation.taskId === undefined ? [] : [operation.taskId]),
+    ...left.map((task) => task.taskId),
+  ];
+  const about = tasks.length === 0 ? {} : { tasks: [...new Set(tasks)] };
+  // What it took out of the inbox leaves the list at once, so no offer
+  // stays on a landed task and the selection moves once.
+  next = leaving(next, left);
   if (ended === "stopped") {
     next = toast(
       next,
@@ -1176,6 +1192,24 @@ function operationSettled(
   }
   const survey = resurvey(next);
   return { state: survey.state, effects: [...effects, ...survey.effects] };
+}
+
+/**
+ * Take the tasks a finished operation reports gone out of the list until
+ * the next survey, remembering why for the sheets and menus that name them.
+ */
+function leaving(
+  state: DeskProductState,
+  left: readonly DeskLeftTask[],
+): DeskProductState {
+  if (left.length === 0) return state;
+  const departed = new Map(state.departed);
+  const gone = new Set(state.gone);
+  for (const task of left) {
+    departed.set(task.taskId, { title: task.title, reason: task.reason });
+    gone.add(task.taskId);
+  }
+  return withRows({ ...state, departed, gone });
 }
 
 /** Advance the product state by one event. */
