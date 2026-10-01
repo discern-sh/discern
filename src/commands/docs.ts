@@ -1364,6 +1364,8 @@ type RichDocsBrowseDisposition = number | "fallback";
  * Run the package browser, opening each page a reader asks for once the
  * terminal is restored and resuming where they were.
  */
+// TODO(R-7): answer a chosen page in place, as the Desk's manual does, once
+// a standalone browser request takes a respond handler.
 async function browseRichly(
   request: DocsBrowserRequest,
   log: Logger,
