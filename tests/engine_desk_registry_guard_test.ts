@@ -348,6 +348,25 @@ Deno.test("Desk registry guard: next steps", () => {
           }
         }
       },
+    "a decision the landing cores always refuse is never offered from the desk":
+      () => {
+        const owed = TABLE_ROWS.filter((row) =>
+          row.state === "exception" ||
+          row.context?.integration?.judgment?.decision === "declaration"
+        );
+        assert(owed.length >= 5, "every exception kind and the declaration");
+        for (const row of owed) {
+          const decision = tableDecision(row);
+          for (const id of ["accept", "submit"] as const) {
+            const offer = decision.actions.find((each) => each.action === id);
+            assertEquals(
+              offer?.availability,
+              "disabled",
+              `row ${row.row} (${decision.state}): ${id}`,
+            );
+          }
+        }
+      },
     "every written state's decision offers every action once and never an unavailable step":
       () => {
         const covered = new Set<string>();

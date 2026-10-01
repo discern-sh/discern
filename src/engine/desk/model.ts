@@ -921,10 +921,13 @@ export const DESK_ACTION_REGISTRY = {
     confirmation: confirm("Cancel", "Queue"),
     binding: ["branch-head", "worktree-identity"],
     availability: (facts: DeskActionFacts): string | undefined =>
+      // Queue-only admission records no exception: it refuses any owner
+      // decision, so an exception is handed off exactly as a landing is.
       healthyActionAvailability(
         facts.entry,
         "Follow its recovery steps before queueing it.",
-        landableReason(facts),
+        awaitedDeclarationReason(facts) ?? exceptionReason(facts) ??
+          landableReason(facts),
       ),
   },
   update: {
