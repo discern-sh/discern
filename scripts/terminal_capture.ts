@@ -16,6 +16,7 @@ import type {
 } from "../tests/fixtures/pty_process.ts";
 import { ptyOutputContains } from "../tests/fixtures/pty_process.ts";
 import { withToolTempDir } from "./temp_dir.ts";
+import { toolOptionValue } from "./tool_arguments.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -63,15 +64,6 @@ With no arguments after --, <name> is the Discern verb. Use "help" for root
 --help. Artifacts default to .scratch/terminal-captures/.
 `;
 
-/** Read one required option value from the task argument list. */
-function optionValue(args: readonly string[], at: number): string {
-  const value = args[at + 1];
-  if (value === undefined || value === "--") {
-    throw new TypeError(`${args[at]} needs a value`);
-  }
-  return value;
-}
-
 /** Keep the default artifact basename inert and portable. */
 function artifactName(name: string): string {
   const safe = name.toLowerCase().replaceAll(/[^a-z0-9_-]+/gu, "-")
@@ -105,7 +97,7 @@ export function parseOptions(args: readonly string[]): CaptureTaskOptions {
   let at = 1;
   /** Consume the value that follows the current option. */
   const value = (): string => {
-    const found = optionValue(taskArgs, at);
+    const found = toolOptionValue(taskArgs, at);
     at += 1;
     return found;
   };

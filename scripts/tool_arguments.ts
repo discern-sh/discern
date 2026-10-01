@@ -2,8 +2,20 @@
  * The argument grammar repository tools share when they take at most one
  * operand, boolean flags, and flags that carry one value: `[--] [options]
  * [operand]`, in any order. Each tool names its own options and operand; the
- * reading and the refusals are defined once here.
+ * reading and the refusals are defined once here. A tool with its own
+ * grammar (a leading mode, a passthrough after `--`) still reads each option
+ * value through {@link toolOptionValue}.
  */
+
+/** The value that follows the option at `at`, refusing a missing value or
+ * another option in its place. */
+export function toolOptionValue(args: readonly string[], at: number): string {
+  const value = args[at + 1];
+  if (value === undefined || value.startsWith("-")) {
+    throw new TypeError(`${args[at]} needs a value`);
+  }
+  return value;
+}
 
 /** What one tool accepts. */
 export interface ToolArgumentGrammar {
@@ -36,11 +48,7 @@ export function parseToolArguments(
     if (grammar.flags?.includes(argument) === true) {
       flags.add(argument);
     } else if (grammar.values?.includes(argument) === true) {
-      const value = args[at + 1];
-      if (value === undefined || value.startsWith("-")) {
-        throw new TypeError(`${argument} needs a value`);
-      }
-      values.set(argument, value);
+      values.set(argument, toolOptionValue(args, at));
       at += 1;
     } else if (argument.startsWith("-")) {
       throw new TypeError(`unknown option: ${argument}`);

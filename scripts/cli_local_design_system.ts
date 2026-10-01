@@ -18,6 +18,7 @@ import {
   runLocalDesignSystemTool,
   withLocalDesignSystem,
 } from "./local_design_system.ts";
+import { toolOptionValue } from "./tool_arguments.ts";
 
 /** What the helper can run against the linked package. */
 export const CLI_DESIGN_SYSTEM_MODES = [
@@ -78,15 +79,6 @@ function isMode(value: string): value is CliDesignSystemMode {
   return CLI_DESIGN_SYSTEM_MODES.some((mode) => mode === value);
 }
 
-/** Read one required option value. */
-function optionValue(args: readonly string[], at: number): string {
-  const value = args[at + 1];
-  if (value === undefined || value.startsWith("-")) {
-    throw new TypeError(`${args[at]} needs a value`);
-  }
-  return value;
-}
-
 /** Parse `[--checkout <path>] <mode> [mode arguments]`. */
 export function parseCliDesignSystemArgs(
   args: readonly string[],
@@ -94,7 +86,7 @@ export function parseCliDesignSystemArgs(
   let at = args[0] === "--" ? 1 : 0;
   let checkout: string | undefined;
   while (args[at] === "--checkout") {
-    checkout = optionValue(args, at);
+    checkout = toolOptionValue(args, at);
     at += 2;
   }
   const mode = args[at] ?? "";
@@ -109,7 +101,7 @@ export function parseCliDesignSystemArgs(
   let project: string | undefined;
   if (mode === "desk") {
     while (rest[0] === "--project") {
-      project = optionValue(rest, 0);
+      project = toolOptionValue(rest, 0);
       rest = rest.slice(2);
     }
     if (rest.length > 0 && rest[0] !== "--") {
