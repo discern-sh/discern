@@ -27,6 +27,7 @@ import type {
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import {
+  exceptionProof,
   mainFleetEntry,
   observedFleetEntry,
   statusData,
@@ -1114,6 +1115,76 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
           !joined(output).includes("discern grant"),
           "the human-only grant must not imply an agent-run command",
         );
+      },
+    },
+    {
+      name:
+        "after a grant, the desk offers only the landings the task can make now",
+      check: async () => {
+        const cases = [
+          {
+            name: "ready work",
+            proof: { status: "honored" as const },
+            choices: ["grant", BACK, BACK, QUIT],
+            offered: [["accept", "submit"]],
+          },
+          {
+            name: "an exception",
+            proof: {
+              status: "honored" as const,
+              proof_data: exceptionProof(["exactness"]),
+            },
+            choices: ["grant", BACK, QUIT],
+            offered: [],
+          },
+        ];
+        for (const testCase of cases) {
+          const output = transcript();
+          const effort = fleetEntry("agent/granted", "/worktrees/granted", {
+            ahead: 2,
+            gate_proof: testCase.proof,
+          });
+          const data = statusData([mainFleetEntry(ROOT), effort]);
+          const choices = [effort.path, ...testCase.choices];
+          const followUps: string[][] = [];
+          let granted = false;
+          const runtime = scriptedRuntime(output, {
+            status: () => {
+              if (granted) {
+                effort.landing_authority = {
+                  kind: "authorized",
+                  source: "effort-grant",
+                };
+              }
+              return { ok: true, data };
+            },
+            select: (options) => {
+              if (
+                options.message ===
+                  "Choose how this proven revision enters landing"
+              ) {
+                followUps.push(
+                  options.options.flatMap((option) =>
+                    "value" in option && option.value !== BACK
+                      ? [String(option.value)]
+                      : []
+                  ),
+                );
+              }
+              return choices.shift() ?? QUIT;
+            },
+            grantEffort: (_path, branch) => {
+              granted = true;
+              return {
+                status: "granted",
+                grant: fixtureEffortGrant(branch),
+              };
+            },
+          });
+          assertEquals(await runDesk({}, runtime), 0, testCase.name);
+          assert(granted, testCase.name);
+          assertEquals(followUps, testCase.offered, testCase.name);
+        }
       },
     },
     {

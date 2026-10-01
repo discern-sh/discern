@@ -1736,6 +1736,31 @@ export async function deskExceptionArgvs(
   );
 }
 
+/**
+ * The observation context every desk decision reads, from one status survey
+ * and its exception hand-offs (`deskExceptionArgvs`). The live desk and any
+ * flow that re-observes mid-action build rows from this one projection, so
+ * no route decides availability from a partial observation.
+ */
+export function deskObservation(
+  data: StatusData,
+  options: {
+    readonly trunk: string;
+    readonly nowMs: number;
+    readonly exceptionArgvs: ReadonlyMap<string, readonly string[]>;
+  },
+): DeskObservationContext {
+  return {
+    trunk: data.git?.trunk ?? options.trunk,
+    nowMs: options.nowMs,
+    fleetCollisions: data.fleet_collisions ?? [],
+    adrCollisions: data.adr_collisions ?? [],
+    queue: data.queue ?? [],
+    mainCheckout: deskMainCheckoutFacts(data),
+    exceptionArgvs: options.exceptionArgvs,
+  };
+}
+
 /** The main-checkout facts that decide whether landing can start. A clean
  * checkout has no tracked changes; an older observation without the tracked
  * count leaves it unknown rather than counting untracked files. */

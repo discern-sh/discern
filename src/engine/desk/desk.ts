@@ -85,7 +85,7 @@ import {
   openInBrowser,
 } from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
-import { hasLandableFacts, proofHuman } from "../status/row_facts.ts";
+import { proofHuman } from "../status/row_facts.ts";
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import {
@@ -121,10 +121,13 @@ import {
 import {
   agentLaunchArgs,
   buildAgentLaunches,
+  buildDeskRows,
   DESK_ACTION_REGISTRY,
   type DeskAction,
   type DeskActionOffer,
   type DeskAgentLaunch,
+  deskExceptionArgvs,
+  deskObservation,
   type DeskRow,
   withDeskCapabilities,
 } from "./model.ts";
@@ -1925,6 +1928,8 @@ async function actOnUnlandedBranch(
 /**
  * Run one action against a row. Returns true when the fleet state may have
  * changed (leave the action menu and re-survey), false to stay on the menu.
+ * Every route runs only an offer the registry made available for this exact
+ * row; an unavailable one refuses with its own reason before anything runs.
  * Lifecycle refusals (`WorktreeGitError`/`IdentityError`) are the caller's to
  * render — they carry the exact next step.
  */
@@ -1938,6 +1943,10 @@ async function dispatchAction(
   startOptions: StartTaskOptions,
   cliModel?: CliModelProvider,
 ): Promise<boolean | string> {
+  const offered = selectedOffer(row, action);
+  if (offered.availability === "disabled") {
+    throw new WorktreeGitError(offered.reason);
+  }
   const path = row.entry.path;
   const branch = row.entry.branch;
   const trunk = config.repository.trunk;
@@ -2119,30 +2128,39 @@ async function dispatchAction(
           } lands with any landing.`
           : `Pre-authorized ${row.task.name}. Nothing is queued yet.`,
       );
-      const granted = refreshed?.fleet?.find((item) =>
-        item.path === path && item.branch === branch
+      // The grant changed this task's authority, so its follow-up offers are
+      // decided from the refreshed observation: only what can run now.
+      const granted = refreshed === undefined ? undefined : buildDeskRows(
+        refreshed.fleet ?? [],
+        new Map(),
+        new Map(),
+        deskObservation(refreshed, {
+          trunk,
+          nowMs: runtime.now(),
+          exceptionArgvs: await deskExceptionArgvs(refreshed),
+        }),
+      ).find((candidate) =>
+        candidate.entry.path === path && candidate.entry.branch === branch
       );
-      if (granted !== undefined && hasLandableFacts(granted)) {
+      const entries = granted === undefined
+        ? []
+        : (["accept", "submit"] as const).flatMap((choice) => {
+          const offer = selectedOffer(granted, choice);
+          return offer.availability === "enabled"
+            ? [{ name: offer.label, value: choice, description: offer.summary }]
+            : [];
+        });
+      if (granted !== undefined && entries.length > 0) {
         const next = await runtime.select({
           message: "Choose how this proven revision enters landing",
-          options: [
-            { name: "Back to task", value: BACK },
-            ...(["accept", "submit"] as const).map((choice) => {
-              const offer = selectedOffer(row, choice);
-              return {
-                name: offer.label,
-                value: choice,
-                description: offer.summary,
-              };
-            }),
-          ],
+          options: [{ name: "Back to task", value: BACK }, ...entries],
         });
         if (next === "accept" || next === "submit") {
           return await dispatchAction(
             out,
             root,
             config,
-            row,
+            granted,
             next,
             runtime,
             startOptions,

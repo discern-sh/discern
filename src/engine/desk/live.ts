@@ -13,7 +13,7 @@ import type { StatusData } from "../../shared/result_schemas.ts";
 import {
   buildDeskRows,
   deskExceptionArgvs,
-  deskMainCheckoutFacts,
+  deskObservation,
   type DeskRow,
   deskRowId,
   withDeskCapabilities,
@@ -126,15 +126,16 @@ export function liveDesk(
     return survey;
   };
   const adopt = ({ data, exceptionArgvs }: DeskObservation): void => {
-    const rows = buildDeskRows(data.fleet ?? [], new Map(), new Map(), {
-      trunk: data.git?.trunk ?? deps.trunk,
-      nowMs: deps.now(),
-      fleetCollisions: data.fleet_collisions ?? [],
-      adrCollisions: data.adr_collisions ?? [],
-      queue: data.queue ?? [],
-      mainCheckout: deskMainCheckoutFacts(data),
-      exceptionArgvs,
-    });
+    const rows = buildDeskRows(
+      data.fleet ?? [],
+      new Map(),
+      new Map(),
+      deskObservation(data, {
+        trunk: deps.trunk,
+        nowMs: deps.now(),
+        exceptionArgvs,
+      }),
+    );
     const previous = snapshot.rows.find((row) => deskRowId(row) === selectedId);
     let message: string | undefined = feedback;
     if (previous && !rows.some((row) => deskRowId(row) === selectedId)) {
