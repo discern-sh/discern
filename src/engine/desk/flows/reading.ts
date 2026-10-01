@@ -182,6 +182,47 @@ export async function readBranchCommits(
   };
 }
 
+/**
+ * The commits a composed landing could have put on the trunk. A direct
+ * landing moved the trunk to the recorded head itself; one that composed the
+ * trunk first landed a commit made on top of that head, whose first parent
+ * is the head and which the trunk contains.
+ */
+async function composedLandings(
+  context: DeskFlowContext,
+  head: string,
+): Promise<readonly string[]> {
+  const descendants = await context.runtime.git([
+    "rev-list",
+    "--ancestry-path",
+    "--topo-order",
+    "--reverse",
+    "--parents",
+    `${head}..${context.config.repository.trunk}`,
+  ], context.root);
+  if (!descendants.success) return [];
+  return descendants.stdout.split("\n").flatMap((line) => {
+    const [commit, firstParent] = line.trim().split(" ");
+    return commit !== undefined && commit !== "" && firstParent === head
+      ? [commit]
+      : [];
+  });
+}
+
+/** The landing record for a recorded head, through a composition if one landed it. */
+async function landedRecord(
+  context: DeskFlowContext,
+  head: string,
+): Promise<Awaited<ReturnType<DeskFlowContext["runtime"]["landedProof"]>>> {
+  const direct = await context.runtime.landedProof(context.root, head);
+  if (direct.status !== "missing") return direct;
+  for (const composed of await composedLandings(context, head)) {
+    const record = await context.runtime.landedProof(context.root, composed);
+    if (record.status !== "missing") return record;
+  }
+  return direct;
+}
+
 /** The Proof a recent landing recorded, in words. */
 export async function readLandedProof(
   context: DeskFlowContext,
@@ -202,10 +243,7 @@ export async function readLandedProof(
       resolved.stderr.trim() || "The recorded revision could not be resolved.",
     );
   }
-  const record = await context.runtime.landedProof(
-    context.root,
-    resolved.stdout.trim(),
-  );
+  const record = await landedRecord(context, resolved.stdout.trim());
   if (record.status !== "valid") {
     throw new Error(
       `Stored record: ${record.status}.${
