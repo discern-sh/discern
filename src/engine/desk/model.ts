@@ -227,6 +227,9 @@ export interface DeskActionContext {
 /** What a task action's review lines and their facts read. */
 type ActionFacts = DeskActionReviewFacts;
 
+/** The cells an action summary fits in the inspector's Next block. */
+export const DESK_SUMMARY_CELLS = 40;
+
 /** One registered task action's complete contract. */
 export interface DeskActionMetadata {
   readonly section: DeskActionSection;
@@ -245,7 +248,10 @@ export interface DeskActionMetadata {
   readonly next: readonly FleetTaskRowStateId[];
   /** Row states that offer this action beside their next step. */
   readonly also: readonly FleetTaskRowStateId[];
-  /** One line for the menu detail and the next-step block. */
+  /**
+   * One line for the menu detail and the next-step block, at most
+   * `DESK_SUMMARY_CELLS` so the widest inspector shows it whole.
+   */
   readonly summary: (context: DeskActionContext) => string;
   /** The question a review of this action asks. */
   readonly reviewTitle: (context: DeskActionContext) => string;
@@ -790,7 +796,7 @@ export const DESK_ACTION_REGISTRY = {
     ],
     also: [],
     summary: (_context: DeskActionContext): string =>
-      "Read what failed and the command that repairs it",
+      "What failed, and how to repair it",
     reviewTitle: (context: DeskActionContext): string =>
       `${actionName("recovery")} for ${context.title}`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -838,7 +844,7 @@ export const DESK_ACTION_REGISTRY = {
     next: ["proof-error", "proof-unknown", "recheck", "needs-checks"],
     also: ["checks-failed"],
     summary: (_context: DeskActionContext): string =>
-      "Run this project's checks on the committed work",
+      "Run the checks on its committed work",
     reviewTitle: (context: DeskActionContext): string =>
       `${actionName("done")} on ${context.title}?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -876,7 +882,7 @@ export const DESK_ACTION_REGISTRY = {
     next: ["ready", "awaiting-owner", "approved", "queued"],
     also: ["stale-proven"],
     summary: (context: DeskActionContext): string =>
-      `Review, then land ${commitsOf(context)} on ${context.trunk}`,
+      `Review and land ${commitsOf(context)} on ${context.trunk}`,
     reviewTitle: (context: DeskActionContext): string =>
       `Land ${context.title} on ${context.trunk}?`,
     command: (context: DeskActionContext): DeskCommandEvidence => ({
@@ -997,7 +1003,7 @@ export const DESK_ACTION_REGISTRY = {
     next: [],
     also: [],
     summary: (_context: DeskActionContext): string =>
-      "Record this version so it lands with the next landing",
+      "Land it with the next landing",
     reviewTitle: (context: DeskActionContext): string =>
       `Queue ${context.title} for landing?`,
     command: (context: DeskActionContext): DeskCommandEvidence => ({
@@ -1041,10 +1047,8 @@ export const DESK_ACTION_REGISTRY = {
     also: ["land-failed"],
     summary: (context: DeskActionContext): string =>
       typeof context.behind === "number" && context.behind > 0
-        ? `Bring ${
-          plural(context.behind, "new commit")
-        } from ${context.trunk} into this branch`
-        : `Bring ${context.trunk} into this branch`,
+        ? `Merge ${plural(context.behind, "new commit")} from ${context.trunk}`
+        : `Merge ${context.trunk} into this branch`,
     reviewTitle: (context: DeskActionContext): string =>
       `Update ${context.title} from ${context.trunk}?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -1115,7 +1119,7 @@ export const DESK_ACTION_REGISTRY = {
       "idle-unknown",
     ],
     summary: (_context: DeskActionContext): string =>
-      "Open a coding agent in this task's checkout",
+      "Open a coding agent in its checkout",
     reviewTitle: (context: DeskActionContext): string =>
       `${actionName("agent")} in ${context.title}`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -1156,7 +1160,7 @@ export const DESK_ACTION_REGISTRY = {
     next: [],
     also: [],
     summary: (_context: DeskActionContext): string =>
-      "Start a new task from this branch's last commit",
+      "Start a task from its last commit",
     reviewTitle: (context: DeskActionContext): string =>
       `Start a follow-up from ${context.title}`,
     command: (context: DeskActionContext): DeskCommandEvidence => ({
@@ -1184,7 +1188,7 @@ export const DESK_ACTION_REGISTRY = {
     next: [],
     also: [],
     summary: (_context: DeskActionContext): string =>
-      "Run one of the project's scripts in this checkout",
+      "Run a project script in its checkout",
     reviewTitle: (context: DeskActionContext): string =>
       `${actionName("scripts")} in ${context.title}?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -1225,7 +1229,7 @@ export const DESK_ACTION_REGISTRY = {
       "editing",
     ],
     summary: (_context: DeskActionContext): string =>
-      "Open your shell in this task's checkout",
+      "Open your shell in its checkout",
     reviewTitle: (context: DeskActionContext): string =>
       `${actionName("jump")} in ${context.title}`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -1277,7 +1281,7 @@ export const DESK_ACTION_REGISTRY = {
       "contained",
     ],
     summary: (_context: DeskActionContext): string =>
-      "See its commits, changed files and checks",
+      "Commits, files and the stored Proof",
     reviewTitle: (context: DeskActionContext): string =>
       `Changes in ${context.title}`,
     command: (context: DeskActionContext): DeskCommandEvidence => ({
@@ -1332,7 +1336,7 @@ export const DESK_ACTION_REGISTRY = {
     next: [],
     also: ["awaiting-owner", "ready"],
     summary: (_context: DeskActionContext): string =>
-      "Let it land without asking you once its checks pass",
+      "Let it land without asking once queued",
     reviewTitle: (context: DeskActionContext): string =>
       `Let ${context.title} land without asking?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -1403,9 +1407,7 @@ export const DESK_ACTION_REGISTRY = {
     next: ["contained"],
     also: [],
     summary: (context: DeskActionContext): string =>
-      `Remove this checkout; its commits are in ${
-        context.containedIn ?? "another task"
-      }`,
+      `Its commits are in ${context.containedIn ?? "another task"}`,
     reviewTitle: (context: DeskActionContext): string =>
       `Reclaim ${context.title}'s checkout?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
@@ -1442,7 +1444,7 @@ export const DESK_ACTION_REGISTRY = {
     next: [],
     also: ["stale-proven", "stale"],
     summary: (_context: DeskActionContext): string =>
-      "Free the checkout and keep the branch to resume later",
+      "Free the checkout; keep the branch",
     reviewTitle: (context: DeskActionContext): string =>
       `Park ${context.title}?`,
     command: (context: DeskActionContext): DeskCommandEvidence => ({
@@ -1477,7 +1479,7 @@ export const DESK_ACTION_REGISTRY = {
     next: [],
     also: ["stale-proven", "stale", "empty"],
     summary: (_context: DeskActionContext): string =>
-      "Remove the checkout and branch; the last commit is kept for a while",
+      "Remove it; its last commit stays a while",
     reviewTitle: (context: DeskActionContext): string =>
       `Drop ${context.title}?`,
     command: (context: DeskActionContext): DeskCommandEvidence => ({

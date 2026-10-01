@@ -1329,7 +1329,7 @@ Deno.test("human copy names units, commands, and recency without lossy shorthand
   assertEquals(gate.next?.action, "done");
   assertEquals(
     offer(gate, "done").summary,
-    "Run this project's checks on the committed work",
+    "Run the checks on its committed work",
   );
 
   const empty = decide();

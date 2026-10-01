@@ -33,6 +33,7 @@ import {
   buildDeskDecision,
   DESK_ACTION_REGISTRY,
   DESK_ACTIONS,
+  DESK_SUMMARY_CELLS,
   type DeskAction,
   type DeskActionMetadata,
   type DeskAgentLaunch,
@@ -40,6 +41,7 @@ import {
   type DeskDecision,
   deskNextAction,
 } from "../src/engine/desk/model.ts";
+import { measureText } from "discern-design-system/cli";
 import {
   commandConsequenceLines,
   commandDisclosure,
@@ -288,6 +290,26 @@ Deno.test("Desk registry guard: labels and bindings", () => {
         withTrunk(DESK_ACTION_LABELS.update, "develop"),
         "Update from develop…",
       );
+    },
+    "every action summary fits the inspector's Next block whole": () => {
+      // Long counts and a longer trunk name, so a summary that reads them
+      // still fits; a task's own name can be any length.
+      const decision = buildDeskDecision(
+        fleetEntry({
+          ahead: 1234,
+          behind: 1234,
+          contained_in: "agent/next-stage",
+        }),
+        { trunk: "develop", nowMs: NOW, agentLaunches: [AGENT] },
+      );
+      for (const offer of decision.actions) {
+        assert(
+          measureText(offer.summary) <= DESK_SUMMARY_CELLS,
+          `${offer.action}: ${JSON.stringify(offer.summary)} is ${
+            measureText(offer.summary)
+          } cells`,
+        );
+      }
     },
     "everything that changes the project or launches a child declares its binding":
       () => {
