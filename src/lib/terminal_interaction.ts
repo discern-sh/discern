@@ -1183,15 +1183,11 @@ export async function requestMarkdownBrowser<Action>(
 ): Promise<MarkdownBrowserRequestResult<Action>> {
   requireInteraction("the documentation browser", runtime);
   const entries = adaptMarkdownBrowserEntries(options.entries);
-  const respond = packageMarkdownBrowserResponder(handlers.respond, entries);
+  const answers = packageMarkdownBrowserHandlers(handlers.respond, entries);
   try {
     const result = await runInteractionRequest(
       (packageOptions: PackageMarkdownBrowserOptions<Action>, session) =>
-        packageRequestMarkdownBrowser(
-          packageOptions,
-          session,
-          respond === undefined ? {} : { respond },
-        ),
+        packageRequestMarkdownBrowser(packageOptions, session, answers),
       packageMarkdownBrowserOptions(options, entries),
       runtime,
       {
@@ -1242,17 +1238,17 @@ export interface MarkdownBrowserHandlers<Action>
   readonly onClose?: (state: MarkdownBrowserResumeState) => void;
 }
 
-/** A product `respond` handler, answering in the package's entry ids. */
-function packageMarkdownBrowserResponder<Action>(
+/** A product `respond` handler as the package's, answering in its entry ids. */
+function packageMarkdownBrowserHandlers<Action>(
   respond: MarkdownBrowserRequestHandlers<Action>["respond"],
   entries: AdaptedMarkdownBrowserEntries<Action>,
-):
-  | NonNullable<PackageMarkdownBrowserRequestHandlers<Action>["respond"]>
-  | undefined {
-  if (respond === undefined) return undefined;
-  return (result) => {
-    const chosen = productMarkdownBrowserResult(result, entries);
-    return chosen.kind === "exit" ? undefined : respond(chosen);
+): PackageMarkdownBrowserRequestHandlers<Action> {
+  if (respond === undefined) return {};
+  return {
+    respond: (result) => {
+      const chosen = productMarkdownBrowserResult(result, entries);
+      return chosen.kind === "exit" ? undefined : respond(chosen);
+    },
   };
 }
 
@@ -1268,11 +1264,10 @@ export function markdownBrowserCommand<Action>(
 ): PackageTerminalApplicationCommand {
   const entries = adaptMarkdownBrowserEntries(options.entries);
   const { onClose } = handlers;
-  const respond = packageMarkdownBrowserResponder(handlers.respond, entries);
   return packageMarkdownBrowserCommand(
     packageMarkdownBrowserOptions(options, entries),
     {
-      ...(respond === undefined ? {} : { respond }),
+      ...packageMarkdownBrowserHandlers(handlers.respond, entries),
       ...(onClose === undefined ? {} : {
         onClose: (state) => onClose(state),
       }),
