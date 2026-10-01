@@ -1220,6 +1220,8 @@ export type GateProofCheckStatus = (typeof GATE_PROOF_CHECK_STATUSES)[number];
 export const GateProofCheckSchema = z.strictObject({
   status: openVocabulary("x-discern-proof-statuses"),
   path: z.string().optional(),
+  /** The commit the Proof marker records; when the checks passed comes from
+   * `proof_data`'s completion evidence. */
   recorded: z.string().optional(),
   head: z.string().optional(),
   reason: z.string().optional(),

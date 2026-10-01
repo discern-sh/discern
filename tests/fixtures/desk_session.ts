@@ -760,7 +760,7 @@ export function landable(head = LANDABLE_HEAD): StatusFleetEntry {
     behind: 0,
     clean: true,
     registration: { head, locked: false, prunable: false },
-    gate_proof: { status: "honored", head, recorded: "2026-07-11T11:40:00Z" },
+    gate_proof: { status: "honored", head, recorded: head },
     proof_honored: true,
   });
 }

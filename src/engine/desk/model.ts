@@ -55,6 +55,7 @@ import {
   hasExceptionHandOff,
   idleDaysOf,
   positiveCount,
+  proofFinishedAt,
   relativeAge,
   STALE_WORKTREE_DAYS,
 } from "../status/row_facts.ts";
@@ -1574,6 +1575,9 @@ function actionContext(
 ): DeskActionContext {
   const entry = facts.entry;
   const proof = fleetRowProof(entry);
+  // When the checks passed comes from the Proof's own completion evidence,
+  // as status words it; `recorded` names the commit the marker records.
+  const passed = proofFinishedAt(proof);
   const stale = facts.state === "stale" || facts.state === "stale-proven";
   return {
     trunk: facts.trunk,
@@ -1604,9 +1608,7 @@ function actionContext(
       ? {}
       : { head: entry.registration.head }),
     ...(proof.head === undefined ? {} : { proofHead: proof.head }),
-    ...(proof.recorded === undefined || Number.isNaN(Date.parse(proof.recorded))
-      ? {}
-      : { proofAge: relativeAge(proof.recorded, nowMs) }),
+    ...(passed === undefined ? {} : { proofAge: relativeAge(passed, nowMs) }),
     ...(stale
       ? {
         idle: plural(

@@ -61,8 +61,10 @@ import type { DeskProductState } from "../src/engine/desk/desk_state.ts";
 import { DESK_REFRESH_MS } from "../src/engine/desk/desk_state.ts";
 import type {
   AcceptPreviewData,
+  Proof,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
+import { completeNoteProof } from "./completion_note_fixtures.ts";
 import type { DeskRuntime } from "../src/engine/desk/desk.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
 import { observedDesk, productSurvey } from "./fixtures/desk_product.ts";
@@ -82,6 +84,24 @@ import {
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { WorktreeGitError } from "../src/engine/worktree/lifecycle.ts";
 
+/** A Proof for `commit` whose validating checks finished at `finishedAt`. */
+function passedAt(commit: string, finishedAt: number): Proof {
+  const proof = completeNoteProof(commit, "agent/alpha");
+  const completion = proof.completion;
+  assert(completion !== undefined);
+  return {
+    ...proof,
+    completion: {
+      ...completion,
+      attempts: completion.attempts.map((attempt) =>
+        attempt.state.kind === "finished"
+          ? { ...attempt, state: { ...attempt.state, finished_at: finishedAt } }
+          : attempt
+      ),
+    },
+  };
+}
+
 /** A task that is ready to land, with a recorded head and Proof. */
 function readyTask(
   id: string,
@@ -100,7 +120,13 @@ function readyTask(
     gate_proof: {
       status: "honored",
       head: "3f9c2e1".padEnd(40, "0"),
-      recorded: "2026-07-11T11:40:00Z",
+      // The marker records a commit; when the checks passed comes from the
+      // Proof's own completion evidence, twenty minutes before the clock.
+      recorded: "3f9c2e1".padEnd(40, "0"),
+      proof_data: passedAt(
+        "3f9c2e1".padEnd(40, "0"),
+        Date.parse("2026-07-11T11:40:00Z"),
+      ),
     },
     proof_honored: true,
     last_activity: "2026-07-11T11:40:00Z",
@@ -386,6 +412,15 @@ Deno.test("removals say which landing records they end, from the plan", () => {
   });
   assertEquals(drop.challenge, { mustEqual: row.entry.branch });
   assertEquals(drop.destructive, true);
+});
+
+Deno.test("Land says how long ago its checks passed, from the Proof's own evidence", () => {
+  const row = rowOf(observedDesk(productSurvey([readyTask("alpha")])), "alpha");
+  const review = reviewFor(target(row, "accept"), { facts: {} });
+  assertEquals(
+    review.lines.find((line) => line.mark === "evidence")?.text,
+    "Checks passed 20m ago on this exact commit (3f9c2e1)",
+  );
 });
 
 Deno.test("a moved binding reads as what changed, and nothing else does", () => {
