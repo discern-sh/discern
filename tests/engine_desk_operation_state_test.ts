@@ -23,6 +23,7 @@ import { deskEpilogue } from "../src/engine/desk/live.ts";
 import { deskView } from "../src/engine/desk/inbox_view.ts";
 import { progressAfter } from "../src/engine/desk/operations.ts";
 import { BUILT_IN_STEP_LABELS, type EnginePlan } from "../src/shared/result.ts";
+import { taskFleetEntry } from "./status_fleet.ts";
 import {
   deskIntent,
   editingTask,
@@ -333,6 +334,49 @@ Deno.test("a survey that began while an operation ran is set aside when it ends"
     halfway.state,
     done.state,
     "what the earlier survey read mid-change is never shown",
+  );
+});
+
+Deno.test("a survey adopted while an operation runs shows the tasks it changes as they were", () => {
+  const three = observedDesk(
+    productSurvey([
+      editingTask("alpha"),
+      editingTask("beta"),
+      editingTask("gamma"),
+    ]),
+  );
+  // Landing Alpha walks Beta after it, so both are changing.
+  const started = confirmed(
+    reviewed(three, actionStep("accept")),
+    actionStep("accept"),
+  ).state;
+  const label = (state: DeskProductState, id: string): string | undefined =>
+    state.rows.find((row) => row.entry.id === id)?.decision.label;
+  const betaBefore = label(started, "beta");
+  const asked = deskProduct(started, { kind: "refresh" }).state;
+  const halfway = deskProduct(asked, {
+    kind: "observed",
+    generation: asked.survey.generation,
+    now: PRODUCT_NOW + 30_000,
+    data: productSurvey([
+      taskFleetEntry("alpha", { git_unavailable: true }),
+      taskFleetEntry("beta", { git_unavailable: true }),
+      editingTask("gamma", 7),
+    ]),
+    hints: [],
+    exceptionArgvs: new Map(),
+  }).state;
+  assertEquals(halfway.operations.size, 1, "the landing still runs");
+  assertEquals(
+    halfway.rows.find((row) => row.entry.id === "alpha")?.decision.group,
+    "working",
+    "its own task shows it running, never Unreadable",
+  );
+  assertEquals(label(halfway, "beta"), betaBefore, "a follower is as it was");
+  assertEquals(
+    halfway.rows.find((row) => row.entry.id === "gamma")?.entry.changed_files,
+    7,
+    "every other task reads as surveyed",
   );
 });
 

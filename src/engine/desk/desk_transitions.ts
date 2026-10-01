@@ -254,6 +254,81 @@ function withOperation(
   };
 }
 
+/**
+ * A survey taken while this Desk changes some tasks, with those tasks as the
+ * last adopted survey saw them: their checkouts, queue entries, and places
+ * among parked and landed work. A reading taken mid-change, such as a landed
+ * checkout half removed, is never shown as where they stand; the survey that
+ * starts as the operation ends reads them as it left them. Every other task
+ * reads as surveyed.
+ */
+export function heldForOperations(
+  state: DeskProductState,
+  data: StatusData,
+): StatusData {
+  const previous = state.data;
+  if (state.operations.size === 0 || previous === undefined) return data;
+  const ids = new Set<string>();
+  const branches = new Set<string>();
+  for (const operation of state.operations.values()) {
+    if (operation.taskId !== undefined) ids.add(operation.taskId);
+    for (const follower of operation.review.follows ?? []) {
+      branches.add(follower.branch);
+    }
+  }
+  for (const entry of [...previous.fleet ?? [], ...data.fleet ?? []]) {
+    if (ids.has(deskRowId({ entry })) && entry.branch !== "") {
+      branches.add(entry.branch);
+    }
+  }
+  const held = (entry: StatusFleetEntry): boolean =>
+    !entry.is_main &&
+    (ids.has(deskRowId({ entry })) || branches.has(entry.branch));
+  const kept = <T>(
+    now: readonly T[] | undefined,
+    before: readonly T[] | undefined,
+    branch: (item: T) => string,
+  ): T[] => [
+    ...(now ?? []).filter((item) => !branches.has(branch(item))),
+    ...(before ?? []).filter((item) => branches.has(branch(item))),
+  ];
+  const {
+    queue: _queue,
+    parked_tasks: _parked,
+    unlanded_branches: _unlanded,
+    recent_completed_tasks: _landed,
+    ...rest
+  } = data;
+  const queue = kept(data.queue, previous.queue, (row) => row.branch);
+  const parked = kept(
+    data.parked_tasks,
+    previous.parked_tasks,
+    (task) => task.branch,
+  );
+  const unlanded = kept(
+    data.unlanded_branches,
+    previous.unlanded_branches,
+    (branch) => branch,
+  );
+  const landed = kept(
+    data.recent_completed_tasks,
+    previous.recent_completed_tasks,
+    (task) => task.branch,
+  );
+  // Status lists these only when they hold something; so does this.
+  return {
+    ...rest,
+    fleet: [
+      ...(data.fleet ?? []).filter((entry) => !held(entry)),
+      ...(previous.fleet ?? []).filter(held),
+    ],
+    ...(queue.length === 0 ? {} : { queue }),
+    ...(parked.length === 0 ? {} : { parked_tasks: parked }),
+    ...(unlanded.length === 0 ? {} : { unlanded_branches: unlanded }),
+    ...(landed.length === 0 ? {} : { recent_completed_tasks: landed }),
+  };
+}
+
 /** Rows for one observation, with the capabilities read so far. */
 export function observedRows(
   state: DeskProductState,

@@ -5,7 +5,8 @@
  * Every package callback maps onto one product event and returns the next
  * view synchronously, so a key typed after one that opened a layer already
  * lands on it. This module keeps only what time and effects need: one survey
- * at a time with generation checks, the refresh cadence, the selected-item
+ * at a time with generation checks (an operation's end supersedes one in
+ * flight with a fresh survey), the refresh cadence, the selected-item
  * slot that reads tier-two evidence once the selection settles, the clock
  * that keeps running times current, the operations that run beside the
  * screen as package background commands, the manual opened in place of the

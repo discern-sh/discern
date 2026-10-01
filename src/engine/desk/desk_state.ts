@@ -45,6 +45,7 @@ import {
   departureMessage,
   departures,
   formValuesKey,
+  heldForOperations,
   layerId,
   observedRows,
   open,
@@ -61,7 +62,10 @@ import { relativeAge } from "../status/row_facts.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
 import { FLEET_ROW_GROUPS } from "../../shared/fleet_row_vocabulary.ts";
 
-/** Survey cadence: one at a time, this long after the last finished. */
+/**
+ * Survey cadence: one at a time, this long after the last finished. An
+ * operation's end starts a superseding survey at once instead.
+ */
 export const DESK_REFRESH_MS = 5_000;
 
 /** Consecutive failed surveys before the Desk says it is offline. */
@@ -625,16 +629,17 @@ function observed(
   if (event.generation !== state.survey.generation) {
     return { state, effects: [] };
   }
-  const rows = observedRows(state, event.data, event.exceptionArgvs, event.now);
+  const data = heldForOperations(state, event.data);
+  const rows = observedRows(state, data, event.exceptionArgvs, event.now);
   // Layers stay as the owner left them: a layer whose subject left the inbox
   // says so until the owner closes it.
   let next: DeskProductState = {
     ...state,
-    data: event.data,
+    data,
     hints: event.hints,
     rows,
     exceptionArgvs: event.exceptionArgvs,
-    departed: departures(state, event.data, rows),
+    departed: departures(state, data, rows),
     survey: {
       ...state.survey,
       inFlight: false,
