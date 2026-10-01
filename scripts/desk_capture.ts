@@ -568,7 +568,9 @@ async function agentJourney(
   try {
     return await capture(project, target, STANDARD, [
       phase(STANDARD, undefined, "inbox at rest", atRest(MANUAL), text("2")),
-      phase(STANDARD, undefined, "the failed task", atRest(AUTH), text("a")),
+      // `a` runs the remembered launch; the actions menu's Open agent asks.
+      phase(STANDARD, undefined, "the failed task", atRest(AUTH), text(".")),
+      phase(STANDARD, undefined, "its actions", layer("actions"), text("a")),
       phase(STANDARD, "agent", "the agent picker", layer("agents"), {
         keys: ["escape"],
         allowLoneEscape: true,
@@ -667,8 +669,8 @@ function offlineJourney(
 function returnJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
     phase(size, undefined, "inbox at rest", atRest(MANUAL), text("3")),
+    // `a` runs the remembered agent's launch at once.
     phase(size, undefined, "editing task", atRest(GLOSSARY), text("a")),
-    phase(size, undefined, "the agent picker", layer("agents"), keys("enter")),
     phase(
       size,
       "return",
