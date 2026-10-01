@@ -58,6 +58,7 @@ import {
 } from "./flow_types.ts";
 import {
   branchTitle,
+  type DeskRowRef,
   goneSentence,
   layerId,
   parkedBranches,
@@ -672,41 +673,44 @@ function startForm(
   };
 }
 
-/** A rename's form: the title, prefilled, and what renaming changes. */
-function renameForm(
+/** What a one-field form asks; the rest follows from its layer. */
+interface DeskFieldForm {
+  readonly scope: ApplicationForm<DeskIntent>["scope"];
+  readonly title: string;
+  readonly aside?: ApplicationForm<DeskIntent>["aside"];
+  readonly field: ApplicationForm<DeskIntent>["fields"][number];
+  readonly safeLabel: string;
+  readonly confirmLabel: string;
+  /** What stays unchanged until the confirm, for the footnote. */
+  readonly nothing: string;
+}
+
+/** A form with one field whose live preview is the step's review. */
+function fieldForm(
   state: DeskProductState,
   layer: Extract<DeskLayer, { readonly kind: "form" }>,
+  ask: (ref: DeskRowRef | undefined) => DeskFieldForm,
 ): ApplicationForm<DeskIntent> {
   const id = layerId(layer);
   const step = layer.step;
-  const ref = step.kind === "action" ? rowRef(state, step.taskId) : undefined;
-  // The field starts from the task's title as the form opened; the values the
-  // package reports never feed back into it.
-  const initial = ref?.kind === "task"
-    ? renameTitle(ref.row)
-    : layer.values.title ?? "";
+  const form = ask(
+    step.kind === "action" ? rowRef(state, step.taskId) : undefined,
+  );
   return {
     kind: "form",
     id,
-    scope: "item",
-    title: ref?.kind === "task"
-      ? `Rename ${ref.row.task.name}?`
-      : labelName(DESK_ACTION_LABELS.rename),
-    fields: [{
-      kind: "text",
-      id: "title",
-      label: "Title",
-      initial,
-      required: true,
-    }],
+    scope: form.scope,
+    title: form.title,
+    ...(form.aside === undefined ? {} : { aside: form.aside }),
+    fields: [form.field],
     preview: previewBlocks(layer),
     disclosures: formDisclosures(layer),
-    footnote: [{ text: untilChosen("changes", "Rename") }],
+    footnote: [{ text: untilChosen(form.nothing, form.confirmLabel) }],
     buttons: [
-      { id: "safe", label: "Keep", role: "safe" },
+      { id: "safe", label: form.safeLabel, role: "safe" },
       formConfirm(
         id,
-        "Rename",
+        form.confirmLabel,
         undefined,
         "confirm",
         gone(state, step),
@@ -716,19 +720,41 @@ function renameForm(
   };
 }
 
+/** A rename's form: the title, prefilled, and what renaming changes. */
+function renameForm(
+  state: DeskProductState,
+  layer: Extract<DeskLayer, { readonly kind: "form" }>,
+): ApplicationForm<DeskIntent> {
+  // The field starts from the task's title as the form opened; the values the
+  // package reports never feed back into it.
+  return fieldForm(state, layer, (ref) => ({
+    scope: "item",
+    title: ref?.kind === "task"
+      ? `Rename ${ref.row.task.name}?`
+      : labelName(DESK_ACTION_LABELS.rename),
+    field: {
+      kind: "text",
+      id: "title",
+      label: "Title",
+      initial: ref?.kind === "task"
+        ? renameTitle(ref.row)
+        : layer.values.title ?? "",
+      required: true,
+    },
+    safeLabel: "Keep",
+    confirmLabel: "Rename",
+    nothing: "changes",
+  }));
+}
+
 /** A script's arguments, with what will run. */
 function scriptForm(
   state: DeskProductState,
   layer: Extract<DeskLayer, { readonly kind: "form" }>,
 ): ApplicationForm<DeskIntent> {
-  const id = layerId(layer);
   const name = layer.values.script ?? layer.step.values?.script ?? "";
-  const step = layer.step;
-  const ref = step.kind === "action" ? rowRef(state, step.taskId) : undefined;
-  return {
-    kind: "form",
-    id,
-    scope: step.kind === "action" ? "item" : "global",
+  return fieldForm(state, layer, (ref) => ({
+    scope: layer.step.kind === "action" ? "item" : "global",
     title: layer.load.state === "ready"
       ? layer.load.value.question
       : `Run ${name}?`,
@@ -736,7 +762,7 @@ function scriptForm(
       text: ref?.kind === "task" ? ref.row.task.name : "main checkout",
       tone: "faint",
     }],
-    fields: [{
+    field: {
       kind: "text",
       id: "args",
       label: "Arguments",
@@ -745,22 +771,11 @@ function scriptForm(
         text: "Quote spaces; nothing is expanded by a shell.",
         tone: "faint",
       }],
-    }],
-    preview: previewBlocks(layer),
-    disclosures: formDisclosures(layer),
-    footnote: [{ text: untilChosen("runs", "Run") }],
-    buttons: [
-      { id: "safe", label: "Cancel", role: "safe" },
-      formConfirm(
-        id,
-        "Run",
-        undefined,
-        "confirm",
-        gone(state, step),
-        previewReason(layer),
-      ),
-    ],
-  };
+    },
+    safeLabel: "Cancel",
+    confirmLabel: "Run",
+    nothing: "runs",
+  }));
 }
 
 /** One form layer. */

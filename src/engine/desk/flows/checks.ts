@@ -10,9 +10,10 @@ import { failureSheet } from "../review.ts";
 import {
   type DeskFlow,
   failedWith,
+  liveCliModel,
   offerCommand,
+  previewRead,
   rebound,
-  resultPlan,
   reviewOffer,
   stepOffer,
   succeeded,
@@ -21,31 +22,20 @@ import {
 /** Run checks: the gate's own dry-run plan, then the gate. */
 const DONE_FLOW: DeskFlow = {
   review: (context, step) =>
-    reviewOffer(context, step, "done", async (row) => {
-      const cliModel = context.cliModel;
-      if (cliModel === undefined) {
-        throw new Error(
-          "Running checks from the desk needs the live CLI model.",
-        );
-      }
-      const plan = resultPlan(
-        await context.runtime.donePlan(row.entry.path, cliModel),
-      );
-      return {
-        ...(plan === undefined ? {} : { plan }),
-        handoff: `Running checks on ${row.task.name}`,
-      };
-    }),
+    reviewOffer(context, step, "done", async (row) =>
+      previewRead(
+        await context.runtime.donePlan(row.entry.path, liveCliModel(context)),
+        `Running checks on ${row.task.name}`,
+      )),
   apply: async (context, step, expected) => {
     const changed = await rebound(context, step, expected, "done");
     if (changed !== undefined) return changed;
     const { row, offer } = stepOffer(context, step, "done");
-    const cliModel = context.cliModel;
-    if (cliModel === undefined) {
-      throw new Error("Running checks from the desk needs the live CLI model.");
-    }
     const command = offerCommand(offer);
-    const result = await context.runtime.done(row.entry.path, cliModel);
+    const result = await context.runtime.done(
+      row.entry.path,
+      liveCliModel(context),
+    );
     return result.ok
       ? succeeded(command, `Checks passed on ${row.task.name} · Proof recorded`)
       : failedWith(context, step, "done", result, command);
@@ -55,15 +45,13 @@ const DONE_FLOW: DeskFlow = {
 /** Update from main: the update's dry-run plan, then the merge. */
 const UPDATE_FLOW: DeskFlow = {
   review: (context, step) =>
-    reviewOffer(context, step, "update", async (row) => {
-      const ctx = await context.runtime.lifecycle(row.entry.path);
-      const plan = resultPlan(await context.runtime.updatePlan(ctx));
-      return {
-        ...(plan === undefined ? {} : { plan }),
-        handoff:
-          `Updating ${row.task.name} from ${context.config.repository.trunk}`,
-      };
-    }),
+    reviewOffer(context, step, "update", async (row) =>
+      previewRead(
+        await context.runtime.updatePlan(
+          await context.runtime.lifecycle(row.entry.path),
+        ),
+        `Updating ${row.task.name} from ${context.config.repository.trunk}`,
+      )),
   apply: async (context, step, expected) => {
     const changed = await rebound(context, step, expected, "update");
     if (changed !== undefined) return changed;

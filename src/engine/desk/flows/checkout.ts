@@ -10,7 +10,10 @@ import {
   DropWouldDiscardWork,
   WorktreeGitError,
 } from "../../worktree/lifecycle.ts";
-import type { DropPlan } from "../../worktree/plan.ts";
+import type { LifecycleContext } from "../../worktree/lifecycle.ts";
+import type { CheckoutRecordEnds, DropPlan } from "../../worktree/plan.ts";
+import type { EnginePlan } from "../../../shared/result.ts";
+import type { DeskRuntime } from "../desk.ts";
 import { taskTextValidationError } from "../../../shared/task_metadata.ts";
 import { deskRowId } from "../model.ts";
 import { renameTitle } from "../desk_transitions.ts";
@@ -171,86 +174,106 @@ const RENAME_FLOW: DeskFlow = {
   },
 };
 
-/** Park: the park plan with what it ends, then the park. */
-const PARK_FLOW: DeskFlow = {
-  review: (context, step) =>
-    reviewOffer(context, step, "park", async (row) => {
-      const ctx = await context.runtime.lifecycle(context.root);
-      const plan = await context.runtime.parkPlan(ctx, row.entry.path);
-      return {
-        plan,
-        facts: plan.subject === undefined ? {} : {
-          endsGrant: plan.subject.endsGrant,
-          leavesQueue: plan.subject.leavesQueue,
-          removesProof: plan.subject.removesProof,
-        },
-        handoff: `Parking ${row.task.name}`,
-      };
-    }),
-  apply: async (context, step, expected) => {
-    const changed = await rebound(context, step, expected, "park");
-    if (changed !== undefined) return changed;
-    const { row, offer } = stepOffer(context, step, "park");
-    const ctx = await context.runtime.lifecycle(context.root);
-    await context.runtime.park(ctx, row.entry.path);
-    return succeeded(
-      offerCommand(offer),
-      `Parked ${row.task.name}; its branch is kept`,
+/** The landing records a removal's plan says it ends. */
+type RemovalEnds = CheckoutRecordEnds & { readonly removesProof?: boolean };
+
+/**
+ * An effect on a task's checkout that keeps its branch: its core's plan,
+ * with the landing records it ends, and the effect that plan describes.
+ */
+interface CheckoutEffect {
+  readonly action: "park" | "reclaim" | "retry_setup";
+  /** Whose lifecycle context reads and runs it: the project's or the task's. */
+  readonly within: "project" | "task";
+  readonly plan: (
+    runtime: DeskRuntime,
+    ctx: LifecycleContext,
+    path: string,
+  ) => Promise<EnginePlan & { readonly subject?: RemovalEnds }>;
+  readonly run: (
+    runtime: DeskRuntime,
+    ctx: LifecycleContext,
+    path: string,
+  ) => Promise<void>;
+  /** The handoff and the success message, for the task's title. */
+  readonly handoff: (title: string) => string;
+  readonly done: (title: string) => string;
+}
+
+/** What a removal's plan subject ends, as review facts. */
+function removalFacts(subject: RemovalEnds | undefined): DeskPlanFacts {
+  if (subject === undefined) return {};
+  return {
+    endsGrant: subject.endsGrant,
+    leavesQueue: subject.leavesQueue,
+    ...(subject.removesProof === undefined
+      ? {}
+      : { removesProof: subject.removesProof }),
+  };
+}
+
+/** One checkout effect, reviewed from its plan and held to its binding. */
+function checkoutEffectFlow(effect: CheckoutEffect): DeskFlow {
+  const lifecycle = (
+    context: DeskFlowContext,
+    path: string,
+  ): Promise<LifecycleContext> =>
+    Promise.resolve(
+      context.runtime.lifecycle(
+        effect.within === "project" ? context.root : path,
+      ),
     );
-  },
-};
+  return {
+    review: (context, step) =>
+      reviewOffer(context, step, effect.action, async (row) => {
+        const ctx = await lifecycle(context, row.entry.path);
+        const plan = await effect.plan(context.runtime, ctx, row.entry.path);
+        return {
+          plan,
+          facts: removalFacts(plan.subject),
+          handoff: effect.handoff(row.task.name),
+        };
+      }),
+    apply: async (context, step, expected) => {
+      const changed = await rebound(context, step, expected, effect.action);
+      if (changed !== undefined) return changed;
+      const { row, offer } = stepOffer(context, step, effect.action);
+      const ctx = await lifecycle(context, row.entry.path);
+      await effect.run(context.runtime, ctx, row.entry.path);
+      return succeeded(offerCommand(offer), effect.done(row.task.name));
+    },
+  };
+}
+
+/** Park: the park plan with what it ends, then the park. */
+const PARK_FLOW = checkoutEffectFlow({
+  action: "park",
+  within: "project",
+  plan: async (runtime, ctx, path) => await runtime.parkPlan(ctx, path),
+  run: async (runtime, ctx, path) => await runtime.park(ctx, path),
+  handoff: (title) => `Parking ${title}`,
+  done: (title) => `Parked ${title}; its branch is kept`,
+});
 
 /** Reclaim: the contained checkout's removal with what it ends. */
-const RECLAIM_FLOW: DeskFlow = {
-  review: (context, step) =>
-    reviewOffer(context, step, "reclaim", async (row) => {
-      const ctx = await context.runtime.lifecycle(context.root);
-      const plan = await context.runtime.reclaimPlan(ctx, row.entry.path);
-      return {
-        plan,
-        facts: plan.subject === undefined ? {} : {
-          endsGrant: plan.subject.endsGrant,
-          leavesQueue: plan.subject.leavesQueue,
-        },
-        handoff: `Reclaiming ${row.task.name}'s checkout`,
-      };
-    }),
-  apply: async (context, step, expected) => {
-    const changed = await rebound(context, step, expected, "reclaim");
-    if (changed !== undefined) return changed;
-    const { row, offer } = stepOffer(context, step, "reclaim");
-    const ctx = await context.runtime.lifecycle(context.root);
-    await context.runtime.reclaim(ctx, row.entry.path);
-    return succeeded(
-      offerCommand(offer),
-      `Reclaimed ${row.task.name}'s checkout; its branch is kept`,
-    );
-  },
-};
+const RECLAIM_FLOW = checkoutEffectFlow({
+  action: "reclaim",
+  within: "project",
+  plan: async (runtime, ctx, path) => await runtime.reclaimPlan(ctx, path),
+  run: async (runtime, ctx, path) => await runtime.reclaim(ctx, path),
+  handoff: (title) => `Reclaiming ${title}'s checkout`,
+  done: (title) => `Reclaimed ${title}'s checkout; its branch is kept`,
+});
 
 /** Retry setup: the setup plan, then setup from the step that failed. */
-const RETRY_SETUP_FLOW: DeskFlow = {
-  review: (context, step) =>
-    reviewOffer(context, step, "retry_setup", async (row) => {
-      const ctx = await context.runtime.lifecycle(row.entry.path);
-      return {
-        plan: await context.runtime.setupPlan(ctx),
-        handoff: `Retrying setup for ${row.task.name}`,
-      };
-    }),
-  apply: async (context, step, expected) => {
-    const changed = await rebound(context, step, expected, "retry_setup");
-    if (changed !== undefined) return changed;
-    const { row, offer } = stepOffer(context, step, "retry_setup");
-    await context.runtime.setup(
-      await context.runtime.lifecycle(row.entry.path),
-    );
-    return succeeded(
-      offerCommand(offer),
-      `Setup completed for ${row.task.name}`,
-    );
-  },
-};
+const RETRY_SETUP_FLOW = checkoutEffectFlow({
+  action: "retry_setup",
+  within: "task",
+  plan: async (runtime, ctx) => await runtime.setupPlan(ctx),
+  run: async (runtime, ctx) => await runtime.setup(ctx),
+  handoff: (title) => `Retrying setup for ${title}`,
+  done: (title) => `Setup completed for ${title}`,
+});
 
 /** The checkout family's flows, by registry action. */
 export const CHECKOUT_FLOWS = {

@@ -119,6 +119,23 @@ export function resultPlan<T>(
   return result.plan;
 }
 
+/** A review read from a core's dry-run result: its plan, and the handoff. */
+export function previewRead<T>(
+  result: DiscernResult<T>,
+  handoff: string,
+): DeskReviewRead {
+  const plan = resultPlan(result);
+  return { ...(plan === undefined ? {} : { plan }), handoff };
+}
+
+/** The live CLI model the gate's flows need to run checks. */
+export function liveCliModel(context: DeskFlowContext): CliModelProvider {
+  if (context.cliModel === undefined) {
+    throw new Error("Running checks from the desk needs the live CLI model.");
+  }
+  return context.cliModel;
+}
+
 /** The review target for one task's offer, with the trunk it was read at. */
 export function actionTarget(
   context: DeskFlowContext,
