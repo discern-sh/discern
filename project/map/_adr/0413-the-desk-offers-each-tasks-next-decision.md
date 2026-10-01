@@ -26,7 +26,7 @@ The overview no longer sorts by title alone, and a recommended next step is deri
 
 ### Amendment to ADR 0353
 
-The recommendation predicate becomes the registry's `next` and `also` lists, keyed by row state; "at most one available action moves into Recommended" becomes one next step per state plus at most three keyed alternatives. Known refusals stay disabled, now with their reason visible before activation. The public action table gains Key and Section columns and loses the contextual label.
+The recommendation predicate becomes the registry's `next` and `also` lists, keyed by row state; "at most one available action moves into Recommended" becomes one next step per state plus at most three keyed alternatives. Known refusals stay disabled, now with their reason visible before activation. The public action table gains a Section column and loses the contextual label; it lists an action's key only once the desk answers to it.
 
 ## Consequences
 

@@ -10,6 +10,7 @@ import {
   type DeskConfirmationPolicy,
 } from "../src/engine/desk/model.ts";
 import { DESK_ACTION_LABELS } from "../src/shared/desk_vocabulary.ts";
+import { deskShortcuts } from "../src/engine/desk/application_view.ts";
 import { splitRow } from "../src/lib/markdown.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
@@ -28,6 +29,32 @@ function confirmationCell(policy: DeskConfirmationPolicy): string {
     ? `No by default; ${policy.yesLabel}, then type the branch before discarding work`
     : `No by default; ${policy.yesLabel}`;
 }
+
+/** The keys this desk answers to. The manual names an action's key only
+ * once the desk serves it, so it never documents a key that does nothing. */
+const SERVED_KEYS: ReadonlySet<string> = new Set(
+  deskShortcuts().map((shortcut) => shortcut.key),
+);
+
+/** An action's key, when the desk answers to it. */
+function servedKey(action: (typeof DESK_ACTIONS)[number]): string | undefined {
+  const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
+  const key = metadata.key;
+  return key !== undefined && SERVED_KEYS.has(key) ? key : undefined;
+}
+
+/** Whether the table has a Key column: only while some action key works. */
+const KEYED = DESK_ACTIONS.some((action) => servedKey(action) !== undefined);
+
+/** The table's columns, in order. */
+const HEADER = [
+  "Id",
+  ...(KEYED ? ["Key"] : []),
+  "Section",
+  "Label",
+  "Command evidence",
+  "Confirmation",
+];
 
 /** Project every checked-in action row from the action-fact authority. */
 function actionReferenceRows(): string[][] {
@@ -49,9 +76,10 @@ function actionReferenceRows(): string[][] {
   };
   return DESK_ACTIONS.map((action) => {
     const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
+    const key = servedKey(action);
     return [
       `\`${action}\``,
-      metadata.key === undefined ? "—" : `\`${metadata.key}\``,
+      ...(KEYED ? [key === undefined ? "—" : `\`${key}\``] : []),
       DESK_ACTION_SECTION_TITLES[metadata.section],
       proseCell(DESK_ACTION_LABELS[action]),
       `\`${metadata.command(context).argv.join(" ")}\``,
@@ -71,17 +99,10 @@ Deno.test("the public Desk action table matches the canonical registry", async (
   const header = lines.shift();
   const divider = lines.shift();
   assert(header !== undefined && divider !== undefined);
-  assertEquals(splitRow(header), [
-    "Id",
-    "Key",
-    "Section",
-    "Label",
-    "Command evidence",
-    "Confirmation",
-  ]);
+  assertEquals(splitRow(header), HEADER);
   assertEquals(
     splitRow(divider).map((cell) => /^-+$/u.test(cell)),
-    [true, true, true, true, true, true],
+    HEADER.map(() => true),
   );
   assertEquals(
     lines.map(splitRow),
