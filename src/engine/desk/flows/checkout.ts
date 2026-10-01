@@ -14,8 +14,9 @@ import type { LifecycleContext } from "../../worktree/lifecycle.ts";
 import type { CheckoutRecordEnds, DropPlan } from "../../worktree/plan.ts";
 import type { EnginePlan } from "../../../shared/result.ts";
 import type { DeskRuntime } from "../desk.ts";
+import { basename } from "@std/path";
 import { taskTextValidationError } from "../../../shared/task_metadata.ts";
-import { deskRowId } from "../model.ts";
+import { type DeskRow, deskRowId } from "../model.ts";
 import { renameTitle } from "../desk_transitions.ts";
 import type { DeskPlanFacts } from "../review_facts.ts";
 import type { DeskReviewAlternative } from "../flow_types.ts";
@@ -48,6 +49,22 @@ function dropFacts(plan: DropPlan): DeskPlanFacts {
 }
 
 /**
+ * What the owner types to drop a checkout that holds work: its branch, or,
+ * for a detached checkout (one mid-rebase, say), its id or directory name.
+ * Never empty, so an empty field can never match it.
+ */
+export function dropChallenge(row: DeskRow): string {
+  const name = [row.entry.branch, row.entry.id, basename(row.entry.path)]
+    .find((candidate) => candidate !== undefined && candidate.trim() !== "");
+  if (name === undefined) {
+    throw new WorktreeGitError(
+      "This checkout has no branch, id or directory name to confirm a drop with.",
+    );
+  }
+  return name;
+}
+
+/**
  * Drop: the removal plan, its discarded work in danger, the branch name
  * typed up front when the plan's blockers predict lost work, and Park
  * instead beside Keep.
@@ -58,6 +75,7 @@ const DROP_FLOW: DeskFlow = {
       const ctx = await context.runtime.lifecycle(context.root);
       const plan = await context.runtime.dropPlan(ctx, row.entry.path);
       const blockers = plan.subject?.blockers ?? [];
+      const challenge = blockers.length === 0 ? undefined : dropChallenge(row);
       const park = row.decision.actions.find((offer) =>
         offer.action === "park"
       );
@@ -81,9 +99,9 @@ const DROP_FLOW: DeskFlow = {
           plan: `${plan.subject?.head ?? "unknown"}:${
             plan.subject?.state ?? "unknown"
           }`,
-          challenge: blockers.length === 0 ? "none" : row.entry.branch,
+          challenge: challenge ?? "none",
         },
-        ...(blockers.length === 0 ? {} : { challenge: row.entry.branch }),
+        ...(challenge === undefined ? {} : { challenge }),
         alternatives,
         running: `Dropping ${row.task.name}`,
       };
@@ -97,7 +115,7 @@ const DROP_FLOW: DeskFlow = {
       ? expected.core.plan
       : undefined;
     const challenged = (plan?.blockers.length ?? 0) > 0;
-    const force = challenged && challenge === row.entry.branch;
+    const force = challenged && challenge === dropChallenge(row);
     const ctx = await context.runtime.lifecycle(context.root);
     try {
       await context.runtime.drop(ctx, row.entry.path, {

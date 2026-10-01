@@ -60,7 +60,12 @@ import {
   outputTail,
 } from "./desk_state.ts";
 import { DESK_LIST_ID, rowRef, withoutOperation } from "./desk_transitions.ts";
-import { deskKeymap, deskTicks, deskView } from "./inbox_view.ts";
+import {
+  DESK_KEYMAP,
+  DESK_VI_KEYS,
+  deskTicks,
+  deskView,
+} from "./inbox_view.ts";
 import {
   branchEvidenceSubject,
   cachedEvidence,
@@ -689,8 +694,8 @@ export function liveDesk(
 
   return {
     view: deskView(state, { zoomed: false, fields: {} }, env()),
-    keymap: deskKeymap(),
-    viKeys: true,
+    keymap: [...DESK_KEYMAP],
+    viKeys: DESK_VI_KEYS,
     start: (live) => {
       context = live;
       own(

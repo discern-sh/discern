@@ -77,7 +77,11 @@ import {
   evidenceKey,
   taskEvidenceSubject,
 } from "./evidence.ts";
-import { type DeskLayerEnv, deskLayers } from "./layer_view.ts";
+import {
+  type DeskLayerEnv,
+  deskLayers,
+  withShowableLayers,
+} from "./layer_view.ts";
 import { FULL_OUTPUT_KEY, REVIEW_AGAIN_KEY } from "./sheet_view.ts";
 import { codeRuns, deskChips } from "./header_view.ts";
 import { inertView } from "./text.ts";
@@ -551,6 +555,13 @@ export function deskKeymap(): ApplicationKeyBinding<DeskIntent>[] {
   ];
 }
 
+/** The key map every session runs with, built once. */
+export const DESK_KEYMAP: readonly ApplicationKeyBinding<DeskIntent>[] =
+  deskKeymap();
+
+/** The Desk reads vi's movement keys too. */
+export const DESK_VI_KEYS = true;
+
 /** The whole view for one moment. */
 export function deskView(
   state: DeskProductState,
@@ -609,7 +620,7 @@ export function deskView(
   // Observed text reaches the view in many slots; one pass keeps every
   // single-line slot free of line breaks and control characters.
   inertView(view);
-  return view;
+  return withShowableLayers(view, DESK_KEYMAP, DESK_VI_KEYS);
 }
 
 /** The body: the inbox, the empty state, or the list alone. */

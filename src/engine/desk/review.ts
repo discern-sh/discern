@@ -228,6 +228,20 @@ function exceptionArgv(row: DeskRow): readonly string[] {
     ["discern", "accept", "--target", row.entry.branch, "--confirmed"];
 }
 
+/**
+ * A typed confirmation's text. It must name something to type: an empty one
+ * would let an empty field confirm, so the review fails instead.
+ */
+function challengeOf(
+  read: DeskReviewRead,
+): { readonly challenge?: { readonly mustEqual: string } } {
+  if (read.challenge === undefined) return {};
+  if (read.challenge.trim() === "") {
+    throw new TypeError("A typed confirmation must name something to type.");
+  }
+  return { challenge: { mustEqual: read.challenge } };
+}
+
 /** One task action's review. */
 function actionReview(
   target: Extract<DeskReviewTarget, { readonly kind: "action" }>,
@@ -300,9 +314,7 @@ function actionReview(
     ...(read.follows === undefined || read.follows.length === 0
       ? {}
       : { follows: read.follows }),
-    ...(read.challenge === undefined
-      ? {}
-      : { challenge: { mustEqual: read.challenge } }),
+    ...challengeOf(read),
     ...(confirmLabel === undefined && read.footnote === undefined ? {} : {
       footnote: read.footnote ??
         untilChosen("changes", confirmLabel ?? labels.safe),

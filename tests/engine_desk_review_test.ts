@@ -655,6 +655,79 @@ Deno.test("a challenge must match exactly; Enter in it moves to the safe choice;
   assertEquals(drops, [{ force: true }]);
 });
 
+Deno.test("a detached checkout's Drop asks for its id, and an empty field drops nothing", async () => {
+  // A checkout mid-rebase has no branch; the typed name must still name it.
+  const drops: Array<{ force?: boolean }> = [];
+  const entry = deskTaskEntry("", "/worktrees/detached-head", {
+    id: "detached-head",
+    ahead: 1,
+    clean: false,
+    changed_files: 3,
+  });
+  await withDeskSession({
+    runtime: {
+      status: () => ({ ok: true, data: deskSurvey([entry]) }),
+      dropPlan: () => ({
+        title: "Drop plan",
+        details: [],
+        steps: [],
+        subject: {
+          targetPath: entry.path,
+          id: "detached-head",
+          branch: "",
+          deleteBranch: false,
+          preserveHead: true,
+          blockers: ["3 uncommitted files would be discarded"],
+          entries: [],
+          head: "a".repeat(40),
+          endsGrant: false,
+          leavesQueue: false,
+        },
+      }),
+      drop: (_ctx, _target, options) => {
+        drops.push(options.force === undefined ? {} : { force: options.force });
+      },
+    },
+  }, async (desk) => {
+    const id = "review-drop-review";
+    await desk.select("detached-head");
+    await desk.press("D");
+    await desk.opened(id);
+    await desk.shows("Type detached-head to drop it");
+    assertEquals(
+      desk.state().layers[id]?.focusedControlId,
+      "field:challenge",
+    );
+    // Nothing typed: Drop waits for the name.
+    await desk.confirm();
+    assertEquals(drops, [], "an empty field drops nothing");
+    while (desk.state().layers[id]?.focusedControlId !== "field:challenge") {
+      await desk.press("shift-tab");
+    }
+    await desk.type("detached-head");
+    await desk.confirm();
+    await desk.until(() => drops.length === 1, "the drop");
+  });
+  assertEquals(drops, [{ force: true }]);
+});
+
+Deno.test("a typed confirmation must name something to type", () => {
+  const row = rowOf(observedDesk(productSurvey([readyTask("alpha")])), "alpha");
+  let refused: unknown;
+  try {
+    reviewFor(target(row, "drop"), {
+      facts: { discards: ["1 commit not on main"] },
+      challenge: " ",
+    });
+  } catch (error) {
+    refused = error;
+  }
+  assert(
+    refused instanceof TypeError,
+    "an empty challenge fails the review instead of reaching the sheet",
+  );
+});
+
 Deno.test("a changed subject disables confirm until r reads it again", async () => {
   const landed: unknown[] = [];
   let head = "3f9c2e1".padEnd(40, "0");
