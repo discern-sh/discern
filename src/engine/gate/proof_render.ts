@@ -400,6 +400,11 @@ function diffstat(facts: ProofFacts): string {
   return `${files} changed (+${facts.insertions} −${facts.deletions})`;
 }
 
+/** The segment that points a terminal reader at the full Proof. */
+const FULL_PROOF_POINTER = `View the full Proof: ${
+  code("discern status --verbose")
+}`;
+
 /** Assemble the canonical CommonMark source relayed by agents and projected by
  * terminal surfaces. Keeping the wrapper and separator here makes presentation
  * changes atomic across validation and landing lines. */
@@ -429,9 +434,17 @@ export function renderProofLine(
     ...(standardsSegment !== undefined ? [standardsSegment] : []),
     ...(proposalsSegment !== undefined ? [proposalsSegment] : []),
     ...(checkpointsSegment !== undefined ? [checkpointsSegment] : []),
-    `View the full Proof: ${code("discern status --verbose")}`,
+    FULL_PROOF_POINTER,
   ];
   return proofLine(segments);
+}
+
+/**
+ * A proof line without its pointer to the full Proof, for a surface that
+ * shows the full Proof itself one key away.
+ */
+export function proofLineWithoutPointer(line: string): string {
+  return line.replace(`${PROOF_LINE_SEPARATOR}${FULL_PROOF_POINTER}`, "");
 }
 
 /** The owner decisions a landing resolves, which rewrite the validation

@@ -11,6 +11,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
 import {
   DESK_ROOT,
   type DeskSession,
@@ -425,6 +426,29 @@ Deno.test("the Desk rotates its tip across sessions and survives a tip-state fai
     assert(!desk.screen().includes("Tip"), "a failed tip read shows no tip");
   });
   assertEquals(output.stderr, [], "and warns about nothing");
+});
+
+Deno.test("the main checkout's hints are the owner's, with commands as code", async () => {
+  const hints = hintTexts([
+    fire(HINTS["status-start-on-trunk"]),
+    fire(HINTS["completion-pending"], {
+      action: "Run `discern status` and follow its next action.",
+    }),
+  ]);
+  await withDeskSession({
+    runtime: {
+      status: () => ({ ok: true, data: deskSurvey([]), hints }),
+    },
+  }, async (desk) => {
+    await desk.palette("Main checkout", "main_checkout");
+    await desk.opened("reader-main");
+    await desk.shows("Run discern status and follow its next action.");
+    assert(
+      !desk.screen().includes("Keep one worktree"),
+      "agent-directed hints stay on the wire",
+    );
+    assert(!desk.screen().includes("`"), "code spans show as code");
+  });
 });
 
 Deno.test("the main checkout is inspectable without offering agent work", async () => {

@@ -15,6 +15,8 @@ import type {
   ApplicationGlyph,
   ApplicationRun,
 } from "discern-design-system/cli/interactive";
+import { proofLineWithoutPointer } from "../gate/proof_render.ts";
+import { inlineRuns } from "./header_view.ts";
 import type {
   StatusData,
   SubmissionRowData,
@@ -840,6 +842,15 @@ export function parkedStrip(
   };
 }
 
+/**
+ * A stored Proof line as the owner reads it: its label and code spans
+ * styled, never their Markdown markers, and without its pointer to the CLI,
+ * since the full Proof is one key away.
+ */
+export function proofLineBlock(line: string): ApplicationDetailBlock {
+  return { kind: "text", runs: inlineRuns(proofLineWithoutPointer(line)) };
+}
+
 /** A recent landing's details. */
 export function landedBlocks(
   task: NonNullable<StatusData["recent_completed_tasks"]>[number],
@@ -875,11 +886,9 @@ export function landedBlocks(
         ...(task.head === undefined
           ? []
           : [{ label: "Head", value: [[{ text: task.head.slice(0, 12) }]] }]),
-        ...(task.proof_line === undefined
-          ? []
-          : [{ label: "Proof", value: [[{ text: task.proof_line }]] }]),
       ],
     },
+    ...(task.proof_line === undefined ? [] : [proofLineBlock(task.proof_line)]),
     nextSection([{
       key: "enter",
       label: DESK_COMMAND_LABELS.landed_proof,

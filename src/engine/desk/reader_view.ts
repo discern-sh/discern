@@ -40,8 +40,8 @@ import {
   type DeskReaderSubject,
 } from "./desk_state.ts";
 import { branchTitle, rowRef } from "./desk_transitions.ts";
-import { ageText, diffRuns, glyph } from "./inspector_view.ts";
-import { codeRuns } from "./header_view.ts";
+import { ageText, diffRuns, glyph, proofLineBlock } from "./inspector_view.ts";
+import { inlineRuns } from "./header_view.ts";
 
 /** What a reader reads besides product state. */
 export interface DeskReaderEnv {
@@ -313,7 +313,10 @@ function mainBlocks(
     ...(state.hints.length === 0 ? [] : [{
       kind: "section" as const,
       title: "Hints",
-      blocks: state.hints.map((hint) => text(hint)),
+      blocks: state.hints.map((hint): ApplicationDetailBlock => ({
+        kind: "text",
+        runs: inlineRuns(hint),
+      })),
     }]),
     ...((data?.adr_collisions ?? []).length === 0 ? [] : [{
       kind: "section" as const,
@@ -462,7 +465,7 @@ function changesBlocks(
         { label: "Changes", value: [totals] },
       ],
     },
-    ...(proofLine === undefined ? [] : [text(proofLine)]),
+    ...(proofLine === undefined ? [] : [proofLineBlock(proofLine)]),
     ...review.failures.map((failure): ApplicationDetailBlock => ({
       kind: "marks",
       items: [{
@@ -568,7 +571,7 @@ export function deskReader(
           kind: "text",
           runs: state.tip === undefined
             ? [{ text: "This session has no tip yet." }]
-            : codeRuns(state.tip),
+            : inlineRuns(state.tip),
         }],
         keys: [{
           key: "m",

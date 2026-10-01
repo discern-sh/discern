@@ -10,6 +10,7 @@ import {
   renderTerminalApplication,
   type TerminalApplicationView,
 } from "discern-design-system/cli/interactive";
+import { proofLineBlock } from "../src/engine/desk/inspector_view.ts";
 import { testTerminalCapabilities } from "discern-design-system/cli/interactive/testing";
 import {
   type DeskIntent,
@@ -24,7 +25,11 @@ import {
 } from "../src/engine/desk/desk_transitions.ts";
 import { deskKeymap, deskView } from "../src/engine/desk/inbox_view.ts";
 import { UNSHOWABLE_LAYER_TITLE } from "../src/engine/desk/layer_view.ts";
-import { deskChips, toggleLabel } from "../src/engine/desk/header_view.ts";
+import {
+  deskChips,
+  inlineRuns,
+  toggleLabel,
+} from "../src/engine/desk/header_view.ts";
 import { deskRowId } from "../src/engine/desk/model.ts";
 import { taskEvidenceSubject } from "../src/engine/desk/evidence.ts";
 import type { DeskReview } from "../src/engine/desk/flow_types.ts";
@@ -34,7 +39,13 @@ import {
 } from "../src/engine/status/row_states.ts";
 import type { StatusData } from "../src/shared/result_schemas.ts";
 import type { EmergencyValidation } from "../src/shared/emergency.ts";
-import { fleetEntry, mainFleetEntry, statusData } from "./status_fleet.ts";
+import {
+  exceptionProof,
+  fleetEntry,
+  mainFleetEntry,
+  statusData,
+} from "./status_fleet.ts";
+import { renderProofLine } from "../src/engine/gate/proof_render.ts";
 import { NOW, TABLE_ROWS } from "./row_state_table.ts";
 import {
   freshDesk,
@@ -183,6 +194,53 @@ Deno.test("a survey that only restamps a checkout's edits keeps its commits on s
   assertStringIncludes(content, "Committed work");
   assertStringIncludes(content, "notes.md");
   assert(!content.includes("Reading…"), "nothing blinks back to Reading…");
+});
+
+Deno.test("a stored Proof line reads as styled words, without its CLI pointer", () => {
+  const { line: _line, markdown: _markdown, ...facts } = exceptionProof();
+  const line = renderProofLine(facts);
+  assertStringIncludes(line, "**Proof:**", "the producer writes Markdown");
+  const block = proofLineBlock(line);
+  assert(block.kind === "text");
+  const words = block.runs.map((run) => run.text).join("");
+  assert(words.startsWith("Proof: Gate passed for agent/task at abc1234"));
+  for (const marker of ["**", "`", "> ", "View the full Proof"]) {
+    assert(!words.includes(marker), `${JSON.stringify(words)} shows ${marker}`);
+  }
+  assertEquals(
+    block.runs.filter((run) => run.role !== undefined).map((run) => [
+      run.role,
+      run.text,
+    ]),
+    [
+      ["title", "Proof:"],
+      ["code", "agent/task"],
+      ["code", "abc1234"],
+      ["code", "main"],
+    ],
+  );
+  // The landed row's inspector shows the same block.
+  const data = statusData([mainFleetEntry(), fleetEntry({ id: "alpha" })], {
+    recent_completed_tasks: [{
+      branch: "agent/landed",
+      head: "b".repeat(40),
+      completed_at: "2026-09-30T11:00:00.000Z",
+      proof_line: line,
+    }],
+  });
+  const landed = landedRowId("agent/landed", "2026-09-30T11:00:00.000Z");
+  const view = deskView(desk(data), { ...PRODUCT_UI, selected: landed }, ENV);
+  assert(view.body.kind === "master-detail");
+  assertStringIncludes(
+    said(view.body.detail.content[landed]),
+    said(block),
+  );
+  // A code span holding a backtick keeps it, inside its longer fence.
+  assertEquals(inlineRuns("> a ``x`y`` b"), [
+    { text: "a " },
+    { text: "x`y", role: "code" },
+    { text: " b" },
+  ]);
 });
 
 Deno.test("every row state's inspector and strip render in status's words", () => {

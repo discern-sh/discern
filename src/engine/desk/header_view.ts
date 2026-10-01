@@ -1,7 +1,8 @@
 /**
  * The words the inbox chrome shares with the palette: the header's chips,
  * which route fleet facts that need the owner to where they live, the label
- * a toggle command shows now, and tip text with its commands as code.
+ * a toggle command shows now, and inline Markdown (tips, hints, a stored
+ * Proof line) as styled runs.
  */
 
 import type {
@@ -98,11 +99,50 @@ export function toggleLabel(
     : DESK_COMMAND_LABELS[command];
 }
 
-/** Text with backtick spans as code runs, as tips write commands. */
-export function codeRuns(text: string): ApplicationRun[] {
-  return text.split("`").flatMap((part, index) =>
-    part === "" ? [] : [
-      index % 2 === 1 ? { text: part, role: "code" as const } : { text: part },
-    ]
-  );
+/**
+ * One line of inline Markdown as runs, as tips, hints and stored Proof lines
+ * write it: a quote's marker dropped, `**strong**` as a title run and code
+ * spans (of any backtick count) as code runs, so no marker reaches the
+ * screen. Anything else reads as written.
+ */
+export function inlineRuns(text: string): ApplicationRun[] {
+  const source = text.replace(/^>\s?/u, "");
+  const runs: ApplicationRun[] = [];
+  let plain = "";
+  let at = 0;
+  const flush = (): void => {
+    if (plain !== "") runs.push({ text: plain });
+    plain = "";
+  };
+  while (at < source.length) {
+    if (source.startsWith("**", at)) {
+      const end = source.indexOf("**", at + 2);
+      if (end > at + 2) {
+        flush();
+        runs.push({ text: source.slice(at + 2, end), role: "title" });
+        at = end + 2;
+        continue;
+      }
+    }
+    const fence = /^`+/u.exec(source.slice(at))?.[0];
+    if (fence !== undefined) {
+      const end = source.indexOf(fence, at + fence.length);
+      if (end > at) {
+        flush();
+        const code = source.slice(at + fence.length, end);
+        runs.push({
+          text: code.startsWith(" ") && code.endsWith(" ") && code.trim() !== ""
+            ? code.slice(1, -1)
+            : code,
+          role: "code",
+        });
+        at = end + fence.length;
+        continue;
+      }
+    }
+    plain += source[at];
+    at += 1;
+  }
+  flush();
+  return runs;
 }

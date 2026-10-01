@@ -43,6 +43,7 @@ import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { interactiveHintTexts } from "../../shared/hints.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import type { DiscernResult, EnginePlan } from "../../shared/result.ts";
@@ -916,7 +917,9 @@ export async function runDesk(
         if (!result.ok || result.data === undefined) {
           throw new Error(result.message ?? "The status survey failed.");
         }
-        return { data: result.data, hints: result.hints ?? [] };
+        // The owner reads these: agent-directed hints stay on the wire, as
+        // on any interactive terminal.
+        return { data: result.data, hints: interactiveHintTexts(result.hints) };
       },
       tip: (data) => sessionTip(root, config, runtime, data),
       manual: async () =>

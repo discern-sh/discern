@@ -82,7 +82,7 @@ import {
   withShowableLayers,
 } from "./layer_view.ts";
 import { FULL_OUTPUT_KEY, REVIEW_AGAIN_KEY } from "./sheet_view.ts";
-import { codeRuns, deskChips } from "./header_view.ts";
+import { deskChips, inlineRuns } from "./header_view.ts";
 import { inertView } from "./text.ts";
 
 /** What the view reads besides product and package state. */
@@ -437,7 +437,7 @@ function messageLine(
       ? [
         { text: "Tip", tone: "faint" as const },
         { text: "   " },
-        ...codeRuns(message.text),
+        ...inlineRuns(message.text),
       ]
       : [{ text: message.text }]),
   ];
