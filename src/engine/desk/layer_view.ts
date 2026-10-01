@@ -4,12 +4,12 @@
  * name. Pure.
  */
 
-import {
-  type ApplicationKeyBinding,
-  type ApplicationLayer,
-  type TerminalApplicationView,
-  validateTerminalApplicationView,
+import type {
+  ApplicationKeyBinding,
+  ApplicationLayer,
+  TerminalApplicationView,
 } from "discern-design-system/cli/interactive";
+import { terminalApplicationViewIssues } from "../../lib/terminal_interaction.ts";
 import type { DeskIntent, DeskLayer, DeskProductState } from "./desk_state.ts";
 import { rowRef } from "./desk_transitions.ts";
 import {
@@ -125,12 +125,7 @@ export function withShowableLayers(
   const layers = view.layers ?? [];
   if (layers.length === 0) return view;
   const broken = new Map<number, string>();
-  for (
-    const issue of validateTerminalApplicationView(view, {
-      keymap,
-      viKeys,
-    })
-  ) {
+  for (const issue of terminalApplicationViewIssues(view, keymap, viKeys)) {
     const index = LAYER_ISSUE.exec(issue.path)?.[1];
     if (index !== undefined && !broken.has(Number(index))) {
       broken.set(Number(index), `${issue.path} ${issue.message}`);

@@ -11,6 +11,7 @@ import {
   renderDialogCli,
 } from "discern-design-system/cli";
 import {
+  type ApplicationKeyBinding,
   createSequentialForm,
   InteractionCancelled as PackageInteractionCancelled,
   type InteractionChoicePresentation,
@@ -42,7 +43,10 @@ import {
   type TerminalApplicationOptions as PackageTerminalApplicationOptions,
   type TerminalApplicationRuntime as PackageTerminalApplicationRuntime,
   type TerminalApplicationState,
+  type TerminalApplicationView,
+  type TerminalApplicationViewIssue,
   type TerminalIO,
+  validateTerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import { bestEffortSync } from "../shared/best_effort.ts";
 import { currentOutputCapture } from "../shared/output_capture.ts";
@@ -1071,6 +1075,19 @@ async function runInteractionRequest<Options, Value>(
 /** Package composition stays public; this adapter adds only product interaction policy. */
 export type TerminalApplicationOptions<Action> =
   PackageTerminalApplicationOptions<Action>;
+
+/**
+ * Every rule a view breaks, judged as the running package judges it with
+ * the same key map. A product that builds layers from observed data checks
+ * a view with it before showing one.
+ */
+export function terminalApplicationViewIssues<Action>(
+  view: TerminalApplicationView<Action>,
+  keymap: readonly ApplicationKeyBinding<Action>[],
+  viKeys: boolean,
+): readonly TerminalApplicationViewIssue[] {
+  return validateTerminalApplicationView(view, { keymap, viKeys });
+}
 
 /** Product terminal policy with the package's cooperative application controls. */
 export interface TerminalApplicationRuntime extends TerminalInteractionRuntime {
