@@ -424,9 +424,9 @@ export const TASK_ROW_SENTENCES = {
     attention: (facts) =>
       `No recorded activity for ${
         idleSpan(facts)
-      }; its Proof still covers the clean HEAD. Land it with \`discern accept --target ${facts.entry.branch} --confirmed\`, ${
-        STALE_COMMANDS(facts)
-      }`,
+      }; its Proof still covers the clean HEAD. The owner can land it with \`discern accept --target ${
+        taskBranch(facts)
+      } --confirmed\`; otherwise ${STALE_COMMANDS(facts)}`,
   },
   stale: {
     qualifier: (facts) => `idle ${idleSpan(facts)}`,

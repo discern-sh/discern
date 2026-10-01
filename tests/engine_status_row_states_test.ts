@@ -492,6 +492,7 @@ Deno.test("row-state precedence: every combination resolves to exactly the speci
   const states = new Set<FleetTaskRowStateId>();
   const mismatches: string[] = [];
   const sentenceFaults: string[] = [];
+  const consentFaults: string[] = [];
   for (const matrixCase of [...kindMatrix(), ...contextMatrix()]) {
     const kind = classifyRowKind(matrixCase.entry, NOW);
     const state = rowStateFor(kind, matrixCase.entry, matrixCase.context);
@@ -518,6 +519,14 @@ Deno.test("row-state precedence: every combination resolves to exactly the speci
       sentences.qualifier(facts) ?? "",
       sentences.attention(facts) ?? "",
     ];
+    // `--confirmed` attests the owner's approval in this conversation, so a
+    // command carrying it is always the owner's to run.
+    const attention = sentences.attention(facts) ?? "";
+    if (
+      attention.includes("--confirmed") && !/\bowner(?:'s)?\b/u.test(attention)
+    ) {
+      consentFaults.push(`${matrixCase.name} (${state}): ${attention}`);
+    }
     if (
       explanation.includes("`") ||
       written.some((text) => /\bundefined\b|\bNaN\b|\s\.|^\s|\s$/u.test(text))
@@ -532,6 +541,11 @@ Deno.test("row-state precedence: every combination resolves to exactly the speci
     sentenceFaults.slice(0, 10),
     [],
     `${sentenceFaults.length} faults`,
+  );
+  assertEquals(
+    consentFaults.slice(0, 10),
+    [],
+    `${consentFaults.length} confirmed commands without the owner`,
   );
   assertEquals([...kinds].sort(), [...FLEET_ROW_STATUS_KINDS].sort());
   assertEquals(
