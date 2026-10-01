@@ -232,9 +232,6 @@ function taskItem(
   };
 }
 
-/** The title width below which the inbox drops columns: the package default. */
-export const INBOX_MIN_TITLE = 16;
-
 /** Rows of a branch without a checkout. */
 function parkedItems(
   data: StatusData | undefined,
@@ -358,20 +355,6 @@ function inboxList(
   return {
     id: DESK_LIST_ID,
     groups,
-    // TODO(R-3): the content-sized split reserves only the longest title,
-    // so a minimum above it would drop the age column the split sized for.
-    // Code points stand in for cells; a wide title only lowers the minimum.
-    minTitle: Math.max(
-      1,
-      Math.min(
-        INBOX_MIN_TITLE,
-        ...groups.flatMap((group) =>
-          group.items.map((item) =>
-            [...`${item.title}${item.titleSuffix ?? ""}`].length
-          )
-        ),
-      ),
-    ),
     columns: [
       { id: "flag", width: 1, priority: 1 },
       { id: "label", width: 13, align: "end" },

@@ -9,7 +9,6 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   APPLICATION_LAYER_DEPTH,
-  DEFAULT_APPLICATION_LIST_MIN_TITLE,
   terminalApplicationReservedKeys,
 } from "discern-design-system/cli/interactive";
 import {
@@ -33,7 +32,7 @@ import {
   parkedRowId,
 } from "../src/engine/desk/desk_transitions.ts";
 import { deskLayers } from "../src/engine/desk/layer_view.ts";
-import { deskView, INBOX_MIN_TITLE } from "../src/engine/desk/inbox_view.ts";
+import { deskView } from "../src/engine/desk/inbox_view.ts";
 import { PACKAGE_RESERVED_KEYS } from "../src/engine/desk/keys.ts";
 import { DESK_GLYPHS } from "../src/engine/desk/glyphs.ts";
 import { TERMINAL_GLYPHS } from "discern-design-system/cli";
@@ -734,7 +733,6 @@ Deno.test("the Desk's limits match the package's", () => {
       `${name} carries the package's pair`,
     );
   }
-  assertEquals(INBOX_MIN_TITLE, DEFAULT_APPLICATION_LIST_MIN_TITLE);
   const view = deskView(
     observedDesk(survey([editing("alpha")])),
     UI,

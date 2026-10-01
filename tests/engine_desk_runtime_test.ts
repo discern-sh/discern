@@ -2112,7 +2112,7 @@ Deno.test("an agent without a prompt option shows the stored brief before it ope
     await desk.opened("agents");
     await desk.choose("claude_code:open");
     await desk.opened("review-agent-brief");
-    await desk.shows("copy this brief");
+    await desk.shows("takes no prompt");
     await desk.shows("Keep the public names stable.");
     assertEquals(launches, [], "nothing opens before the brief is read");
     await desk.confirm();
