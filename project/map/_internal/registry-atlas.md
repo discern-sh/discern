@@ -137,7 +137,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 23      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 20      | —                | —                           |
-| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 25      | —                | —                           |
+| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 28      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
 | [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 46      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
@@ -5433,7 +5433,7 @@ Every genuine JavaScript timer interval in executable tests, with its exact modu
 Every elapsed shell wait in executable test source, with its exact enclosing scope, argument, occurrence count, and reviewed polling or timing contract.
 
 - Source: `tests/test_shell_wait_boundaries.ts` — `TEST_SHELL_WAIT_BOUNDARIES`
-- Members: 25
+- Members: 28
   - `["tests/engine_desk_operation_test.ts","paused production Desk script exposes its actual lease, cancels durably, and releases the next action","60"]`
   - `["tests/engine_desk_operation_test.ts","holdOpen","0.05"]`
   - `["tests/engine_desk_operation_test.ts","a running gate never refuses a desk shell on its checkout","0.05"]`
@@ -5459,6 +5459,9 @@ Every elapsed shell wait in executable test source, with its exact enclosing sco
   - `["tests/jobs_runner_test.ts","spawnJob quiesces background descendants before a clean result returns","0.01"]`
   - `["tests/jobs_runner_test.ts","fail-fast escalates to SIGKILL when a sibling ignores SIGTERM","0.05"]`
   - `["tests/owned_child_test.ts","a routed setup command quiesces background descendants before returning","0.01"]`
+  - `["tests/engine_desk_attribution_test.ts","an open shell is activity, not a running verb, and ends as ended","0.02"]`
+  - `["tests/engine_desk_isolation_tty_test.ts","<module>","0.05"]`
+  - `["tests/engine_desk_isolation_tty_test.ts","<module>","1"]`
 - Guards: `tests/test_shell_wait_guard_test.ts`
 - Glossary: not enrolled — shell waiting enrollment is repository test infrastructure rather than product vocabulary
 - Feature canon: not enrolled — the syntax census constrains this repository's tests and is not part of the shipped binary
