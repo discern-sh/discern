@@ -794,7 +794,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         children: [
           {
             id: "submission-only",
-            title: "Join the landing queue",
+            title: "Queue for landing",
             what:
               "`discern accept queue` records a clean, proven revision without running checks, taking the landing turn, consuming a grant, or starting a walk. Its read-only plan names the exact revision and authority. Applying rechecks both and preserves the order of an unchanged submission. An ordinary grant never authorizes a checkpoint variance or standard proposal.",
             why:
@@ -802,7 +802,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             plain: {
               title: "Queue checked work",
               what:
-                "Choose Join the landing queue in the desk, or run `discern accept queue` from the task's copy, to record the version you want shared. This does not start a background job. An active or later Accept can pick it up with the required permission.",
+                "Choose Queue for landing… in the desk, or run `discern accept queue` from the task's copy, to record the version you want shared. This does not start a background job. Any later landing can pick it up with the required permission.",
               why:
                 "Finished work can wait visibly without restarting its coding agent or repeating its checks.",
             },
@@ -1057,13 +1057,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "tips",
             title: "Desk tips",
             what:
-              "The desk reserves one quiet tip per session. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation). The package fits the line within the viewport; Read this Tip opens the full text. Each shown id is recorded once in the logbook.",
+              "The desk reserves one quiet tip per session. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation). The package fits the line within the viewport; Tip of the session opens the full text. Each shown id is recorded once in the logbook.",
             why:
               "The desk presents one tip per session and records its id in the logbook for later adoption analysis.",
             plain: {
               title: "Desk tips",
               what:
-                "The desk keeps one short tip for each session. The choice follows fixed rules, the line fits the window, and Read this Tip opens its full text. The tip's name goes into the activity record.",
+                "The desk keeps one short tip for each session. The choice follows fixed rules, the line fits the window, and Tip of the session opens its full text. The tip's name goes into the activity record.",
               why:
                 "The person in charge learns one ability at a time without reading a manual, and the record can later show whether the teaching was used.",
             },
@@ -1873,7 +1873,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "release-awareness",
         title: "Release information when requested",
         what:
-          "`discern releases` and the desk's Check for updates action open release notes in your browser, showing what changed and whether an upgrade is available. A local reminder prompts you to check every couple of weeks. You choose when to install.",
+          "`discern releases` and the desk's Check for updates… command open release notes in your browser, showing what changed and whether an upgrade is available. A local reminder prompts you to check every couple of weeks. You choose when to install.",
         plain: {
           title: "Choose when to check releases",
           what:

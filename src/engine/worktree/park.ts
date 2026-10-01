@@ -1,5 +1,6 @@
 /** Branch-preserving Park plan and apply core. */
 import { withWorktreeOwnership } from "../operation_lock.ts";
+import { DESK_ACTION_LABELS } from "../../shared/desk_vocabulary.ts";
 
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { fileExists } from "../../shared/fs_presence.ts";
@@ -48,7 +49,7 @@ async function buildParkPlan(
   const trunk = integrationBranch(ctx.config.repository.trunk);
   if (removal.branch === "" || removal.branch === trunk) {
     throw new WorktreeGitError(
-      "Park needs a named task branch separate from the trunk. The checkout and branch were kept. Choose Show recovery steps in `discern desk`.",
+      `Park needs a named task branch separate from the trunk. The checkout and branch were kept. Choose ${DESK_ACTION_LABELS.recovery} in \`discern desk\`.`,
     );
   }
   if (removal.clean !== true) {

@@ -152,7 +152,7 @@ A coding agent can preview effects, distinguish Proof from permission, and stop 
 - **Agent value:** A coding agent can submit its proven work, wait its landing turn, and let discern check it with a moved trunk under applicable consent. A conflict, failed check, or missing authority returns a concrete next action.
 - **Why it follows:** Acceptance freezes the submission, serializes landings, proves a needed combination in an owned worktree, and rechecks authority before moving the trunk. An explicitly selected queue walk records each attempt and stops at the first refusal.
 - **Boundary:** Authority is scoped and current: a prior grant, a sibling's authority, or a green result never covers an unmet checkpoint variance or newly uncovered path.
-- **Direct product basis:** Waiting for a landing turn · Landing after a selected submission · Join the landing queue · Accept · Complete owner moments · File ownership.
+- **Direct product basis:** Waiting for a landing turn · Landing after a selected submission · Queue for landing · Accept · Complete owner moments · File ownership.
 - **Agent hints:** `status-land-under-verified-authority` · `status-ready-uncovered-authority` · `status-proven-behind` · `gate-land-under-verified-authority` · `gate-relay-uncovered-authority` · `accept-relay-landing-proof` · `start-landing-authority`.
 
 ### Manage the installation lifecycle

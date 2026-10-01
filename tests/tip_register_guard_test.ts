@@ -33,13 +33,11 @@ import { assertNamedCases } from "./assert_cases.ts";
  */
 const TIP_REGISTER_ALLOWLIST: Readonly<Record<string, string>> = {
   "Worktree":
-    "The desk names a task's separate working copy a Worktree in its task details and cleanup actions.",
+    "`discern status` and the desk's recovery steps call a task's separate working copy a worktree, so tips teach that word.",
   "branch":
-    "The desk shows the branch name as the stable identity humans type to confirm cleanup.",
+    "The desk shows each task's branch, and Drop asks for the branch name before it discards work.",
   "commit":
-    'The desk action is labeled "Inspect commits and changes"; the tip quotes that exact label.',
-  "Project script":
-    'The desk action is labeled "Run a Project Script"; the tip quotes that exact label.',
+    'The desk counts commits in its landing summaries and offers "View changes" and "View commits", so tips use the word.',
 };
 
 /** Find unquoted jargon in beginner tip prose and recommend its registered plain-language term. */
@@ -140,7 +138,7 @@ Deno.test("tip register guard: contracts", () => {
       assertEquals(
         registerHits(
           "fixture",
-          'The Worktree view shows a branch and offers "Inspect commits and changes" or "Run a Project Script".',
+          'The Worktree view shows a branch and offers "View changes" or "View commits".',
         ),
         [],
       );

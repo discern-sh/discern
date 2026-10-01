@@ -72,7 +72,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** Another task landing first does not have to send yours back through a routine handoff. discern can join the changes, check them together, and land the result while the author keeps working in the same place.
 - **Mechanism:** Acceptance retains the submitted revision, waits its turn, and creates an integration worktree when the trunk moved. The combined Gate and authority check precede landing; conflicts and failed checks return to the author.
-- **Product basis:** Integration worktrees · Waiting for a landing turn · Landing after a selected submission · Join the landing queue · Accept.
+- **Product basis:** Integration worktrees · Waiting for a landing turn · Landing after a selected submission · Queue for landing · Accept.
 
 ### Walk away mid-task and pick up where you left off
 

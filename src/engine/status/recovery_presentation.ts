@@ -1,6 +1,7 @@
 /** Pure degraded-state projection shared by status classification and guidance. */
 
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
+import { DESK_ACTION_LABELS } from "../../shared/desk_vocabulary.ts";
 
 export type DegradedFleetKind =
   | "broken"
@@ -48,6 +49,10 @@ function unreadableFact(entry: StatusFleetEntry): string {
   }
 }
 
+/** Where a person reads a degraded task's recovery steps. */
+const RECOVERY_ROUTE =
+  `Choose ${DESK_ACTION_LABELS.recovery} in \`discern desk\`.`;
+
 /** Safe first action for each degraded state. */
 export function degradedFleetAttention(
   kind: string,
@@ -55,13 +60,11 @@ export function degradedFleetAttention(
 ): string | undefined {
   switch (kind) {
     case "broken":
-      return "Setup did not produce a readable project configuration. Choose Show recovery steps in `discern desk`.";
+      return `Setup did not produce a readable project configuration. ${RECOVERY_ROUTE}`;
     case "setup-incomplete":
-      return "Setup did not reach its ready marker. Choose Show recovery steps in `discern desk`.";
+      return `Setup did not reach its ready marker. ${RECOVERY_ROUTE}`;
     case "unreadable":
-      return `${
-        unreadableFact(entry)
-      } Choose Show recovery steps in \`discern desk\`.`;
+      return `${unreadableFact(entry)} ${RECOVERY_ROUTE}`;
     default:
       return undefined;
   }

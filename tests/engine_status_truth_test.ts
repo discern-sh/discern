@@ -8,6 +8,7 @@
  * main checkout raises the silent-divergence warning (status AND finish).
  */
 
+import { DESK_ACTION_LABELS } from "../src/shared/desk_vocabulary.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, dirname, join } from "@std/path";
@@ -134,7 +135,7 @@ Deno.test("status routes a configless broken worktree through recovery", async (
     );
     assertTerminalTextIncludes(
       humanWords(human.output),
-      "Setup did not produce a readable project configuration. Choose Show recovery steps in `discern desk`.",
+      `Setup did not produce a readable project configuration. Choose ${DESK_ACTION_LABELS.recovery} in \`discern desk\`.`,
     );
   });
 });
@@ -225,7 +226,7 @@ Deno.test("a failed worktree status read stays unreadable through status and the
       assertStringIncludes(humanWords(local.output), "Unreadable");
       assertTerminalTextIncludes(
         humanWords(local.output),
-        "Git could not read this checkout. Choose Show recovery steps in `discern desk`.",
+        `Git could not read this checkout. Choose ${DESK_ACTION_LABELS.recovery} in \`discern desk\`.`,
       );
     } finally {
       await Deno.chmod(index, 0o644);

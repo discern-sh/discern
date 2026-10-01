@@ -931,6 +931,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/engine_desk_runtime_test.ts",
       "tests/engine_desk_execution_guard_test.ts",
       "tests/engine_desk_registry_guard_test.ts",
+      "tests/engine_desk_label_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {

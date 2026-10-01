@@ -1,4 +1,5 @@
 import { ignoredFileDetails } from "./ignored.ts";
+import { DESK_ACTION_LABELS, labelName } from "../../shared/desk_vocabulary.ts";
 /**
  * The worktree lifecycle's **plan types and pure projections** (ADR 0027). Each
  * effectful worktree verb — setup, teardown, accept, prune — describes what it
@@ -73,7 +74,7 @@ export interface SubmissionPlan {
 /** Project queue admission without adding landing or project-command effects. */
 export function submissionPlanToEngine(plan: SubmissionPlan): EnginePlan {
   return {
-    title: "Join the landing queue",
+    title: labelName(DESK_ACTION_LABELS.submit),
     details: [
       `Task: ${plan.path}`,
       `Branch: ${plan.branch}`,

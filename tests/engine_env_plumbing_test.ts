@@ -9,6 +9,7 @@
  * Guards: boundary:provider-security-boundary
  */
 
+import { DESK_ACTION_LABELS } from "../src/shared/desk_vocabulary.ts";
 import {
   assert,
   assertEquals,
@@ -484,7 +485,7 @@ Deno.test("the dashboard marks an unreadable env file where it sits", async () =
     );
     assertTerminalTextIncludes(
       fleet.output,
-      "discern could not read the env file `.env.local` in this checkout. Choose Show recovery steps in `discern desk`.",
+      `discern could not read the env file \`.env.local\` in this checkout. Choose ${DESK_ACTION_LABELS.recovery} in \`discern desk\`.`,
     );
     assertTerminalTextIncludes(fleet.output, "Unreadable: .env.local");
 

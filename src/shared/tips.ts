@@ -27,6 +27,12 @@ import {
   positional,
   renderCommandRefsCli,
 } from "./command_reference.ts";
+import { DESK_ACTION_LABELS } from "./desk_vocabulary.ts";
+
+/** A Desk label as a tip quotes it: in double quotes, exactly as shown. */
+function quoted(label: string): string {
+  return `"${label}"`;
+}
 
 /** Shared references for the commands tips cite. Each is one token rendered
  * per surface at delivery; a template interpolates it instead of spelling the
@@ -207,8 +213,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      "Select a task to reach its controls. Press / to find work, Tab to read " +
-      "the other region, and Escape to return to the task list.",
+      "Select a task to see its state and next step. Press / to find work, " +
+      "and Escape to return to the task list.",
   }),
 
   defineTip({
@@ -314,8 +320,9 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["accept", "proof"],
     example: undefined,
     template: (): string =>
-      'Before "Accept", open More actions, then "Review changes" to inspect ' +
-      "saved and unsaved work and the Proof for the checked commit.",
+      `Before you choose ${quoted(DESK_ACTION_LABELS.accept)}, choose ${
+        quoted(DESK_ACTION_LABELS.inspect)
+      } to see saved and unsaved work and the Proof for the checked commit.`,
   }),
 
   defineTip({
@@ -325,8 +332,13 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["consent-attestations", "submission-only"],
     example: undefined,
     template: (): string =>
-      '"Pre-authorize landing once green" grants permission. ' +
-      'Use "Join the landing queue" to submit the proven revision, or "Accept and land now" to start landing.',
+      `${
+        quoted(DESK_ACTION_LABELS.grant)
+      } lets a task land without asking you once its checks pass. ${
+        quoted(DESK_ACTION_LABELS.submit)
+      } records a proven version; ${
+        quoted(DESK_ACTION_LABELS.accept)
+      } lands it now.`,
   }),
 
   defineTip({
@@ -815,8 +827,9 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      'When a task has a project-owned tool, the desk offers "Project ' +
-      `Scripts". ${CMD.scripts} lists the same tools from a shell.`,
+      `When a task has a project-owned tool, the desk offers ${
+        quoted(DESK_ACTION_LABELS.scripts)
+      }. ${CMD.scripts} lists the same tools from a shell.`,
   }),
 ];
 

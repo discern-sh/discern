@@ -20,7 +20,7 @@ The guard omits a reading-grade ceiling because command names and placeholders d
 
 Rendered line:
 
-> Select a task to reach its controls. Press / to find work, Tab to read the other region, and Escape to return to the task list.
+> Select a task to see its state and next step. Press / to find work, and Escape to return to the task list.
 
 ## `status-orients-anywhere`
 
@@ -104,7 +104,7 @@ Rendered line:
 
 Rendered line:
 
-> Before "Accept", open More actions, then "Review changes" to inspect saved and unsaved work and the Proof for the checked commit.
+> Before you choose "Land…", choose "View changes" to see saved and unsaved work and the Proof for the checked commit.
 
 ## `grant-once-green`
 
@@ -116,7 +116,7 @@ Rendered line:
 
 Rendered line:
 
-> "Pre-authorize landing once green" grants permission. Use "Join the landing queue" to submit the proven revision, or "Accept and land now" to start landing.
+> "Pre-authorize…" lets a task land without asking you once its checks pass. "Queue for landing…" records a proven version; "Land…" lands it now.
 
 ## `drop-protects-work`
 
@@ -536,7 +536,7 @@ Rendered line:
 
 Rendered line:
 
-> When a task has a project-owned tool, the desk offers "Project Scripts". `discern scripts` lists the same tools from a shell.
+> When a task has a project-owned tool, the desk offers "Run a script…". `discern scripts` lists the same tools from a shell.
 
 ## Coverage absences
 

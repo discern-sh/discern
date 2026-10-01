@@ -1,4 +1,5 @@
 import { managedVersionAdvice } from "./managed_version.ts";
+import { DESK_ACTION_LABELS } from "./desk_vocabulary.ts";
 import {
   appendHintTexts,
   firedHintsFromTexts,
@@ -1153,7 +1154,7 @@ export const HINTS = {
         total === 1 ? "Its" : "Their"
       } uncommitted work or recorded env values are unverifiable. In the desk, select ${
         total === 1 ? "the task" : "each task"
-      } and choose Show recovery steps.`;
+      } and choose ${DESK_ACTION_LABELS.recovery}.`;
     },
     interactiveTemplate: ({ total, names }): string =>
       `Investigate ${total} worktree${total === 1 ? "" : "s"} whose state ` +
@@ -1161,7 +1162,7 @@ export const HINTS = {
         boundedNameSummary(total, names)
       }. In the desk, select ${
         total === 1 ? "the task" : "each task"
-      } and choose Show recovery steps.`,
+      } and choose ${DESK_ACTION_LABELS.recovery}.`,
   }),
 
   /** One bounded summary for every fleet member whose setup never completed. */
@@ -1184,13 +1185,13 @@ export const HINTS = {
         boundedNameSummary(total, names)
       }. In the desk, select ${
         total === 1 ? "the task" : "each task"
-      } and choose Show recovery steps before cleanup.`;
+      } and choose ${DESK_ACTION_LABELS.recovery} before cleanup.`;
     },
     interactiveTemplate: ({ total, names }): string =>
       `Diagnose ${total} worktree${total === 1 ? "" : "s"} whose setup did ` +
       `not complete: ${boundedNameSummary(total, names)}. In the desk, select ${
         total === 1 ? "the task" : "each task"
-      } and choose Show recovery steps.`,
+      } and choose ${DESK_ACTION_LABELS.recovery}.`,
   }),
 
   /** One bounded summary for every fleet member that looks abandoned. */

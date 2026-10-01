@@ -11,7 +11,7 @@ aliases:
 
 _Each desk session reserves one quiet teaching line._
 
-The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The package fits that line within the viewport. `Read this Tip` or the `t` shortcut opens its full text. Narrow fitting and redraws do not select or record another tip.
+The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The package fits that line within the viewport. **Tip of the session** in the desk commands opens its full text. Narrow fitting and redraws do not select or record another tip.
 
 ## How the tip is chosen
 
@@ -30,7 +30,7 @@ Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the logboo
 
 ## What a tip may say
 
-Tips educate about capability; alarms about state belong to the task's visible status and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener teaches task selection, finding work, and returning to the task list.
+Tips educate about capability; alarms about state belong to the task's visible status and `discern status`. Every action remains available without its tip. A tip that names a desk control quotes its registered label from the [desk vocabulary](../../../src/shared/desk_vocabulary.ts), so a relabel reaches the tips; the [label guard](../../../tests/engine_desk_label_guard_test.ts) refuses a typed copy and any quoted name that is not a control. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener teaches task selection, finding work, and returning to the task list.
 
 ## Where it lives in code
 

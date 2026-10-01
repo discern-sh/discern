@@ -1935,11 +1935,11 @@ Rendered example:
 
 Rendered example:
 
-> 5 worktrees have incomplete setup: incomplete, crashed, half-built, … (+2 more). In the desk, select each task and choose Show recovery steps before cleanup.
+> 5 worktrees have incomplete setup: incomplete, crashed, half-built, … (+2 more). In the desk, select each task and choose Recovery steps before cleanup.
 
 Interactive example:
 
-> Diagnose 5 worktrees whose setup did not complete: incomplete, crashed, half-built, … (+2 more). In the desk, select each task and choose Show recovery steps.
+> Diagnose 5 worktrees whose setup did not complete: incomplete, crashed, half-built, … (+2 more). In the desk, select each task and choose Recovery steps.
 
 ## `status-fleet-member-ready`
 
@@ -1980,11 +1980,11 @@ Interactive example:
 
 Rendered example:
 
-> 5 worktrees have unreadable state: damaged, missing, unreadable, … (+2 more). Their uncommitted work or recorded env values are unverifiable. In the desk, select each task and choose Show recovery steps.
+> 5 worktrees have unreadable state: damaged, missing, unreadable, … (+2 more). Their uncommitted work or recorded env values are unverifiable. In the desk, select each task and choose Recovery steps.
 
 Interactive example:
 
-> Investigate 5 worktrees whose state cannot be read: damaged, missing, unreadable, … (+2 more). In the desk, select each task and choose Show recovery steps.
+> Investigate 5 worktrees whose state cannot be read: damaged, missing, unreadable, … (+2 more). In the desk, select each task and choose Recovery steps.
 
 ## `status-full-structured-detail`
 
