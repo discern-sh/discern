@@ -14,7 +14,10 @@ import { fleetEntry } from "./fixtures/status_fleet.ts";
 import { NOW, TABLE_ROWS } from "./fixtures/row_state_table.ts";
 import {
   asksBeforeRunning,
+  DESK_ACTION_LABELS,
+  DESK_COMMAND_LABELS,
   DESK_COMMAND_TOGGLED_LABELS,
+  type DeskCommand,
 } from "../src/shared/desk_vocabulary.ts";
 import { FLEET_ROW_STATE_IDS } from "../src/shared/fleet_row_vocabulary.ts";
 import {
@@ -199,16 +202,19 @@ Deno.test("Desk registry guard: labels and bindings", () => {
     "a label ends with an ellipsis exactly when it asks before running": () => {
       for (const id of DESK_ACTIONS) {
         const metadata = action(id);
+        const label = DESK_ACTION_LABELS[id];
         assertEquals(
-          asksBeforeRunning(metadata.label),
+          asksBeforeRunning(label),
           metadata.confirmation.kind !== "none" || metadata.parameters,
-          `${id}: ${metadata.label}`,
+          `${id}: ${label}`,
         );
       }
+      const toggled: Partial<Record<DeskCommand, string>> =
+        DESK_COMMAND_TOGGLED_LABELS;
       for (const id of DESK_COMMANDS) {
         const metadata = command(id);
         for (
-          const label of [metadata.label, metadata.toggledLabel ?? []].flat()
+          const label of [DESK_COMMAND_LABELS[id], toggled[id] ?? []].flat()
         ) {
           assertEquals(
             asksBeforeRunning(label),
@@ -217,15 +223,6 @@ Deno.test("Desk registry guard: labels and bindings", () => {
           );
         }
       }
-      assertEquals(
-        Object.keys(DESK_COMMAND_TOGGLED_LABELS).every((id) =>
-          DESK_COMMANDS.some((candidate) =>
-            candidate === id &&
-            command(candidate).toggledLabel !== undefined
-          )
-        ),
-        true,
-      );
     },
     "everything that changes the project or launches a child declares its binding":
       () => {

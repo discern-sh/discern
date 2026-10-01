@@ -13,8 +13,6 @@ import type { StatusData } from "../../shared/result_schemas.ts";
 import { DISCERN_URL } from "../../shared/product_identity.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
 import {
-  DESK_COMMAND_LABELS,
-  DESK_COMMAND_TOGGLED_LABELS,
   DESK_COMMANDS,
   type DeskCommand,
 } from "../../shared/desk_vocabulary.ts";
@@ -76,10 +74,9 @@ export interface DeskCommandConsequence {
 
 /** One registered command's complete contract. */
 export interface DeskCommandMetadata {
-  readonly label: string;
-  /** The label a toggle shows once it has been used. */
-  readonly toggledLabel?: string;
-  /** A shorter footer form, only where the label cannot fit. */
+  /** A shorter footer form, only where the label cannot fit. The labels
+   * themselves are the vocabulary's (`DESK_COMMAND_LABELS`, and
+   * `DESK_COMMAND_TOGGLED_LABELS` for a used toggle), never a copy here. */
   readonly short?: string;
   /** The key that runs it in its scope's layer. */
   readonly key?: string;
@@ -129,7 +126,6 @@ function branchesWithoutCheckout(data: StatusData | undefined): number {
 /** The single Desk-level command authority. */
 export const DESK_COMMAND_REGISTRY = {
   new_task: {
-    label: DESK_COMMAND_LABELS.new_task,
     key: "n",
     scope: "global",
     section: "create",
@@ -148,7 +144,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   main_scripts: {
-    label: DESK_COMMAND_LABELS.main_scripts,
     scope: "global",
     section: "create",
     parameters: true,
@@ -169,7 +164,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   landing: {
-    label: DESK_COMMAND_LABELS.landing,
     scope: "global",
     section: "go",
     parameters: false,
@@ -190,7 +184,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   parked: {
-    label: DESK_COMMAND_LABELS.parked,
     key: "6",
     scope: "global",
     section: "go",
@@ -204,7 +197,6 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Nothing changes; it selects the group")],
   },
   main_checkout: {
-    label: DESK_COMMAND_LABELS.main_checkout,
     scope: "global",
     section: "go",
     parameters: false,
@@ -226,7 +218,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   activity: {
-    label: DESK_COMMAND_LABELS.activity,
     scope: "global",
     section: "go",
     parameters: false,
@@ -241,7 +232,6 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Nothing changes; the reader only reads")],
   },
   keys: {
-    label: DESK_COMMAND_LABELS.keys,
     short: "Keys",
     key: "?",
     scope: "global",
@@ -254,7 +244,6 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Nothing changes; the sheet only reads")],
   },
   manual: {
-    label: DESK_COMMAND_LABELS.manual,
     scope: "global",
     section: "help",
     parameters: false,
@@ -269,7 +258,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   tip: {
-    label: DESK_COMMAND_LABELS.tip,
     scope: "global",
     section: "help",
     parameters: false,
@@ -280,7 +268,6 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Nothing changes; the reader only reads")],
   },
   updates: {
-    label: DESK_COMMAND_LABELS.updates,
     scope: "global",
     section: "help",
     parameters: false,
@@ -309,7 +296,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   refresh: {
-    label: DESK_COMMAND_LABELS.refresh,
     key: "r",
     scope: "global",
     section: "session",
@@ -325,8 +311,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   sort: {
-    label: DESK_COMMAND_LABELS.sort,
-    toggledLabel: DESK_COMMAND_TOGGLED_LABELS.sort,
     scope: "global",
     section: "session",
     parameters: false,
@@ -337,8 +321,6 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Changes only how this desk lists tasks")],
   },
   details: {
-    label: DESK_COMMAND_LABELS.details,
-    toggledLabel: DESK_COMMAND_TOGGLED_LABELS.details,
     scope: "global",
     section: "session",
     parameters: false,
@@ -349,8 +331,6 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Changes only how this desk lays out")],
   },
   mouse: {
-    label: DESK_COMMAND_LABELS.mouse,
-    toggledLabel: DESK_COMMAND_TOGGLED_LABELS.mouse,
     scope: "global",
     section: "session",
     parameters: false,
@@ -364,7 +344,6 @@ export const DESK_COMMAND_REGISTRY = {
     ],
   },
   quit: {
-    label: DESK_COMMAND_LABELS.quit,
     key: "q",
     scope: "global",
     section: "session",
@@ -376,7 +355,6 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Every task stays as it is")],
   },
   resume: {
-    label: DESK_COMMAND_LABELS.resume,
     scope: "parked-row",
     parameters: true,
     effect: "change",
@@ -393,7 +371,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   branch_commits: {
-    label: DESK_COMMAND_LABELS.branch_commits,
     key: "v",
     scope: "parked-row",
     parameters: false,
@@ -414,7 +391,6 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   landed_proof: {
-    label: DESK_COMMAND_LABELS.landed_proof,
     scope: "landed-row",
     parameters: false,
     effect: "read",
@@ -424,7 +400,6 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Nothing changes; the reader only reads")],
   },
   progress: {
-    label: DESK_COMMAND_LABELS.progress,
     scope: "task",
     parameters: false,
     effect: "read",

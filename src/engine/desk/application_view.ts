@@ -162,7 +162,7 @@ function command(
 ): InteractionEntry<DeskChoice> {
   return {
     ...route(
-      DESK_COMMAND_REGISTRY[id].label,
+      DESK_COMMAND_LABELS[id],
       DESK_COMMAND_ROUTES[id],
       description,
     ),
@@ -284,7 +284,7 @@ export function deskApplicationView(
         "Escape goes Back, then exits from the overview.",
         ...shortcuts.map((item) =>
           `${deskLiteral(item.key)} — ${
-            DESK_COMMAND_REGISTRY[item.command].label
+            DESK_COMMAND_LABELS[item.command]
           }`
         ),
       ]

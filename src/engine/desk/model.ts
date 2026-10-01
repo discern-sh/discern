@@ -236,10 +236,8 @@ export interface DeskActionContext {
 /** One registered task action's complete contract. */
 export interface DeskActionMetadata {
   readonly section: DeskActionSection;
-  /** The one label; it ends with an ellipsis exactly when the action asks
-   * for a confirmation or more input before it runs. */
-  readonly label: string;
-  /** A shorter footer form, only where the label cannot fit. */
+  /** A shorter footer form, only where the label cannot fit. The label
+   * itself is the vocabulary's (`DESK_ACTION_LABELS`), never a copy here. */
   readonly short?: string;
   /** The task-layer mnemonic; one Shift costs a destructive action. */
   readonly key?: string;
@@ -767,7 +765,6 @@ const ENDS_RECORDS = [
 export const DESK_ACTION_REGISTRY = {
   recovery: {
     section: "work",
-    label: DESK_ACTION_LABELS.recovery,
     parameters: false,
     effect: "read",
     availableWhileRunning: true,
@@ -797,7 +794,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   retry_setup: {
     section: "manage",
-    label: DESK_ACTION_LABELS.retry_setup,
     parameters: false,
     effect: "change",
     availableWhileRunning: false,
@@ -822,7 +818,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   done: {
     section: "work",
-    label: DESK_ACTION_LABELS.done,
     key: "c",
     parameters: false,
     effect: "change",
@@ -856,7 +851,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   accept: {
     section: "review",
-    label: DESK_ACTION_LABELS.accept,
     key: "l",
     parameters: false,
     effect: "change",
@@ -901,7 +895,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   submit: {
     section: "review",
-    label: DESK_ACTION_LABELS.submit,
     parameters: false,
     effect: "change",
     availableWhileRunning: false,
@@ -938,7 +931,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   update: {
     section: "manage",
-    label: DESK_ACTION_LABELS.update,
     key: "u",
     parameters: false,
     effect: "change",
@@ -996,7 +988,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   agent: {
     section: "work",
-    label: DESK_ACTION_LABELS.agent,
     key: "a",
     parameters: false,
     effect: "launch",
@@ -1053,7 +1044,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   follow_up: {
     section: "work",
-    label: DESK_ACTION_LABELS.follow_up,
     key: "f",
     parameters: true,
     effect: "change",
@@ -1082,7 +1072,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   scripts: {
     section: "work",
-    label: DESK_ACTION_LABELS.scripts,
     key: "x",
     parameters: true,
     effect: "launch",
@@ -1120,7 +1109,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   jump: {
     section: "work",
-    label: DESK_ACTION_LABELS.jump,
     key: "s",
     parameters: false,
     effect: "launch",
@@ -1160,7 +1148,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   inspect: {
     section: "review",
-    label: DESK_ACTION_LABELS.inspect,
     key: "v",
     parameters: false,
     effect: "read",
@@ -1209,7 +1196,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   rename: {
     section: "manage",
-    label: DESK_ACTION_LABELS.rename,
     key: "e",
     parameters: true,
     effect: "change",
@@ -1238,7 +1224,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   grant: {
     section: "manage",
-    label: DESK_ACTION_LABELS.grant,
     key: "g",
     parameters: false,
     effect: "change",
@@ -1284,7 +1269,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   revoke_grant: {
     section: "manage",
-    label: DESK_ACTION_LABELS.revoke_grant,
     parameters: false,
     effect: "change",
     availableWhileRunning: true,
@@ -1314,7 +1298,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   reclaim: {
     section: "manage",
-    label: DESK_ACTION_LABELS.reclaim,
     parameters: false,
     effect: "change",
     availableWhileRunning: false,
@@ -1353,7 +1336,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   park: {
     section: "manage",
-    label: DESK_ACTION_LABELS.park,
     key: "p",
     parameters: false,
     effect: "change",
@@ -1386,7 +1368,6 @@ export const DESK_ACTION_REGISTRY = {
   },
   drop: {
     section: "danger",
-    label: DESK_ACTION_LABELS.drop,
     key: "D",
     parameters: false,
     effect: "change",
@@ -1529,7 +1510,7 @@ function actionOffers(
       action,
       section: metadata.section,
       ...(metadata.key === undefined ? {} : { key: metadata.key }),
-      label: metadata.label,
+      label: DESK_ACTION_LABELS[action],
       summary: metadata.summary(context),
       reviewTitle: metadata.reviewTitle(context),
       command: metadata.command(context),

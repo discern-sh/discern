@@ -9,6 +9,7 @@ import {
   type DeskActionMetadata,
   type DeskConfirmationPolicy,
 } from "../src/engine/desk/model.ts";
+import { DESK_ACTION_LABELS } from "../src/shared/desk_vocabulary.ts";
 import { splitRow } from "../src/lib/markdown.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
@@ -52,7 +53,7 @@ function actionReferenceRows(): string[][] {
       `\`${action}\``,
       metadata.key === undefined ? "—" : `\`${metadata.key}\``,
       DESK_ACTION_SECTION_TITLES[metadata.section],
-      proseCell(metadata.label),
+      proseCell(DESK_ACTION_LABELS[action]),
       `\`${metadata.command(context).argv.join(" ")}\``,
       confirmationCell(metadata.confirmation),
     ];
