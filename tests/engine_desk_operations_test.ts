@@ -272,6 +272,11 @@ Deno.test("Desk operations: the progress sheet reads the steps, times and what f
     { text: "Search index lands too" },
     { text: " · queued, pre-authorized", tone: "muted" },
   ]]);
+  // A step the plan skips from the start is in the technical plan only.
+  assertEquals(
+    activity.steps.map((shown) => shown.id),
+    ["step-0", "step-1", "step-2", "step-4"],
+  );
   assertEquals(
     progressActivity(operationProgress(undefined, "main", 0)).then,
     undefined,

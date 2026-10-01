@@ -290,19 +290,25 @@ export function canStop(
   );
 }
 
-/** The progress as the package's progress sheet shows it. */
+/**
+ * The progress as the package's progress sheet shows it. A step the plan
+ * skips from the start is not work the operation does, so only the technical
+ * plan lists it.
+ */
 export function progressActivity(
   progress: DeskOperationProgress,
 ): ApplicationActivity {
   return {
     startedAt: progress.startedAt,
-    steps: progress.steps.map((step, index) => ({
-      id: `step-${index}`,
-      label: step.words,
-      state: step.state,
-      ...(step.startedAt === undefined ? {} : { startedAt: step.startedAt }),
-      ...(step.endedAt === undefined ? {} : { endedAt: step.endedAt }),
-    })),
+    steps: progress.steps.flatMap((step, index) =>
+      step.disposition === "skip" ? [] : [{
+        id: `step-${index}`,
+        label: step.words,
+        state: step.state,
+        ...(step.startedAt === undefined ? {} : { startedAt: step.startedAt }),
+        ...(step.endedAt === undefined ? {} : { endedAt: step.endedAt }),
+      }]
+    ),
     ...(progress.waits.length === 0 ? {} : {
       waits: progress.waits.map((wait) => [{ text: wait.reason }]),
     }),
