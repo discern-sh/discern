@@ -1183,6 +1183,7 @@ Deno.test("a landing that moved the trunk never reads as if nothing landed", () 
           trunk: "main",
           taskId: "alpha",
           titleOf: (branch) => branch === "agent/beta" ? "Beta" : branch,
+          idOf: (branch) => branch === "agent/beta" ? "beta" : undefined,
         },
         {
           ok: false,
@@ -1222,12 +1223,19 @@ Deno.test("a landing that moved the trunk never reads as if nothing landed", () 
           [
             ["failure", "Beta didn't land"],
             ["keeps", "Beta is as it was: branch, checkout and Proof"],
+            [
+              "changes",
+              "Hand Beta to its agent to resolve, or update it from main",
+            ],
           ],
           name,
         );
+        // The engine's reason stays in the full output; the sheet says how
+        // the task stands in plain words.
         assertEquals(sheet.lines[1]?.detail, [
-          "The trunk moved after agent/beta's Proof.",
+          "Nothing changed for it; Full output says why",
         ]);
+        assertEquals(sheet.taskId, "beta", "its next steps are the task's");
       }
     }
   }

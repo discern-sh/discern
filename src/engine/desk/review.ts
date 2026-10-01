@@ -513,28 +513,33 @@ const LandingEffectsSchema = z.object({
   landings: z.array(LandingOutcomeSchema).optional(),
 });
 
-/** The first sentence of a reason, which says why without the route. */
-function firstSentence(text: string): string {
-  const end = text.search(/\.(\s|$)/u);
-  return end < 0 ? text : text.slice(0, end + 1);
-}
+/** How a walked task that didn't land stands, in the sheet's words. */
+const STOPPED_WORDS: Readonly<Record<string, string>> = {
+  refused: "Nothing changed for it; Full output says why",
+  failed:
+    "Its landing stopped partway; recovery picks it up, and Full output says why",
+};
 
 /**
  * A landing that moved the trunk and then stopped: what landed, what
- * stopped and why, and what a refused walk left as it was. It never says
- * the trunk is unchanged, because it is not.
+ * stopped in plain words, what a refused walk left as it was, and the next
+ * step for the first task that didn't land, whose own next steps sit beside
+ * Close. The engine's reasons stay in the full output. It never says the
+ * trunk is unchanged, because it is not.
  */
 function partialLandingSheet(
   failed: ResultSubject,
   result: DiscernResult,
   effects: z.infer<typeof LandingEffectsSchema>,
-): Pick<DeskResultSheet, "title" | "lines"> {
+): Pick<DeskResultSheet, "title" | "lines" | "taskId"> {
   const walked = (effects.landings ?? []).filter((landing) =>
     !landing.selected
   );
   const titleOf = failed.titleOf ?? ((branch: string) => branch);
   const stopped = walked.filter((landing) => landing.status !== "landed");
   const landings: DeskReviewSource = { kind: "result", field: "landings" };
+  const first = stopped[0];
+  const next = first === undefined ? undefined : failed.idOf?.(first.branch);
   return {
     title: stopped.length === 0
       ? `${failed.title} landed, but not everything finished`
@@ -559,9 +564,9 @@ function partialLandingSheet(
       ): DeskReviewLine => ({
         mark: "failure",
         text: `${titleOf(landing.branch)} didn't land`,
-        ...(landing.reason === undefined
-          ? {}
-          : { detail: [firstSentence(landing.reason)] }),
+        detail: [
+          STOPPED_WORDS[landing.status] ?? "Full output says why",
+        ],
         source: landings,
       }))),
       ...stopped.filter((landing) => landing.status === "refused").map((
@@ -573,7 +578,15 @@ function partialLandingSheet(
         } is as it was: branch, checkout and Proof`,
         source: landings,
       })),
+      ...(first === undefined ? [] : [{
+        mark: "changes" as const,
+        text: `Hand ${
+          titleOf(first.branch)
+        } to its agent to resolve, or update it from ${failed.trunk}`,
+        source: landings,
+      }]),
     ],
+    ...(next === undefined ? {} : { taskId: next }),
   };
 }
 
@@ -585,6 +598,8 @@ interface ResultSubject {
   readonly taskId?: string;
   /** A branch's task title, for the further tasks an effect reached. */
   readonly titleOf?: (branch: string) => string;
+  /** A branch's task row, when the inbox lists one. */
+  readonly idOf?: (branch: string) => string | undefined;
 }
 
 /** A failed effect's result sheet, in the registry's words for its action. */
@@ -631,7 +646,11 @@ export function resultSheet(
       resultPresenterForVerb,
     ),
     command,
-    ...(failed.taskId === undefined ? {} : { taskId: failed.taskId }),
+    ...(partial?.taskId !== undefined
+      ? { taskId: partial.taskId }
+      : failed.taskId === undefined
+      ? {}
+      : { taskId: failed.taskId }),
   };
 }
 

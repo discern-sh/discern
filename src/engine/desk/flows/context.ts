@@ -306,6 +306,12 @@ export function failedWith(
       trunk: context.config.repository.trunk,
       ...(step.kind === "action" ? { taskId: step.taskId } : {}),
       titleOf: (branch) => taskTitleOf(context.state, branch),
+      idOf: (branch) => {
+        const row = context.state.rows.find((candidate) =>
+          candidate.entry.branch === branch
+        );
+        return row === undefined ? undefined : deskRowId(row);
+      },
     },
     result,
     command,
