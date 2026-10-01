@@ -1015,25 +1015,6 @@ export function deskShowing(text: string): DeskFrameTest {
 }
 
 /**
- * The same readiness over a transcript whose line endings are normalised.
- * TODO(R-4): a darwin PTY transport occasionally delivers an extra carriage
- * return before a line feed, which the package's replay refuses as a control
- * character inside a row until the next keyframe.
- */
-function lineEndingTolerant(condition: PtyOutputCondition): PtyOutputCondition {
-  const normal = (text: string): string => text.replace(/\r+\n/gu, "\r\n");
-  return {
-    description: condition.description,
-    test: (output) =>
-      condition.test({
-        ...output,
-        stdout: normal(output.stdout),
-        phaseStdout: normal(output.phaseStdout),
-      }),
-  };
-}
-
-/**
  * One phase: wait for a settled package frame that passes `test`, optionally
  * capture it under `name`, then send the chunks.
  */
@@ -1044,9 +1025,7 @@ export function deskSettledPhase(
   test: DeskFrameTest,
   ...chunks: [DeskTtyInputChunk, ...DeskTtyInputChunk[]]
 ): DeskTtyInputPhase {
-  const settled = lineEndingTolerant(
-    ptySettledFrame(size, description, test),
-  );
+  const settled = ptySettledFrame(size, description, test);
   return {
     waitFor: settled,
     ...(name === undefined ? {} : { capture: { name, settled } }),
