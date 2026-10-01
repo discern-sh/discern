@@ -11,7 +11,7 @@ aliases:
 
 _Each desk session reserves one quiet teaching line._
 
-The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). It shows on the message line once the first survey lands and clears with the first key; **Tip of the session** in the command palette's Help section opens its full text. The package fits that line within the viewport. Narrow fitting and redraws do not select or record another tip.
+The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md), [ADR 0420](../_adr/0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md)). It shows on the message line once the first survey lands and clears with the first key; **Tip of the session** in the command palette's Help section opens its full text. The package fits that line within the viewport. Narrow fitting and redraws do not select or record another tip.
 
 ## How the tip is chosen
 

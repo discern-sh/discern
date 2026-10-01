@@ -1,6 +1,12 @@
 # ADR 0415: The Desk is an inbox on the application runtime
 
-**Status**: accepted; amends [ADR 0398](0398-the-desk-is-a-live-human-control-panel.md) (its pages, regions and Tab between them) and puts [ADR 0413](0413-the-desk-offers-each-tasks-next-decision.md)'s next decisions in an inbox
+> **Amendments.**
+>
+> - **[ADR 0416](0416-desk-reviews-lead-with-consequences.md) — reviews:** a review sheet leads with sourced consequence lines, binds the facts it showed, and keeps its plan and command one key away; the existing plans no longer print on its face.
+> - **[ADR 0417](0417-desk-owned-effects-run-in-session.md) — changes beside the screen:** a confirmed change runs as a package background command with a progress sheet while the inbox stays live; only agents, shells, editors, the pager and Project Scripts take the terminal.
+> - **[ADR 0420](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md) — the screen:** records the presentation this session carries: one focus owner, the content-sized split, the read-only inspector, the layers and their depth, the two clusters of the footer and the opt-in mouse.
+
+**Status**: accepted; reviews amended by [ADR 0416](0416-desk-reviews-lead-with-consequences.md), effects by [ADR 0417](0417-desk-owned-effects-run-in-session.md), and the screen recorded by [ADR 0420](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md); amends [ADR 0398](0398-the-desk-is-a-live-human-control-panel.md) (its pages, regions and Tab between them) and puts [ADR 0413](0413-the-desk-offers-each-tasks-next-decision.md)'s next decisions in an inbox
 
 ## Context
 
@@ -29,8 +35,6 @@ Repository preferences gain the mouse, details, sort and folded groups; version-
 ## Consequences
 
 The page stack, its focus memory and the per-page renderers are gone; a task's actions are a menu, Desk commands are a palette, and every registered key the key map gives an action now reaches it from the inbox. Behavior tests drive the real runtime on a fake terminal and a manual clock, and the state machine is tested event by event; real-terminal journeys wait on the package's state reports rather than prose.
-
-Some generic needs are package requests with Desk-local workarounds: a section whose blocks render nothing still draws its heading, the content-sized split can drop a column it was sized for, and the lone-Escape window is not on the injected clock. Review sheets carry the existing plans and consequence lines; their content is not yet rebuilt around per-line sources.
 
 ## Alternatives considered
 

@@ -1,6 +1,6 @@
 # ADR 0416: Desk reviews lead with consequences; the plan is one key away
 
-**Status**: accepted; amends [ADR 0353](0353-desk-actions-are-registry-facts-reviewed-before-effects.md) (how a review is composed, focused and confirmed) and [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) (how the Desk teaches the command it runs)
+**Status**: accepted; amends [ADR 0415](0415-the-desk-is-an-inbox-on-the-application-runtime.md) (what a review sheet carries), [ADR 0353](0353-desk-actions-are-registry-facts-reviewed-before-effects.md) (how a review is composed, focused and confirmed) and [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) (how the Desk teaches the command it runs)
 
 ## Context
 

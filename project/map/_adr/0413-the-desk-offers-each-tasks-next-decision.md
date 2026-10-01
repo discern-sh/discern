@@ -10,7 +10,7 @@ ADR 0414 gave every surface one row-state vocabulary. Each state already says wh
 
 ## Decision
 
-The action registry declares, per action, the row states whose next step it is (`next`) and the states that offer it beside their next step (`also`). Every live state has exactly one next step; a state offers at most three alternatives, each with a key. Drop is never a next step and never an alternative for a degraded task. The Desk opens a task on its next step when that step can run, then its available alternatives; every other action stays one route away, unavailable ones listed with their reason and never run.
+The action registry declares, per action, the row states whose next step it is (`next`) and the states that offer it beside their next step (`also`). Every live state has exactly one next step; a state offers at most three alternatives, each with a key. Drop is never a next step and never an alternative for a degraded task. Enter runs a task's next step when that step can run, and its available alternatives sit beside it with their keys; every other action stays one route away, unavailable ones listed with their reason and never run.
 
 Tasks list by status's decision group (Ready for review, Needs attention, Working, Approved to land, Idle), then by case-folded, accent-aware title. A row's word, glyph and tone are its status row state; Proof validity, landing authority and the queue stay separate facts in the task's details. A landing's integration worktree gets no row and no actions.
 
@@ -34,7 +34,7 @@ The owner reads a task's state and acts on its next step without assembling it f
 
 Rows move between groups as states change, which title order avoided. Tightened availability means fewer controls are enabled on unproven or dirty work, and actions that used to fail at review now explain themselves up front. An exception still needs a terminal: the Desk shows the command instead of recording the decision.
 
-The pinned package cannot hand the terminal to an action from a key, so this Desk answers only its page keys; the key map is the contract the package's application runtime will serve.
+Every registered key reaches its action from the inbox, and the inbox, its footer, the keys reader and the manual's Key column read the one key map.
 
 ## Alternatives considered
 

@@ -1,6 +1,10 @@
 # ADR 0151: The desk starts tasks and opens agents
 
-**Status**: accepted. Builds on [ADR 0031](0031-typed-provider-integration.md) and [ADR 0043](0043-registry-derived-agent-parity.md) (provider-owned integration behavior), [ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md) and [ADR 0109](0109-worktree-start-optional-name.md) (task creation), and [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) (the operator surface).
+> **Amendments.**
+>
+> - **[ADR 0420](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md) — starting in session:** **New task…**, **Start follow-up…** and **Resume…** are forms inside the Desk session. Their preview is the start core's own dry run, and Create applies that plan and selects the new task once a survey lists it, instead of prompting for a name and then focusing an action menu. Agent availability, provider-declared actions and the CLI-only launch boundary are unchanged.
+
+**Status**: accepted; how a task starts amended by [ADR 0420](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md). Builds on [ADR 0031](0031-typed-provider-integration.md) and [ADR 0043](0043-registry-derived-agent-parity.md) (provider-owned integration behavior), [ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md) and [ADR 0109](0109-worktree-start-optional-name.md) (task creation), and [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) (the operator surface).
 
 ## Context
 

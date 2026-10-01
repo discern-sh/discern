@@ -1,6 +1,10 @@
 # ADR 0157: The desk owns its launched child sessions
 
-**Status**: accepted; extends [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) and [ADR 0151](0151-the-desk-starts-tasks-and-opens-agents.md)
+> **Amendments.**
+>
+> - **[ADR 0420](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md) — starting in session:** a task starts from a form inside the Desk session rather than a prompt. The session marker, the refusal of a nested Desk beneath it, and the rule that the Desk runs from the main checkout are unchanged.
+
+**Status**: accepted; notes amended by [ADR 0420](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md); extends [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) and [ADR 0151](0151-the-desk-starts-tasks-and-opens-agents.md)
 
 ## Context
 

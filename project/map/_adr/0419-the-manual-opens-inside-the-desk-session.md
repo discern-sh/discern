@@ -1,6 +1,6 @@
 # ADR 0419: The manual opens inside the Desk session
 
-**Status**: accepted; amends [ADR 0417](0417-desk-owned-effects-run-in-session.md) (which controls keep the terminal) and [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md) (where the browser's page effects run)
+**Status**: accepted; amends [ADR 0417](0417-desk-owned-effects-run-in-session.md) (which controls keep the terminal) [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md) (where the browser's page effects run) and [ADR 0399](0399-acceptance-can-queue-without-starting-landing.md) (the manual's route)
 
 ## Context
 

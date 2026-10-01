@@ -394,6 +394,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0417 — Desk-owned effects run in session](0417-desk-owned-effects-run-in-session.md)
 - [0418 — Desk effects are attributed to their task](0418-desk-effects-are-attributed-to-their-task.md)
 - [0419 — The manual opens inside the Desk session](0419-the-manual-opens-inside-the-desk-session.md)
+- [0420 — The Desk is an inbox with a following inspector and modal layers](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md)
 
 <!-- END GENERATED: current ADR records -->
 

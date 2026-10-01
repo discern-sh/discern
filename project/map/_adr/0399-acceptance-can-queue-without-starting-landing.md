@@ -1,6 +1,11 @@
 # ADR 0399: Acceptance can queue a proven revision without starting landing
 
-**Status**: accepted on 2026-09-14
+> **Amendments.**
+>
+> - **[ADR 0420](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md) — the Desk's queue and grant reviews:** the Desk names the action Queue for landing…. When unattended landing needs permission it asks the grant question first, as its own confirmed review, and Keep there queues nothing. The queue review says the version lands with any landing and that nothing starts now; the grant review says the grant covers later passing versions and ends when the task lands, is parked or is dropped. Queue admission still records no exception and starts no walk.
+> - **[ADR 0419](0419-the-manual-opens-inside-the-desk-session.md) — the manual:** the Desk opens the manual as the package's Markdown browser nested on its own screen, not through a suspended foreground route; one corpus loader, link policy and search remain shared with `discern docs`.
+
+**Status**: accepted on 2026-09-14; the Desk's queue and grant reviews amended by [ADR 0420](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md); the manual's route amended by [ADR 0419](0419-the-manual-opens-inside-the-desk-session.md)
 
 ## Context
 
