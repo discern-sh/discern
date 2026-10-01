@@ -555,6 +555,48 @@ Deno.test("row-state precedence: every combination resolves to exactly the speci
   );
 });
 
+Deno.test("row-state sentences name the configured trunk, never main", () => {
+  const trunk = "develop";
+  const faults: string[] = [];
+  const check = (name: string, texts: readonly (string | undefined)[]) => {
+    for (const text of texts) {
+      // "main checkout" names the primary checkout, not the trunk.
+      if (/\bmain\b(?! checkout)/iu.test(text ?? "")) {
+        faults.push(`${name}: ${text}`);
+      }
+    }
+  };
+  for (const row of TABLE_ROWS) {
+    const { kind, state } = resolve(row.entry, row.context);
+    for (const behind of [0, 3]) {
+      const facts: FleetTaskRowFacts = {
+        entry: { ...row.entry, behind },
+        kind,
+        trunk,
+        nowMs: NOW,
+        queueRow: row.context?.queueRow,
+        integration: row.context?.integration,
+      };
+      const sentences = TASK_ROW_SENTENCES[state];
+      check(`row ${row.row} ${state} behind ${behind}`, [
+        sentences.qualifier(facts),
+        sentences.explanation(facts),
+        sentences.attention(facts),
+      ]);
+    }
+  }
+  for (const id of ["parked", "landed"] as const) {
+    const facts = { branch: "agent/spike", trunk, at: daysAgo(5), nowMs: NOW };
+    const sentences = branchRowState(id);
+    check(id, [
+      sentences.qualifier(facts),
+      sentences.explanation(facts),
+      sentences.attention(facts),
+    ]);
+  }
+  assertEquals(faults, []);
+});
+
 Deno.test("row-state facts: Proof, authority, and queue read as people say them", () => {
   assertCases(
     [
@@ -664,7 +706,12 @@ Deno.test("row-state facts: Proof, authority, and queue read as people say them"
       {
         name: "branch rows say where the work went",
         check: () => {
-          const facts = { branch: "agent/spike", at: daysAgo(5), nowMs: NOW };
+          const facts = {
+            branch: "agent/spike",
+            trunk: "main",
+            at: daysAgo(5),
+            nowMs: NOW,
+          };
           assertEquals(
             branchRowState("parked").qualifier(facts),
             "no checkout",

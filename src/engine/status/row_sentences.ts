@@ -94,13 +94,14 @@ function checksPassed(facts: FleetTaskRowFacts): string {
   } on this exact commit`;
 }
 
-/** How main moved since the checks passed, continuing their sentence. */
-function sinceChecks(entry: StatusFleetEntry): string {
-  if (entry.behind === 0) return ", and main hasn't moved since.";
+/** How the trunk moved since the checks passed, continuing their sentence. */
+function sinceChecks(facts: FleetTaskRowFacts): string {
+  const { entry, trunk } = facts;
+  if (entry.behind === 0) return `, and ${trunk} hasn't moved since.`;
   const behind = positiveCount(entry.behind);
   return behind === undefined
     ? "."
-    : `, and main has ${
+    : `, and ${trunk} has ${
       plural(behind, "new commit")
     } since. Landing combines them and reruns every check first.`;
 }
@@ -289,8 +290,8 @@ export const TASK_ROW_SENTENCES = {
       facts.entry.running?.verb === "accept"
         ? `${
           runningSentence("Landing", facts)
-        } It combines main in a separate copy and reruns every check first.`
-        : "discern is landing it now. It combines main in a separate copy and reruns every check before anything lands.",
+        } It combines ${facts.trunk} in a separate copy and reruns every check first.`
+        : `discern is landing it now. It combines ${facts.trunk} in a separate copy and reruns every check before anything lands.`,
     attention: (facts) =>
       facts.queueRow?.operation_handle === undefined
         ? undefined
@@ -329,7 +330,8 @@ export const TASK_ROW_SENTENCES = {
   },
   updating: {
     qualifier: () => undefined,
-    explanation: (facts) => runningSentence("Updating from main", facts),
+    explanation: (facts) =>
+      runningSentence(`Updating from ${facts.trunk}`, facts),
     attention: () => undefined,
   },
   running: {
@@ -385,7 +387,7 @@ export const TASK_ROW_SENTENCES = {
     qualifier: aheadQualifier,
     explanation: (facts) =>
       `${checksPassed(facts)}${
-        sinceChecks(facts.entry)
+        sinceChecks(facts)
       } Its agent asked to land it, and landing needs your approval.`,
     attention: (facts) =>
       `Its agent asked to land it; landing needs the owner's approval. The owner lands it with \`discern accept --target ${
@@ -419,7 +421,7 @@ export const TASK_ROW_SENTENCES = {
     qualifier: (facts) => `idle ${idleSpan(facts)}`,
     explanation: (facts) =>
       `No activity for ${idleSpan(facts)}. Its checks passed then${
-        sinceChecks(facts.entry)
+        sinceChecks(facts)
       } Land it, park it, or drop it.${queuedNote(facts)}`,
     attention: (facts) =>
       `No recorded activity for ${
@@ -493,7 +495,7 @@ export const TASK_ROW_SENTENCES = {
   ready: {
     qualifier: aheadQualifier,
     explanation: (facts) =>
-      `${checksPassed(facts)}${sinceChecks(facts.entry)} ${
+      `${checksPassed(facts)}${sinceChecks(facts)} ${
         landingNeeds(facts.entry)
       }`,
     attention: (facts) =>
@@ -505,12 +507,14 @@ export const TASK_ROW_SENTENCES = {
   behind: {
     qualifier: (facts) => {
       const behind = positiveCount(facts.entry.behind);
-      return behind === undefined ? undefined : `${behind} behind main`;
+      return behind === undefined
+        ? undefined
+        : `${behind} behind ${facts.trunk}`;
     },
     explanation: (facts) =>
-      `Main has ${
-        plural(positiveCount(facts.entry.behind) ?? 0, "new commit")
-      } this branch doesn't have, and its work has no passing checks yet. Update it from main, then run checks.`,
+      `It is ${
+        plural(positiveCount(facts.entry.behind) ?? 0, "commit")
+      } behind ${facts.trunk}, and its work has no passing checks yet. Update it from ${facts.trunk}, then run checks.`,
     attention: (facts) => {
       const behind = positiveCount(facts.entry.behind) ?? 0;
       return `Run \`discern update\` in this worktree. Its branch is ${
@@ -577,8 +581,8 @@ export const TASK_ROW_SENTENCES = {
   },
   "idle-unknown": {
     qualifier: () => "counts unknown",
-    explanation: () =>
-      "Git couldn't count its commits against main, so discern can't tell whether it has work to land.",
+    explanation: (facts) =>
+      `Git couldn't count its commits against ${facts.trunk}, so discern can't tell whether it has work to land.`,
     attention: () => undefined,
   },
 } as const satisfies Record<FleetTaskRowStateId, TaskSentences>;
@@ -595,7 +599,7 @@ export const BRANCH_ROW_SENTENCES = {
   landed: {
     qualifier: (facts) => ageOf(facts.at, facts.nowMs),
     explanation: (facts) =>
-      `It landed on main${spacedAge(facts.at, facts.nowMs)}.`,
+      `It landed on ${facts.trunk}${spacedAge(facts.at, facts.nowMs)}.`,
     attention: () => undefined,
   },
 } as const satisfies Record<

@@ -296,7 +296,7 @@ function selectionGroups(
     id: `branch:${branch}`,
     name: branch,
     description: `${parkedState.label} · ${
-      parkedState.qualifier({ branch, nowMs: 0 })
+      parkedState.qualifier({ branch, trunk: data.git?.trunk ?? "", nowMs: 0 })
     } · Run discern start --from ${branch} to open one.`,
     value: `\x00branch:${branch}`,
     disabled: true,

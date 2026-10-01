@@ -67,6 +67,8 @@ export interface FleetTaskRowFacts {
 /** Everything a branch row (parked or recently landed) is derived from. */
 export interface FleetBranchRowFacts {
   readonly branch: string;
+  /** The configured trunk the branch lands on. */
+  readonly trunk: string;
   /** When the branch was parked or landed. */
   readonly at?: string;
   readonly nowMs: number;
