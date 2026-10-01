@@ -280,6 +280,80 @@ function sheetsJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   ];
 }
 
+/** The manual's contents on screen with `text` in them. */
+function manualContents(text: string): DeskFrameTest {
+  return (capture) =>
+    capture.state?.listId === "contents" &&
+    capture.state.focusedControlId === "contents" &&
+    capture.text.includes(text);
+}
+
+/**
+ * The manual inside the Desk, as `discern docs` shows it: its contents with
+ * a guide previewed, the guide open, and search, then back to the inbox
+ * with the same task selected.
+ */
+function manualJourney(size: PtyGeometry): DeskTtyInputPhase[] {
+  const guide = "20-guides/delegate-work.md";
+  // The previewed guide is the document that opens.
+  const reading: DeskFrameTest = (capture) =>
+    capture.state?.topLayerId === undefined &&
+    String(capture.state?.focusedControlId).startsWith("document:");
+  return [
+    phase(size, undefined, "inbox at rest", atRest(MANUAL), keys("ctrl-k")),
+    phase(
+      size,
+      undefined,
+      "palette",
+      layer("palette"),
+      text("Read the manual"),
+    ),
+    phase(
+      size,
+      undefined,
+      "the manual found",
+      (capture) =>
+        layer("palette")(capture) && capture.text.includes("Read the manual"),
+      keys("enter"),
+    ),
+    phase(
+      size,
+      undefined,
+      "the manual's contents",
+      manualContents("Read the docs online"),
+      keys("down", "down"),
+    ),
+    phase(size, "manual", "a guide previewed", manualContents(guide), {
+      keys: ["enter"],
+    }),
+    phase(size, "manual-document", "the guide open", reading, text("/")),
+    phase(size, undefined, "search", layer("search"), text("land")),
+    phase(
+      size,
+      "manual-search",
+      "searching the manual",
+      (capture) => layer("search")(capture) && capture.text.includes("land"),
+      { keys: ["escape"], allowLoneEscape: true },
+    ),
+    phase(
+      size,
+      undefined,
+      "the search cleared",
+      (capture) =>
+        layer("search")(capture) && capture.text.includes("Search documents"),
+      { keys: ["escape"], allowLoneEscape: true },
+    ),
+    phase(size, undefined, "the guide again", reading, text("q")),
+    phase(
+      size,
+      "manual-return",
+      "back at the inbox",
+      atRest(MANUAL),
+      text("q"),
+    ),
+  ];
+}
+
 /** Land's confirm button focused, on a light terminal. */
 function confirmJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
@@ -618,6 +692,10 @@ const FLEET_JOURNEYS: Readonly<Record<string, Journey>> = {
     ),
   ],
   agent: agentJourney,
+  manual: async (project, target) => [
+    ...await capture(project, target, STANDARD, manualJourney(STANDARD)),
+    ...await capture(project, target, WIDE, manualJourney(WIDE)),
+  ],
   // Its scripted refusal leaves the fleet as it found it.
   "landing-failed": landingFailedJourney,
   standard: (project, target) =>
