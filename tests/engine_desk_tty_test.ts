@@ -153,15 +153,20 @@ function assertFrameFits(
 }
 
 /**
- * The wraps the session's exit epilogue makes: each line names a command the
- * session ran in full, and the terminal wraps a long one.
- * TODO(R-5): the package prints epilogue lines unwrapped.
+ * The wraps the session's exit epilogue leaves to the terminal. The package
+ * wraps each epilogue line at its words with a hanging indent and never
+ * breaks the command inside it, so only a command wider than the terminal,
+ * alone on its indented continuation, reaches the edge.
  */
 function epilogueWraps(exit: DeskVisibleFrame): DeskImplicitWrap[] {
+  const epilogue = exit.lines.find((line) =>
+    line.text.startsWith("discern desk ran:")
+  )?.row;
   return exit.implicitWraps.filter((wrap) =>
-    exit.lines.find((line) => line.row === wrap.row)?.text.startsWith(
-      "discern desk ran:",
-    ) ?? false
+    epilogue !== undefined && wrap.row > epilogue &&
+    (exit.lines.find((line) => line.row === wrap.row)?.text.startsWith(
+      "  ",
+    ) ?? false)
   );
 }
 
