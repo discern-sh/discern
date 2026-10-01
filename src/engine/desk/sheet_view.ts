@@ -63,6 +63,7 @@ import {
   parkedBranches,
   renameTitle,
   resultAlternatives,
+  resultNextLine,
   rowRef,
 } from "./desk_transitions.ts";
 import { diffRuns, fileRows, glyph } from "./inspector_view.ts";
@@ -502,7 +503,12 @@ export function resultSheetView(
     scope: sheet.taskId === undefined ? "global" : "item",
     title: sheet.title,
     state: "ready",
-    body: reviewLineBlocks(sheet.lines),
+    body: reviewLineBlocks([
+      ...sheet.lines,
+      ...[resultNextLine(state, sheet)].flatMap((line) =>
+        line === undefined ? [] : [line]
+      ),
+    ]),
     requireFullRead: false,
     disclosures: disclosed,
     buttons: [

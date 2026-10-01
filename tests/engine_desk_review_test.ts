@@ -1234,13 +1234,17 @@ Deno.test("a landing that moved the trunk never reads as if nothing landed", () 
           [
             ["failure", "Beta didn't land"],
             ["keeps", "Beta is as it was: branch, checkout and Proof"],
-            [
-              "changes",
-              "Hand Beta to its agent to resolve, or update it from main",
-            ],
           ],
           name,
         );
+        // Beta is offered a landing's follow-up, whose sentence the view
+        // builds from the buttons it shows.
+        assertEquals(sheet.next, {
+          actions: ["agent", "update"],
+          purpose: "resolve",
+          subject: "Beta",
+          source: { kind: "result", field: "landings" },
+        }, name);
         // The engine's reason stays in the full output; the sheet says how
         // the task stands in plain words.
         assertEquals(sheet.lines[1]?.detail, [

@@ -212,6 +212,23 @@ export interface DeskResultSheet {
   readonly command: string;
   /** The task it concerns, whose next steps the sheet offers. */
   readonly taskId?: string;
+  /**
+   * The follow-up its task is offered beside Close. The buttons and the
+   * sentence that names them come from the same offers, so the sheet never
+   * advises a step it doesn't offer.
+   */
+  readonly next?: DeskResultNext;
+}
+
+/** The follow-up a result sheet offers, and how its sentence reads. */
+export interface DeskResultNext {
+  /** The actions to offer, in order; each shows while its task can run it. */
+  readonly actions: readonly DeskAction[];
+  /** Whom the sentence names first: the task's title, or "it". */
+  readonly subject: string;
+  /** What its agent does with it, when Open agent is offered. */
+  readonly purpose: "resolve" | "fix";
+  readonly source: DeskReviewSource;
 }
 
 /** What an effect or a child left for the Desk to show. */

@@ -46,6 +46,7 @@ import {
   type DeskCoreExpectation,
   type DeskExpected,
   type DeskFollowingTask,
+  type DeskResultNext,
   type DeskResultSheet,
   type DeskReview,
   type DeskReviewAlternative,
@@ -452,9 +453,20 @@ interface ResultCopy {
   readonly title: (title: string) => string;
   /** What the failure left as it was. */
   readonly keeps: (trunk: string) => readonly string[];
-  /** The next step, in words. */
-  readonly next: (trunk: string) => string;
+  /**
+   * The next step: the actions offered beside Close, whose sentence the
+   * sheet builds from what it offers, or a sentence when no action fits.
+   */
+  readonly next:
+    | Pick<DeskResultNext, "actions" | "purpose">
+    | { readonly text: string };
 }
+
+/** What a landing that stopped offers the task that didn't land. */
+const LANDING_NEXT: Pick<DeskResultNext, "actions" | "purpose"> = {
+  actions: ["agent", "update"],
+  purpose: "resolve",
+};
 
 /** Result sheet words by the action whose effect failed. */
 const RESULT_COPY: Readonly<Partial<Record<DeskAction, ResultCopy>>> = {
@@ -464,23 +476,22 @@ const RESULT_COPY: Readonly<Partial<Record<DeskAction, ResultCopy>>> = {
       `Nothing landed; ${trunk} is unchanged`,
       "The task is as it was: branch, checkout and Proof",
     ],
-    next: (trunk) =>
-      `Hand it to its agent to resolve, or update it from ${trunk}`,
+    next: LANDING_NEXT,
   },
   submit: {
     title: (title) => `${title} wasn't queued`,
     keeps: () => ["Nothing joined the landing queue"],
-    next: () => "Read the output, then review it again",
+    next: { text: "Read the output, then review it again" },
   },
   done: {
     title: (title) => `Checks failed on ${title}`,
     keeps: () => ["No Proof was recorded for this commit"],
-    next: () => "Hand it to its agent to fix, or view its changes",
+    next: { actions: ["agent", "inspect"], purpose: "fix" },
   },
   update: {
     title: (title) => `${title} wasn't updated`,
     keeps: () => ["Its checks and Proof are as they were"],
-    next: () => "Hand it to its agent to resolve, or view its changes",
+    next: { actions: ["agent", "inspect"], purpose: "resolve" },
   },
 };
 
@@ -531,7 +542,7 @@ function partialLandingSheet(
   failed: ResultSubject,
   result: DiscernResult,
   effects: z.infer<typeof LandingEffectsSchema>,
-): Pick<DeskResultSheet, "title" | "lines" | "taskId"> {
+): Pick<DeskResultSheet, "title" | "lines" | "taskId" | "next"> {
   const walked = (effects.landings ?? []).filter((landing) =>
     !landing.selected
   );
@@ -578,15 +589,15 @@ function partialLandingSheet(
         } is as it was: branch, checkout and Proof`,
         source: landings,
       })),
-      ...(first === undefined ? [] : [{
-        mark: "changes" as const,
-        text: `Hand ${
-          titleOf(first.branch)
-        } to its agent to resolve, or update it from ${failed.trunk}`,
-        source: landings,
-      }]),
     ],
-    ...(next === undefined ? {} : { taskId: next }),
+    ...(next === undefined || first === undefined ? {} : {
+      taskId: next,
+      next: {
+        ...LANDING_NEXT,
+        subject: titleOf(first.branch),
+        source: landings,
+      },
+    }),
   };
 }
 
@@ -621,6 +632,7 @@ export function resultSheet(
     ? partialLandingSheet(failed, result, effects.data)
     : undefined;
   const keeps = copy?.keeps(failed.trunk) ?? [];
+  const next = copy?.next;
   return {
     ...(partial ?? {
       title: copy?.title(failed.title) ??
@@ -632,12 +644,15 @@ export function resultSheet(
           text,
           source: source(index),
         })),
-        ...(copy === undefined ? [] : [{
+        ...(next === undefined || !("text" in next) ? [] : [{
           mark: "changes" as const,
-          text: copy.next(failed.trunk),
+          text: next.text,
           source: source(keeps.length),
         }]),
       ],
+      ...(next === undefined || "text" in next ? {} : {
+        next: { ...next, subject: "it", source: source(keeps.length) },
+      }),
     }),
     tone: partial === undefined ? "danger" : "warning",
     output: renderResultReading(

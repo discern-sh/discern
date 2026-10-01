@@ -20,14 +20,18 @@ import type {
 import {
   DESK_FLOW_STAGES,
   type DeskFlowStep,
+  type DeskResultNext,
   type DeskResultSheet,
   type DeskReviewAlternative,
+  type DeskReviewLine,
 } from "./flow_types.ts";
 import { DESK_COMMANDS } from "./commands.ts";
 import { MESSAGE_MARKS } from "./glyphs.ts";
 import {
   buildDeskRows,
   DESK_ACTIONS,
+  type DeskAction,
+  type DeskActionOffer,
   deskObservation,
   type DeskRow,
   deskRowId,
@@ -634,36 +638,84 @@ export function goneSentence(
 const RESULT_ALTERNATIVES = 2;
 
 /**
- * A result sheet's alternatives: its task's next step and keyed steps as the
- * row now stands, available and keyed, at most two.
+ * The steps a result sheet offers its task: its declared follow-up actions
+ * the task can run now, or, without a declaration, its next step and keyed
+ * steps as the row now stands; each available and keyed, at most two.
  */
+function resultOffers(
+  state: DeskProductState,
+  sheet: DeskResultSheet,
+): { readonly row?: DeskRow; readonly offers: readonly DeskActionOffer[] } {
+  const ref = sheet.taskId === undefined
+    ? undefined
+    : rowRef(state, sheet.taskId);
+  if (ref?.kind !== "task") return { offers: [] };
+  const { decision } = ref.row;
+  const candidates = sheet.next === undefined
+    ? [decision.next, ...decision.also]
+    : sheet.next.actions.map((action) =>
+      decision.actions.find((offer) => offer.action === action)
+    );
+  const seen = new Set<string>();
+  const offers = candidates.flatMap((offer): DeskActionOffer[] => {
+    if (
+      offer === undefined || offer.availability !== "enabled" ||
+      offer.key === undefined || seen.has(offer.action)
+    ) return [];
+    seen.add(offer.action);
+    return [offer];
+  }).slice(0, RESULT_ALTERNATIVES);
+  return { row: ref.row, offers };
+}
+
+/** A result sheet's alternatives beside Close (see {@link resultOffers}). */
 export function resultAlternatives(
   state: DeskProductState,
   sheet: DeskResultSheet,
 ): DeskReviewAlternative[] {
-  const ref = sheet.taskId === undefined
-    ? undefined
-    : rowRef(state, sheet.taskId);
-  if (ref?.kind !== "task") return [];
-  const { decision } = ref.row;
-  const seen = new Set<string>();
-  return [decision.next, ...decision.also].flatMap(
-    (offer): DeskReviewAlternative[] => {
-      if (
-        offer === undefined || offer.availability !== "enabled" ||
-        offer.key === undefined || seen.has(offer.action)
-      ) return [];
-      seen.add(offer.action);
-      return [{
-        id: offer.action,
-        label: offer.label,
-        key: offer.key,
-        intent: {
-          kind: "action",
-          action: offer.action,
-          id: deskRowId(ref.row),
-        },
-      }];
-    },
-  ).slice(0, RESULT_ALTERNATIVES);
+  const { row, offers } = resultOffers(state, sheet);
+  if (row === undefined) return [];
+  return offers.map((offer) => ({
+    id: offer.action,
+    label: offer.label,
+    ...(offer.key === undefined ? {} : { key: offer.key }),
+    intent: { kind: "action", action: offer.action, id: deskRowId(row) },
+  }));
+}
+
+/** How a result sheet's next-step sentence says each offered action. */
+const NEXT_WORDS: Partial<
+  Record<
+    DeskAction,
+    (subject: string, next: DeskResultNext, trunk: string) => string
+  >
+> = {
+  agent: (subject, next) => `hand ${subject} to its agent to ${next.purpose}`,
+  update: (subject, _next, trunk) => `update ${subject} from ${trunk}`,
+  inspect: (subject) =>
+    `view ${subject === "it" ? "its" : `${subject}'s`} changes`,
+};
+
+/**
+ * A result sheet's next-step sentence, built from the steps it offers: the
+ * first names its subject, the rest say "it". Nothing when it offers none.
+ */
+export function resultNextLine(
+  state: DeskProductState,
+  sheet: DeskResultSheet,
+): DeskReviewLine | undefined {
+  const next = sheet.next;
+  if (next === undefined) return undefined;
+  const phrases = resultOffers(state, sheet).offers.flatMap((offer, index) => {
+    const words = NEXT_WORDS[offer.action];
+    return words === undefined
+      ? []
+      : [words(index === 0 ? next.subject : "it", next, state.trunk)];
+  });
+  const sentence = phrases.join(", or ");
+  return sentence === "" ? undefined : {
+    mark: "changes",
+    text: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}`,
+    source: next.source,
+  };
 }

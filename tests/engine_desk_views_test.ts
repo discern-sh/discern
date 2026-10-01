@@ -1023,3 +1023,49 @@ Deno.test("an action menu's section titles carry no tone; a destructive item is 
   }
   assert(destructive > 0, "some row offers a destructive action");
 });
+
+Deno.test("a result sheet's next step names exactly the buttons it offers", () => {
+  const sheet = {
+    title: "Alpha landed; Beta didn't",
+    tone: "warning" as const,
+    lines: [],
+    command: "discern accept",
+    taskId: "beta",
+    next: {
+      actions: ["agent", "update"] as const,
+      purpose: "resolve" as const,
+      subject: "Beta",
+      source: { kind: "result" as const, field: "landings" },
+    },
+  };
+  const words: Record<string, RegExp> = {
+    agent: /\bagent\b/u,
+    update: /\bupdate\b/iu,
+  };
+  // Behind main, Update is offered; up to date, it is not.
+  for (const behind of [0, 3]) {
+    const state = open(
+      desk(statusData([
+        mainFleetEntry(),
+        fleetEntry({ id: "beta", branch: "agent/beta", ahead: 1, behind }),
+      ])),
+      { kind: "result", sheet },
+    ).state;
+    const layer = deskView(state, PRODUCT_UI, ENV).layers?.[0];
+    assert(layer?.kind === "sheet");
+    const offered = (layer.buttons ?? []).map((button) => button.id);
+    const sentence = said(layer.body);
+    assertEquals(
+      offered.some((id) => id.endsWith("update")),
+      behind > 0,
+      `behind ${behind}: ${offered.join(", ")}`,
+    );
+    for (const [action, pattern] of Object.entries(words)) {
+      assertEquals(
+        pattern.test(sentence),
+        offered.some((id) => id.endsWith(action)),
+        `behind ${behind}: ${action} in ${sentence} vs ${offered.join(", ")}`,
+      );
+    }
+  }
+});
