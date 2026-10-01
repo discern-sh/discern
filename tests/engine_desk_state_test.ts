@@ -176,6 +176,12 @@ Deno.test("a failed survey retries once before the Desk says it is offline", () 
   assertEquals(warning.persistent, true);
   assertEquals(warning.key, { key: "r", label: "Retry" });
   assertStringIncludes(warning.text, "showing what was seen 2m ago");
+  // An outage that starts seconds after the last survey names its seconds.
+  const quick = fail(
+    fail(live, NOW + 5_000).state,
+    NOW + 12_000,
+  ).state.warning;
+  assertStringIncludes(quick?.text ?? "", "showing what was seen 12s ago");
   const again = fail(offline.state, NOW + 180_000);
   assertEquals(again.state.warning?.id, warning.id, "one warning, kept");
 

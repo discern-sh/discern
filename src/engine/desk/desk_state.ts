@@ -62,7 +62,7 @@ import {
   withRows,
 } from "./desk_transitions.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
-import { relativeAge } from "../status/row_facts.ts";
+import { compactDuration } from "../output.ts";
 import { DESK_GLYPHS, MESSAGE_MARKS } from "./glyphs.ts";
 import { FLEET_ROW_GROUPS } from "../../shared/fleet_row_vocabulary.ts";
 
@@ -733,6 +733,14 @@ function returnMessage(
   });
 }
 
+/**
+ * How old the screen's data is once refreshing fails, to the second: a
+ * failing refresh is never "just now", even at the start of an outage.
+ */
+export function offlineAge(ms: number): string {
+  return `${compactDuration(Math.max(1_000, ms))} ago`;
+}
+
 /** A failed survey: Retrying after one, Offline after two. */
 function observationFailed(
   state: DeskProductState,
@@ -763,10 +771,7 @@ function observationFailed(
         text: state.survey.observedAt === undefined
           ? "Couldn't read tasks"
           : `Couldn't refresh · showing what was seen ${
-            relativeAge(
-              new Date(state.survey.observedAt).toISOString(),
-              event.now,
-            )
+            offlineAge(event.now - state.survey.observedAt)
           }`,
         mark: DESK_GLYPHS.attention,
         key: { key: "r", label: "Retry" },
