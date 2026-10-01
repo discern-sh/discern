@@ -590,9 +590,18 @@ function nextBlock(row: DeskRow): ApplicationDetailBlock[] {
     label: "Actions",
     description: "Every action for this task",
   });
-  // TODO(R-1): wrap in a "Next" section once a section of hidden blocks
-  // hides its title too; below the wide tier the package hides hints.
-  return [{ kind: "hints", items }];
+  // Below the wide tier the package hides hints, and the section with them.
+  return [nextSection(items)];
+}
+
+/**
+ * What can be done next, described: wide screens and zoom show it under a
+ * "Next" heading; narrower ones hide the hints, and the heading with them.
+ */
+function nextSection(
+  items: Extract<ApplicationDetailBlock, { readonly kind: "hints" }>["items"],
+): ApplicationDetailBlock {
+  return { kind: "section", title: "Next", blocks: [{ kind: "hints", items }] };
 }
 
 /** The running meter against the usual duration, when there is a prior. */
@@ -763,28 +772,24 @@ export function parkedBlocks(
         }]),
       ],
     },
-    {
-      // TODO(R-1): a "Next" section, as the task inspector's.
-      kind: "hints",
-      items: [
-        {
-          key: "enter",
-          label: DESK_COMMAND_LABELS.resume,
-          description: "Review, then give it a checkout",
-          primary: true,
-        },
-        {
-          key: "v",
-          label: DESK_COMMAND_LABELS.branch_commits,
-          description: `The commits that are not on ${inspection.trunk}`,
-        },
-        {
-          key: ".",
-          label: "Actions",
-          description: "Every action for this branch",
-        },
-      ],
-    },
+    nextSection([
+      {
+        key: "enter",
+        label: DESK_COMMAND_LABELS.resume,
+        description: "Review, then give it a checkout",
+        primary: true,
+      },
+      {
+        key: "v",
+        label: DESK_COMMAND_LABELS.branch_commits,
+        description: `The commits that are not on ${inspection.trunk}`,
+      },
+      {
+        key: ".",
+        label: "Actions",
+        description: "Every action for this branch",
+      },
+    ]),
     ...evidenceSection(
       "Commits",
       evidence?.commits,
@@ -873,15 +878,11 @@ export function landedBlocks(
           : [{ label: "Proof", value: [[{ text: task.proof_line }]] }]),
       ],
     },
-    {
-      // TODO(R-1): a "Next" section, as the task inspector's.
-      kind: "hints",
-      items: [{
-        key: "enter",
-        label: DESK_COMMAND_LABELS.landed_proof,
-        description: "The Proof recorded when it landed",
-        primary: true,
-      }],
-    },
+    nextSection([{
+      key: "enter",
+      label: DESK_COMMAND_LABELS.landed_proof,
+      description: "The Proof recorded when it landed",
+      primary: true,
+    }]),
   ];
 }
