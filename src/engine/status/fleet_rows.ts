@@ -251,6 +251,16 @@ export function speaksForAnotherRow(
     );
 }
 
+/** The task rows a fleet view lists: every non-main row except a landing's
+ * integration copy whose task has its own row, which speaks for the copy.
+ * Lists, counts, and hints share this one membership. */
+export function listedFleetTasks(
+  fleet: readonly StatusFleetEntry[],
+): StatusFleetEntry[] {
+  const tasks = fleet.filter((entry) => !entry.is_main);
+  return tasks.filter((entry) => !speaksForAnotherRow(entry, tasks));
+}
+
 /** Derive one complete human row model from already-collected result facts. */
 export function presentFleetRow(
   entry: StatusFleetEntry,

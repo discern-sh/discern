@@ -34,6 +34,7 @@ import {
 } from "../src/engine/status/tty.ts";
 import {
   type FleetRowPresentationOptions,
+  listedFleetTasks,
   presentFleetRow,
   sortFleetRows,
 } from "../src/engine/status/fleet_rows.ts";
@@ -1367,6 +1368,50 @@ Deno.test("status dashboard: importance sorting is stable and current wins only 
     "agent/zulu-111aaa",
     "agent/alpha-333ccc",
   ]);
+});
+
+Deno.test("status lists and counts a landing copy that speaks for its task once, as the task", () => {
+  const task = entry({
+    path: "/repo.worktrees/task",
+    branch: "agent/task",
+    id: "task",
+    ahead: 1,
+    gate_proof: { status: "honored" },
+  });
+  const copy = entry({
+    path: "/repo.worktrees/integration-task",
+    branch: "discern/integration/task-000002",
+    id: "integration-task",
+    ahead: 3,
+    integration: {
+      owner: "interrupted",
+      for_branch: "agent/task",
+      awaiting_judgment: true,
+    },
+  });
+  const orphan = entry({
+    path: "/repo.worktrees/integration-gone",
+    branch: "discern/integration/gone-000003",
+    id: "integration-gone",
+    integration: { owner: "interrupted", for_branch: "agent/gone" },
+  });
+  const fleet = [mainEntry(), task, copy, orphan];
+  assertEquals(
+    listedFleetTasks(fleet).map((row) => row.branch),
+    [task.branch, orphan.branch],
+  );
+  const ordered = prioritizeStatusFleet(fleet, { trunk: "main", nowMs: NOW });
+  assertEquals(
+    ordered.filter((row) => row.group === "review").map((row) => row.branch),
+    [task.branch],
+    "the copy never joins its task's group a second time",
+  );
+  const stamped = ordered.find((row) => row.branch === copy.branch);
+  assertEquals([stamped?.state, stamped?.group], [undefined, undefined]);
+  assertEquals(
+    ordered.find((row) => row.branch === orphan.branch)?.state,
+    "interrupted",
+  );
 });
 
 Deno.test("status orientation samples main plus six in the dashboard order: decision group, current, then title", () => {

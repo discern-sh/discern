@@ -57,9 +57,9 @@ import {
   divergence,
   fileCount,
   type FleetRowPresentation,
+  listedFleetTasks,
   presentFleetRow,
   sortFleetRows,
-  speaksForAnotherRow,
 } from "./fleet_rows.ts";
 import {
   FLEET_ROW_GROUPS,
@@ -997,8 +997,7 @@ export function renderStatusDashboard(
   const surveyed = (data.fleet ?? []).filter((entry) => !entry.is_main);
   const queue = data.queue === undefined ? {} : { queue: data.queue };
   const fleetRows = sortFleetRows(
-    surveyed
-      .filter((entry) => !speaksForAnotherRow(entry, surveyed))
+    listedFleetTasks(surveyed)
       .map((entry) =>
         presentFleetRow(entry, {
           trunk,

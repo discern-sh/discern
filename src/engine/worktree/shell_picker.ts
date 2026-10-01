@@ -36,9 +36,9 @@ import {
 } from "../status/row_states.ts";
 import {
   type FleetRowPresentation,
+  listedFleetTasks,
   presentFleetRow,
   sortFleetRows,
-  speaksForAnotherRow,
 } from "../status/fleet_rows.ts";
 import { runOwnedChild } from "../owned_child.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
@@ -208,7 +208,7 @@ export function buildWorktreeShellRows(
   const current = resolve(currentRoot);
   const tasks = fleet.filter((entry) => !entry.is_main);
   const presented = sortFleetRows(
-    tasks.filter((entry) => !speaksForAnotherRow(entry, tasks)).map((entry) =>
+    listedFleetTasks(tasks).map((entry) =>
       presentFleetRow(entry, {
         trunk: options.trunk,
         nowMs,

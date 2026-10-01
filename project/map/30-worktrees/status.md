@@ -41,7 +41,7 @@ Each row reads `name · glyph Label · DRIFT … · Activity: …`, for example 
 
 Text and glyphs carry every state; `--no-color` changes no facts, and plain terminals use each state's ASCII form.
 
-**Owner attention** holds lifecycle and landing decisions, including the next step of every row that needs you; **Landing risks** holds file, trunk, and ADR conflicts; **Next action** holds the executable continuation. `--verbose` adds evidence: each row's state line, its explanation, and its next step with the exact command. The ready, authorized-landing, and stale hints take their members from the row states, so a hint never calls a row ready that the dashboard labels stale.
+**Owner attention** holds lifecycle and landing decisions, including the next step of every row that needs you; **Landing risks** holds file, trunk, and ADR conflicts; **Next action** holds the executable continuation. `--verbose` adds evidence: each row's state line, its explanation, and its next step with the exact command. The ready, authorized-landing, and stale hints take their members from the row states, so a hint never calls a row ready that the dashboard labels stale. Lists, hints, and structured `state` and `group` share one membership, `listedFleetTasks`: a landing copy whose task has its own row has no state of its own and is never counted twice.
 
 ## Row states
 

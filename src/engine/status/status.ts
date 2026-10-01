@@ -169,7 +169,11 @@ import {
   readFleetLogbookActivity,
 } from "../logbook/read.ts";
 import { renderStatusDashboard } from "./tty.ts";
-import { presentFleetRow, sortFleetRows } from "./fleet_rows.ts";
+import {
+  listedFleetTasks,
+  presentFleetRow,
+  sortFleetRows,
+} from "./fleet_rows.ts";
 import { fleetFilesystem, fleetSetupEvidence } from "./recovery.ts";
 import { degradedFleetKind } from "./recovery_presentation.ts";
 import { applyLogbookActivity } from "./recent.ts";
@@ -196,9 +200,16 @@ export function prioritizeStatusFleet(
 ): StatusFleetEntry[] {
   const main = fleet.filter((entry) => entry.is_main).slice(0, 1);
   const tasks = fleet.filter((entry) => !entry.is_main);
+  const listed = new Set(listedFleetTasks(fleet));
+  // A copy that speaks for its task's row has no state of its own: the task
+  // carries the landing, so group counts never see one landing twice.
   const active = sortFleetRows(
     tasks.map((entry) => presentFleetRow(entry, { ...options, fleet: tasks })),
-  ).map((row) => ({ ...row.entry, state: row.state, group: row.group }));
+  ).map((row) =>
+    listed.has(row.entry)
+      ? { ...row.entry, state: row.state, group: row.group }
+      : row.entry
+  );
   return [...main, ...active];
 }
 
@@ -1254,7 +1265,9 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     if (ctx.liveCount === 0) {
       hints.push(fire(HINTS["status-no-active-worktrees"]));
     } else if (ctx.fleet !== undefined) {
-      const others = ctx.fleet.filter((e) => !e.is_main);
+      // A landing copy that speaks for its task's row is never a member of
+      // its own: the hints name exactly the rows the fleet views list.
+      const others = listedFleetTasks(ctx.fleet);
       // Emit one hint per fleet class. The registry preserves each total and caps
       // its name sample; every row and per-row fact remains in data.fleet.
       // `clean === false` — a row whose git state is UNAVAILABLE (clean absent)
