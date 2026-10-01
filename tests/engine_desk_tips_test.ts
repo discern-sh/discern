@@ -86,6 +86,30 @@ function seen(
   );
 }
 
+Deno.test("the parked-branch predicate holds only while a branch is kept without a checkout", () => {
+  const bare = contextOf();
+  const withBranches = (
+    facts: Partial<
+      Pick<TipContext["data"], "parked_tasks" | "unlanded_branches">
+    >,
+  ): TipContext => ({ ...bare, data: { ...bare.data, ...facts } });
+  assertEquals(tipPredicateHolds({ kind: "parked-branch" }, bare), false);
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "parked-branch" },
+      withBranches({ unlanded_branches: ["agent/kept"] }),
+    ),
+    true,
+  );
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "parked-branch" },
+      withBranches({ parked_tasks: [], unlanded_branches: [] }),
+    ),
+    false,
+  );
+});
+
 Deno.test("tip predicates evaluate over the survey the desk already holds", () => {
   assertEquals(
     tipPredicateHolds(
