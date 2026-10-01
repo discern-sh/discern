@@ -856,7 +856,8 @@ Deno.test("Pre-authorize and Revoke reach their writers only through their revie
   assertEquals(grants, [{ path: effort.path, branch: effort.branch }]);
   assertEquals(revokes, [effort.path]);
   assertEquals(grantPlans, [effort.path]);
-  assertEquals(revokePlans, [effort.path]);
+  // The review reads the grant record, and the revoke reads it again.
+  assertEquals(revokePlans, [effort.path, effort.path]);
   assertEquals(pauses, 0);
 });
 
