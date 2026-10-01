@@ -1957,7 +1957,7 @@ Deno.test("Run a script offers only the selected checkout's Project Scripts and 
   );
 });
 
-Deno.test("Project Scripts run from the main checkout through the palette", async () => {
+Deno.test("Project Scripts run from the main checkout through the palette once their argument line reads", async () => {
   const runs: Array<{ root: string; name: string; args: readonly string[] }> =
     [];
   await withDesk({
@@ -1977,6 +1977,8 @@ Deno.test("Project Scripts run from the main checkout through the palette", asyn
     await desk.shows("check the project");
     await desk.choose("health");
     await desk.opened("form-main_scripts-review");
+    await fill(desk, "args", `'unfinished`);
+    await desk.shows("The argument line has an unclosed single quote.");
     await fill(desk, "args", `--mode 'full scan'`);
     await desk.confirm();
     await desk.until(() => runs.length === 1, "the script run");
@@ -2033,4 +2035,112 @@ Deno.test("Read the manual lends the terminal to the shared manual and says when
     });
     assertEquals(pauses, 0);
   }
+});
+
+Deno.test("an agent without a prompt option shows the stored brief before it opens", async () => {
+  const effort = deskTaskEntry("agent/briefed", "/worktrees/briefed", {
+    id: "briefed",
+    task: {
+      id: "briefed",
+      branch: "agent/briefed",
+      title: "Briefed",
+      title_source: "recorded",
+      brief: "Keep the public names stable.",
+    },
+  });
+  const launches: string[][] = [];
+  let discovered = 0;
+  const output = deskTranscript();
+  await withDesk({
+    output,
+    runtime: {
+      ...surveys(() => deskSurvey([effort])),
+      loadConfig: () =>
+        configSchema.parse({
+          project: { slug: "demo", agents: ["claude_code"] },
+          repository: { trunk: "main" },
+        }),
+      detectAgents: () => {
+        discovered += 1;
+        return [{ name: "claude_code", binary: "claude" }];
+      },
+      interactive: (command, args) => {
+        launches.push([command, ...args]);
+        return 0;
+      },
+      writePreferences: () => ({
+        status: "unavailable",
+        reason: "the repository preference store is read-only",
+      }),
+    },
+  }, async (desk) => {
+    await desk.select("briefed");
+    await desk.until(() => discovered > 0, "agent discovery");
+    await desk.press("a");
+    await desk.opened("agents");
+    await desk.choose("claude_code:open");
+    await desk.opened("review-agent-brief");
+    await desk.shows("copy this brief");
+    await desk.shows("Keep the public names stable.");
+    assertEquals(launches, [], "nothing opens before the brief is read");
+    await desk.confirm();
+    await desk.until(() => launches.length === 1, "the agent");
+    await desk.shows("Back from Claude Code");
+  });
+  assertEquals(launches, [["claude"]]);
+  assertStringIncludes(
+    joinedTranscript(output),
+    "Desk preferences were not saved: the repository preference store is read-only",
+  );
+});
+
+Deno.test("Queue for landing asks for a pre-authorization first when the queue needs one", async () => {
+  const effort = deskTaskEntry("agent/nightly", "/worktrees/nightly", {
+    id: "nightly",
+    ahead: 1,
+    gate_proof: { status: "honored" },
+  });
+  const calls: string[] = [];
+  let authorized = false;
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([effort])),
+      submit: (path, options) => {
+        calls.push(options.dryRun === true ? "plan" : "submit");
+        return {
+          ok: true,
+          verb: "accept",
+          data: {
+            revision: {
+              path,
+              branch: effort.branch,
+              head: "a".repeat(40),
+              proof: { candidate_id: "candidate", proof_id: "proof" },
+            },
+            submission: {
+              state: options.dryRun === true ? "planned" : "queued",
+              authority: {
+                kind: authorized ? "authorized" : "conversation-required",
+              },
+            },
+          },
+        };
+      },
+      grantEffort: (_path, branch) => {
+        calls.push("grant");
+        authorized = true;
+        return { status: "granted", grant: fixtureEffortGrant(branch) };
+      },
+    },
+  }, async (desk) => {
+    await runAction(desk, "nightly", "submit");
+    await desk.opened("review-submit-review");
+    await desk.confirm();
+    await desk.opened("review-submit-grant");
+    await desk.shows("Then queues this version for landing");
+    await desk.confirm();
+    await desk.until(() => calls.includes("submit"), "the queue entry");
+    await desk.shows("Queued Nightly");
+  });
+  assertEquals(calls, ["plan", "plan", "plan", "grant", "submit"]);
 });

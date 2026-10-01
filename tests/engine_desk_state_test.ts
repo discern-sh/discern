@@ -36,6 +36,10 @@ import { PACKAGE_RESERVED_KEYS } from "../src/engine/desk/keys.ts";
 import { DESK_GLYPHS } from "../src/engine/desk/glyphs.ts";
 import { TERMINAL_GLYPHS } from "discern-design-system/cli";
 import type { DeskPrepared } from "../src/engine/desk/flow_types.ts";
+import type { DeskAgentLaunch } from "../src/engine/desk/model.ts";
+import type { DeskPreferences } from "../src/engine/desk/preferences.ts";
+import { FLEET_ROW_DECISIONS } from "../src/shared/fleet_row_vocabulary.ts";
+import { FLEET_ROW_GROUP_TITLES } from "../src/engine/status/row_states.ts";
 import type {
   StatusData,
   StatusFleetEntry,
@@ -497,6 +501,196 @@ Deno.test("Enter on a parked branch resumes it and Enter from the palette select
   });
   assertEquals(resumed.effects[0], { kind: "select", id });
   assertEquals(layerIds(resumed.state), ["form-resume-review"]);
+});
+
+Deno.test("toggles persist the preference they change and close the palette", () => {
+  const palette = open(observedDesk(survey([editing("alpha")])), {
+    kind: "palette",
+  }).state;
+  const cases = [
+    { command: "sort", read: (p: DeskPreferences) => p.sort },
+    { command: "details", read: (p: DeskPreferences) => p.details },
+    { command: "mouse", read: (p: DeskPreferences) => p.mouse },
+  ] as const;
+  const seen: Record<string, unknown[]> = {};
+  for (const { command, read } of cases) {
+    let state = palette;
+    for (let turn = 0; turn < 2; turn += 1) {
+      const toggled = intent(state, { kind: "command", command });
+      assertEquals(layerIds(toggled.state), []);
+      assertEquals(toggled.effects, [{
+        kind: "persist",
+        preferences: toggled.state.preferences,
+      }]);
+      (seen[command] ??= []).push(read(toggled.state.preferences));
+      state = toggled.state;
+    }
+  }
+  assertEquals(seen, {
+    sort: ["title", "decision"],
+    details: ["hidden", "shown"],
+    mouse: [true, false],
+  });
+});
+
+Deno.test("routes to a group or Parked select what exists and name what doesn't", () => {
+  const listed = observedDesk(survey([editing("alpha")]));
+  const row = listed.rows[0];
+  assert(row !== undefined);
+  const groupKey = (group: (typeof FLEET_ROW_DECISIONS)[number]): string =>
+    String(FLEET_ROW_DECISIONS.indexOf(group) + 1);
+  const full = FLEET_ROW_DECISIONS.find((group) =>
+    group === row.decision.group
+  );
+  assert(full !== undefined, "a live task sits in a decision group");
+  assertEquals(
+    intent(listed, { kind: "key", key: groupKey(full) }).effects,
+    [{ kind: "select", id: "alpha" }],
+  );
+  const empty = FLEET_ROW_DECISIONS.find((group) =>
+    group !== row.decision.group
+  );
+  assert(empty !== undefined);
+  const missing = intent(listed, { kind: "key", key: groupKey(empty) });
+  assertEquals(missing.effects, []);
+  assertEquals(
+    missing.state.message?.text,
+    `Nothing in ${FLEET_ROW_GROUP_TITLES[empty]}`,
+  );
+  assertEquals(
+    intent(listed, { kind: "key", key: "escape" }).state.message?.text,
+    "q quits",
+  );
+
+  const palette = open(listed, { kind: "palette" }).state;
+  const noParked = intent(palette, { kind: "command", command: "parked" });
+  assertEquals(layerIds(noParked.state), []);
+  assertEquals(noParked.state.message?.text, "Nothing in Parked");
+  const parked = intent(
+    observedDesk(survey([], { unlanded_branches: ["agent/spike"] })),
+    { kind: "command", command: "parked" },
+  );
+  assertEquals(parked.effects, [{
+    kind: "select",
+    id: parkedRowId("agent/spike"),
+  }]);
+  assertEquals(
+    intent(listed, { kind: "command", command: "quit" }).effects,
+    [{ kind: "exit" }],
+  );
+});
+
+Deno.test("an agent launch refuses when unavailable and shows a stored brief before an agent without a prompt option", () => {
+  const briefed = observedDesk(survey([
+    taskFleetEntry("alpha", {
+      clean: false,
+      changed_files: 1,
+      last_activity: "2026-07-11T11:00:00Z",
+      task: {
+        id: "alpha",
+        branch: "agent/alpha",
+        title: "Alpha",
+        title_source: "recorded",
+        brief: "Keep the brief.",
+      },
+    }),
+  ]));
+  const launch = (
+    id: string,
+    availability: "enabled" | "disabled",
+  ): DeskAgentLaunch => ({
+    id,
+    kind: "open",
+    agent: "claude_code",
+    providerLabel: "Claude Code",
+    label: "Open Claude Code",
+    binary: "claude",
+    args: [],
+    availability,
+    ...(availability === "disabled"
+      ? { reason: "claude is not on PATH." }
+      : {}),
+  });
+  const state: DeskProductState = {
+    ...briefed,
+    rows: briefed.rows.map((row) => ({
+      ...row,
+      agentLaunches: [
+        launch("claude:open", "enabled"),
+        launch("claude:missing", "disabled"),
+      ],
+    })),
+  };
+  const refused = intent(state, {
+    kind: "launch",
+    taskId: "alpha",
+    launch: "claude:missing",
+  });
+  assertEquals(refused.effects, []);
+  assertEquals(refused.state.message?.text, "claude is not on PATH.");
+  assertEquals(
+    intent(state, { kind: "launch", taskId: "alpha", launch: "absent" })
+      .state,
+    state,
+  );
+  const brief = intent(
+    open(state, { kind: "agents", taskId: "alpha" }).state,
+    { kind: "launch", taskId: "alpha", launch: "claude:open" },
+  );
+  assertEquals(layerIds(brief.state), ["review-agent-brief"]);
+  assertEquals(
+    brief.effects.filter((effect) => effect.kind === "child"),
+    [],
+    "nothing opens before the brief is read",
+  );
+});
+
+Deno.test("a script that cannot run says why, and a task without scripts explains itself", () => {
+  const listed = observedDesk(survey([editing("alpha")]));
+  const picker = deskProduct(
+    intent(listed, { kind: "command", command: "main_scripts" }).state,
+    {
+      kind: "scripts",
+      result: {
+        state: "ready",
+        value: {
+          directory: "/project",
+          scripts: [{
+            name: "deploy",
+            path: "/project/discern/scripts/deploy",
+            availability: "disabled",
+            reason: "deploy is not executable.",
+          }],
+        },
+      },
+    },
+  ).state;
+  const refused = intent(picker, { kind: "script", name: "deploy" });
+  assertEquals(layerIds(refused.state), ["scripts"]);
+  assertEquals(refused.state.message?.text, "deploy is not executable.");
+  assertEquals(
+    intent(picker, { kind: "script", name: "absent" }).state,
+    picker,
+  );
+
+  const unscripted: DeskProductState = {
+    ...listed,
+    rows: listed.rows.map((row) => ({
+      ...row,
+      scripts: [],
+      scriptsUnavailableReason: "The scripts directory is unreadable.",
+    })),
+  };
+  const notice = intent(unscripted, {
+    kind: "action",
+    action: "scripts",
+    id: "alpha",
+  });
+  const [reader] = deskLayers(notice.state, ENV);
+  assertStringIncludes(
+    JSON.stringify(reader),
+    "The scripts directory is unreadable.",
+  );
 });
 
 Deno.test("the Desk's limits match the package's", () => {
