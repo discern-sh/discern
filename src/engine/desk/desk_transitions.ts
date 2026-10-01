@@ -236,12 +236,18 @@ function withOperation(
   const operation = [...operations.values()].find((candidate) =>
     candidate.taskId === id
   );
-  return operation === undefined ? entry : {
+  if (operation === undefined) return entry;
+  // Status knows how long the verb usually takes once it sees the run.
+  const typical = entry.running?.verb === operation.verb
+    ? entry.running.typical_duration_ms
+    : undefined;
+  return {
     ...entry,
     running: {
       verb: operation.verb,
       started: new Date(operation.startedAt).toISOString(),
       elapsed_ms: Math.max(0, observedAt - operation.startedAt),
+      ...(typical === undefined ? {} : { typical_duration_ms: typical }),
     },
   };
 }

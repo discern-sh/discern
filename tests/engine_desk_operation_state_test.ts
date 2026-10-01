@@ -268,7 +268,12 @@ Deno.test("the Desk's own run times its row, and its end clears it before the ne
         entry.id === "alpha"
           ? {
             ...entry,
-            running: { verb: "accept", started: recorded, elapsed_ms: 0 },
+            running: {
+              verb: "accept",
+              started: recorded,
+              elapsed_ms: 0,
+              typical_duration_ms: 60_000,
+            },
           }
           : entry
       ),
@@ -280,6 +285,11 @@ Deno.test("the Desk's own run times its row, and its end clears it before the ne
     row(observed)?.entry.running?.started,
     new Date(operation.startedAt).toISOString(),
     "the row runs from when this Desk started it",
+  );
+  assertEquals(
+    row(observed)?.entry.running?.typical_duration_ms,
+    60_000,
+    "and keeps how long status says the verb usually takes",
   );
   const done = settle(observed, {
     command: "discern accept --target agent/alpha --confirmed",
