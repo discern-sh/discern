@@ -40,6 +40,7 @@ import { compactDuration } from "../output.ts";
 import type { DeskProjectScript } from "../project_scripts.ts";
 import {
   compareTaskTitles,
+  type FleetRowPresentation,
   integrationFor,
   presentFleetRow,
   speaksForAnotherRow,
@@ -1550,6 +1551,24 @@ function authorityFact(
   };
 }
 
+/** The task's Proof as a fact of its own, in status's words. It never
+ * decides the row's label, glyph, or tone; those are the row state's. */
+function proofFact(
+  entry: StatusFleetEntry,
+  presentation: FleetRowPresentation,
+): DeskProofFact {
+  const proofLine = entry.gate_proof?.proof_line ?? entry.proof_line;
+  return {
+    status: presentation.proof.status,
+    honored: presentation.proof.status === "honored",
+    summary: presentation.proof.label,
+    ...(presentation.proof.detail === undefined
+      ? {}
+      : { detail: presentation.proof.detail }),
+    ...(proofLine === undefined ? {} : { line: proofLine }),
+  };
+}
+
 /** Build one complete decision from the status survey and desk capabilities. */
 export function buildDeskDecision(
   entry: StatusFleetEntry,
@@ -1564,16 +1583,7 @@ export function buildDeskDecision(
     ...(options.queue === undefined ? {} : { queue: options.queue }),
     ...(options.fleet === undefined ? {} : { fleet: options.fleet }),
   });
-  const proofLine = entry.gate_proof?.proof_line ?? entry.proof_line;
-  const proof: DeskProofFact = {
-    status: presentation.proof.status,
-    honored: presentation.proof.status === "honored",
-    summary: presentation.proof.label,
-    ...(presentation.proof.detail === undefined
-      ? {}
-      : { detail: presentation.proof.detail }),
-    ...(proofLine === undefined ? {} : { line: proofLine }),
-  };
+  const proof = proofFact(entry, presentation);
   const authority = authorityFact(entry, presentation.authority);
   const collisions: DeskCollision[] = [
     ...presentation.collisions.map((collision): DeskChangedFileCollision => ({

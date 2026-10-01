@@ -1,97 +1,191 @@
 /**
  * A Desk row's word, glyph, and colour come from status's row state, never
  * from the Proof alone. A proven task can be stale, queued, or waiting on an
- * exception, so a label derived from `gate_proof.status` reads "valid" where
- * status says otherwise. The structural scan keeps every Desk module but the
- * decision model from reading a Proof status at all; the rendered check proves
- * each written state's row shows exactly status's look.
+ * exception, so a label derived from the Proof reads "valid" where status
+ * says otherwise. Three checks hold that: a structural scan lets only named
+ * fact readers look at a Proof's status, the decision model's look must equal
+ * status's own for every written state, and the rendered row must show
+ * status's label and tones, not the decision's copy of them.
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
 import { Node, Project } from "ts-morph";
 import { assertNamedCasesAsync } from "./assert_cases.ts";
-import { REPO_ROOT } from "./repo_authored_paths.ts";
-import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { scanDeskModules } from "./desk_module_scan.ts";
 import { fleetEntry, statusData } from "./fixtures/status_fleet.ts";
 import { NOW, TABLE_ROWS } from "./fixtures/row_state_table.ts";
-import { FLEET_ROW_STATES } from "../src/engine/status/row_states.ts";
-import { buildDeskRows } from "../src/engine/desk/model.ts";
-import { deskApplicationView } from "../src/engine/desk/application_view.ts";
+import type {
+  StatusFleetEntry,
+  SubmissionRowData,
+} from "../src/shared/result_schemas.ts";
+import {
+  FLEET_ROW_STATES,
+  type FleetRowTone,
+  rowStateLabel,
+} from "../src/engine/status/row_states.ts";
+import { presentFleetRow } from "../src/engine/status/fleet_rows.ts";
+import { buildDeskDecision, buildDeskRows } from "../src/engine/desk/model.ts";
+import {
+  deskApplicationView,
+  semanticTone,
+} from "../src/engine/desk/application_view.ts";
 
-/** The one Desk module allowed to read a Proof status: it builds the Proof
- * facts and consequence predicates, never a row's label or tone. */
-const PROOF_FACT_MODULE = "src/engine/desk/model.ts";
+/**
+ * The Desk functions that may read a Proof's status, each for a fact other
+ * than a row's look: the Proof fact itself, the consequence predicates, and
+ * landing availability. A new reader must be named here with its reason.
+ */
+const PROOF_FACT_READERS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  [
+    "src/engine/desk/model.ts",
+    new Set(["proofFact", "actionContext", "landableReason"]),
+  ],
+]);
 
-/** Every place a module reads the status of a Proof value. */
-function proofStatusReads(source: string): string[] {
+/** Whether an expression is a Proof value: a `proof` or `gate_proof`
+ * property, or a call that returns one. */
+function isProofValue(expression: Node): boolean {
+  if (
+    Node.isCallExpression(expression) &&
+    /(?:^|\.)fleetRowProof$/u.test(expression.getExpression().getText())
+  ) return true;
+  return /(?:^|\.)(?:gate_proof|proof)$/u.test(
+    expression.getText().replaceAll("?", ""),
+  );
+}
+
+/** Every read of a Proof's status or honored flag outside a named reader. */
+function proofStatusReads(source: string, file = "candidate.ts"): string[] {
   const project = new Project({
     compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
-  const file = project.createSourceFile("candidate.ts", source);
-  return file.getDescendants().flatMap((node) =>
-    Node.isPropertyAccessExpression(node) && node.getName() === "status" &&
-      /(?:^|\.)(?:gate_proof|proof)$/u.test(
-        node.getExpression().getText().replaceAll("?", ""),
-      )
-      ? [`line ${node.getStartLineNumber()}: ${node.getText()}`]
-      : []
-  );
+  const readers = PROOF_FACT_READERS.get(file) ?? new Set<string>();
+  return project.createSourceFile("candidate.ts", source).getDescendants()
+    .flatMap((node) => {
+      if (
+        !Node.isPropertyAccessExpression(node) ||
+        !["status", "honored"].includes(node.getName()) ||
+        !isProofValue(node.getExpression())
+      ) return [];
+      const reader = node.getFirstAncestor(Node.isFunctionDeclaration)
+        ?.getName();
+      return reader !== undefined && readers.has(reader)
+        ? []
+        : [`line ${node.getStartLineNumber()}: ${node.getText()}`];
+    });
+}
+
+/** The facts a written row's decision and presentation are built from. */
+interface TableObservation {
+  readonly trunk: string;
+  readonly nowMs: number;
+  readonly queue: SubmissionRowData[];
+  readonly fleet: StatusFleetEntry[];
+}
+
+/** One written row as status surveys it: the row, any landing copy that
+ * speaks for it, and its queue row. */
+function observe(row: (typeof TABLE_ROWS)[number]): TableObservation {
+  const integration = row.context?.integration;
+  return {
+    trunk: "main",
+    nowMs: NOW,
+    queue: row.context?.queueRow === undefined ? [] : [row.context.queueRow],
+    fleet: [
+      row.entry,
+      ...(integration === undefined ? [] : [
+        fleetEntry({ branch: "integration/task", integration }),
+      ]),
+    ],
+  };
+}
+
+/** The look a row shows: its label, glyph, ASCII form, and two tones. */
+interface RowLook {
+  readonly label: string;
+  readonly glyph: string;
+  readonly ascii: string;
+  readonly tones: {
+    readonly glyph: FleetRowTone;
+    readonly label: FleetRowTone;
+  };
+}
+
+/** Pick only the look from a decision or a presentation. */
+function lookOf(shown: RowLook): RowLook {
+  return {
+    label: shown.label,
+    glyph: shown.glyph,
+    ascii: shown.ascii,
+    tones: { glyph: shown.tones.glyph, label: shown.tones.label },
+  };
 }
 
 Deno.test("Desk Proof label guard", async () => {
-  const files = await structuralGuardScope({
-    guard: "tests/engine_desk_proof_label_guard_test.ts#desk-proof-status",
-    universe: "authored-ts",
-    narrow: {
-      reason:
-        "Only the Desk's modules render rows from status's state; status itself owns the Proof facts it classifies.",
-      include: (path) => path.startsWith("src/engine/desk/"),
-    },
+  const { files, findings } = await scanDeskModules({
+    scan: (source, file) => proofStatusReads(source, file),
   });
   await assertNamedCasesAsync({
-    "no Desk module outside the decision model reads a Proof status":
-      async () => {
-        assert(files.includes(PROOF_FACT_MODULE));
-        const findings: string[] = [];
-        for (const file of files) {
-          if (file === PROOF_FACT_MODULE) continue;
-          const source = await Deno.readTextFile(join(REPO_ROOT, file));
-          findings.push(
-            ...proofStatusReads(source).map((hit) => `${file} ${hit}`),
-          );
-        }
-        assertEquals(findings, []);
-      },
+    "only named fact readers in the Desk read a Proof status": () => {
+      for (const file of PROOF_FACT_READERS.keys()) {
+        assert(files.includes(file), file);
+      }
+      assertEquals(findings, []);
+    },
     "the scan finds a Proof status read in any spelling": () => {
       assertEquals(
         proofStatusReads(
-          'const a = row.entry.gate_proof?.status === "honored"; const b = row.decision.proof.status; const c = proof.status;',
+          'const a = row.entry.gate_proof?.status === "honored"; const b = row.decision.proof.status; const c = proof.status; const d = decision.proof.honored; const e = fleetRowProof(entry).status;',
         ).length,
-        3,
+        5,
       );
       assertEquals(proofStatusReads("const a = row.decision.status;"), []);
+      assertEquals(
+        proofStatusReads(
+          'function buildDeskDecision() { return proof.honored ? "Proof valid" : x; }',
+          "src/engine/desk/model.ts",
+        ).length,
+        1,
+        "a reader is named by function, never by module",
+      );
     },
-    "every written state's row shows status's label, glyph, and tone": () => {
+    "every written state's decision looks exactly as status presents it":
+      () => {
+        for (const row of TABLE_ROWS) {
+          const observation = observe(row);
+          const look = FLEET_ROW_STATES[row.state];
+          const expected: RowLook = {
+            label: rowStateLabel(row.state, row.context?.queueRow),
+            glyph: look.glyph,
+            ascii: look.ascii,
+            tones: { glyph: look.glyphTone, label: look.labelTone },
+          };
+          assertEquals(
+            lookOf(presentFleetRow(row.entry, observation)),
+            expected,
+            `row ${row.row}: status`,
+          );
+          assertEquals(
+            lookOf(buildDeskDecision(row.entry, observation)),
+            expected,
+            `row ${row.row}: desk`,
+          );
+        }
+      },
+    "every written state's row shows status's label, glyph, and tones": () => {
       for (const row of TABLE_ROWS) {
-        const integration = row.context?.integration;
-        const data = statusData([
-          row.entry,
-          ...(integration === undefined ? [] : [
-            fleetEntry({ branch: "integration/task", integration }),
-          ]),
-        ], {
-          ...(row.context?.queueRow === undefined
-            ? {}
-            : { queue: [row.context.queueRow] }),
+        const observation = observe(row);
+        const data = statusData(observation.fleet, {
+          queue: observation.queue,
         });
-        const [desk] = buildDeskRows(data.fleet ?? [], new Map(), new Map(), {
-          trunk: "main",
-          nowMs: NOW,
-          queue: data.queue ?? [],
-        });
+        const [desk] = buildDeskRows(
+          observation.fleet,
+          new Map(),
+          new Map(),
+          observation,
+        );
         assert(desk !== undefined, `row ${row.row}`);
         const tasks = deskApplicationView(
           { data, rows: [desk], phase: "fresh" },
@@ -101,14 +195,22 @@ Deno.test("Desk Proof label guard", async () => {
         const [shown] = tasks.entries;
         assert(shown !== undefined && shown.kind !== "group-heading");
         const look = FLEET_ROW_STATES[row.state];
-        assertEquals(shown.indicator?.content, look.glyph, `row ${row.row}`);
-        assertEquals(shown.indicator?.ascii, look.ascii, `row ${row.row}`);
-        assertEquals(shown.status?.content, desk.decision.label);
         assertEquals(
-          shown.status?.tone === "success" ||
-            shown.indicator?.tone === "success",
-          look.glyphTone === "success" || look.labelTone === "success",
-          `row ${row.row}: green only where status is green`,
+          {
+            glyph: shown.indicator?.content,
+            ascii: shown.indicator?.ascii,
+            glyphTone: shown.indicator?.tone,
+            label: shown.status?.content,
+            labelTone: shown.status?.tone,
+          },
+          {
+            glyph: look.glyph,
+            ascii: look.ascii,
+            glyphTone: semanticTone(look.glyphTone),
+            label: rowStateLabel(row.state, row.context?.queueRow),
+            labelTone: semanticTone(look.labelTone),
+          },
+          `row ${row.row}`,
         );
       }
     },

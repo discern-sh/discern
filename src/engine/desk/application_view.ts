@@ -122,7 +122,7 @@ export function deskShortcuts(): readonly {
   });
 }
 
-/** The package tone for one status row tone; green stays reserved for landable work. */
+/** Package tones by status row tone; green stays reserved for landable work. */
 const SEMANTIC_TONES = {
   accent: "accent",
   success: "success",
@@ -131,6 +131,11 @@ const SEMANTIC_TONES = {
   muted: "neutral",
   faint: "neutral",
 } as const satisfies Record<FleetRowTone, TerminalSemanticTone>;
+
+/** The package tone a row shows for one of status's row tones. */
+export function semanticTone(tone: FleetRowTone): TerminalSemanticTone {
+  return SEMANTIC_TONES[tone];
+}
 
 /** The flag beside a row's state glyph when its files overlap another task's. */
 const OVERLAP = { glyph: "⇄", ascii: "&" } as const;
@@ -423,11 +428,11 @@ export function deskApplicationView(
     indicator: {
       content: `${row.decision.glyph}${overlaps(row) ? OVERLAP.glyph : ""}`,
       ascii: `${row.decision.ascii}${overlaps(row) ? OVERLAP.ascii : ""}`,
-      tone: SEMANTIC_TONES[row.decision.tones.glyph],
+      tone: semanticTone(row.decision.tones.glyph),
     },
     status: {
       content: deskLine(row.decision.label),
-      tone: SEMANTIC_TONES[row.decision.tones.label],
+      tone: semanticTone(row.decision.tones.label),
     },
   }));
   const facts = {
