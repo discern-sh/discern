@@ -8,7 +8,7 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 // Null members observe, present, or persist presentation preferences; they do not operate on tasks.
 const BOUNDARIES = {
-  docs: null,
+  manual: null,
   canInteract: null,
   inDeskSession: null,
   findRoot: null,

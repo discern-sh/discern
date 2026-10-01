@@ -239,8 +239,7 @@ export type DeskChild =
   | { readonly kind: "agent"; readonly taskId: string; readonly launch: string }
   | { readonly kind: "shell"; readonly taskId?: string }
   | { readonly kind: "editor"; readonly taskId?: string }
-  | { readonly kind: "diff"; readonly taskId?: string }
-  | { readonly kind: "manual" };
+  | { readonly kind: "diff"; readonly taskId?: string };
 
 /** The sentence under a question: what stays unchanged until its button. */
 export function untilChosen(nothing: string, button: string): string {

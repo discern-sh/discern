@@ -57,6 +57,10 @@ import type {
 } from "../../src/engine/worktree/lifecycle.ts";
 import { freshTipSeenState } from "../../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../../src/lib/version.ts";
+import {
+  type DocsBrowserRequest,
+  resolveDocsBrowserLink,
+} from "../../src/commands/docs.ts";
 import { fixtureEffortGrant } from "../effort_grant_fixtures.ts";
 import {
   mainFleetEntry,
@@ -189,6 +193,41 @@ export function startedTask(prepared: PreparedStart): StartData {
   };
 }
 
+/**
+ * A two-document manual the scripted Desk reads: a home page that links to
+ * a guide and to a page on the web, and the guide.
+ */
+export const DESK_MANUAL_FIXTURE: DocsBrowserRequest = {
+  message: "Manual fixture",
+  entries: [
+    { kind: "group-heading", id: "pages", name: "Pages" },
+    {
+      kind: "document",
+      id: "home",
+      name: "Manual home",
+      path: "README.md",
+      source:
+        "# Manual home\n\nRead the [guide](guide.md) or [the website](https://example.com/docs).\n",
+    },
+    {
+      kind: "document",
+      id: "guide",
+      name: "Guide",
+      path: "guide.md",
+      source: "# Guide\n\nGuide body text.\n",
+    },
+    { kind: "group-heading", id: "actions", name: "Actions" },
+    {
+      kind: "action",
+      id: "online",
+      name: "Read the docs online",
+      value: { kind: "read-online" },
+    },
+    { kind: "exit", id: "back", name: "Back to the desk" },
+  ],
+  resolveLink: resolveDocsBrowserLink,
+};
+
 /** A runtime whose every seam is scripted; `patch` overrides any of them. */
 export function scriptedDeskRuntime(
   output: DeskTranscript,
@@ -196,7 +235,7 @@ export function scriptedDeskRuntime(
 ): DeskRuntime {
   const data = statusData([mainFleetEntry(DESK_ROOT)]);
   return {
-    docs: () => 0,
+    manual: () => DESK_MANUAL_FIXTURE,
     canInteract: () => true,
     inDeskSession: () => false,
     findRoot: () => DESK_ROOT,

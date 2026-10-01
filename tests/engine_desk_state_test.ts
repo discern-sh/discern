@@ -499,6 +499,30 @@ Deno.test("a returning effect leaves its message, its result, and one refresh", 
   );
 });
 
+Deno.test("Read the manual opens it once read and otherwise says why nothing opened", () => {
+  const read = open(observedDesk(survey([])), { kind: "palette" });
+  const manual: DeskIntent = { kind: "command", command: "manual" };
+  const loading = intent(read.state, manual);
+  assertEquals(loading.effects, []);
+  assertEquals(loading.state.layers, []);
+  assertStringIncludes(loading.state.message?.text ?? "", "still loading");
+  const ready = run(read.state, {
+    kind: "manual-read",
+    result: { state: "ready" },
+  });
+  const opened = intent(ready.state, manual);
+  assertEquals(opened.effects, [{ kind: "manual" }]);
+  assertEquals(opened.state.layers, []);
+  const failed = run(read.state, {
+    kind: "manual-read",
+    result: { state: "failed", error: "no bundled manual" },
+  });
+  const refused = intent(failed.state, manual);
+  assertEquals(refused.effects, []);
+  assertEquals(refused.state.message?.tone, "warning");
+  assertStringIncludes(refused.state.message?.text ?? "", "discern docs");
+});
+
 Deno.test("an unavailable action answers with its reason and opens nothing", () => {
   const listed = observedDesk(survey([editing("alpha")]));
   const row = listed.rows[0];

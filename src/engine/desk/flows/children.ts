@@ -1,6 +1,6 @@
 /**
  * Terminal owners the Desk hands the screen to: a coding agent, a shell, an
- * editor, the pager, the manual, and Project Scripts, plus the release page
+ * editor, the pager, and Project Scripts, plus the release page
  * the browser opens after its disclosure. Each revalidates its task first,
  * runs with the terminal, and reports what came back. A Project Script and
  * the release page are reviewed first; an agent without a prompt option
@@ -297,20 +297,6 @@ export async function runChild(
       return await runEditor(context, out, child.taskId);
     case "diff":
       return await runDiff(context, child.taskId);
-    case "manual": {
-      const code = await context.runtime.docs();
-      return code === 0
-        ? { command: "discern docs", ok: true, back: { label: "the manual" } }
-        : {
-          command: "discern docs",
-          ok: false,
-          message: {
-            tone: "warning",
-            text:
-              "The manual could not open. Run discern docs to read its diagnosis.",
-          },
-        };
-    }
   }
 }
 

@@ -18,6 +18,7 @@ import {
   type InteractionEntry,
   type InteractionRuntime as PackageInteractionRuntime,
   type InteractionSelectionPresentation,
+  markdownBrowserCommand as packageMarkdownBrowserCommand,
   type MarkdownBrowserEntry as PackageMarkdownBrowserEntry,
   type MarkdownBrowserLinkResolution as PackageMarkdownBrowserLinkResolution,
   type MarkdownBrowserLinkResolverInput
@@ -36,6 +37,7 @@ import {
   requestText as packageRequestText,
   runTerminalApplication as packageRunTerminalApplication,
   type SelectionsRequestOptions as PackageSelectionsRequestOptions,
+  type TerminalApplicationCommand as PackageTerminalApplicationCommand,
   type TerminalApplicationOptions as PackageTerminalApplicationOptions,
   type TerminalApplicationRuntime as PackageTerminalApplicationRuntime,
   type TerminalApplicationState,
@@ -1207,6 +1209,48 @@ export type MarkdownBrowserChoiceResult<Action> = Extract<
   MarkdownBrowserRequestResult<Action>,
   { readonly kind: "action" | "external-link" }
 >;
+
+/** How a browser opened inside a running application answers its reader. */
+export interface MarkdownBrowserHandlers<Action> {
+  /**
+   * Answer a chosen action or a link that leaves the documents while the
+   * browser stays open. A background command it returns that fails shows
+   * its error's message inside the browser.
+   */
+  readonly respond?: (
+    result: MarkdownBrowserChoiceResult<Action>,
+  ) => PackageTerminalApplicationCommand | void;
+  /** The browser closed: where the reader was, so the next opening resumes there. */
+  readonly onClose?: (state: MarkdownBrowserResumeState) => void;
+}
+
+/**
+ * The package Markdown browser as a command a running application returns:
+ * it opens on the same screen in place of the application and returns there
+ * when its reader closes it. The corpus crosses the same product adapter as
+ * a standalone request.
+ */
+export function markdownBrowserCommand<Action>(
+  options: MarkdownBrowserRequestOptions<Action>,
+  handlers: MarkdownBrowserHandlers<Action> = {},
+): PackageTerminalApplicationCommand {
+  const entries = adaptMarkdownBrowserEntries(options.entries);
+  const { respond, onClose } = handlers;
+  return packageMarkdownBrowserCommand(
+    packageMarkdownBrowserOptions(options, entries),
+    {
+      ...(respond === undefined ? {} : {
+        respond: (result) => {
+          const chosen = productMarkdownBrowserResult(result, entries);
+          return chosen.kind === "exit" ? undefined : respond(chosen);
+        },
+      }),
+      ...(onClose === undefined ? {} : {
+        onClose: (state) => onClose(state),
+      }),
+    },
+  );
+}
 
 /** Guard policy before delegating to the package selection or search request. */
 export async function requestSelection<T>(

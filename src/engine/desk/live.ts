@@ -8,9 +8,9 @@
  * at a time with generation checks, the refresh cadence, the selected-item
  * slot that reads tier-two evidence once the selection settles, the clock
  * that keeps running times current, the operations that run beside the
- * screen as package background commands, and the terminal handoffs
- * launches need. Selection, focus, scroll, folds and field editing stay the
- * package's.
+ * screen as package background commands, the manual opened in place of the
+ * inbox, and the terminal handoffs launches need. Selection, focus, scroll,
+ * folds and field editing stay the package's.
  */
 
 import { bestEffort } from "../../shared/best_effort.ts";
@@ -73,6 +73,7 @@ import {
   taskEvidenceSubject,
 } from "./evidence.ts";
 import type { DeskFlowStep, DeskOutcome, DeskReview } from "./flow_types.ts";
+import type { DeskManual } from "./manual.ts";
 import { failureSheet } from "./review.ts";
 
 /** How long the selection must stay put before the slot reads its evidence. */
@@ -97,15 +98,9 @@ export interface DeskFlows {
     row: DeskRow,
   ): Promise<DeskCapabilities>;
   /** The line painted before an effect takes the terminal. */
-  handoff(
-    state: DeskProductState,
-    effect: Exclude<DeskTerminalEffect, { readonly kind: "operate" }>,
-  ): string;
+  handoff(state: DeskProductState, effect: DeskHandoff): string;
   /** Run one effect or child with the terminal. */
-  run(
-    state: DeskProductState,
-    effect: Exclude<DeskTerminalEffect, { readonly kind: "operate" }>,
-  ): Promise<DeskOutcome>;
+  run(state: DeskProductState, effect: DeskHandoff): Promise<DeskOutcome>;
   /** Run one operation beside the screen, reporting into its session. */
   operate(
     state: DeskProductState,
@@ -113,6 +108,12 @@ export interface DeskFlows {
     session: DeskEffectSession,
   ): Promise<DeskOutcome>;
 }
+
+/** An effect that takes the terminal from the screen. */
+export type DeskHandoff = Extract<
+  DeskTerminalEffect,
+  { readonly kind: "apply" | "child" | "exit" }
+>;
 
 /** Everything the live Desk depends on; nothing here reads the host. */
 export interface LiveDeskDependencies {
@@ -127,6 +128,8 @@ export interface LiveDeskDependencies {
     readonly hints: readonly string[];
   }>;
   readonly tip: (data: StatusData) => Promise<string | undefined>;
+  /** Read the manual, which the session does once as it starts. */
+  readonly manual: () => Promise<DeskManual>;
   readonly evidence: DeskEvidenceReader;
   readonly flows: DeskFlows;
   readonly persist: (
@@ -209,7 +212,9 @@ export function liveDesk(
   });
   let context: TerminalApplicationContext<DeskIntent> | undefined;
   let alive = true;
+  /** A child or the manual has the screen: surveys, ticks and reads wait. */
   let foreground = false;
+  let manual: DeskManual | undefined;
   let launches: readonly DeskAgentLaunch[] = [];
   let surveyTimer: TimeoutHandle | undefined;
   let settleTimer: TimeoutHandle | undefined;
@@ -592,6 +597,23 @@ export function liveDesk(
     });
   };
 
+  /**
+   * The manual in place of the inbox. The inbox keeps its selection, layers
+   * and scroll underneath; while the manual is open the Desk's surveys,
+   * ticks and evidence reads wait, and it picks them up once it closes.
+   */
+  const openManual = (): TerminalApplicationCommand => {
+    if (manual === undefined) {
+      throw new TypeError("The manual opens only once it has been read.");
+    }
+    foreground = true;
+    return manual.open(state.preferences.mouse === true, () => {
+      foreground = false;
+      publish();
+      settle();
+    });
+  };
+
   /** The package command that runs an effect, hands over the terminal, or exits. */
   const command = (
     effect: DeskTerminalEffect,
@@ -600,6 +622,7 @@ export function liveDesk(
       return { kind: "exit", epilogue: deskEpilogue(state) };
     }
     if (effect.kind === "operate") return operate(effect.operationId);
+    if (effect.kind === "manual") return openManual();
     const snapshot = state;
     const handoff = deps.flows.handoff(snapshot, effect);
     return {
@@ -633,6 +656,22 @@ export function liveDesk(
           launches = found;
           publish();
         }),
+      );
+      own(
+        deps.manual().then(
+          (read) => {
+            manual = read;
+            dispatch({ kind: "manual-read", result: { state: "ready" } });
+          },
+          (error) =>
+            dispatch({
+              kind: "manual-read",
+              result: {
+                state: "failed",
+                error: error instanceof Error ? error.message : String(error),
+              },
+            }),
+        ),
       );
       dispatch({ kind: "refresh" });
       return () => {

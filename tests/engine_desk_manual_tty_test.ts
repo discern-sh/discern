@@ -1,8 +1,24 @@
-/** Real foreground input ownership, shared document navigation, and Desk return. */
+/**
+ * The manual inside the Desk on a real terminal: the shared browser opens
+ * on the Desk's own screen, owns input through search, links and a refused
+ * link, and returns to the inbox. Phases wait on the package's state
+ * reports, never on prose.
+ */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, normalize } from "@std/path";
+import { TERMINAL_APPLICATION_STATE_REPORTS_ENV } from "discern-design-system/cli";
+import {
+  captureTerminalFrame,
+  ptySettledFrame,
+  type TerminalFrameCapture,
+} from "discern-design-system/cli/interactive/testing";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
-import { ptyOutputContains, runPtyProcess } from "./fixtures/pty_process.ts";
+import {
+  type PtyInputPhase,
+  type PtyOutputCondition,
+  type PtyProcessResult,
+  runPtyProcess,
+} from "./fixtures/pty_process.ts";
 import { APPLICATION_FIXTURE_ROOT } from "./fixtures/terminal_application_capture.ts";
 import { realPtyTest } from "./real_pty.ts";
 import { withTempDir } from "./helpers.ts";
@@ -13,7 +29,6 @@ import {
 } from "./engine_helpers.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { encodeTerminalKeys } from "discern-design-system/cli/interactive/testing";
-import { deskScreenShows } from "./fixtures/desk_tty_harness.ts";
 
 const MANUAL_PROCESS = join(
   APPLICATION_FIXTURE_ROOT,
@@ -23,14 +38,67 @@ const MANUAL_PROCESS = join(
 /** Both journeys run at 80 by 24. */
 const SIZE = { columns: 80, rows: 24 };
 
-/** Ctrl+K opens the Desk's command palette. */
-const OPEN_PALETTE = encodeTerminalKeys("ctrl-k");
+/** One settled frame passing `test`. */
+function settled(
+  description: string,
+  test: (capture: TerminalFrameCapture) => boolean,
+): PtyOutputCondition {
+  return ptySettledFrame(SIZE, description, test);
+}
 
-/** The palette's query is ready for typing. */
-const PALETTE_READY = "Search tasks and commands";
+/** The Desk's inbox, with nothing open over it. */
+const INBOX = settled(
+  "the Desk's inbox",
+  (capture) =>
+    capture.state !== undefined && capture.state.topLayerId === undefined &&
+    capture.state.listId !== "contents" &&
+    capture.text.includes("No tasks yet"),
+);
 
-/** The Desk again, saying where it came back from. */
-const RETURNED = ["No tasks yet", "Back from the manual"] as const;
+/** The Desk's palette, ready for a query. */
+const PALETTE = settled(
+  "the Desk's palette",
+  (capture) => capture.state?.topLayerId === "palette",
+);
+
+/** The manual's contents, in place of the inbox. */
+const CONTENTS = settled(
+  "the manual's contents",
+  (capture) =>
+    capture.state?.listId === "contents" &&
+    capture.state.focusedControlId === "contents",
+);
+
+/** The manual's search, showing `text` among its matches. */
+function searching(text: string): PtyOutputCondition {
+  return settled(
+    `the manual's search showing ${text}`,
+    (capture) =>
+      capture.state?.topLayerId === "search" && capture.text.includes(text),
+  );
+}
+
+/** A document open in the manual, showing `text`, and whether a link has focus. */
+function reading(text: string, link = false): PtyOutputCondition {
+  return settled(`a manual document showing ${text}`, (capture) => {
+    const focused = String(capture.state?.focusedControlId ?? "");
+    return focused.startsWith("document:") &&
+      focused.includes(":link:") === link && capture.text.includes(text);
+  });
+}
+
+/** Open the manual from the empty Desk's palette. */
+const OPEN_MANUAL: readonly PtyInputPhase[] = [
+  { waitFor: INBOX, steps: [{ bytes: encodeTerminalKeys("ctrl-k") }] },
+  { waitFor: PALETTE, steps: [{ bytes: "Read the manual\r" }] },
+];
+
+/** A named keyframe's visible text. */
+function screen(result: PtyProcessResult, name: string): string {
+  const raw = result.keyframes[name];
+  assert(raw !== undefined, `the ${name} frame was captured`);
+  return captureTerminalFrame(raw, SIZE).text;
+}
 
 /** The bundled page the Desk opens: addressed by path, never by its prose. */
 const BUNDLED_PAGE = "20-guides/delegate-work.md";
@@ -85,7 +153,7 @@ async function bundledPageView(): Promise<BundledPageView> {
 
 realPtyTest({
   name:
-    "Desk foreground shared browser owns input across search, links, refusal, and return at 80 by 24",
+    "the manual opens inside the Desk and owns input across search, links, refusal, and return at 80 by 24",
   contracts: [
     "line-discipline",
     "terminal-modes",
@@ -112,126 +180,90 @@ realPtyTest({
         "# Beta guide\n\n## Destination\n\nAnchor destination text.\n\n[Unsupported external](file:///unavailable)\n",
       );
       await gitInit(root);
+      const env = {
+        NO_COLOR: "1",
+        [TERMINAL_APPLICATION_STATE_REPORTS_ENV]: "1",
+      };
+      const anchor = reading("Anchor destination text");
       const result = await runPtyProcess({
         command: Deno.execPath(),
         args: repoSourceRunArgs(MANUAL_PROCESS, [manual]),
         cwd: root,
         geometry: SIZE,
-        env: { NO_COLOR: "1" },
+        env,
         input: [
-          { waitFor: "No tasks yet", steps: [{ bytes: OPEN_PALETTE }] },
+          ...OPEN_MANUAL,
           {
-            waitFor: PALETTE_READY,
-            steps: [{ bytes: "Read the manual\r" }],
+            waitFor: CONTENTS,
+            capture: { name: "manual", when: CONTENTS },
+            steps: [{ bytes: "/" }],
+          },
+          { waitFor: searching("›"), steps: [{ bytes: "Alpha" }] },
+          { waitFor: searching("Alpha guide"), steps: [{ bytes: "\r" }] },
+          // Tab focuses the first link; Enter follows it to a heading.
+          {
+            waitFor: reading("Next section"),
+            steps: [{ bytes: encodeTerminalKeys("tab", "enter") }],
           },
           {
-            waitFor: ["DISCERN MAP", "Enter open/action  Esc cancel"],
-            capture: {
-              name: "manual",
-              when: ptyOutputContains([
-                "DISCERN MAP",
-                "Enter open/action  Esc cancel",
-              ]),
-            },
-            steps: [{ bytes: "Alpha" }],
+            waitFor: anchor,
+            capture: { name: "linked", when: anchor },
+            steps: [{ bytes: encodeTerminalKeys("tab", "enter") }],
           },
+          // The refused link says why inside the manual, which stays open.
           {
-            waitFor: deskScreenShows(SIZE, "Search: Alpha", "Alpha guide"),
-            steps: [{ bytes: "\r" }],
-          },
-          {
-            waitFor: ["Alpha guide", "Tab picker  Esc/q close"],
-            steps: [{ bytes: "]\r" }],
-          },
-          {
-            waitFor: ["Anchor destination text", "Tab picker  Esc/q close"],
-            capture: {
-              name: "linked",
-              when: ptyOutputContains([
-                "Anchor destination text",
-                "Tab picker  Esc/q close",
-              ]),
-            },
-            steps: [{ bytes: "]\r" }],
-          },
-          { waitFor: "only http:// and https://", steps: [{ bytes: "\r" }] },
-          {
-            waitFor: ["Anchor destination text", "Tab picker"],
+            waitFor: settled(
+              "the refusal",
+              (capture) =>
+                capture.text.includes("only http:// and https://") &&
+                String(capture.state?.focusedControlId).startsWith(
+                  "document:",
+                ),
+            ),
             steps: [{ bytes: "q" }],
           },
           {
-            waitFor: "Enter open/action  Esc cancel",
-            steps: [{ bytes: "\x1b", allowLoneEscape: true }],
-          },
-          {
-            waitFor: RETURNED,
-            capture: { name: "returned", when: ptyOutputContains(RETURNED) },
+            waitFor: INBOX,
+            capture: { name: "returned", when: INBOX },
             steps: [{ bytes: "q" }],
           },
         ],
       });
       assertEquals(result.code, 0, result.transcript);
-      assertStringIncludes(
-        result.keyframes.linked ?? "",
-        "Anchor destination text",
-      );
-      assertStringIncludes(
-        result.keyframes.returned ?? "",
-        "Back from the manual",
-      );
-      assert(result.keyframes.manual !== undefined);
+      assertStringIncludes(screen(result, "manual"), "Alpha guide");
+      assertStringIncludes(screen(result, "linked"), "Anchor destination text");
+      assertStringIncludes(screen(result, "returned"), "No tasks yet");
+
       const view = await bundledPageView();
+      const opened = reading(view.opening);
       const bundled = await runPtyProcess({
         command: Deno.execPath(),
         args: repoSourceRunArgs(MANUAL_PROCESS, []),
         cwd: root,
         geometry: SIZE,
-        env: { NO_COLOR: "1" },
+        env,
         input: [
-          { waitFor: "No tasks yet", steps: [{ bytes: OPEN_PALETTE }] },
+          ...OPEN_MANUAL,
+          { waitFor: CONTENTS, steps: [{ bytes: "/" }] },
+          { waitFor: searching("›"), steps: [{ bytes: view.title }] },
           {
-            waitFor: PALETTE_READY,
-            steps: [{ bytes: "Read the manual\r" }],
-          },
-          {
-            waitFor: ["DISCERN DOCS", "Enter open/action  Esc cancel"],
-            steps: [{ bytes: view.title }],
-          },
-          {
-            waitFor: deskScreenShows(
-              SIZE,
-              `Search: ${view.title}`,
-              BUNDLED_PAGE,
-            ),
+            waitFor: searching(BUNDLED_PAGE.split("/").at(-1) ?? BUNDLED_PAGE),
             steps: [{ bytes: "\r" }],
           },
           {
-            waitFor: [view.opening, "Tab picker  Esc/q close"],
-            capture: {
-              name: "bundled",
-              when: ptyOutputContains([
-                view.opening,
-                "Tab picker  Esc/q close",
-              ]),
-            },
-            steps: [{ bytes: "]\r" }],
+            waitFor: opened,
+            capture: { name: "bundled", when: opened },
+            steps: [{ bytes: encodeTerminalKeys("tab", "enter") }],
           },
           {
-            waitFor: [view.firstLinkTitle, "Tab picker  Esc/q close"],
+            waitFor: reading(view.firstLinkTitle),
             steps: [{ bytes: "q" }],
           },
-          {
-            waitFor: "Enter open/action  Esc cancel",
-            steps: [{ bytes: "\x1b", allowLoneEscape: true }],
-          },
-          { waitFor: RETURNED, steps: [{ bytes: "q" }] },
+          { waitFor: INBOX, steps: [{ bytes: "q" }] },
         ],
       });
       assertEquals(bundled.code, 0, bundled.transcript);
-      assertStringIncludes(
-        bundled.keyframes.bundled ?? "",
-        view.opening,
-      );
+      assertStringIncludes(screen(bundled, "bundled"), view.opening);
     });
   },
 });

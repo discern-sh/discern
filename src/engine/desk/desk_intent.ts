@@ -232,6 +232,31 @@ function closeRoutes(state: DeskProductState): DeskProductState {
   );
 }
 
+/**
+ * Open the manual in place of the inbox. The session reads it as it
+ * starts, so it opens at once; until then, or when it can't be read, the
+ * message says so and nothing opens.
+ */
+function readManual(state: DeskProductState): DeskTransition {
+  const closed = closeRoutes(state);
+  switch (state.manual.state) {
+    case "ready":
+      return { state: closed, effects: [{ kind: "manual" }] };
+    case "loading":
+      return UNCHANGED(
+        toast(closed, "muted", "The manual is still loading; try again"),
+      );
+    case "failed":
+      return UNCHANGED(
+        toast(
+          closed,
+          "warning",
+          "The manual could not open. Run discern docs to read its diagnosis.",
+        ),
+      );
+  }
+}
+
 /** Run an action on a task if it can run; otherwise say why. */
 function actionIntent(
   state: DeskProductState,
@@ -358,10 +383,7 @@ function commandIntent(
         };
     }
     case "manual":
-      return {
-        state: closeRoutes(state),
-        effects: [{ kind: "child", child: { kind: "manual" } }],
-      };
+      return readManual(state);
     case "updates":
       return review(state, commandStep("updates"));
     case "refresh":

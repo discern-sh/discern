@@ -25,7 +25,6 @@ import {
   deskOrphanBranch,
   deskProof,
   deskRunningAction,
-  deskScreenShows,
   deskSettledPhase,
   deskShowing,
   type DeskTtyInputPhase,
@@ -37,11 +36,7 @@ import {
 } from "./fixtures/desk_tty_harness.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
-import type {
-  PtyGeometry,
-  PtyObservedOutput,
-  PtyOutputCondition,
-} from "./fixtures/pty_process.ts";
+import type { PtyGeometry } from "./fixtures/pty_process.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[([0-9:;]*)m`, "gu");
@@ -825,30 +820,6 @@ Deno.test("Desk PTY fleet builders materialise later-wave state through real aut
   });
 });
 
-/** Read the visible document's scroll indicator, independent of its prose. */
-function manualDocumentStart(text: string): number {
-  if (!text.includes("Document") || !text.includes("Tab picker  Esc/q close")) {
-    return 0;
-  }
-  return Number(text.match(/\b(\d+)-\d+\/\d+\b/u)?.[1] ?? 0);
-}
-
-/** Observe the complete manual frame at the journey's initial geometry. */
-function manualDocumentReady(minimumStart: number): PtyOutputCondition {
-  return {
-    description:
-      `the manual displays a document starting at line ${minimumStart} or later`,
-    test: (output) =>
-      manualDocumentStart(
-        normaliseDeskTranscript(
-          "manual-readiness",
-          output.stdout,
-          { columns: 80, rows: 24 },
-        ).text,
-      ) >= minimumStart,
-  };
-}
-
 Deno.test("Desk PTY recipes separate resize from keyboard input before launching", () => {
   const resize = { resize: { columns: 61, rows: 27 } };
   const mixed: readonly DeskTtyInputPhase[] = [
@@ -877,29 +848,17 @@ Deno.test("Desk PTY recipes separate resize from keyboard input before launching
   });
 });
 
-Deno.test("manual readiness requires the latest visible scrolled frame", () => {
-  const opening = "Document\n1-12/200\nTab picker  Esc/q close";
-  const scrolled = "Document\n13-24/200\nTab picker  Esc/q close";
-  const observed = (stdout: string): PtyObservedOutput => ({
-    stdout,
-    stderr: "",
-    transcript: stdout,
-    phaseStdout: stdout,
-    phaseStderr: "",
-  });
-  const ready = manualDocumentReady(2);
-  assertEquals(ready.test(observed(opening)), false);
-  assertEquals(ready.test(observed("Document\n13-24/200")), false);
-  assertEquals(ready.test(observed(scrolled)), true);
-  assertEquals(
-    ready.test(observed(scrolled + "\x1b[2J\x1b[H" + opening)),
-    false,
-  );
-});
+/** The manual's open document, scrolled down or at its start. */
+function manualReading(scrolled: boolean): DeskFrameTest {
+  return (capture) =>
+    capture.state?.topLayerId === undefined &&
+    String(capture.state?.focusedControlId).startsWith("document:") &&
+    /↑ \d+ more/u.test(capture.text) === scrolled;
+}
 
 realPtyTest({
   name:
-    "Desk PTY: the offline manual keeps document focus and scroll through resize and returns to its command",
+    "Desk PTY: the manual opens in place of the inbox, keeps its scroll through resize, and returns to the same selection",
   contracts: [
     "resize-delivery",
     "control-rendering",
@@ -910,86 +869,97 @@ realPtyTest({
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
     const size = { columns: 80, rows: 24 };
-    await withDeskTtyProject(deskFleetFixture(), async (project) => {
-      const result = await runDeskTty(project, {
-        geometry: size,
-        colorMode: "no-color-env",
-        input: [
-          phase(size, undefined, "the empty Desk", EMPTY, {
-            keys: ["ctrl-k"],
-          }),
-          phase(
-            size,
-            undefined,
-            "the palette",
-            deskLayerOpen("palette"),
-            { input: "Read the manual" },
-          ),
-          phase(
-            size,
-            undefined,
-            "the manual found",
-            both(deskLayerOpen("palette"), showing("Read the manual")),
-            { keys: ["enter"] },
-          ),
-          {
-            waitFor: ["DISCERN DOCS", "Enter open/action  Esc cancel"],
-            chunks: [{ input: "Delegate substantial work" }],
-          },
-          {
-            waitFor: deskScreenShows(
+    const narrow = { columns: 40, rows: 24 };
+    const second = "beta-task-d4e5f6";
+    await withDeskTtyProject(
+      deskFleetFixture([
+        deskFleetEntry("alpha-task-a1b2c3", { aheadCommits: 1 }),
+        deskFleetEntry(second, { aheadCommits: 1 }),
+      ]),
+      async (project) => {
+        const result = await runDeskTty(project, {
+          geometry: size,
+          colorMode: "no-color-env",
+          input: [
+            phase(
               size,
-              "Search: Delegate substantial work",
-              "20-guides/delegate-work.md",
+              undefined,
+              "the inbox",
+              deskAtRest("alpha-task-a1b2c3"),
+              {
+                keys: ["down"],
+              },
             ),
-            chunks: [{ keys: ["enter"] }],
-          },
-          {
-            waitFor: manualDocumentReady(1),
-            chunks: [{ keys: ["page-down"] }],
-          },
-          {
-            waitFor: manualDocumentReady(2),
-            capture: {
-              name: "scrolled-document",
-              when: { includes: ["Document", "Tab picker  Esc/q close"] },
-            },
-            chunks: [{ resize: { columns: 40, rows: 24 } }],
-          },
-          {
-            waitFor: ["Document", "Tab picker  Esc/q close"],
-            capture: {
-              name: "resized-document",
-              when: { includes: ["Document", "Tab picker  Esc/q close"] },
-            },
-            chunks: [{ input: "q" }],
-          },
-          {
-            waitFor: "Enter open/action  Esc cancel",
-            chunks: [{ keys: ["escape"], allowLoneEscape: true }],
-          },
-          phase(
-            { columns: 40, rows: 24 },
-            "manual-return",
-            "back from the manual",
-            both(EMPTY, showing("Back from the manual")),
-            { input: "q" },
-          ),
-        ],
-      });
-      assertHealthySession(result);
-      const document = frame(result, "resized-document");
-      assertEquals(document.columns, 40);
-      assert(manualDocumentStart(frame(result, "scrolled-document").text) > 1);
-      assert(
-        manualDocumentStart(document.text) > 1,
-        "the resized document retains its scrolled position",
-      );
-      assertStringIncludes(
-        frame(result, "manual-return").text,
-        "Back from the manual",
-      );
-      assertEquals(result.terminal.resizes, [{ columns: 40, rows: 24 }]);
-    });
+            phase(size, undefined, "the second task", deskAtRest(second), {
+              keys: ["ctrl-k"],
+            }),
+            phase(
+              size,
+              undefined,
+              "the palette",
+              deskLayerOpen("palette"),
+              { input: "Read the manual" },
+            ),
+            phase(
+              size,
+              undefined,
+              "the manual found",
+              both(deskLayerOpen("palette"), showing("Read the manual")),
+              { keys: ["enter"] },
+            ),
+            phase(
+              size,
+              undefined,
+              "the manual's contents",
+              (capture) =>
+                capture.state?.listId === "contents" &&
+                capture.state.focusedControlId === "contents",
+              { input: "/" },
+            ),
+            phase(
+              size,
+              undefined,
+              "the manual's search",
+              deskLayerOpen("search"),
+              { input: "Delegate substantial work" },
+            ),
+            phase(
+              size,
+              undefined,
+              "the guide found",
+              both(deskLayerOpen("search"), showing("delegate-work.md")),
+              { keys: ["enter"] },
+            ),
+            phase(size, undefined, "the guide open", manualReading(false), {
+              keys: ["page-down"],
+            }),
+            phase(
+              size,
+              "scrolled-document",
+              "the guide scrolled",
+              manualReading(true),
+              { resize: narrow },
+            ),
+            phase(
+              narrow,
+              "resized-document",
+              "the guide resized",
+              manualReading(true),
+              { input: "q" },
+            ),
+            phase(
+              narrow,
+              "manual-return",
+              "back at the inbox",
+              deskAtRest(second),
+              { input: "q" },
+            ),
+          ],
+        });
+        assertHealthySession(result);
+        assertEquals(frame(result, "resized-document").columns, 40);
+        assertEquals(result.terminal.resizes, [narrow]);
+      },
+    );
   },
 });

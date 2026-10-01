@@ -58,6 +58,8 @@ import {
 } from "../src/engine/worktree/lifecycle.ts";
 import { freshTipSeenState } from "../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { DISCERN_DOCS_URL } from "../src/shared/brand.ts";
+import { DESK_LIST_ID } from "../src/engine/desk/desk_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
@@ -2041,32 +2043,114 @@ Deno.test("Check for updates asks before it opens a browser, and Cancel opens no
   assertEquals(opened, 0);
 });
 
-Deno.test("Read the manual lends the terminal to the shared manual and says when it fails", async () => {
-  for (const code of [0, 1]) {
-    let opens = 0;
-    let pauses = 0;
-    await withDeskSession({
-      runtime: {
-        docs: () => {
-          opens += 1;
-          return code;
-        },
-        pause: () => {
-          pauses += 1;
-        },
-        openBrowser: () => {
-          throw new Error("the Desk uses the shared offline manual");
-        },
+/** Two tasks, so returning from the manual can show the selection kept. */
+const MANUAL_FLEET = [
+  deskTaskEntry("agent/first", "/worktrees/first", { id: "first" }),
+  deskTaskEntry("agent/second", "/worktrees/second", { id: "second" }),
+];
+
+/** Escape out of the manual's current place, waiting for `shown`. */
+async function manualBack(desk: DeskSession, shown: string): Promise<void> {
+  await desk.escape(() => desk.screen().includes(shown), shown);
+}
+
+Deno.test("Read the manual opens in place of the inbox and Escape returns to it as it was", async () => {
+  let pauses = 0;
+  await withDeskSession({
+    runtime: {
+      ...surveys(() => deskSurvey(MANUAL_FLEET)),
+      pause: () => {
+        pauses += 1;
       },
-    }, async (desk) => {
-      await desk.palette("Read the manual", "manual");
-      await desk.until(() => opens === 1, "the manual");
-      await desk.shows(
-        code === 0 ? "Back from the manual" : "manual could not open",
-      );
-    });
-    assertEquals(pauses, 0);
-  }
+      openBrowser: () => {
+        throw new Error("reading the manual opens no page");
+      },
+    },
+  }, async (desk) => {
+    await desk.select("second");
+    await desk.palette("Read the manual", "manual");
+    await desk.shows("Manual fixture");
+    await desk.shows("Back to the desk");
+    // The contents open the first page; its first link opens the guide.
+    await desk.press("enter");
+    await desk.shows("Read the guide");
+    await desk.press("tab", "enter");
+    await desk.shows("Guide body text");
+    // Back returns to the home page with its followed link still focused;
+    // Escape leaves the link first, then goes back to the contents.
+    await manualBack(desk, "›guide");
+    await manualBack(desk, "Read the guide");
+    await manualBack(desk, "Back to the desk");
+    await desk.escape(
+      () => !desk.screen().includes("Manual fixture"),
+      "the inbox again",
+    );
+    assertEquals(desk.top(), undefined);
+    assertEquals(desk.state().lists[DESK_LIST_ID]?.selectedId, "second");
+    // The next opening resumes where its reader left it.
+    await desk.palette("Read the manual", "manual");
+    await desk.shows("Manual fixture");
+    await desk.press("q");
+    await desk.until(
+      () => !desk.screen().includes("Manual fixture"),
+      "the inbox after q",
+    );
+    assertEquals(desk.state().lists[DESK_LIST_ID]?.selectedId, "second");
+  });
+  assertEquals(pauses, 0);
+});
+
+Deno.test("the manual opens its pages while the screen stays and says when one can't", async () => {
+  const opened: string[] = [];
+  await withDeskSession({
+    runtime: {
+      openBrowser: (url) => {
+        opened.push(url);
+        return url === DISCERN_DOCS_URL
+          ? { status: "unsupported", message: "no browser here" }
+          : { status: "opened", launch: { command: "open", args: [url] } };
+      },
+    },
+  }, async (desk) => {
+    await desk.palette("Read the manual", "manual");
+    await desk.shows("Manual fixture");
+    await desk.press("enter", "tab", "tab", "enter");
+    await desk.until(
+      () => opened.includes("https://example.com/docs"),
+      "the website to open",
+    );
+    await desk.press("c");
+    await desk.shows("Manual home");
+    await desk.press("down", "down", "enter");
+    await desk.until(() => opened.includes(DISCERN_DOCS_URL), "the docs");
+    await desk.shows("no browser here");
+    assertStringIncludes(desk.screen(), "Manual fixture");
+  });
+  assertEquals(opened, ["https://example.com/docs", DISCERN_DOCS_URL]);
+});
+
+Deno.test("Read the manual says when the manual is still loading or could not be read", async () => {
+  let release: (() => void) | undefined;
+  let refused = false;
+  const reading = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await withDeskSession({
+    runtime: {
+      manual: async () => {
+        await reading;
+        refused = true;
+        throw new Error("this binary has no bundled manual");
+      },
+    },
+  }, async (desk) => {
+    await desk.palette("Read the manual", "manual");
+    await desk.shows("The manual is still loading");
+    release?.();
+    await desk.until(() => refused, "the read to end");
+    await desk.palette("Read the manual", "manual");
+    await desk.shows("manual could not open");
+  });
 });
 
 Deno.test("an agent without a prompt option shows the stored brief before it opens", async () => {

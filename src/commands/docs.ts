@@ -629,8 +629,6 @@ async function browsableTree(
 /** Options accepted by the `map` command (global flags folded in). */
 export interface DocsOptions {
   json: boolean;
-  /** Return destination when hosted by another suspended terminal application. */
-  returnLabel?: string;
   /** Exact quiet projection requested at the root, when one is active. */
   resultFormat?: "json" | "markdown" | "render" | undefined;
   noColor: boolean;
@@ -1190,11 +1188,17 @@ function docsBrowserRequest(
   documentMeasure: number | undefined,
 ): DocsBrowserRequest {
   return {
-    message: docsHeaderFact(
-      desc.verb,
-      tree.entries.length,
-      display(tree.docsDir, cwd),
-    ),
+    // The bundled manual's install location says nothing to its reader, and
+    // beside an open document it would crowd out the document's title.
+    message: desc.verb === "docs"
+      ? terminalLine(
+        `discern ${desc.verb} — ${docsDocumentCount(tree.entries.length)}`,
+      )
+      : docsHeaderFact(
+        desc.verb,
+        tree.entries.length,
+        display(tree.docsDir, cwd),
+      ),
     entries: corpus.entries,
     ...(documentMeasure === undefined ? {} : { documentMeasure }),
     resolveLink: resolveDocsBrowserLink,
@@ -1228,6 +1232,40 @@ export async function openDocsBrowserChoice(
   return opened.status === "opened"
     ? undefined
     : browserOpenFailureMessage("the link", destination, opened);
+}
+
+/**
+ * Read a documentation corpus for a browser another application opens in
+ * its own session, such as the Desk's manual: `docs` reads the bundled
+ * manual, `map` the project map (or `dir`). Its exit entry says `exitLabel`.
+ * A tree that is missing, empty, or unreadable throws with the diagnosis
+ * the command itself would print.
+ */
+export async function readDocsBrowser(
+  verb: "docs" | "map",
+  options: { readonly dir?: string; readonly exitLabel: string },
+  cwd: string = Deno.cwd(),
+): Promise<DocsBrowserRequest> {
+  const desc = verb === "docs" ? DOCS_VERB : MAP_VERB;
+  const found = await browsableTree(desc, { dir: options.dir }, cwd, false);
+  if (found.kind !== "tree") {
+    throw new Error(
+      found.kind === "external-decisions"
+        ? EXTERNAL_DECISIONS_MESSAGE
+        : desc.missingTree({ dir: options.dir }),
+    );
+  }
+  const { tree } = found;
+  if (tree.entries.length === 0) {
+    throw new Error(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
+  }
+  const projection = await docsBrowseProjection(desc.verb, tree);
+  const corpus = await docsMarkdownBrowserCorpus(
+    desc,
+    projection,
+    options.exitLabel,
+  );
+  return docsBrowserRequest(desc, tree, cwd, corpus, undefined);
 }
 
 /** The 5A selection, print/page, acknowledge, and remembered-choice loop. */
@@ -1381,11 +1419,7 @@ async function browse(
   }
   let corpus: DocsMarkdownBrowserCorpus;
   try {
-    corpus = await docsMarkdownBrowserCorpus(
-      desc,
-      projection,
-      options.returnLabel,
-    );
+    corpus = await docsMarkdownBrowserCorpus(desc, projection);
   } catch (error) {
     log.error(docsBrowserFailureMessage(error));
     return 1;

@@ -558,7 +558,8 @@ realPtyTest({
       const screen = (name: string): string =>
         captureTerminalFrame(process.keyframes[name] ?? "", geometry).text;
       const initial = screen("initial");
-      assertStringIncludes(initial, "discern docs — 8 documents in");
+      assertStringIncludes(initial, "discern docs — 8 documents");
+      assert(!initial.includes("manual-fixture"), "the install path stays out");
       // The selected action's preview carries its description.
       assertStringIncludes(initial, "ask your coding agent");
       const groupOffsets = ["Browse  1", "Start here", "Overview", "Intro  2"]

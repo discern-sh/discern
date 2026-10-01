@@ -34,7 +34,11 @@ export {
 } from "./execution.ts";
 import { INTERRUPT_SIGNALS, reraiseInterrupt } from "../process_signals.ts";
 import { readProofNoteAt } from "../gate/proof_notes.ts";
-import { runDocs } from "../../commands/docs.ts";
+import {
+  type DocsBrowserRequest,
+  readDocsBrowser,
+} from "../../commands/docs.ts";
+import { DESK_MANUAL_EXIT, deskManual } from "./manual.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
@@ -123,14 +127,9 @@ import { simpleCommandArgv } from "./literal_argv.ts";
 import { acceptLandingResult } from "../worktree/accept.ts";
 import type { DropPlan, ParkPlan, ReclaimPlan } from "../worktree/plan.ts";
 import type { DeskEditorCommand } from "./contracts.ts";
-import type {
-  DeskIntent,
-  DeskLoad,
-  DeskProductState,
-  DeskTerminalEffect,
-} from "./desk_state.ts";
+import type { DeskIntent, DeskLoad, DeskProductState } from "./desk_state.ts";
 import { DESK_LIST_ID, rowRef } from "./desk_transitions.ts";
-import { type DeskFlows, liveDesk } from "./live.ts";
+import { type DeskFlows, type DeskHandoff, liveDesk } from "./live.ts";
 import { foldedGroups } from "./inbox_view.ts";
 import { DESK_EVIDENCE_TIMEOUT_MS } from "./evidence.ts";
 import type { DeskFlowContext } from "./flows/context.ts";
@@ -181,7 +180,8 @@ export interface DeskTermination {
  * runtime so every supervisory path is exercised without pretending a pipe is
  * a terminal or touching a real worktree. */
 export interface DeskRuntime extends DeskLandingPermission {
-  docs(): DeskMaybePromise<number>;
+  /** Read the manual the Desk opens in place of its inbox. */
+  manual(): DeskMaybePromise<DocsBrowserRequest>;
   canInteract(): boolean;
   inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
@@ -389,15 +389,7 @@ function configuredEditorCommand(
  * makes the whole interactive surface scriptable while the CLI still calls the
  * same functions with the same options. */
 const DEFAULT_DESK_RUNTIME: DeskRuntime = {
-  docs: () =>
-    runDocs({
-      json: false,
-      noColor: !terminalContext().color,
-      raw: false,
-      list: false,
-      pager: false,
-      returnLabel: "Return to Desk",
-    }),
+  manual: () => readDocsBrowser("docs", { exitLabel: DESK_MANUAL_EXIT }),
   canInteract: () => canInteract(false),
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
@@ -634,7 +626,7 @@ function childPlace(
 /** The line painted before an effect or child takes the terminal. */
 function handoffLine(
   state: DeskProductState,
-  effect: Exclude<DeskTerminalEffect, { readonly kind: "operate" }>,
+  effect: DeskHandoff,
 ): string {
   switch (effect.kind) {
     case "apply":
@@ -669,8 +661,6 @@ function handoffLine(
       } · exit it to come back`;
     case "diff":
       return "Showing the changes in your pager · quit it to come back";
-    case "manual":
-      return "Opening the manual · quit it to come back";
   }
 }
 
@@ -901,6 +891,11 @@ export async function runDesk(
           return { data: result.data, hints: result.hints ?? [] };
         },
         tip: (data) => sessionTip(root, config, runtime, data),
+        manual: async () =>
+          deskManual(
+            await runtime.manual(),
+            async (url) => await runtime.openBrowser(url),
+          ),
         evidence: {
           git: async (args, cwd, signal) =>
             await runtime.git([...args], cwd, {

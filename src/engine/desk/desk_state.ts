@@ -73,6 +73,15 @@ export type DeskLoad<T> =
   | { readonly state: "ready"; readonly value: T }
   | { readonly state: "failed"; readonly error: string };
 
+/**
+ * The manual, read once as the session starts so it opens at once: still
+ * reading, ready to open in place of the inbox, or why it can't.
+ */
+export type DeskManualStatus =
+  | { readonly state: "loading" }
+  | { readonly state: "ready" }
+  | { readonly state: "failed"; readonly error: string };
+
 /** A rendered reading a reader shows once its read finishes. */
 export interface DeskMarkdownReading {
   readonly markdown: string;
@@ -287,6 +296,7 @@ export interface DeskProductState {
   readonly pendingSelect?: string;
   /** Effects running beside the screen, by id. */
   readonly operations: ReadonlyMap<string, DeskOperation>;
+  readonly manual: DeskManualStatus;
   /** Counts messages and operations so every id is new. */
   readonly serial: number;
 }
@@ -450,7 +460,12 @@ export type DeskEvent =
     readonly output: string;
     readonly now: number;
   }
-  | { readonly kind: "preferences-failed"; readonly reason: string };
+  | { readonly kind: "preferences-failed"; readonly reason: string }
+  /** The session's read of the manual finished. */
+  | {
+    readonly kind: "manual-read";
+    readonly result: Exclude<DeskManualStatus, { readonly state: "loading" }>;
+  };
 
 /** Work the live controller performs for a transition. */
 export type DeskEffect =
@@ -485,23 +500,34 @@ export type DeskEffect =
   | { readonly kind: "child"; readonly child: DeskChild }
   | { readonly kind: "select"; readonly id: string }
   | { readonly kind: "persist"; readonly preferences: DeskPreferences }
+  /** Open the manual in place of the inbox, on the same screen. */
+  | { readonly kind: "manual" }
   | { readonly kind: "exit" };
+
+/** The effect kinds the package runs as a command. */
+const TERMINAL_EFFECT_KINDS = [
+  "apply",
+  "child",
+  "exit",
+  "manual",
+  "operate",
+] as const;
 
 /**
  * The effects the package runs as a command: a handoff of the terminal, an
- * operation beside the screen, or the end of the session.
+ * operation beside the screen, the manual on the same screen, or the end
+ * of the session.
  */
 export type DeskTerminalEffect = Extract<
   DeskEffect,
-  { readonly kind: "apply" | "child" | "exit" | "operate" }
+  { readonly kind: (typeof TERMINAL_EFFECT_KINDS)[number] }
 >;
 
 /** Whether an effect must be returned to the package as a command. */
 export function isTerminalEffect(
   effect: DeskEffect,
 ): effect is DeskTerminalEffect {
-  return effect.kind === "apply" || effect.kind === "child" ||
-    effect.kind === "exit" || effect.kind === "operate";
+  return (TERMINAL_EFFECT_KINDS as readonly string[]).includes(effect.kind);
 }
 
 /** One transition's result. */
@@ -528,6 +554,7 @@ export function initialDeskProduct(options: {
     activity: [],
     departed: new Map(),
     operations: new Map(),
+    manual: { state: "loading" },
     serial: 0,
   };
 }
@@ -1101,6 +1128,8 @@ export function deskProduct(
         ),
         effects: [],
       };
+    case "manual-read":
+      return { state: { ...state, manual: event.result }, effects: [] };
   }
 }
 

@@ -1,5 +1,9 @@
 # ADR 0417: Desk-owned effects run in session
 
+> **Amendments.**
+>
+> - **The manual on the Desk's screen:** the manual opens on the Desk's own screen as a nested application rather than taking the terminal as a foreground child ([ADR 0419](0419-the-manual-opens-inside-the-desk-session.md)).
+
 **Status**: accepted; resolves the tension [ADR 0408](0408-project-code-holds-no-exclusion-boundary.md) left between a running effect and a terminal-owning child, and amends [ADR 0416](0416-desk-reviews-lead-with-consequences.md) (what confirming a change does), [ADR 0159](0159-inherited-terminal-children-have-one-owned-lifecycle.md) (which children inherit the terminal) and [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) (what the session reports)
 
 ## Context

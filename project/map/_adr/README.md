@@ -393,6 +393,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0416 — Desk reviews lead with consequences; the plan is one key away](0416-desk-reviews-lead-with-consequences.md)
 - [0417 — Desk-owned effects run in session](0417-desk-owned-effects-run-in-session.md)
 - [0418 — Desk effects are attributed to their task](0418-desk-effects-are-attributed-to-their-task.md)
+- [0419 — The manual opens inside the Desk session](0419-the-manual-opens-inside-the-desk-session.md)
 
 <!-- END GENERATED: current ADR records -->
 
