@@ -110,7 +110,7 @@ Ready for review  1
 • recipe-search · ✓ Ready · DRIFT ↑1 · Activity: just now · last action done ok
 ```
 
-The row gives the task's title, its state, how far its branch has moved from the trunk (one commit ahead, none behind), and its latest activity. A task whose checks passed but which nobody has touched for a week reads `! Stale` under **Needs attention**, however far main has moved.
+The row gives the task's title, its state, how far its branch has moved from the trunk (one commit ahead, none behind), and its latest activity.
 
 Each task row reports:
 
@@ -124,7 +124,7 @@ Each task row reports:
 
 #### Row states
 
-Each task has one state, and the rows sit under their state's group, in this order. Within a group, the current checkout comes first, then the task titles in alphabetical order. The summary line above the rows counts the tasks that need you: those ready for review or needing attention.
+Each task has one state, and rows sit under their state's group, in this order. Within a group, the current checkout comes first, then titles in alphabetical order. The summary line counts the tasks that need you: those ready for review or needing attention.
 
 | Group                | States                                                                                                                                                                                      | What it means                                                                                                                                                                                                    |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -134,7 +134,7 @@ Each task has one state, and the rows sit under their state's group, in this ord
 | **Approved to land** | `▲ Approved`, `▲ Queued #1`                                                                                                                                                                 | Its checks passed and a grant lets it land. A queued task lands with the next landing.                                                                                                                           |
 | **Idle**             | `△ Behind`, `△ Needs recheck`, `△ Needs checks`, `○ Contained`, `○ Empty`, `○ Idle`                                                                                                         | Nothing is running, and the next step is its agent's: update, run checks, reclaim a checkout whose commits travel in a later task, or start work.                                                                |
 
-Without Unicode, each symbol has its own plain stand-in, such as `x`, `!`, `@`, `v`, and `^`. While a task's landing runs in discern's own integration worktree, the task's row shows it as Landing, Exception, or Interrupted, or as Refused while its agent owes an answer about the combined code, and the copy has no row of its own. Overlapping file changes and contested ADR numbers appear separately, as landing risks.
+Without Unicode, each symbol has its own plain stand-in, such as `x`, `!`, `@`, `v`, and `^`. While a task's landing runs in discern's own integration worktree, the task's row shows Landing, Exception, Interrupted, or Refused while its agent owes an answer about the combined code, and the copy has no row of its own. Overlapping file changes and contested ADR numbers appear separately, as landing risks.
 
 Text and symbols carry every state, so `--no-color` changes no facts.
 
@@ -142,7 +142,7 @@ Text and symbols carry every state, so `--no-color` changes no facts.
 
 The **desk** is the interactive view that bare `discern` opens in the main checkout, and it offers these actions for a selected task. Each row names the menu section the action belongs to, the command behind it, and the confirmation it asks for. A label that ends in `…` always asks for more input or a confirmation before anything changes. Keyboard shortcuts (`?`) in the desk list the keys it answers to. Granting and revoking pre-authorization have no command outside `discern desk`, so you record a grant for one task from the desk.
 
-Each task's state names its next step. A task that is ready offers **Land…**, a task whose checks failed offers **Open agent**, and a task with no checks yet offers **Run checks…**. Land… and Queue for landing… stay unavailable until the task's checks passed on its exact, clean commit. When landing needs your decision on an unmet checkpoint answer or a proposed limit change, Land… stays unavailable and its reason gives the exact `discern accept` command to run in a terminal.
+Each task's state names its next step. A task that is ready offers **Land…**, a task whose checks failed offers **Open agent**, and a task with no checks yet offers **Run checks…**. Land… and Queue for landing… stay unavailable until the task's checks passed on its exact, clean commit. When landing needs your exception for an unmet checkpoint answer or a proposed limit change, both stay unavailable, and the reason gives the exact `discern accept` command to run in a terminal.
 
 <!-- BEGIN DESK ACTION REGISTRY -->
 
@@ -200,7 +200,7 @@ Every task in the [fleet](glossary.md#fleet) is a separate [effort](glossary.md#
 
 #### Git and Proof states
 
-Ahead and behind counts are non-negative integers when known, and `"unknown"` after a failed or malformed count. `git.behind_trunk` is `null` in the main checkout, and when the trunk branch doesn't exist locally. `git.ahead_trunk` is `null` when the trunk branch doesn't exist locally. Missing evidence can't establish that a task is ready or that its work is contained elsewhere. `git.clean` is Git's ordinary answer, so an untracked file makes it `false`; `git.tracked_changes` counts only changed tracked files, which are the only changes in the main checkout that stop a landing.
+Ahead and behind counts are non-negative integers when known, and `"unknown"` after a failed or malformed count. `git.behind_trunk` is `null` in the main checkout, and when the trunk branch doesn't exist locally. `git.ahead_trunk` is `null` when the trunk branch doesn't exist locally. Missing evidence can't establish that a task is ready or that its work is contained elsewhere. `git.tracked_changes` counts changed tracked files; only these, not untracked files, stop a landing in the main checkout.
 
 Proof inspection reports `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored marker includes compact facts: the branch, the trunk, the validated commit, the diff counts, and the Proof line. Report-only evidence can't be used for landing. A valid Proof links the current clean commit, the worktree's own committed tip, to its complete evidence, and status never runs the gate to produce one. [Proof](../10-understand/proof.md#the-exact-commit-it-covers) explains what it covers.
 
@@ -217,8 +217,8 @@ A readable row also carries its activity, one `gate_proof`, and its `landing_aut
 - **`landing_authority`** holds the current decision, up to six example paths with authored files first, the uncovered totals, and the scopes. This summary grants nothing beyond the underlying recorded permission.
 - **`task`**, in full mode only, holds the display title, `title_source`, the optional brief, and the ref and commit the task started from. `title_source` is `recorded`, `identity-fallback` for a worktree without stored task metadata, or `unavailable-fallback` when discern couldn't read the record.
 - **`resources`**, in full mode only, holds the resource handles recorded in the checkout's env files.
-- **`integration`**, in full mode only, marks a landing's own integration worktree, which belongs to discern and never to an agent. Its `owner` is `live` while the landing runs, or `interrupted` once the landing's process is gone, when `discern worktree prune` reclaims it. `for_branch` names the branch the landing composes, and `awaiting_judgment` marks a copy discern keeps for a served checkpoint decision. Its `judgment` says which decision continues it: `declaration` waits for the agent's checkpoint answers, and `variance` waits for your variance on the `awaiting` checkpoint ids, bound to the `composition` receipt.
-- **`state`** and **`group`** name the task's state and group from the table above, as identifiers such as `stale-proven` and `attention`. The main checkout's row has neither, and neither does a landing's integration worktree while its task has a row of its own.
+- **`integration`**, in full mode only, marks a landing's own integration worktree, which belongs to discern and never to an agent. Its `owner` is `live` while the landing runs, or `interrupted` once the landing's process is gone, when `discern worktree prune` reclaims it. `for_branch` names the branch the landing composes, and `awaiting_judgment` marks a copy discern keeps for a served checkpoint decision. Its `judgment` holds the `decision` that continues the copy (`declaration` for the agent's answers, `variance` for yours), the `awaiting` checkpoint ids, and the `composition` receipt.
+- **`state`** and **`group`** name the task's state and group from the table above, as identifiers such as `stale-proven` and `attention`. The main checkout's row has neither, nor does a landing's integration worktree whose task has its own row.
 - **`last_action`** is the newest completed action that works on the task, with its `error` code when it refused or failed with one. Commands that only read, such as `discern status`, `discern progress`, and `discern doctor`, and `--dry-run` previews never replace it, so an agent checking status or previewing a landing doesn't hide a failed gate. **`running`** is a recent start with no matching completion. **`last_activity`** is the later of the Git time and the [logbook](logbook.md) time. Turning the logbook off removes the action fields, and Git activity stays.
 
 Structured fleet rows leave out the older `proof_honored`, `proof`, and `proof_line` copies.
@@ -243,7 +243,7 @@ After setup, discern can add up to 3 recent observations from the logbook, its l
 
 ## Release information
 
-In the desk, **Desk commands** includes **Check for updates…**, even when there are no tasks. It first asks whether to open the release notes in your browser, and says that the page learns which version you run and that nothing is installed. After you choose **Open**, the page shows what's changed and whether an update is available. If the browser doesn't open, the result still shows the address. Escape returns to the live desk.
+In the desk, **Desk commands** includes **Check for updates…**, even when there are no tasks. It asks before opening the release notes in your browser, where you can see what's changed and whether an update is available. If the browser doesn't open, the result still shows the address. Escape returns to the live desk.
 
 A reminder may appear after 14 days. It only invites you to check: it doesn't mean an update is available, or that anything is wrong with your installation. [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md#check-release-information) explains how to check and update.
 
