@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 932     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 934     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 2       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -116,7 +116,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 405     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 406     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#DEAD_CONFIG_POSITIONS`                                  | 10      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -127,7 +127,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `scripts/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                       | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 31      | —                | node `interruption-safety`  |
-| [`signal-listeners`](#signal-listeners--process-signal-listeners)                                                     | `tests/spawn_surfaces.ts#SIGNAL_LISTENER_CONTRACTS`                               | 3       | —                | node `interruption-safety`  |
+| [`signal-listeners`](#signal-listeners--process-signal-listeners)                                                     | `tests/spawn_surfaces.ts#SIGNAL_LISTENER_CONTRACTS`                               | 4       | —                | node `interruption-safety`  |
 | [`checkout-mutation-surfaces`](#checkout-mutation-surfaces--checkout-mutation-boundaries)                             | `tests/checkout_mutation_surfaces.ts#CHECKOUT_MUTATION_BOUNDARIES`                | 17      | —                | node `worktrees`            |
 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries)                                  | `src/shared/process_boundaries.ts#PROCESS_OUTPUT_BOUNDARIES`                      | 6       | —                | —                           |
 | [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                        | `src/shared/process_boundaries.ts#PROCESS_EXIT_BOUNDARIES`                        | 5       | —                | —                           |
@@ -486,7 +486,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 932
+- Members: 934
   - `/`
   - `/install`
   - `/llms.txt`
@@ -1354,6 +1354,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0415-the-desk-is-an-inbox-on-the-application-runtime.md`
   - `/docs/decisions/0416-desk-reviews-lead-with-consequences`
   - `/docs/decisions/0416-desk-reviews-lead-with-consequences.md`
+  - `/docs/decisions/0417-desk-owned-effects-run-in-session`
+  - `/docs/decisions/0417-desk-owned-effects-run-in-session.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -4563,7 +4565,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 405
+- Members: 406
   - `0003`
   - `0005`
   - `0006`
@@ -4937,6 +4939,7 @@ The numbered decision records in the map, including records later superseded.
   - `0414`
   - `0415`
   - `0416`
+  - `0417`
   - `0001`
   - `0002`
   - `0004`
@@ -5221,10 +5224,11 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
 Every process-signal listener in the shipped product, keyed by path and enclosing function, with whom it serves: the process, a standalone command, or a session's own termination.
 
 - Source: `tests/spawn_surfaces.ts` — `SIGNAL_LISTENER_CONTRACTS`
-- Members: 3
+- Members: 4
   - `src/engine/owned_child.ts#superviseSpawn`
   - `src/engine/jobs/interrupt.ts#install`
   - `src/lib/terminal_animation.ts#runTerminalPlayback`
+  - `src/engine/desk/desk.ts#deskTerminations`
 - Guards: `tests/in_session_isolation_guard_test.ts`
 - Glossary: not enrolled — signal listeners are an internal interrupt boundary rather than user-facing vocabulary
 - Feature canon: described by the `interruption-safety` node

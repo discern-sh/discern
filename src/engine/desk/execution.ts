@@ -1,4 +1,14 @@
 /** Execute reviewed Desk effects with their own journal, ownership, and child lifetime. */
+import { AsyncLocalStorage } from "../../shared/module_loading.ts";
+import { runWithInterruptSource } from "../../shared/interrupt_source.ts";
+import {
+  type CapturedStream,
+  withOutputCapture,
+} from "../../shared/output_capture.ts";
+import {
+  type CompletionObservationFact,
+  withCompletionObserver,
+} from "../completion/events.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { isInteractiveSessionAction } from "../../shared/operation_effects.ts";
 import { executeOperation } from "../operation_execution.ts";
@@ -13,13 +23,56 @@ import {
   WorktreeGitError,
 } from "../worktree/lifecycle.ts";
 
-/** Every Desk effect enters the shared execution boundary after its review. */
+/**
+ * Where one Desk effect running beside the live screen reports, and what
+ * stops it: the text it would have written to the terminal, the completion
+ * facts its operation emits (the same facts MCP progress projects), and its
+ * operation's signal, its only interrupt.
+ */
+export interface DeskEffectSession {
+  readonly signal: AbortSignal;
+  readonly output: (stream: CapturedStream, text: string) => void;
+  readonly observe: (fact: CompletionObservationFact) => void;
+}
+
+const sessionSignal = new AsyncLocalStorage<AbortSignal>();
+
+/** The signal that stops the in-session effect running in this scope. */
+export function deskEffectSignal(): AbortSignal | undefined {
+  return sessionSignal.getStore();
+}
+
+/**
+ * Run one Desk-owned effect beside the screen. Nothing inside reaches the
+ * terminal: its output goes to the session, it cannot prompt, every child
+ * it spawns is captured and leads its own process group, and no process
+ * signal interrupts it. Its operation's signal stops it, through the same
+ * journal recovery a CLI interruption takes.
+ */
+export async function runDeskEffectInSession<T>(
+  session: DeskEffectSession,
+  work: () => Promise<T>,
+): Promise<T> {
+  return await runWithInterruptSource(
+    "operation",
+    () =>
+      withOutputCapture({ write: session.output }, () =>
+        withCompletionObserver(
+          session.observe,
+          () => sessionSignal.run(session.signal, work),
+        )),
+  );
+}
+
+/** Every Desk effect enters the shared execution boundary after its review.
+ * Inside an in-session effect, the session's signal stops it. */
 export async function executeDeskOperation<T>(
   path: string,
   invocation: OperationInvocation,
   run: (signal: AbortSignal) => Promise<T>,
-  signal?: AbortSignal,
+  explicitSignal?: AbortSignal,
 ): Promise<T> {
+  const signal = explicitSignal ?? deskEffectSignal();
   try {
     return await executeOperation(
       path,

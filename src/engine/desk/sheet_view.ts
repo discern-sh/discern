@@ -10,7 +10,9 @@
  * button, which waits until every line has been on screen. A subject that
  * changed since the review was read shows a banner and waits for `r`; a
  * subject that is gone leaves only Close. Forms carry the same review as
- * their live preview. Pure.
+ * their live preview. A confirmed change then runs beside the screen, its
+ * progress sheet working through the plan the review showed, and leaving
+ * while one runs asks first. Pure.
  */
 
 import type {
@@ -75,6 +77,9 @@ import {
   trunkHead,
 } from "./evidence.ts";
 import { reviewDrift } from "./review.ts";
+import { compactDuration } from "../output.ts";
+import { canStop, progressActivity, stopPolicy } from "./operations.ts";
+import { DESK_GLYPHS } from "./glyphs.ts";
 
 /** The busy line while a sheet reads its subject again. */
 const CHECKING = "Checking current state…";
@@ -462,6 +467,128 @@ export function resultSheetView(
         { alternatives: resultAlternatives(state, sheet) },
         disclosed,
       ),
+    ],
+  };
+}
+
+/** The key that reads a running operation's output. */
+export const FULL_OUTPUT_KEY = "o";
+
+/**
+ * A running operation's progress sheet: the plan its review showed, each
+ * step marked as the executor reports it, its running time against the
+ * usual, and what lands after it. Escape hides it while the operation runs
+ * on; Stop appears only while stopping leaves nothing half done.
+ */
+export function progressSheet(
+  state: DeskProductState,
+  operationId: string,
+): ApplicationSheet<DeskIntent> {
+  const operation = state.operations.get(operationId);
+  if (operation === undefined) {
+    return {
+      kind: "sheet",
+      id: "progress",
+      scope: "global",
+      title: "It has ended",
+      state: "ready",
+      body: [],
+      buttons: [{ id: "safe", label: "Close", role: "safe" }],
+    };
+  }
+  const ref = operation.taskId === undefined
+    ? undefined
+    : rowRef(state, operation.taskId);
+  const typical = ref?.kind === "task"
+    ? ref.row.entry.running?.typical_duration_ms
+    : undefined;
+  const stoppable = operation.stopping !== true &&
+    canStop(stopPolicy(operation.step), operation.progress);
+  return {
+    kind: "sheet",
+    id: "progress",
+    scope: operation.taskId === undefined ? "global" : "item",
+    title: operation.title,
+    state: "working",
+    body: [],
+    requireFullRead: false,
+    activity: {
+      ...progressActivity(operation.progress),
+      ...(typical === undefined || typical <= 0 ? {} : {
+        typicalMs: typical,
+        typicalLabel: `usually about ${compactDuration(typical)}`,
+      }),
+    },
+    ...(operation.stopping === true
+      ? {
+        banner: {
+          tone: "warning" as const,
+          runs: [{ text: "Stopping · its journal records where it stops" }],
+        },
+      }
+      : {}),
+    disclosures: [
+      ...(operation.plan === undefined ? [] : [planDisclosure(operation.plan)]),
+      commandDisclosure(operation.command, false),
+    ],
+    buttons: [
+      { id: "safe", label: "Hide", role: "safe" },
+      ...(stoppable
+        ? [{
+          id: "stop",
+          label: "Stop",
+          role: "destructive" as const,
+          action: { kind: "stop" as const },
+        }]
+        : []),
+    ],
+    buttonRow: stoppable,
+    hints: [{ key: FULL_OUTPUT_KEY, label: "Full output" }],
+  };
+}
+
+/**
+ * Leaving while operations run: each stops through its journal, which
+ * recovery reads, so the sheet says so and keeps waiting by default.
+ */
+export function quitSheet(
+  state: DeskProductState,
+): ApplicationSheet<DeskIntent> {
+  const running = [...state.operations.values()];
+  const first = running[0];
+  return {
+    kind: "sheet",
+    id: "quit",
+    scope: "global",
+    title: running.length === 1 && first !== undefined
+      ? `${first.title} is still running`
+      : `${plural(running.length, "operation")} are still running`,
+    state: "ready",
+    requireFullRead: false,
+    body: [{
+      kind: "marks",
+      items: [
+        ...running.map((operation): ApplicationDetailMark => ({
+          mark: glyph(DESK_GLYPHS.running, "accent"),
+          runs: [{ text: operation.title }],
+        })),
+        {
+          mark: glyph(DESK_GLYPHS.changes, "muted"),
+          runs: [{
+            text:
+              "Quitting stops it; its journal records where it stopped, and recovery picks it up",
+          }],
+        },
+      ],
+    }],
+    buttons: [
+      { id: "safe", label: "Keep waiting", role: "safe" },
+      {
+        id: "quit",
+        label: "Quit anyway",
+        role: "destructive",
+        action: { kind: "quit-anyway" },
+      },
     ],
   };
 }

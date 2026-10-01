@@ -479,4 +479,9 @@ export const SIGNAL_LISTENER_CONTRACTS = {
     reason:
       "terminal art plays in its own command and stops with the process that plays it",
   },
+  "src/engine/desk/desk.ts#deskTerminations": {
+    serves: "session",
+    reason:
+      "SIGTERM and SIGHUP end the Desk's session, which stops every operation running beside it through its own signal before the process ends",
+  },
 } as const satisfies Readonly<Record<string, SignalListenerContract>>;

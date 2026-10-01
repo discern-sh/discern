@@ -22,6 +22,8 @@ const BOUNDARIES = {
   makeOut: null,
   error: null,
   application: null,
+  terminations: null,
+  raise: null,
   pause: null,
   lifecycle: null,
   done: "executeDeskOperation",

@@ -7,16 +7,16 @@
  * package owns everything that moves on screen (selection, focus, scroll,
  * folds, zoom, field editing, message timing); events carry the read-only
  * snapshot of it they need, and nothing here stores it. Effects describe the
- * work the live controller performs: surveys, reads, and terminal handoffs.
+ * work the live controller performs: surveys, reads, operations that run
+ * beside the screen, and terminal handoffs.
  */
 
 import type { TerminalApplicationDismissTarget } from "discern-design-system/cli/interactive";
 import type { StatusData } from "../../shared/result_schemas.ts";
+import type { EnginePlan } from "../../shared/result.ts";
 import type { DeskAction, DeskCommand } from "../../shared/desk_vocabulary.ts";
 import {
-  buildDeskRows,
   type DeskCapabilities,
-  deskObservation,
   type DeskRow,
   deskRowId,
   withDeskCapabilities,
@@ -32,6 +32,7 @@ import type {
   DeskResultSheet,
   DeskReview,
 } from "./flow_types.ts";
+import type { DeskOperationProgress } from "./operations.ts";
 import {
   type DeskEvidence,
   type DeskEvidenceCache,
@@ -45,12 +46,15 @@ import {
   departures,
   formValuesKey,
   layerId,
+  observedRows,
   open,
   productLayerId,
   refresh,
   rowTitle,
+  taskOperation,
   toast,
   updateLayer,
+  withRows,
 } from "./desk_transitions.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
 import { relativeAge } from "../status/row_facts.ts";
@@ -109,7 +113,9 @@ export type DeskReaderSubject =
     readonly kind: "notice";
     readonly title: string;
     readonly lines: readonly string[];
-  };
+  }
+  /** What a running operation has written so far. */
+  | { readonly kind: "output"; readonly operationId: string };
 
 /** Whose Project Scripts a picker lists. */
 export type DeskScriptOwner =
@@ -144,7 +150,11 @@ export type DeskLayer =
     readonly readFor?: string;
   }
   /** A failed effect's result sheet. */
-  | { readonly kind: "result"; readonly sheet: DeskResultSheet };
+  | { readonly kind: "result"; readonly sheet: DeskResultSheet }
+  /** A running operation's progress: the reviewed plan, worked through. */
+  | { readonly kind: "progress"; readonly operationId: string }
+  /** Quitting while operations run asks first. */
+  | { readonly kind: "quit" };
 
 /** One line on the message row. */
 export interface DeskMessage {
@@ -160,6 +170,11 @@ export interface DeskMessage {
   readonly tip?: boolean;
   /** Persistent warnings stay until their cause clears or Escape. */
   readonly persistent?: boolean;
+  /**
+   * The task an operation's outcome concerns: while this message shows, a
+   * move its row makes because of that outcome says nothing more.
+   */
+  readonly taskId?: string;
 }
 
 /** One effect or child this session ran, for Session activity and exit. */
@@ -168,6 +183,39 @@ export interface DeskActivity {
   readonly command: string;
   readonly ok: boolean;
   readonly summary?: string;
+  /** How it ended, when it ran beside the screen: its outcome in a word. */
+  readonly ended?: "done" | "failed" | "stopped";
+  /** The last lines it wrote, when it ran beside the screen. */
+  readonly output?: string;
+}
+
+/**
+ * One Desk-owned effect running beside the screen: the reviewed step it
+ * applies, what it is called, the plan and command it follows, and its
+ * progress so far.
+ */
+export interface DeskOperation {
+  /** The package command that runs it. */
+  readonly id: string;
+  readonly step: DeskFlowStep;
+  /** The review it applies, whose binding its effect is held to. */
+  readonly review: DeskReview;
+  readonly challenge?: string;
+  /** The task row it concerns, when it concerns one. */
+  readonly taskId?: string;
+  /** The verb status names the running task by, as its command records it. */
+  readonly verb: string;
+  /** Its progress sheet's title, such as "Landing Manual concision". */
+  readonly title: string;
+  readonly command: string;
+  readonly plan?: EnginePlan;
+  /** Wall time it started, for its row's running time. */
+  readonly startedAt: number;
+  readonly progress: DeskOperationProgress;
+  /** The last lines it wrote. */
+  readonly output: string;
+  /** The owner asked it to stop. */
+  readonly stopping?: boolean;
 }
 
 /** A row that left the inbox, and why, for the message that names it. */
@@ -215,7 +263,9 @@ export interface DeskProductState {
   readonly pendingReturn?: DeskPendingReturn;
   /** A checkout an effect created, selected once a survey lists it. */
   readonly pendingSelect?: string;
-  /** Counts messages so every id is new. */
+  /** Effects running beside the screen, by id. */
+  readonly operations: ReadonlyMap<string, DeskOperation>;
+  /** Counts messages and operations so every id is new. */
   readonly serial: number;
 }
 
@@ -272,7 +322,15 @@ export type DeskIntent =
   /** A script picker row. */
   | { readonly kind: "script"; readonly name: string }
   /** A reader's own key that lends the terminal to a child. */
-  | { readonly kind: "child"; readonly child: DeskChild };
+  | { readonly kind: "child"; readonly child: DeskChild }
+  /** Reopen the progress of an operation running for a task. */
+  | { readonly kind: "progress"; readonly operationId: string }
+  /** Stop the operation the open progress sheet shows. */
+  | { readonly kind: "stop" }
+  /** Read what the operation the open progress sheet shows has written. */
+  | { readonly kind: "output" }
+  /** Leave although operations run: each stops through its journal. */
+  | { readonly kind: "quit-anyway" };
 
 /** How the package moved the selected item when a view changed. */
 export type DeskSelectionMove =
@@ -312,7 +370,10 @@ export type DeskEvent =
     readonly kind: "intent";
     readonly intent: DeskIntent;
     readonly ui: DeskUi;
+    /** Wall time, for what the Desk records. */
     readonly now: number;
+    /** The application's clock, which progress sheets count on. */
+    readonly clock: number;
   }
   | {
     readonly kind: "dismissed";
@@ -350,6 +411,23 @@ export type DeskEvent =
     readonly outcome: DeskOutcome;
     readonly now: number;
   }
+  /** An operation running beside the screen reported progress. */
+  | {
+    readonly kind: "operation-progress";
+    readonly operationId: string;
+    readonly progress: DeskOperationProgress;
+    readonly output: string;
+  }
+  /** An operation running beside the screen ended. */
+  | {
+    readonly kind: "operation-settled";
+    readonly operationId: string;
+    /** Whether it ran to its end or was stopped on the way. */
+    readonly ended: "ran" | "stopped";
+    readonly outcome: DeskOutcome;
+    readonly output: string;
+    readonly now: number;
+  }
   | { readonly kind: "preferences-failed"; readonly reason: string };
 
 /** Work the live controller performs for a transition. */
@@ -378,15 +456,22 @@ export type DeskEffect =
     readonly challenge?: string;
     readonly open?: string;
   }
+  /** Run one operation beside the screen. */
+  | { readonly kind: "operate"; readonly operationId: string }
+  /** Stop one running operation through its signal. */
+  | { readonly kind: "abort"; readonly operationId: string }
   | { readonly kind: "child"; readonly child: DeskChild }
   | { readonly kind: "select"; readonly id: string }
   | { readonly kind: "persist"; readonly preferences: DeskPreferences }
   | { readonly kind: "exit" };
 
-/** The effects that hand the terminal to someone else or end the session. */
+/**
+ * The effects the package runs as a command: a handoff of the terminal, an
+ * operation beside the screen, or the end of the session.
+ */
 export type DeskTerminalEffect = Extract<
   DeskEffect,
-  { readonly kind: "apply" | "child" | "exit" }
+  { readonly kind: "apply" | "child" | "exit" | "operate" }
 >;
 
 /** Whether an effect must be returned to the package as a command. */
@@ -394,7 +479,7 @@ export function isTerminalEffect(
   effect: DeskEffect,
 ): effect is DeskTerminalEffect {
   return effect.kind === "apply" || effect.kind === "child" ||
-    effect.kind === "exit";
+    effect.kind === "exit" || effect.kind === "operate";
 }
 
 /** One transition's result. */
@@ -420,6 +505,7 @@ export function initialDeskProduct(options: {
     preferences: options.preferences,
     activity: [],
     departed: new Map(),
+    operations: new Map(),
     serial: 0,
   };
 }
@@ -443,27 +529,6 @@ function afterSurvey(transition: DeskTransition): DeskTransition {
       afterMs: DESK_REFRESH_MS,
     }],
   };
-}
-
-/** Rows for one observation, with the capabilities read so far. */
-function observedRows(
-  state: DeskProductState,
-  data: StatusData,
-  exceptionArgvs: ReadonlyMap<string, readonly string[]>,
-  now: number,
-): DeskRow[] {
-  const rows = buildDeskRows(
-    data.fleet ?? [],
-    new Map(),
-    new Map(),
-    deskObservation(data, { trunk: state.trunk, nowMs: now, exceptionArgvs }),
-  );
-  return rows.map((row) => {
-    const capabilities = state.capabilities.get(deskRowId(row));
-    return capabilities === undefined
-      ? row
-      : withDeskCapabilities(row, capabilities, now);
-  });
 }
 
 /** Adopt one completed survey. */
@@ -624,6 +689,11 @@ function selectionMoved(
   state: DeskProductState,
   event: Extract<DeskEvent, { readonly kind: "selection-moved" }>,
 ): DeskTransition {
+  // A row this session's own operation moves already has its message.
+  if (
+    taskOperation(state, event.itemId) !== undefined ||
+    state.message?.taskId === event.itemId
+  ) return { state, effects: [] };
   if (event.move.kind === "removed") {
     const departure = state.departed.get(event.itemId);
     return {
@@ -813,6 +883,138 @@ function returned(
   return { state: survey.state, effects: [...effects, ...survey.effects] };
 }
 
+/** The lines an operation's output keeps for its reader and activity. */
+export const DESK_OUTPUT_LINES = 400;
+
+/** The last lines of an operation's output. */
+export function outputTail(output: string): string {
+  const lines = output.split("\n");
+  return lines.length <= DESK_OUTPUT_LINES
+    ? output
+    : lines.slice(-DESK_OUTPUT_LINES).join("\n");
+}
+
+/** A running operation reported progress. */
+function operationProgressed(
+  state: DeskProductState,
+  event: Extract<DeskEvent, { readonly kind: "operation-progress" }>,
+): DeskTransition {
+  const operation = state.operations.get(event.operationId);
+  if (operation === undefined) return { state, effects: [] };
+  const operations = new Map(state.operations);
+  operations.set(operation.id, {
+    ...operation,
+    progress: event.progress,
+    output: outputTail(event.output),
+  });
+  return { state: { ...state, operations }, effects: [] };
+}
+
+/** Whether the open progress sheet shows this operation. */
+function showsProgress(state: DeskProductState, operationId: string): boolean {
+  return state.layers.some((layer) =>
+    layer.kind === "progress" && layer.operationId === operationId
+  );
+}
+
+/** A failure's full output: what the operation wrote, then its result. */
+function fullOutput(written: string, result: string | undefined): string {
+  const captured = written.trim() === ""
+    ? undefined
+    : `\`\`\`text\n${outputTail(written).trimEnd()}\n\`\`\``;
+  return [captured, result].filter((part) => part !== undefined).join(
+    "\n\n",
+  );
+}
+
+/**
+ * An operation ended. A failure turns its progress sheet into a result
+ * sheet when the sheet is open, and leaves a message when it is hidden; a
+ * success closes the sheet with its message; a stop says where the journal
+ * picks up. The row's own state follows from the next survey.
+ */
+function operationSettled(
+  state: DeskProductState,
+  event: Extract<DeskEvent, { readonly kind: "operation-settled" }>,
+): DeskTransition {
+  const operation = state.operations.get(event.operationId);
+  if (operation === undefined) return { state, effects: [] };
+  const { outcome } = event;
+  const shown = showsProgress(state, operation.id);
+  const operations = new Map(state.operations);
+  operations.delete(operation.id);
+  const ended = event.ended === "stopped"
+    ? "stopped" as const
+    : outcome.ok
+    ? "done" as const
+    : "failed" as const;
+  let next: DeskProductState = withRows({
+    ...state,
+    operations,
+    activity: [...state.activity, {
+      at: event.now,
+      command: outcome.command,
+      ok: outcome.ok && ended !== "stopped",
+      ended,
+      ...(outcome.message === undefined
+        ? {}
+        : { summary: outcome.message.text }),
+      ...(event.output.trim() === ""
+        ? {}
+        : { output: outputTail(event.output) }),
+    }],
+  });
+  if (shown) next = closeLayer(next, "progress");
+  const effects: DeskEffect[] = [];
+  const about = operation.taskId === undefined
+    ? {}
+    : { taskId: operation.taskId };
+  if (ended === "stopped") {
+    next = toast(
+      next,
+      "warning",
+      `Stopped: ${operation.title} · its journal records where it stopped`,
+      { mark: DESK_GLYPHS.attention, ...about },
+    );
+  } else if (outcome.result !== undefined) {
+    const sheet: DeskResultSheet = {
+      ...outcome.result,
+      output: fullOutput(event.output, outcome.result.output),
+    };
+    if (shown || next.layers.length === 0) {
+      const opened = open(next, { kind: "result", sheet });
+      next = opened.state;
+      effects.push(...opened.effects);
+    } else {
+      next = toast(next, "danger", sheet.title, {
+        mark: DESK_GLYPHS.failed,
+        ...about,
+      });
+    }
+  } else {
+    if (outcome.message !== undefined) {
+      next = toast(next, outcome.message.tone, outcome.message.text, {
+        mark: OUTCOME_MARKS[outcome.message.tone],
+        ...about,
+      });
+    }
+    if (outcome.next !== undefined && (shown || next.layers.length === 0)) {
+      const opened = open(next, {
+        kind: "review",
+        step: outcome.next,
+        load: { state: "loading" },
+      });
+      next = opened.state;
+      effects.push(...opened.effects);
+    }
+  }
+  if (outcome.select !== undefined) {
+    next = { ...next, pendingSelect: outcome.select };
+  }
+  const survey = refresh(next);
+  return { state: survey.state, effects: [...effects, ...survey.effects] };
+}
+
 /** Advance the product state by one event. */
 export function deskProduct(
   state: DeskProductState,
@@ -843,7 +1045,10 @@ export function deskProduct(
         effects: [],
       };
     case "intent":
-      return intentTransition(state, event.intent, event.ui);
+      return intentTransition(state, event.intent, event.ui, {
+        now: event.now,
+        clock: event.clock,
+      });
     case "dismissed":
       return dismissed(state, event.target);
     case "selection-moved":
@@ -858,6 +1063,10 @@ export function deskProduct(
       return scriptsRead(state, event);
     case "returned":
       return returned(state, event);
+    case "operation-progress":
+      return operationProgressed(state, event);
+    case "operation-settled":
+      return operationSettled(state, event);
     case "preferences-failed":
       return {
         state: toast(

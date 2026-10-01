@@ -119,13 +119,13 @@ export function resultPlan<T>(
   return result.plan;
 }
 
-/** A review read from a core's dry-run result: its plan, and the handoff. */
+/** A review read from a core's dry-run result: its plan, and what it is called while it runs. */
 export function previewRead<T>(
   result: DiscernResult<T>,
-  handoff: string,
+  running: string,
 ): DeskReviewRead {
   const plan = resultPlan(result);
-  return { ...(plan === undefined ? {} : { plan }), handoff };
+  return { ...(plan === undefined ? {} : { plan }), running };
 }
 
 /** The live CLI model the gate's flows need to run checks. */

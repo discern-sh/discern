@@ -342,7 +342,7 @@ const BRIEF_FLOW: DeskFlow = {
         safeLabel: "Back",
         confirmLabel: open,
         footnote: untilChosen("opens", open),
-        handoff:
+        running:
           `Opening ${provider} in ${row.task.name} · exit it to come back`,
       }),
     );
@@ -435,7 +435,7 @@ const UPDATES_FLOW: DeskFlow = {
     }, {
       bound: { "running-version": DISCERN_VERSION },
       footnote: untilChosen("opens", OPEN),
-      handoff: "Opening the release page in your browser",
+      running: "Opening the release page in your browser",
     })),
   apply: async (context): Promise<DeskOutcome> => {
     const command = commandEvidence(
@@ -558,7 +558,7 @@ const SCRIPTS_FLOW: DeskFlow = {
       ],
       confirmLabel: RUN,
       footnote: untilChosen("runs", RUN),
-      handoff:
+      running:
         `Running ${name} in ${where} · it owns the terminal until it exits`,
     };
     return row === undefined

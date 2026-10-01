@@ -168,7 +168,7 @@ async function startReview(
     },
     ...(invalid === undefined ? {} : { blockers: [invalid] }),
     footnote: untilChosen("is created", CREATE),
-    handoff: `Creating ${prepared.plan.title}`,
+    running: `Creating ${prepared.plan.title}`,
   };
   if (step.kind === "action") {
     const row = stepRow(context, step);

@@ -59,7 +59,7 @@ Observers divide by what they hold. A read-only observer — a reconnect read, a
 
 A plan names its steps before anything runs, and an executor reports each step as it runs ([`plan_steps.ts`](../../../src/engine/plan_steps.ts)). A `step` fact carries the plan's own label and says the step `started`, or how it settled: `finished`, `failed`, `skipped`, or `cancelled`, the live form of the step's executed outcome. The job runner reports every gate, smoke, and generated-group job. Ensure and setup commands report as they run, and landing, Park, Update, and Start report their built-in steps as they record them. When one operation runs several plans, such as a landing that walks the queue after its own, `subject` names the branch whose plan a step belongs to.
 
-The journal keeps each step once, with when it started and settled, in the order the steps began, and `discern progress` returns them as `data.steps`. The facts are advisory. The result envelope's `steps` stay the authority on how each step turned out, and a step its executor does not report, such as a quick check before the work begins, has no live entry.
+The journal keeps each step once, with when it started and settled, in the order the steps began, and `discern progress` returns them as `data.steps`. The facts are advisory. The result envelope's `steps` stay the authority on how each step turned out, and a step its executor does not report, such as a quick check before the work begins, has no live entry. The desk's [progress sheet](../30-worktrees/the-desk.md#watch-an-operation-run) reads these facts to mark the plan it reviewed as the operation runs.
 
 ## Named timing boundaries
 

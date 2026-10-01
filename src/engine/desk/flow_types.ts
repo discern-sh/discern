@@ -135,14 +135,23 @@ export interface DeskReviewAlternative {
   readonly intent: DeskIntent;
 }
 
-/** Confirming either hands the terminal to the effect or asks the next question. */
+/** Confirming either runs the effect or asks the next question. */
 export type DeskConfirm =
   | {
     readonly kind: "apply";
-    /** Painted before the terminal is handed to the effect. */
-    readonly handoff: string;
+    /**
+     * What the effect is called while it runs: its progress sheet's title,
+     * or the line painted before a launch takes the terminal.
+     */
+    readonly running: string;
   }
   | { readonly kind: "review"; readonly step: DeskFlowStep };
+
+/** A queued task that lands after the reviewed one, in walk order. */
+export interface DeskFollowingTask {
+  readonly branch: string;
+  readonly title: string;
+}
 
 /** Everything a review sheet shows, and what confirming it does. */
 export interface DeskReview {
@@ -166,6 +175,8 @@ export interface DeskReview {
   /** The sentence beside the buttons. */
   readonly footnote?: string;
   readonly confirm?: DeskConfirm;
+  /** Queued tasks that land after it, which its progress names under Then. */
+  readonly follows?: readonly DeskFollowingTask[];
 }
 
 /** What an effect may read while it runs. */

@@ -30,6 +30,7 @@ import {
   type TestRunSlots,
 } from "./test_slots.ts";
 import { TEST_RUN_SLOT_ENV, TEST_RUN_SLOT_VALUE } from "../test_run_slots.ts";
+import { currentOutputCapture } from "../../shared/output_capture.ts";
 
 const ENCODER = new TextEncoder();
 
@@ -85,9 +86,11 @@ export function resolveGateRunPolicy(
   const ttyWidth = terminal.stdoutIsTerminal
     ? terminal.size.columns
     : undefined;
+  // A live frame paints the terminal itself, so captured output stays static.
   const live = ttyWidth !== undefined && !surface.plain &&
     !terminal.ciRequestsStaticOutput &&
-    terminal.capabilities.ansiControl !== false;
+    terminal.capabilities.ansiControl !== false &&
+    currentOutputCapture() === undefined;
   if (live) {
     return {
       output: { kind: "live-frame", terminal, ttyWidth },

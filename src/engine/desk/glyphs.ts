@@ -20,6 +20,8 @@ export interface DeskGlyph {
 export const DESK_GLYPHS = {
   done: { unicode: "✓", ascii: "v" },
   failed: { unicode: "✕", ascii: "x" },
+  /** Work running now; animates where the view asks it to. */
+  running: { unicode: "◐", ascii: "@" },
   attention: { unicode: "!", ascii: "!" },
   changes: { unicode: "→", ascii: ">" },
   removes: { unicode: "−", ascii: "-" },

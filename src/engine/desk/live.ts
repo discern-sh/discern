@@ -7,17 +7,24 @@
  * lands on it. This module keeps only what time and effects need: one survey
  * at a time with generation checks, the refresh cadence, the selected-item
  * slot that reads tier-two evidence once the selection settles, the clock
- * that keeps running times current, and the terminal handoffs effects need.
- * Selection, focus, scroll, folds and field editing stay the package's.
+ * that keeps running times current, the operations that run beside the
+ * screen as package background commands, and the terminal handoffs
+ * launches need. Selection, focus, scroll, folds and field editing stay the
+ * package's.
  */
 
 import { bestEffort } from "../../shared/best_effort.ts";
 import type { Scheduler, TimeoutHandle } from "../../shared/scheduler.ts";
 import type {
+  ApplicationEpilogueLine,
   TerminalApplicationCommand,
+  TerminalApplicationCommandOutcome,
   TerminalApplicationContext,
   TerminalApplicationState,
 } from "discern-design-system/cli/interactive";
+import { stripAnsi } from "../../shared/color_env.ts";
+import type { DeskEffectSession } from "./execution.ts";
+import { progressActivity, progressAfter } from "./operations.ts";
 import {
   isInteractionCancelled,
   type TerminalApplicationOptions,
@@ -39,6 +46,7 @@ import {
   type DeskEffect,
   type DeskEvent,
   type DeskIntent,
+  type DeskOperation,
   deskProduct,
   type DeskProductState,
   type DeskReaderSubject,
@@ -48,8 +56,9 @@ import {
   type DeskUi,
   initialDeskProduct,
   isTerminalEffect,
+  outputTail,
 } from "./desk_state.ts";
-import { DESK_LIST_ID, rowRef } from "./desk_transitions.ts";
+import { DESK_LIST_ID, rowRef, withoutOperation } from "./desk_transitions.ts";
 import { deskKeymap, deskTicks, deskView } from "./inbox_view.ts";
 import {
   branchEvidenceSubject,
@@ -87,11 +96,20 @@ export interface DeskFlows {
     row: DeskRow,
   ): Promise<DeskCapabilities>;
   /** The line painted before an effect takes the terminal. */
-  handoff(state: DeskProductState, effect: DeskTerminalEffect): string;
+  handoff(
+    state: DeskProductState,
+    effect: Exclude<DeskTerminalEffect, { readonly kind: "operate" }>,
+  ): string;
   /** Run one effect or child with the terminal. */
   run(
     state: DeskProductState,
-    effect: DeskTerminalEffect,
+    effect: Exclude<DeskTerminalEffect, { readonly kind: "operate" }>,
+  ): Promise<DeskOutcome>;
+  /** Run one operation beside the screen, reporting into its session. */
+  operate(
+    state: DeskProductState,
+    operation: DeskOperation,
+    session: DeskEffectSession,
   ): Promise<DeskOutcome>;
 }
 
@@ -156,13 +174,33 @@ export function failedOutcome(error: unknown, command: string): DeskOutcome {
     };
 }
 
-/** The scrollback lines printed when the Desk exits: what this session ran. */
-export function deskEpilogue(state: DeskProductState): string[] {
-  return state.activity.map((entry) =>
-    `discern desk ran: ${entry.command} · ${
-      entry.ok ? "done" : "didn't complete"
-    }`
-  );
+/** How one activity entry ended, in the words the exit log uses. */
+function endedWords(entry: DeskProductState["activity"][number]): string {
+  if (entry.ended === "stopped") return "stopped";
+  return (entry.ended ?? (entry.ok ? "done" : "failed")) === "done"
+    ? "done"
+    : "didn't complete";
+}
+
+/**
+ * The lines printed on the terminal's own screen when the Desk exits: each
+ * command this session ran, in full so it can be copied, and how it ended.
+ * Operations still running stop as the Desk leaves.
+ */
+export function deskEpilogue(
+  state: DeskProductState,
+): ApplicationEpilogueLine[] {
+  const line = (command: string, ended: string): ApplicationEpilogueLine => [
+    { text: "discern desk ran: " },
+    { text: command, role: "code" },
+    { text: ` · ${ended}` },
+  ];
+  return [
+    ...state.activity.map((entry) => line(entry.command, endedWords(entry))),
+    ...[...state.operations.values()].map((operation) =>
+      line(operation.command, "stopped")
+    ),
+  ];
 }
 
 /** Build the package options for one Desk session. */
@@ -183,6 +221,16 @@ export function liveDesk(
   let tickTimer: TimeoutHandle | undefined;
   /** A form's pending preview read, by layer, while typing settles. */
   const previewTimers = new Map<string, TimeoutHandle>();
+  /**
+   * What each operation running beside the screen has reported, kept here
+   * between the package's coalesced reports, and what each left once its
+   * work returned, until the package says how its command settled.
+   */
+  const running = new Map<
+    string,
+    { progress: DeskOperation["progress"]; output: string }
+  >();
+  const finished = new Map<string, DeskOutcome>();
   let tipRequested = false;
   let selected: string | undefined;
   let slotGeneration = 0;
@@ -344,6 +392,9 @@ export function liveDesk(
         case "select":
           context?.select(DESK_LIST_ID, effect.id, { reveal: true });
           break;
+        case "abort":
+          context?.abort(effect.operationId);
+          break;
         case "persist":
           own(
             deps.persist(effect.preferences).then((result) => {
@@ -481,13 +532,79 @@ export function liveDesk(
     );
   };
 
-  /** The package command that hands the terminal to an effect, or exits. */
+  /**
+   * The package background command that runs one operation beside the
+   * screen. Its output and completion facts fold into its progress here,
+   * and each fold reports, which the package coalesces and delivers
+   * between inputs.
+   */
+  const operate = (operationId: string): TerminalApplicationCommand => {
+    const operation = state.operations.get(operationId);
+    const snapshot = withoutOperation(state, operationId);
+    return {
+      kind: "background",
+      id: operationId,
+      run: async (report, signal) => {
+        if (operation === undefined) return;
+        const live = { progress: operation.progress, output: "" };
+        running.set(operationId, live);
+        const now = (): number => context?.now() ?? 0;
+        const reported = (): void => report(progressActivity(live.progress));
+        let outcome: DeskOutcome;
+        try {
+          outcome = await deps.flows.operate(snapshot, operation, {
+            signal,
+            output: (_stream, text) => {
+              live.output = outputTail(`${live.output}${stripAnsi(text)}`);
+              reported();
+            },
+            observe: (fact) => {
+              live.progress = progressAfter(live.progress, fact, now());
+              reported();
+            },
+          });
+        } catch (error) {
+          outcome = failedOutcome(error, operation.command);
+        }
+        finished.set(operationId, outcome);
+      },
+    };
+  };
+
+  /** How a settled operation's command ended, as the Desk records it. */
+  const settled = (
+    operationId: string,
+    outcome: TerminalApplicationCommandOutcome,
+  ): void => {
+    const operation = state.operations.get(operationId);
+    const output = running.get(operationId)?.output ?? "";
+    const left = finished.get(operationId);
+    running.delete(operationId);
+    finished.delete(operationId);
+    if (operation === undefined) return;
+    const command = left?.command ?? operation.command;
+    dispatch({
+      kind: "operation-settled",
+      operationId,
+      ended: outcome.status === "aborted" ? "stopped" : "ran",
+      outcome: outcome.status === "aborted"
+        ? { command, ok: false }
+        : outcome.status === "failed"
+        ? failedOutcome(outcome.error, command)
+        : left ?? { command, ok: false },
+      output,
+      now: deps.now(),
+    });
+  };
+
+  /** The package command that runs an effect, hands over the terminal, or exits. */
   const command = (
     effect: DeskTerminalEffect,
   ): TerminalApplicationCommand => {
     if (effect.kind === "exit") {
       return { kind: "exit", epilogue: deskEpilogue(state) };
     }
+    if (effect.kind === "operate") return operate(effect.operationId);
     const snapshot = state;
     const handoff = deps.flows.handoff(snapshot, effect);
     return {
@@ -536,6 +653,7 @@ export function liveDesk(
         intent,
         ui: deskUi(live.state),
         now: deps.now(),
+        clock: live.now(),
       });
       return terminal === undefined ? undefined : command(terminal);
     },
@@ -558,6 +676,21 @@ export function liveDesk(
     onField: (layerId, fieldId, value, live) => {
       context = live;
       dispatch({ kind: "field", layerId, fieldId, value });
+    },
+    onReport: (operationId, _activity, live) => {
+      context = live;
+      const current = running.get(operationId);
+      if (current === undefined) return;
+      dispatch({
+        kind: "operation-progress",
+        operationId,
+        progress: current.progress,
+        output: current.output,
+      });
+    },
+    onCommandSettled: (operationId, outcome, live) => {
+      context = live;
+      settled(operationId, outcome);
     },
   };
 }

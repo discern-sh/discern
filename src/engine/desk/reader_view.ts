@@ -12,7 +12,11 @@ import type {
   ApplicationReader,
   ApplicationRun,
 } from "discern-design-system/cli/interactive";
-import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
+import {
+  createCliBlock,
+  renderCodeBlockCli,
+  renderMarkdownCli,
+} from "discern-design-system/cli";
 import {
   DESK_ACTION_LABELS,
   DESK_COMMAND_LABELS,
@@ -662,5 +666,38 @@ export function deskReader(
         title: reader.title,
         blocks: reader.lines.map((line) => text(line)),
       };
+    case "output": {
+      const operation = state.operations.get(reader.operationId);
+      return {
+        kind: "reader",
+        id,
+        scope: "global",
+        title: operation?.title ?? "Output",
+        aside: [{ text: "Full output", tone: "faint" }],
+        blocks: operation === undefined
+          ? [
+            text(
+              `It has ended; ${DESK_COMMAND_LABELS.activity} keeps what it wrote.`,
+            ),
+          ]
+          : outputBlocks(operation.output, operation.command),
+      };
+    }
   }
+}
+
+/** What an operation wrote, after the command it runs. */
+export function outputBlocks(
+  output: string,
+  command: string,
+): ApplicationDetailBlock[] {
+  return [
+    { kind: "text", runs: [{ text: command, role: "code" }] },
+    output.trim() === "" ? text("Nothing written yet.") : {
+      kind: "block",
+      content: createCliBlock(renderCodeBlockCli, {
+        code: output.trimEnd(),
+      }),
+    },
+  ];
 }

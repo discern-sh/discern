@@ -51,19 +51,19 @@ import { reviewSheet } from "../src/engine/desk/sheet_view.ts";
 import type { DeskFlowStep } from "../src/engine/desk/flow_types.ts";
 import type { DeskProductState } from "../src/engine/desk/desk_state.ts";
 import { DESK_REFRESH_MS } from "../src/engine/desk/desk_state.ts";
-import type {
-  AcceptPreviewData,
-  StatusFleetEntry,
-} from "../src/shared/result_schemas.ts";
+import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
 import type { DeskRuntime } from "../src/engine/desk/desk.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
 import { observedDesk, productSurvey } from "./fixtures/desk_product.ts";
 import {
+  acceptPreview,
   DESK_CONFIG,
   DESK_ROOT,
   deskSurvey,
   deskTaskEntry,
   deskTranscript,
+  landable,
+  landing,
   scriptedDeskRuntime,
   withDeskSession,
 } from "./fixtures/desk_session.ts";
@@ -449,21 +449,6 @@ function previewRuntime(row: DeskRow): Partial<DeskRuntime> {
   };
 }
 
-/** A complete landing preview. */
-function acceptPreview(head: string): AcceptPreviewData {
-  return {
-    lands: { head, commits: 4, files: 61, insertions: 2023, deletions: 2038 },
-    authority: {
-      kind: "conversation-required",
-      covered_paths: 0,
-      uncovered_paths: 61,
-    },
-    queue_walk: [],
-    ends_grant: false,
-    leaves_queue: false,
-  };
-}
-
 Deno.test("every action and command that asks before it acts has exactly one reviewed flow", () => {
   for (const action of DESK_ACTIONS) {
     const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
@@ -565,45 +550,6 @@ Deno.test("every reviewed action and command binds every fact its registry decla
     }
   }
 });
-
-/** A ready task the session lands, at its own head. */
-function landable(
-  head = "3f9c2e1".padEnd(40, "0"),
-): StatusFleetEntry {
-  return deskTaskEntry("agent/alpha", "/worktrees/alpha", {
-    id: "alpha",
-    ahead: 4,
-    behind: 0,
-    clean: true,
-    registration: { head, locked: false, prunable: false },
-    gate_proof: { status: "honored", head, recorded: "2026-07-11T11:40:00Z" },
-    proof_honored: true,
-  });
-}
-
-/** A Land review's session seams: its preview, and the landings it ran. */
-function landing(
-  landed: unknown[],
-  preview: Partial<AcceptPreviewData> = {},
-): Partial<DeskRuntime> {
-  const head = "3f9c2e1".padEnd(40, "0");
-  return {
-    acceptPlan: () => ({
-      ok: true,
-      verb: "accept",
-      dry_run: true,
-      plan: {
-        title: "Acceptance plan",
-        details: ["Branch: agent/alpha"],
-        steps: [],
-      },
-      data: { preview: { ...acceptPreview(head), ...preview } },
-    }),
-    accept: (_ctx, options) => {
-      landed.push(options);
-    },
-  };
-}
 
 const LAND = "review-accept-review";
 

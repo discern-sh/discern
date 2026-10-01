@@ -8,8 +8,9 @@
  * landing-authority facts), and every mutation runs the same lifecycle core the
  * CLI verb runs — a core's refusal is rendered, never bypassed. One package
  * application session lasts the Desk's whole life: the inbox, its inspector,
- * and every review, menu, palette, form and reader are layers of it; only
- * effects and terminal-owning children take the terminal. The effort-grant
+ * and every review, menu, palette, form and reader are layers of it. An
+ * effect that changes project state runs beside that screen, and only
+ * terminal-owning children take the terminal. The effort-grant
  * action is deliberately desk-only: this TTY is the sole write boundary, while
  * agent CLI and MCP surfaces can only read the resulting grant.
  *
@@ -21,14 +22,17 @@
 
 import {
   executeDeskOperation,
+  runDeskEffectInSession,
   runDeskInteractiveChild,
   runDeskProjectScript,
 } from "./execution.ts";
 export {
   executeDeskOperation,
+  runDeskEffectInSession,
   runDeskInteractiveChild,
   runDeskProjectScript,
 } from "./execution.ts";
+import { INTERRUPT_SIGNALS, reraiseInterrupt } from "../process_signals.ts";
 import { readProofNoteAt } from "../gate/proof_notes.ts";
 import { runDocs } from "../../commands/docs.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
@@ -158,6 +162,20 @@ type DeskScriptDiscovery =
   | DeskProjectScriptInventory
   | readonly DeskProjectScript[];
 
+/**
+ * The Desk's own termination: SIGTERM and SIGHUP, and SIGINT while the
+ * screen is owned. Each ends the session, which stops every operation
+ * running beside it through its signal, so each journal records where it
+ * stopped exactly as a CLI interruption does; `release` says which ended it.
+ */
+export interface DeskTermination {
+  readonly signal: AbortSignal;
+  /** SIGINT reached the owned screen. */
+  interrupt(): void;
+  /** Stop listening, and say which signal ended the session, if one did. */
+  release(): Deno.Signal | undefined;
+}
+
 /** The terminal and effect boundary behind the desk's interactive session.
  * Production keeps its runtime private; tests replace it with a scripted
  * runtime so every supervisory path is exercised without pretending a pipe is
@@ -179,7 +197,12 @@ export interface DeskRuntime extends DeskLandingPermission {
   error(message: string): void;
   application(
     options: TerminalApplicationOptions<DeskIntent>,
+    termination: DeskTermination,
   ): Promise<TerminalApplicationState>;
+  /** Listen for the Desk's own termination for one session. */
+  terminations(): DeskTermination;
+  /** End the process with the signal that terminated the Desk. */
+  raise(signal: Deno.Signal): void;
   pause(out: Out): DeskMaybePromise<void>;
   lifecycle(root: string): DeskMaybePromise<LifecycleContext>;
   done(
@@ -319,6 +342,36 @@ export interface DeskRuntime extends DeskLandingPermission {
   recordTipShown(id: string): void;
 }
 
+/** The signals that end the Desk, besides SIGINT on its owned screen. */
+const DESK_TERMINATION_SIGNALS = INTERRUPT_SIGNALS.filter((signal) =>
+  signal !== "SIGINT"
+);
+
+/** Listen for the Desk's own termination, as production does. */
+function deskTerminations(): DeskTermination {
+  const controller = new AbortController();
+  let received: Deno.Signal | undefined;
+  const end = (signal: Deno.Signal): void => {
+    received ??= signal;
+    controller.abort();
+  };
+  const handlers = DESK_TERMINATION_SIGNALS.map((signal) => {
+    const handler = (): void => end(signal);
+    Deno.addSignalListener(signal, handler);
+    return [signal, handler] as const;
+  });
+  return {
+    signal: controller.signal,
+    interrupt: () => end("SIGINT"),
+    release: () => {
+      for (const [signal, handler] of handlers) {
+        Deno.removeSignalListener(signal, handler);
+      }
+      return received;
+    },
+  };
+}
+
 /** The narrating logger the lifecycle cores render human output through. */
 function deskLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
@@ -357,7 +410,13 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     return makeOut(terminal.color, { terminal });
   },
   error: (message) => deskLogger().error(message),
-  application: (options) => runTerminalApplication(options),
+  application: (options, termination) =>
+    runTerminalApplication(options, {
+      abortSignal: termination.signal,
+      onInterrupt: () => termination.interrupt(),
+    }),
+  terminations: () => deskTerminations(),
+  raise: (signal) => reraiseInterrupt(signal),
   pause: () => requestCompactAcknowledgement(),
   lifecycle: (root) => lifecycleContext(root, deskLogger()),
   done: (root, cliModel) =>
@@ -575,13 +634,13 @@ function childPlace(
 /** The line painted before an effect or child takes the terminal. */
 function handoffLine(
   state: DeskProductState,
-  effect: DeskTerminalEffect,
+  effect: Exclude<DeskTerminalEffect, { readonly kind: "operate" }>,
 ): string {
   switch (effect.kind) {
     case "apply":
       return effect.review.confirm?.kind === "apply"
-        ? effect.review.confirm.handoff
-        : "Running · output continues below";
+        ? effect.review.confirm.running
+        : "Running";
     case "exit":
       return "Leaving the desk";
     case "child":
@@ -685,6 +744,17 @@ function deskFlows(
     },
     capabilities: (state, row) => readCapabilities(context(state), row),
     handoff: (state, effect) => handoffLine(state, effect),
+    operate: (state, operation, session) =>
+      runDeskEffectInSession(
+        session,
+        () =>
+          applyStep(context(state), operation.step, operation.review.expected, {
+            out: runtime.makeOut(),
+            ...(operation.challenge === undefined
+              ? {}
+              : { challenge: operation.challenge }),
+          }),
+      ),
     run: async (state, effect) => {
       const out = runtime.makeOut();
       switch (effect.kind) {
@@ -812,49 +882,58 @@ export async function runDesk(
     );
     return 0;
   }
+  const termination = runtime.terminations();
   try {
-    const final = await runtime.application(liveDesk({
-      trunk: config.repository.trunk,
-      root,
-      version: DISCERN_VERSION,
-      preferences: await runtime.readPreferences(root),
-      launches: () => startLaunches(config, runtime),
-      now: runtime.now,
-      scheduler: runtime.scheduler,
-      observe: async () => {
-        const result = await runtime.status(root);
-        if (!result.ok || result.data === undefined) {
-          throw new Error(result.message ?? "The status survey failed.");
-        }
-        return { data: result.data, hints: result.hints ?? [] };
-      },
-      tip: (data) => sessionTip(root, config, runtime, data),
-      evidence: {
-        git: async (args, cwd, signal) =>
-          await runtime.git([...args], cwd, {
-            timeoutMs: DESK_EVIDENCE_TIMEOUT_MS,
-            signal,
-          }),
-        failures: async (branch, verb) => {
-          const found = await runtime.operationRecord(root, { branch, verb });
-          return found?.record.failures?.map((failure) => ({
-            name: failure.name,
-            message: failure.message,
-            ...(failure.file === undefined ? {} : { file: failure.file }),
-            ...(failure.line === undefined ? {} : { line: failure.line }),
-          }));
+    const final = await runtime.application(
+      liveDesk({
+        trunk: config.repository.trunk,
+        root,
+        version: DISCERN_VERSION,
+        preferences: await runtime.readPreferences(root),
+        launches: () => startLaunches(config, runtime),
+        now: runtime.now,
+        scheduler: runtime.scheduler,
+        observe: async () => {
+          const result = await runtime.status(root);
+          if (!result.ok || result.data === undefined) {
+            throw new Error(result.message ?? "The status survey failed.");
+          }
+          return { data: result.data, hints: result.hints ?? [] };
         },
-      },
-      flows: deskFlows(root, config, runtime, opts.cliModel),
-      persist: async (preferences) =>
-        await runtime.writePreferences(root, preferences),
-    }));
+        tip: (data) => sessionTip(root, config, runtime, data),
+        evidence: {
+          git: async (args, cwd, signal) =>
+            await runtime.git([...args], cwd, {
+              timeoutMs: DESK_EVIDENCE_TIMEOUT_MS,
+              signal,
+            }),
+          failures: async (branch, verb) => {
+            const found = await runtime.operationRecord(root, { branch, verb });
+            return found?.record.failures?.map((failure) => ({
+              name: failure.name,
+              message: failure.message,
+              ...(failure.file === undefined ? {} : { file: failure.file }),
+              ...(failure.line === undefined ? {} : { line: failure.line }),
+            }));
+          },
+        },
+        flows: deskFlows(root, config, runtime, opts.cliModel),
+        persist: async (preferences) =>
+          await runtime.writePreferences(root, preferences),
+      }),
+      termination,
+    );
     await rememberFolds(root, runtime, out, final);
   } catch (error) {
     if (!isInteractionCancelled(error)) {
       runtime.error(error instanceof Error ? error.message : String(error));
       return 1;
     }
+  } finally {
+    // The session has settled with every operation it ran; a termination
+    // still ends the process with its conventional status.
+    const received = termination.release();
+    if (received !== undefined) runtime.raise(received);
   }
   return 0;
 }

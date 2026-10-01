@@ -54,6 +54,7 @@ import {
   parkedRowId,
   reviewLayerIds,
   rowRef,
+  taskOperation,
 } from "./desk_transitions.ts";
 import {
   ageText,
@@ -77,7 +78,7 @@ import {
   taskEvidenceSubject,
 } from "./evidence.ts";
 import { type DeskLayerEnv, deskLayers } from "./layer_view.ts";
-import { REVIEW_AGAIN_KEY } from "./sheet_view.ts";
+import { FULL_OUTPUT_KEY, REVIEW_AGAIN_KEY } from "./sheet_view.ts";
 import { codeRuns, deskChips } from "./header_view.ts";
 import { inertView } from "./text.ts";
 
@@ -491,8 +492,11 @@ function rowHints(state: DeskProductState, ui: DeskUi): KeyHint[] {
     return [{ key: "enter", label: DESK_COMMAND_LABELS.landed_proof }];
   }
   const { decision } = ref.row;
+  const running = taskOperation(state, deskRowId(ref.row)) !== undefined;
   return [
-    ...(decision.next?.availability === "enabled"
+    ...(running
+      ? [{ key: "enter", label: DESK_COMMAND_LABELS.progress }]
+      : decision.next?.availability === "enabled"
       ? [{ key: "enter", label: decision.next.label }]
       : []),
     ...decision.also.flatMap((offer) =>
@@ -555,6 +559,12 @@ export function deskKeymap(): ApplicationKeyBinding<DeskIntent>[] {
       action: { kind: "review-again", layer },
       scope: { layer },
     })),
+    // A running operation's progress reads its output on its own key.
+    {
+      key: FULL_OUTPUT_KEY,
+      action: { kind: "output" },
+      scope: { layer: "progress" },
+    },
   ];
 }
 

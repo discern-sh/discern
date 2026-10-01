@@ -24,7 +24,11 @@ import {
 } from "discern-design-system/cli/interactive/testing";
 import { runTerminalApplication } from "../../src/lib/terminal_interaction.ts";
 import type { TerminalColorDepth } from "discern-design-system/cli";
-import { type DeskRuntime, runDesk } from "../../src/engine/desk/desk.ts";
+import {
+  type DeskRuntime,
+  type DeskTermination,
+  runDesk,
+} from "../../src/engine/desk/desk.ts";
 import { statusResult } from "../../src/engine/status/status.ts";
 import type { CliModelProvider } from "../../src/shared/cli_reference_codegen.ts";
 import {
@@ -40,11 +44,13 @@ import {
   type DiscernConfig,
 } from "../../src/shared/config_schema.ts";
 import type {
+  AcceptPreviewData,
   StartData,
   StatusData,
   StatusFleetEntry,
 } from "../../src/shared/result_schemas.ts";
 import { Logger } from "../../src/lib/log.ts";
+import type { EnginePlan } from "../../src/shared/result.ts";
 import type {
   LifecycleContext,
   PreparedStart,
@@ -217,6 +223,8 @@ export function scriptedDeskRuntime(
     application: () => {
       throw new Error("A scripted Desk runs inside deskSession.");
     },
+    terminations: () => scriptedTermination(),
+    raise: () => {},
     pause: () => {},
     lifecycle: () => DESK_CONTEXT,
     done: () => ({ ok: true, verb: "done" }),
@@ -299,6 +307,24 @@ export function scriptedDeskRuntime(
     writePreferences: () => ({ status: "saved" }),
     recordTipShown: () => {},
     ...patch,
+  };
+}
+
+/** A termination nothing signals unless a test ends the session itself. */
+export function scriptedTermination(): DeskTermination & {
+  readonly end: (signal: Deno.Signal) => void;
+} {
+  const controller = new AbortController();
+  let received: Deno.Signal | undefined;
+  const end = (signal: Deno.Signal): void => {
+    received ??= signal;
+    controller.abort();
+  };
+  return {
+    signal: controller.signal,
+    interrupt: () => end("SIGINT"),
+    release: () => received,
+    end,
   };
 }
 
@@ -433,6 +459,11 @@ export interface DeskSession {
   top(): string | undefined;
   /** Wait for a layer to open on top. */
   opened(layerId: string): Promise<void>;
+  /**
+   * Wait for the operation a confirm started beside the screen to end: its
+   * progress sheet gives way to the inbox, a result, or the next question.
+   */
+  operated(): Promise<void>;
   /** Quit with Ctrl+C, which quits under any layer, and wait for the exit code. */
   quit(): Promise<number>;
   /** The session's exit code once it ends. */
@@ -452,6 +483,7 @@ export async function withDeskSession(
   const desk = await deskSession(options);
   try {
     await body(desk);
+    await desk.operated();
   } catch (error) {
     desk.io.close();
     await desk.exit.catch(() => undefined);
@@ -493,14 +525,19 @@ export async function deskSession(
       surveys += 1;
       return result;
     },
-    application: (application) =>
+    application: (application, termination) =>
       runTerminalApplication({
         ...application,
         start: (context) => {
           live = context;
           return application.start?.(context);
         },
-      }, { io, clock, interactive: () => true }),
+      }, {
+        io,
+        clock,
+        interactive: () => true,
+        abortSignal: termination.signal,
+      }),
   };
   const exit = runDesk(
     options.cliModel === undefined ? {} : { cliModel: options.cliModel },
@@ -633,6 +670,8 @@ export async function deskSession(
     top,
     opened: (layerId) =>
       until(() => top() === layerId, `${layerId} to open on top`),
+    operated: () =>
+      until(() => top() !== "progress", "the operation to end"),
     quit: async () => {
       io.enqueueKeys("ctrl-c");
       const code = await settlePending(exit, "the Desk to quit", {
@@ -657,3 +696,59 @@ export function deskSurvey(
 ): StatusData {
   return statusData([mainFleetEntry(DESK_ROOT), ...fleet], patch);
 }
+
+/** The head every landable fixture task stands at. */
+export const LANDABLE_HEAD = "3f9c2e1".padEnd(40, "0");
+
+/** A complete landing preview at `head`. */
+export function acceptPreview(head: string): AcceptPreviewData {
+  return {
+    lands: { head, commits: 4, files: 61, insertions: 2023, deletions: 2038 },
+    authority: {
+      kind: "conversation-required",
+      covered_paths: 0,
+      uncovered_paths: 61,
+    },
+    queue_walk: [],
+    ends_grant: false,
+    leaves_queue: false,
+  };
+}
+
+/** A ready task the session lands, at its own head. */
+export function landable(head = LANDABLE_HEAD): StatusFleetEntry {
+  return deskTaskEntry("agent/alpha", "/worktrees/alpha", {
+    id: "alpha",
+    ahead: 4,
+    behind: 0,
+    clean: true,
+    registration: { head, locked: false, prunable: false },
+    gate_proof: { status: "honored", head, recorded: "2026-07-11T11:40:00Z" },
+    proof_honored: true,
+  });
+}
+
+/** A Land review's session seams: its preview, and the landings it ran. */
+export function landing(
+  landed: unknown[],
+  preview: Partial<AcceptPreviewData> = {},
+  plan: EnginePlan = {
+    title: "Acceptance plan",
+    details: ["Branch: agent/alpha"],
+    steps: [],
+  },
+): Partial<DeskRuntime> {
+  return {
+    acceptPlan: () => ({
+      ok: true,
+      verb: "accept",
+      dry_run: true,
+      plan,
+      data: { preview: { ...acceptPreview(LANDABLE_HEAD), ...preview } },
+    }),
+    accept: (_ctx, options) => {
+      landed.push(options);
+    },
+  };
+}
+

@@ -19,6 +19,8 @@ import { deskReader, type DeskReaderEnv } from "./reader_view.ts";
 import {
   deskForm,
   type DeskSheetEnv,
+  progressSheet,
+  quitSheet,
   resultSheetView,
   reviewSheet,
 } from "./sheet_view.ts";
@@ -58,6 +60,10 @@ function layerView(
       return deskForm(state, layer, env);
     case "result":
       return resultSheetView(state, layer.sheet);
+    case "progress":
+      return progressSheet(state, layer.operationId);
+    case "quit":
+      return quitSheet(state);
   }
 }
 

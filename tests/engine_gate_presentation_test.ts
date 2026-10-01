@@ -3,6 +3,7 @@
 import { assertCases, assertCasesAsync } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { stripAnsi } from "discern-design-system/cli";
+import { withOutputCapture } from "../src/shared/output_capture.ts";
 import {
   createGateTtyProgress,
   type GateTtyProgress,
@@ -326,6 +327,26 @@ Deno.test("Gate output policy separates live presentation from static transcript
   });
   assertEquals(quiet.output.kind, "quiet-result");
   assertEquals(quiet.capture, "buffered-capped");
+});
+
+Deno.test("Gate output stays static while its output is captured", async () => {
+  const live = terminal({ columns: 93, ci: "false" });
+  const captured = await withOutputCapture(
+    { write: () => {} },
+    () =>
+      Promise.resolve(
+        resolveGateRunPolicy(false, {
+          kind: "human",
+          plain: false,
+          terminal: live,
+        }),
+      ),
+  );
+  assertEquals(
+    captured.output.kind,
+    "static-grouped",
+    "a live frame would paint the terminal past the capture",
+  );
 });
 
 Deno.test("Gate Proof rendering preserves readiness, authority, and evidence states", () => {

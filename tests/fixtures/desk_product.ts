@@ -105,6 +105,9 @@ export function observedDesk(
   return observeDesk(freshDesk(), data, now).state;
 }
 
+/** The application clock product events carry. */
+export const PRODUCT_CLOCK = 1_000;
+
 /** One intent, as the package reports it with `ui`. */
 export function deskIntent(
   state: DeskProductState,
@@ -116,6 +119,7 @@ export function deskIntent(
     intent: value,
     ui,
     now: PRODUCT_NOW,
+    clock: PRODUCT_CLOCK,
   });
 }
 
@@ -133,7 +137,7 @@ export function readyReview(
     safeLabel: "Cancel",
     confirmLabel: "Go",
     alternatives: [],
-    confirm: { kind: "apply", handoff: `${question} · output continues below` },
+    confirm: { kind: "apply", running: question },
     ...patch,
   };
 }

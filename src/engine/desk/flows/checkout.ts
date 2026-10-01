@@ -85,7 +85,7 @@ const DROP_FLOW: DeskFlow = {
         },
         ...(blockers.length === 0 ? {} : { challenge: row.entry.branch }),
         alternatives,
-        handoff: `Dropping ${row.task.name}`,
+        running: `Dropping ${row.task.name}`,
       };
     }),
   apply: async (context, step, expected, { challenge }) => {
@@ -154,7 +154,7 @@ const RENAME_FLOW: DeskFlow = {
         core: { kind: "rename", title },
         argv: ["discern", "worktree", "rename", title],
         ...(invalid === undefined ? {} : { blockers: [invalid] }),
-        handoff: `Renaming ${row.task.name}`,
+        running: `Renaming ${row.task.name}`,
       };
     }),
   apply: async (context, step, expected) => {
@@ -195,8 +195,8 @@ interface CheckoutEffect {
     ctx: LifecycleContext,
     path: string,
   ) => Promise<void>;
-  /** The handoff and the success message, for the task's title. */
-  readonly handoff: (title: string) => string;
+  /** What it is called while it runs, and the success message, for the task's title. */
+  readonly running: (title: string) => string;
   readonly done: (title: string) => string;
 }
 
@@ -231,7 +231,7 @@ function checkoutEffectFlow(effect: CheckoutEffect): DeskFlow {
         return {
           plan,
           facts: removalFacts(plan.subject),
-          handoff: effect.handoff(row.task.name),
+          running: effect.running(row.task.name),
         };
       }),
     apply: async (context, step, expected) => {
@@ -251,7 +251,7 @@ const PARK_FLOW = checkoutEffectFlow({
   within: "project",
   plan: async (runtime, ctx, path) => await runtime.parkPlan(ctx, path),
   run: async (runtime, ctx, path) => await runtime.park(ctx, path),
-  handoff: (title) => `Parking ${title}`,
+  running: (title) => `Parking ${title}`,
   done: (title) => `Parked ${title}; its branch is kept`,
 });
 
@@ -261,7 +261,7 @@ const RECLAIM_FLOW = checkoutEffectFlow({
   within: "project",
   plan: async (runtime, ctx, path) => await runtime.reclaimPlan(ctx, path),
   run: async (runtime, ctx, path) => await runtime.reclaim(ctx, path),
-  handoff: (title) => `Reclaiming ${title}'s checkout`,
+  running: (title) => `Reclaiming ${title}'s checkout`,
   done: (title) => `Reclaimed ${title}'s checkout; its branch is kept`,
 });
 
@@ -271,7 +271,7 @@ const RETRY_SETUP_FLOW = checkoutEffectFlow({
   within: "task",
   plan: async (runtime, ctx) => await runtime.setupPlan(ctx),
   run: async (runtime, ctx) => await runtime.setup(ctx),
-  handoff: (title) => `Retrying setup for ${title}`,
+  running: (title) => `Retrying setup for ${title}`,
   done: (title) => `Setup completed for ${title}`,
 });
 

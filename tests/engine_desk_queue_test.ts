@@ -85,6 +85,7 @@ async function action(
     await desk.opened(`review-${action}-review`);
     if (confirm) {
       await desk.confirm();
+      await desk.operated();
     } else {
       await desk.escape(() => desk.top() === undefined, "the review to close");
     }

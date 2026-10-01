@@ -177,7 +177,11 @@ const ACCEPT_FLOW: DeskFlow = {
           "queue-walk": (facts.queueWalk ?? []).map((queued) => queued.branch)
             .join(" "),
         },
-        handoff: `Landing ${row.task.name} · output continues below`,
+        running: `Landing ${row.task.name}`,
+        follows: (facts.queueWalk ?? []).map((queued) => ({
+          branch: queued.branch,
+          title: queued.title,
+        })),
       };
     }),
   apply: async (context, step, expected) => {
@@ -195,12 +199,20 @@ const ACCEPT_FLOW: DeskFlow = {
       ...(revision === undefined ? {} : { expected: revision }),
       ...(cliModel === undefined ? {} : { cliModel }),
     });
-    return result !== undefined && !result.ok
-      ? failedWith(context, step, "accept", result, command)
-      : succeeded(
-        command,
+    if (result !== undefined && !result.ok) {
+      return failedWith(context, step, "accept", result, command);
+    }
+    // The queue walk lands what followed it; say which landed too.
+    const walked = (result?.data?.landings ?? []).filter((landing) =>
+      !landing.selected && landing.status === "landed"
+    ).map((landing) => taskTitleOf(context.state, landing.branch));
+    return succeeded(
+      command,
+      [
         `Landed ${row.task.name} on ${context.config.repository.trunk}`,
-      );
+        ...walked.map((title) => `${title} landed too`),
+      ].join(" · "),
+    );
   },
 };
 
@@ -251,14 +263,14 @@ const SUBMIT_FLOW: DeskFlow = {
           text: `${offer.label} asks this first; Keep queues nothing`,
           source: { kind: "status", field: "landing_authority" },
         }],
-        handoff: `Pre-authorizing ${row.task.name}`,
+        running: `Pre-authorizing ${row.task.name}`,
       });
     }
     return reviewFor(actionTarget(context, row, offer), {
       ...(plan === undefined ? {} : { plan }),
       facts: { revision: revision.head },
       core: { kind: "submit", revision },
-      handoff: `Queueing ${row.task.name} for landing`,
+      running: `Queueing ${row.task.name} for landing`,
     });
   },
   apply: async (context, step, expected) => {
@@ -364,7 +376,7 @@ const GRANT_FLOW: DeskFlow = {
           row.entry.path,
           row.entry.branch,
         ),
-        handoff: `Pre-authorizing ${row.task.name}`,
+        running: `Pre-authorizing ${row.task.name}`,
       })),
   apply: async (context, step, expected): Promise<DeskOutcome> => {
     const changed = await rebound(context, step, expected, "grant");
@@ -385,7 +397,7 @@ const REVOKE_FLOW: DeskFlow = {
   review: (context, step) =>
     reviewOffer(context, step, "revoke_grant", async (row) => ({
       plan: await context.runtime.clearEffortGrantPlan(row.entry.path),
-      handoff: `Revoking pre-authorization for ${row.task.name}`,
+      running: `Revoking pre-authorization for ${row.task.name}`,
     })),
   apply: async (context, step, expected: DeskExpected) => {
     const changed = await rebound(context, step, expected, "revoke_grant");

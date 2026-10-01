@@ -42,6 +42,7 @@ import {
   type DeskConfirm,
   type DeskCoreExpectation,
   type DeskExpected,
+  type DeskFollowingTask,
   type DeskResultSheet,
   type DeskReview,
   type DeskReviewAlternative,
@@ -80,8 +81,10 @@ export interface DeskReviewRead {
   readonly question?: string;
   /** Lines that precede the registry's, such as a stored brief. */
   readonly lead?: readonly DeskReviewLine[];
-  /** Painted before the effect takes the terminal. */
-  readonly handoff?: string;
+  /** What the effect is called while it runs. */
+  readonly running?: string;
+  /** Queued tasks that land after it. */
+  readonly follows?: readonly DeskFollowingTask[];
   /** Confirm asks this next question instead of applying. */
   readonly next?: DeskConfirm;
   /** The sheet offers only its safe choice and its alternatives. */
@@ -289,6 +292,9 @@ function actionReview(
     ...(confirmLabel === undefined ? {} : { confirmLabel }),
     ...(offer.action === "drop" ? { destructive: true } : {}),
     alternatives: read.alternatives ?? [],
+    ...(read.follows === undefined || read.follows.length === 0
+      ? {}
+      : { follows: read.follows }),
     ...(read.challenge === undefined
       ? {}
       : { challenge: { mustEqual: read.challenge } }),
@@ -307,12 +313,7 @@ function confirmOf(
 ): { readonly confirm?: DeskConfirm } {
   if (confirmLabel === undefined) return {};
   if (read.next !== undefined) return { confirm: read.next };
-  return {
-    confirm: {
-      kind: "apply",
-      handoff: read.handoff ?? "Running · output continues below",
-    },
-  };
+  return { confirm: { kind: "apply", running: read.running ?? "Running" } };
 }
 
 /** One Desk command's review. */

@@ -24,12 +24,20 @@ import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
 import type {
   DeskIntent,
   DeskLayer,
+  DeskOperation,
   DeskProductState,
   DeskScriptOwner,
   DeskTransition,
   DeskUi,
 } from "./desk_state.ts";
-import type { DeskFlowStep } from "./flow_types.ts";
+import type { DeskFlowStep, DeskReview } from "./flow_types.ts";
+import {
+  canStop,
+  commandVerb,
+  operationProgress,
+  runsInSession,
+  stopPolicy,
+} from "./operations.ts";
 import {
   closeLayer,
   formValuesKey,
@@ -41,7 +49,9 @@ import {
   renameTitle,
   resultAlternatives,
   rowRef,
+  taskOperation,
   toast,
+  withRows,
 } from "./desk_transitions.ts";
 import type { DeskPreferences } from "./preferences.ts";
 
@@ -49,6 +59,30 @@ const UNCHANGED = (state: DeskProductState): DeskTransition => ({
   state,
   effects: [],
 });
+
+/** When an input arrived: wall time, and the application's clock. */
+export interface DeskInputTime {
+  readonly now: number;
+  readonly clock: number;
+}
+
+/** Open the progress of one running operation. */
+function showProgress(
+  state: DeskProductState,
+  operationId: string,
+): DeskTransition {
+  return state.operations.has(operationId)
+    ? open(closeRoutes(state), { kind: "progress", operationId })
+    : UNCHANGED(state);
+}
+
+/** The operation the open progress sheet shows. */
+function shownOperation(state: DeskProductState): DeskOperation | undefined {
+  const layer = state.layers.find((candidate) => candidate.kind === "progress");
+  return layer?.kind === "progress"
+    ? state.operations.get(layer.operationId)
+    : undefined;
+}
 
 /** The key map layer the selection puts the inbox in. */
 function keyLayer(state: DeskProductState, ui: DeskUi): DeskKeyLayer {
@@ -233,8 +267,11 @@ function nextIntent(
   } else if (ref.kind === "landed") {
     transition = commandIntent(state, "landed_proof", id);
   } else {
+    const running = taskOperation(state, id);
     const next = ref.row.decision.next;
-    transition = next === undefined
+    transition = running !== undefined
+      ? showProgress(state, running.id)
+      : next === undefined
       ? open(state, { kind: "actions", rowId: id })
       : actionIntent(state, next.action, id);
   }
@@ -345,9 +382,17 @@ function commandIntent(
         mouse: preferences.mouse !== true,
       }));
     case "quit":
-      return { state, effects: [{ kind: "exit" }] };
+      // Leaving stops what runs beside the screen, so it asks first.
+      return state.operations.size > 0
+        ? open(closeRoutes(state), { kind: "quit" })
+        : { state, effects: [{ kind: "exit" }] };
+    case "progress": {
+      const running = ref === undefined ? undefined : taskOperation(state, ref);
+      return running === undefined
+        ? UNCHANGED(state)
+        : showProgress(state, running.id);
+    }
     default:
-      // Show progress belongs to work the Desk runs in session.
       return UNCHANGED(state);
   }
 }
@@ -487,16 +532,91 @@ function scriptStep(
 }
 
 /**
+ * Start one confirmed effect beside the screen: its progress sheet replaces
+ * the review, and its row shows it running. A task runs one operation at a
+ * time; a second waits for the first.
+ */
+function operate(
+  state: DeskProductState,
+  step: DeskFlowStep,
+  read: DeskReview,
+  challenge: string | undefined,
+  time: DeskInputTime,
+): DeskTransition {
+  const taskId = step.kind === "action" ? step.taskId : undefined;
+  const title = read.confirm?.kind === "apply" ? read.confirm.running : "";
+  const busy = taskId === undefined ? undefined : taskOperation(state, taskId);
+  if (busy !== undefined) {
+    return UNCHANGED(
+      toast(
+        state,
+        "warning",
+        `${busy.title} is still running; this can start once it ends`,
+      ),
+    );
+  }
+  const serial = state.serial + 1;
+  const operation: DeskOperation = {
+    id: `operation-${serial}`,
+    step,
+    review: read,
+    ...(challenge === undefined ? {} : { challenge }),
+    ...(taskId === undefined ? {} : { taskId }),
+    verb: commandVerb(read.disclosures.command),
+    title,
+    command: read.disclosures.command,
+    ...(read.disclosures.plan === undefined
+      ? {}
+      : { plan: read.disclosures.plan }),
+    startedAt: time.now,
+    progress: operationProgress(
+      read.disclosures.plan,
+      state.trunk,
+      time.clock,
+      read.follows ?? [],
+    ),
+    output: "",
+  };
+  const operations = new Map(state.operations);
+  operations.set(operation.id, operation);
+  const shown = open(withRows({ ...state, serial, operations }), {
+    kind: "progress",
+    operationId: operation.id,
+  });
+  return {
+    state: shown.state,
+    effects: [...shown.effects, { kind: "operate", operationId: operation.id }],
+  };
+}
+
+/** Stop the operation the open progress sheet shows, if it can stop now. */
+function stop(state: DeskProductState): DeskTransition {
+  const operation = shownOperation(state);
+  if (
+    operation === undefined || operation.stopping === true ||
+    !canStop(stopPolicy(operation.step), operation.progress)
+  ) return UNCHANGED(state);
+  const operations = new Map(state.operations);
+  operations.set(operation.id, { ...operation, stopping: true });
+  return {
+    state: { ...state, operations },
+    effects: [{ kind: "abort", operationId: operation.id }],
+  };
+}
+
+/**
  * A sheet's or form's confirm button. A review that asks a further question
- * opens it; otherwise the effect takes the terminal, bound to the review,
- * and the sheet or form closes with it. A form applies only the preview of
- * the values on screen, and only once nothing blocks it.
+ * opens it; otherwise the effect runs, bound to the review, and the sheet or
+ * form closes with it: beside the screen when it changes project state,
+ * with the terminal when it launches a child. A form applies only the
+ * preview of the values on screen, and only once nothing blocks it.
  */
 function confirm(
   state: DeskProductState,
   id: string,
   ui: DeskUi,
   openAgent: string | undefined,
+  time: DeskInputTime,
 ): DeskTransition {
   const layer = state.layers.find((candidate) => layerId(candidate) === id);
   if (layer?.kind !== "review" && layer?.kind !== "form") {
@@ -514,13 +634,17 @@ function confirm(
     return review(closeLayer(state, id), read.confirm.step);
   }
   const challenge = ui.fields[id]?.challenge;
+  const step = layer.kind === "form"
+    ? { ...layer.step, values: { ...layer.step.values, ...layer.values } }
+    : layer.step;
+  if (runsInSession(step, openAgent)) {
+    return operate(closeLayer(state, id), step, read, challenge, time);
+  }
   return {
     state: closeLayer(state, id),
     effects: [{
       kind: "apply",
-      step: layer.kind === "form"
-        ? { ...layer.step, values: { ...layer.step.values, ...layer.values } }
-        : layer.step,
+      step,
       review: read,
       ...(challenge === undefined ? {} : { challenge }),
       ...(openAgent === undefined ? {} : { open: openAgent }),
@@ -534,6 +658,7 @@ function alternative(
   id: string,
   button: string,
   ui: DeskUi,
+  time: DeskInputTime,
 ): DeskTransition {
   const layer = state.layers.find((candidate) => layerId(candidate) === id);
   const choices = layer?.kind === "review" && layer.load.state === "ready"
@@ -544,7 +669,7 @@ function alternative(
   const choice = choices.find((candidate) => candidate.id === button);
   return choice === undefined
     ? UNCHANGED(state)
-    : intentTransition(closeLayer(state, id), choice.intent, ui);
+    : intentTransition(closeLayer(state, id), choice.intent, ui, time);
 }
 
 /** Read a review again: the same step, from a fresh preview. */
@@ -560,6 +685,7 @@ export function intentTransition(
   state: DeskProductState,
   intent: DeskIntent,
   ui: DeskUi,
+  time: DeskInputTime,
 ): DeskTransition {
   switch (intent.kind) {
     case "key":
@@ -576,16 +702,32 @@ export function intentTransition(
         effects: [{ kind: "select", id: intent.id }],
       };
     case "confirm":
-      return confirm(state, intent.layer, ui, intent.open);
+      return confirm(state, intent.layer, ui, intent.open, time);
     case "review-again":
       return reviewAgain(state, intent.layer);
     case "alternative":
-      return alternative(state, intent.layer, intent.id, ui);
+      return alternative(state, intent.layer, intent.id, ui, time);
     case "launch":
       return launch(state, intent.taskId, intent.launch);
     case "script":
       return chooseScript(state, intent.name);
     case "child":
       return { state, effects: [{ kind: "child", child: intent.child }] };
+    case "progress":
+      return showProgress(state, intent.operationId);
+    case "stop":
+      return stop(state);
+    case "output": {
+      const operation = shownOperation(state);
+      return operation === undefined ? UNCHANGED(state) : open(state, {
+        kind: "reader",
+        reader: { kind: "output", operationId: operation.id },
+      });
+    }
+    case "quit-anyway":
+      return {
+        state: closeLayer(state, "quit"),
+        effects: [{ kind: "exit" }],
+      };
   }
 }

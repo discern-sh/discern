@@ -4,12 +4,16 @@
  * list identities map back to the rows and branches they stand for.
  */
 
-import type { StatusData } from "../../shared/result_schemas.ts";
+import type {
+  StatusData,
+  StatusFleetEntry,
+} from "../../shared/result_schemas.ts";
 import type {
   DeskDeparture,
   DeskEffect,
   DeskLayer,
   DeskMessage,
+  DeskOperation,
   DeskProductState,
   DeskTransition,
 } from "./desk_state.ts";
@@ -19,9 +23,15 @@ import {
   type DeskResultSheet,
   type DeskReviewAlternative,
 } from "./flow_types.ts";
-import { DESK_ACTIONS } from "./model.ts";
 import { DESK_COMMANDS } from "./commands.ts";
-import { type DeskRow, deskRowId } from "./model.ts";
+import {
+  buildDeskRows,
+  DESK_ACTIONS,
+  deskObservation,
+  type DeskRow,
+  deskRowId,
+  withDeskCapabilities,
+} from "./model.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { compareTaskTitles } from "../status/fleet_rows.ts";
 
@@ -71,7 +81,9 @@ export function layerId(layer: DeskLayer): string {
     case "form":
       return `form-${stepName(layer.step)}`;
     case "result":
-      return "result";
+    case "progress":
+    case "quit":
+      return layer.kind;
   }
 }
 
@@ -208,6 +220,91 @@ export function updateLayer(
   };
 }
 
+/**
+ * A fleet entry as this Desk knows it: an operation the Desk runs there
+ * shows as running, counted from when it started, until a survey reports
+ * the run itself.
+ */
+function withOperation(
+  entry: StatusFleetEntry,
+  operations: ReadonlyMap<string, DeskOperation>,
+  observedAt: number,
+): StatusFleetEntry {
+  if (entry.running !== undefined) return entry;
+  const id = deskRowId({ entry });
+  const operation = [...operations.values()].find((candidate) =>
+    candidate.taskId === id
+  );
+  return operation === undefined ? entry : {
+    ...entry,
+    running: {
+      verb: operation.verb,
+      started: new Date(operation.startedAt).toISOString(),
+      elapsed_ms: Math.max(0, observedAt - operation.startedAt),
+    },
+  };
+}
+
+/** Rows for one observation, with the capabilities read so far. */
+export function observedRows(
+  state: DeskProductState,
+  data: StatusData,
+  exceptionArgvs: ReadonlyMap<string, readonly string[]>,
+  now: number,
+): DeskRow[] {
+  const rows = buildDeskRows(
+    (data.fleet ?? []).map((entry) =>
+      withOperation(entry, state.operations, now)
+    ),
+    new Map(),
+    new Map(),
+    deskObservation(data, { trunk: state.trunk, nowMs: now, exceptionArgvs }),
+  );
+  return rows.map((row) => {
+    const capabilities = state.capabilities.get(deskRowId(row));
+    return capabilities === undefined
+      ? row
+      : withDeskCapabilities(row, capabilities, now);
+  });
+}
+
+/** Rebuild the rows from the adopted observation, as operations changed. */
+export function withRows(state: DeskProductState): DeskProductState {
+  if (state.data === undefined) return state;
+  return {
+    ...state,
+    rows: observedRows(
+      state,
+      state.data,
+      state.exceptionArgvs,
+      state.survey.observedAt ?? 0,
+    ),
+  };
+}
+
+/**
+ * The Desk as an operation's own effect reads it: without that operation
+ * showing as running on its row, since the effect is that run.
+ */
+export function withoutOperation(
+  state: DeskProductState,
+  operationId: string,
+): DeskProductState {
+  const operations = new Map(state.operations);
+  operations.delete(operationId);
+  return withRows({ ...state, operations });
+}
+
+/** The operation running for a task, if this Desk runs one there. */
+export function taskOperation(
+  state: DeskProductState,
+  taskId: string,
+): DeskOperation | undefined {
+  return [...state.operations.values()].find((operation) =>
+    operation.taskId === taskId
+  );
+}
+
 /** Start a survey now, or queue exactly one follow-up while one runs. */
 export function refresh(state: DeskProductState): DeskTransition {
   if (state.survey.inFlight) {
@@ -231,7 +328,7 @@ export function toast(
   state: DeskProductState,
   tone: DeskMessage["tone"],
   text: string,
-  extra: Pick<DeskMessage, "mark" | "key" | "tip"> = {},
+  extra: Pick<DeskMessage, "mark" | "key" | "tip" | "taskId"> = {},
 ): DeskProductState {
   const serial = state.serial + 1;
   return {
