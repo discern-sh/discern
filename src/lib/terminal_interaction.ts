@@ -271,9 +271,10 @@ export interface MarkdownBrowserRequestOptions<Action> {
   readonly initialState?: MarkdownBrowserResumeState;
   readonly documentMeasure?: number;
   readonly mouse?: boolean;
+  /** Answers at once: the browser resolves a followed link before it repaints. */
   readonly resolveLink?: (
     input: MarkdownBrowserLinkResolverInput,
-  ) => MaybePromise<MarkdownBrowserLinkResolution>;
+  ) => MarkdownBrowserLinkResolution;
 }
 
 /** Product result after the complete-frame terminal has been restored. */
@@ -879,11 +880,11 @@ function packageMarkdownBrowserResolution<Action>(
 }
 
 /** Adapt package link facts into the product's stable corpus identities. */
-async function resolveMarkdownBrowserLink<Action>(
+function resolveMarkdownBrowserLink<Action>(
   input: PackageMarkdownBrowserLinkResolverInput,
   entries: AdaptedMarkdownBrowserEntries<Action>,
   resolver: NonNullable<MarkdownBrowserRequestOptions<Action>["resolveLink"]>,
-): Promise<PackageMarkdownBrowserLinkResolution> {
+): PackageMarkdownBrowserLinkResolution {
   const sourceDocumentId = entries.productIdForPackageId(
     input.sourceDocumentId,
   );
@@ -905,7 +906,7 @@ async function resolveMarkdownBrowserLink<Action>(
       path: document.path,
     };
   });
-  const resolution = await resolver({
+  const resolution = resolver({
     sourceDocumentId,
     sourcePath: input.sourcePath,
     destination: input.destination,

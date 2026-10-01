@@ -11,6 +11,7 @@
 import { assert, assertEquals } from "@std/assert";
 import {
   DEFAULT_APPLICATION_SETTLE_MS,
+  TERMINAL_LONE_ESCAPE_DELAY_MS,
   type TerminalApplicationContext,
   type TerminalApplicationState,
   type TerminalKeyName,
@@ -407,7 +408,8 @@ export interface DeskSession {
   choose(itemId: string): Promise<void>;
   /** Search the palette and run the item the query highlights. */
   palette(query: string, itemId: string): Promise<void>;
-  /** Escape, which lands after its continuation window: wait for its effect. */
+  /** Escape, which lands once its continuation window passes on the
+   * session clock: advance past it and wait for its effect. */
   escape(effect: () => boolean, describe: string): Promise<void>;
   /** Wait for a condition the Desk reaches on its own. */
   until(condition: () => boolean, describe: string): Promise<void>;
@@ -594,9 +596,11 @@ export async function deskSession(
       await press("enter");
     },
     escape: async (effect, describe) => {
-      // TODO(R-2): the package times the lone-Escape window on the process
-      // clock, so Escape lands in wall time; wait for its effect.
       io.enqueueKeys("escape");
+      // The reader holds a lone Escape for its continuation window, timed on
+      // the session clock once it has taken the byte.
+      await until(() => io.idle(), "the Desk to read Escape");
+      clock.advance(TERMINAL_LONE_ESCAPE_DELAY_MS);
       await until(effect, describe);
     },
     until,
