@@ -14,8 +14,10 @@ import { captureTerminalFrame } from "discern-design-system/cli/interactive/test
 import { withRealPtyBoundary } from "../tests/real_pty.ts";
 import {
   deskAtRest as atRest,
+  type DeskFleetFixture,
   deskFleetFixture,
   type DeskFrameTest,
+  deskLandingAuthority,
   deskLayerOpen as layer,
   deskSettledPhase,
   type DeskTtyInputChunk,
@@ -117,35 +119,49 @@ async function capture(
   for (const state of states) {
     const raw = result.keyframes[state];
     assert(raw !== undefined, `lost the declared ${state} frame`);
-    const frame = captureTerminalFrame(raw, geometry, { theme });
     const id = `${state}-${geometry.columns}x${geometry.rows}${
       plain ? "-ascii" : theme === "light" ? "-light" : ""
     }`;
-    // An inline block keeps the screenshot to the terminal's own width.
-    await Deno.writeTextFile(
-      join(target.directory, `${id}.html`),
-      `<!doctype html><meta charset="utf-8"><title>${id}</title><style>pre{display:inline-block}</style>${frame.html}`,
-    );
-    await Deno.writeTextFile(
-      join(target.directory, `${id}.json`),
-      `${
-        JSON.stringify(
-          {
-            geometry,
-            state: frame.state,
-            title: frame.title,
-            text: frame.text,
-            inspection: frame.geometry,
-          },
-          null,
-          2,
-        )
-      }\n`,
-    );
-    artifacts.push(`${id}.html`);
-    console.log(join(target.directory, `${id}.html`));
+    artifacts.push(await writeFrame(target, id, raw, geometry, theme));
   }
   return artifacts;
+}
+
+/**
+ * Write one captured viewport as its gallery page and its projected facts,
+ * on a terminal of the named theme, and return the page's file name.
+ */
+async function writeFrame(
+  target: DeskGalleryTarget,
+  id: string,
+  raw: string,
+  geometry: PtyGeometry,
+  theme: "light" | "dark",
+): Promise<string> {
+  const frame = captureTerminalFrame(raw, geometry, { theme });
+  // An inline block keeps the screenshot to the terminal's own width.
+  await Deno.writeTextFile(
+    join(target.directory, `${id}.html`),
+    `<!doctype html><meta charset="utf-8"><title>${id}</title><style>pre{display:inline-block}</style>${frame.html}`,
+  );
+  await Deno.writeTextFile(
+    join(target.directory, `${id}.json`),
+    `${
+      JSON.stringify(
+        {
+          geometry,
+          state: frame.state,
+          title: frame.title,
+          text: frame.text,
+          inspection: frame.geometry,
+        },
+        null,
+        2,
+      )
+    }\n`,
+  );
+  console.log(join(target.directory, `${id}.html`));
+  return `${id}.html`;
 }
 
 const MANUAL = "manual-concision-a1b2c3";
@@ -364,16 +380,15 @@ async function landingFailedJourney(
     ) await desk.press("page-down");
     await desk.confirm();
     await desk.opened("result");
-    const frame = captureTerminalFrame(desk.io.output(), desk.io.size(), {
-      theme: "dark",
-    });
-    const id = `landing-failed-${STANDARD.columns}x${STANDARD.rows}`;
-    await Deno.writeTextFile(
-      join(target.directory, `${id}.html`),
-      `<!doctype html><meta charset="utf-8"><title>${id}</title><style>pre{display:inline-block}</style>${frame.html}`,
-    );
-    console.log(join(target.directory, `${id}.html`));
-    return [`${id}.html`];
+    return [
+      await writeFrame(
+        target,
+        `landing-failed-${STANDARD.columns}x${STANDARD.rows}`,
+        desk.io.output(),
+        desk.io.size(),
+        "dark",
+      ),
+    ];
   } finally {
     await desk.quit();
   }
@@ -617,6 +632,159 @@ const FLEET_JOURNEYS: Readonly<Record<string, Journey>> = {
     capture(project, target, WIDE, parkedJourney(WIDE), { light: true }),
 };
 
+/**
+ * The brief's fleet with Manual concision proven and queued beside Search
+ * index, both pre-authorized, and a repository ensure step that builds the
+ * site after each landing. With its agent files committed, as a set-up
+ * project keeps them, the queue walk's integration checkout starts clean
+ * and Search index lands too; without, the walk refuses it.
+ */
+function landingFleet(committedAgentFiles: boolean): DeskFleetFixture {
+  const fleet = briefFleet();
+  return {
+    ...fleet,
+    entries: fleet.entries.map((entry) =>
+      entry.name === MANUAL
+        ? {
+          ...entry,
+          queued: true,
+          landingAuthority: deskLandingAuthority("effort-grant"),
+        }
+        : entry
+    ),
+    repositoryEnsure: [BUILD_SITE],
+    committedAgentFiles,
+  };
+}
+
+/** The ensure step the landing fleet runs, as the progress shows it. */
+const BUILD_SITE = "build-site";
+
+/**
+ * What `build-site` does: inside the gallery's Desk it builds until the
+ * gallery has its progress frame; anywhere else it has nothing to do.
+ */
+const BUILD_SITE_SCRIPT = [
+  "#!/bin/sh",
+  '[ -n "$DESK_GALLERY_SIGNALS" ] || exit 0',
+  'echo "Building the site"',
+  'while [ ! -e "$DESK_GALLERY_SIGNALS/built" ]; do sleep 0.05; done',
+  'echo "Built the site"',
+  "",
+].join("\n");
+
+/**
+ * Land Manual concision for real, on the landing fleet: from the inbox,
+ * through its review, to its progress while the site builds, which the
+ * gallery keeps under `progress` when named, then let the build finish and
+ * hand the session to `after`.
+ */
+async function landManual(
+  target: DeskGalleryTarget,
+  committedAgentFiles: boolean,
+  progress: string | undefined,
+  after: readonly DeskTtyInputPhase[],
+): Promise<string[]> {
+  return await withDeskTtyProject(
+    landingFleet(committedAgentFiles),
+    async (project) => {
+      const bin = join(project.parent, "gallery-bin");
+      const signals = join(project.parent, "gallery-signals");
+      await Deno.mkdir(bin, { recursive: true });
+      await Deno.mkdir(signals, { recursive: true });
+      await Deno.writeTextFile(join(bin, BUILD_SITE), BUILD_SITE_SCRIPT, {
+        mode: 0o755,
+      });
+      const size = STANDARD;
+      return await capture(project, target, size, [
+        phase(size, undefined, "inbox at rest", atRest(), text("4")),
+        phase(size, undefined, "approved to land", atRest(MANUAL), text("l")),
+        phase(size, undefined, "land review read", reviewRead(LAND), {
+          keys: ["page-down", "page-down", "page-down"],
+        }),
+        phase(
+          size,
+          undefined,
+          "land review on its safe choice",
+          (capture) =>
+            reviewRead(LAND)(capture) &&
+            capture.state?.focusedControlId === `${LAND}:button:safe`,
+          keys("right"),
+        ),
+        phase(
+          size,
+          undefined,
+          "land review on its confirm",
+          (capture) =>
+            capture.state?.focusedControlId === `${LAND}:button:confirm`,
+          keys("enter"),
+        ),
+        phase(
+          size,
+          progress,
+          "the landing building the site",
+          (capture) =>
+            layer("progress")(capture) &&
+            new RegExp(`${BUILD_SITE}\\s+[3-9]s`, "u").test(capture.text),
+          {
+            effect: async () =>
+              await Deno.writeTextFile(join(signals, "built"), ""),
+          },
+        ),
+        ...after,
+      ], {
+        env: {
+          PATH: `${bin}:/usr/bin:/bin:/usr/sbin:/sbin`,
+          DESK_GALLERY_SIGNALS: signals,
+        },
+      });
+    },
+  );
+}
+
+/**
+ * A real landing beside the screen: its progress while the site builds,
+ * with Search index waiting under Then, and the message it leaves once
+ * both have landed.
+ */
+async function landingJourney(target: DeskGalleryTarget): Promise<string[]> {
+  return await landManual(target, true, "landing-progress", [
+    phase(
+      STANDARD,
+      "toast",
+      "the landing's message",
+      // Once a survey after both landings reads: no row is landing.
+      (capture) =>
+        capture.state?.topLayerId === undefined &&
+        capture.text.includes("Landed") &&
+        !capture.text.includes("Landing") &&
+        capture.state?.selectedItemId !== MANUAL,
+      text("q"),
+    ),
+  ]);
+}
+
+/**
+ * A real landing whose queue walk refuses the next task: Manual concision
+ * lands, Search index does not, and the result sheet says both.
+ */
+async function partialLandingJourney(
+  target: DeskGalleryTarget,
+): Promise<string[]> {
+  return await landManual(target, false, undefined, [
+    phase(
+      STANDARD,
+      "landing-partial",
+      "the partial landing's result",
+      // Once the survey after the landing reads: no row is landing.
+      (capture) =>
+        layer("result")(capture) && capture.text.includes("didn't") &&
+        !capture.text.includes("Landing"),
+      keys("ctrl-c"),
+    ),
+  ]);
+}
+
 /** The empty fleet: no tasks, three parked branches. */
 async function emptyJourney(target: DeskGalleryTarget): Promise<string[]> {
   return await withDeskTtyProject(
@@ -663,6 +831,10 @@ async function main(): Promise<void> {
       });
     }
     if (runs("empty")) artifacts.push(...await emptyJourney(target));
+    if (runs("landing")) artifacts.push(...await landingJourney(target));
+    if (runs("landing-partial")) {
+      artifacts.push(...await partialLandingJourney(target));
+    }
   });
   await Deno.writeTextFile(
     join(target.directory, "index.html"),

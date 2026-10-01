@@ -71,6 +71,7 @@ import {
   gitInit,
   gitOut,
   repoSourceRunArgs,
+  runAgent,
   scaffoldEngine,
 } from "../engine_helpers.ts";
 import { Logger } from "../../src/lib/log.ts";
@@ -224,6 +225,12 @@ export interface DeskFleetFixture {
    * branches, so every checkout and every landing runs them.
    */
   readonly repositoryEnsure: readonly string[];
+  /**
+   * Refresh and commit the agent files on main before any task branches, as
+   * a real project keeps them, so a landing's integration checkout starts
+   * clean.
+   */
+  readonly committedAgentFiles: boolean;
 }
 
 /** Build current, structured Proof evidence without paying for a fixture gate. */
@@ -381,6 +388,7 @@ export function deskFleetFixture(
     readonly collisions?: readonly DeskCollisionFixture[];
     readonly orphanBranches?: readonly DeskOrphanBranchFixture[];
     readonly repositoryEnsure?: readonly string[];
+    readonly committedAgentFiles?: boolean;
   } = {},
 ): DeskFleetFixture {
   return {
@@ -388,6 +396,7 @@ export function deskFleetFixture(
     collisions: [...(options.collisions ?? [])],
     orphanBranches: [...(options.orphanBranches ?? [])],
     repositoryEnsure: [...(options.repositoryEnsure ?? [])],
+    committedAgentFiles: options.committedAgentFiles ?? false,
   };
 }
 
@@ -436,6 +445,7 @@ async function materialiseDeskProject(
     await setRepositoryEnsure(root, fixture.repositoryEnsure);
   }
   await gitInit(root);
+  if (fixture.committedAgentFiles) await commitAgentFiles(root);
   const nowMs = SYSTEM_CLOCK.wallNow();
   const activeAt = (entry: DeskFleetEntryFixture): string | undefined =>
     entry.idleMs === undefined
@@ -609,6 +619,15 @@ async function materialiseDeskProject(
     worktrees,
     env: allAgentsMissing ? { PATH: SAFE_SYSTEM_PATH } : {},
   };
+}
+
+/** Refresh the agent files and commit them, as a set-up project has them. */
+async function commitAgentFiles(root: string): Promise<void> {
+  const refreshed = await runAgent(root, ["refresh", "--json"]);
+  if (refreshed.code !== 0) {
+    throw new Error(`could not refresh Desk fixture agent files:\n${refreshed.output}`);
+  }
+  await commitFixture(root, "Commit the agent files");
 }
 
 /** Set the repository's ensure commands through the canonical config writer. */

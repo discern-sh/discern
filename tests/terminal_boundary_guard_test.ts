@@ -1688,9 +1688,17 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     file: "scripts/desk_capture.ts",
     rule: "direct-theme-threading",
     authority: "capture",
-    count: 2,
+    count: 1,
     reason:
-      "The production review fixture selects matching child theme flags and package HTML appearance for its named-state evidence.",
+      "The production review fixture selects the child Desk's theme flag for its named-state evidence.",
+  },
+  {
+    file: "scripts/desk_capture.ts",
+    rule: "direct-theme-threading",
+    authority: "writeFrame",
+    count: 1,
+    reason:
+      "The review gallery projects each frame's HTML artifact on the theme its Desk ran under.",
   },
   {
     file: "scripts/terminal_capture.ts",
