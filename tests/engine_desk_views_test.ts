@@ -13,6 +13,7 @@ import {
 import { proofLineBlock } from "../src/engine/desk/inspector_view.ts";
 import { testTerminalCapabilities } from "discern-design-system/cli/interactive/testing";
 import {
+  DESK_OFFLINE_FAILURES,
   type DeskIntent,
   type DeskLayer,
   deskProduct,
@@ -23,7 +24,11 @@ import {
   open,
   parkedRowId,
 } from "../src/engine/desk/desk_transitions.ts";
-import { deskKeymap, deskView } from "../src/engine/desk/inbox_view.ts";
+import {
+  deskKeymap,
+  deskView,
+  meterCells,
+} from "../src/engine/desk/inbox_view.ts";
 import { UNSHOWABLE_LAYER_TITLE } from "../src/engine/desk/layer_view.ts";
 import {
   deskChips,
@@ -274,6 +279,38 @@ Deno.test("a stopped setup reads Error only for a recorded failure", () => {
     }),
     '"Error"',
   );
+});
+
+Deno.test("a running row's meter fills only once its usual time has passed, and dims when frozen", () => {
+  assertEquals(meterCells(179_000, 180_000), 3);
+  assertEquals(meterCells(180_000, 180_000), 4);
+  assertEquals(meterCells(900_000, 180_000), 4);
+  const running = statusData([
+    mainFleetEntry(),
+    task({
+      running: {
+        verb: "done",
+        started: "2026-07-11T11:57:00Z",
+        elapsed_ms: 170_000,
+        typical_duration_ms: 180_000,
+      },
+    }),
+  ]);
+  const meterTones = (state: DeskProductState): string[] => {
+    const view = deskView(state, PRODUCT_UI, ENV);
+    assert(view.body.kind === "master-detail");
+    const item = view.body.list.groups.flatMap((group) => group.items)
+      .find((candidate) => candidate.id === "task");
+    return (item?.cells?.label ?? []).filter((run) => run.ascii === "")
+      .flatMap((run) => run.tone === undefined ? [] : [run.tone]);
+  };
+  const live = desk(running);
+  assertEquals(meterTones(live), ["accent", "faint"]);
+  const offline = {
+    ...live,
+    survey: { ...live.survey, failures: DESK_OFFLINE_FAILURES },
+  };
+  assert(!meterTones(offline).includes("accent"), "a frozen meter is faint");
 });
 
 Deno.test("every row state's inspector and strip render in status's words", () => {

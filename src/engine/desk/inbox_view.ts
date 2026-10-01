@@ -133,6 +133,11 @@ export function needYouCount(state: DeskProductState): number {
   ).length;
 }
 
+/** Cells a four-cell meter fills for `elapsed` of a `typical` run. */
+export function meterCells(elapsed: number, typical: number): number {
+  return Math.min(4, Math.floor((elapsed / typical) * 4));
+}
+
 /** The label cell: the state's word, then its behind count or running meter. */
 function labelCell(
   row: DeskRow,
@@ -159,13 +164,15 @@ function labelCell(
       : { observedAt: state.survey.observedAt }),
   });
   if (typical !== undefined && typical > 0 && elapsed !== undefined) {
-    const filled = Math.min(4, Math.round((elapsed / typical) * 4));
+    // Full only once the usual time has passed; faint once surveys stop
+    // and the time it shows is frozen.
+    const filled = meterCells(elapsed, typical);
     runs.push(
       { text: " " },
       {
         text: DESK_GLYPHS.meterFill.unicode.repeat(filled),
         ascii: "",
-        tone: "accent",
+        tone: frozen(state) ? "faint" : "accent",
       },
       {
         text: DESK_GLYPHS.meterTrack.unicode.repeat(4 - filled),
