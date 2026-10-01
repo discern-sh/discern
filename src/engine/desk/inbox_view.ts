@@ -93,6 +93,12 @@ const BUSY_AFTER_MS = 1_500;
 /** The group shown in title order when the owner sorts by title. */
 const TITLE_GROUP = { id: "tasks", title: "Tasks" } as const;
 
+/** What a branch group holds, said beside its fold in the empty state. */
+const BRANCH_GROUP_GLOSS: Readonly<Record<string, string>> = {
+  parked: "branches without a checkout",
+  landed: "landed recently",
+};
+
 /** Short group names for the summary row on short terminals. */
 const SHORT_TITLES: Partial<Record<FleetRowGroup, string>> = {
   review: "Review",
@@ -533,11 +539,15 @@ function footer(
   shown: TerminalApplicationView<DeskIntent>["body"],
 ): TerminalApplicationView<DeskIntent>["footer"] {
   const ref = rowRef(state, ui.selected);
-  const left = rowHints(state, ui);
+  const left = ref === undefined && shown.kind === "empty"
+    ? emptyHints(shown)
+    : rowHints(state, ui);
   // Enter already names Actions when the row has nothing else to run.
   const actions = (ref?.kind === "task" || ref?.kind === "parked") &&
     left[0]?.label !== gestureLabel(".");
   const filterable = shown.kind !== "empty" || shown.list !== undefined;
+  // Nor does New task need its key while Enter already says it.
+  const creates = left[0]?.label === DESK_COMMAND_LABELS.new_task;
   return {
     left,
     right: [
@@ -547,10 +557,26 @@ function footer(
     extra: [
       { key: "?", label: DESK_COMMAND_REGISTRY.keys.short },
       ...(filterable ? [{ key: "/", label: gestureLabel("/") }] : []),
-      { key: "n", label: DESK_COMMAND_LABELS.new_task },
+      ...(creates ? [] : [{ key: "n", label: DESK_COMMAND_LABELS.new_task }]),
       { key: "q", label: DESK_COMMAND_LABELS.quit },
     ],
   };
+}
+
+/**
+ * The empty state's own hints: what Enter does, and Down to the branch
+ * groups listed beneath it, by the first one's name.
+ */
+function emptyHints(
+  shown: Extract<TerminalApplicationView<DeskIntent>["body"], {
+    readonly kind: "empty";
+  }>,
+): KeyHint[] {
+  const below = shown.list?.groups.find((group) => group.items.length > 0);
+  return [
+    { key: shown.primary.key, label: shown.primary.label },
+    ...(below === undefined ? [] : [{ key: "down", label: below.title }]),
+  ];
 }
 
 /** The keys zoom gives its own meanings, which no row hint may claim there. */
@@ -710,7 +736,24 @@ function body(
         action: { kind: "command", command: "new_task" },
       },
       secondary: [{ key: "ctrl-k", label: gestureLabel("ctrl-k") }],
-      ...(hasBranches ? { list: { ...list, groups: branches } } : {}),
+      ...(hasBranches
+        ? {
+          list: {
+            ...list,
+            // With no task to compare against, a branch group says what it
+            // holds beside its fold.
+            groups: branches.map((group) => {
+              const gloss = BRANCH_GROUP_GLOSS[group.id];
+              return gloss === undefined || group.aside !== undefined
+                ? group
+                : {
+                  ...group,
+                  aside: [{ text: gloss, tone: "faint" as const }],
+                };
+            }),
+          },
+        }
+        : {}),
     };
   }
   if (state.preferences.details === "hidden" || state.data === undefined) {

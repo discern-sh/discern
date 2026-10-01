@@ -673,6 +673,29 @@ Deno.test("branch and landing rows render their own inspectors", () => {
     group.items.map((item) => item.title)
   );
   assertEquals(titles.includes("Spike cache"), true, said(titles));
+  // Enter's New task leads the footer, Down reaches the kept branches, and
+  // no other hint repeats New task.
+  assertEquals(view.footer.left.map((hint) => [hint.key, hint.label]), [
+    ["enter", "New task…"],
+    ["down", "Parked"],
+  ]);
+  assertEquals(
+    [...view.footer.right ?? [], ...view.footer.extra ?? []].filter((hint) =>
+      hint.label === "New task…"
+    ),
+    [],
+  );
+  assertEquals(
+    view.body.list.groups.find((group) => group.id === "parked")?.aside,
+    [{ text: "branches without a checkout", tone: "faint" }],
+  );
+  assertEquals(
+    validateTerminalApplicationView(view, {
+      keymap: deskKeymap(),
+      viKeys: true,
+    }),
+    [],
+  );
   const withTask = desk({
     ...data,
     fleet: [
