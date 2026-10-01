@@ -1,4 +1,5 @@
 /** Named production Desk frames, captured in real PTYs and projected by the package. */
+import { DESK_ACTION_LABELS } from "../src/shared/desk_vocabulary.ts";
 import { assert, assertEquals } from "@std/assert";
 import { resolve } from "@std/path";
 import { stripAnsi } from "discern-design-system/cli";
@@ -274,16 +275,17 @@ async function main(): Promise<void> {
             rows: 24,
           }, [
             phase("overview", ["Tasks (16)", "/ find"], "/Task 03\r\r"),
+            phase("controls", ["Task controls", "/ find"], "/more\r\r"),
             phase(
-              "controls",
-              ["Task controls", "/ find"],
-              "/proof and changes\r\r",
+              "more",
+              ["› More actions", "/ find"],
+              `/${DESK_ACTION_LABELS.inspect}\r\r`,
             ),
             phase("summary", [
               "No complete Proof is available.",
               "Tab choices/read  Esc back",
             ], encodeTerminalKeys("escape")),
-            phase("return", ["Task controls", "/ find"], "q"),
+            phase("return", ["More actions", "/ find"], "q"),
           ]),
         );
         for (
@@ -300,7 +302,7 @@ async function main(): Promise<void> {
               phase(
                 "controls",
                 ["Task controls", "/ find"],
-                "/proof and changes\r\r",
+                `/${DESK_ACTION_LABELS.inspect}\r\r`,
               ),
               phase(
                 "summary",

@@ -119,11 +119,11 @@ Your agent passes you the Proof line and stops. To land the change later, approv
 
 A **grant** is permission to land that you set up in advance, so routine changes land without asking you. Everything else still comes back to you. Permission can come from:
 
-| Source                | How you give it                                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **This conversation** | You say the change can land, and your agent records your yes.                                                                               |
-| **A standing grant**  | Your project's configuration pre-approves named areas, such as documentation.                                                               |
-| **A one-task grant**  | On the **desk**, the interactive view that opens when you run `discern` in your main checkout, choose **Pre-authorize landing once green**. |
+| Source                | How you give it                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **This conversation** | You say the change can land, and your agent records your yes.                                                             |
+| **A standing grant**  | Your project's configuration pre-approves named areas, such as documentation.                                             |
+| **A one-task grant**  | On the **desk**, the interactive view that opens when you run `discern` in your main checkout, choose **Pre-authorize…**. |
 
 At every landing, discern checks a standing grant against each file the change touches. Any file outside the granted areas, such as code in a documentation change, sends the change back to you. Your approval in conversation, or a one-task grant, covers every file.
 

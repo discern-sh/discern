@@ -1,6 +1,10 @@
 # ADR 0398: The Desk is a live human control panel
 
-**Status**: accepted on 2026-09-14. Supersedes the transactional presentation and deferred persistence assumptions in [ADR 0119](0119-bare-discern-opens-the-operators-desk.md), the urgency grouping and recommendation policy in [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md), and the exhaustive evidence boards and terminal-history assumptions in [ADR 0352](0352-desk-decisions-cross-a-pure-responsive-presentation-boundary.md). Their lifecycle, identity and consent contracts remain in force.
+> **Amendments.**
+>
+> - **[ADR 0413](0413-the-desk-offers-each-tasks-next-decision.md) — next decisions:** tasks list by status's decision group, then title; each task opens on its row state's next step from the action registry; the Desk names landing Land…. Package ownership, bounded observation, revalidation, retained session state and the independence of activity, Proof, landing authority and submission remain in force.
+
+**Status**: accepted on 2026-09-14; ordering, recommendation and the Accept name amended by [ADR 0413](0413-the-desk-offers-each-tasks-next-decision.md). Supersedes the transactional presentation and deferred persistence assumptions in [ADR 0119](0119-bare-discern-opens-the-operators-desk.md), the urgency grouping and recommendation policy in [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md), and the exhaustive evidence boards and terminal-history assumptions in [ADR 0352](0352-desk-decisions-cross-a-pure-responsive-presentation-boundary.md). Their lifecycle, identity and consent contracts remain in force.
 
 ## Context
 

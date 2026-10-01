@@ -1,11 +1,11 @@
 /**
  * The desk's pure decision model.
  *
- * `status` owns observation and row-status precedence. The desk consumes that
- * projection, adds only desk capabilities and pairwise collision evidence, and
- * returns everything a renderer needs to explain the state and offer actions.
- * Time and every observed fact are injected so the decision table remains
- * deterministic.
+ * `status` owns observation, row-status precedence, and the row-state
+ * vocabulary. The desk consumes that projection, adds only desk capabilities
+ * and pairwise collision evidence, and returns everything a renderer needs to
+ * explain the state and offer actions. Time and every observed fact are
+ * injected so the decision table remains deterministic.
  */
 
 import {
@@ -16,21 +16,42 @@ import type {
   GateProofCheckStatus,
   LandingAuthorityData,
   StatusAdrCollision,
+  StatusData,
   StatusFleetCollision,
   StatusFleetEntry,
+  SubmissionRowData,
 } from "../../shared/result_schemas.ts";
+import type { FleetRowGroup } from "../../shared/fleet_row_vocabulary.ts";
+import {
+  DESK_ACTION_LABELS,
+  DESK_ACTIONS,
+  type DeskAction,
+  labelName,
+} from "../../shared/desk_vocabulary.ts";
+import { commandEvidence } from "../../shared/command_evidence.ts";
+import { plural } from "../../shared/result_markdown_values.ts";
 import type { DetectedAgentBinary } from "../../lib/detect_agents.ts";
 import type { AgentName } from "../../lib/config.ts";
 import { providerFor } from "../../lib/providers.ts";
 import type { AgentCliPromptArgument } from "../../lib/providers.ts";
 import { compactDuration } from "../output.ts";
 import type { DeskProjectScript } from "../project_scripts.ts";
-import { presentFleetRow } from "../status/fleet_rows.ts";
-import { type FleetRowStatusKind, relativeAge } from "../status/row_facts.ts";
 import {
-  type UnreadableSubject,
-  unreadableSubject,
-} from "../status/recovery_presentation.ts";
+  compareTaskTitles,
+  presentFleetRow,
+  speaksForAnotherRow,
+} from "../status/fleet_rows.ts";
+import {
+  exceptionArgv,
+  exceptionArgvWith,
+  fleetRowProof,
+  type FleetRowStatusKind,
+  hasExceptionFacts,
+  positiveCount,
+  relativeAge,
+} from "../status/row_facts.ts";
+import { fleetRowGroupRank, type FleetRowTone } from "../status/row_states.ts";
+import type { FleetTaskRowStateId } from "../status/row_sentences.ts";
 import { taskLabel, type WorktreeTaskLabel } from "../worktree/task_label.ts";
 import {
   isPositiveGitCount,
@@ -38,14 +59,11 @@ import {
 } from "../../shared/git_count.ts";
 import {
   type DeskRecoveryFact,
-  dropConsequence,
   finalChecksAvailability,
   healthyActionAvailability,
   isUnhealthy,
   parkAvailability,
-  parkConsequence,
   reclaimAvailability,
-  reclaimConsequence,
   recoveryFact,
   retrySetupAvailability,
 } from "./recovery.ts";
@@ -53,37 +71,24 @@ export type { DeskRecoveryFact } from "./recovery.ts";
 import { gitDetails } from "./git_details.ts";
 
 export { taskLabel } from "../worktree/task_label.ts";
+export { DESK_ACTIONS, type DeskAction } from "../../shared/desk_vocabulary.ts";
 
-/** Supported Desk actions; the registry owns their contracts. */
-export const DESK_ACTIONS = [
-  "recovery",
-  "retry_setup",
-  "done",
-  "accept",
-  "submit",
-  "update",
-  "agent",
-  "follow_up",
-  "scripts",
-  "jump",
-  "inspect",
-  "rename",
-  "grant",
-  "revoke_grant",
-  "reclaim",
-  "park",
-  "drop",
-] as const;
-export type DeskAction = (typeof DESK_ACTIONS)[number];
-
-/** Product groups in their fixed presentation order. */
-export const DESK_ACTION_GROUPS = [
+/** Menu sections in their fixed presentation order. */
+export const DESK_ACTION_SECTIONS = [
   "work",
   "review",
   "manage",
   "danger",
 ] as const;
-export type DeskActionGroupId = (typeof DESK_ACTION_GROUPS)[number];
+export type DeskActionSection = (typeof DESK_ACTION_SECTIONS)[number];
+
+/** Section titles, as the action menu shows them. */
+export const DESK_ACTION_SECTION_TITLES = {
+  work: "Work",
+  review: "Review",
+  manage: "Manage",
+  danger: "Danger",
+} as const satisfies Record<DeskActionSection, string>;
 
 /** Confirmation behavior belongs to the action, not its dispatcher branch. */
 export type DeskConfirmationPolicy =
@@ -107,16 +112,107 @@ export interface DeskCommandEvidence {
   readonly workingDirectory: "task" | "main";
 }
 
-/** The consequence account every material action presents before it runs. */
-export interface DeskConsequence {
-  readonly keeps: readonly string[];
-  readonly changes: readonly string[];
-  readonly removes: readonly string[];
-  readonly recoverable: readonly string[];
+/** What a control does to the project when it runs. */
+export type DeskEffect =
+  /** Reads and shows; changes nothing. */
+  | "read"
+  /** Hands the terminal to a child that may change the checkout. */
+  | "launch"
+  /** Changes project, Git, or authority state through a lifecycle core. */
+  | "change";
+
+/** The marks a consequence line carries, from evidence to warnings. */
+export type DeskConsequenceMark =
+  | "evidence"
+  | "changes"
+  | "removes"
+  | "discards"
+  | "keeps"
+  | "recoverable"
+  | "warning";
+
+/**
+ * Observed facts a consequence line can depend on. A line with `when` shows
+ * only while its fact holds, so a review never claims an effect the task
+ * cannot have.
+ */
+export const DESK_CONSEQUENCE_FACTS = {
+  granted: (context: DeskActionContext): boolean => context.effortGranted,
+  "not-granted": (context: DeskActionContext): boolean =>
+    !context.effortGranted,
+  queued: (context: DeskActionContext): boolean => context.queued,
+  "proof-honored": (context: DeskActionContext): boolean =>
+    context.proofHonored,
+  "proof-recorded": (context: DeskActionContext): boolean =>
+    context.proofRecorded,
+  "metadata-recorded": (context: DeskActionContext): boolean =>
+    context.taskMetadataRecorded,
+  uncommitted: (context: DeskActionContext): boolean =>
+    (context.changedFiles ?? 0) > 0,
+  "uncommitted-unknown": (context: DeskActionContext): boolean =>
+    context.changedFiles === undefined,
+  "unlanded-commits": (context: DeskActionContext): boolean =>
+    typeof context.ahead === "number" && context.ahead > 0,
+  "unlanded-unknown": (context: DeskActionContext): boolean =>
+    context.ahead === UNKNOWN_GIT_COUNT,
+  resources: (context: DeskActionContext): boolean =>
+    (context.resources?.length ?? 0) > 0,
+  "resources-unreadable": (context: DeskActionContext): boolean =>
+    context.resources === undefined,
+} as const;
+export type DeskConsequenceFact = keyof typeof DESK_CONSEQUENCE_FACTS;
+
+/** One declared consequence: its mark, its words, and the fact it needs. */
+export interface DeskConsequenceItem {
+  readonly mark: DeskConsequenceMark;
+  readonly text: string | ((context: DeskActionContext) => string);
+  readonly when?: DeskConsequenceFact;
 }
 
-interface DeskActionLabelContext {
+/** One consequence line as a review shows it for the observed task. */
+export interface DeskConsequenceLine {
+  readonly mark: DeskConsequenceMark;
+  readonly text: string;
+}
+
+/**
+ * What a review captures as `expected` and the effect boundary compares
+ * before applying: a mismatch refuses the apply and asks for a fresh review.
+ */
+export type DeskBindingFact =
+  | "worktree-identity"
+  | "path"
+  | "branch"
+  | "branch-head"
+  | "trunk-head"
+  | "authority"
+  | "queue-walk"
+  | "plan"
+  | "challenge"
+  | "clean"
+  | "dirty-stamp"
+  | "grant-absent"
+  | "grant-record"
+  | "grant-and-queue"
+  | "contained-tip"
+  | "setup-step"
+  | "title"
+  | "script-path"
+  | "script-digest"
+  | "argv"
+  | "main-path"
+  | "base-commit"
+  | "base-head"
+  | "branch-name"
+  | "parked-record"
+  | "parked-head"
+  | "running-version";
+
+/** The observed task facts a label, summary, consequence, or command reads. */
+export interface DeskActionContext {
   readonly trunk: string;
+  /** The task's display title. */
+  readonly title: string;
   readonly branch: string;
   readonly path: string;
   readonly proofHonored: boolean;
@@ -124,32 +220,56 @@ interface DeskActionLabelContext {
   readonly taskMetadataRecorded: boolean;
   readonly effortGranted: boolean;
   readonly proofRecorded: boolean;
+  readonly queued: boolean;
+  /** Absent when the uncommitted file count is unknown. */
   readonly changedFiles?: number;
   readonly ahead?: number | "unknown";
+  readonly behind?: number | "unknown";
   /** Absent when the env files recording the handles cannot be read. */
   readonly resources?: readonly string[];
 }
 
+/** One registered task action's complete contract. */
 export interface DeskActionMetadata {
-  readonly group: DeskActionGroupId;
+  readonly section: DeskActionSection;
+  /** The one label; it ends with an ellipsis exactly when the action asks
+   * for a confirmation or more input before it runs. */
+  readonly label: string;
+  /** A shorter footer form, only where the label cannot fit. */
+  readonly short?: string;
+  /** The task-layer mnemonic; one Shift costs a destructive action. */
+  readonly key?: string;
+  /** Whether the action asks for values (a form or a title) before it runs. */
+  readonly parameters: boolean;
+  readonly effect: DeskEffect;
   /** Whether this action's real effect boundary remains valid while status
    * reports another operation in this task. Applied centrally to every action. */
   readonly availableWhileRunning: boolean;
-  readonly label: (context: DeskActionLabelContext) => string;
-  readonly command: (context: DeskActionLabelContext) => DeskCommandEvidence;
-  readonly consequence: (
-    context: DeskActionLabelContext,
-  ) => DeskConsequence;
+  /** Row states whose next step (Enter) this action is. */
+  readonly next: readonly FleetTaskRowStateId[];
+  /** Row states that offer this action beside their next step. */
+  readonly also: readonly FleetTaskRowStateId[];
+  /** One line for the menu detail and the next-step block. */
+  readonly summary: (context: DeskActionContext) => string;
+  /** The question a review of this action asks. */
+  readonly reviewTitle: (context: DeskActionContext) => string;
+  readonly command: (context: DeskActionContext) => DeskCommandEvidence;
+  readonly consequence: readonly DeskConsequenceItem[];
   readonly confirmation: DeskConfirmationPolicy;
+  /** What a review binds; empty only for actions that read. */
+  readonly binding: readonly DeskBindingFact[];
   readonly availability: (facts: DeskActionFacts) => string | undefined;
 }
 
 interface DeskActionOfferBase {
   readonly action: DeskAction;
-  readonly group: DeskActionGroupId;
+  readonly section: DeskActionSection;
+  readonly key?: string;
   readonly label: string;
+  readonly summary: string;
+  readonly reviewTitle: string;
   readonly command: DeskCommandEvidence;
-  readonly consequence: DeskConsequence;
+  readonly consequence: readonly DeskConsequenceLine[];
   readonly confirmation: DeskConfirmationPolicy;
 }
 
@@ -201,9 +321,9 @@ export type DeskDetailKind =
   | "git"
   | "proof"
   | "authority"
+  | "queue"
   | "collision"
-  | "containment"
-  | "next_condition";
+  | "containment";
 
 export interface DeskDetail {
   readonly kind: DeskDetailKind;
@@ -213,6 +333,7 @@ export interface DeskDetail {
 export interface DeskProofFact {
   readonly status: GateProofCheckStatus;
   readonly honored: boolean;
+  /** The recorded checks in human words: "Passed 20m ago", "None yet". */
   readonly summary: string;
   readonly detail?: string;
   /** Stored one-line Proof, present only when the survey reports it. */
@@ -227,12 +348,10 @@ export interface DeskActivityFact {
 }
 
 export interface DeskAuthorityFact {
-  readonly status: "granted" | "needs_approval" | "scope_limited" | "unknown";
+  readonly status: "granted" | "needs_approval";
   readonly source?: NonNullable<LandingAuthorityData["source"]>;
-  readonly summary: string;
-  readonly scopes: readonly string[];
-  readonly uncoveredPaths: readonly string[];
-  readonly warnings: readonly string[];
+  /** Landing authority in human words; absent when it cannot be known. */
+  readonly summary?: string;
 }
 
 export interface DeskChangedFileCollision {
@@ -253,9 +372,22 @@ export type DeskCollision = DeskChangedFileCollision | DeskAdrCollision;
 
 /** A complete decision; renderers need no raw status-field interpretation. */
 export interface DeskDecision {
-  /** The status projection that supplied this decision's base meaning. */
+  /** The status kind that supplied this decision's base meaning. */
   readonly statusKind: FleetRowStatusKind;
-  readonly headline: string;
+  /** Status's row state, and everything every surface shows for it. */
+  readonly state: FleetTaskRowStateId;
+  readonly group: FleetRowGroup;
+  /** The state's label, with the queue place when it has one. */
+  readonly label: string;
+  readonly glyph: string;
+  readonly ascii: string;
+  readonly tones: {
+    readonly glyph: FleetRowTone;
+    readonly label: FleetRowTone;
+  };
+  readonly qualifier?: string;
+  /** What is true and who moves next, without commands. */
+  readonly explanation: string;
   readonly details: readonly DeskDetail[];
   readonly activity: DeskActivityFact;
   readonly proof: DeskProofFact;
@@ -264,6 +396,33 @@ export interface DeskDecision {
   readonly recovery?: DeskRecoveryFact;
   /** Every canonical action, enabled or disabled, exactly once. */
   readonly actions: readonly DeskActionOffer[];
+  /** The state's next step (Enter), enabled or not. */
+  readonly next?: DeskActionOffer;
+  /** The state's other keyed steps that are available now, at most three. */
+  readonly also: readonly EnabledDeskAction[];
+}
+
+/** The observation facts a decision is built from, beyond its own row. */
+export interface DeskObservationContext {
+  readonly trunk: string;
+  readonly nowMs: number;
+  readonly fleetCollisions?: readonly StatusFleetCollision[];
+  readonly adrCollisions?: readonly StatusAdrCollision[];
+  /** The landing queue, so a queued task reads its place and authority. */
+  readonly queue?: readonly SubmissionRowData[];
+  /** The whole fleet, so a landing's integration copy speaks for its task. */
+  readonly fleet?: readonly StatusFleetEntry[];
+  readonly mainCheckout?: DeskMainCheckoutFacts;
+  /** Exact exception hand-off commands by branch (`deskExceptionArgvs`). */
+  readonly exceptionArgvs?: ReadonlyMap<string, readonly string[]>;
+}
+
+/** The main checkout's facts that decide whether a landing can start. */
+export interface DeskMainCheckoutFacts {
+  /** False when tracked changes would make a landing refuse. */
+  readonly clean?: boolean;
+  /** True when generated files on main are out of date. */
+  readonly pendingRefresh: boolean;
 }
 
 /** One selectable effort and its already-complete decision. */
@@ -274,6 +433,8 @@ export interface DeskRow {
   readonly scriptsUnavailableReason?: string;
   readonly agentLaunches: readonly DeskAgentLaunch[];
   readonly capabilityError?: string;
+  /** The observation this row's decision was built from. */
+  readonly observation: DeskObservationContext;
   readonly decision: DeskDecision;
 }
 
@@ -287,9 +448,9 @@ export type DeskCapabilities = Pick<
 export function withDeskCapabilities(
   row: DeskRow,
   inventory: DeskCapabilities,
-  trunk: string,
   nowMs: number,
 ): DeskRow {
+  const observation = { ...row.observation, nowMs };
   return {
     entry: row.entry,
     task: row.task,
@@ -301,30 +462,15 @@ export function withDeskCapabilities(
     ...(inventory.capabilityError === undefined ? {} : {
       capabilityError: inventory.capabilityError,
     }),
-    decision: {
-      ...row.decision,
-      actions: buildDeskDecision(row.entry, {
-        trunk,
-        nowMs,
-        ...inventory,
-      }).actions,
-    },
+    observation,
+    decision: buildDeskDecision(row.entry, {
+      ...observation,
+      agentLaunches: inventory.agentLaunches,
+      ...(inventory.capabilityError === undefined
+        ? {}
+        : { capabilityError: inventory.capabilityError }),
+    }),
   };
-}
-
-/** Share observed task facts with the one-shot worktree shell picker. */
-export function decisionSummary(decision: DeskDecision): string {
-  return [decision.headline, ...decision.details.map((detail) => detail.text)]
-    .join(" · ");
-}
-
-/** Render a counted noun with an optional irregular plural. */
-function plural(
-  count: number,
-  singular: string,
-  pluralForm = `${singular}s`,
-): string {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
 /** Render a recorded verb as the command a person recognizes. */
@@ -339,39 +485,6 @@ function activeAge(iso: string | undefined, nowMs: number): string {
   if (age === "just now") return "active now";
   if (age === "—") return "No activity recorded";
   return `Last activity ${age}`;
-}
-
-/** Project one complete Proof status into decision-owned factual copy. */
-function proofFact(
-  status: GateProofCheckStatus,
-  detail?: string,
-  line?: string,
-): DeskProofFact {
-  const summary = ((): string => {
-    switch (status) {
-      case "honored":
-        return "Proof honored for this commit";
-      case "report_only":
-        return "Proof is report-only";
-      case "missing":
-        return "No Proof is recorded";
-      case "stale":
-        return "Proof belongs to another commit";
-      case "dirty":
-        return "Proof does not cover uncommitted work";
-      case "unavailable":
-        return "Proof state is unavailable";
-      case "read_failed":
-        return "Proof could not be read";
-    }
-  })();
-  return {
-    status,
-    honored: status === "honored",
-    summary,
-    ...(detail === undefined ? {} : { detail }),
-    ...(line === undefined ? {} : { line }),
-  };
 }
 
 /** Project command activity once so detail views never reinterpret survey rows. */
@@ -419,59 +532,6 @@ function activityFact(
   };
 }
 
-/** Project survey-carried landing authority without inventing missing facts. */
-function authorityFact(
-  authority: LandingAuthorityData | undefined,
-): DeskAuthorityFact {
-  if (authority === undefined) {
-    return {
-      status: "unknown",
-      summary: "Landing authority was not reported",
-      scopes: [],
-      uncoveredPaths: [],
-      warnings: [],
-    };
-  }
-  const scopes = authority.scopes ?? authority.standing_scopes ?? [];
-  const uncoveredPaths = authority.uncovered?.map((item) => item.path) ?? [];
-  const warnings = authority.warnings ?? [];
-  if (authority.kind === "authorized") {
-    const summary = authority.source === "effort-grant"
-      ? "Current source approval recorded"
-      : authority.source === "standing-grant"
-      ? scopes.length === 0
-        ? "Standing landing grant recorded"
-        : `Standing landing grant covers ${scopes.join(", ")}`
-      : authority.source === "conversation"
-      ? "Conversation approval recorded"
-      : "Landing authority recorded";
-    return {
-      status: "granted",
-      ...(authority.source === undefined ? {} : { source: authority.source }),
-      summary,
-      scopes,
-      uncoveredPaths,
-      warnings,
-    };
-  }
-  const scopeLimited = (authority.standing_scopes?.length ?? 0) > 0 ||
-    uncoveredPaths.length > 0;
-  const summary = scopeLimited
-    ? uncoveredPaths.length === 0
-      ? "Standing landing grant does not cover this work"
-      : `Owner approval needed for ${
-        plural(uncoveredPaths.length, "changed path")
-      } outside the standing grant`
-    : "Owner approval needed to land";
-  return {
-    status: scopeLimited ? "scope_limited" : "needs_approval",
-    summary,
-    scopes,
-    uncoveredPaths,
-    warnings,
-  };
-}
-
 /** Select ADR-number collisions whose branch set includes this task. */
 function adrCollisionsFor(
   entry: StatusFleetEntry,
@@ -512,126 +572,18 @@ function collisionDetails(collisions: readonly DeskCollision[]): DeskDetail[] {
   });
 }
 
-/** The headline for each part of a checkout the desk could not read. */
-const UNREADABLE_HEADLINES = {
-  git: "Git state unreadable",
-  "env-file": "Env file unreadable",
-  checkout: "Checkout files unreadable",
-} as const satisfies Record<UnreadableSubject["kind"], string>;
-
-/** Choose the short headline for the already-classified decision. */
-function headlineFor(
-  statusKind: FleetRowStatusKind,
-  entry: StatusFleetEntry,
-  trunk: string,
-  nowMs: number,
-): string {
-  if (entry.contained_in !== undefined) {
-    return `Work continues in ${entry.contained_in}`;
-  }
-  switch (statusKind) {
-    case "broken":
-      return "Setup incomplete";
-    case "setup-incomplete":
-      return "Setup needs recovery";
-    case "unreadable":
-      return UNREADABLE_HEADLINES[unreadableSubject(entry).kind];
-    case "failed": {
-      const action = entry.last_action;
-      if (action?.outcome === "partial") {
-        return `${discernCommand(action.verb)} completed only part of the work`;
-      }
-      return action?.failed_stage === undefined
-        ? `${discernCommand(action?.verb)} failed`
-        : `Checks failed: ${action.failed_stage}`;
-    }
-    case "blocked":
-      return `${discernCommand(entry.last_action?.verb)} was refused`;
-    case "behind":
-      return `Update from ${trunk} needed`;
-    case "ready":
-      return "Ready for review";
-    case "running": {
-      const running = entry.running;
-      return running === undefined
-        ? "Work is active"
-        : `Running ${discernCommand(running.verb)} · ${
-          compactDuration(running.elapsed_ms)
-        }`;
-    }
-    case "stale": {
-      const age = relativeAge(entry.last_activity, nowMs);
-      return age === "—"
-        ? "Unlanded work has no recorded activity"
-        : `Unlanded work was last active ${age}`;
-    }
-    case "in-progress":
-      return "Uncommitted work is paused";
-    case "proof-unreadable":
-      return "Proof is unreadable";
-    case "proof-unavailable":
-      return "Proof state is unavailable";
-    case "proof-stale":
-      return "Final checks are stale";
-    case "needs-gate":
-      return "Final checks needed";
-    case "idle":
-      return "No work to review";
-  }
-}
-
-/** Name the next unmet condition without claiming an unobserved session. */
-function nextConditionDetail(
-  statusKind: FleetRowStatusKind,
-  entry: StatusFleetEntry,
-): DeskDetail | undefined {
-  if (entry.contained_in !== undefined) {
-    return {
-      kind: "next_condition",
-      text: "This checkout can be reclaimed without deleting its branch",
-    };
-  }
-  const text = ((): string | undefined => {
-    switch (statusKind) {
-      case "failed":
-        return "Resolve the failure before rerunning discern done";
-      case "blocked":
-        return "Complete the refused command's named prerequisite";
-      case "behind":
-        return "Update this task before review";
-      case "stale":
-        return "Choose whether to resume or discard this task";
-      case "in-progress":
-        return "Commit or discard the uncommitted work before final checks";
-      case "proof-unreadable":
-        return "Repair the Proof state or rerun discern done";
-      case "proof-unavailable":
-      case "proof-stale":
-      case "needs-gate":
-        return "Run discern done from this task";
-      case "broken":
-      case "setup-incomplete":
-      case "unreadable":
-      case "ready":
-      case "running":
-      case "idle":
-        return undefined;
-    }
-  })();
-  return text === undefined ? undefined : { kind: "next_condition", text };
-}
-
 /** All observed facts available to the action registry's pure predicates. */
 export interface DeskActionFacts {
   readonly entry: StatusFleetEntry;
+  /** Status's row state for this task. */
+  readonly state: FleetTaskRowStateId;
   readonly effortGranted: boolean;
-  readonly scripts: readonly DeskProjectScript[];
-  readonly scriptsUnavailableReason?: string;
   readonly agentLaunches: readonly DeskAgentLaunch[];
   readonly capabilityError?: string;
-  readonly statusKind: FleetRowStatusKind;
-  readonly collisions: readonly DeskCollision[];
   readonly trunk: string;
+  readonly mainCheckout?: DeskMainCheckoutFacts;
+  /** The exact exception hand-off, when the observation computed it. */
+  readonly exceptionArgv?: readonly string[];
 }
 
 /** A shared running-operation refusal for actions that cannot safely overlap. */
@@ -651,24 +603,13 @@ function runningReason(
     : undefined;
 }
 
-/** Shared clean, committed, ahead-of-trunk preconditions for review actions.
- * `provenBehindLands` is Accept's routing rule: honored Proof makes a moved
- * trunk composable by the landing itself, so behind stops only unproven work
- * (done must still start up to date). */
-function committedWorkReason(
-  facts: DeskActionFacts,
-  provenBehindLands = false,
-): string | undefined {
+/** Clean, committed, up-to-date preconditions for running final checks. */
+function committedWorkReason(facts: DeskActionFacts): string | undefined {
   const { entry } = facts;
   if (entry.behind === UNKNOWN_GIT_COUNT || entry.ahead === UNKNOWN_GIT_COUNT) {
     return `Git divergence from ${facts.trunk} is unknown.`;
   }
-  const behindBlocks = !provenBehindLands ||
-    entry.gate_proof?.status !== "honored";
-  if (
-    behindBlocks && entry.behind !== undefined &&
-    isPositiveGitCount(entry.behind)
-  ) {
+  if (entry.behind !== undefined && isPositiveGitCount(entry.behind)) {
     return `${plural(entry.behind, "commit")} behind ${facts.trunk}.`;
   }
   if (entry.clean !== true) {
@@ -681,9 +622,60 @@ function committedWorkReason(
     : `No commits are ahead of ${facts.trunk}.`;
 }
 
-/** The first exact configured capability failure, when there is one. */
-function capabilityReason(facts: DeskActionFacts): string | undefined {
-  return facts.capabilityError;
+/**
+ * The landable facts a landing or a queue entry requires: an honored Proof on
+ * a clean branch with commits ahead. A moved trunk does not block proven work,
+ * because the landing combines it; unproven work behind needs an update first.
+ */
+function landableReason(facts: DeskActionFacts): string | undefined {
+  const { entry } = facts;
+  if (entry.behind === UNKNOWN_GIT_COUNT || entry.ahead === UNKNOWN_GIT_COUNT) {
+    return `Git divergence from ${facts.trunk} is unknown.`;
+  }
+  if (entry.clean !== true) {
+    return entry.clean === false
+      ? "Commit or discard the uncommitted changes first."
+      : "Worktree cleanliness is unknown.";
+  }
+  if (entry.ahead === undefined || !isPositiveGitCount(entry.ahead)) {
+    return `No commits are ahead of ${facts.trunk}.`;
+  }
+  if (fleetRowProof(entry).status === "honored") return undefined;
+  const behind = positiveCount(entry.behind);
+  return behind === undefined
+    ? "Run checks first."
+    : `${
+      plural(behind, "commit")
+    } behind ${facts.trunk}. Update it, then run checks.`;
+}
+
+/** The owner's exception hand-off: landing needs a decision only the CLI
+ * records today, so the reason carries the exact command. */
+function exceptionReason(facts: DeskActionFacts): string | undefined {
+  const proofData = facts.entry.gate_proof?.proof_data;
+  if (facts.state !== "exception" && !hasExceptionFacts(proofData)) {
+    return undefined;
+  }
+  const argv = facts.exceptionArgv ??
+    exceptionArgvWith(
+      facts.entry.branch,
+      proofData,
+      (proofData?.standard_proposals ?? []).map(() => "<standard-token>"),
+    );
+  return `Needs your exception, which the desk can't record yet. Run in a terminal: ${
+    commandEvidence(argv)
+  }`;
+}
+
+/** Landing refuses while main has tracked changes or stale generated files. */
+function mainCheckoutReason(facts: DeskActionFacts): string | undefined {
+  const main = facts.mainCheckout;
+  if (main?.clean === false) {
+    return `${facts.trunk} has uncommitted tracked changes, so landing would refuse. Clean it first from Main checkout.`;
+  }
+  return main?.pendingRefresh === true
+    ? `${facts.trunk} has generated files out of date, so landing would refuse. Refresh them first from Main checkout.`
+    : undefined;
 }
 
 /** Whether at least one configured agent command can run. */
@@ -693,184 +685,270 @@ function hasAvailableAgent(facts: DeskActionFacts): boolean {
   );
 }
 
-/** One static consequence record without repeated mutable arrays. */
-function consequences(
-  keeps: readonly string[],
-  changes: readonly string[],
-  removes: readonly string[],
-  recoverable: readonly string[],
-): DeskConsequence {
-  return { keeps, changes, removes, recoverable };
+/** `4 commits`, or `its commits` when the count is unknown. */
+function commitsOf(context: DeskActionContext): string {
+  return typeof context.ahead === "number" && context.ahead > 0
+    ? plural(context.ahead, "commit")
+    : "its commits";
+}
+
+/** A no-default confirmation with its safe and effect buttons. */
+function confirm(noLabel: string, yesLabel: string): DeskConfirmationPolicy {
+  return { kind: "confirm", defaultTo: false, noLabel, yesLabel };
+}
+
+/** One consequence line, optionally shown only while a fact holds. */
+function line(
+  mark: DeskConsequenceMark,
+  text: DeskConsequenceItem["text"],
+  when?: DeskConsequenceFact,
+): DeskConsequenceItem {
+  return { mark, text, ...(when === undefined ? {} : { when }) };
 }
 
 const NO_CONFIRMATION = { kind: "none" } as const;
+const ACCEPT_NAME = labelName(DESK_ACTION_LABELS.accept);
+
+/** The cleanup lines Park, Reclaim, and Drop share. */
+const ENDS_AUTHORITY = [
+  line("removes", "Ends its pre-authorization", "granted"),
+  line("removes", "Leaves the landing queue", "queued"),
+] as const;
+const ENDS_RESOURCES = [
+  line("removes", "Destroys its ports and services", "resources"),
+  line(
+    "warning",
+    "Its recorded ports and services can't be read",
+    "resources-unreadable",
+  ),
+] as const;
+const ENDS_RECORDS = [
+  line("removes", "Removes its title and brief", "metadata-recorded"),
+  line("removes", "Removes its Proof", "proof-recorded"),
+] as const;
 
 /**
- * The single action-fact authority. Menu labels, command evidence, availability,
- * consequence accounts, and confirmation defaults all derive
- * from this exhaustive registry.
+ * The single action-fact authority. Labels, keys, next steps, command
+ * evidence, availability, consequences, bindings, and confirmation defaults
+ * all derive from this exhaustive registry.
  */
 export const DESK_ACTION_REGISTRY = {
   recovery: {
-    group: "work",
+    section: "work",
+    label: DESK_ACTION_LABELS.recovery,
+    parameters: false,
+    effect: "read",
     availableWhileRunning: true,
-    label: (_context: DeskActionLabelContext): string => "Show recovery steps",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [
+      "broken",
+      "unreadable",
+      "setup-manual",
+      "setup-unknown",
+      "interrupted",
+    ],
+    also: [],
+    summary: (_context: DeskActionContext): string =>
+      "Read what failed and the command that repairs it",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Recovery steps for ${context.title}`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "status", "--all"],
       workingDirectory: "main",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Checkout, branch, resources, task metadata, grant, and Proof"],
-        [],
-        [],
-        ["Diagnosis is read-only"],
-      ),
+    consequence: [line("keeps", "Nothing changes; the steps only read")],
     confirmation: NO_CONFIRMATION,
+    binding: [],
     availability: (facts: DeskActionFacts): string | undefined =>
       isUnhealthy(facts.entry)
         ? undefined
-        : "This task has no degraded state to diagnose.",
+        : "This task has nothing to recover.",
   },
   retry_setup: {
-    group: "manage",
+    section: "manage",
+    label: DESK_ACTION_LABELS.retry_setup,
+    parameters: false,
+    effect: "change",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string => "Retry setup",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: ["setup-retry"],
+    also: [],
+    summary: (_context: DeskActionContext): string =>
+      "Resume setup from the step that failed",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Retry setup for ${context.title}?`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "worktree", "setup"],
       workingDirectory: "task",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Checkout, branch, task metadata, grant, and Proof"],
-        ["Resume safe setup steps and verify the setup-ready marker"],
-        [],
-        ["Completed setup steps remain recorded and are not rerun"],
-      ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Retry",
-    },
+    consequence: [
+      line("changes", "Resumes setup from the step that failed"),
+      line("keeps", "Finished steps are skipped"),
+    ],
+    confirmation: confirm("Keep", "Retry"),
+    binding: ["setup-step", "worktree-identity"],
     availability: (facts: DeskActionFacts): string | undefined =>
       retrySetupAvailability(facts.entry),
   },
   done: {
-    group: "work",
+    section: "work",
+    label: DESK_ACTION_LABELS.done,
+    key: "c",
+    parameters: false,
+    effect: "change",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string => "Run final checks",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: ["proof-error", "proof-unknown", "recheck", "needs-checks"],
+    also: ["checks-failed"],
+    summary: (_context: DeskActionContext): string =>
+      "Run this project's checks on the committed work",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Run checks on ${context.title}?`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "done"],
       workingDirectory: "task",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Branch and checkout"],
-        [
-          "Generated or formatted files may change",
-          "A passing run records Proof",
-        ],
-        [],
-        ["Review any changed files before committing"],
+    consequence: [
+      line(
+        "changes",
+        "Runs this project's checks here: fix, then check and test",
       ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Cancel",
-      yesLabel: "Run",
-    },
+      line(
+        "changes",
+        "Fixers may rewrite files; a pass records Proof for this commit",
+      ),
+      line("keeps", "Keeps the branch and checkout"),
+      line("recoverable", "Review any changed files before committing"),
+    ],
+    confirmation: confirm("Cancel", "Run"),
+    binding: ["branch-head", "dirty-stamp"],
     availability: (facts: DeskActionFacts): string | undefined =>
       finalChecksAvailability(facts.entry, committedWorkReason(facts)),
   },
   accept: {
-    group: "review",
+    section: "review",
+    label: DESK_ACTION_LABELS.accept,
+    key: "l",
+    parameters: false,
+    effect: "change",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string => "Accept and land now",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
-      argv: ["discern", "accept"],
-      workingDirectory: "task",
+    next: ["ready", "awaiting-owner", "approved", "queued"],
+    also: ["stale-proven"],
+    summary: (context: DeskActionContext): string =>
+      `Review, then land ${commitsOf(context)} on ${context.trunk}`,
+    reviewTitle: (context: DeskActionContext): string =>
+      `Land ${context.title} on ${context.trunk}?`,
+    command: (context: DeskActionContext): DeskCommandEvidence => ({
+      argv: ["discern", "accept", "--target", context.branch, "--confirmed"],
+      workingDirectory: "main",
     }),
-    consequence: (context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Committed history on the trunk"],
-        [
-          `Start acceptance onto ${context.trunk}; wait for another landing if needed`,
-          "If the trunk moved, check the combination before landing",
-          "After this task lands, walk other authorized submissions",
-        ],
-        ["Task checkout", `Branch ${context.branch}`, "Task-local resources"],
-        ["Landing records Proof in Git notes before cleanup"],
+    consequence: [
+      line(
+        "changes",
+        (context) => `Lands ${commitsOf(context)} on ${context.trunk}`,
       ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Land",
-    },
+      line(
+        "changes",
+        (context) =>
+          `If ${context.trunk} moved, landing combines it in a separate copy and reruns every check first; if that fails, nothing lands`,
+      ),
+      line("changes", "Then lands other queued work that is pre-authorized"),
+      line("removes", "Removes its checkout and branch"),
+      ...ENDS_RESOURCES,
+      line(
+        "keeps",
+        (context) => `Keeps the Proof, recorded on ${context.trunk}`,
+      ),
+    ],
+    confirmation: confirm("Keep", "Land"),
+    binding: ["branch-head", "trunk-head", "authority", "queue-walk"],
     availability: (facts: DeskActionFacts): string | undefined =>
       healthyActionAvailability(
         facts.entry,
-        "The task is not healthy enough to land. Follow its recovery steps first.",
-        committedWorkReason(facts, true),
+        "Follow its recovery steps before landing it.",
+        exceptionReason(facts) ?? landableReason(facts) ??
+          mainCheckoutReason(facts),
       ),
   },
   submit: {
-    group: "review",
+    section: "review",
+    label: DESK_ACTION_LABELS.submit,
+    parameters: false,
+    effect: "change",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string =>
-      "Join the landing queue",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
-      argv: ["discern", "accept", "queue"],
-      workingDirectory: "task",
+    next: [],
+    also: [],
+    summary: (_context: DeskActionContext): string =>
+      "Record this version so it lands with the next landing",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Queue ${context.title} for landing?`,
+    command: (context: DeskActionContext): DeskCommandEvidence => ({
+      argv: ["discern", "accept", "queue", "--target", context.branch],
+      workingDirectory: "main",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Trunk, author work, current Proof, and existing grants"],
-        ["Record the reviewed revision for an active or later acceptance walk"],
-        [],
-        ["Queueing starts no landing or scheduled run; Accept starts a walk"],
+    consequence: [
+      line("warning", "Asks you to pre-authorize it first", "not-granted"),
+      line("changes", "Records this version in the landing queue"),
+      line(
+        "changes",
+        `It lands with any landing, or when you choose ${ACCEPT_NAME}; nothing starts now`,
       ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Cancel",
-      yesLabel: "Queue",
-    },
+      line("keeps", "Keeps its checks, branch and checkout"),
+    ],
+    confirmation: confirm("Cancel", "Queue"),
+    binding: ["branch-head", "worktree-identity"],
     availability: (facts: DeskActionFacts): string | undefined =>
       healthyActionAvailability(
         facts.entry,
-        "Repair this task before submitting its revision.",
+        "Follow its recovery steps before queueing it.",
+        landableReason(facts),
       ),
   },
   update: {
-    group: "manage",
+    section: "manage",
+    label: DESK_ACTION_LABELS.update,
+    key: "u",
+    parameters: false,
+    effect: "change",
     availableWhileRunning: false,
-    label: ({ trunk }: DeskActionLabelContext): string =>
-      `Update branch from ${trunk}`,
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: ["behind"],
+    also: ["land-failed"],
+    summary: (context: DeskActionContext): string =>
+      typeof context.behind === "number" && context.behind > 0
+        ? `Bring ${
+          plural(context.behind, "new commit")
+        } from ${context.trunk} into this branch`
+        : `Bring ${context.trunk} into this branch`,
+    reviewTitle: (context: DeskActionContext): string =>
+      `Update ${context.title} from ${context.trunk}?`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "update"],
       workingDirectory: "task",
     }),
-    consequence: (context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Task branch and checkout"],
-        [
-          `Merge ${context.trunk} into ${context.branch}`,
-          "Refresh generated files",
-        ],
-        [],
-        ["A merge conflict is aborted before the task is returned"],
+    consequence: [
+      line(
+        "changes",
+        (context) =>
+          typeof context.behind === "number" && context.behind > 0
+            ? `Merges ${
+              plural(context.behind, "commit")
+            } from ${context.trunk} and refreshes generated files`
+            : `Merges ${context.trunk} and refreshes generated files`,
       ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Update",
-    },
+      line("changes", "Refreshes this task's setup"),
+      line(
+        "recoverable",
+        "A conflict is aborted and the branch is left as it was",
+      ),
+      line(
+        "warning",
+        (context) =>
+          `You don't need this to land: ${ACCEPT_NAME} combines ${context.trunk} itself. Updating makes the current checks outdated`,
+        "proof-honored",
+      ),
+    ],
+    confirmation: confirm("Keep", "Update"),
+    binding: ["branch-head", "trunk-head"],
     availability: (facts: DeskActionFacts): string | undefined => {
       if (isUnhealthy(facts.entry)) {
-        return "The task is not healthy enough to update. Follow its recovery steps first.";
+        return "Follow its recovery steps before updating it.";
       }
       if (facts.entry.behind === UNKNOWN_GIT_COUNT) {
         return `Git divergence from ${facts.trunk} is unknown.`;
@@ -882,28 +960,54 @@ export const DESK_ACTION_REGISTRY = {
     },
   },
   agent: {
-    group: "work",
-    availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string =>
-      "Start or resume agent",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    section: "work",
+    label: DESK_ACTION_LABELS.agent,
+    key: "a",
+    parameters: false,
+    effect: "launch",
+    // Project code holds no exclusion boundary: an agent may look in while a
+    // discern command runs in its task.
+    availableWhileRunning: true,
+    next: [
+      "checks-failed",
+      "land-failed",
+      "failed",
+      "refused",
+      "editing",
+      "empty",
+    ],
+    also: [
+      "checking",
+      "updating",
+      "running",
+      "stale",
+      "behind",
+      "recheck",
+      "needs-checks",
+      "idle-unknown",
+    ],
+    summary: (_context: DeskActionContext): string =>
+      "Open a coding agent in this task's checkout",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Open agent in ${context.title}`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["<configured-agent>"],
       workingDirectory: "task",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Desk session and task state"],
-        ["The selected agent may change files in this task"],
-        [],
-        ["Exit the agent to return to the desk"],
+    consequence: [
+      line(
+        "changes",
+        "The agent works in this checkout and may change its files",
       ),
+      line("keeps", "The desk waits until the agent exits"),
+    ],
     confirmation: NO_CONFIRMATION,
+    binding: ["worktree-identity", "path"],
     availability: (facts: DeskActionFacts): string | undefined => {
       if (isUnhealthy(facts.entry)) {
-        return "Follow the task's recovery steps before launching an agent.";
+        return "Follow its recovery steps before opening an agent.";
       }
-      const capability = capabilityReason(facts);
-      if (capability !== undefined) return capability;
+      if (facts.capabilityError !== undefined) return facts.capabilityError;
       if (hasAvailableAgent(facts)) return undefined;
       const reason = facts.agentLaunches.find((launch) =>
         launch.availability === "disabled"
@@ -913,71 +1017,105 @@ export const DESK_ACTION_REGISTRY = {
     },
   },
   follow_up: {
-    group: "work",
+    section: "work",
+    label: DESK_ACTION_LABELS.follow_up,
+    key: "f",
+    parameters: true,
+    effect: "change",
     availableWhileRunning: true,
-    label: (_context: DeskActionLabelContext): string =>
-      "Start a follow-up from this task",
-    command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [],
+    also: [],
+    summary: (_context: DeskActionContext): string =>
+      "Start a new task from this branch's last commit",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Start a follow-up from ${context.title}`,
+    command: (context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "start", "--from", context.branch],
       workingDirectory: "main",
     }),
-    consequence: (context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Current task checkout and branch"],
-        [`Create a new task from the committed tip of ${context.branch}`],
-        [],
-        ["The follow-up has its own worktree and branch"],
-      ),
-    confirmation: NO_CONFIRMATION,
+    consequence: [
+      line("changes", "Creates a task from the last commit of this branch"),
+      line("keeps", "Keeps this task as it is"),
+    ],
+    confirmation: confirm("Cancel", "Create"),
+    binding: ["base-head"],
     availability: (facts: DeskActionFacts): string | undefined =>
       healthyActionAvailability(
         facts.entry,
-        "Follow the task's recovery steps before starting a follow-up.",
+        "Follow its recovery steps before starting a follow-up.",
       ),
   },
   scripts: {
-    group: "work",
+    section: "work",
+    label: DESK_ACTION_LABELS.scripts,
+    key: "x",
+    parameters: true,
+    effect: "launch",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string => "Project Scripts",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [],
+    also: [],
+    summary: (_context: DeskActionContext): string =>
+      "Run one of the project's scripts in this checkout",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Run a script in ${context.title}?`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "scripts", "<name>"],
       workingDirectory: "task",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Desk session"],
-        ["The selected project-authored script may change project state"],
-        [],
-        ["The desk re-surveys the task after the script exits"],
+    consequence: [
+      line(
+        "changes",
+        "Runs the chosen script in this checkout; it owns the terminal until it exits",
       ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Cancel",
-      yesLabel: "Run",
-    },
+      line("warning", "Scripts don't declare what they change"),
+    ],
+    confirmation: confirm("Cancel", "Run"),
+    binding: [
+      "worktree-identity",
+      "path",
+      "script-path",
+      "script-digest",
+      "argv",
+    ],
     availability: (facts: DeskActionFacts): string | undefined =>
       healthyActionAvailability(
         facts.entry,
-        "Restore the checkout before running a Project Script.",
+        "Restore the checkout before running a script.",
       ),
   },
   jump: {
-    group: "work",
+    section: "work",
+    label: DESK_ACTION_LABELS.jump,
+    key: "s",
+    parameters: false,
+    effect: "launch",
     availableWhileRunning: true,
-    label: (_context: DeskActionLabelContext): string => "Open a shell",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [],
+    also: [
+      "broken",
+      "unreadable",
+      "setup-retry",
+      "setup-manual",
+      "setup-unknown",
+      "checking",
+      "updating",
+      "running",
+      "editing",
+    ],
+    summary: (_context: DeskActionContext): string =>
+      "Open your shell in this task's checkout",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Open shell in ${context.title}`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["<user-shell>"],
       workingDirectory: "task",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Desk session and task state"],
-        ["Shell commands may change this task"],
-        [],
-        ["Exit the shell to return to the desk"],
-      ),
+    consequence: [
+      line("changes", "Commands you run in the shell may change this task"),
+      line("keeps", "The desk waits until the shell exits"),
+    ],
     confirmation: NO_CONFIRMATION,
+    binding: ["worktree-identity", "path"],
     availability: (facts: DeskActionFacts): string | undefined =>
       facts.entry.filesystem?.state === "directory"
         ? undefined
@@ -986,229 +1124,407 @@ export const DESK_ACTION_REGISTRY = {
         }.`,
   },
   inspect: {
-    group: "review",
+    section: "review",
+    label: DESK_ACTION_LABELS.inspect,
+    key: "v",
+    parameters: false,
+    effect: "read",
     availableWhileRunning: true,
-    label: (_context: DeskActionLabelContext): string => "Proof and changes",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
-      argv: ["git", "diff"],
+    next: [
+      "landing",
+      "exception",
+      "checking",
+      "updating",
+      "running",
+      "stale-proven",
+      "stale",
+      "idle-unknown",
+    ],
+    also: [
+      "interrupted",
+      "checks-failed",
+      "land-failed",
+      "failed",
+      "awaiting-owner",
+      "refused",
+      "editing",
+      "queued",
+      "approved",
+      "ready",
+      "proof-error",
+      "proof-unknown",
+      "contained",
+    ],
+    summary: (_context: DeskActionContext): string =>
+      "See its commits, changed files and checks",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Changes in ${context.title}`,
+    command: (context: DeskActionContext): DeskCommandEvidence => ({
+      argv: ["git", "diff", `${context.trunk}...HEAD`],
       workingDirectory: "task",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["All task state"],
-        [],
-        [],
-        ["Review is read-only"],
-      ),
+    consequence: [line("keeps", "Nothing changes; viewing only reads")],
     confirmation: NO_CONFIRMATION,
+    binding: [],
     availability: (facts: DeskActionFacts): string | undefined =>
       healthyActionAvailability(
         facts.entry,
-        "Follow the task's recovery steps before reviewing Proof and changes.",
+        "Follow its recovery steps before viewing its changes.",
       ),
   },
   rename: {
-    group: "manage",
+    section: "manage",
+    label: DESK_ACTION_LABELS.rename,
+    key: "e",
+    parameters: true,
+    effect: "change",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string => "Change task title",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [],
+    also: ["empty"],
+    summary: (_context: DeskActionContext): string =>
+      "Change the title shown for this task",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Rename ${context.title}?`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "worktree", "rename", "<title>"],
       workingDirectory: "task",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Worktree id, branch, path, brief, and creation source"],
-        ["Update the human display title"],
-        [],
-        ["A later title change can replace it"],
-      ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Change",
-    },
+    consequence: [
+      line("changes", "Changes the task title only"),
+      line("keeps", "Keeps the branch, checkout and brief"),
+    ],
+    confirmation: confirm("Keep", "Rename"),
+    binding: ["worktree-identity", "title"],
     availability: (facts: DeskActionFacts): string | undefined =>
       healthyActionAvailability(
         facts.entry,
-        "Follow the task's recovery steps before changing the title.",
+        "Follow its recovery steps before renaming it.",
       ),
   },
   grant: {
-    group: "manage",
+    section: "manage",
+    label: DESK_ACTION_LABELS.grant,
+    key: "g",
+    parameters: false,
+    effect: "change",
     // The marker writer and acceptance claim share an atomic linearization
     // point, so a Gate run cannot make this human authority choice unsafe.
     availableWhileRunning: true,
-    label: (_context: DeskActionLabelContext): string =>
-      "Pre-authorize landing once green",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [],
+    also: ["awaiting-owner", "ready"],
+    summary: (_context: DeskActionContext): string =>
+      "Let it land without asking you once its checks pass",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Let ${context.title} land without asking?`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "desk"],
       workingDirectory: "main",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Task and branch"],
-        ["Authorize a later submitted green revision to land without a further conversation"],
-        [],
-        [
-          "Revoke the grant from this task before it lands",
-          "A variance, a standard proposal, or an emergency still needs you",
-        ],
+    consequence: [
+      line(
+        "changes",
+        "Covers this branch and any later version whose checks pass",
       ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Allow",
-    },
+      line(
+        "changes",
+        "Once queued, it lands with any landing, without asking you",
+      ),
+      line(
+        "keeps",
+        "Checkpoint exceptions, standard changes and emergencies still ask you",
+      ),
+      line(
+        "recoverable",
+        "Ends when it lands, is parked or dropped; revoke it any time",
+      ),
+    ],
+    confirmation: confirm("Keep", "Allow"),
+    binding: ["worktree-identity", "branch", "grant-absent"],
     availability: (facts: DeskActionFacts): string | undefined =>
       isUnhealthy(facts.entry)
-        ? "The task is not healthy enough to receive landing authority."
+        ? "Follow its recovery steps before pre-authorizing it."
         : facts.effortGranted
-        ? "This task is already pre-authorized to land once green."
+        ? "It is already pre-authorized."
         : undefined,
   },
   revoke_grant: {
-    group: "manage",
+    section: "manage",
+    label: DESK_ACTION_LABELS.revoke_grant,
+    parameters: false,
+    effect: "change",
     availableWhileRunning: true,
-    label: (_context: DeskActionLabelContext): string =>
-      "Revoke pre-authorization",
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [],
+    also: [],
+    summary: (_context: DeskActionContext): string =>
+      "Ask you again before it lands",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Revoke pre-authorization for ${context.title}?`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "desk"],
       workingDirectory: "main",
     }),
-    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Task and branch"],
-        ["Remove this task's landing authority"],
-        ["Task landing grant"],
-        ["A later desk session can grant authority again"],
+    consequence: [
+      line("changes", "Removes the pre-authorization"),
+      line(
+        "warning",
+        "A queued version waits for your approval again",
+        "queued",
       ),
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Revoke",
-    },
+      line("recoverable", "Pre-authorize it again any time"),
+    ],
+    confirmation: confirm("Keep", "Revoke"),
+    binding: ["grant-record"],
     availability: (facts: DeskActionFacts): string | undefined =>
-      facts.effortGranted
-        ? undefined
-        : "No task landing pre-authorization is recorded.",
+      facts.effortGranted ? undefined : "Nothing is pre-authorized.",
   },
   reclaim: {
-    group: "manage",
+    section: "manage",
+    label: DESK_ACTION_LABELS.reclaim,
+    parameters: false,
+    effect: "change",
     availableWhileRunning: false,
-    label: ({ containedIn }: DeskActionLabelContext): string =>
-      `Reclaim checkout, keep branch (work contained in ${
-        containedIn ?? "another live task"
-      })`,
-    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: ["contained"],
+    also: [],
+    summary: (context: DeskActionContext): string =>
+      `Remove this checkout; its commits are in ${
+        context.containedIn ?? "another task"
+      }`,
+    reviewTitle: (context: DeskActionContext): string =>
+      `Reclaim ${context.title}'s checkout?`,
+    command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "worktree", "prune", "--contained"],
       workingDirectory: "main",
     }),
-    consequence: reclaimConsequence,
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Reclaim",
-    },
+    consequence: [
+      line(
+        "changes",
+        (context) =>
+          `Its commits are already in ${
+            context.containedIn ?? "another task"
+          }; removes this checkout`,
+      ),
+      line("keeps", "Keeps the branch"),
+      ...ENDS_RECORDS,
+      ...ENDS_AUTHORITY,
+      ...ENDS_RESOURCES,
+      line(
+        "recoverable",
+        "The branch cleans itself up after the containing task lands",
+      ),
+    ],
+    confirmation: confirm("Keep", "Reclaim"),
+    binding: ["branch-head", "contained-tip", "worktree-identity"],
     availability: reclaimAvailability,
   },
   park: {
-    group: "manage",
+    section: "manage",
+    label: DESK_ACTION_LABELS.park,
+    key: "p",
+    parameters: false,
+    effect: "change",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string =>
-      "Park checkout, keep branch",
-    command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [],
+    also: ["stale-proven", "stale"],
+    summary: (_context: DeskActionContext): string =>
+      "Free the checkout and keep the branch to resume later",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Park ${context.title}?`,
+    command: (context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "worktree", "park", context.path],
       workingDirectory: "main",
     }),
-    consequence: parkConsequence,
-    confirmation: {
-      kind: "confirm",
-      defaultTo: false,
-      noLabel: "Keep",
-      yesLabel: "Park",
-    },
+    consequence: [
+      line("changes", "Frees the checkout"),
+      line(
+        "keeps",
+        (context) =>
+          `Keeps branch ${context.branch}, its commits, title and brief`,
+      ),
+      line("removes", "Removes its Proof", "proof-recorded"),
+      ...ENDS_AUTHORITY,
+      ...ENDS_RESOURCES,
+      line("recoverable", "Resume it later from its branch"),
+    ],
+    confirmation: confirm("Keep", "Park"),
+    binding: ["branch-head", "clean", "worktree-identity", "grant-and-queue"],
     availability: parkAvailability,
   },
   drop: {
-    group: "danger",
+    section: "danger",
+    label: DESK_ACTION_LABELS.drop,
+    key: "D",
+    parameters: false,
+    effect: "change",
     availableWhileRunning: false,
-    label: (_context: DeskActionLabelContext): string => "Drop",
-    command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
+    next: [],
+    also: ["stale-proven", "stale", "empty"],
+    summary: (_context: DeskActionContext): string =>
+      "Remove the checkout and branch; the last commit is kept for a while",
+    reviewTitle: (context: DeskActionContext): string =>
+      `Drop ${context.title}?`,
+    command: (context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "worktree", "drop", context.path],
       workingDirectory: "main",
     }),
-    consequence: dropConsequence,
+    consequence: [
+      line(
+        "discards",
+        (context) =>
+          `Discards ${commitsOf(context)} that ${
+            context.ahead === 1 ? "isn't" : "aren't"
+          } on ${context.trunk}`,
+        "unlanded-commits",
+      ),
+      line(
+        "warning",
+        (context) => `Can't rule out commits that aren't on ${context.trunk}`,
+        "unlanded-unknown",
+      ),
+      line(
+        "discards",
+        (context) =>
+          `Deletes ${
+            plural(context.changedFiles ?? 0, "uncommitted file")
+          }; they can't be recovered`,
+        "uncommitted",
+      ),
+      line("warning", "Can't rule out uncommitted work", "uncommitted-unknown"),
+      line(
+        "removes",
+        (context) => `Removes its checkout and branch ${context.branch}`,
+      ),
+      ...ENDS_RECORDS,
+      ...ENDS_AUTHORITY,
+      ...ENDS_RESOURCES,
+      line(
+        "recoverable",
+        "Its last commit is kept for a while; the technical plan shows how to restore it",
+      ),
+      line("keeps", (context) => `Keeps ${context.trunk} and every other task`),
+    ],
     confirmation: {
       kind: "typed-branch",
       defaultTo: false,
       noLabel: "Keep",
       yesLabel: "Drop",
     },
+    binding: ["plan", "challenge"],
     availability: (_facts: DeskActionFacts): string | undefined => undefined,
   },
 } as const satisfies Readonly<Record<DeskAction, DeskActionMetadata>>;
 
+/** Resolve one action's declared consequences against the observed task. */
+export function consequenceLines(
+  action: DeskAction,
+  context: DeskActionContext,
+): DeskConsequenceLine[] {
+  const items: readonly DeskConsequenceItem[] =
+    DESK_ACTION_REGISTRY[action].consequence;
+  return items.flatMap((item) =>
+    item.when === undefined || DESK_CONSEQUENCE_FACTS[item.when](context)
+      ? [{
+        mark: item.mark,
+        text: typeof item.text === "string" ? item.text : item.text(context),
+      }]
+      : []
+  );
+}
+
+/** The action whose `next` names this state, if any. */
+export function deskNextAction(
+  state: FleetTaskRowStateId,
+): DeskAction | undefined {
+  return DESK_ACTIONS.find((action) => {
+    const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
+    return metadata.next.includes(state);
+  });
+}
+
+/** The actions whose `also` names this state, in registry order. */
+export function deskAlsoActions(state: FleetTaskRowStateId): DeskAction[] {
+  return DESK_ACTIONS.filter((action) => {
+    const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
+    return metadata.also.includes(state);
+  });
+}
+
+/** The observed task facts every label, summary, and consequence reads. */
+function actionContext(
+  facts: DeskActionFacts,
+  title: string,
+  queued: boolean,
+): DeskActionContext {
+  const entry = facts.entry;
+  return {
+    trunk: facts.trunk,
+    title,
+    branch: entry.branch,
+    path: entry.path,
+    proofHonored: fleetRowProof(entry).status === "honored",
+    taskMetadataRecorded: entry.task?.title_source === "recorded",
+    effortGranted: facts.effortGranted,
+    proofRecorded: entry.gate_proof !== undefined &&
+      entry.gate_proof.status !== "missing" &&
+      entry.gate_proof.status !== "unavailable",
+    queued,
+    ...(entry.clean === true
+      ? { changedFiles: 0 }
+      : entry.changed_files === undefined
+      ? {}
+      : { changedFiles: entry.changed_files }),
+    ...(entry.ahead === undefined ? {} : { ahead: entry.ahead }),
+    ...(entry.behind === undefined ? {} : { behind: entry.behind }),
+    ...(entry.resources === undefined
+      ? {}
+      : { resources: Object.values(entry.resources) }),
+    ...(entry.contained_in === undefined
+      ? {}
+      : { containedIn: entry.contained_in }),
+  };
+}
+
 /** Represent every registered action once with its current availability. */
 function actionOffers(
   facts: DeskActionFacts,
+  context: DeskActionContext,
 ): DeskActionOffer[] {
-  const actions = DESK_ACTIONS.map((action): DeskActionOffer => {
-    const metadata = DESK_ACTION_REGISTRY[action];
-    const context: DeskActionLabelContext = {
-      trunk: facts.trunk,
-      branch: facts.entry.branch,
-      path: facts.entry.path,
-      proofHonored: facts.entry.gate_proof?.status === "honored",
-      taskMetadataRecorded: facts.entry.task?.title_source === "recorded",
-      effortGranted: facts.effortGranted,
-      proofRecorded: facts.entry.gate_proof !== undefined &&
-        facts.entry.gate_proof.status !== "missing" &&
-        facts.entry.gate_proof.status !== "unavailable",
-      ...(facts.entry.changed_files === undefined
-        ? {}
-        : { changedFiles: facts.entry.changed_files }),
-      ...(facts.entry.ahead === undefined ? {} : { ahead: facts.entry.ahead }),
-      ...(facts.entry.resources === undefined
-        ? {}
-        : { resources: Object.values(facts.entry.resources) }),
-      ...(facts.entry.contained_in === undefined
-        ? {}
-        : { containedIn: facts.entry.contained_in }),
-    };
+  return DESK_ACTIONS.map((action): DeskActionOffer => {
+    const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
     const base: DeskActionOfferBase = {
       action,
-      group: metadata.group,
-      label: metadata.label(context),
+      section: metadata.section,
+      ...(metadata.key === undefined ? {} : { key: metadata.key }),
+      label: metadata.label,
+      summary: metadata.summary(context),
+      reviewTitle: metadata.reviewTitle(context),
       command: metadata.command(context),
-      consequence: metadata.consequence(context),
+      consequence: consequenceLines(action, context),
       confirmation: metadata.confirmation,
     };
     const reason = runningReason(metadata.availableWhileRunning, facts) ??
       metadata.availability(facts);
-    if (reason !== undefined) {
-      return { ...base, availability: "disabled", reason };
-    }
-    return {
-      ...base,
-      availability: "enabled",
-    };
+    return reason === undefined
+      ? { ...base, availability: "enabled" }
+      : { ...base, availability: "disabled", reason };
   });
-  return actions;
 }
 
-export interface DeskDecisionOptions {
-  readonly trunk: string;
-  readonly nowMs: number;
-  readonly fleetCollisions?: readonly StatusFleetCollision[];
-  readonly adrCollisions?: readonly StatusAdrCollision[];
-  readonly scripts?: readonly DeskProjectScript[];
-  readonly scriptsUnavailableReason?: string;
+export interface DeskDecisionOptions extends DeskObservationContext {
   readonly agentLaunches?: readonly DeskAgentLaunch[];
   readonly capabilityError?: string;
+}
+
+/** Project survey-carried landing authority without inventing missing facts. */
+function authorityFact(
+  entry: StatusFleetEntry,
+  summary: string | undefined,
+): DeskAuthorityFact {
+  const authority = entry.landing_authority;
+  return {
+    status: authority?.kind === "authorized" ? "granted" : "needs_approval",
+    ...(authority?.source === undefined ? {} : { source: authority.source }),
+    ...(summary === undefined ? {} : { summary }),
+  };
 }
 
 /** Build one complete decision from the status survey and desk capabilities. */
@@ -1216,22 +1532,26 @@ export function buildDeskDecision(
   entry: StatusFleetEntry,
   options: DeskDecisionOptions,
 ): DeskDecision {
-  const scripts = options.scripts ?? [];
-  const agentLaunches = options.agentLaunches ?? [];
   const presentation = presentFleetRow(entry, {
     trunk: options.trunk,
     nowMs: options.nowMs,
     ...(options.fleetCollisions === undefined
       ? {}
       : { collisions: options.fleetCollisions }),
+    ...(options.queue === undefined ? {} : { queue: options.queue }),
+    ...(options.fleet === undefined ? {} : { fleet: options.fleet }),
   });
-  const proof = proofFact(
-    presentation.proof.status,
-    presentation.proof.detail,
-    entry.gate_proof?.proof_line ?? entry.proof_line,
-  );
-  const activity = activityFact(entry, options.nowMs);
-  const authority = authorityFact(entry.landing_authority);
+  const proofLine = entry.gate_proof?.proof_line ?? entry.proof_line;
+  const proof: DeskProofFact = {
+    status: presentation.proof.status,
+    honored: presentation.proof.status === "honored",
+    summary: presentation.proof.label,
+    ...(presentation.proof.detail === undefined
+      ? {}
+      : { detail: presentation.proof.detail }),
+    ...(proofLine === undefined ? {} : { line: proofLine }),
+  };
+  const authority = authorityFact(entry, presentation.authority);
   const collisions: DeskCollision[] = [
     ...presentation.collisions.map((collision): DeskChangedFileCollision => ({
       kind: "changed_files",
@@ -1241,23 +1561,30 @@ export function buildDeskDecision(
     })),
     ...adrCollisionsFor(entry, options.adrCollisions ?? []),
   ];
-  const effortGranted = authority.source === "effort-grant" &&
-    authority.status === "granted";
-  const offers = actionOffers({
+  const exceptionArgv = options.exceptionArgvs?.get(entry.branch);
+  const facts: DeskActionFacts = {
     entry,
-    effortGranted,
-    scripts,
-    ...(options.scriptsUnavailableReason === undefined
-      ? {}
-      : { scriptsUnavailableReason: options.scriptsUnavailableReason }),
-    agentLaunches,
+    state: presentation.state,
+    effortGranted: authority.status === "granted" &&
+      authority.source === "effort-grant",
+    agentLaunches: options.agentLaunches ?? [],
     ...(options.capabilityError === undefined
       ? {}
       : { capabilityError: options.capabilityError }),
-    statusKind: presentation.kind,
-    collisions,
     trunk: options.trunk,
-  });
+    ...(options.mainCheckout === undefined
+      ? {}
+      : { mainCheckout: options.mainCheckout }),
+    ...(exceptionArgv === undefined ? {} : { exceptionArgv }),
+  };
+  const offers = actionOffers(
+    facts,
+    actionContext(
+      facts,
+      taskLabel(entry).name,
+      presentation.queue !== undefined,
+    ),
+  );
   const details: DeskDetail[] = [];
   if (entry.running !== undefined) {
     details.push({ kind: "activity", text: "active now" });
@@ -1276,16 +1603,21 @@ export function buildDeskDecision(
   if (proofRelevant) {
     details.push({
       kind: "proof",
-      text: proof.detail === undefined
-        ? proof.summary
-        : `${proof.summary}: ${proof.detail}`,
+      text: `Checks: ${proof.summary}${
+        proof.detail === undefined || proof.summary.includes(proof.detail)
+          ? ""
+          : ` (${proof.detail})`
+      }`,
     });
   }
-  const authorityRelevant = entry.ahead !== undefined &&
-      isPositiveGitCount(entry.ahead) ||
-    authority.status !== "unknown";
-  if (authorityRelevant) {
-    details.push({ kind: "authority", text: authority.summary });
+  if (presentation.authority !== undefined) {
+    details.push({
+      kind: "authority",
+      text: `Landing: ${presentation.authority}`,
+    });
+  }
+  if (presentation.queue !== undefined) {
+    details.push({ kind: "queue", text: `Queue: ${presentation.queue}` });
   }
   if (entry.contained_in !== undefined) {
     details.push({
@@ -1299,24 +1631,69 @@ export function buildDeskDecision(
       text: activeAge(entry.last_activity, options.nowMs),
     });
   }
-  const nextCondition = nextConditionDetail(presentation.kind, entry);
-  if (nextCondition !== undefined) details.push(nextCondition);
   const recovery = recoveryFact(entry);
+  const nextAction = deskNextAction(presentation.state);
+  const next = offers.find((offer) => offer.action === nextAction);
+  const also = deskAlsoActions(presentation.state).flatMap((action) => {
+    const offer = offers.find((candidate) => candidate.action === action);
+    return offer?.availability === "enabled" ? [offer] : [];
+  });
   return {
     statusKind: presentation.kind,
-    headline: headlineFor(
-      presentation.kind,
-      entry,
-      options.trunk,
-      options.nowMs,
-    ),
+    state: presentation.state,
+    group: presentation.group,
+    label: presentation.label,
+    glyph: presentation.glyph,
+    ascii: presentation.ascii,
+    tones: presentation.tones,
+    ...(presentation.qualifier === undefined
+      ? {}
+      : { qualifier: presentation.qualifier }),
+    explanation: presentation.explanation,
     details,
-    activity,
+    activity: activityFact(entry, options.nowMs),
     proof,
     authority,
     collisions,
     ...(recovery === undefined ? {} : { recovery }),
     actions: offers,
+    ...(next === undefined ? {} : { next }),
+    also,
+  };
+}
+
+/**
+ * The exact exception hand-off for every task whose Proof carries owner
+ * decisions, keyed by branch. Standard approval tokens are digests, so the
+ * observation computes them once before the synchronous decision reads them.
+ */
+export async function deskExceptionArgvs(
+  data: Pick<StatusData, "fleet">,
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  const pending = (data.fleet ?? []).flatMap((entry) =>
+    !entry.is_main && hasExceptionFacts(entry.gate_proof?.proof_data)
+      ? [entry]
+      : []
+  );
+  return new Map(
+    await Promise.all(
+      pending.map(async (entry) =>
+        [
+          entry.branch,
+          await exceptionArgv(entry.branch, entry.gate_proof?.proof_data),
+        ] as const
+      ),
+    ),
+  );
+}
+
+/** The main-checkout facts that decide whether landing can start. */
+export function deskMainCheckoutFacts(
+  data: Pick<StatusData, "git" | "pending_tracked_refresh">,
+): DeskMainCheckoutFacts {
+  return {
+    ...(data.git?.clean === undefined ? {} : { clean: data.git.clean }),
+    pendingRefresh: (data.pending_tracked_refresh?.length ?? 0) > 0,
   };
 }
 
@@ -1360,64 +1737,67 @@ export function buildAgentLaunches(
   return launches;
 }
 
-export interface BuildDeskRowsOptions {
-  readonly trunk: string;
-  readonly nowMs: number;
-  readonly fleetCollisions?: readonly StatusFleetCollision[];
-  readonly adrCollisions?: readonly StatusAdrCollision[];
+export interface BuildDeskRowsOptions extends DeskObservationContext {
   readonly scriptsUnavailableReasons?: ReadonlyMap<string, string>;
   readonly capabilityErrors?: ReadonlyMap<string, string>;
 }
 
-/** Build and decision-sort every non-main fleet row. */
+/**
+ * Build every task row the Desk lists, ordered by decision group, then
+ * case-folded title, then identity. The main checkout is not a task, and a
+ * landing's integration copy belongs to discern: it never gets a row or
+ * actions, and speaks through its task's row instead.
+ */
 export function buildDeskRows(
   fleet: readonly StatusFleetEntry[],
   scriptsByPath: ReadonlyMap<string, readonly DeskProjectScript[]>,
   agentLaunchesByPath: ReadonlyMap<string, readonly DeskAgentLaunch[]>,
   options: BuildDeskRowsOptions,
 ): DeskRow[] {
-  const rows = fleet
-    .filter((entry) => !entry.is_main)
+  const tasks = fleet.filter((entry) => !entry.is_main);
+  const {
+    scriptsUnavailableReasons,
+    capabilityErrors,
+    ...observationOptions
+  } = options;
+  const observation: DeskObservationContext = {
+    ...observationOptions,
+    fleet: options.fleet ?? tasks,
+  };
+  const rows = tasks
+    .filter((entry) =>
+      entry.integration === undefined && !speaksForAnotherRow(entry, tasks)
+    )
     .map((entry): DeskRow => {
       const scripts = scriptsByPath.get(entry.path) ?? [];
       const agentLaunches = agentLaunchesByPath.get(entry.path) ?? [];
-      const scriptsUnavailableReason = options.scriptsUnavailableReasons?.get(
+      const scriptsUnavailableReason = scriptsUnavailableReasons?.get(
         entry.path,
       );
-      const capabilityError = options.capabilityErrors?.get(entry.path);
+      const capabilityError = capabilityErrors?.get(entry.path);
       return {
         entry,
         task: taskLabel(entry),
         scripts,
         agentLaunches,
+        ...(scriptsUnavailableReason === undefined
+          ? {}
+          : { scriptsUnavailableReason }),
         ...(capabilityError === undefined ? {} : { capabilityError }),
+        observation,
         decision: buildDeskDecision(entry, {
-          trunk: options.trunk,
-          nowMs: options.nowMs,
-          ...(options.fleetCollisions === undefined
-            ? {}
-            : { fleetCollisions: options.fleetCollisions }),
-          ...(options.adrCollisions === undefined
-            ? {}
-            : { adrCollisions: options.adrCollisions }),
-          scripts,
-          ...(scriptsUnavailableReason === undefined
-            ? {}
-            : { scriptsUnavailableReason }),
+          ...observation,
           agentLaunches,
           ...(capabilityError === undefined ? {} : { capabilityError }),
         }),
       };
     });
-  return rows.sort((left, right) => {
-    const leftName = left.task.name.toLowerCase();
-    const rightName = right.task.name.toLowerCase();
-    return leftName < rightName
-      ? -1
-      : leftName > rightName
-      ? 1
-      : deskRowId(left).localeCompare(deskRowId(right), "en");
-  });
+  return rows.sort((left, right) =>
+    fleetRowGroupRank(left.decision.group) -
+      fleetRowGroupRank(right.decision.group) ||
+    compareTaskTitles(left.task.name, right.task.name) ||
+    deskRowId(left).localeCompare(deskRowId(right), "en")
+  );
 }
 
 /** Stable identity for navigation and effect targeting, including degraded rows. */

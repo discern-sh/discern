@@ -930,6 +930,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/engine_desk_model_test.ts",
       "tests/engine_desk_runtime_test.ts",
       "tests/engine_desk_execution_guard_test.ts",
+      "tests/engine_desk_registry_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -940,6 +941,28 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members: async () => [
       ...(await import("../src/engine/desk/model.ts")).DESK_ACTIONS,
+    ],
+  },
+  {
+    id: "desk-commands",
+    title: "Desk commands",
+    what:
+      "The desk's commands beyond one task's actions: creating work, readers, help, session toggles, and branch-row routes. The registry guard holds each one's label, key, palette section, effect, and binding.",
+    source: {
+      kind: "module",
+      module: "src/engine/desk/commands.ts",
+      exportName: "DESK_COMMANDS",
+    },
+    guards: ["tests/engine_desk_registry_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "the Desk reference documents these commands in context",
+      },
+      featureCanon: { nodeId: "desk" },
+    },
+    members: async () => [
+      ...(await import("../src/engine/desk/commands.ts")).DESK_COMMANDS,
     ],
   },
   {
@@ -4277,6 +4300,8 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "holds every authored Desk module to the package application adoption boundary rather than guarding a closed member set",
   "tests/engine_desk_text_guard_test.ts":
     "routes every authored Desk module's product text through one sanitizer module so no line break reaches a single-line slot, rather than guarding a closed member set",
+  "tests/engine_desk_proof_label_guard_test.ts":
+    "keeps every authored Desk module but the decision model from reading a Proof status, so row labels and tones come from status's state, rather than guarding a closed member set",
   "tests/operation_lock_sync_guard_test.ts":
     "pins the operation lock's no-fsync acquisition and release — exclusion comes from the OS handle — rather than guarding a closed member set",
   "tests/progress_surface_parity_test.ts":

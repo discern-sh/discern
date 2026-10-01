@@ -52,6 +52,11 @@ import type {
 } from "../../shared/result_schemas.ts";
 import { taskTextValidationError } from "../../shared/task_metadata.ts";
 import {
+  DESK_ACTION_LABELS,
+  DESK_COMMAND_LABELS,
+  labelName,
+} from "../../shared/desk_vocabulary.ts";
+import {
   detectAgentBinariesOnPath,
   type DetectedAgentBinary,
 } from "../../lib/detect_agents.ts";
@@ -59,12 +64,10 @@ import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import { type PagerResult, pageThrough } from "../../lib/pager.ts";
 import {
   canInteract,
-  type ConfirmationRequestOptions,
   groupedSelectionEntries,
   InteractionCancelled,
   isInteractionCancelled,
   requestCompactAcknowledgement,
-  requestConfirmation,
   requestSelection,
   requestSequentialForm,
   requestText,
@@ -82,6 +85,7 @@ import {
   openInBrowser,
 } from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
+import { hasLandableFacts, proofHuman } from "../status/row_facts.ts";
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import {
@@ -231,10 +235,6 @@ export interface DeskRuntime {
     options: TerminalApplicationOptions<DeskChoice>,
   ): Promise<unknown>;
   select(options: DeskSelectOptions): DeskMaybePromise<string>;
-  confirm(
-    message: string,
-    options: ConfirmationRequestOptions,
-  ): DeskMaybePromise<boolean>;
   input(options: TextRequestOptions): DeskMaybePromise<string>;
   sequence(
     options: SequentialFormRequestOptions,
@@ -415,10 +415,10 @@ async function reviewAction(
   action: DeskAction,
   plan: EnginePlan | undefined,
   runtime: DeskRuntime,
-  question: string,
-  offerOverride?: DeskActionOffer,
+  options: { readonly question?: string; readonly offer?: DeskActionOffer } =
+    {},
 ): Promise<boolean> {
-  const offer = offerOverride ?? selectedOffer(row, action);
+  const offer = options.offer ?? selectedOffer(row, action);
   const source = [
     `**${deskLiteral(row.entry.branch)}**`,
     deskLiteral(row.entry.path),
@@ -435,20 +435,16 @@ async function reviewAction(
         }`
       ).join("\n"),
     ]),
-    ...Object.entries(offer.consequence).flatMap(([label, facts]) =>
-      facts.length === 0 ? [] : [
-        `**${label}:** ${facts.map(deskLiteral).join("; ")}`,
-      ]
-    ),
+    offer.consequence.map((line) => `- ${deskLiteral(line.text)}`).join("\n"),
     `Command: ${deskLiteral(commandEvidence(offer.command.argv))}`,
   ].filter(Boolean).join("\n\n");
   const policy = offer.confirmation;
   return await runtime.screen({
-    title: offer.label,
+    title: labelName(offer.label),
     source,
     ...(policy.kind === "none" ? {} : {
       confirmation: {
-        question,
+        question: options.question ?? offer.reviewTitle,
         options: {
           defaultTo: false,
           noLabel: policy.noLabel,
@@ -469,25 +465,16 @@ function resultPlan<T>(result: DiscernResult<T>): EnginePlan | undefined {
   return result.plan;
 }
 
-/** A confirmation that treats a cancelled interaction (Ctrl-C / Esc) as "no". */
-async function confirmOrNo(
-  message: string,
-  options: ConfirmationRequestOptions,
-): Promise<boolean> {
-  try {
-    return await requestConfirmation(message, options);
-  } catch (error) {
-    if (!isInteractionCancelled(error)) throw error;
-    return false;
-  }
-}
-
 /** The narrating logger the lifecycle cores render human output through. */
 function deskLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
 }
 
-/** Retain the latest short action result across the foreground return. */
+/**
+ * Retain the latest short action result across the foreground return. Only
+ * results count: narration printed while a child owns the terminal ("Exit
+ * the shell to return") is true only until it exits, so it never persists.
+ */
 async function collectDeskFeedback(
   base: Out,
   run: (out: Out) => Promise<string | void>,
@@ -495,10 +482,6 @@ async function collectDeskFeedback(
   let message: string | undefined;
   const out: Out = {
     ...base,
-    info: (text) => {
-      message = text;
-      base.info(text);
-    },
     ok: (text) => {
       message = text;
       base.ok(text);
@@ -557,7 +540,6 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   application: (options) => runTerminalApplication(options),
   select: (options) =>
     requestSelection<string>({ ...options, presentation: "menu" }),
-  confirm: (message, options) => confirmOrNo(message, options),
   input: (options) => requestText(options),
   sequence: (options) => requestSequentialForm(options),
   pause: () => requestCompactAcknowledgement(),
@@ -899,14 +881,14 @@ async function reviewTask(
   while (true) {
     const proof = review.proof;
     const source = [
-      `Proof: ${deskLiteral(proof.status)}${
-        proof.reason ? ` — ${deskLiteral(proof.reason)}` : ""
-      }`,
+      `Checks: ${deskLiteral(proofHuman(proof, runtime.now()))}`,
       deskLiteral(
         proof.proof_line ?? proof.proof_data?.line ??
           "No complete Proof is available.",
       ),
-      `Authority: ${deskLiteral(row.decision.authority.summary)}`,
+      ...(row.decision.authority.summary === undefined
+        ? []
+        : [`Landing: ${deskLiteral(row.decision.authority.summary)}`]),
       `${review.files.length} changed paths · +${review.insertions} −${review.deletions}`,
       ...review.failures.map((failure) =>
         `### ${deskLiteral(failure.title)}\n\n${
@@ -1980,10 +1962,10 @@ async function dispatchAction(
   };
   const review = async (
     plan: EnginePlan | undefined,
-    question: string,
-    offer?: DeskActionOffer,
+    options: { readonly question?: string; readonly offer?: DeskActionOffer } =
+      {},
   ): Promise<boolean> => {
-    if (!await reviewAction(row, action, plan, runtime, question, offer)) {
+    if (!await reviewAction(row, action, plan, runtime, options)) {
       return false;
     }
     await verify();
@@ -1993,27 +1975,22 @@ async function dispatchAction(
     case "recovery": {
       const recovery = row.decision.recovery;
       await runtime.screen({
-        title: "Recovery",
-        source: recovery === undefined
-          ? "This task has no degraded state to diagnose."
-          : [
-            recovery.failure,
-            ...(recovery.failedCommand ? [recovery.failedCommand] : []),
-            ...recovery.verified,
-            ...recovery.unavailable,
-            recovery.nextStep,
-            recovery.repairCommand,
-          ].map(deskLiteral).join("\n\n"),
+        title: selectedOffer(row, action).reviewTitle,
+        source: recovery === undefined ? "This task has nothing to recover." : [
+          recovery.failure,
+          ...(recovery.failedCommand ? [recovery.failedCommand] : []),
+          ...recovery.verified,
+          ...recovery.unavailable,
+          recovery.nextStep,
+          recovery.repairCommand,
+        ].map(deskLiteral).join("\n\n"),
       });
       return false;
     }
     case "retry_setup": {
       const ctx = await runtime.lifecycle(path);
       if (
-        !await review(
-          await runtime.setupPlan(ctx),
-          `Retry setup for ${branch}?`,
-        )
+        !await review(await runtime.setupPlan(ctx))
       ) return false;
       await runtime.setup(ctx);
       out.ok(`Setup completed for ${branch}.`);
@@ -2024,38 +2001,30 @@ async function dispatchAction(
         throw new Error("Desk final checks require a live CLI model provider.");
       }
       const preview = await runtime.donePlan(path, cliModel);
-      if (
-        !await review(resultPlan(preview), `Run final checks for ${branch}?`)
-      ) return false;
+      if (!await review(resultPlan(preview))) return false;
       const result = await runtime.done(path, cliModel);
       if (!result.ok) {
         await runtime.screen({
-          title: "Final checks did not pass",
+          title: `Checks failed on ${row.task.name}`,
           source: renderResultReading(
             result,
             resultPresenterForVerb(result.verb),
             resultPresenterForVerb,
           ),
         });
-        out.warn(
+        out.warn(result.message ?? `Checks failed on ${row.task.name}.`);
+      } else {
+        out.ok(
           result.message ??
-            "Final checks did not pass.",
+            `Checks passed on ${row.task.name}. Proof recorded.`,
         );
-      } else {out.ok(
-          result.message ??
-            `Final checks passed for ${branch}. Proof is current. Choose “Accept and land now” or “Join the landing queue”.`,
-        );}
+      }
       return true;
     }
     case "accept": {
       const ctx = await runtime.lifecycle(path);
       const preview = await runtime.acceptPlan(ctx);
-      if (
-        !await review(
-          resultPlan(preview),
-          `Start accepting ${branch} onto ${trunk}?`,
-        )
-      ) return false;
+      if (!await review(resultPlan(preview))) return false;
       const result = await runtime.accept(ctx, {
         confirmed: true,
         ...(preview.data?.revision === undefined
@@ -2065,7 +2034,7 @@ async function dispatchAction(
       });
       if (result !== undefined && !result.ok) {
         await runtime.screen({
-          title: "Acceptance did not finish",
+          title: `${row.task.name} didn't land`,
           source: renderResultReading(
             result,
             resultPresenterForVerb(result.verb),
@@ -2074,12 +2043,12 @@ async function dispatchAction(
         });
         out.warn(
           result.message ??
-            "Acceptance did not finish. Read the retained result before retrying.",
+            `${row.task.name} didn't land. Read the retained result before retrying.`,
         );
         return false;
       }
       out.ok(
-        `Acceptance finished for ${branch}. The refreshed task list shows what landed.`,
+        `Landing finished for ${row.task.name}. The refreshed task list shows what landed.`,
       );
       return true;
     }
@@ -2105,23 +2074,12 @@ async function dispatchAction(
             : []),
         ],
       };
-      if (
-        !await review(
-          reviewedPlan,
-          `Queue ${preview.data.revision.head.slice(0, 12)} from ${branch}?`,
-        )
-      ) return false;
+      if (!await review(reviewedPlan)) return false;
       if (needsAuthority) {
         const grantPlan = await runtime.grantEffortPlan(path, branch);
-        if (
-          !await reviewAction(
-            row,
-            "grant",
-            grantPlan,
-            runtime,
-            `Allow ${branch} to land once green without a further conversation?`,
-          )
-        ) return false;
+        if (!await reviewAction(row, "grant", grantPlan, runtime)) {
+          return false;
+        }
         await verify();
         const current = await runtime.submit(path, {
           dryRun: true,
@@ -2144,48 +2102,39 @@ async function dispatchAction(
       out.ok(
         `${
           result.message ?? "Revision queued."
-        } An acceptance walk can pick it up; Accept starts a walk.`,
+        } It lands with any landing, or when you choose ${DESK_ACTION_LABELS.accept}`,
       );
       return true;
     }
     case "grant": {
       const plan = await runtime.grantEffortPlan(path, branch);
-      if (
-        !await review(
-          plan,
-          `Allow ${branch} to land once green without a further conversation?`,
-        )
-      ) return false;
+      if (!await review(plan)) return false;
       await runtime.grantEffort(path, branch);
       const refreshed = (await runtime.status(root)).data;
       const queued = refreshed?.queue?.find((item) => item.branch === branch);
       out.ok(
         queued
-          ? `Pre-authorized ${branch}. Queued revision: ${
+          ? `Pre-authorized ${row.task.name}. Its queued version ${
             queued.head.slice(0, 12)
-          }. Accept starts a landing walk.`
-          : `Pre-authorized ${branch}. No revision is queued. When Proof is current, choose “Accept and land now” or “Join the landing queue”.`,
+          } lands with any landing.`
+          : `Pre-authorized ${row.task.name}. Nothing is queued yet.`,
       );
-      if (
-        refreshed?.fleet?.find((item) =>
-          item.path === path && item.branch === branch
-        )?.gate_proof?.status === "honored"
-      ) {
+      const granted = refreshed?.fleet?.find((item) =>
+        item.path === path && item.branch === branch
+      );
+      if (granted !== undefined && hasLandableFacts(granted)) {
         const next = await runtime.select({
           message: "Choose how this proven revision enters landing",
           options: [
             { name: "Back to task", value: BACK },
-            {
-              name: "Accept and land now",
-              value: "accept",
-              description:
-                "Start acceptance; another landing may hold the turn and checks can refuse.",
-            },
-            {
-              name: "Join the landing queue",
-              value: "submit",
-              description: "Record this revision without starting a walk.",
-            },
+            ...(["accept", "submit"] as const).map((choice) => {
+              const offer = selectedOffer(row, choice);
+              return {
+                name: offer.label,
+                value: choice,
+                description: offer.summary,
+              };
+            }),
           ],
         });
         if (next === "accept" || next === "submit") {
@@ -2205,24 +2154,18 @@ async function dispatchAction(
     }
     case "revoke_grant": {
       if (
-        !await review(
-          await runtime.clearEffortGrantPlan(path),
-          `Revoke pre-authorization for ${branch}?`,
-        )
+        !await review(await runtime.clearEffortGrantPlan(path))
       ) return false;
       await runtime.clearEffortGrant(path);
       out.ok(
-        `Revoked pre-authorization for ${branch}. Any queued revision remains awaiting authority.`,
+        `Revoked pre-authorization for ${row.task.name}. A queued version waits for your approval again.`,
       );
       return true;
     }
     case "update": {
       const ctx = await runtime.lifecycle(path);
       if (
-        !await review(
-          resultPlan(await runtime.updatePlan(ctx)),
-          `Merge ${trunk} into ${branch}?`,
-        )
+        !await review(resultPlan(await runtime.updatePlan(ctx)))
       ) return false;
       await runtime.update(ctx, {});
       out.ok(`Updated ${branch} from ${trunk}.`);
@@ -2231,10 +2174,7 @@ async function dispatchAction(
     case "reclaim": {
       const ctx = await runtime.lifecycle(root);
       if (
-        !await review(
-          await runtime.reclaimPlan(ctx, path),
-          `Reclaim this checkout and keep ${branch}?`,
-        )
+        !await review(await runtime.reclaimPlan(ctx, path))
       ) return false;
       await runtime.reclaim(ctx, path);
       out.ok(`Reclaimed ${path}. Branch ${branch} remains.`);
@@ -2243,19 +2183,20 @@ async function dispatchAction(
     case "park": {
       const ctx = await runtime.lifecycle(root);
       if (
-        !await review(
-          await runtime.parkPlan(ctx, path),
-          `Park this checkout and keep ${branch}?`,
-        )
+        !await review(await runtime.parkPlan(ctx, path))
       ) return false;
       await runtime.park(ctx, path);
-      out.ok(`Parked ${branch}. Open commands and choose its Resume command.`);
+      out.ok(
+        `Parked ${row.task.name}. Choose ${
+          labelName(DESK_COMMAND_LABELS.resume)
+        } ${branch}… in the desk commands to continue it.`,
+      );
       return true;
     }
     case "drop": {
       const ctx = await runtime.lifecycle(root);
       const plan = await runtime.dropPlan(ctx, path);
-      if (!await review(plan, `Drop ${branch}?`)) return false;
+      if (!await review(plan)) return false;
       const expected = plan.subject;
       try {
         await runtime.drop(ctx, path, {
@@ -2283,7 +2224,7 @@ async function dispatchAction(
         });
       }
       out.ok(
-        `Dropped ${branch}. Committed-tip recovery is bounded; uncommitted files have no automatic recovery.`,
+        `Dropped ${row.task.name}. Its last commit is kept for a while; uncommitted files can't be recovered.`,
       );
       return true;
     }
@@ -2346,7 +2287,7 @@ async function dispatchAction(
       if (code !== 0) {
         out.warn(`${launch.label} exited with status ${code}.`);
         await runtime.pause(out);
-      } else out.info(`Returned from ${launch.providerLabel}.`);
+      }
       return true;
     }
     case "rename": {
@@ -2359,17 +2300,16 @@ async function dispatchAction(
       const ctx = await runtime.lifecycle(path);
       const preview = await runtime.renamePlan(ctx, title);
       if (
-        !await review(
-          resultPlan(preview),
-          `Change the task title to ${JSON.stringify(title)}?`,
-          {
+        !await review(resultPlan(preview), {
+          question: `Rename ${row.task.name} to ${JSON.stringify(title)}?`,
+          offer: {
             ...selectedOffer(row, action),
             command: {
               argv: ["discern", "worktree", "rename", title],
               workingDirectory: "task",
             },
           },
-        )
+        })
       ) return false;
       const result = await runtime.rename(ctx, title);
       if (!result.ok) {
@@ -2393,7 +2333,7 @@ async function dispatchAction(
       if (code !== 0) {
         out.warn(`Shell exited with status ${code}.`);
         await runtime.pause(out);
-      } else out.info("Returned from the shell.");
+      }
       return true;
     }
     case "inspect":
@@ -2468,7 +2408,6 @@ export async function runDesk(
           agentLaunches: [],
           capabilityError: loaded.error ?? "Task configuration unavailable",
         },
-        config.repository.trunk,
         runtime.now(),
       );
     }
@@ -2486,7 +2425,6 @@ export async function runDesk(
         }),
         agentLaunches: buildAgentLaunches(loaded.config, detected),
       },
-      config.repository.trunk,
       runtime.now(),
     );
   };
@@ -2571,6 +2509,7 @@ export async function runDesk(
                 data.project ?? basename(root),
                 scripts.scripts,
                 runtime,
+                scripts.unavailableReason,
               );
               return;
             }

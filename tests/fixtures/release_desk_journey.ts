@@ -75,7 +75,7 @@ export async function releaseDeskJourney(
       phase("due", [
         "Desk commands / Check",
         "Check for updates",
-        "Due",
+        "check due",
         "/ find",
       ], "\r"),
       ...(geometry.rows <= 10

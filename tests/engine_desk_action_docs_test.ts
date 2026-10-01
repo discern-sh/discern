@@ -3,7 +3,10 @@
 import { assert, assertEquals } from "@std/assert";
 import {
   DESK_ACTION_REGISTRY,
+  DESK_ACTION_SECTION_TITLES,
   DESK_ACTIONS,
+  type DeskActionContext,
+  type DeskActionMetadata,
   type DeskConfirmationPolicy,
 } from "../src/engine/desk/model.ts";
 import { splitRow } from "../src/lib/markdown.ts";
@@ -27,8 +30,9 @@ function confirmationCell(policy: DeskConfirmationPolicy): string {
 
 /** Project every checked-in action row from the action-fact authority. */
 function actionReferenceRows(): string[][] {
-  const context = {
+  const context: DeskActionContext = {
     trunk: "<trunk>",
+    title: "<task>",
     branch: "<branch>",
     path: "<path>",
     containedIn: "<later-branch>",
@@ -36,27 +40,23 @@ function actionReferenceRows(): string[][] {
     taskMetadataRecorded: true,
     effortGranted: false,
     proofRecorded: false,
+    queued: false,
     changedFiles: 0,
     ahead: 1,
+    behind: 0,
     resources: ["<resource>"],
   };
-  const rows = DESK_ACTIONS.map((action) => {
-    const metadata = DESK_ACTION_REGISTRY[action];
-    const labels = [
-      metadata.label(context),
-      metadata.label({ ...context, proofHonored: true }),
-    ].filter((label, index, all) => all.indexOf(label) === index);
-    const group = metadata.group.charAt(0).toUpperCase() +
-      metadata.group.slice(1);
+  return DESK_ACTIONS.map((action) => {
+    const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
     return [
       `\`${action}\``,
-      group,
-      proseCell(labels.join(" / ")),
+      metadata.key === undefined ? "—" : `\`${metadata.key}\``,
+      DESK_ACTION_SECTION_TITLES[metadata.section],
+      proseCell(metadata.label),
       `\`${metadata.command(context).argv.join(" ")}\``,
       confirmationCell(metadata.confirmation),
     ];
   });
-  return rows;
 }
 
 Deno.test("the public Desk action table matches the canonical registry", async () => {
@@ -72,14 +72,15 @@ Deno.test("the public Desk action table matches the canonical registry", async (
   assert(header !== undefined && divider !== undefined);
   assertEquals(splitRow(header), [
     "Id",
-    "Group",
-    "Contextual label",
+    "Key",
+    "Section",
+    "Label",
     "Command evidence",
     "Confirmation",
   ]);
   assertEquals(
     splitRow(divider).map((cell) => /^-+$/u.test(cell)),
-    [true, true, true, true, true],
+    [true, true, true, true, true, true],
   );
   assertEquals(
     lines.map(splitRow),

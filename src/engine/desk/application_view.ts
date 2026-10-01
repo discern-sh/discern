@@ -1,25 +1,31 @@
 /** Product composition for the package-owned live Desk. */
-import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
+import {
+  createCliBlock,
+  renderMarkdownCli,
+  type TerminalSemanticTone,
+} from "discern-design-system/cli";
 import type {
   InteractionEntry,
   TerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import type { StatusData } from "../../shared/result_schemas.ts";
-import { deskLine, deskLiteral } from "./text.ts";
 import {
-  DESK_ACTIONS,
+  DESK_COMMAND_LABELS,
+  type DeskCommand,
+  labelName,
+} from "../../shared/desk_vocabulary.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
+import type { FleetRowTone } from "../status/row_states.ts";
+import {
   type DeskAction,
+  type DeskActionOffer,
   type DeskRow,
   deskRowId,
 } from "./model.ts";
+import { commandDisclosure, DESK_COMMAND_REGISTRY } from "./commands.ts";
+import { DESK_KEYS } from "./keys.ts";
+import { deskLine, deskLiteral } from "./text.ts";
 
-/** The product key map drives shortcut handling and visible help. */
-export const DESK_KEYS = [
-  { key: "?", label: "Help", route: "help" },
-  { key: "r", label: "Refresh", route: "retry" },
-  { key: "t", label: "Tip", route: "tip" },
-  { key: "q", label: "Quit", route: "quit" },
-] as const;
 export type DeskPage =
   | "overview"
   | "task"
@@ -29,6 +35,21 @@ export type DeskPage =
   | "tip"
   | "queue"
   | "notice";
+
+/** Root destinations and effects this view offers. */
+type DeskRoute =
+  | DeskPage
+  | "back"
+  | "retry"
+  | "quit"
+  | "start"
+  | "scripts"
+  | "main"
+  | "recent"
+  | "releases"
+  | "docs"
+  | "unlanded";
+
 export type DeskChoice =
   | { readonly kind: "task"; readonly id: string }
   | {
@@ -40,18 +61,7 @@ export type DeskChoice =
   }
   | {
     readonly kind: "route";
-    readonly route:
-      | DeskPage
-      | "back"
-      | "retry"
-      | "quit"
-      | "start"
-      | "scripts"
-      | "main"
-      | "recent"
-      | "releases"
-      | "docs"
-      | "unlanded";
+    readonly route: DeskRoute;
     readonly branch?: string;
   };
 export interface DeskSnapshot {
@@ -62,20 +72,78 @@ export interface DeskSnapshot {
   readonly notice?: string;
   readonly tip?: string;
 }
-const PRIMARY = [
-  "agent",
-  "scripts",
-  "grant",
-  "revoke_grant",
-  "accept",
-  "submit",
-  "drop",
-  "inspect",
-] as const satisfies readonly DeskAction[];
+
+/** The commands this view offers, and the route each one opens. */
+export const DESK_COMMAND_ROUTES = {
+  new_task: "start",
+  updates: "releases",
+  main_scripts: "scripts",
+  main_checkout: "main",
+  landing: "queue",
+  manual: "docs",
+  tip: "tip",
+  keys: "help",
+  refresh: "retry",
+  quit: "quit",
+} as const satisfies Partial<Record<DeskCommand, DeskRoute>>;
+type RoutedCommand = keyof typeof DESK_COMMAND_ROUTES;
+
+/** Whether this view serves a command. */
+export function isRoutedCommand(
+  command: DeskCommand,
+): command is RoutedCommand {
+  return Object.hasOwn(DESK_COMMAND_ROUTES, command);
+}
+
+/** Routes a key can serve without leaving the view: pages, refresh, quit. */
+type KeyRoute = "help" | "tip" | "queue" | "retry" | "quit";
+
+/** Whether a route is one a key can serve. */
+function isKeyRoute(target: DeskRoute): target is KeyRoute {
+  return ["help", "tip", "queue", "retry", "quit"].includes(target);
+}
+
+/** The keys this view serves: inbox command keys whose route needs no
+ * foreground handoff. */
+export function deskShortcuts(): readonly {
+  readonly key: string;
+  readonly command: RoutedCommand;
+  readonly route: KeyRoute;
+}[] {
+  return DESK_KEYS.inbox.flatMap((binding) => {
+    if (
+      binding.meaning.kind !== "command" ||
+      !isRoutedCommand(binding.meaning.command)
+    ) return [];
+    const target = DESK_COMMAND_ROUTES[binding.meaning.command];
+    return isKeyRoute(target)
+      ? [{ key: binding.key, command: binding.meaning.command, route: target }]
+      : [];
+  });
+}
+
+/** The package tone for one status row tone; green stays reserved for landable work. */
+const SEMANTIC_TONES = {
+  accent: "accent",
+  success: "success",
+  warning: "warning",
+  danger: "danger",
+  muted: "neutral",
+  faint: "neutral",
+} as const satisfies Record<FleetRowTone, TerminalSemanticTone>;
+
+/** The flag beside a row's state glyph when its files overlap another task's. */
+const OVERLAP = { glyph: "⇄", ascii: "&" } as const;
+
+/** Whether another task changes the same files or claims the same ADR. */
+function overlaps(row: DeskRow): boolean {
+  return row.decision.collisions.length > 0;
+}
+
 /** A semantic destination for one package choice. */
 function route(
   label: string,
-  target: Extract<DeskChoice, { kind: "route" }>["route"],
+  target: DeskRoute,
   description?: string,
 ): InteractionEntry<DeskChoice> {
   return {
@@ -85,6 +153,25 @@ function route(
     ...(description ? { description: deskLine(description) } : {}),
   };
 }
+
+/** One registered command, labelled and routed from its registry entry. */
+function command(
+  id: RoutedCommand,
+  meta?: string,
+  description?: string,
+): InteractionEntry<DeskChoice> {
+  return {
+    ...route(
+      DESK_COMMAND_REGISTRY[id].label,
+      DESK_COMMAND_ROUTES[id],
+      description,
+    ),
+    ...(meta === undefined
+      ? {}
+      : { status: { content: deskLine(meta), tone: "neutral" as const } }),
+  };
+}
+
 /** A package Markdown block in a scrollable reading region. */
 function reading(
   id: string,
@@ -103,62 +190,46 @@ function reading(
     content: createCliBlock(renderMarkdownCli, { source: lines.join("\n\n") }),
   };
 }
-/** Compact Proof vocabulary; validity never implies permission or submission. */
-export function deskProofLabel(row: DeskRow): string {
-  switch (row.decision.proof.status) {
-    case "honored":
-      return "Proof valid";
-    case "missing":
-      return "No Proof";
-    case "stale":
-      return "Proof stale";
-    case "dirty":
-      return "Proof: edited";
-    case "report_only":
-      return "Report only";
-    case "read_failed":
-      return "Proof unreadable";
-    case "unavailable":
-      return "Proof unknown";
-    default:
-      // Proof statuses are an open vocabulary; show an unknown one as read.
-      return `Proof ${row.decision.proof.status}`;
-  }
-}
-/** Preserve the status-projected exact submission, including older submitted work. */
-export function deskSubmission(
-  row: DeskRow,
-  data: StatusData | undefined,
-): string {
-  const submission = data?.queue?.find((item) =>
-    item.branch === row.entry.branch
-  );
-  return submission === undefined
-    ? "Not queued"
-    : `Queued ${submission.head.slice(0, 12)} · ${submission.readiness}`;
-}
+
 /** Capture identity and the registered action without treating the menu as consent. */
 function actionEntry(
   row: DeskRow,
-  action: DeskAction,
+  offer: DeskActionOffer,
 ): InteractionEntry<DeskChoice> {
-  const offer = row.decision.actions.find((item) => item.action === action);
-  if (offer === undefined) throw new TypeError(`Missing Desk action ${action}`);
   return {
-    id: action,
+    id: offer.action,
     label: offer.label,
-    ...(offer.availability === "disabled"
-      ? { status: { content: "Unavailable", tone: "neutral" as const } }
-      : {}),
+    description: deskLine(
+      offer.availability === "disabled" ? offer.reason : offer.summary,
+    ),
+    ...(offer.availability === "disabled" ? { disabled: true } : {}),
     value: {
       kind: "action",
       id: deskRowId(row),
       path: row.entry.path,
       branch: row.entry.branch,
-      action,
+      action: offer.action,
     },
   };
 }
+
+/** The task's next step when it can run, then its other available steps. */
+function stepOffers(row: DeskRow): DeskActionOffer[] {
+  const next = row.decision.next;
+  return [
+    ...(next?.availability === "enabled" ? [next] : []),
+    ...row.decision.also.filter((offer) => offer.action !== next?.action),
+  ];
+}
+
+/** The state line: glyph, label, and its qualifier. */
+function stateLine(row: DeskRow): string {
+  const { decision } = row;
+  return `${decision.glyph} ${decision.label}${
+    decision.qualifier === undefined ? "" : ` · ${decision.qualifier}`
+  }`;
+}
+
 /** Build immutable product views; no geometry, terminal I/O or discovery lives here. */
 export function deskApplicationView(
   snapshot: DeskSnapshot,
@@ -174,6 +245,8 @@ export function deskApplicationView(
     : snapshot.phase === "refreshing"
     ? " · Refreshing"
     : "";
+  const shortcuts = deskShortcuts();
+  const keysShortcut = shortcuts.find((item) => item.command === "keys");
   const base = {
     title: deskLine(
       `discern · ${data?.project ?? "Desk"}${phase}${
@@ -182,8 +255,10 @@ export function deskApplicationView(
     ),
     ...(snapshot.tip ? { tip: deskLine(`Tip: ${snapshot.tip}`) } : {}),
     help: `Tab ${page === "overview" ? "commands" : "regions"}  / find  ${
-      DESK_KEYS[0].key
-    } help  Arrows move  Enter select`,
+      keysShortcut === undefined
+        ? ""
+        : `${keysShortcut.key} ${DESK_COMMAND_REGISTRY.keys.short}  `
+    }Arrows move  Enter select`,
   };
   const back = route("Back", "back");
   if (
@@ -200,14 +275,18 @@ export function deskApplicationView(
         deskLiteral(
           snapshot.tip ?? "A tip will appear after the first observation.",
         ),
-        'Read the manual from "Desk commands" for more information.',
+        `Choose ${DESK_COMMAND_LABELS.manual} from "Desk commands" for more information.`,
       ]
       : page === "help"
       ? [
         "Arrow keys move; Page Up/Down and Home/End reach the rest of a collection. Enter chooses. Tab switches regions, including regions hidden by a small viewport.",
         "Press / to find a task. Type to filter; Enter returns to navigation, Escape clears the filter. Typing never runs global shortcuts.",
         "Escape goes Back, then exits from the overview.",
-        ...DESK_KEYS.map((key) => `${key.key} — ${key.label}`),
+        ...shortcuts.map((item) =>
+          `${deskLiteral(item.key)} — ${
+            DESK_COMMAND_REGISTRY[item.command].label
+          }`
+        ),
       ]
       : [
         ...(snapshot.message ? [deskLiteral(snapshot.message)] : []),
@@ -244,12 +323,12 @@ export function deskApplicationView(
         reading(
           page,
           page === "help"
-            ? "Keyboard help"
+            ? DESK_COMMAND_LABELS.keys
             : page === "tip"
-            ? "Tip"
+            ? DESK_COMMAND_LABELS.tip
             : page === "notice"
             ? "Action result"
-            : "Landing queue",
+            : DESK_COMMAND_LABELS.landing,
           lines,
         ),
         {
@@ -262,38 +341,17 @@ export function deskApplicationView(
     };
   }
   if (row !== undefined && page !== "overview") {
-    const landingState = [
-      deskProofLabel(row),
-      row.decision.authority.status === "granted"
-        ? "Authorized"
-        : row.decision.authority.status === "unknown"
-        ? "Authority unknown"
-        : row.decision.authority.status === "scope_limited"
-        ? "Scope limited"
-        : "Needs approval",
-      deskSubmission(row, data),
-    ].join(" · ");
     const summary = [
       ...(snapshot.message ? [snapshot.message] : []),
-      row.decision.activity.summary,
-      landingState,
+      stateLine(row),
+      row.decision.explanation,
     ];
-    const primary = PRIMARY.filter((action) =>
-      action === "grant"
-        ? row.decision.authority.source !== "effort-grant"
-        : action === "revoke_grant"
-        ? row.decision.authority.source === "effort-grant"
-        : true
-    );
+    const steps = stepOffers(row);
     const entries = page === "more"
-      ? DESK_ACTIONS.filter((action) =>
-        !PRIMARY.includes(action as typeof PRIMARY[number]) &&
-        (!["recovery", "retry_setup", "reclaim"].includes(action) ||
-          row.decision.actions.some((offer) =>
-            offer.action === action && offer.availability === "enabled"
-          ))
-      ).map((action) => actionEntry(row, action))
-      : primary.map((action) => actionEntry(row, action));
+      ? row.decision.actions
+        .filter((offer) => !steps.some((step) => step.action === offer.action))
+        .map((offer) => actionEntry(row, offer))
+      : steps.map((offer) => actionEntry(row, offer));
     const detailLines = [
       ...summary,
       `Branch: ${row.entry.branch}`,
@@ -320,7 +378,7 @@ export function deskApplicationView(
           id: `task:${deskRowId(row)}:${page === "more" ? "more" : "actions"}`,
           title: page === "more"
             ? "More actions"
-            : `Task controls · ${landingState}`,
+            : deskLine(`Task controls · ${row.decision.label}`),
           search: true,
           entries: [
             ...entries,
@@ -362,43 +420,45 @@ export function deskApplicationView(
       }`,
     ),
     value: { kind: "task", id: deskRowId(row) },
+    // The state's glyph, then the overlap flag when another task changes the
+    // same files.
+    indicator: {
+      content: `${row.decision.glyph}${overlaps(row) ? OVERLAP.glyph : ""}`,
+      ascii: `${row.decision.ascii}${overlaps(row) ? OVERLAP.ascii : ""}`,
+      tone: SEMANTIC_TONES[row.decision.tones.glyph],
+    },
     status: {
-      content: deskProofLabel(row),
-      tone: row.decision.proof.honored ? "success" : "neutral",
+      content: deskLine(row.decision.label),
+      tone: SEMANTIC_TONES[row.decision.tones.label],
     },
-    ...(row.decision.collisions.length
-      ? { indicator: { content: "i", ascii: "i", tone: "neutral" as const } }
-      : {}),
   }));
+  const facts = {
+    ...(data === undefined ? {} : { data }),
+    version: DISCERN_VERSION,
+    ...(data?.git?.trunk === undefined ? {} : { trunk: data.git.trunk }),
+  };
+  const resume = labelName(DESK_COMMAND_LABELS.resume);
   const commands: InteractionEntry<DeskChoice>[] = [
-    ...(snapshot.notice || snapshot.message
-      ? [route("Read notice", "notice")]
-      : []),
-    route("Start a task", "start"),
-    {
-      ...route(
-        "Check for updates",
-        "releases",
-        "See what's new and whether an upgrade is available.",
-      ),
-      ...(data?.release_reminder
-        ? { status: { content: "Due", tone: "neutral" as const } }
-        : {}),
-    },
-    route("Project Scripts", "scripts"),
-    route("Main checkout", "main"),
-    route(`Landing queue (${data?.queue?.length ?? 0})`, "queue"),
+    command("new_task"),
+    command(
+      "updates",
+      DESK_COMMAND_REGISTRY.updates.meta(facts),
+      commandDisclosure("updates", facts),
+    ),
+    command("main_scripts"),
+    command("main_checkout", DESK_COMMAND_REGISTRY.main_checkout.meta(facts)),
+    command("landing", DESK_COMMAND_REGISTRY.landing.meta(facts)),
     route("Recent completed tasks", "recent"),
-    route("Read the manual", "docs"),
-    route("Read this Tip", "tip"),
-    route("Keyboard help", "help"),
-    route(snapshot.phase === "stale" ? "Retry" : "Refresh", "retry"),
+    command("manual"),
+    command("tip"),
+    command("keys"),
+    command("refresh"),
     ...(data?.unlanded_branches ?? []).map((branch) => ({
       id: `unlanded:${branch}`,
-      label: deskLine(`Resume ${branch}`),
+      label: deskLine(`${resume} ${branch}…`),
       value: { kind: "route" as const, route: "unlanded" as const, branch },
     })),
-    route("Quit", "quit"),
+    command("quit"),
   ];
   return {
     ...base,
@@ -415,7 +475,7 @@ export function deskApplicationView(
       search: true,
       entries: tasks.length
         ? tasks
-        : [route("Start a task", "start"), route("Retry observation", "retry")],
+        : [command("new_task"), route("Retry observation", "retry")],
     }, {
       kind: "choices",
       id: "desk",

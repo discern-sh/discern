@@ -1,6 +1,11 @@
 /** Real-PTY characterisation of the complete package-backed Desk session. */
 
 import {
+  DESK_ACTION_LABELS,
+  DESK_COMMAND_LABELS,
+  labelName,
+} from "../src/shared/desk_vocabulary.ts";
+import {
   assert,
   assertEquals,
   assertStringIncludes,
@@ -40,6 +45,7 @@ const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
 const EMPTY_ROOT_READY = ["No tasks yet", "/ find"] as const;
 const TASK_ROOT_READY = ["Tasks (", "/ find"] as const;
 const TASK_ACTION_READY = ["Task controls", "/ find"] as const;
+const NEW_TASK = DESK_COMMAND_LABELS.new_task;
 
 /** Capture only after the visible Desk frame exposes its complete focus state. */
 function focusedCapture(
@@ -165,7 +171,7 @@ function assertHealthySession(
 function rootExitInput(captureName = "root"): readonly DeskTtyInputPhase[] {
   return [{
     waitFor: ["No tasks yet", "Tip:"],
-    capture: focusedCapture(captureName, "Start a task"),
+    capture: focusedCapture(captureName, NEW_TASK),
     chunks: [{ input: "q" }],
   }];
 }
@@ -188,7 +194,7 @@ realPtyTest({
         colorMode: "no-color-env",
         input: [{
           waitFor: EMPTY_ROOT_READY,
-          capture: focusedCapture("root", "Start a task"),
+          capture: focusedCapture("root", NEW_TASK),
           chunks: [{ input: "q" }],
         }],
         env: { LANG: "C", LC_ALL: "C" },
@@ -196,7 +202,7 @@ realPtyTest({
 
       assertHealthySession(result);
       const root = frame(result, "root");
-      assertStringIncludes(root.text, "Start a task");
+      assertStringIncludes(root.text, NEW_TASK);
       assertStringIncludes(root.text, "/ find");
       assertStringIncludes(root.text, "Tab");
       assertStringIncludes(result.transcript, "No tasks");
@@ -394,7 +400,7 @@ realPtyTest({
             chunks: [{ input: "/more\r\r" }],
           }, {
             waitFor: "› More actions",
-            chunks: [{ input: "/change task\r\r" }],
+            chunks: [{ input: "/rename\r\r" }],
           }, {
             waitFor: "New task title",
             chunks: [{
@@ -417,11 +423,15 @@ realPtyTest({
             chunks: [{ keys: ["enter"] }],
           }, {
             waitFor: [
-              "Change task title",
+              labelName(DESK_ACTION_LABELS.rename),
               title,
               "Tab choices/read  Esc back",
             ],
-            capture: textCapture("rename-preview", "Change task title", title),
+            capture: textCapture(
+              "rename-preview",
+              labelName(DESK_ACTION_LABELS.rename),
+              title,
+            ),
             chunks: [{ keys: ["tab", "down", "enter"] }],
           }, {
             waitFor: "› More actions",
@@ -498,7 +508,7 @@ realPtyTest({
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: TASK_ACTION_READY,
-          chunks: [{ input: "/proof and changes\r\r" }],
+          chunks: [{ input: `/${DESK_ACTION_LABELS.inspect}\r\r` }],
         }, {
           waitFor: [
             "Review Review pager",
@@ -634,7 +644,7 @@ realPtyTest({
         assertHealthySession(result);
         assertStringIncludes(
           frame(result, result.frames[0]?.name ?? "").text,
-          "Start a task",
+          NEW_TASK,
         );
       }
       assert(SGR.test(colored.transcript), colored.transcript);

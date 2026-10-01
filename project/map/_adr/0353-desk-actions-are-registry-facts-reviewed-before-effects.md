@@ -1,6 +1,10 @@
 # ADR 0353: Desk actions are registry facts reviewed before effects
 
-**Status**: accepted. Extends the Desk decision authority from [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md), its pure product boundary from [ADR 0352](0352-desk-decisions-cross-a-pure-responsive-presentation-boundary.md), and the plan/apply execution model from [ADR 0027](0027-plan-apply-engine-execution.md).
+> **Amendments.**
+>
+> - **[ADR 0413](0413-the-desk-offers-each-tasks-next-decision.md) — next steps as registry data:** the recommendation predicate becomes the registry's `next` and `also` lists per row state (one next step, at most three keyed alternatives); each action has one label from a shared vocabulary, ending in an ellipsis exactly when it asks first; the registry declares keys, consequence lines and revision bindings; the public table gains Key and Section.
+
+**Status**: accepted; recommendation and labels amended by [ADR 0413](0413-the-desk-offers-each-tasks-next-decision.md). Extends the Desk decision authority from [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md), its pure product boundary from [ADR 0352](0352-desk-decisions-cross-a-pure-responsive-presentation-boundary.md), and the plan/apply execution model from [ADR 0027](0027-plan-apply-engine-execution.md).
 
 ## Context
 

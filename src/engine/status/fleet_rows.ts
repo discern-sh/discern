@@ -306,6 +306,11 @@ export function presentFleetRow(
 
 const TITLE_ORDER = new Intl.Collator("en", { sensitivity: "base" });
 
+/** Order two task titles case-folded and accent-aware, as every list does. */
+export function compareTaskTitles(left: string, right: string): number {
+  return TITLE_ORDER.compare(left, right);
+}
+
 /** Decision groups in display order; the current checkout leads its group;
  * then case-folded task titles, and the exact identity for ties. */
 export function sortFleetRows(
@@ -314,7 +319,7 @@ export function sortFleetRows(
   return [...rows].sort((left, right) =>
     fleetRowGroupRank(left.group) - fleetRowGroupRank(right.group) ||
     Number(right.entry.is_current) - Number(left.entry.is_current) ||
-    TITLE_ORDER.compare(
+    compareTaskTitles(
       taskLabel(left.entry).name,
       taskLabel(right.entry).name,
     ) ||

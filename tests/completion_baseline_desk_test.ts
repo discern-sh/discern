@@ -44,7 +44,6 @@ function mainRuntime(patch: Partial<DeskRuntime>): DeskRuntime {
     error: unrelated,
     application: unrelated,
     select: unrelated,
-    confirm: unrelated,
     input: unrelated,
     sequence: unrelated,
     pause: unrelated,

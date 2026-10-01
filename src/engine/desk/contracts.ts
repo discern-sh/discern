@@ -3,23 +3,8 @@ import type { GateProofCheckData } from "../../shared/result_schemas.ts";
 
 /** Sentinel selection values that route back into Desk orchestration. */
 export const DESK_ROUTES = {
-  refresh: "\x00refresh",
-  quit: "\x00quit",
   back: "\x00back",
-  startTask: "\x00start-task",
-  runProjectScript: "\x00run-project-script",
-  readDocs: "\x00read-docs",
-  mainCheckout: "\x00main-checkout",
-  recentCompleted: "\x00recent-completed",
 } as const;
-
-/** Route prefix for one exact status-reported branch without a worktree. */
-export const DESK_UNLANDED_ROUTE_PREFIX = "\x00unlanded:";
-
-/** Preserve an unlanded branch ref as a root-picker route. */
-export function deskUnlandedRoute(branch: string): string {
-  return `${DESK_UNLANDED_ROUTE_PREFIX}${branch}`;
-}
 
 /** Routes available inside the Proof-first review drill-down. */
 export const DESK_REVIEW_ROUTES = {

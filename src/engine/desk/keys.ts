@@ -1,0 +1,286 @@
+/**
+ * The Desk's one key map.
+ *
+ * Every layer the Desk shows (the inbox with a task or a branch selected, the
+ * action menu, the palette, a sheet or form, a reader) resolves each key to
+ * exactly one meaning: a task action from the action registry, a command from
+ * the command registry, or a navigation gesture. Task mnemonics and command
+ * keys come from their registries, never from a copy here. The keys sheet and
+ * every footer hint are projections of this map; the registry guard proves one
+ * meaning per key per layer and keeps mnemonics clear of the package's keys.
+ */
+
+import {
+  DESK_ACTION_REGISTRY,
+  DESK_ACTIONS,
+  type DeskAction,
+  type DeskActionMetadata,
+} from "./model.ts";
+import {
+  DESK_COMMAND_REGISTRY,
+  DESK_COMMANDS,
+  type DeskCommand,
+  type DeskCommandMetadata,
+  type DeskCommandScope,
+} from "./commands.ts";
+
+/** The layers that own the keyboard, bottom to top. */
+export const DESK_LAYERS = [
+  "inbox",
+  "branch",
+  "menu",
+  "palette",
+  "sheet",
+  "reader",
+] as const;
+export type DeskLayer = (typeof DESK_LAYERS)[number];
+
+/** Movement and layer mechanics that are not a registry action or command. */
+export type DeskGesture =
+  | "move"
+  | "first"
+  | "last"
+  | "page"
+  | "next-group"
+  | "previous-group"
+  | "jump-group"
+  | "next-step"
+  | "actions"
+  | "back"
+  | "details"
+  | "filter"
+  | "palette"
+  | "dismiss"
+  | "run"
+  | "open"
+  | "type"
+  | "next-button"
+  | "previous-button"
+  | "next-control"
+  | "previous-control"
+  | "activate"
+  | "toggle-plan"
+  | "toggle-command"
+  | "toggle-changes"
+  | "edit-text"
+  | "alternative"
+  | "review-again"
+  | "full-output"
+  | "open-editor"
+  | "open-shell"
+  | "quit-request";
+
+/** What one key does in one layer. */
+export type DeskKeyMeaning =
+  | { readonly kind: "action"; readonly action: DeskAction }
+  | { readonly kind: "command"; readonly command: DeskCommand }
+  | {
+    readonly kind: "gesture";
+    readonly gesture: DeskGesture;
+    /** The footer and keys-sheet words for it. */
+    readonly label: string;
+    /** For a group jump, the group's position (1 = Ready for review). */
+    readonly group?: number;
+  };
+
+/** One key in one layer. `key` uses the terminal's key names ("up",
+ * "ctrl-k") for named keys and the typed character for text keys. */
+export interface DeskKeyBinding {
+  readonly key: string;
+  readonly meaning: DeskKeyMeaning;
+}
+
+/**
+ * Keys the package's application runtime owns in every layer: movement,
+ * paging, focus, activation, dismissal, the filter, details zoom, and the
+ * interrupt. No registry mnemonic or command key may take one.
+ */
+export const PACKAGE_RESERVED_KEYS = [
+  "up",
+  "down",
+  "left",
+  "right",
+  "shift-up",
+  "shift-down",
+  "page-up",
+  "page-down",
+  "home",
+  "end",
+  "tab",
+  "shift-tab",
+  "enter",
+  "escape",
+  "space",
+  "/",
+  "j",
+  "k",
+  "ctrl-c",
+] as const;
+
+/**
+ * Chords the package's text editor binds for line editing. A sheet's own
+ * chords must avoid them, because they must work while a field has focus.
+ */
+export const EDITOR_RESERVED_CHORDS = [
+  "ctrl-a",
+  "ctrl-b",
+  "ctrl-d",
+  "ctrl-e",
+  "ctrl-f",
+  "ctrl-h",
+  "ctrl-n",
+  "ctrl-p",
+  "ctrl-u",
+  "ctrl-w",
+] as const;
+
+/** A gesture binding. */
+function gesture(
+  key: string,
+  name: DeskGesture,
+  label: string,
+  group?: number,
+): DeskKeyBinding {
+  return {
+    key,
+    meaning: {
+      kind: "gesture",
+      gesture: name,
+      label,
+      ...(group === undefined ? {} : { group }),
+    },
+  };
+}
+
+/** Every registered action's mnemonic, read from the action registry. */
+function actionKeys(): DeskKeyBinding[] {
+  return DESK_ACTIONS.flatMap((action) => {
+    const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
+    return metadata.key === undefined
+      ? []
+      : [{ key: metadata.key, meaning: { kind: "action", action } }];
+  });
+}
+
+/** Every keyed command of one scope, read from the command registry. */
+function commandKeys(scope: DeskCommandScope): DeskKeyBinding[] {
+  return DESK_COMMANDS.flatMap((command) => {
+    const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
+    return metadata.key === undefined || metadata.scope !== scope
+      ? []
+      : [{ key: metadata.key, meaning: { kind: "command", command } }];
+  });
+}
+
+/** List movement shared by the inbox with a task or a branch selected. */
+const LIST_GESTURES = [
+  gesture("up", "move", "Move"),
+  gesture("down", "move", "Move"),
+  gesture("k", "move", "Move"),
+  gesture("j", "move", "Move"),
+  gesture("home", "first", "First row"),
+  gesture("end", "last", "Last row"),
+  gesture("tab", "next-group", "Next group"),
+  gesture("shift-tab", "previous-group", "Previous group"),
+  gesture("page-up", "page", "Scroll details"),
+  gesture("page-down", "page", "Scroll details"),
+  gesture("shift-up", "page", "Scroll details"),
+  gesture("shift-down", "page", "Scroll details"),
+  gesture("space", "details", "Details"),
+  gesture("/", "filter", "Filter"),
+  gesture("escape", "dismiss", "Clear"),
+  gesture("ctrl-k", "palette", "Commands"),
+  gesture(":", "palette", "Commands"),
+  gesture("ctrl-c", "quit-request", "Quit"),
+  ...[1, 2, 3, 4, 5].map((group) =>
+    gesture(String(group), "jump-group", "Go to group", group)
+  ),
+  ...commandKeys("global"),
+] as const;
+
+/** The one key map, per layer. */
+export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
+  {
+    inbox: [
+      ...LIST_GESTURES,
+      gesture("enter", "next-step", "Next step"),
+      gesture("right", "actions", "Actions"),
+      gesture(".", "actions", "Actions"),
+      ...actionKeys(),
+    ],
+    branch: [
+      ...LIST_GESTURES,
+      gesture("enter", "next-step", "Next step"),
+      ...commandKeys("parked-row"),
+    ],
+    menu: [
+      gesture("up", "move", "Move"),
+      gesture("down", "move", "Move"),
+      gesture("tab", "next-group", "Next section"),
+      gesture("shift-tab", "previous-group", "Previous section"),
+      gesture("page-up", "page", "Page"),
+      gesture("page-down", "page", "Page"),
+      gesture("enter", "run", "Run"),
+      gesture("right", "run", "Run"),
+      gesture("left", "back", "Back"),
+      gesture("escape", "back", "Back"),
+      gesture("/", "filter", "Filter"),
+      gesture("ctrl-c", "quit-request", "Quit"),
+      ...actionKeys(),
+    ],
+    palette: [
+      gesture("up", "move", "Move"),
+      gesture("down", "move", "Move"),
+      gesture("page-up", "page", "Page"),
+      gesture("page-down", "page", "Page"),
+      gesture("enter", "run", "Run"),
+      gesture("escape", "dismiss", "Close"),
+      gesture("ctrl-c", "quit-request", "Quit"),
+    ],
+    sheet: [
+      gesture("left", "previous-button", "Buttons"),
+      gesture("right", "next-button", "Buttons"),
+      gesture("tab", "next-control", "Next field"),
+      gesture("shift-tab", "previous-control", "Previous field"),
+      gesture("enter", "activate", "Choose"),
+      gesture("escape", "dismiss", "Keep"),
+      gesture("up", "page", "Scroll"),
+      gesture("down", "page", "Scroll"),
+      gesture("page-up", "page", "Read more"),
+      gesture("page-down", "page", "Read more"),
+      gesture("d", "toggle-plan", "Plan"),
+      gesture("c", "toggle-command", "Command"),
+      gesture("v", "toggle-changes", "Changes"),
+      gesture("ctrl-t", "toggle-plan", "Plan"),
+      gesture("ctrl-x", "toggle-command", "Command"),
+      gesture("ctrl-o", "edit-text", "Edit"),
+      gesture("p", "alternative", "Park instead"),
+      gesture("a", "alternative", "Open agent"),
+      gesture("u", "alternative", "Update from main"),
+      gesture("o", "full-output", "Full output"),
+      gesture("r", "review-again", "Review again"),
+      gesture("ctrl-c", "quit-request", "Quit"),
+    ],
+    reader: [
+      gesture("up", "move", "Scroll"),
+      gesture("down", "move", "Scroll"),
+      gesture("page-up", "page", "Page"),
+      gesture("page-down", "page", "Page"),
+      gesture("tab", "next-control", "Next row"),
+      gesture("shift-tab", "previous-control", "Previous row"),
+      gesture("enter", "open", "Open"),
+      gesture("escape", "back", "Back"),
+      gesture("left", "back", "Back"),
+      gesture("o", "full-output", "Full diff"),
+      gesture("e", "open-editor", "Open in editor"),
+      gesture("s", "open-shell", "Open shell"),
+      { key: "x", meaning: { kind: "command", command: "main_scripts" } },
+      { key: "m", meaning: { kind: "command", command: "manual" } },
+      gesture("ctrl-c", "quit-request", "Quit"),
+    ],
+  };
+
+/** The sheet chords that work in every focus state, a text field included. */
+export function sheetFieldChords(): readonly DeskKeyBinding[] {
+  return DESK_KEYS.sheet.filter((binding) => binding.key.startsWith("ctrl-"));
+}

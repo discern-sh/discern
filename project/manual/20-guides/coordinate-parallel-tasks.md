@@ -94,18 +94,21 @@ The **desk** is the interactive view that opens when you run `discern` in your m
 discern
 ```
 
-Tasks stay in title order, so rows don't jump as work changes. Each row shows what the task is doing and its Proof, and an `i` marks one that changes files another task changes too. Select a task for its main choices:
+Tasks are grouped by who moves next: **Ready for review**, **Needs attention**, **Working**, **Approved to land**, then **Idle**, with titles in alphabetical order inside each group. Each row shows the task's state, such as `✓ Ready`, `! Stale`, or `✕ Checks failed`, the same words `discern status` uses, and what the task last did. A row that changes files another task also changes carries `⇄` beside its state. A task moves to another group when its state changes.
 
-| Choice                               | What it does                                          |
-| ------------------------------------ | ----------------------------------------------------- |
-| **Proof and changes**                | Shows the Proof, changed files, and diff.             |
-| **Start or resume agent**            | Opens your coding agent in the task's worktree.       |
-| **Pre-authorize landing once green** | Lets the task land once its checks pass.              |
-| **Accept and land now**              | Lands the checked commit.                             |
-| **Join the landing queue**           | Queues the checked commit without starting a landing. |
-| **Drop**                             | Discards the task after you confirm.                  |
+Select a task and its next step comes first, followed by a few others that fit its state:
 
-**More actions** holds the rest, and the [desk actions reference](../30-reference/worktrees-and-status.md#desk-actions) lists every action. An action that can't run yet is marked unavailable and says why. Before an action changes anything, the desk shows its plan, and discern checks the task again when you confirm. The desk also shows one tip suited to your project each time it opens.
+| Choice                 | What it does                                                |
+| ---------------------- | ----------------------------------------------------------- |
+| **Land…**              | Lands the checked commit after you confirm.                 |
+| **View changes**       | Shows the Proof, changed files, and diff.                   |
+| **Pre-authorize…**     | Lets the task land without asking you once its checks pass. |
+| **Open agent**         | Opens your coding agent in the task's worktree.             |
+| **Run checks…**        | Runs the project's checks on the task's committed work.     |
+| **Queue for landing…** | Queues the checked commit without starting a landing.       |
+| **Drop…**              | Discards the task after you confirm.                        |
+
+**More actions** holds the rest, and the [desk actions reference](../30-reference/worktrees-and-status.md#desk-actions) lists every action. A label that ends in `…` asks you to confirm before anything changes. An action that can't run yet stays in the list with the reason it can't. Before an action changes anything, the desk shows its plan, and discern checks the task again when you confirm. The desk also shows one tip suited to your project each time it opens.
 
 ## Keep each task up to date
 
@@ -117,13 +120,7 @@ Each task finishes with `discern done`, which runs the **gate**: your project's 
 
 A task that passed its checks joins the **landing queue** when its agent submits it with `discern accept`, or when you queue it from the desk. The queue holds that exact commit and its Proof, so later edits can't change what waits to land. Any new commit makes that Proof stale, so the new version needs fresh checks and its own place in the queue.
 
-On the desk, a task can read:
-
-```text
-Proof valid · Authorized · Not queued
-```
-
-It passed, you approved it, and nobody has asked to land it yet, because pre-authorizing doesn't queue a task. [Pre-approve routine work](finish-and-land-a-change.md#pre-approve-routine-work) explains how long that permission lasts.
+On the desk, a task can read **Approved**: it passed, you pre-authorized it, and nobody has queued it yet, because pre-authorizing doesn't queue a task. Once it's queued, it reads **Queued #1** and lands with the next landing. [Pre-approve routine work](finish-and-land-a-change.md#pre-approve-routine-work) explains how long that permission lasts.
 
 `discern status` and the desk show the queue: pre-authorized tasks first, in the order you granted them, then the rest in submission order. A task that can't land yet says why:
 

@@ -10,7 +10,11 @@
  */
 
 import { assertCasesAsync } from "./assert_cases.ts";
-import { scriptedDeskEffects } from "./fixtures/desk_scripted_application.ts";
+import {
+  DESK_ROUTES,
+  deskUnlandedRoute,
+  scriptedDeskEffects,
+} from "./fixtures/desk_scripted_application.ts";
 import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
@@ -47,11 +51,11 @@ import {
   runDeskProjectScript,
 } from "../src/engine/desk/desk.ts";
 import { parseProjectScriptArguments } from "../src/engine/desk/literal_argv.ts";
+import { DESK_REVIEW_ROUTES } from "../src/engine/desk/contracts.ts";
 import {
-  DESK_REVIEW_ROUTES,
-  DESK_ROUTES,
-  deskUnlandedRoute,
-} from "../src/engine/desk/contracts.ts";
+  DESK_ACTION_LABELS,
+  DESK_COMMAND_LABELS,
+} from "../src/shared/desk_vocabulary.ts";
 import { DESK_ACTIONS, type DeskAction } from "../src/engine/desk/model.ts";
 import {
   DESK_SESSION_ENV,
@@ -300,16 +304,28 @@ async function scriptedSequentialSelection<T>(
   return scriptedSelectionValue(choices, selected);
 }
 
+/** A scripted answer to a consent screen or sequential-form confirmation. */
+type ScriptedConfirm = (
+  message: string,
+  options: ConfirmationRequestOptions,
+) => boolean | Promise<boolean>;
+
+/** Runtime overrides plus the scripted consent answer the screens use. */
+type ScriptedRuntimePatch = Partial<DeskRuntime> & {
+  readonly confirm?: ScriptedConfirm;
+};
+
 /** Provide deterministic desk dependencies whose behavior can be selectively overridden. */
 function scriptedRuntime(
   output: Transcript,
-  patch: Partial<DeskRuntime> = {},
+  scripted: ScriptedRuntimePatch = {},
 ): DeskRuntime {
+  const { confirm: scriptedConfirm, ...patch } = scripted;
   const main = mainFleetEntry(ROOT);
   const data = statusData([main]);
   let latest = data;
   const select = patch.select ?? (() => QUIT);
-  const confirm = patch.confirm ?? (() => true);
+  const confirm = scriptedConfirm ?? (() => true);
   const input = patch.input ?? (() => "");
   const sequence = async (
     options: SequentialFormRequestOptions,
@@ -412,7 +428,6 @@ function scriptedRuntime(
     makeOut: () => output.out,
     error: (message) => output.stderr.push(`console:${message}`),
     select,
-    confirm,
     input,
     sequence,
     pause: () => {},
@@ -1079,30 +1094,21 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
         assertEquals(pauses, 0);
         assertEquals(confirmations, [
           {
-            message:
-              `Allow ${effort.branch} to land once green without a further conversation?`,
+            message: "Let Overnight land without asking?",
             options: { defaultTo: false, noLabel: "Keep", yesLabel: "Allow" },
           },
           {
-            message: `Revoke pre-authorization for ${effort.branch}?`,
+            message: "Revoke pre-authorization for Overnight?",
             options: { defaultTo: false, noLabel: "Keep", yesLabel: "Revoke" },
           },
         ]);
         assertStringIncludes(
-          menus.join("\n"),
-          "Pre-authorize landing",
-        );
-        assertStringIncludes(
-          menus.join("\n"),
-          "Revoke pre-authorization",
+          joined(output),
+          "Pre-authorized Overnight. Nothing is queued yet.",
         );
         assertStringIncludes(
           joined(output),
-          `Pre-authorized ${effort.branch}. No revision is queued.`,
-        );
-        assertStringIncludes(
-          joined(output),
-          `Revoked pre-authorization for ${effort.branch}.`,
+          "Revoked pre-authorization for Overnight.",
         );
         assert(
           !joined(output).includes("discern grant"),
@@ -1133,29 +1139,27 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
           mainFleetEntry(ROOT),
           effort,
         ]);
-        const choices = [effort.path, BACK, QUIT];
-        let actionOptions: readonly SelectionEntry<string>[] | undefined;
+        // The task's other actions sit under More actions, unavailable ones
+        // marked with their reason.
+        const choices = [effort.path, "more", BACK, BACK, QUIT];
+        const options: SelectionEntry<string>[] = [];
         const runtime = scriptedRuntime(output, {
           status: () => ({ ok: true, data }),
-          select: (options) => {
-            if (options.message === "Choose an action") {
-              actionOptions = options.options;
+          select: (request) => {
+            if (request.message === "Choose an action") {
+              options.push(...request.options);
             }
             return choices.shift() ?? QUIT;
           },
         });
 
         assertEquals(await runDesk({}, runtime), 0);
-        const options = actionOptions;
-        assert(options !== undefined);
         const action = (value: string) =>
           options.find((entry) =>
             !isSelectionHeading(entry) && entry.value === value
           );
         const grant = action("grant");
-        const rename = action("rename");
         assert(grant !== undefined && !isSelectionHeading(grant));
-        assertEquals(rename, undefined);
         assertEquals(grant.disabled, undefined);
       },
     },
@@ -1307,11 +1311,10 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
           text,
           "Final checks passed and Proof was refreshed.",
         );
-        assertStringIncludes(
-          text,
-          "Proof valid",
-        );
-        assertStringIncludes(text, "Accept");
+        // The refreshed task reads status's Ready state, and its next step
+        // is the registry's landing action.
+        assertStringIncludes(text, "✓ Ready");
+        assertStringIncludes(text, DESK_ACTION_LABELS.accept);
 
         const cancelledOutput = transcript();
         const cancelledChoices = [effort.path, "done", BACK, QUIT];
@@ -1343,9 +1346,11 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
           const main = mainFleetEntry(ROOT);
           const effort = fleetEntry("agent/reading", "/worktrees/reading", {
             ahead: 1,
-            ...(action === "done"
-              ? { gate_proof: { status: "missing" as const } }
-              : {}),
+            gate_proof: {
+              status: action === "done"
+                ? "missing" as const
+                : "honored" as const,
+            },
           });
           const choices = [effort.path, action, BACK, QUIT];
           const failure = {
@@ -1367,8 +1372,8 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
               ...base,
               screen: async (request) => {
                 if (
-                  request.title === "Final checks did not pass" ||
-                  request.title === "Acceptance did not finish"
+                  request.title === "Checks failed on Reading" ||
+                  request.title === "Reading didn't land"
                 ) {
                   readings.push(request.source);
                 }
@@ -1441,7 +1446,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
             }),
           },
           submit: {
-            entry: { ahead: 1 },
+            entry: { ahead: 1, gate_proof: { status: "honored" } },
             choices: ["submit", BACK, QUIT],
             runtime: (effects: DeskAction[]) => ({
               submit: (path, options) => {
@@ -1813,7 +1818,7 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
         );
         assertStringIncludes(
           joined(dropOutput),
-          "uncommitted files have no automatic recovery",
+          "uncommitted files can't be recovered",
         );
         assertStringIncludes(
           joined(dropOutput),
@@ -1913,12 +1918,13 @@ Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and
           [],
           "declining the confirmation must reclaim nothing",
         );
-        const message = confirmMessages.join("\n");
-        assertStringIncludes(message, "stage-a");
-        assertStringIncludes(message, "agent/stage-a");
-        assertStringIncludes(message, "keep");
-        assertStringIncludes(joined(declinedOutput), "agent/stage-b");
-        assertStringIncludes(joined(declinedOutput), "Task checkout");
+        assertEquals(confirmMessages, ["Reclaim Stage a's checkout?"]);
+        assertStringIncludes(joined(declinedOutput), "agent/stage-a");
+        assertStringIncludes(joined(declinedOutput), "Keeps the branch");
+        assertStringIncludes(
+          joined(declinedOutput),
+          "Its commits are already in agent/stage-b; removes this checkout",
+        );
         assertEquals(confirmOptions, [{
           defaultTo: false,
           noLabel: "Keep",
@@ -2072,7 +2078,10 @@ Deno.test("Desk scripted creation preserves names, bases, preferences, and cance
           title: "  desk launchers  ",
         }]);
         assertEquals(applied, [prepared]);
-        assertStringIncludes(menus[0]?.options ?? "", "Start a task");
+        assertStringIncludes(
+          menus[0]?.options ?? "",
+          DESK_COMMAND_LABELS.new_task,
+        );
         assertStringIncludes(
           menus[0]?.message ?? "",
           "Choose a desk command",
@@ -2808,7 +2817,6 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
         assert(actionMenu !== undefined);
         assert(agentMenu !== undefined);
         assert(boardMenu !== undefined);
-        assertStringIncludes(actionMenu.options, "Start or resume agent");
         assertStringIncludes(
           agentMenu.options,
           '"kind":"group-heading","id":"agent-claude_code","name":"Claude Code"',
@@ -2831,9 +2839,18 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
           !agentMenu.options.includes("Gemini"),
           "detected but unconfigured stays hidden",
         );
-        assertStringIncludes(
-          joined(output),
-          "Returned from Claude Code",
+        // What the Desk printed while the agent owned the terminal was true
+        // only until it exited, so no frame keeps it as the Desk's message.
+        assertStringIncludes(joined(output), "to return to this task");
+        const titles = output.stdout
+          .map((frame) => frame.split("\n")[0] ?? "")
+          .filter((title) => title.startsWith("discern · "));
+        assert(titles.length > 1, "the Desk repainted after the agent exited");
+        assert(
+          titles.every((title) =>
+            !title.includes("to return") && !title.includes("Returned from")
+          ),
+          titles.join("\n"),
         );
       },
     },
@@ -2914,13 +2931,13 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
         assertStringIncludes(text, "diff unavailable");
         assertStringIncludes(text, "Proof honored for this commit");
         const actionMenu = menus.join("\n");
+        // A ready task offers its next step and its keyed alternatives; the
+        // rest of the registry waits under More actions.
         for (
           const label of [
-            "Start or resume agent",
-            "Project Scripts",
-            "Accept",
-            "Drop",
-            "Proof and changes",
+            DESK_ACTION_LABELS.accept,
+            DESK_ACTION_LABELS.inspect,
+            DESK_ACTION_LABELS.grant,
             "Task details",
             "More actions",
           ]
@@ -3000,9 +3017,7 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
         const actionMenus = menus.filter((menu) =>
           menu.message === "Choose an action"
         );
-        assert(
-          actionMenus.every((menu) => menu.options.includes("Project Scripts")),
-        );
+        assert(actionMenus.length > 0);
         const scriptMenu = menus.find((menu) =>
           menu.message.startsWith("Choose a Project Script for Scripted")
         );
@@ -3127,9 +3142,9 @@ Deno.test("Desk scripted readers and launchers preserve selected targets and lit
         }]);
 
         const rootMenu = menus[0]?.options ?? "";
-        const startAt = rootMenu.indexOf("Start a task");
-        const scriptAt = rootMenu.indexOf("Project Scripts");
-        const docsAt = rootMenu.indexOf("Read the manual");
+        const startAt = rootMenu.indexOf(DESK_COMMAND_LABELS.new_task);
+        const scriptAt = rootMenu.indexOf(DESK_COMMAND_LABELS.main_scripts);
+        const docsAt = rootMenu.indexOf(DESK_COMMAND_LABELS.manual);
         assert(startAt >= 0 && startAt < scriptAt && scriptAt < docsAt);
         const scriptMenu = menus.find((menu) =>
           menu.message.startsWith(

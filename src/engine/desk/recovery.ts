@@ -1,11 +1,12 @@
-/** Pure degraded-task evidence and distinct cleanup consequence accounts. */
+/** Pure degraded-task evidence and the cleanup availability rules. */
 
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
 import {
   degradedFleetKind,
   unreadableSubject,
 } from "../status/recovery_presentation.ts";
-import type { DeskActionFacts, DeskConsequence } from "./model.ts";
+import type { DeskActionFacts } from "./model.ts";
+import { DESK_ACTION_LABELS } from "../../shared/desk_vocabulary.ts";
 
 /** Typed evidence for a degraded task's read-only recovery view. */
 export interface DeskRecoveryFact {
@@ -143,109 +144,6 @@ export function recoveryFact(
   };
 }
 
-interface CleanupContext {
-  readonly trunk: string;
-  readonly branch: string;
-  readonly path: string;
-  readonly containedIn?: string;
-  readonly taskMetadataRecorded: boolean;
-  readonly effortGranted: boolean;
-  readonly proofRecorded: boolean;
-  readonly changedFiles?: number;
-  readonly ahead?: number | "unknown";
-  /** Absent when the env files recording the handles cannot be read. */
-  readonly resources?: readonly string[];
-}
-
-/** The resource change a cleanup makes; `none` words the empty record. */
-function resourceChange(context: CleanupContext, none: string): string {
-  if (context.resources === undefined) {
-    return "Recorded resource handles cannot be read";
-  }
-  return context.resources.length === 0
-    ? none
-    : `Destroy resources: ${context.resources.join(", ")}`;
-}
-
-/** Structured artifact account for containment-preserving Reclaim. */
-export function reclaimConsequence(
-  context: CleanupContext,
-): DeskConsequence {
-  return {
-    keeps: [
-      `Branch ${context.branch}`,
-      `Containing branch ${context.containedIn ?? "another live task"}`,
-      "Commits carried by the containing branch",
-    ],
-    changes: [
-      resourceChange(context, "No external resources are recorded"),
-    ],
-    removes: [
-      "Task checkout",
-      ...(context.taskMetadataRecorded ? ["Task metadata"] : []),
-      ...(context.effortGranted ? ["Task landing grant"] : []),
-      ...(context.proofRecorded ? ["Task-local Proof"] : []),
-    ],
-    recoverable: [
-      "The retained branch self-cleans after its containing work lands",
-    ],
-  };
-}
-
-/** Structured artifact account for branch-preserving Park. */
-export function parkConsequence(context: CleanupContext): DeskConsequence {
-  return {
-    keeps: [
-      `Branch ${context.branch}`,
-      "Task title, brief, and creation source",
-      "Committed work, including work not on the trunk",
-    ],
-    changes: [
-      resourceChange(
-        context,
-        "Record that no external resources need cleanup",
-      ),
-    ],
-    removes: [
-      "Task checkout",
-      ...(context.effortGranted ? ["Task landing grant"] : []),
-      ...(context.proofRecorded ? ["Task-local Proof"] : []),
-    ],
-    recoverable: ["Open commands and choose Resume for the retained branch"],
-  };
-}
-
-/** Structured artifact account for destructive Drop. */
-export function dropConsequence(context: CleanupContext): DeskConsequence {
-  return {
-    keeps: ["Trunk and other tasks"],
-    changes: [
-      resourceChange(context, "No external resources are recorded"),
-    ],
-    removes: [
-      "Task checkout",
-      `Branch ${context.branch} when the lifecycle plan verifies discern ownership`,
-      ...(context.changedFiles === undefined
-        ? ["Uncommitted work cannot be ruled out"]
-        : context.changedFiles > 0
-        ? [`${context.changedFiles} uncommitted changes`]
-        : []),
-      ...(context.ahead === "unknown"
-        ? ["Unlanded commits cannot be ruled out"]
-        : typeof context.ahead === "number" && context.ahead > 0
-        ? [`${context.ahead} commits not on the trunk`]
-        : []),
-      ...(context.taskMetadataRecorded ? ["Task metadata"] : []),
-      ...(context.effortGranted ? ["Task landing grant"] : []),
-      ...(context.proofRecorded ? ["Task-local Proof"] : []),
-    ],
-    recoverable: [
-      "A deleted committed branch tip receives a bounded recovery ref",
-      "Uncommitted files have no automatic recovery",
-    ],
-  };
-}
-
 /** Park is available only for a clean, reachable, non-contained task branch. */
 export function parkAvailability(
   facts: DeskActionFacts,
@@ -254,7 +152,7 @@ export function parkAvailability(
     return "Follow the task's recovery steps before parking it.";
   }
   if (facts.entry.contained_in !== undefined) {
-    return "This task is contained in another live task. Use Reclaim to preserve its containment contract.";
+    return `Its commits are in ${facts.entry.contained_in}. Use ${DESK_ACTION_LABELS.reclaim} instead.`;
   }
   if (facts.entry.clean !== true) {
     return facts.entry.clean === false

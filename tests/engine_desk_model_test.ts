@@ -13,27 +13,30 @@ import {
   type StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
-import { observedFleetEntry } from "./fixtures/status_fleet.ts";
+import { exceptionProof, observedFleetEntry } from "./fixtures/status_fleet.ts";
 import {
   agentLaunchArgs,
   buildAgentLaunches,
   buildDeskDecision,
   buildDeskRows,
-  decisionSummary,
-  DESK_ACTION_GROUPS,
   DESK_ACTION_REGISTRY,
+  DESK_ACTION_SECTIONS,
   DESK_ACTIONS,
   type DeskAction,
   type DeskActionOffer,
   type DeskAgentLaunch,
+  type DeskConsequenceMark,
   type DeskDecision,
+  deskExceptionArgvs,
   taskLabel,
 } from "../src/engine/desk/model.ts";
 import { presentFleetRow } from "../src/engine/status/fleet_rows.ts";
 import {
+  exceptionArgv,
   FLEET_ROW_STATUS_KINDS,
   type FleetRowStatusKind,
 } from "../src/engine/status/row_facts.ts";
+import { commandEvidence } from "../src/shared/command_evidence.ts";
 
 const NOW = Date.parse("2026-08-23T12:00:00Z");
 const TRUNK = "main";
@@ -82,6 +85,21 @@ function offer(
   );
   assert(found !== undefined, `missing ${action} offer`);
   return found;
+}
+
+/** One offer's consequence lines that carry a mark. */
+function lines(
+  candidate: DeskActionOffer,
+  mark: DeskConsequenceMark,
+): string[] {
+  return candidate.consequence.flatMap((line) =>
+    line.mark === mark ? [line.text] : []
+  );
+}
+
+/** Every fact line a decision lists, for substring checks. */
+function detailText(decision: DeskDecision): string {
+  return decision.details.map((detail) => detail.text).join(" · ");
 }
 
 /** Project enabled action ids without discarding the canonical offers. */
@@ -341,7 +359,7 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
         const cases: ReadonlyArray<{
           over: Partial<StatusFleetEntry>;
           kind: FleetRowStatusKind;
-          headline: string;
+          state: DeskDecision["state"];
         }> = [
           {
             over: {
@@ -354,7 +372,7 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               },
             },
             kind: "failed",
-            headline: "Checks failed: test",
+            state: "checks-failed",
           },
           {
             over: {
@@ -366,7 +384,7 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               },
             },
             kind: "failed",
-            headline: "discern refresh completed only part of the work",
+            state: "failed",
           },
           {
             over: {
@@ -378,7 +396,7 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               },
             },
             kind: "blocked",
-            headline: "discern accept was refused",
+            state: "refused",
           },
           {
             over: {
@@ -386,7 +404,7 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               last_action: { verb: "status", outcome: "ok", at: minutesAgo(3) },
             },
             kind: "needs-gate",
-            headline: "Final checks needed",
+            state: "needs-checks",
           },
           {
             over: {
@@ -399,13 +417,13 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               },
             },
             kind: "running",
-            headline: "Running discern done · 42s",
+            state: "checking",
           },
         ];
         for (const testCase of cases) {
           const decision = decide(testCase.over);
           assertEquals(decision.statusKind, testCase.kind);
-          assertEquals(decision.headline, testCase.headline);
+          assertEquals(decision.state, testCase.state);
         }
         const running = decide(cases[4]?.over ?? {});
         assertEquals(
@@ -534,23 +552,29 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
         });
         const absent = decide({ ahead: 1, gate_proof: proof });
 
-        assertEquals(effort.authority.source, "effort-grant");
-        assertEquals(effort.authority.status, "granted");
+        assertEquals(effort.authority, {
+          status: "granted",
+          source: "effort-grant",
+          summary: "Pre-authorized by you",
+        });
         assertEquals(offer(effort, "revoke_grant").availability, "enabled");
         assertEquals(offer(effort, "grant").availability, "disabled");
 
-        assertEquals(standing.authority.source, "standing-grant");
-        assertEquals(standing.authority.scopes, ["map"]);
+        assertEquals(standing.authority, {
+          status: "granted",
+          source: "standing-grant",
+          summary: "Covered by your standing approval (map)",
+        });
         assertEquals(offer(standing, "grant").availability, "enabled");
 
-        assertEquals(scoped.authority.status, "scope_limited");
-        assertEquals(scoped.authority.uncoveredPaths, ["src/main.ts"]);
-        assertStringIncludes(
-          scoped.authority.summary,
-          "outside the standing grant",
-        );
-
-        assertEquals(absent.authority.status, "unknown");
+        assertEquals(scoped.authority, {
+          status: "needs_approval",
+          summary: "Needs your approval · 1 path isn't covered",
+        });
+        assertEquals(absent.authority, {
+          status: "needs_approval",
+          summary: "Needs your approval",
+        });
       },
     },
     {
@@ -602,11 +626,8 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
             ],
           },
         ]);
-        assertStringIncludes(
-          decisionSummary(decision),
-          "3 changed files overlap",
-        );
-        assertStringIncludes(decisionSummary(decision), "ADR 0284");
+        assertStringIncludes(detailText(decision), "3 changed files overlap");
+        assertStringIncludes(detailText(decision), "ADR 0284");
 
         const unrelated = decide({ branch: "agent/delta", ahead: 1 }, {
           fleetCollisions: [{
@@ -625,10 +646,11 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           ahead: 2,
           contained_in: "agent/next-stage",
         });
-        assertEquals(decision.headline, "Work continues in agent/next-stage");
+        assertEquals(decision.state, "contained");
+        assertEquals(decision.next?.action, "reclaim");
         assertEquals(offer(decision, "reclaim").availability, "enabled");
         assertStringIncludes(
-          offer(decision, "reclaim").label,
+          offer(decision, "reclaim").summary,
           "agent/next-stage",
         );
       },
@@ -653,43 +675,56 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           },
           gate_proof: { status: "honored" as const },
         };
-        const parked = offer(decide(base), "park").consequence;
-        assert(parked.keeps.includes(`Branch ${task.branch}`));
-        assert(parked.keeps.includes("Task title, brief, and creation source"));
-        assert(parked.removes.includes("Task checkout"));
-        assert(parked.removes.includes("Task landing grant"));
-        assert(parked.removes.includes("Task-local Proof"));
-        assertStringIncludes(parked.recoverable.join(" "), "commands");
-        assertStringIncludes(parked.recoverable.join(" "), "Resume");
-        assert(
-          !parked.removes.some((fact) =>
-            fact.includes(`Branch ${task.branch}`)
-          ),
+        const parked = offer(decide(base), "park");
+        assertStringIncludes(lines(parked, "keeps").join(" "), task.branch);
+        assertStringIncludes(
+          lines(parked, "keeps").join(" "),
+          "title and brief",
         );
+        assertEquals(lines(parked, "removes"), [
+          "Removes its Proof",
+          "Ends its pre-authorization",
+          "Destroys its ports and services",
+        ]);
+        assertEquals(lines(parked, "discards"), []);
+        assertStringIncludes(lines(parked, "recoverable").join(" "), "Resume");
 
         const reclaimed = offer(
           decide({ ...base, contained_in: "agent/later-stage" }),
           "reclaim",
-        ).consequence;
-        assert(reclaimed.keeps.includes(`Branch ${task.branch}`));
-        assert(reclaimed.keeps.includes("Containing branch agent/later-stage"));
-        assert(reclaimed.removes.includes("Task checkout"));
-        assertStringIncludes(reclaimed.recoverable.join(" "), "self-cleans");
+        );
+        assertEquals(lines(reclaimed, "keeps"), ["Keeps the branch"]);
+        assertStringIncludes(
+          lines(reclaimed, "changes").join(" "),
+          "agent/later-stage",
+        );
+        assertStringIncludes(
+          lines(reclaimed, "recoverable").join(" "),
+          "cleans itself up",
+        );
 
         const dropped = offer(
           decide({ ...base, clean: false, changed_files: 2 }),
           "drop",
-        ).consequence;
-        assert(dropped.removes.includes("Task checkout"));
-        assert(dropped.removes.includes("2 uncommitted changes"));
-        assert(dropped.removes.includes("3 commits not on the trunk"));
-        assert(dropped.removes.includes("Task metadata"));
-        assert(dropped.removes.includes("Task landing grant"));
-        assert(dropped.removes.includes("Task-local Proof"));
-        assertStringIncludes(dropped.recoverable.join(" "), "recovery ref");
+        );
+        assertEquals(lines(dropped, "discards"), [
+          "Discards 3 commits that aren't on main",
+          "Deletes 2 uncommitted files; they can't be recovered",
+        ]);
+        assertEquals(lines(dropped, "removes"), [
+          `Removes its checkout and branch ${task.branch}`,
+          "Removes its title and brief",
+          "Removes its Proof",
+          "Ends its pre-authorization",
+          "Destroys its ports and services",
+        ]);
+        assertStringIncludes(
+          lines(dropped, "recoverable").join(" "),
+          "last commit is kept",
+        );
 
-        const noProof = offer(decide({ ahead: 1 }), "park").consequence;
-        assert(!noProof.removes.includes("Task-local Proof"));
+        const noProof = offer(decide({ ahead: 1 }), "park");
+        assertEquals(lines(noProof, "removes"), []);
       },
     },
     {
@@ -716,8 +751,8 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               `${candidate.action}: label`,
             );
             assert(
-              DESK_ACTION_GROUPS.includes(candidate.group),
-              `${candidate.action}: canonical group`,
+              DESK_ACTION_SECTIONS.includes(candidate.section),
+              `${candidate.action}: canonical section`,
             );
             assert(
               candidate.command.argv.length > 0,
@@ -729,19 +764,13 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               ),
               `${candidate.action}: command argument`,
             );
-            for (
-              const consequence of [
-                candidate.consequence.keeps,
-                candidate.consequence.changes,
-                candidate.consequence.removes,
-                candidate.consequence.recoverable,
-              ]
-            ) {
-              assert(
-                Array.isArray(consequence),
-                `${candidate.action}: consequence`,
-              );
-            }
+            assert(
+              candidate.consequence.length > 0 &&
+                candidate.consequence.every((line) =>
+                  line.text.trim().length > 0
+                ),
+              `${candidate.action}: consequence`,
+            );
             if (candidate.confirmation.kind !== "none") {
               assertEquals(
                 candidate.confirmation.defaultTo,
@@ -781,7 +810,6 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
         const cases: ReadonlyArray<{
           name: string;
           over: Partial<StatusFleetEntry>;
-          headline: string;
           attention: string;
           finalChecks: string;
           failure: string;
@@ -800,7 +828,6 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               ahead: undefined,
               behind: undefined,
             },
-            headline: "Git state unreadable",
             attention: "Git could not read this checkout.",
             finalChecks:
               "Git state is unreadable. Repair Git before final checks.",
@@ -810,7 +837,6 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           {
             name: "an env file",
             over: { read_failure: { file: ".env.local", reason: "denied" } },
-            headline: "Env file unreadable",
             attention:
               "discern could not read the env file `.env.local` in this checkout.",
             finalChecks:
@@ -822,7 +848,6 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           {
             name: "the checkout's other files",
             over: { read_failure: { reason: "denied" } },
-            headline: "Checkout files unreadable",
             attention: "discern could not read this checkout's files.",
             finalChecks:
               "The checkout's files are unreadable. Follow the task's recovery steps before final checks.",
@@ -838,7 +863,8 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           assertEquals(row.kind, "unreadable", testCase.name);
           assertStringIncludes(row.attention ?? "", testCase.attention);
           const decision = decide(testCase.over);
-          assertEquals(decision.headline, testCase.headline, testCase.name);
+          assertEquals(decision.state, "unreadable", testCase.name);
+          assertEquals(decision.next?.action, "recovery", testCase.name);
           const done = offer(decision, "done");
           assert(done.availability === "disabled", testCase.name);
           assertEquals(done.reason, testCase.finalChecks, testCase.name);
@@ -854,15 +880,20 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
     {
       name: "cleanup never claims no resources when their record is unreadable",
       check: () => {
-        const known = offer(decide({ resources: {} }), "drop").consequence;
-        assert(known.changes.includes("No external resources are recorded"));
+        const known = offer(decide({ resources: {} }), "drop");
+        assert(
+          !lines(known, "warning").some((text) => text.includes("ports")),
+          JSON.stringify(known.consequence),
+        );
         const unknown = offer(
           decide({ read_failure: { file: ".env.local", reason: "denied" } }),
           "drop",
-        ).consequence;
+        );
         assert(
-          unknown.changes.includes("Recorded resource handles cannot be read"),
-          JSON.stringify(unknown.changes),
+          lines(unknown, "warning").includes(
+            "Its recorded ports and services can't be read",
+          ),
+          JSON.stringify(unknown.consequence),
         );
       },
     },
@@ -925,7 +956,10 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
         const accept = offer(decision, "accept");
         assertEquals(accept.availability, "disabled");
         if (accept.availability === "disabled") {
-          assertEquals(accept.reason, "1 commit behind main.");
+          assertEquals(
+            accept.reason,
+            "1 commit behind main. Update it, then run checks.",
+          );
         }
         assertEquals(offer(decision, "update").availability, "enabled");
       },
@@ -950,11 +984,11 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           }
         }
         assertStringIncludes(
-          decisionSummary(decision),
+          detailText(decision),
           "Ahead count versus main unavailable",
         );
         assertStringIncludes(
-          decisionSummary(decision),
+          detailText(decision),
           "Behind count versus main unavailable",
         );
       },
@@ -1042,12 +1076,12 @@ const ACTION_CASES: ReadonlyArray<{
     enabled: ["recovery", "retry_setup", "jump", "drop"],
   },
   {
+    // Landing and queueing need an honored Proof, so unproven work offers
+    // only the checks that would make it landable.
     name: "clean committed work awaiting final checks",
     decision: () => decide({ ahead: 2 }),
     enabled: [
       "done",
-      "accept",
-      "submit",
       "follow_up",
       "scripts",
       "jump",
@@ -1081,10 +1115,10 @@ const ACTION_CASES: ReadonlyArray<{
     ],
   },
   {
+    // Unproven work behind main updates first; it cannot queue.
     name: "branch behind main",
     decision: () => decide({ ahead: 2, behind: 1 }),
     enabled: [
-      "submit",
       "update",
       "follow_up",
       "scripts",
@@ -1101,8 +1135,6 @@ const ACTION_CASES: ReadonlyArray<{
     decision: () => decide({ ahead: 2, contained_in: "agent/next" }),
     enabled: [
       "done",
-      "accept",
-      "submit",
       "follow_up",
       "scripts",
       "jump",
@@ -1120,12 +1152,9 @@ const ACTION_CASES: ReadonlyArray<{
         clean: false,
         changed_files: 1,
         gate_proof: { status: "dirty" },
-      }, {
-        scripts: [{ name: "verify" }],
-        agentLaunches: [AGENT_LAUNCH],
-      }),
+      }, { agentLaunches: [AGENT_LAUNCH] }),
+    // Uncommitted work cannot queue: the queue records a proven commit.
     enabled: [
-      "submit",
       "agent",
       "follow_up",
       "scripts",
@@ -1142,14 +1171,15 @@ const ACTION_CASES: ReadonlyArray<{
       decide({
         ahead: 2,
         running: { verb: "done", started: minutesAgo(1), elapsed_ms: 1_000 },
-      }, { scripts: [{ name: "verify" }], agentLaunches: [AGENT_LAUNCH] }),
-    enabled: ["follow_up", "jump", "inspect", "grant"],
+      }, { agentLaunches: [AGENT_LAUNCH] }),
+    // Project code holds no exclusion boundary: an agent may look in while
+    // the task's own checks run.
+    enabled: ["agent", "follow_up", "jump", "inspect", "grant"],
   },
   {
     name: "empty task",
     decision: () => decide(),
     enabled: [
-      "submit",
       "follow_up",
       "scripts",
       "jump",
@@ -1163,7 +1193,7 @@ const ACTION_CASES: ReadonlyArray<{
 ];
 
 // ── row construction, ordering, and factual copy ────────────────────────────
-Deno.test("buildDeskRows excludes main, carries collisions, and sorts by title and stable identity", () => {
+Deno.test("buildDeskRows excludes main and integration copies, and sorts by group, then title", () => {
   const fleet = [
     entry({ is_main: true, branch: "main", path: "/p/main" }),
     entry({
@@ -1201,6 +1231,11 @@ Deno.test("buildDeskRows excludes main, carries collisions, and sorts by title a
       ahead: 1,
       gate_proof: { status: "honored" },
     }),
+    entry({
+      branch: "integration/ready",
+      path: "/p/integration-ready",
+      integration: { owner: "live", for_branch: "agent/ready" },
+    }),
   ];
   const rows = buildDeskRows(
     fleet,
@@ -1217,15 +1252,34 @@ Deno.test("buildDeskRows excludes main, carries collisions, and sorts by title a
     },
   );
   assertEquals(
-    rows.map((row) => row.entry.branch),
+    rows.map((row) => [row.decision.group, row.entry.branch]),
     [
-      "agent/attention-new",
-      "agent/attention-old",
-      "agent/empty",
-      "agent/paused",
-      "agent/ready",
-      "agent/working",
+      ["review", "agent/attention-new"],
+      ["attention", "agent/attention-old"],
+      ["working", "agent/ready"],
+      ["working", "agent/working"],
+      ["idle", "agent/empty"],
+      ["idle", "agent/paused"],
     ],
+  );
+  assertEquals(
+    rows.find((row) => row.entry.branch === "agent/ready")?.decision.state,
+    "landing",
+    "a landing's integration copy speaks through its task's row",
+  );
+  assertEquals(
+    buildDeskRows(
+      [
+        entry({ branch: "agent/zebra", path: "/p/zebra" }),
+        entry({ branch: "agent/eclair", path: "/p/éclair" }),
+        entry({ branch: "agent/apple", path: "/p/Apple" }),
+      ],
+      new Map(),
+      new Map(),
+      { trunk: TRUNK, nowMs: NOW },
+    ).map((row) => row.task.name),
+    ["Apple", "Éclair", "Zebra"],
+    "titles collate case-folded and accent-aware",
   );
   assert(rows.every((row) => !row.entry.is_main));
   assertEquals(
@@ -1243,22 +1297,23 @@ Deno.test("human copy names units, commands, and recency without lossy shorthand
     ahead: 2,
     gate_proof: { status: "dirty" },
   });
-  assertEquals(dirty.headline, "Uncommitted work is paused");
-  assertStringIncludes(decisionSummary(dirty), "1 uncommitted file");
-  assertStringIncludes(decisionSummary(dirty), "2 commits ahead of main");
-  assertStringIncludes(decisionSummary(dirty), "active now");
-  assert(!decisionSummary(dirty).includes("Awaiting gate"));
-  assert(!decisionSummary(dirty).includes(" · now"));
+  assertEquals(dirty.state, "editing");
+  assertStringIncludes(detailText(dirty), "1 uncommitted file");
+  assertStringIncludes(detailText(dirty), "2 commits ahead of main");
+  assertStringIncludes(detailText(dirty), "active now");
+  assertStringIncludes(detailText(dirty), "Checks: Not run on these changes");
+  assert(!detailText(dirty).includes(" · now"));
 
   const gate = decide({ ahead: 2 });
-  assertEquals(gate.headline, "Final checks needed");
-  assertStringIncludes(
-    decisionSummary(gate),
-    "Run discern done from this task",
+  assertEquals(gate.state, "needs-checks");
+  assertEquals(gate.next?.action, "done");
+  assertEquals(
+    offer(gate, "done").summary,
+    "Run this project's checks on the committed work",
   );
 
   const empty = decide();
-  assertEquals(empty.headline, "No work to review");
+  assertEquals(empty.state, "empty");
 });
 Deno.test("taskLabel keeps task identity separate from its disambiguator", () => {
   assertEquals(
@@ -1393,4 +1448,77 @@ Deno.test("Desk agent launches preserve configured availability and provider bri
   assertCases(cases, (row) => row.name, (row) => {
     row.check();
   });
+});
+
+// ── known landing refusals stay disabled with their exact reason ────────────
+
+Deno.test("Land hands owner exceptions to the CLI and waits for a landable main", async () => {
+  const branch = "agent/x";
+  const cases = [
+    { name: "checkpoint only", proof: exceptionProof(["exactness"]) },
+    { name: "standard only", proof: exceptionProof([], ["sources"]) },
+    {
+      name: "mixed",
+      proof: exceptionProof(["exactness", "naming"], ["sources", "coverage"]),
+    },
+  ];
+  for (const testCase of cases) {
+    const surveyed = entry({
+      ahead: 1,
+      gate_proof: { status: "honored", proof_data: testCase.proof },
+    });
+    const argvs = await deskExceptionArgvs({ fleet: [surveyed] });
+    const exact = await exceptionArgv(branch, testCase.proof);
+    assertEquals(argvs.get(branch), exact, testCase.name);
+    const decision = buildDeskDecision(surveyed, {
+      trunk: TRUNK,
+      nowMs: NOW,
+      exceptionArgvs: argvs,
+    });
+    assertEquals(decision.state, "exception", testCase.name);
+    const accept = offer(decision, "accept");
+    assert(accept.availability === "disabled", testCase.name);
+    assertEquals(
+      accept.reason,
+      `Needs your exception, which the desk can't record yet. Run in a terminal: ${
+        commandEvidence(exact)
+      }`,
+      testCase.name,
+    );
+    const unobserved = offer(decide(surveyed), "accept");
+    assert(unobserved.availability === "disabled", testCase.name);
+    assertEquals(
+      unobserved.reason.includes("<standard-token>"),
+      (testCase.proof.standard_proposals?.length ?? 0) > 0,
+      `${testCase.name}: without the observation's tokens the reason names their place`,
+    );
+  }
+
+  const proven = { ahead: 1, gate_proof: { status: "honored" as const } };
+  const dirtyMain = decide(proven, {
+    mainCheckout: { clean: false, pendingRefresh: false },
+  });
+  const staleMain = decide(proven, {
+    mainCheckout: { clean: true, pendingRefresh: true },
+  });
+  for (
+    const [decision, reason] of [
+      [dirtyMain, "main has uncommitted tracked changes"],
+      [staleMain, "main has generated files out of date"],
+    ] as const
+  ) {
+    const accept = offer(decision, "accept");
+    assert(accept.availability === "disabled");
+    assertStringIncludes(accept.reason, reason);
+    assertEquals(
+      offer(decision, "submit").availability,
+      "enabled",
+      "queueing records the version without touching main",
+    );
+  }
+  assertEquals(
+    offer(decide(proven, { mainCheckout: { pendingRefresh: false } }), "accept")
+      .availability,
+    "enabled",
+  );
 });

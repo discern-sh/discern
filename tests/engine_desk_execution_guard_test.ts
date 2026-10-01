@@ -24,7 +24,6 @@ const BOUNDARIES = {
   error: null,
   application: null,
   select: null,
-  confirm: null,
   input: null,
   sequence: null,
   pause: null,

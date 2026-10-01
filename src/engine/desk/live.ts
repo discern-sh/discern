@@ -12,17 +12,26 @@ import { isInteractionCancelled } from "../../lib/terminal_interaction.ts";
 import type { StatusData } from "../../shared/result_schemas.ts";
 import {
   buildDeskRows,
+  deskExceptionArgvs,
+  deskMainCheckoutFacts,
   type DeskRow,
   deskRowId,
   withDeskCapabilities,
 } from "./model.ts";
 import {
-  DESK_KEYS,
   deskApplicationView,
   type DeskChoice,
   type DeskPage,
+  deskShortcuts,
   type DeskSnapshot,
 } from "./application_view.ts";
+
+/** One completed fleet survey and the facts derived from it before adoption. */
+interface DeskObservation {
+  readonly data: StatusData;
+  /** Exact exception hand-off commands, by branch. */
+  readonly exceptionArgvs: ReadonlyMap<string, readonly string[]>;
+}
 
 /** Effect and observation dependencies owned by Desk, never by a key transition. */
 export interface LiveDeskDependencies {
@@ -65,7 +74,7 @@ export function liveDesk(
   let generation = 0;
   let capabilityGeneration = 0;
   let timer: TimeoutHandle | undefined;
-  let survey: Promise<StatusData> | undefined;
+  let survey: Promise<DeskObservation> | undefined;
   let detail: Promise<void> | undefined;
   let detailId: string | undefined;
   let tipSelected = false;
@@ -101,27 +110,30 @@ export function liveDesk(
     page = back.pop() ?? "overview";
     publish(focusByPage.get(page));
   };
-  const read = (): Promise<StatusData> => {
+  const read = (): Promise<DeskObservation> => {
     if (survey !== undefined) return survey;
     const started = SYSTEM_CLOCK.monotonicNow();
-    survey = deps.observe().then((data) => {
+    survey = deps.observe().then(async (data) => {
       if (
         data.fleet === undefined ||
         (data.git === null && data.fleet.length === 0)
       ) throw new Error("Fleet observation unavailable; Git state is unknown.");
-      return data;
+      return { data, exceptionArgvs: await deskExceptionArgvs(data) };
     }).finally(() => {
       survey = undefined;
       deps.measure?.("discovery", SYSTEM_CLOCK.monotonicNow() - started);
     });
     return survey;
   };
-  const adopt = (data: StatusData): void => {
+  const adopt = ({ data, exceptionArgvs }: DeskObservation): void => {
     const rows = buildDeskRows(data.fleet ?? [], new Map(), new Map(), {
       trunk: data.git?.trunk ?? deps.trunk,
       nowMs: deps.now(),
       fleetCollisions: data.fleet_collisions ?? [],
       adrCollisions: data.adr_collisions ?? [],
+      queue: data.queue ?? [],
+      mainCheckout: deskMainCheckoutFacts(data),
+      exceptionArgvs,
     });
     const previous = snapshot.rows.find((row) => deskRowId(row) === selectedId);
     let message: string | undefined = feedback;
@@ -141,7 +153,7 @@ export function liveDesk(
     snapshot = {
       rows: rows.map((row) =>
         previous && deskRowId(row) === deskRowId(previous)
-          ? withDeskCapabilities(row, previous, deps.trunk, deps.now())
+          ? withDeskCapabilities(row, previous, deps.now())
           : row
       ),
       data,
@@ -176,7 +188,7 @@ export function liveDesk(
         ...snapshot,
         rows: snapshot.rows.map((candidate) =>
           deskRowId(candidate) === id
-            ? withDeskCapabilities(fresh, current, deps.trunk, deps.now())
+            ? withDeskCapabilities(fresh, current, deps.now())
             : candidate
         ),
       };
@@ -210,9 +222,10 @@ export function liveDesk(
     const run = ++generation;
     snapshot = { ...snapshot, phase: snapshot.data ? "refreshing" : "loading" };
     publish();
-    refreshJob = read().then((data) => {
+    refreshJob = read().then((observation) => {
       if (!alive || run !== generation) return;
-      adopt(data);
+      adopt(observation);
+      const { data } = observation;
       loadDetail();
       if (!tipSelected) {
         tipSelected = true;
@@ -253,8 +266,9 @@ export function liveDesk(
       try {
         // An in-flight observation may predate the click; a fresh read begins after it.
         if (survey !== undefined) await Promise.allSettled([survey]);
-        const data = await read();
-        adopt(data);
+        const observation = await read();
+        adopt(observation);
+        const { data } = observation;
         let row: DeskRow | undefined;
         if (choice.kind === "action") {
           row = snapshot.rows.find((candidate) =>
@@ -363,7 +377,7 @@ export function liveDesk(
         return { kind: "handled" };
       }
       if (key.kind !== "text") return;
-      const shortcut = DESK_KEYS.find((item) => item.key === key.text);
+      const shortcut = deskShortcuts().find((item) => item.key === key.text);
       if (!shortcut) return;
       if (shortcut.route === "quit") return { kind: "exit" };
       if (shortcut.route === "retry") refresh();

@@ -24,8 +24,8 @@ import {
 import {
   deskApplicationView,
   type DeskChoice,
-  deskSubmission,
 } from "../src/engine/desk/application_view.ts";
+import { DESK_ACTION_LABELS } from "../src/shared/desk_vocabulary.ts";
 import {
   buildDeskRows,
   DESK_ACTIONS,
@@ -251,7 +251,8 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
           "alpha controls",
         );
         observed = statusData([entry("beta")]);
-        test.io.enqueueKeys("down", "down", "down", "enter");
+        // Land… is a ready task's next step, so it leads its controls.
+        test.io.enqueueKeys("enter");
         await waitUntil(
           () => test.state().view.title.includes("no action ran"),
           "obsolete action refused",
@@ -280,7 +281,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
           },
         });
         await test.ready();
-        test.io.enqueueKeys("enter", "down", "down", "down");
+        test.io.enqueueKeys("enter");
         await waitUntil(
           () =>
             test.state().positions["task:alpha:actions"]?.selectedId ===
@@ -535,25 +536,31 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
           scripts: [{ name: "inspect-current" }],
         });
         await pending.promise;
-        test.io.enqueueKeys("down");
+        // The fresh status (now Editing) wins over the slower discovery's
+        // snapshot, and the discovered scripts still apply.
         await waitUntil(
           () =>
-            test.state().positions["task:alpha:actions"]?.selectedId ===
-              "scripts",
+            (test.state().view.regions[0]?.title ?? "").includes(
+              "Task controls · Editing",
+            ),
+          "fresh status after discovery",
+        );
+        test.io.enqueueKeys("down", "down", "down", "enter");
+        await waitUntil(
+          () => test.state().view.regions[0]?.id === "task:alpha:more",
           "navigation after discovery",
         );
         const choices = test.state().view.regions[0];
-        assert(choices.kind === "choices");
+        assert(choices?.kind === "choices");
         const scripts = choices.entries.find((choice) =>
           choice.id === "scripts"
         );
         assert(scripts && scripts.kind !== "group-heading");
         assertEquals(
-          scripts.status,
+          scripts.disabled,
           undefined,
           "finished discovery enables scripts despite intervening status refreshes",
         );
-        assertStringIncludes(choices.title ?? "", "Proof: edited");
         assertEquals(
           calls,
           1,
@@ -664,7 +671,7 @@ Deno.test("Desk live sessions retain navigation, observations, and bounded owner
             () => started !== undefined,
             "capability discovery starts",
           );
-          test.io.enqueue("/proof and changes\r\r");
+          test.io.enqueue(`/${DESK_ACTION_LABELS.inspect}\r\r`);
           await waitUntil(
             () => performed,
             "Proof opens while unrelated discovery remains pending",
@@ -759,9 +766,9 @@ Deno.test("Desk application views keep independent facts, controls, and viewport
                       : page === "task" || page === "details"
                       ? "Task controls"
                       : page === "help"
-                      ? "Keyboard help"
+                      ? "Keyboard shortcuts"
                       : page === "queue"
-                      ? "Landing queue"
+                      ? "Landing"
                       : "Tip",
                   );
                 }
@@ -773,26 +780,29 @@ Deno.test("Desk application views keep independent facts, controls, and viewport
     },
     {
       name:
-        "Proof, authority, submission revision, activity and advisory overlap remain independent",
+        "the task page names status's state, while Proof, authority and the queue stay separate facts",
       check: () => {
         const fleet = statusData([
           entry("alpha", {
             landing_authority: { kind: "authorized", source: "effort-grant" },
           }),
         ]);
-        const row = buildDeskRows(fleet.fleet ?? [], new Map(), new Map(), {
-          trunk: "main",
-          nowMs: 0,
-          fleetCollisions: [{
-            branches: ["agent/alpha", "agent/beta"],
-            overlap: ["shared.ts"],
-            total: 1,
-          }],
-        })[0];
+        const rowsFor = (data: StatusData) =>
+          buildDeskRows(data.fleet ?? [], new Map(), new Map(), {
+            trunk: "main",
+            nowMs: 0,
+            queue: data.queue ?? [],
+            fleetCollisions: [{
+              branches: ["agent/alpha", "agent/beta"],
+              overlap: ["shared.ts"],
+              total: 1,
+            }],
+          });
+        const row = rowsFor(fleet)[0];
         assert(row);
+        assertEquals(row.decision.state, "approved");
         assertEquals(row.decision.proof.honored, true);
-        assertEquals(row.decision.authority.status, "granted");
-        assertEquals(deskSubmission(row, fleet), "Not queued");
+        assertEquals(row.decision.authority.summary, "Pre-authorized by you");
         const ordinary = new FakeTerminalIO([], { columns: 80, rows: 24 });
         const controls = renderTerminalApplication(
           updateTerminalApplication(
@@ -806,10 +816,8 @@ Deno.test("Desk application views keep independent facts, controls, and viewport
           ordinary.capabilities(),
           { theme: "dark" },
         );
-        assertTerminalTextIncludes(
-          controls.frame,
-          "Proof valid · Authorized · Not queued",
-        );
+        assertTerminalTextIncludes(controls.frame, "Task controls · Approved");
+        assert(!controls.frame.includes("Proof valid"));
 
         fleet.queue = [{
           effort: "alpha",
@@ -821,89 +829,60 @@ Deno.test("Desk application views keep independent facts, controls, and viewport
           position: 1,
           readiness: "ready",
         }];
-        assertStringIncludes(deskSubmission(row, fleet), "older-submit");
-      },
-    },
-    {
-      name:
-        "Desk exposes every registered action once across primary and More controls",
-      check: () => {
-        const rows = buildDeskRows([entry("alpha")], new Map(), new Map(), {
-          trunk: "main",
-          nowMs: 0,
-        });
-        const actions = ["task", "more"].flatMap((page) =>
-          deskApplicationView(
-            { rows, phase: "fresh" },
-            page as "task" | "more",
-            "alpha",
-          ).regions.flatMap((region) =>
-            region.kind === "choices"
-              ? region.entries.flatMap((choice) =>
-                choice.kind !== "group-heading" &&
-                  choice.value.kind === "action"
-                  ? [choice.value.action]
-                  : []
-              )
-              : []
-          )
-        );
-        assertEquals(
-          [...actions, "revoke_grant"].sort(),
-          DESK_ACTIONS.filter((action) =>
-            !["reclaim", "recovery", "retry_setup"].includes(action)
-          ).sort(),
-        );
-        for (const action of ["reclaim", "recovery", "retry_setup"] as const) {
-          assert(!actions.includes(action));
-        }
-        const granted = buildDeskRows(
-          [entry("alpha", {
-            landing_authority: {
-              kind: "authorized",
-              source: "effort-grant",
-              scopes: [],
-            },
-          })],
-          new Map(),
-          new Map(),
-          { trunk: "main", nowMs: 0 },
-        );
-        const grantMenu = deskApplicationView(
-          { rows: granted, phase: "fresh" },
-          "task",
-          "alpha",
-        )
-          .regions[0];
-        assert(grantMenu.kind === "choices");
+        const queued = rowsFor(fleet)[0];
+        assert(queued);
+        assertEquals(queued.decision.state, "queued");
+        assertEquals(queued.decision.label, "Queued #1");
         assert(
-          grantMenu.entries.some((choice) => choice.id === "revoke_grant"),
-        );
-        assertEquals(
-          grantMenu.entries.some((choice) => choice.id === "grant"),
-          false,
+          queued.decision.details.some((detail) =>
+            detail.text === "Queue: #1 · lands with any landing"
+          ),
         );
       },
     },
     {
       name:
-        "ordinary task controls defer unavailable-action troubleshooting until activation",
+        "the task page offers the state's next steps and More actions holds every other action once",
       check: () => {
         const rows = buildDeskRows([entry("alpha")], new Map(), new Map(), {
           trunk: "main",
           nowMs: 0,
         });
-        const view = deskApplicationView(
-          { rows, phase: "fresh" },
-          "task",
-          "alpha",
+        const actionsOn = (page: "task" | "more"): string[] =>
+          deskApplicationView({ rows, phase: "fresh" }, page, "alpha")
+            .regions.flatMap((region) =>
+              region.kind === "choices"
+                ? region.entries.flatMap((choice) =>
+                  choice.kind !== "group-heading" &&
+                    choice.value.kind === "action"
+                    ? [choice.value.action]
+                    : []
+                )
+                : []
+            );
+        assertEquals(rows[0]?.decision.state, "ready");
+        assertEquals(actionsOn("task"), ["accept", "inspect", "grant"]);
+        assertEquals(
+          [...actionsOn("task"), ...actionsOn("more")].sort(),
+          [...DESK_ACTIONS].sort(),
         );
-        const controls = view.regions[0];
-        assert(controls.kind === "choices");
-        const agent = controls.entries.find((choice) => choice.id === "agent");
+      },
+    },
+    {
+      name: "an unavailable action shows its reason and cannot be chosen",
+      check: () => {
+        const rows = buildDeskRows([entry("alpha")], new Map(), new Map(), {
+          trunk: "main",
+          nowMs: 0,
+        });
+        const more =
+          deskApplicationView({ rows, phase: "fresh" }, "more", "alpha")
+            .regions[0];
+        assert(more?.kind === "choices");
+        const agent = more.entries.find((choice) => choice.id === "agent");
         assert(agent && agent.kind !== "group-heading");
-        assertEquals(agent.description, undefined);
-        assertEquals(agent.status?.content, "Unavailable");
+        assertEquals(agent.disabled, true);
+        assertStringIncludes(agent.description ?? "", "No agent is configured");
       },
     },
   ];

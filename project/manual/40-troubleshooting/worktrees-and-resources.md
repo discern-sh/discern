@@ -135,7 +135,7 @@ Files Git ignores, such as `.env` or local test data, aren't in any commit, so c
 
 ## A task on the desk looks wrong
 
-The **desk** is the interactive view that opens when you run `discern` in your main checkout. When a task there shows broken setup, a missing folder, or Git state discern can't read, select it. Choose **Show recovery steps** to see what discern could and couldn't read, and the next command to run. **Retry setup** appears when no setup step is in doubt. If one may still be running, see [A worktree setup step may have finished](setup-and-integrations.md#a-worktree-setup-step-may-have-finished).
+The **desk** is the interactive view that opens when you run `discern` in your main checkout. When a task there shows broken setup, a missing folder, or Git state discern can't read, select it. Its next step is **Recovery steps**, which shows what discern could and couldn't read, and the next command to run. **Retry setup…** appears instead when no setup step is in doubt. If one may still be running, see [A worktree setup step may have finished](setup-and-integrations.md#a-worktree-setup-step-may-have-finished).
 
 To see local changes that block landing, choose **Main checkout** from the desk's menu. After a refused action, the desk rechecks every task and says what changed.
 

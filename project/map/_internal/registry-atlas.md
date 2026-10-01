@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 926     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 928     | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 2       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -42,6 +42,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 17      | —                | node `desk`                 |
+| [`desk-commands`](#desk-commands--desk-commands)                                                                      | `src/engine/desk/commands.ts#DESK_COMMANDS`                                       | 19      | —                | node `desk`                 |
 | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 37      | —                | —                           |
 | [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                          | `src/shared/on_disk_formats.ts#ON_DISK_FORMATS`                                   | 35      | —                | —                           |
 | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                          | `src/engine/git_footprint.ts#DISCERN_GIT_FOOTPRINT`                               | 10      | —                | —                           |
@@ -115,7 +116,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 402     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 403     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#DEAD_CONFIG_POSITIONS`                                  | 10      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -147,9 +148,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 16      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 4       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 136     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 137     | —                | node `canonical-sets`       |
 
-136 sets · 196 guard tests · 75 committed artifacts.
+137 sets · 197 guard tests · 75 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -223,6 +224,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_consent_gate_test.ts`                | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs), [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/engine_desk_execution_guard_test.ts`        | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_desk_model_test.ts`                  | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/engine_desk_registry_guard_test.ts`         | [`desk-actions`](#desk-actions--desk-actions), [`desk-commands`](#desk-commands--desk-commands)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/engine_desk_runtime_test.ts`                | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_desk_tips_test.ts`                   | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/engine_effort_grant_test.ts`                | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -481,7 +483,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 926
+- Members: 928
   - `/`
   - `/install`
   - `/llms.txt`
@@ -1341,6 +1343,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0411-validation-input-identity-streams-complete-bytes.md`
   - `/docs/decisions/0412-site-deployment-composes-two-verified-snapshots`
   - `/docs/decisions/0412-site-deployment-composes-two-verified-snapshots.md`
+  - `/docs/decisions/0413-the-desk-offers-each-tasks-next-decision`
+  - `/docs/decisions/0413-the-desk-offers-each-tasks-next-decision.md`
   - `/docs/decisions/0414-status-owns-the-row-state-vocabulary`
   - `/docs/decisions/0414-status-owns-the-row-state-vocabulary.md`
   - `/docs/decisions/0001-project-owned-recipes`
@@ -2042,8 +2046,37 @@ The desk's per-worktree action vocabulary and menu order. The legality table exe
   - `reclaim`
   - `park`
   - `drop`
-- Guards: `tests/engine_desk_model_test.ts`, `tests/engine_desk_runtime_test.ts`, `tests/engine_desk_execution_guard_test.ts`
+- Guards: `tests/engine_desk_model_test.ts`, `tests/engine_desk_runtime_test.ts`, `tests/engine_desk_execution_guard_test.ts`, `tests/engine_desk_registry_guard_test.ts`
 - Glossary: not enrolled — the Desk reference documents these menu actions in context
+- Feature canon: described by the `desk` node
+
+## `desk-commands` — Desk commands
+
+The desk's commands beyond one task's actions: creating work, readers, help, session toggles, and branch-row routes. The registry guard holds each one's label, key, palette section, effect, and binding.
+
+- Source: `src/engine/desk/commands.ts` — `DESK_COMMANDS`
+- Members: 19
+  - `new_task`
+  - `main_scripts`
+  - `landing`
+  - `parked`
+  - `main_checkout`
+  - `activity`
+  - `keys`
+  - `manual`
+  - `tip`
+  - `updates`
+  - `refresh`
+  - `sort`
+  - `details`
+  - `mouse`
+  - `quit`
+  - `resume`
+  - `branch_commits`
+  - `landed_proof`
+  - `progress`
+- Guards: `tests/engine_desk_registry_guard_test.ts`
+- Glossary: not enrolled — the Desk reference documents these commands in context
 - Feature canon: described by the `desk` node
 
 ## `git-admin-state` — Git-admin state
@@ -4523,7 +4556,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 402
+- Members: 403
   - `0003`
   - `0005`
   - `0006`
@@ -4893,6 +4926,7 @@ The numbered decision records in the map, including records later superseded.
   - `0410`
   - `0411`
   - `0412`
+  - `0413`
   - `0414`
   - `0001`
   - `0002`
@@ -5799,7 +5833,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 136
+- Members: 137
   - `site-marketing-pages`
   - `site-endpoints`
   - `public-site-routes`
@@ -5830,6 +5864,7 @@ This meta-registry: the closed set of closed sets.
   - `accept-landing-state-fields`
   - `worktree-lifecycle-repo-root-verbs`
   - `desk-actions`
+  - `desk-commands`
   - `git-admin-state`
   - `on-disk-formats`
   - `git-footprint`
@@ -5955,6 +5990,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 - `tests/file_lock_guard_test.ts` — requires every authored production use of native file-lock primitives to share explicit release ownership rather than guarding a project-defined member set
 - `tests/engine_desk_terminal_guard_test.ts` — holds every authored Desk module to the package application adoption boundary rather than guarding a closed member set
 - `tests/engine_desk_text_guard_test.ts` — routes every authored Desk module's product text through one sanitizer module so no line break reaches a single-line slot, rather than guarding a closed member set
+- `tests/engine_desk_proof_label_guard_test.ts` — keeps every authored Desk module but the decision model from reading a Proof status, so row labels and tones come from status's state, rather than guarding a closed member set
 - `tests/operation_lock_sync_guard_test.ts` — pins the operation lock's no-fsync acquisition and release — exclusion comes from the OS handle — rather than guarding a closed member set
 - `tests/progress_surface_parity_test.ts` — proves that the terminal, MCP notifications, the operation journal, and nested presenters present one completion fact stream identically rather than guarding a closed member set
 - `tests/test_registration_guard_test.ts` — rejects execution-time imports of test-registration modules across authored Deno sources rather than guarding a closed member set

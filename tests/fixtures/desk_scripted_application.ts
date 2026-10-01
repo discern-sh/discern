@@ -4,7 +4,11 @@ import { FakeTerminalIO } from "discern-design-system/cli/interactive/testing";
 import type { TerminalApplicationOptions, SelectionRequestOptions } from "../../src/lib/terminal_interaction.ts";
 import type { DeskChoice } from "../../src/engine/desk/application_view.ts";
 import { DESK_ACTIONS, type DeskAction } from "../../src/engine/desk/model.ts";
-import { DESK_ROUTES, deskUnlandedRoute } from "../../src/engine/desk/contracts.ts";
+import { DESK_ROUTES as PRODUCT_ROUTES } from "../../src/engine/desk/contracts.ts";
+/** Scripted tokens for root routes; `back` is the product's own sentinel. */
+export const DESK_ROUTES = {back:PRODUCT_ROUTES.back,quit:"\x00quit",refresh:"\x00refresh",startTask:"\x00start-task",runProjectScript:"\x00run-project-script",readDocs:"\x00read-docs",mainCheckout:"\x00main-checkout",recentCompleted:"\x00recent-completed"} as const;
+/** The scripted token for one status-reported branch without a worktree. */
+export function deskUnlandedRoute(branch:string):string {return `\x00unlanded:${branch}`;}
 import type { StatusData } from "../../src/shared/result_schemas.ts";
 const tokens: Record<string,string> = {back:DESK_ROUTES.back,quit:DESK_ROUTES.quit,retry:DESK_ROUTES.refresh,start:DESK_ROUTES.startTask,scripts:DESK_ROUTES.runProjectScript,main:DESK_ROUTES.mainCheckout,recent:DESK_ROUTES.recentCompleted,docs:DESK_ROUTES.readDocs};
 /** Exercise foreground effect code with old semantic fixtures without claiming input/painting coverage. */
