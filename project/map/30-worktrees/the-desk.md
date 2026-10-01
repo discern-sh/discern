@@ -167,6 +167,7 @@ The subsystem has focused [state machine](../../../tests/engine_desk_state_test.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A degraded checkout's next step is **Recovery steps** (or **Retry setup…** when replay is safe), with **Open shell** beside it when its folder exists. Drop stays in the Danger section and requires the branch name when work cannot be verified.
 - An Interrupted task's next step is **Recovery steps** too: its landing stopped and nothing landed, so the steps name `discern worktree prune` to reclaim discern's integration copy before landing again.
+- While a layer is open the inspector beside it stays empty: the design system shows whichever inspector rows fall below a layer, starting mid-block, until it starts them at a block boundary.
 - A layer the package would refuse, such as one built from an unusual observation, gives way to a sheet under the same id that says it couldn't be shown. The session and every operation beside it carry on. [`withShowableLayers`](../../../src/engine/desk/layer_view.ts) holds this until the design system refuses such a layer itself.
 - A review sheet keeps one layer id from loading to ready; the package starts its review over as it arrives, so read progress counts only the real body and focus lands on its first control, its challenge field included.
 

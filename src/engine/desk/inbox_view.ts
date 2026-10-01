@@ -650,10 +650,21 @@ function body(
     return { kind: "list", list };
   }
   const { content, strip } = details(state, env);
+  // TODO(R-10): beneath a layer the package shows whichever detail rows fall
+  // below it, starting mid-block (a widowed hint or "↓ N more"), so the
+  // inspector stays empty while a layer is open.
+  const receded = state.layers.length > 0;
   return {
     kind: "master-detail",
     list,
-    detail: { follows: DESK_LIST_ID, content, strip, pending: "Reading…" },
+    detail: {
+      follows: DESK_LIST_ID,
+      content: receded
+        ? Object.fromEntries(Object.keys(content).map((id) => [id, []]))
+        : content,
+      strip,
+      pending: "Reading…",
+    },
   };
 }
 
