@@ -338,13 +338,19 @@ function degradedState(
 }
 
 /** P2: a landing's integration copy speaks for the task it lands. A live
- * owner outranks a retained decision, which outranks a dead owner. */
+ * owner outranks a retained decision, which outranks a dead owner. A copy
+ * retained for the agent's checkpoint answers is the agent's move, so it
+ * reads Refused; any other retained decision is the owner's exception. */
 function integrationState(
   integration: FleetRowIntegration | undefined,
 ): FleetTaskRowStateId | undefined {
   if (integration === undefined) return undefined;
   if (integration.owner === "live") return "landing";
-  if (integration.awaiting_judgment === true) return "exception";
+  if (integration.awaiting_judgment === true) {
+    return integration.judgment?.decision === "declaration"
+      ? "refused"
+      : "exception";
+  }
   return integration.owner === "interrupted" ? "interrupted" : undefined;
 }
 

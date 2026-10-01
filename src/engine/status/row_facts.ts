@@ -49,6 +49,9 @@ export type FleetRowStatusKind = (typeof FLEET_ROW_STATUS_KINDS)[number];
 /** A landing's integration copy, speaking for the row of the task it lands. */
 export type FleetRowIntegration = NonNullable<StatusFleetEntry["integration"]>;
 
+/** The decision a retained integration copy waits on. */
+export type FleetRowJudgment = NonNullable<FleetRowIntegration["judgment"]>;
+
 /** Everything a live task row's state and sentences are derived from. */
 export interface FleetTaskRowFacts {
   readonly entry: StatusFleetEntry;
@@ -220,28 +223,54 @@ export function proofHuman(
     : base;
 }
 
+/** The owner's variance a retained composition waits on, if any. */
+function varianceJudgment(
+  judgment: FleetRowJudgment | undefined,
+): FleetRowJudgment | undefined {
+  return judgment?.decision === "variance" ? judgment : undefined;
+}
+
+/**
+ * Whether the exact exception hand-off can be derived: the Proof names its
+ * owner decisions, or a retained composition names the variances it waits
+ * on. Otherwise only `discern accept` itself can serve the decision.
+ */
+export function hasExceptionHandOff(
+  proofData: Proof | undefined,
+  judgment: FleetRowJudgment | undefined,
+): boolean {
+  return hasExceptionFacts(proofData) ||
+    varianceJudgment(judgment) !== undefined;
+}
+
 /**
  * The exception hand-off with each standard approval token supplied: one
  * `--variance` per declared-unmet checkpoint, then one `--approve-standard`
- * per standard proposal. Sentences that cannot wait for a digest pass a
- * placeholder per proposal; {@link exceptionArgv} passes the real tokens.
+ * per standard proposal. A retained composition's variances replace the
+ * Proof's, because they bind to the combined code, and its receipt follows.
+ * Sentences that cannot wait for a digest pass a placeholder per proposal;
+ * {@link exceptionArgv} passes the real tokens.
  */
 export function exceptionArgvWith(
   branch: string,
   proofData: Proof | undefined,
   tokens: readonly string[],
+  judgment?: FleetRowJudgment,
 ): readonly string[] {
+  const retained = varianceJudgment(judgment);
+  const variances = retained?.awaiting ??
+    (proofData?.checkpoints?.declared_unmet ?? []).map((unmet) => unmet.id);
   return [
     "discern",
     "accept",
     "--target",
     branch,
     "--confirmed",
-    ...(proofData?.checkpoints?.declared_unmet ?? []).flatMap((unmet) => [
-      "--variance",
-      unmet.id,
-    ]),
+    ...variances.flatMap((id) => ["--variance", id]),
     ...tokens.flatMap((token) => ["--approve-standard", token]),
+    ...(retained === undefined
+      ? []
+      : ["--composition-receipt", retained.composition]),
   ];
 }
 
@@ -252,9 +281,10 @@ export function exceptionArgvWith(
 export async function exceptionArgv(
   branch: string,
   proofData: Proof | undefined,
+  judgment?: FleetRowJudgment,
 ): Promise<readonly string[]> {
   const tokens = await Promise.all(
     (proofData?.standard_proposals ?? []).map(standardLimitApprovalToken),
   );
-  return exceptionArgvWith(branch, proofData, tokens);
+  return exceptionArgvWith(branch, proofData, tokens, judgment);
 }

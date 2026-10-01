@@ -18,8 +18,10 @@ import {
 import {
   exceptionArgvWith,
   type FleetBranchRowFacts,
+  type FleetRowJudgment,
   fleetRowProof,
   type FleetTaskRowFacts,
+  hasExceptionHandOff,
   idleDaysOf,
   positiveCount,
   proofFinishedAt,
@@ -139,10 +141,23 @@ function runningSentence(
   } ago${typical}.`;
 }
 
-/** The decisions a Proof leaves for the owner, as one clause. */
+/** The decision a retained landing copy waits on, when one does. */
+function retainedJudgment(
+  facts: FleetTaskRowFacts,
+): FleetRowJudgment | undefined {
+  return facts.integration?.awaiting_judgment === true
+    ? facts.integration.judgment
+    : undefined;
+}
+
+/** The decisions a Proof, or a retained composition's variance, leaves for
+ * the owner, as one clause. */
 function exceptionParts(facts: FleetTaskRowFacts): string | undefined {
   const proof = facts.entry.gate_proof?.proof_data;
-  const unmet = proof?.checkpoints?.declared_unmet.length ?? 0;
+  const judgment = retainedJudgment(facts);
+  const unmet = judgment?.decision === "variance"
+    ? judgment.awaiting.length
+    : proof?.checkpoints?.declared_unmet.length ?? 0;
   const limits = proof?.standard_proposals?.length ?? 0;
   const parts = [
     ...(unmet === 0 ? [] : [
@@ -159,9 +174,16 @@ function exceptionParts(facts: FleetTaskRowFacts): string | undefined {
   return parts.length === 0 ? undefined : parts.join(" and ");
 }
 
-/** The exact hand-off command, with a placeholder per standard token. */
+/** The exact hand-off command, with a placeholder per standard token; when
+ * the facts cannot name the decision, `discern accept` serves it. */
 function exceptionCommand(facts: FleetTaskRowFacts): string {
   const proof = facts.entry.gate_proof?.proof_data;
+  const judgment = retainedJudgment(facts);
+  if (!hasExceptionHandOff(proof, judgment)) {
+    return `With the owner's approval, run \`discern accept --target ${
+      taskBranch(facts)
+    }\`; it serves the exact decision to record.`;
+  }
   const tokens = (proof?.standard_proposals ?? []).map((proposal) =>
     `<${proposal.standard}-token>`
   );
@@ -169,8 +191,16 @@ function exceptionCommand(facts: FleetTaskRowFacts): string {
     ? ""
     : "; the refusal from `discern accept` serves each standard's token";
   return `With the owner's approval, run \`${
-    exceptionArgvWith(taskBranch(facts), proof, tokens).join(" ")
+    exceptionArgvWith(taskBranch(facts), proof, tokens, judgment).join(" ")
   }\`${tail}.`;
+}
+
+/** The agent's checkpoint answers a retained composition waits on. */
+function awaitedDeclaration(
+  facts: FleetTaskRowFacts,
+): FleetRowJudgment | undefined {
+  const judgment = retainedJudgment(facts);
+  return judgment?.decision === "declaration" ? judgment : undefined;
 }
 
 /** `discern done` failed at test 2h ago. */
@@ -270,18 +300,20 @@ export const TASK_ROW_SENTENCES = {
     qualifier: () => "needs your exception",
     explanation: (facts) => {
       const parts = exceptionParts(facts);
-      return parts !== undefined
+      return retainedJudgment(facts) !== undefined
+        ? `Its landing stopped to ask you about the combined code${
+          parts === undefined ? "" : `: ${parts}`
+        }. discern kept the combined copy until you decide.`
+        : parts !== undefined
         ? `Its checks passed, but ${parts}. Landing needs your exception first.`
-        : facts.integration?.awaiting_judgment === true
-        ? "Its landing stopped to ask you about the combined code. discern kept the combined copy until you decide."
         : "Its landing waits for your decision on a checkpoint answer or a standard limit change.";
     },
-    attention: (facts) =>
-      exceptionParts(facts) === undefined
-        ? "Its landing waits for a checkpoint decision; `discern accept` from the task's worktree serves it."
-        : `Landing needs the owner's exception: ${exceptionParts(facts)}. ${
-          exceptionCommand(facts)
-        }`,
+    attention: (facts) => {
+      const parts = exceptionParts(facts);
+      return `Landing needs the owner's exception${
+        parts === undefined ? "" : `: ${parts}`
+      }. ${exceptionCommand(facts)}`;
+    },
   },
   interrupted: {
     qualifier: () => "nothing landed",
@@ -361,12 +393,21 @@ export const TASK_ROW_SENTENCES = {
       } --confirmed\`.`,
   },
   refused: {
-    qualifier: (facts) => `discern ${facts.entry.last_action?.verb ?? "verb"}`,
+    qualifier: (facts) =>
+      awaitedDeclaration(facts) !== undefined
+        ? "checkpoint question"
+        : `discern ${facts.entry.last_action?.verb ?? "verb"}`,
     explanation: (facts) =>
-      `discern ${facts.entry.last_action?.verb ?? "verb"} was refused${
-        spacedAge(facts.entry.last_action?.at, facts.nowMs)
-      }. Its agent needs to read the refusal and do what it names.`,
+      awaitedDeclaration(facts) !== undefined
+        ? "Its landing stopped on a checkpoint question about the combined code. Its agent needs to answer it before the landing continues."
+        : `discern ${facts.entry.last_action?.verb ?? "verb"} was refused${
+          spacedAge(facts.entry.last_action?.at, facts.nowMs)
+        }. Its agent needs to read the refusal and do what it names.`,
     attention: (facts) => {
+      const declaration = awaitedDeclaration(facts);
+      if (declaration !== undefined) {
+        return `Its landing waits for the agent's checkpoint answers about the combined code. Run \`discern accept\` in its worktree to be served the questions, then answer each with \`--met\` or \`--unmet\` and \`--composition-receipt ${declaration.composition}\`.`;
+      }
       const action = facts.entry.last_action;
       const slug = action?.error === undefined ? "" : ` (${action.error})`;
       return `\`discern ${action?.verb ?? "verb"}\` was refused${

@@ -539,7 +539,16 @@ export async function statusResult(
           : "interrupted",
         for_branch: owned.landing.branch,
         ...(owned.phase === "awaiting-judgment"
-          ? { awaiting_judgment: true }
+          ? {
+            awaiting_judgment: true,
+            ...(owned.continuation === undefined ? {} : {
+              judgment: {
+                composition: owned.id,
+                decision: owned.continuation.decision,
+                awaiting: [...owned.continuation.awaiting],
+              },
+            }),
+          }
           : {}),
       };
     }

@@ -38,15 +38,18 @@ import { compactDuration } from "../output.ts";
 import type { DeskProjectScript } from "../project_scripts.ts";
 import {
   compareTaskTitles,
+  integrationFor,
   presentFleetRow,
   speaksForAnotherRow,
 } from "../status/fleet_rows.ts";
 import {
   exceptionArgv,
   exceptionArgvWith,
+  type FleetRowIntegration,
   fleetRowProof,
   type FleetRowStatusKind,
   hasExceptionFacts,
+  hasExceptionHandOff,
   positiveCount,
   relativeAge,
 } from "../status/row_facts.ts";
@@ -582,6 +585,8 @@ export interface DeskActionFacts {
   readonly capabilityError?: string;
   readonly trunk: string;
   readonly mainCheckout?: DeskMainCheckoutFacts;
+  /** The integration copy that speaks for this task, when one does. */
+  readonly integration?: FleetRowIntegration;
   /** The exact exception hand-off, when the observation computed it. */
   readonly exceptionArgv?: readonly string[];
 }
@@ -650,21 +655,42 @@ function landableReason(facts: DeskActionFacts): string | undefined {
 }
 
 /** The owner's exception hand-off: landing needs a decision only the CLI
- * records today, so the reason carries the exact command. */
+ * records today, so the reason carries the exact command, or names the
+ * command that serves the decision when the facts cannot name it. */
 function exceptionReason(facts: DeskActionFacts): string | undefined {
   const proofData = facts.entry.gate_proof?.proof_data;
   if (facts.state !== "exception" && !hasExceptionFacts(proofData)) {
     return undefined;
+  }
+  const judgment = facts.integration?.awaiting_judgment === true
+    ? facts.integration.judgment
+    : undefined;
+  if (!hasExceptionHandOff(proofData, judgment)) {
+    return `Needs your exception, which the desk can't record yet. Run in a terminal: ${
+      commandEvidence(["discern", "accept", "--target", facts.entry.branch])
+    }. It serves the exact decision to record.`;
   }
   const argv = facts.exceptionArgv ??
     exceptionArgvWith(
       facts.entry.branch,
       proofData,
       (proofData?.standard_proposals ?? []).map(() => "<standard-token>"),
+      judgment,
     );
   return `Needs your exception, which the desk can't record yet. Run in a terminal: ${
     commandEvidence(argv)
   }`;
+}
+
+/** A retained landing copy waiting on the agent's checkpoint answers: a
+ * landing or a queue entry would only serve the question again. */
+function awaitedDeclarationReason(
+  facts: DeskActionFacts,
+): string | undefined {
+  return facts.integration?.awaiting_judgment === true &&
+      facts.integration.judgment?.decision === "declaration"
+    ? "Its landing waits for its agent's checkpoint answers about the combined code."
+    : undefined;
 }
 
 /** Landing refuses while main has tracked changes or stale generated files. */
@@ -863,8 +889,8 @@ export const DESK_ACTION_REGISTRY = {
       healthyActionAvailability(
         facts.entry,
         "Follow its recovery steps before landing it.",
-        exceptionReason(facts) ?? landableReason(facts) ??
-          mainCheckoutReason(facts),
+        awaitedDeclarationReason(facts) ?? exceptionReason(facts) ??
+          landableReason(facts) ?? mainCheckoutReason(facts),
       ),
   },
   submit: {
@@ -1575,6 +1601,9 @@ export function buildDeskDecision(
     ...(options.mainCheckout === undefined
       ? {}
       : { mainCheckout: options.mainCheckout }),
+    ...(presentation.integration === undefined
+      ? {}
+      : { integration: presentation.integration }),
     ...(exceptionArgv === undefined ? {} : { exceptionArgv }),
   };
   const offers = actionOffers(
@@ -1663,24 +1692,35 @@ export function buildDeskDecision(
 }
 
 /**
- * The exact exception hand-off for every task whose Proof carries owner
- * decisions, keyed by branch. Standard approval tokens are digests, so the
- * observation computes them once before the synchronous decision reads them.
+ * The exact exception hand-off for every task whose Proof, or whose retained
+ * landing copy, names owner decisions, keyed by branch. Standard approval
+ * tokens are digests, so the observation computes them once before the
+ * synchronous decision reads them.
  */
 export async function deskExceptionArgvs(
   data: Pick<StatusData, "fleet">,
 ): Promise<ReadonlyMap<string, readonly string[]>> {
-  const pending = (data.fleet ?? []).flatMap((entry) =>
-    !entry.is_main && hasExceptionFacts(entry.gate_proof?.proof_data)
-      ? [entry]
-      : []
-  );
+  const tasks = (data.fleet ?? []).filter((entry) => !entry.is_main);
+  const pending = tasks.flatMap((entry) => {
+    const integration = integrationFor(entry, tasks);
+    const judgment = integration?.awaiting_judgment === true
+      ? integration.judgment
+      : undefined;
+    return entry.integration === undefined &&
+        hasExceptionHandOff(entry.gate_proof?.proof_data, judgment)
+      ? [{ entry, judgment }]
+      : [];
+  });
   return new Map(
     await Promise.all(
-      pending.map(async (entry) =>
+      pending.map(async ({ entry, judgment }) =>
         [
           entry.branch,
-          await exceptionArgv(entry.branch, entry.gate_proof?.proof_data),
+          await exceptionArgv(
+            entry.branch,
+            entry.gate_proof?.proof_data,
+            judgment,
+          ),
         ] as const
       ),
     ),

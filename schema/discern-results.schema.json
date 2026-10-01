@@ -23696,6 +23696,9 @@
                           },
                           "awaiting_judgment": {
                             "type": "boolean"
+                          },
+                          "judgment": {
+                            "$ref": "#/$defs/DiscernIntegrationJudgment"
                           }
                         },
                         "required": [

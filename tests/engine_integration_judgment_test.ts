@@ -24,7 +24,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
 import { withCountedPristineInstalls } from "./engine_integration_fixture.ts";
 
@@ -115,6 +115,19 @@ async function producerRuns(counter: string): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+/** The decision status publishes on a branch's retained landing copy. */
+async function retainedLandingJudgment(
+  dir: string,
+  branch: string,
+): Promise<unknown> {
+  const run = await runAgent(dir, ["status", "--json", "--verbose"]);
+  const status = decodeCliResult(run.stdout, "status");
+  assertResultDataKey(status, "fleet");
+  return (status.data.fleet ?? []).find((entry) =>
+    entry.integration?.for_branch === branch
+  )?.integration?.judgment;
 }
 
 /** No integration worktree, branch, or record survives. */
@@ -422,6 +435,15 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           decision: "declaration",
           awaiting: ["record-review"],
         });
+        // Status publishes the same decision on the retained copy, so every
+        // fleet view can route it to whoever owes it.
+        assertEquals(
+          await retainedLandingJudgment(
+            dir,
+            await gitOut(beta, "branch", "--show-current"),
+          ),
+          refusal.data.integration_judgment,
+        );
 
         // Nothing landed and the author's checkout is untouched; the frozen
         // submission still stands; the composition is retained for the answer.
@@ -567,6 +589,13 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           decision: "variance",
           awaiting: ["record-review"],
         });
+        assertEquals(
+          await retainedLandingJudgment(
+            dir,
+            await gitOut(beta, "branch", "--show-current"),
+          ),
+          varianceStop.data.integration_judgment,
+        );
         const retained = await retainedRecord(dir);
         assert(retained !== undefined, "the proven composition is retained");
 

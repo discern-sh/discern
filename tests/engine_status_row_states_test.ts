@@ -4,8 +4,13 @@
  * human fact wording, and the exception hand-off command.
  */
 
-import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import { assertCases } from "./assert_cases.ts";
+import {
+  assert,
+  assertEquals,
+  assertNotEquals,
+  assertStringIncludes,
+} from "@std/assert";
+import { assertCases, assertCasesAsync } from "./assert_cases.ts";
 import { exceptionProof as proofData } from "./fixtures/status_fleet.ts";
 import {
   daysAgo,
@@ -16,6 +21,7 @@ import {
   minutesAgo,
   NOW,
   queueRow,
+  RECEIPT,
   RUNNING,
   SETUP,
   TABLE_ROWS,
@@ -283,6 +289,8 @@ const INTEGRATIONS = {
   live: INTEGRATION("live"),
   interrupted: INTEGRATION("interrupted"),
   "awaiting judgment": INTEGRATION("interrupted", true),
+  "awaiting variance": INTEGRATION("interrupted", true, "variance"),
+  "awaiting declaration": INTEGRATION("interrupted", true, "declaration"),
   "resumed judgment": INTEGRATION("live", true),
 } as const satisfies Record<string, FleetRowIntegration | undefined>;
 
@@ -318,7 +326,11 @@ function specifiedState(
       : "setup-manual";
   }
   if (context.integration?.owner === "live") return "landing";
-  if (context.integration?.awaiting_judgment === true) return "exception";
+  if (context.integration?.awaiting_judgment === true) {
+    return context.integration.judgment?.decision === "declaration"
+      ? "refused"
+      : "exception";
+  }
   if (context.integration?.owner === "interrupted") return "interrupted";
   if (kind === "running") {
     return verb === "done"
@@ -711,5 +723,93 @@ Deno.test("row-state exceptions: the hand-off names every decision exactly", asy
   assertEquals(
     taskRowState("exception").explanation(facts),
     "Its checks passed, but 1 checkpoint answer is unmet and 2 standard limit changes are proposed. Landing needs your exception first.",
+  );
+});
+
+Deno.test("row-state exceptions: a retained landing names its own decision", async () => {
+  const branch = "agent/task";
+  const variance = INTEGRATION("interrupted", true, "variance");
+  const declaration = INTEGRATION("interrupted", true, "declaration");
+  const factsFor = (
+    entry: StatusFleetEntry,
+    integration?: FleetRowIntegration,
+  ): FleetTaskRowFacts => ({
+    entry,
+    kind: classifyRowKind(entry, NOW),
+    trunk: "main",
+    nowMs: NOW,
+    integration,
+  });
+  await assertCasesAsync(
+    [
+      {
+        name: "row 7: a variance continuation binds its ids and receipt",
+        check: async () => {
+          assertEquals(
+            await exceptionArgv(branch, undefined, variance.judgment),
+            [
+              "discern",
+              "accept",
+              "--target",
+              branch,
+              "--confirmed",
+              "--variance",
+              "exactness",
+              "--composition-receipt",
+              RECEIPT,
+            ],
+          );
+          const attention = taskRowState("exception").attention(
+            factsFor(landable(), variance),
+          ) ?? "";
+          assert(
+            attention.includes(
+              `\`discern accept --target ${branch} --confirmed --variance exactness --composition-receipt ${RECEIPT}\``,
+            ),
+            attention,
+          );
+        },
+      },
+      {
+        name: "row 7: a declaration continuation is the agent's to answer",
+        check: () => {
+          const facts = factsFor(landable(), declaration);
+          assertEquals(
+            resolve(landable(), { integration: declaration }).state,
+            "refused",
+          );
+          assertStringIncludes(
+            taskRowState("refused").attention(facts) ?? "",
+            `--composition-receipt ${RECEIPT}`,
+          );
+          assert(
+            !(taskRowState("refused").attention(facts) ?? "").includes(
+              "--confirmed",
+            ),
+          );
+        },
+      },
+      {
+        name:
+          "row 16: a refusal without named decisions never claims a command",
+        check: () => {
+          const entry = landable(
+            LAST("accept", "refused", "awaiting_variance"),
+          );
+          const attention = taskRowState("exception").attention(
+            factsFor(entry),
+          ) ?? "";
+          assertStringIncludes(
+            attention,
+            `\`discern accept --target ${branch}\`; it serves the exact decision to record.`,
+          );
+          assert(!attention.includes("--confirmed"), attention);
+        },
+      },
+    ],
+    (row) => row.name,
+    async (row) => {
+      await row.check();
+    },
   );
 });

@@ -1901,6 +1901,11 @@ const statusFleetEntrySchema = z.strictObject({
     /** The copy is retained for a served checkpoint decision; it is not
      * reclaimable while its submission stands. */
     awaiting_judgment: z.boolean().optional(),
+    /** With `awaiting_judgment`: the decision that continues the retained
+     * composition. A `declaration` waits on the agent's checkpoint answers;
+     * a `variance` waits on the owner's variance for the `awaiting` ids,
+     * bound to the `composition` receipt. */
+    judgment: IntegrationJudgmentSchema.optional(),
   }).optional(),
   /** The row's state in status's row-state vocabulary: what the fleet
    * views show for it ("stale-proven", "checks-failed", ...). Derived from

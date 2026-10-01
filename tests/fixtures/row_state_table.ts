@@ -87,13 +87,20 @@ export const LAST = (
   },
 });
 
+/** The receipt a retained fixture composition serves. */
+export const RECEIPT = "R1-retained-composition";
+
 export const INTEGRATION = (
   owner: "live" | "interrupted",
   awaiting = false,
+  decision?: "declaration" | "variance",
 ): FleetRowIntegration => ({
   owner,
   for_branch: "agent/task",
   ...(awaiting ? { awaiting_judgment: true } : {}),
+  ...(decision === undefined ? {} : {
+    judgment: { composition: RECEIPT, decision, awaiting: ["exactness"] },
+  }),
 });
 
 export const SETUP = (
@@ -145,6 +152,18 @@ export const TABLE_ROWS: readonly TableRow[] = [
     entry: landable(),
     context: { integration: INTEGRATION("interrupted", true) },
     state: "exception",
+  },
+  {
+    row: 7,
+    entry: landable(),
+    context: { integration: INTEGRATION("interrupted", true, "variance") },
+    state: "exception",
+  },
+  {
+    row: 7,
+    entry: landable(),
+    context: { integration: INTEGRATION("interrupted", true, "declaration") },
+    state: "refused",
   },
   {
     row: 8,

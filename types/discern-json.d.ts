@@ -5861,6 +5861,7 @@ export type DiscernStatusResult = DiscernResultState & {
         owner: string;
         for_branch: string;
         awaiting_judgment?: boolean;
+        judgment?: DiscernIntegrationJudgment;
       };
       state?: string;
       group?: string;

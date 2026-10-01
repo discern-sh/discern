@@ -81,6 +81,8 @@ export interface FleetRowPresentation {
   explanation: string;
   /** CLI register: the next step with its command, when one is due. */
   attention?: string;
+  /** The integration copy that speaks for this row, when one does. */
+  integration?: FleetRowIntegration;
   identity: RowIdentity;
   git: string;
   proof: ProofPresentation;
@@ -226,7 +228,7 @@ function rowCollisions(
 
 /** The integration copy that speaks for a row: the row's own record, or the
  * copy landing its branch. */
-function integrationFor(
+export function integrationFor(
   entry: StatusFleetEntry,
   fleet: readonly StatusFleetEntry[],
 ): FleetRowIntegration | undefined {
@@ -293,6 +295,7 @@ export function presentFleetRow(
     ...(qualifier === undefined ? {} : { qualifier }),
     explanation: definition.explanation(facts),
     ...(attention === undefined ? {} : { attention }),
+    ...(integration === undefined ? {} : { integration }),
     identity: rowIdentity(entry),
     git: gitPresentation(entry),
     proof,

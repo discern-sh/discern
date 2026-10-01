@@ -50,7 +50,7 @@ One table, [`row_states.ts`](../../../src/engine/status/row_states.ts), names ev
 Status first classifies a row into one of its closed kinds (`classifyRowKind`): degraded, failed, refused, running, stale, editing, ready, behind, then the Proof kinds and idle. `rowStateFor` refines the kind by a written precedence, and the first match wins:
 
 1. Degraded kinds: Broken, Unreadable, or setup split by its record into Needs setup (retry or manual) and Setup unknown.
-2. An integration copy landing this task: live is Landing, a retained decision is Exception, a dead owner is Interrupted. These outrank the task's own kind because the landing is what is happening.
+2. An integration copy landing this task: live is Landing; a copy retained for the owner's decision is Exception; a copy retained for the agent's checkpoint answers is Refused, because the next move is the agent's; a dead owner is Interrupted. These outrank the task's own kind because the landing is what is happening.
 3. A running verb: `done` is Checking, `accept` is Landing, `update` is Updating, any other is Running.
 4. A failed verb: `done` is Checks failed, `accept` is Didn't land, any other is Failed.
 5. A refusal, by its `last_action.error` slug while the work can still land: a variance or standard approval wait is Exception, a consent wait is Wants to land; anything else is Refused.
@@ -62,7 +62,7 @@ Status first classifies a row into one of its closed kinds (`classifyRowKind`): 
 
 Containment resolves before the behind and Proof kinds because a contained branch carries commits without its own Proof; the queue's `awaiting-owner` authority is the durable form of a consent refusal, which the agent's next command overwrites.
 
-The groups are `FLEET_ROW_DECISIONS` (Ready for review, Needs attention, Working, Approved to land, Idle) and `FLEET_BRANCH_GROUPS` (Parked, Landed). Green marks only the states that can land (Ready, Wants to land, Approved, Queued). An Exception's next step is the exact hand-off: `discern accept --target <branch> --confirmed`, one `--variance <id>` per unmet checkpoint and one `--approve-standard <token>` per standard proposal, with the token acceptance serves.
+The groups are `FLEET_ROW_DECISIONS` (Ready for review, Needs attention, Working, Approved to land, Idle) and `FLEET_BRANCH_GROUPS` (Parked, Landed). Green marks only the states that can land (Ready, Wants to land, Approved, Queued). An Exception's next step is the exact hand-off: `discern accept --target <branch> --confirmed`, one `--variance <id>` per unmet checkpoint and one `--approve-standard <token>` per standard proposal, with the token acceptance serves. A copy retained for a variance names the combined code's checkpoint ids from its `integration.judgment` and adds `--composition-receipt <receipt>`. When no fact names the decision, as after a variance refusal whose Proof carries none, the hand-off is `discern accept --target <branch>`, which serves the exact decision.
 
 In the expanded view, **Checks** shows configured changed scopes, each changed scope's configured preview command, planned gate jobs, and a standards count. It labels preview commands as not run. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. **Landing** shows pass, branch, files changed, diff size, commit, and age. **Proofs** contains stored Proof Markdown.
 
