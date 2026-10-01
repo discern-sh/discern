@@ -3,31 +3,20 @@
  * Pre-authorize, and Revoke pre-authorization. Each is reviewed in session
  * from the lifecycle core's own preview, then run with the terminal.
  *
- * This is the only Desk module that writes landing permission: the grant
- * writer and its cleanup are reached through the runtime seams declared
- * here, so an agent's CLI and MCP surfaces can only read a grant. Queueing
- * without permission asks the grant question first, and Keep there queues
- * nothing; granting never queues or lands by itself, and offers those as a
- * separate next decision.
+ * Landing permission is written only through the runtime seams declared
+ * here, which the Desk's private production runtime fills: this module holds
+ * no writer itself, so an agent's CLI and MCP surfaces can only read a grant.
+ * Queueing without permission asks the grant question first, and Keep there
+ * queues nothing; granting never queues or lands by itself, and offers those
+ * as a separate next decision.
  */
 
-import { SYSTEM_CLOCK, wallTimeIso } from "../../../shared/clock.ts";
 import type {
   AcceptPreviewData,
   SubmissionRevision,
 } from "../../../shared/result_schemas.ts";
-import { withCompletionPublication } from "../../operation_lock.ts";
-import {
-  clearEffortGrant,
-  clearEffortGrantPlan,
-} from "../../worktree/effort_grant_cleanup.ts";
-import {
-  effortGrantPlan,
-  type EffortGrantWrite,
-  grantEffort,
-} from "../../worktree/effort_grant_writer.ts";
+import type { EffortGrantWrite } from "../../worktree/effort_grant_writer.ts";
 import type { EnginePlan } from "../../../shared/result.ts";
-import { executeDeskOperation } from "../execution.ts";
 import {
   buildDeskRows,
   deskExceptionArgvs,
@@ -71,24 +60,6 @@ export interface DeskLandingPermission {
   clearEffortGrantPlan(path: string): EnginePlan | Promise<EnginePlan>;
   clearEffortGrant(path: string): boolean | Promise<boolean>;
 }
-
-/** The landing permission seams, as production runs them. */
-export const LANDING_PERMISSION_RUNTIME: DeskLandingPermission = {
-  grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
-  grantEffort: (path, branch) =>
-    executeDeskOperation(
-      path,
-      { command: "desk grant" },
-      () => grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
-    ),
-  clearEffortGrantPlan: (path) => clearEffortGrantPlan(path),
-  clearEffortGrant: (path) =>
-    executeDeskOperation(
-      path,
-      { command: "desk revoke" },
-      () => withCompletionPublication(path, () => clearEffortGrant(path)),
-    ),
-};
 
 /** Who approves a landing, from the preview's authority facts. */
 function authorityFact(

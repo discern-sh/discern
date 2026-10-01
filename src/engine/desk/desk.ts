@@ -39,7 +39,7 @@ import {
   readDocsBrowser,
 } from "../../commands/docs.ts";
 import { DESK_MANUAL_EXIT, deskManual } from "./manual.ts";
-import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -134,10 +134,16 @@ import { foldedGroups } from "./inbox_view.ts";
 import { DESK_EVIDENCE_TIMEOUT_MS } from "./evidence.ts";
 import type { DeskFlowContext } from "./flows/context.ts";
 import { applyStep, reviewStep } from "./flows/registry.ts";
+import type { DeskLandingPermission } from "./flows/landing.ts";
+import { withCompletionPublication } from "../operation_lock.ts";
 import {
-  type DeskLandingPermission,
-  LANDING_PERMISSION_RUNTIME,
-} from "./flows/landing.ts";
+  clearEffortGrant,
+  clearEffortGrantPlan,
+} from "../worktree/effort_grant_cleanup.ts";
+import {
+  effortGrantPlan,
+  grantEffort,
+} from "../worktree/effort_grant_writer.ts";
 import {
   readBranchCommits,
   readCapabilities,
@@ -396,7 +402,22 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root, { all: true }),
   mainRepoPath: (root) => mainRepoPath(root),
-  ...LANDING_PERMISSION_RUNTIME,
+  // The only production writers of landing permission: this runtime is
+  // private to the Desk's entry, which only the CLI's human surfaces open.
+  grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
+  grantEffort: (path, branch) =>
+    executeDeskOperation(
+      path,
+      { command: "desk grant" },
+      () => grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
+    ),
+  clearEffortGrantPlan: (path) => clearEffortGrantPlan(path),
+  clearEffortGrant: (path) =>
+    executeDeskOperation(
+      path,
+      { command: "desk revoke" },
+      () => withCompletionPublication(path, () => clearEffortGrant(path)),
+    ),
   makeOut: () => {
     const terminal = terminalContext();
     return makeOut(terminal.color, { terminal });

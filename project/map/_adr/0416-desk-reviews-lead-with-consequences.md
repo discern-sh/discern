@@ -24,7 +24,7 @@ Reviews were also held to their task only loosely. Apply re-read the fleet and c
 
 **The command is one key away, not echoed.** Amending ADR 0119's "every action echoes its CLI command": the exact command is one key away in every review, recorded in Session activity, and printed to the terminal when the Desk exits.
 
-**Flows are families.** [`flows/`](../../../src/engine/desk/flows/registry.ts) holds five family modules (landing, checkout, checks, start, children), each exposing a `review` and an `apply` per action or command. The landing flow is the only Desk importer of the grant writer and its cleanup.
+**Flows are families.** [`flows/`](../../../src/engine/desk/flows/registry.ts) holds five family modules (landing, checkout, checks, start, children), each exposing a `review` and an `apply` per action or command. The landing flow reaches the grant writer and its cleanup only through runtime seams; the Desk's private production runtime in `desk.ts` is their only importer, and only the CLI's human entry points load it.
 
 ## Consequences
 

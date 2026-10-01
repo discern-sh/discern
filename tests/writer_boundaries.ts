@@ -35,14 +35,21 @@ export const RESTRICTED_WRITER_MODULES = [
   {
     id: "effort-grant-human-writer",
     module: "src/engine/worktree/effort_grant_writer.ts",
-    allowedImporters: ["src/engine/desk/flows/landing.ts"],
+    allowedImporters: ["src/engine/desk/desk.ts"],
     authority: "only the human-operated desk may create effort authority",
+  },
+  {
+    id: "desk-entry",
+    module: "src/engine/desk/desk.ts",
+    allowedImporters: ["src/engine/dispatch.ts", "src/main.ts"],
+    authority:
+      "the desk's private runtime holds the effort-grant writer, so only the CLI's human entry points may load the desk",
   },
   {
     id: "effort-grant-cleanup",
     module: "src/engine/worktree/effort_grant_cleanup.ts",
     allowedImporters: [
-      "src/engine/desk/flows/landing.ts",
+      "src/engine/desk/desk.ts",
       "src/engine/worktree/acceptance_transaction.ts",
       "src/engine/worktree/accept.ts",
       "src/engine/worktree/accept_integration.ts",
