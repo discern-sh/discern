@@ -8,6 +8,7 @@ import {
   withCompletionObserver,
 } from "../src/engine/completion/events.ts";
 import {
+  latestOperationRecord,
   normalizeOperationHandle,
   openOperationJournal,
   OPERATION_JOURNAL_TTL_MS,
@@ -139,6 +140,70 @@ Deno.test("a journalled operation retains facts, timings, and its final result",
     const byHandle = await readOperationJournal(root, reading.handle);
     assert(byHandle.kind === "found");
     assertEquals(byHandle.record, reading.record);
+  });
+});
+
+Deno.test("the latest record of one verb on one branch carries its failures, until it is gone", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const open = async (
+      verb: string,
+      branch: string,
+      startedAt: number,
+    ): Promise<string> => {
+      const journal = await openOperationJournal(
+        root,
+        { verb, path: root, branch },
+        { clock: { wallNow: () => startedAt } },
+      );
+      assert(journal !== undefined);
+      await journal.observe({
+        kind: "failure",
+        failure: {
+          producer: "test",
+          name: `${verb} ${branch} at ${startedAt}`,
+          message: "expected 2, got 3",
+          file: "tests/red_test.ts",
+          line: 7,
+          partial: false,
+        },
+      });
+      await journal.finish("failed");
+      return journal.handle;
+    };
+    await open("done", "agent/alpha", 1_000);
+    const newest = await open("done", "agent/alpha", 3_000);
+    await open("accept", "agent/alpha", 9_000);
+    await open("done", "agent/beta", 9_000);
+
+    const latest = await latestOperationRecord(root, {
+      branch: "agent/alpha",
+      verb: "done",
+    });
+    assertEquals(latest?.handle, newest);
+    assertEquals(latest?.record.outcome, "failed");
+    assertEquals(latest?.record.failures?.map((failure) => failure.name), [
+      "done agent/alpha at 3000",
+    ]);
+    assertEquals(latest?.record.failures?.[0]?.line, 7);
+    assertEquals(
+      await latestOperationRecord(root, {
+        branch: "agent/gamma",
+        verb: "done",
+      }),
+      undefined,
+      "a pruned or never-journalled run has no record",
+    );
+  });
+  await withTempDir(async (outside) => {
+    assertEquals(
+      await latestOperationRecord(outside, {
+        branch: "agent/alpha",
+        verb: "done",
+      }),
+      undefined,
+      "outside a repository there is no store to read",
+    );
   });
 });
 

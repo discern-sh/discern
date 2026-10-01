@@ -651,43 +651,16 @@ export async function readOperationJournal(
     // newer one; and a fleet shares this store, so another checkout's
     // operation is only ever named, never returned in place of this one's.
     const here = await comparablePath(root);
+    const scanned = await scanRecords(directory);
     let newest: OperationJournalRecord | undefined;
     let newestAnywhere: OperationJournalRecord | undefined;
-    let sawInvalid: OperationJournalReading | undefined;
-    const startedLater = (
-      candidate: OperationJournalRecord,
-      current: OperationJournalRecord | undefined,
-    ): boolean =>
-      current === undefined ||
-      candidate.operation.started_at > current.operation.started_at ||
-      (candidate.operation.started_at === current.operation.started_at &&
-        candidate.operation.handle.localeCompare(current.operation.handle) <
-          0);
-    for await (const entry of Deno.readDir(directory)) {
-      if (!entry.isFile || !entry.name.endsWith(RECORD_SUFFIX)) continue;
-      if (entry.name.endsWith(RESULT_SUFFIX)) continue;
+    for (const record of scanned.records) {
+      if (startedLater(record, newestAnywhere)) newestAnywhere = record;
       if (
-        normalizeOperationHandle(
-          entry.name.slice(0, -RECORD_SUFFIX.length),
-        ) === undefined
-      ) continue;
-      const text = await readTextIfExists(join(directory, entry.name));
-      if (text === undefined) continue;
-      const parsed = parseRecord(text);
-      if (parsed.status !== "recorded") {
-        sawInvalid = parsed.status === "newer"
-          ? { kind: "newer", reason: parsed.reason }
-          : sawInvalid ?? { kind: "corrupt", reason: parsed.reason };
-        continue;
-      }
-      if (startedLater(parsed.record, newestAnywhere)) {
-        newestAnywhere = parsed.record;
-      }
-      if (
-        await comparablePath(parsed.record.operation.path) === here &&
-        startedLater(parsed.record, newest)
+        await comparablePath(record.operation.path) === here &&
+        startedLater(record, newest)
       ) {
-        newest = parsed.record;
+        newest = record;
       }
     }
     if (newest !== undefined) return foundReading(newest, directory);
@@ -705,13 +678,79 @@ export async function readOperationJournal(
         },
       } as const;
     }
-    return sawInvalid ?? { kind: "none-recorded" } as const;
+    return scanned.invalid ?? { kind: "none-recorded" } as const;
   });
   if (reading.status === "no-repository") return { kind: "unavailable" };
   if (reading.status === "inaccessible") {
     return { kind: "inaccessible", reason: reading.reason };
   }
   return reading.value;
+}
+
+/** Whether `candidate` started after `current`; ties order by handle. */
+function startedLater(
+  candidate: OperationJournalRecord,
+  current: OperationJournalRecord | undefined,
+): boolean {
+  return current === undefined ||
+    candidate.operation.started_at > current.operation.started_at ||
+    (candidate.operation.started_at === current.operation.started_at &&
+      candidate.operation.handle.localeCompare(current.operation.handle) < 0);
+}
+
+/** Every valid record in the store, plus the reading that names the first
+ * newer or corrupt record met (a newer one wins). */
+async function scanRecords(directory: string): Promise<{
+  readonly records: readonly OperationJournalRecord[];
+  readonly invalid?: OperationJournalReading;
+}> {
+  const records: OperationJournalRecord[] = [];
+  let invalid: OperationJournalReading | undefined;
+  for await (const entry of Deno.readDir(directory)) {
+    if (!entry.isFile || !entry.name.endsWith(RECORD_SUFFIX)) continue;
+    if (entry.name.endsWith(RESULT_SUFFIX)) continue;
+    if (
+      normalizeOperationHandle(entry.name.slice(0, -RECORD_SUFFIX.length)) ===
+        undefined
+    ) continue;
+    const text = await readTextIfExists(join(directory, entry.name));
+    if (text === undefined) continue;
+    const parsed = parseRecord(text);
+    if (parsed.status === "recorded") {
+      records.push(parsed.record);
+    } else {
+      invalid = parsed.status === "newer"
+        ? { kind: "newer", reason: parsed.reason }
+        : invalid ?? { kind: "corrupt", reason: parsed.reason };
+    }
+  }
+  return invalid === undefined ? { records } : { records, invalid };
+}
+
+/**
+ * The newest retained record of one verb on one branch: the same record
+ * `discern progress <handle>` reads, with its failures and timings. Undefined
+ * when none is retained, because the store pruned it, the run was never
+ * journalled, or the store cannot be read. Reading is observation only.
+ */
+export async function latestOperationRecord(
+  root: string,
+  selector: { readonly branch: string; readonly verb: string },
+): Promise<Extract<OperationJournalReading, { kind: "found" }> | undefined> {
+  const reading = await withStoreLock(root, async (directory) => {
+    let newest: OperationJournalRecord | undefined;
+    for (const record of (await scanRecords(directory)).records) {
+      if (
+        record.operation.branch === selector.branch &&
+        record.operation.verb === selector.verb &&
+        startedLater(record, newest)
+      ) {
+        newest = record;
+      }
+    }
+    return newest === undefined ? undefined : foundReading(newest, directory);
+  });
+  return reading.status === "ok" ? reading.value : undefined;
 }
 
 /** Project one parsed record into the found reading with a live executor probe. */
