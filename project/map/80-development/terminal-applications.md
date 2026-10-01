@@ -9,7 +9,7 @@ aliases:
 
 # Compose terminal applications
 
-Use `runTerminalApplication` from [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) for a persistent application viewport. The wrapper applies discern's interaction admission, process theme, appearance, motif, cancellation translation, and error handling. It uses the same process I/O as `requestMarkdownBrowser` and the existing requests.
+Use `runTerminalApplication` from [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) for a persistent application viewport. The wrapper applies discern's interaction admission, process theme, appearance, motif, cancellation translation, and error handling. It uses the same process I/O as `requestMarkdownBrowser` and the existing requests. To show the Markdown browser inside a running application, return `markdownBrowserCommand` from an action: the product corpus crosses the same adapter, the browser opens nested on the same screen, and the application beneath resumes unchanged when it closes. The desk's manual opens this way.
 
 ## Composition and effects
 
