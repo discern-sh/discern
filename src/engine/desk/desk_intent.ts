@@ -287,7 +287,10 @@ function actionIntent(
   return startAction(state, action, ref.row, choose);
 }
 
-/** A row's Enter: its next step, or its menu when it has none. */
+/**
+ * A row's Enter: its next step, or its menu when it has none it can run now,
+ * whose Unavailable section says why.
+ */
 function nextIntent(
   state: DeskProductState,
   id: string,
@@ -306,7 +309,7 @@ function nextIntent(
     const next = ref.row.decision.next;
     transition = running !== undefined
       ? showProgress(state, running.id)
-      : next === undefined
+      : next?.availability !== "enabled"
       ? open(state, { kind: "actions", rowId: id })
       : actionIntent(state, next.action, id);
   }

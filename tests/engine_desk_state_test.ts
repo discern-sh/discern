@@ -36,7 +36,7 @@ import { deskView } from "../src/engine/desk/inbox_view.ts";
 import { PACKAGE_RESERVED_KEYS } from "../src/engine/desk/keys.ts";
 import { DESK_GLYPHS } from "../src/engine/desk/glyphs.ts";
 import { TERMINAL_GLYPHS } from "discern-design-system/cli";
-import type { DeskAgentLaunch } from "../src/engine/desk/model.ts";
+import { type DeskAgentLaunch, deskRowId } from "../src/engine/desk/model.ts";
 import type { DeskPreferences } from "../src/engine/desk/preferences.ts";
 import { FLEET_ROW_DECISIONS } from "../src/shared/fleet_row_vocabulary.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../src/engine/status/row_states.ts";
@@ -639,6 +639,39 @@ Deno.test("Read the manual opens it once read and otherwise says why nothing ope
   assertEquals(refused.effects, []);
   assertEquals(refused.state.message?.tone, "warning");
   assertStringIncludes(refused.state.message?.text ?? "", "discern docs");
+});
+
+Deno.test("Enter on a row with no next step it can run opens its actions, and the footer says so", () => {
+  // Status can't tell whether this task's checks ran, so Run checks waits.
+  const listed = observedDesk(survey([taskFleetEntry("alpha")]));
+  const [row] = listed.rows;
+  assert(row !== undefined);
+  assertEquals(row.decision.next?.availability, "disabled");
+  const ui = { ...UI, selected: "alpha" };
+  const footer = deskView(listed, ui, ENV).footer;
+  assertEquals(footer.left[0], { key: "enter", label: "Actions" });
+  assert(
+    !(footer.right ?? []).some((hint) => hint.key === "."),
+    "Actions is named once",
+  );
+  const entered = intent(listed, { kind: "next", id: "alpha" }, ui);
+  assertEquals(layerIds(entered.state), ["actions"]);
+  // Every hint the footer leads with is Enter's.
+  for (
+    const data of [
+      survey([editing("beta")]),
+      survey([taskFleetEntry("gamma", { gate_proof: { status: "missing" } })]),
+    ]
+  ) {
+    const state = observedDesk(data);
+    const [first] = state.rows;
+    assert(first !== undefined);
+    assertEquals(
+      deskView(state, { ...UI, selected: deskRowId(first) }, ENV).footer.left[0]
+        ?.key,
+      "enter",
+    );
+  }
 });
 
 Deno.test("an unavailable action answers with its reason and opens nothing", () => {

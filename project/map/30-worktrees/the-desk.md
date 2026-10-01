@@ -42,7 +42,7 @@ The list owns focus on the inbox, and a layer owns it while open; there is no se
 
 Every key the desk understands lives in [one key map](../../../src/engine/desk/keys.ts): task mnemonics and command keys come from their registries, and number keys from status's decision groups. The package's own keys for the list (arrows, Home, End, page keys, Tab between groups, Enter, Space, Left, `/` to filter, `j` and `k`) are held equal to the package's reservation, and the [registry guard](../../../tests/engine_desk_registry_guard_test.ts) proves one meaning per key per layer. The keys reader, the footer and the manual's Key column read the same map.
 
-The footer has two clusters. The left one is the selection's next step and its keyed alternatives, and it drops first when the screen narrows; **Actions** (`.`) and **Commands** (Ctrl+K) stay pinned on the right at every width. A wide footer adds Keys, Filter, New task and Quit.
+The footer has two clusters. The left one is the selection's next step and its keyed alternatives, and it drops first when the screen narrows; it always leads with what Enter does, so a row with no next step it can run now reads `↵ Actions`, and Enter opens its actions with the unavailable ones and their reasons. **Actions** (`.`) and **Commands** (Ctrl+K) stay pinned on the right at every width. A wide footer adds Keys, Filter, New task and Quit.
 
 ## Choose an action
 

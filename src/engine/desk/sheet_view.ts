@@ -536,6 +536,8 @@ export function progressSheet(
         }]
         : []),
     ],
+    // TODO(R-14): with no button row, Enter does nothing and the package
+    // accents the first disclosure key instead of leading with Escape.
     buttonRow: stoppable,
     hints: [{ key: FULL_OUTPUT_KEY, label: "Full output" }],
   };

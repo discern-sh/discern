@@ -459,7 +459,11 @@ function messageLine(
   };
 }
 
-/** The selected row's own hints: its next step, then its keyed alternatives. */
+/**
+ * The selected row's own hints: what Enter does (its next step, or its
+ * actions when it has none it can run now), then its keyed alternatives.
+ * The first hint is the footer's primary, so it is always Enter's.
+ */
 function rowHints(state: DeskProductState, ui: DeskUi): KeyHint[] {
   const ref = rowRef(state, ui.selected);
   if (ref === undefined) return [];
@@ -475,11 +479,14 @@ function rowHints(state: DeskProductState, ui: DeskUi): KeyHint[] {
   const { decision } = ref.row;
   const running = taskOperation(state, deskRowId(ref.row)) !== undefined;
   return [
-    ...(running
-      ? [{ key: "enter", label: DESK_COMMAND_LABELS.progress }]
-      : decision.next?.availability === "enabled"
-      ? [{ key: "enter", label: decision.next.label }]
-      : []),
+    {
+      key: "enter",
+      label: running
+        ? DESK_COMMAND_LABELS.progress
+        : decision.next?.availability === "enabled"
+        ? decision.next.label
+        : gestureLabel("."),
+    },
     ...decision.also.flatMap((offer) =>
       offer.key === undefined ? [] : [{ key: offer.key, label: offer.label }]
     ),
@@ -502,10 +509,13 @@ function footer(
   shown: TerminalApplicationView<DeskIntent>["body"],
 ): TerminalApplicationView<DeskIntent>["footer"] {
   const ref = rowRef(state, ui.selected);
-  const actions = ref?.kind === "task" || ref?.kind === "parked";
+  const left = rowHints(state, ui);
+  // Enter already names Actions when the row has nothing else to run.
+  const actions = (ref?.kind === "task" || ref?.kind === "parked") &&
+    left[0]?.label !== gestureLabel(".");
   const filterable = shown.kind !== "empty" || shown.list !== undefined;
   return {
-    left: rowHints(state, ui),
+    left,
     right: [
       ...(actions ? [{ key: ".", label: gestureLabel(".") }] : []),
       { key: "ctrl-k", label: gestureLabel("ctrl-k") },
