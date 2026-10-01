@@ -12,6 +12,7 @@ import {
   silentOutputSink,
 } from "../src/lib/narration.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import { TERMINAL_GLYPHS, TRIANGLES } from "discern-design-system/cli";
 import { fakeEnv, pinnedTerminal } from "./helpers.ts";
 import { assertNamedCases } from "./assert_cases.ts";
 
@@ -126,14 +127,19 @@ Deno.test("narration: rawCapture cases", () => {
         return { stdout: stdout.join(""), stderr: stderr.join("") };
       };
 
-      assertEquals(render("en_GB.UTF-8"), {
-        stdout: "▸ step\n✓ done\n",
-        stderr: "! careful\n✕ failed\n",
+      // Each mark is the package's own glyph in the terminal's character
+      // set, so the narrator draws whatever the package draws.
+      const expected = (form: "unicode" | "ascii") => ({
+        stdout: `${TRIANGLES.filledSmall.right[form]} step\n${
+          TERMINAL_GLYPHS.done[form]
+        } done\n`,
+        stderr: `${TERMINAL_GLYPHS.attention[form]} careful\n${
+          TERMINAL_GLYPHS.failed[form]
+        } failed\n`,
       });
-      assertEquals(render("C"), {
-        stdout: "> step\n+ done\n",
-        stderr: "! careful\nx failed\n",
-      });
+      assertEquals(render("en_GB.UTF-8"), expected("unicode"));
+      assertEquals(render("en_GB.UTF-8").stdout, "▸ step\n✓ done\n");
+      assertEquals(render("C"), expected("ascii"));
     },
     "the narrator delegates hanging-indent wrapping to the package": () => {
       const { sink, stdout } = rawCapture();
