@@ -13,11 +13,7 @@ import { withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
-import {
-  fleetEntry,
-  mainFleetEntry,
-  statusData,
-} from "./fixtures/status_fleet.ts";
+import { fleetEntry, mainFleetEntry, statusData } from "./status_fleet.ts";
 import {
   defineTip,
   type RegisteredTip,

@@ -10,8 +10,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { assertNamedCases } from "./assert_cases.ts";
-import { fleetEntry } from "./fixtures/status_fleet.ts";
-import { NOW, TABLE_ROWS } from "./fixtures/row_state_table.ts";
+import { fleetEntry } from "./status_fleet.ts";
+import { NOW, TABLE_ROWS } from "./row_state_table.ts";
 import {
   asksBeforeRunning,
   DESK_ACTION_LABELS,
@@ -57,7 +57,7 @@ import {
   sheetFieldChords,
 } from "../src/engine/desk/keys.ts";
 import { deskApplicationView } from "../src/engine/desk/application_view.ts";
-import { statusData } from "./fixtures/status_fleet.ts";
+import { statusData } from "./status_fleet.ts";
 
 /** Every live task state, from status's own sentence table. */
 const TASK_STATES: readonly FleetTaskRowStateId[] = FLEET_ROW_STATE_IDS.filter(

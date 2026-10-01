@@ -12,8 +12,8 @@ import { assert, assertEquals } from "@std/assert";
 import { Node, Project } from "ts-morph";
 import { assertNamedCasesAsync } from "./assert_cases.ts";
 import { scanDeskModules } from "./desk_module_scan.ts";
-import { fleetEntry, statusData } from "./fixtures/status_fleet.ts";
-import { NOW, TABLE_ROWS } from "./fixtures/row_state_table.ts";
+import { fleetEntry, statusData } from "./status_fleet.ts";
+import { NOW, TABLE_ROWS } from "./row_state_table.ts";
 import type {
   StatusFleetEntry,
   SubmissionRowData,

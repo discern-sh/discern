@@ -12,7 +12,7 @@ import type {
   StandardLimitProposalData,
   StatusData,
   StatusFleetEntry,
-} from "../../src/shared/result_schemas.ts";
+} from "../src/shared/result_schemas.ts";
 
 /** A clean linked-worktree row on `branch`, stored under `/worktrees/`. */
 export function fleetEntry(

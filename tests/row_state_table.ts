@@ -10,11 +10,11 @@ import type {
   Proof,
   StatusFleetEntry,
   SubmissionRowData,
-} from "../../src/shared/result_schemas.ts";
-import type { FleetRowStateId } from "../../src/shared/fleet_row_vocabulary.ts";
-import type { DeskAction } from "../../src/shared/desk_vocabulary.ts";
-import type { RowStateContext } from "../../src/engine/status/row_states.ts";
-import type { FleetRowIntegration } from "../../src/engine/status/row_facts.ts";
+} from "../src/shared/result_schemas.ts";
+import type { FleetRowStateId } from "../src/shared/fleet_row_vocabulary.ts";
+import type { DeskAction } from "../src/shared/desk_vocabulary.ts";
+import type { RowStateContext } from "../src/engine/status/row_states.ts";
+import type { FleetRowIntegration } from "../src/engine/status/row_facts.ts";
 import { exceptionProof as proofData, fleetEntry } from "./status_fleet.ts";
 
 export const NOW = Date.parse("2026-09-30T12:00:00.000Z");

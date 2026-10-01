@@ -23,11 +23,7 @@ import {
   type StatusFleetCollision,
   type StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
-import {
-  fleetEntry,
-  mainFleetEntry,
-  statusData,
-} from "./fixtures/status_fleet.ts";
+import { fleetEntry, mainFleetEntry, statusData } from "./status_fleet.ts";
 import {
   renderStatusDashboard,
   STATUS_REPORT_MAX_WIDTH,

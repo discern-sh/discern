@@ -14,7 +14,7 @@ import {
   type StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
-import { exceptionProof, observedFleetEntry } from "./fixtures/status_fleet.ts";
+import { exceptionProof, observedFleetEntry } from "./status_fleet.ts";
 import {
   agentLaunchArgs,
   buildAgentLaunches,

@@ -35,7 +35,7 @@ import type {
   StatusData,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
-import { statusData, taskFleetEntry } from "./fixtures/status_fleet.ts";
+import { statusData, taskFleetEntry } from "./status_fleet.ts";
 import { assertTerminalTextIncludes } from "./helpers.ts";
 import { ManualScheduler } from "./manual_scheduler.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";

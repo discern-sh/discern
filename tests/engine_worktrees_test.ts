@@ -11,7 +11,7 @@ import type {
   StatusData,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
-import { fleetEntry, statusData } from "./fixtures/status_fleet.ts";
+import { fleetEntry, statusData } from "./status_fleet.ts";
 import type { SelectionRequestOptions } from "../src/lib/terminal_interaction.ts";
 import { makeOut, type Out } from "../src/engine/output.ts";
 import {

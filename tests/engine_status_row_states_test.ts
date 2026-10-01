@@ -11,7 +11,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { assertCases, assertCasesAsync } from "./assert_cases.ts";
-import { exceptionProof as proofData } from "./fixtures/status_fleet.ts";
+import { exceptionProof as proofData } from "./status_fleet.ts";
 import {
   daysAgo,
   honored,
@@ -26,7 +26,7 @@ import {
   SETUP,
   TABLE_ROWS,
   task,
-} from "./fixtures/row_state_table.ts";
+} from "./row_state_table.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import {
   FLEET_BRANCH_GROUPS,

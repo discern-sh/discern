@@ -31,7 +31,7 @@ import {
   mainFleetEntry,
   observedFleetEntry,
   statusData,
-} from "./fixtures/status_fleet.ts";
+} from "./status_fleet.ts";
 import { Logger } from "../src/lib/log.ts";
 import {
   type ConfirmationRequestOptions,

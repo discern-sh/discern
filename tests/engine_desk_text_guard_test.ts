@@ -17,7 +17,7 @@ import { FakeTerminalIO } from "discern-design-system/cli/interactive/testing";
 import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
 import { assertNamedCasesAsync } from "./assert_cases.ts";
 import { scanDeskModules } from "./desk_module_scan.ts";
-import { statusData, taskFleetEntry } from "./fixtures/status_fleet.ts";
+import { statusData, taskFleetEntry } from "./status_fleet.ts";
 import { deskLine, deskLiteral } from "../src/engine/desk/text.ts";
 import { buildDeskRows } from "../src/engine/desk/model.ts";
 import {
