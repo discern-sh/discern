@@ -50,6 +50,7 @@ import {
   open,
   productLayerId,
   refresh,
+  resurvey,
   rowTitle,
   taskOperation,
   toast,
@@ -1036,7 +1037,7 @@ function operationSettled(
   if (outcome.select !== undefined) {
     next = { ...next, pendingSelect: outcome.select };
   }
-  const survey = refresh(next);
+  const survey = resurvey(next);
   return { state: survey.state, effects: [...effects, ...survey.effects] };
 }
 

@@ -352,6 +352,22 @@ export function refresh(state: DeskProductState): DeskTransition {
   };
 }
 
+/**
+ * Start a survey that supersedes any in flight. One that began while this
+ * Desk was changing the fleet may have read it half changed, such as a
+ * landed checkout half removed, so its result is set aside unread.
+ */
+export function resurvey(state: DeskProductState): DeskTransition {
+  const generation = state.survey.generation + 1;
+  return {
+    state: {
+      ...state,
+      survey: { ...state.survey, generation, inFlight: true, followUp: false },
+    },
+    effects: [{ kind: "survey", generation }],
+  };
+}
+
 /** Show one message, replacing any message already shown. */
 export function toast(
   state: DeskProductState,

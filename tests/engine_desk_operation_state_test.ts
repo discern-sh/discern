@@ -303,6 +303,38 @@ Deno.test("the Desk's own run times its row, and its end clears it before the ne
   );
 });
 
+Deno.test("a survey that began while an operation ran is set aside when it ends", () => {
+  const started = confirmed(landing(), actionStep("accept")).state;
+  assert(started.data !== undefined);
+  const before = started.survey.generation;
+  const reading = { ...started, survey: { ...started.survey, inFlight: true } };
+  const done = settle(reading, {
+    command: "discern accept --target agent/alpha --confirmed",
+    ok: true,
+    message: { tone: "success", text: "Landed Alpha on main" },
+  });
+  assertEquals(done.state.survey.generation, before + 1);
+  assert(
+    done.effects.some((effect) =>
+      effect.kind === "survey" && effect.generation === before + 1
+    ),
+    "a fresh survey starts at once",
+  );
+  const halfway = deskProduct(done.state, {
+    kind: "observed",
+    generation: before,
+    now: PRODUCT_NOW + 61_000,
+    data: { ...started.data, fleet: [] },
+    hints: [],
+    exceptionArgvs: new Map(),
+  });
+  assertEquals(
+    halfway.state,
+    done.state,
+    "what the earlier survey read mid-change is never shown",
+  );
+});
+
 Deno.test("a row its own operation moves keeps the operation's message", () => {
   const started = confirmed(landing(), actionStep("accept")).state;
   const regrouped = deskProduct(started, {
