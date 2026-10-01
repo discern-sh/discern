@@ -58,6 +58,7 @@ import {
 } from "../src/engine/worktree/lifecycle.ts";
 import { freshTipSeenState } from "../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
@@ -1808,7 +1809,7 @@ Deno.test("Open agent lists configured agents, explains missing ones, and launch
   );
 });
 
-Deno.test("View changes reads the task's evidence and lends the terminal to the pager and a shell", async () => {
+Deno.test("View changes reads the task's evidence and lends the terminal to the pager, the editor and a shell", async () => {
   const effort = deskTaskEntry("agent/inspect", "/worktrees/inspect", {
     id: "inspect",
     ahead: 2,
@@ -1839,9 +1840,19 @@ Deno.test("View changes reads the task's evidence and lends the terminal to the 
   ]);
   const pages: string[] = [];
   const shells: Array<{ cwd: string; env: Record<string, string> }> = [];
+  const editors: Array<
+    { program: string; args: readonly string[]; cwd: string }
+  > = [];
   await withDesk({
     runtime: {
       ...surveys(() => deskSurvey([effort])),
+      editor: () => ({
+        editor: { command: "edit --wait", program: "edit", args: ["--wait"] },
+      }),
+      openEditor: (editor, cwd) => {
+        editors.push({ program: editor.program, args: editor.args, cwd });
+        return 0;
+      },
       git: (args) => {
         const key = args[0] === "diff" ? `diff ${args[1]}` : args[0] ?? "";
         return reads.get(key) ?? { success: true, stdout: "", stderr: "" };
@@ -1859,16 +1870,28 @@ Deno.test("View changes reads the task's evidence and lends the terminal to the 
     await desk.select("inspect");
     await desk.press("v");
     await desk.opened("reader-changes");
-    await desk.shows("abc123 Explain the change");
-    await desk.shows('src/café"desk.ts');
-    await desk.shows("status unavailable");
-    await desk.press("o");
-    await desk.until(() => pages.length === 1, "the pager");
-    await desk.opened("reader-changes");
+    for (
+      const text of [
+        "abc123 Explain the change",
+        'src/café"desk.ts',
+        "status unavailable",
+      ]
+    ) await desk.shows(text);
+    // The pager and the editor each borrow the terminal and return to it.
+    for (const [key, opened] of [["o", pages], ["e", editors]] as const) {
+      await desk.press(key);
+      await desk.until(() => opened.length === 1, `the child behind ${key}`);
+      await desk.opened("reader-changes");
+    }
     await close(desk);
     await desk.press("s");
     await desk.until(() => shells.length === 1, "the shell");
   });
+  assertEquals(editors, [{
+    program: "edit",
+    args: ["--wait"],
+    cwd: effort.path,
+  }]);
   assertEquals(shells, [{
     cwd: effort.path,
     env: { [DESK_SESSION_ENV]: "1" },
@@ -2143,4 +2166,64 @@ Deno.test("Queue for landing asks for a pre-authorization first when the queue n
     await desk.shows("Queued Nightly");
   });
   assertEquals(calls, ["plan", "plan", "plan", "grant", "submit"]);
+});
+
+Deno.test("a failed run's retained failures reach the inspector, and a toggle is remembered", async () => {
+  const effort = deskTaskEntry("agent/failing", "/worktrees/failing", {
+    id: "failing",
+    ahead: 1,
+    last_action: {
+      verb: "done",
+      outcome: "failed",
+      at: "2026-07-11T11:00:00Z",
+    },
+  });
+  const selectors: Array<{ branch: string; verb: string }> = [];
+  const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([effort])),
+      operationRecord: (_root, selector) => {
+        selectors.push({ ...selector });
+        return {
+          kind: "found",
+          record_path: "/journal/R1-failing.json",
+          handle: "R1-failing",
+          executor: "gone",
+          record: {
+            schema_version: ON_DISK_FORMATS.operationJournal.version,
+            operation: {
+              handle: "R1-failing",
+              verb: "done",
+              path: effort.path,
+              branch: effort.branch,
+              pid: 1,
+              started_at: 0,
+              finished_at: 1,
+            },
+            failures: [{
+              producer: "test",
+              name: "upload",
+              message: "upload retried twice",
+              file: "tests/upload_test.ts",
+              line: 42,
+              partial: false,
+            }],
+            outcome: "failed",
+          },
+        };
+      },
+      writePreferences: (_root, preferences) => {
+        saved.push(preferences);
+        return { status: "saved" };
+      },
+    },
+  }, async (desk) => {
+    await desk.select("failing");
+    await desk.shows("upload retried twice");
+    await desk.palette("Sort by title", "sort");
+    await desk.until(() => saved.length === 1, "the remembered sort");
+  });
+  assertEquals(selectors, [{ branch: effort.branch, verb: "done" }]);
+  assertEquals(saved.map((preferences) => preferences.sort), ["title"]);
 });
