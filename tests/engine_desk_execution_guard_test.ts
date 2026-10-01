@@ -8,7 +8,6 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 // Null members observe, present, or persist presentation preferences; they do not operate on tasks.
 const BOUNDARIES = {
-  screen: null,
   docs: null,
   canInteract: null,
   inDeskSession: null,
@@ -23,9 +22,6 @@ const BOUNDARIES = {
   makeOut: null,
   error: null,
   application: null,
-  select: null,
-  input: null,
-  sequence: null,
   pause: null,
   lifecycle: null,
   done: "executeDeskOperation",
@@ -46,6 +42,7 @@ const BOUNDARIES = {
   git: null,
   proof: null,
   landedProof: null,
+  operationRecord: null,
   pager: null,
   editor: null,
   openEditor: "runDeskInteractiveChild",
@@ -59,6 +56,7 @@ const BOUNDARIES = {
   runScript: "runDeskProjectScript",
   openBrowser: null,
   now: null,
+  scheduler: null,
   readTipState: null,
   writeTipState: null,
   readPreferences: null,

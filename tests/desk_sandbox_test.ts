@@ -25,6 +25,11 @@ import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
 import { fileExists } from "../src/shared/fs_presence.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import {
+  fleetRowProof,
+  proofFinishedAt,
+} from "../src/engine/status/row_facts.ts";
+import { statusResult } from "../src/engine/status/status.ts";
 
 const DAY = 86_400_000;
 
@@ -157,6 +162,29 @@ Deno.test("fixture knobs produce real behind, idle, queue, park, and overlap sta
       idle >= 3 * DAY - 60_000 && idle <= 3 * DAY + 60_000,
       `last activity ${stale.last_activity}`,
     );
+    // Every fixture Proof finished on the fixture's clock: when its task last
+    // moved, or now for one the real gate proved. Only the in-process survey
+    // carries the Proof's completion record.
+    const survey = await statusResult(project.root, { all: true });
+    assert(survey.ok, survey.message);
+    for (
+      const [branch, ago] of [["agent/stale-a1b2c3", 3 * DAY], [
+        "agent/queued-b2c3d4",
+        0,
+      ]] as const
+    ) {
+      const entry = survey.data?.fleet?.find((found) =>
+        found.branch === branch
+      );
+      assert(entry !== undefined, `the survey lost ${branch}`);
+      const finished = proofFinishedAt(fleetRowProof(entry));
+      assert(finished !== undefined, `${branch} Proof has no finish time`);
+      const age = nowMs - Date.parse(finished);
+      assert(
+        age >= ago - 10 * 60_000 && age <= ago + 10 * 60_000,
+        `${branch} Proof finished ${finished}`,
+      );
+    }
     assertEquals(
       status.queue?.map((queued) => [queued.branch, queued.position]),
       [["agent/queued-b2c3d4", 1]],

@@ -574,11 +574,11 @@ Deno.test("every CLI loop child runs this source under the one linked config", (
   assert(capture.args.includes(join(ROOT, "scripts/desk_capture.ts")));
   assertEquals(configsIn(capture.args), [config, config, config]);
 
-  const test = plan(["test", "tests/engine_desk_live_test.ts"]);
+  const test = plan(["test", "tests/engine_desk_state_test.ts"]);
   assertEquals(test.args.slice(4, 7), [main, "queue", "--"]);
   assert(test.args.includes(join(ROOT, "scripts/run_tests.ts")));
   assertEquals(configsIn(test.args), [config, config, config]);
-  assertEquals(test.args.at(-1), "tests/engine_desk_live_test.ts");
+  assertEquals(test.args.at(-1), "tests/engine_desk_state_test.ts");
 
   const check = plan(["check"]);
   assertEquals(check.args.slice(0, 3), ["check", "--config", config]);

@@ -36,12 +36,12 @@ export const SANDBOX_MARKER = ".discern-desk-sandbox";
  * Everything else in the fleet is real repository or engine state.
  */
 export const SIMULATED_FACTS = [
-  "Proof records are written when the sandbox is built, so every Proof reads as recent: the stale task's Proof is not 11 days old and the queued task's is not 35 minutes old.",
+  "Fixture Proofs finish when their task last moved, but the queued task's Proof comes from a real gate run when the sandbox is built, so it reads as recent rather than 35 minutes old.",
   "The running check is a logbook begin event with no process behind it; its elapsed time and the typical duration prior age in real time, so rebuild the sandbox for the brief's 1m 12s.",
   "manual-concision holds 4 small commits, not the brief's 61 files (+2023 -2038).",
   "docs-glossary's 5 uncommitted files are modifications and additions; the fixture has no deletion.",
   "release-notes has no setup steps configured, so it shows setup incomplete with a retry but no step count.",
-  "Parked branches hold one commit each, are parked when the sandbox is built, and carry fixture task titles without a brief.",
+  "Parked branches hold one commit each and are parked when the sandbox is built; only Spike cache keeps a brief.",
   "Branches use the agent/<name>-<hex> form; friendly titles come from the name before the six-hex suffix.",
 ] as const;
 
@@ -102,9 +102,19 @@ export function briefFleet(): DeskFleetFixture {
       ]),
     ],
     orphanBranches: [
-      deskOrphanBranch("parked-ideas-c9d0e1", { parked: true }),
-      deskOrphanBranch("old-experiment-d0e1f2", { parked: true }),
-      deskOrphanBranch("spike-cache-e1f2a3", { parked: true }),
+      deskOrphanBranch("parked-ideas-c9d0e1", {
+        parked: true,
+        title: "Parked ideas",
+      }),
+      deskOrphanBranch("old-experiment-d0e1f2", {
+        parked: true,
+        title: "Old experiment",
+      }),
+      deskOrphanBranch("spike-cache-e1f2a3", {
+        parked: true,
+        title: "Spike cache",
+        brief: "Try an LRU cache in front of the index",
+      }),
     ],
   });
 }

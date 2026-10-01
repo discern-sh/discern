@@ -8,10 +8,9 @@
  * gesture. Task mnemonics, command keys, and the decision groups a number
  * jumps to come from their registries, never from a copy here; a key that
  * runs a registered control names that control, so its label is read from
- * the vocabulary. This map is the contract a keys sheet and footer hints
- * project; today's desk serves the inbox command keys `deskShortcuts` reads
- * from it. The registry guard proves one meaning per key per layer and keeps
- * mnemonics clear of the package's keys.
+ * the vocabulary. The inbox's key bindings, its footer hints, and the keys
+ * reader all project this map. The registry guard proves one meaning per key
+ * per layer and keeps mnemonics clear of the package's keys.
  */
 
 import {
@@ -97,30 +96,28 @@ export interface DeskKeyBinding {
 }
 
 /**
- * Keys the package's application runtime owns in every layer: movement,
- * paging, focus, activation, dismissal, the filter, details zoom, and the
- * interrupt. No registry mnemonic or command key may take one.
+ * Keys the package's application runtime reserves on the inbox: list
+ * movement, paging, the filter, details zoom and scroll, and the Vi pair. A
+ * test holds this list equal to the package's own reservation for the
+ * inbox's body; no registry mnemonic or command key may take one.
  */
 export const PACKAGE_RESERVED_KEYS = [
   "up",
   "down",
-  "left",
-  "right",
-  "shift-up",
-  "shift-down",
-  "page-up",
-  "page-down",
   "home",
   "end",
+  "page-up",
+  "page-down",
   "tab",
   "shift-tab",
   "enter",
-  "escape",
+  "shift-up",
+  "shift-down",
   "space",
+  "left",
   "/",
   "j",
   "k",
-  "ctrl-c",
 ] as const;
 
 /**

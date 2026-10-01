@@ -212,4 +212,18 @@ Deno.test("Desk boundary rejects renamed future input, painting and layout imple
     ),
     [],
   );
+  // The application vocabulary a view is built from is types only.
+  assertEquals(
+    terminalMechanics(
+      'import type { ApplicationSheet, ApplicationMenu, ApplicationKeyBinding, TerminalApplicationView, TerminalApplicationCommand } from "discern-design-system/cli/interactive"; import type { KeyHint } from "discern-design-system/cli";',
+    ),
+    [],
+  );
+  assertEquals(
+    terminalMechanics(
+      'import { APPLICATION_LAYER_DEPTH } from "discern-design-system/cli/interactive";',
+    ).length > 0,
+    true,
+    "a package value import is mechanics, even a constant",
+  );
 });

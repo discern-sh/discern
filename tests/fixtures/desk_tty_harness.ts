@@ -1,3 +1,5 @@
+import { writeStoredTaskMetadata } from "../../src/engine/worktree/task_metadata.ts";
+import { TASK_METADATA_SCHEMA_VERSION } from "../../src/shared/task_metadata.ts";
 import { completeGateFixture } from "../complete_gate_fixture.ts";
 /**
  * Real-terminal contract for the production Desk.
@@ -27,11 +29,17 @@ import {
   graphemeWidth,
   measureText,
 } from "discern-design-system/cli";
-import type { TerminalKeyName } from "discern-design-system/cli/interactive";
+import {
+  TERMINAL_STATE_REPORT_OSC,
+  type TerminalKeyName,
+} from "discern-design-system/cli/interactive";
 import {
   encodeTerminalKeys,
+  ptySettledFrame,
   settledTerminalFrame,
+  type TerminalFrameCapture,
 } from "discern-design-system/cli/interactive/testing";
+import { TERMINAL_APPLICATION_STATE_REPORTS_ENV } from "discern-design-system/cli";
 import {
   projectTerminalSpans,
   type TerminalSpanStyle,
@@ -198,6 +206,9 @@ export interface DeskOrphanBranchFixture {
   readonly name: string;
   /** Close the checkout through the real Park core, keeping task metadata. */
   readonly parked: boolean;
+  /** Task wording recorded before parking; the id's words when absent. */
+  readonly title?: string;
+  readonly brief?: string;
 }
 
 export interface DeskFleetFixture {
@@ -331,12 +342,27 @@ export function deskCollision(
   return { path, entries: [...entries] };
 }
 
-/** Build a branch without a checkout, optionally closed by Park. */
+/** Build a branch without a checkout, optionally closed by Park with its wording. */
 export function deskOrphanBranch(
   name: string,
-  options: { readonly parked?: boolean } = {},
+  options: {
+    readonly parked?: boolean;
+    readonly title?: string;
+    readonly brief?: string;
+  } = {},
 ): DeskOrphanBranchFixture {
-  return { name, parked: options.parked ?? false };
+  if (
+    options.parked !== true &&
+    (options.title !== undefined || options.brief !== undefined)
+  ) {
+    throw new TypeError("only a parked branch keeps a title and brief");
+  }
+  return {
+    name,
+    parked: options.parked ?? false,
+    ...(options.title === undefined ? {} : { title: options.title }),
+    ...(options.brief === undefined ? {} : { brief: options.brief }),
+  };
 }
 
 /** Compose a caller-owned fleet in a few lines. */
@@ -496,7 +522,12 @@ async function materialiseDeskProject(
     if (entry.queued) {
       await proveWithGate(worktree);
     } else if (entry.proof !== undefined) {
-      await materialiseProof(worktree, entry.proof);
+      // The Proof finished when the task last moved, on the fixture's clock.
+      await materialiseProof(
+        worktree,
+        entry.proof,
+        nowMs - (entry.idleMs ?? 0),
+      );
     }
     if (entry.landingAuthority.kind === "effort-grant") {
       await grantEffort(
@@ -539,6 +570,13 @@ async function materialiseDeskProject(
     await commitFixture(orphanWorktree, `Add ${orphan.name} orphan fixture`);
     if (orphan.parked) {
       await markSetupReady(orphanWorktree);
+      if (orphan.title !== undefined) {
+        await writeStoredTaskMetadata(orphanWorktree, {
+          schema_version: TASK_METADATA_SCHEMA_VERSION,
+          title: orphan.title,
+          ...(orphan.brief === undefined ? {} : { brief: orphan.brief }),
+        });
+      }
       await parkFixture(root, orphanWorktree);
     } else {
       await git(root, "worktree", "remove", orphanWorktree);
@@ -677,6 +715,7 @@ async function parkFixture(root: string, worktree: string): Promise<void> {
 async function materialiseProof(
   worktree: string,
   fixture: DeskProofFixture,
+  finishedAt: number,
 ): Promise<void> {
   const proof = await buildGateProof(worktree, "main", []);
   if (proof === undefined) {
@@ -691,7 +730,7 @@ async function materialiseProof(
   }
   // A real gate records the complete evidence inside the Proof it vouches
   // with; landing and queueing read it from there.
-  const complete = await completeGateFixture(worktree);
+  const complete = await completeGateFixture(worktree, finishedAt);
   const recorded = await recordGateOutcome(
     worktree,
     preflight.authority,
@@ -768,6 +807,8 @@ export interface DeskTtyInputChunk {
   readonly keys?: readonly TerminalKeyName[];
   readonly input?: string | Uint8Array;
   readonly resize?: PtyGeometry;
+  /** A test-owned side effect at this point, such as breaking a survey. */
+  readonly effect?: () => void | Promise<void>;
   /** Bounded delay after readiness and before this chunk. */
   readonly settleMs?: number;
   readonly allowLoneEscape?: boolean;
@@ -784,11 +825,13 @@ export type DeskTtyFrameCondition =
     readonly focusMarkers: number;
   };
 
-/** One named Desk keyframe and the visible-screen facts that prove readiness. */
-export interface DeskTtyCapture {
-  readonly name: string;
-  readonly when: DeskTtyFrameCondition;
-}
+/**
+ * One named Desk keyframe and what proves it is ready: visible-screen facts,
+ * or a settled package frame whose state report names the screen.
+ */
+export type DeskTtyCapture =
+  | { readonly name: string; readonly when: DeskTtyFrameCondition }
+  | { readonly name: string; readonly settled: PtyOutputCondition };
 
 export interface DeskTtyInputPhase {
   readonly waitFor: PtyInputPhase["waitFor"];
@@ -896,6 +939,96 @@ interface ChildTerminalEvidence {
   readonly resizeError?: string | undefined;
 }
 
+/** What a settled frame must show before a phase's input goes in. */
+export type DeskFrameTest = (capture: TerminalFrameCapture) => boolean;
+
+/** The inbox at rest: a row selected, its evidence read, no layer open. */
+export function deskAtRest(id?: string): DeskFrameTest {
+  return (capture) =>
+    capture.state?.topLayerId === undefined &&
+    capture.state?.selectedItemId !== undefined &&
+    (id === undefined || capture.state.selectedItemId === id) &&
+    !capture.text.includes("Reading") && !capture.text.includes("Loading");
+}
+
+/** A layer on top. */
+export function deskLayerOpen(id: string): DeskFrameTest {
+  return (capture) => capture.state?.topLayerId === id;
+}
+
+/** Focus on one control of the top layer, such as `field:title`. */
+export function deskFocused(layer: string, control: string): DeskFrameTest {
+  return (capture) => capture.state?.focusedControlId === `${layer}:${control}`;
+}
+
+/** No layer open and `text` on screen: the inbox, or an empty project. */
+export function deskShowing(text: string): DeskFrameTest {
+  return (capture) =>
+    capture.state?.topLayerId === undefined && capture.text.includes(text);
+}
+
+/**
+ * The same readiness over a transcript whose line endings are normalised.
+ * TODO(R-4): a darwin PTY transport occasionally delivers an extra carriage
+ * return before a line feed, which the package's replay refuses as a control
+ * character inside a row until the next keyframe.
+ */
+function lineEndingTolerant(condition: PtyOutputCondition): PtyOutputCondition {
+  const normal = (text: string): string => text.replace(/\r+\n/gu, "\r\n");
+  return {
+    description: condition.description,
+    test: (output) =>
+      condition.test({
+        ...output,
+        stdout: normal(output.stdout),
+        phaseStdout: normal(output.phaseStdout),
+      }),
+  };
+}
+
+/**
+ * One phase: wait for a settled package frame that passes `test`, optionally
+ * capture it under `name`, then send the chunks.
+ */
+export function deskSettledPhase(
+  size: PtyGeometry,
+  name: string | undefined,
+  description: string,
+  test: DeskFrameTest,
+  ...chunks: [DeskTtyInputChunk, ...DeskTtyInputChunk[]]
+): DeskTtyInputPhase {
+  const settled = lineEndingTolerant(
+    ptySettledFrame(size, description, test),
+  );
+  return {
+    waitFor: settled,
+    ...(name === undefined ? {} : { capture: { name, settled } }),
+    chunks,
+  };
+}
+
+/**
+ * The visible screen shows every one of `texts`. For screens a paint
+ * updates cell by cell, such as a document browser's query, where the raw
+ * stream never holds the words in one run.
+ */
+export function deskScreenShows(
+  geometry: PtyGeometry,
+  ...texts: readonly [string, ...string[]]
+): PtyOutputCondition {
+  return {
+    description: `the screen to show ${texts.join(", ")}`,
+    test: (output) => {
+      const screen = normaliseDeskTranscript(
+        "screen-readiness",
+        output.stdout,
+        geometry,
+      ).text;
+      return texts.every((text) => screen.includes(text));
+    },
+  };
+}
+
 /** Require a visible-state observation between keyboard input and resizing. */
 export function assertDeskTtyInputPhase(phase: DeskTtyInputPhase): void {
   const resizes = phase.chunks.some((chunk) => chunk.resize !== undefined);
@@ -905,6 +1038,15 @@ export function assertDeskTtyInputPhase(phase: DeskTtyInputPhase): void {
   if (resizes && types) {
     throw new TypeError(
       "Desk PTY keyboard input and resize need separate phases. Observe the changed screen before the next effect.",
+    );
+  }
+  if (
+    phase.chunks.some((chunk) =>
+      chunk.effect !== undefined && chunk.resize !== undefined
+    )
+  ) {
+    throw new TypeError(
+      "A Desk PTY chunk runs one effect: a resize or its own, not both.",
     );
   }
 }
@@ -966,6 +1108,7 @@ export async function runDeskTty(
         ...(chunk.allowLoneEscape === true || chunk.keys?.at(-1) === "escape"
           ? { allowLoneEscape: true }
           : {}),
+        ...(chunk.effect === undefined ? {} : { effect: chunk.effect }),
         ...(resized === undefined
           ? {}
           : {
@@ -999,7 +1142,7 @@ export async function runDeskTty(
         : {
           capture: {
             name: capture.name,
-            when: deskKeyframeCondition(
+            when: "settled" in capture ? capture.settled : deskKeyframeCondition(
               capture,
               options.geometry,
               () => resizeTimeline.slice(0, phaseResizeCount),
@@ -1030,6 +1173,8 @@ export async function runDeskTty(
       env: await engineEnv({
         TERM: "xterm-256color",
         COLORTERM: colorMode === "color" ? "truecolor" : "",
+        // Every paint names its screen, so phases wait on state, not prose.
+        [TERMINAL_APPLICATION_STATE_REPORTS_ENV]: "1",
         ...colorEnv,
         ...project.env,
         ...options.env,
@@ -1128,6 +1273,7 @@ function assertDeskCapture(capture: DeskTtyCapture): void {
   if (capture.name.length === 0) {
     throw new TypeError("Desk PTY keyframe name must not be empty");
   }
+  if ("settled" in capture) return;
   const includes = capture.when.includes;
   const markers = includes === undefined
     ? []
@@ -1173,7 +1319,7 @@ export function deskRepaintInFlight(
  * projects through the strict package capture.
  */
 export function deskKeyframeCondition(
-  capture: DeskTtyCapture,
+  capture: Extract<DeskTtyCapture, { readonly when: unknown }>,
   initialGeometry: PtyGeometry,
   resizes: () => readonly DeskTerminalResize[],
   phaseGeometry: PtyGeometry,
@@ -1198,14 +1344,16 @@ export function deskKeyframeCondition(
   );
 }
 
-function describeDeskCapture(capture: DeskTtyCapture): string {
+function describeDeskCapture(
+  capture: Extract<DeskTtyCapture, { readonly when: unknown }>,
+): string {
   return `Desk frame ${JSON.stringify(capture.name)} to satisfy ${
     JSON.stringify(capture.when)
   }`;
 }
 
 function deskCaptureReady(
-  capture: DeskTtyCapture,
+  capture: Extract<DeskTtyCapture, { readonly when: unknown }>,
   frame: DeskVisibleFrame,
 ): boolean {
   const includes = capture.when.includes;
@@ -1401,6 +1549,10 @@ function prepareProjection(
           source += raw;
         } else if (raw === "\x1b]11;?\x1b\\") {
           appendOperation({ offset, raw, action: "background-query" });
+        } else if (raw.startsWith("\x1b]2;")) {
+          appendOperation({ offset, raw, action: "window-title" });
+        } else if (raw.startsWith(`\x1b]${TERMINAL_STATE_REPORT_OSC};`)) {
+          appendOperation({ offset, raw, action: "application-state-report" });
         } else {
           appendOperation({
             offset,
@@ -1511,6 +1663,25 @@ function csiOperation(raw: string, offset: number): ScreenOperation {
   }
   if ((body === "?1000" || body === "?1006") && (final === "h" || final === "l")) {
     return { offset, raw, action: `${final === "h" ? "enable" : "disable"}-mouse-${body.slice(1)}` };
+  }
+  if (body === "?2026" && (final === "h" || final === "l")) {
+    return {
+      offset,
+      raw,
+      action: final === "h"
+        ? "begin-synchronized-update"
+        : "end-synchronized-update",
+    };
+  }
+  if ((body === "22;0" || body === "23;0") && final === "t") {
+    return {
+      offset,
+      raw,
+      action: body === "22;0" ? "push-window-title" : "pop-window-title",
+    };
+  }
+  if (body === "6" && final === "n") {
+    return { offset, raw, action: "cursor-position-query" };
   }
   if (body === "?2004" && (final === "h" || final === "l")) {
     return {

@@ -1,21 +1,24 @@
-import { showRecentCompleted } from "../src/engine/desk/main_checkout.ts";
-import { readProofNoteAt } from "../src/engine/gate/proof_notes.ts";
-import { runGit } from "../src/shared/subprocess.ts";
 /** The idle-owner landing choice uses production Desk effects and public submission. */
 import { assert, assertEquals } from "@std/assert";
-import { runDesk } from "../src/engine/desk/desk.ts";
-import type { DeskAction } from "../src/engine/desk/model.ts";
-import { readDeskScreen } from "../src/engine/desk/reading.ts";
 import {
-  encodeTerminalKeys,
-  FakeTerminalIO,
-} from "discern-design-system/cli/interactive/testing";
-import type { DeskReading } from "../src/engine/desk/reading.ts";
+  DESK_ACTION_REGISTRY,
+  type DeskAction,
+  type DeskActionMetadata,
+} from "../src/engine/desk/model.ts";
 import { statusResult as rawStatusResult } from "../src/engine/status/status.ts";
-import type { StatusData } from "../src/shared/result_schemas.ts";
 import { readSubmission } from "../src/engine/worktree/submission.ts";
 import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
-import { scriptedDeskEffects } from "./fixtures/desk_scripted_application.ts";
+import { readProofNoteAt } from "../src/engine/gate/proof_notes.ts";
+import { runGit } from "../src/shared/subprocess.ts";
+import { readLandedProof } from "../src/engine/desk/flows/reading.ts";
+import { initialDeskProduct } from "../src/engine/desk/desk_state.ts";
+import { landedRowId } from "../src/engine/desk/desk_transitions.ts";
+import { configSchema } from "../src/shared/config_schema.ts";
+import {
+  deskSession,
+  deskTranscript,
+  scriptedDeskRuntime,
+} from "./fixtures/desk_session.ts";
 import { project } from "./completion_public_fixture.ts";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -36,51 +39,56 @@ import { countedCalls } from "./counted_calls.ts";
 const statusCalls = countedCalls(rawStatusResult);
 const statusResult = statusCalls.run;
 
-/** Replace only human input; the survey, plans, grants and all effects are production. */
+/**
+ * Replace only the terminal and its keys; the survey, plans, grants and all
+ * effects are production. Ctrl+C typed after the confirm lands once the
+ * effect returns the screen, so the session ends after the effect.
+ */
 async function action(
   root: string,
   path: string,
   action: DeskAction,
-  review?: (request: DeskReading) => Promise<boolean>,
+  confirm = true,
 ): Promise<void> {
   let requestedSurveys = 0;
   await statusCalls.expectCalls(() => requestedSurveys, async () => {
-    let data: StatusData | undefined;
-    const choices = [path, action, "\x00back", "\x00quit"];
-    const select = (): string => choices.shift() ?? "\x00quit";
-    const code = await runDesk({ cliModel: TEST_CLI_MODEL }, {
-      canInteract: () => true,
-      inDeskSession: () => false,
-      findRoot: () => root,
-      status: async (path) => {
-        requestedSurveys++;
-        const result = await statusResult(path, { all: true });
-        if (result.data) data = result.data;
-        return result;
+    const desk = await deskSession({
+      production: true,
+      cliModel: TEST_CLI_MODEL,
+      runtime: {
+        canInteract: () => true,
+        inDeskSession: () => false,
+        findRoot: () => root,
+        status: async (where) => {
+          requestedSurveys++;
+          return await statusResult(where, { all: true });
+        },
+        makeOut: () => deskTranscript().out,
+        pause: () => {},
       },
-      application: (options) =>
-        scriptedDeskEffects(options, select, () => {
-          assert(
-            data !== undefined,
-            "Desk must survey before displaying actions",
-          );
-          return data;
-        }, () => {}),
-      select,
-      screen: async (request) => {
-        const apply = request.confirmation !== undefined &&
-          (await review?.(request) ?? true);
-        const keys = request.confirmation === undefined
-          ? encodeTerminalKeys("escape")
-          : apply
-          ? encodeTerminalKeys("tab", "down", "enter")
-          : encodeTerminalKeys("tab", "enter");
-        const io = new FakeTerminalIO([keys], { columns: 80, rows: 24 });
-        return await readDeskScreen(request, { io, interactive: () => true });
-      },
-      pause: () => {},
     });
-    assertEquals(code, 0);
+    const row = desk.state().lists.inbox?.selectedId;
+    assert(row !== undefined, "the Desk lists the task");
+    const entry = (await rawStatusResult(root, { all: true })).data?.fleet
+      ?.find((candidate) => candidate.path === path);
+    assert(entry !== undefined, `${path} is surveyed`);
+    await desk.select(entry.id ?? entry.branch);
+    const metadata: DeskActionMetadata = DESK_ACTION_REGISTRY[action];
+    const key = metadata.key;
+    if (key === undefined) {
+      await desk.press(".");
+      await desk.opened("actions");
+      await desk.choose(action);
+    } else {
+      await desk.press(key);
+    }
+    await desk.opened(`review-${action}-review`);
+    if (confirm) {
+      await desk.confirm();
+    } else {
+      await desk.escape(() => desk.top() === undefined, "the review to close");
+    }
+    assertEquals(await desk.quit(), 0);
   });
 }
 
@@ -118,7 +126,7 @@ Deno.test("Desk queues idle proven efforts, preserves grants and producer counts
         "permission alone does not queue",
       );
       if (index === 0) {
-        await action(root, path, "submit", () => Promise.resolve(false));
+        await action(root, path, "submit", false);
         assertEquals((await readSubmission(path)).status, "missing");
       }
       await action(root, path, "submit");
@@ -292,16 +300,32 @@ Deno.test("Desk replaces a submission while another effort's acceptance checks a
     assertEquals(await targetExists(first), false);
     assertEquals(await targetExists(next), false);
     assert(after.ok && after.data !== undefined);
-    const pages: string[] = [];
-    const choices = ["0", "back", "back"];
-    await showRecentCompleted(root, after.data, {
-      git: (args, cwd) => runGit(args, { cwd }),
-      landedProof: readProofNoteAt,
-      screen: (request) => {
-        pages.push(request.source);
-        return choices.shift() ?? "back";
+    const context = {
+      root,
+      config: configSchema.parse({
+        project: { slug: "queue-race" },
+        repository: { trunk: "main" },
+      }),
+      runtime: scriptedDeskRuntime(deskTranscript(), {
+        git: (args, cwd) => runGit(args, { cwd }),
+        landedProof: readProofNoteAt,
+      }),
+      state: {
+        ...initialDeskProduct({
+          trunk: "main",
+          preferences: { schema_version: 2 },
+        }),
+        data: after.data,
       },
-    });
+    };
+    const pages = await Promise.all(
+      (after.data.recent_completed_tasks ?? []).map(async (task) =>
+        (await readLandedProof(
+          context,
+          landedRowId(task.branch, task.completed_at),
+        )).markdown
+      ),
+    );
     assert(
       pages.some((page) => page.includes("## Landing evidence")),
       "a removed checkout retains readable full Proof and landing evidence",

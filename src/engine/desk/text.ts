@@ -47,3 +47,32 @@ export function deskLiteral(value: string): string {
     .map((line) => literalLine(line.trim()))
     .join("  \n");
 }
+
+/** String fields that carry multi-line source rather than one line of text:
+ * a Markdown reading's source and a multi-line form field's starting value. */
+const MULTILINE_FIELDS: ReadonlySet<string> = new Set(["source", "initial"]);
+
+/**
+ * Make every single-line slot in a freshly built view inert, in place: each
+ * string becomes `deskLine(string)`, except Markdown sources and form field
+ * starting values. Frozen objects (rendered component blocks) are left
+ * untouched, and text that is already one safe line is unchanged.
+ */
+export function inertView(value: unknown): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      if (typeof item === "string") value[index] = deskLine(item);
+      else inertView(item);
+    });
+    return;
+  }
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
+    return;
+  }
+  for (const [key, field] of Object.entries(value)) {
+    if (typeof field !== "string") inertView(field);
+    else if (!MULTILINE_FIELDS.has(key)) {
+      Reflect.set(value, key, deskLine(field));
+    }
+  }
+}

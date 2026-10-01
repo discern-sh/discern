@@ -503,7 +503,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   },
   "desk-tip-presentation": {
     path: "src/engine/desk/live.ts",
-    enclosingFunction: "refresh",
+    enclosingFunction: "presentTip",
     operation: "read, select, and record one optional desk tip",
     kind: "capability",
     shape: "async",
@@ -522,8 +522,8 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "A failed seen-state write only permits a tip to reappear sooner and cannot affect any desk action or repository state.",
   },
   "desk-worktree-config-fallback": {
-    path: "src/engine/desk/desk.ts",
-    enclosingFunction: "loadWorktreeConfig",
+    path: "src/engine/desk/flows/reading.ts",
+    enclosingFunction: "readCapabilities",
     operation:
       "hide provider launch actions for a worktree with unreadable config",
     kind: "direct",

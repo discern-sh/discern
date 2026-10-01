@@ -56,7 +56,8 @@ import {
   PACKAGE_RESERVED_KEYS,
   sheetFieldChords,
 } from "../src/engine/desk/keys.ts";
-import { deskApplicationView } from "../src/engine/desk/application_view.ts";
+import { deskPalette } from "../src/engine/desk/palette_view.ts";
+import { observedDesk, productSurvey } from "./fixtures/desk_product.ts";
 import { statusData } from "./status_fleet.ts";
 
 /** Every live task state, from status's own sentence table. */
@@ -384,15 +385,14 @@ Deno.test("Desk registry guard: labels and bindings", () => {
       assertStringIncludes(disclosure, "discern.sh");
       assertStringIncludes(disclosure, "9.8.7");
       assertStringIncludes(disclosure, "Nothing is installed");
-      const commands = deskApplicationView(
-        { data: statusData([]), rows: [], phase: "fresh" },
-        "overview",
-      ).regions[1];
-      assert(commands?.kind === "choices");
-      const updates = commands.entries.find((entry) => entry.id === "releases");
-      assert(updates !== undefined && updates.kind !== "group-heading");
-      assertStringIncludes(updates.description ?? "", "browser");
-      assertStringIncludes(updates.description ?? "", "you run");
+      const updates = deskPalette(observedDesk(productSurvey([]))).sections
+        .flatMap((section) => section.items)
+        .find((item) => item.id === "updates");
+      assert(updates !== undefined, "the palette offers Check for updates");
+      assert(
+        asksBeforeRunning(updates.label),
+        "the palette promises the disclosure before anything opens",
+      );
     },
   });
 });

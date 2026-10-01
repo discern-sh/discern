@@ -13,8 +13,16 @@ import { COMPLETION_CLOCK, completionFixtures } from "./completion_fixtures.ts";
 import { completeNoteProof } from "./completion_note_fixtures.ts";
 import { gitOut } from "./engine_helpers.ts";
 
-/** Publish fresh schema-valid records through the real claim, artifact and CAS boundaries. */
-export async function completeGateFixture(root: string): Promise<{
+/**
+ * Publish fresh schema-valid records through the real claim, artifact and CAS
+ * boundaries. `finishedAt` is when the validating attempt finished, in epoch
+ * milliseconds; a fixture that people read (a Desk or status frame) passes
+ * its own clock so the Proof reads as recent, not as finished in 1970.
+ */
+export async function completeGateFixture(
+  root: string,
+  finishedAt = 100,
+): Promise<{
   proof: Proof;
   pointer: CompletionProofPointer;
 }> {
@@ -136,7 +144,11 @@ export async function completeGateFixture(root: string): Promise<{
       revision: 2,
       data: {
         ...claimed.data,
-        state: { kind: "finished", outcome: "passed", finished_at: 100 },
+        state: {
+          kind: "finished",
+          outcome: "passed",
+          finished_at: finishedAt,
+        },
       },
     },
     written.stamp,

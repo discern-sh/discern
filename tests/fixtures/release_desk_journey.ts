@@ -1,8 +1,6 @@
 /** Executed production CLI journey with fake native launchers and retained viewport evidence. */
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { stripAnsi } from "discern-design-system/cli";
-import { encodeTerminalKeys } from "discern-design-system/cli/interactive/testing";
 import {
   inspectReleaseCheck,
   releaseReminderDue,
@@ -13,6 +11,11 @@ import { DISCERN_VERSION } from "../../src/lib/version.ts";
 import { writeExecutable } from "../engine_helpers.ts";
 import {
   deskFleetFixture,
+  deskFocused,
+  type DeskFrameTest,
+  deskLayerOpen,
+  deskSettledPhase as phase,
+  deskShowing,
   type DeskTtyInputPhase,
   type DeskTtyRunResult,
   runDeskTty,
@@ -20,30 +23,14 @@ import {
 } from "./desk_tty_harness.ts";
 import type { PtyGeometry } from "./pty_process.ts";
 
-/** Ready markers come from the actual rendered application, never elapsed sleep. */
-function phase(
-  name: string,
-  includes: [string, ...string[]],
-  input: string | PtyGeometry,
-): DeskTtyInputPhase {
-  return {
-    waitFor: {
-      description: name,
-      test: (output) =>
-        includes.every((value) =>
-          stripAnsi(output.phaseStdout + output.phaseStderr).includes(value)
-        ),
-    },
-    capture: { name, when: { includes } },
-    chunks: [
-      typeof input === "string"
-        ? {
-          input,
-          ...(input.endsWith("\x1b") ? { allowLoneEscape: true } : {}),
-        }
-        : { resize: input },
-    ],
-  };
+/** Both tests hold. */
+function both(left: DeskFrameTest, right: DeskFrameTest): DeskFrameTest {
+  return (capture) => left(capture) && right(capture);
+}
+
+/** The screen shows every one of `texts`. */
+function showing(...texts: readonly string[]): DeskFrameTest {
+  return (capture) => texts.every((text) => capture.text.includes(text));
 }
 
 /** The same action/result/return path supports the test and personally reviewed gallery. */
@@ -71,43 +58,74 @@ export async function releaseDeskJourney(
       undefined,
       Date.parse("2000-01-01T00:00:00Z"),
     );
-    // Below 40 columns the command wraps and its meta truncates, so the
-    // markers name only what such a row still shows whole.
-    const narrow = geometry.columns < 40;
-    const filtered = narrow ? "Desk commands" : "Desk commands / Check";
-    const command = narrow ? "Check for" : "Check for updates";
+    const resized = resize ? { columns: 40, rows: 20 } : geometry;
+    const review = "review-updates-review";
+    const empty = deskShowing("No tasks yet");
+    const palette = deskLayerOpen("palette");
+    // Ready markers come from the settled application's state, never elapsed
+    // sleep. Below 40 columns the palette row truncates, so only its start is
+    // asserted.
+    const due = geometry.columns < 40 ? "check" : "check due";
+    const result = failure
+      ? both(deskLayerOpen("reader-result"), showing("since="))
+      : both(empty, showing("Opened the release page"));
+    const leave = failure
+      ? { keys: ["escape" as const], allowLoneEscape: true }
+      : { keys: ["ctrl-k" as const] };
     const input: DeskTtyInputPhase[] = [
-      phase("empty", ["No tasks yet", "/ find"], "\t/Check for updates\r"),
-      phase("due", [
-        filtered,
-        command,
-        narrow ? "check d" : "check due",
-        "/ find",
-      ], "\r"),
+      phase(geometry, "empty", "the empty Desk", empty, { keys: ["ctrl-k"] }),
+      phase(
+        geometry,
+        "due",
+        "Check for updates, due",
+        both(palette, showing("Check for", due)),
+        { input: "Check for updates\r" },
+      ),
       // The browser opens only after the disclosure's explicit Open.
       phase(
+        geometry,
         "confirm",
-        ["Check for updates", "Esc back"],
-        encodeTerminalKeys("tab", "down", "enter"),
+        "the disclosure on Cancel",
+        both(
+          (capture) => !capture.text.includes("Checking current state"),
+          deskFocused(review, "button:safe"),
+        ),
+        { keys: ["tab"] },
       ),
-      ...(geometry.rows <= 10
-        ? [
-          phase("reader", ["Release information", "Esc back"], "\x1b[6~"),
-          phase("evidence", ["Evidence", "Esc back"], "\x1b[6~"),
-        ]
+      phase(
+        geometry,
+        undefined,
+        "the disclosure on Open",
+        deskFocused(review, "button:confirm"),
+        { keys: ["enter"] },
+      ),
+      phase(
+        geometry,
+        "result",
+        "what the browser did",
+        result,
+        resize ? { resize: resized } : leave,
+      ),
+      ...(resize ? [phase(resized, "resized", "the result, resized", result, leave)] : []),
+      ...(failure
+        ? [phase(resized, undefined, "back at the inbox", empty, {
+          keys: ["ctrl-k" as const],
+        })]
         : []),
       phase(
-        "result",
-        ["Release information", "since=", "Esc back"],
-        resize ? { columns: 40, rows: 20 } : "\x1b",
+        resized,
+        "returned",
+        "the palette without the due check",
+        both(palette, (capture) => !capture.text.includes("check due")),
+        { keys: ["escape"], allowLoneEscape: true },
       ),
-      ...(resize
-        ? [phase("resized", ["Release information", "Esc back"], "\x1b")]
-        : []),
-      phase("returned", [filtered, command, "/ find"], "r"),
-      phase("refreshed", [filtered, command, "/ find"], "q"),
+      // A refresh repaints nothing here, so it and the quit share a phase;
+      // the single launch below proves the refresh relaunched nothing.
+      phase(resized, "refreshed", "the inbox", empty, { input: "r" }, {
+        input: "q",
+      }),
     ];
-    const result = await runDeskTty(project, {
+    const run = await runDeskTty(project, {
       geometry,
       input,
       colorMode: "no-color-env",
@@ -116,8 +134,8 @@ export async function releaseDeskJourney(
         RELEASE_LAUNCH_LOG: log,
       },
     });
-    assertEquals(result.code, 0, result.transcript);
-    assert(result.terminal.restored && result.terminal.noChild);
+    assertEquals(run.code, 0, run.transcript);
+    assert(run.terminal.restored && run.terminal.noChild);
     const launched = (await Deno.readTextFile(log)).trim().split("\n");
     assertEquals(
       launched.length,
@@ -132,18 +150,12 @@ export async function releaseDeskJourney(
     assert(after.status === "recorded");
     assertEquals(after.value.version_when_handed_off, DISCERN_VERSION);
     assertEquals(releaseReminderDue(after, SYSTEM_CLOCK.wallNow()), false);
-    const returned = result.frames.find((frame) => frame.name === "returned");
+    const returned = run.frames.find((frame) => frame.name === "returned");
     assert(returned !== undefined);
-    if (resize) {
-      assertStringIncludes(
-        returned.text,
-        "Opens the discern.sh release page",
-      );
-    }
     assert(
-      !JSON.stringify(returned).includes("Due"),
+      !returned.text.includes("check due"),
       "the advisory clears without restarting",
     );
-    return result;
+    return run;
   });
 }

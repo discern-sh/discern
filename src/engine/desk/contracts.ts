@@ -1,20 +1,5 @@
-/** Product routes and read-only evidence carried by Desk foreground journeys. */
+/** The read-only review evidence View changes shows for one task. */
 import type { GateProofCheckData } from "../../shared/result_schemas.ts";
-
-/** Sentinel selection values that route back into Desk orchestration. */
-export const DESK_ROUTES = {
-  back: "\x00back",
-} as const;
-
-/** Routes available inside the Proof-first review drill-down. */
-export const DESK_REVIEW_ROUTES = {
-  diff: "\x00review-diff",
-  editor: "\x00review-editor",
-  back: "\x00review-back",
-} as const;
-
-/** A short fleet is faster to scan directly; larger fleets gain filtering. */
-export const DESK_FILTER_THRESHOLD = 8;
 
 /** One path in the review's committed or uncommitted change set. */
 export interface DeskReviewFile {

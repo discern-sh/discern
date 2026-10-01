@@ -1,50 +1,37 @@
 /**
- * Behavioral coverage for the Desk foreground dispatcher and lifecycle effects.
+ * Behavioral coverage for the live Desk over the real package runtime.
  *
- * Semantic route fixtures exercise plans, confirmations, agent and script argv,
- * acceptance, destructive Drop and refusals. The package application runtime
- * and navigation are exercised separately in engine_desk_live_test.ts. No test
- * here mutates a real worktree.
+ * Each case starts the Desk on a fake terminal and a manual clock, drives it
+ * with real keys, and records what reached the runtime seams: plans read
+ * before a review, effects applied after its confirm, children and scripts
+ * with their exact argv, refusals contained as messages, and the refreshed
+ * observation afterwards. No test here mutates a real worktree.
  *
  * Guards: boundary:agent-runtime-boundary, boundary:invoked-process-lifecycle
  */
 
-import { assertCasesAsync } from "./assert_cases.ts";
-import {
-  DESK_ROUTES,
-  deskUnlandedRoute,
-  scriptedDeskEffects,
-} from "./fixtures/desk_scripted_application.ts";
-import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
-  configSchema,
-  type DiscernConfig,
-} from "../src/shared/config_schema.ts";
+  DESK_ROOT,
+  type DeskSession,
+  deskSession,
+  type DeskSessionOptions,
+  deskSurvey,
+  deskTaskEntry,
+  deskTranscript,
+  joinedTranscript,
+  preparedStart,
+  scriptedDeskRuntime,
+  startedTask,
+} from "./fixtures/desk_session.ts";
+import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
+import { configSchema } from "../src/shared/config_schema.ts";
 import type {
   StartData,
   StatusData,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
-import {
-  exceptionProof,
-  mainFleetEntry,
-  observedFleetEntry,
-  statusData,
-} from "./status_fleet.ts";
-import { Logger } from "../src/lib/log.ts";
-import {
-  type ConfirmationRequestOptions,
-  InteractionCancelled,
-  isSelectionHeading,
-  type SelectionEntry,
-  type SelectionRequestOptions,
-  type SequentialFormRequestOptions,
-  type SequentialInteractionRequests,
-  type TextRequestOptions,
-} from "../src/lib/terminal_interaction.ts";
-import { makeOut, type Out } from "../src/engine/output.ts";
-import type { TerminalContext } from "../src/lib/terminal.ts";
+import { exceptionProof } from "./status_fleet.ts";
 import {
   type DeskRuntime,
   runDesk,
@@ -52,12 +39,11 @@ import {
   runDeskProjectScript,
 } from "../src/engine/desk/desk.ts";
 import { parseProjectScriptArguments } from "../src/engine/desk/literal_argv.ts";
-import { DESK_REVIEW_ROUTES } from "../src/engine/desk/contracts.ts";
-import {
-  DESK_ACTION_LABELS,
-  DESK_COMMAND_LABELS,
-} from "../src/shared/desk_vocabulary.ts";
 import { DESK_ACTIONS, type DeskAction } from "../src/engine/desk/model.ts";
+import {
+  landedRowId,
+  parkedRowId,
+} from "../src/engine/desk/desk_transitions.ts";
 import {
   DESK_SESSION_ENV,
   deskSessionEnv,
@@ -67,137 +53,110 @@ import {
 import {
   DropWouldDiscardWork,
   IdentityError,
-  type LifecycleContext,
   type PreparedStart,
   WorktreeGitError,
 } from "../src/engine/worktree/lifecycle.ts";
 import { freshTipSeenState } from "../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
-import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 
-const ROOT = "/project";
-const QUIT = "\x00quit";
-const REFRESH = "\x00refresh";
-const BACK = "\x00back";
-const START_TASK = "\x00start-task";
-const RUN_PROJECT_SCRIPT = "\x00run-project-script";
-const READ_DOCS = "\x00read-docs";
-const NOW = Date.parse("2026-07-11T12:00:00Z");
-
-const CONFIG: DiscernConfig = configSchema.parse({
-  project: { slug: "demo" },
-  repository: { trunk: "main" },
-});
-
-interface Transcript {
-  out: Out;
-  stdout: string[];
-  stderr: string[];
-}
-
-/** Capture desk narration in ordered stdout and stderr arrays without a terminal. */
-function transcript(
-  terminal: TerminalContext = makeOut(false).terminal,
-): Transcript {
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  return {
-    stdout,
-    stderr,
-    out: {
-      color: terminal.color,
-      terminal,
-      info: (message) => stdout.push(`info:${message}`),
-      ok: (message) => stdout.push(`ok:${message}`),
-      warn: (message) => stderr.push(`warn:${message}`),
-      error: (message) => stderr.push(`error:${message}`),
-      errorBlock: (message) => stderr.push(`error:${message}`),
-      heading: (message) => stdout.push(`heading:${message}`),
-      group: () => stdout.push(""),
-      raw: (message) => stdout.push(message),
-    },
-  };
-}
-
-/** A fully observed row at `path`, active an hour before the fixed clock. */
-function fleetEntry(
-  branch: string,
-  path: string,
-  patch: Partial<StatusFleetEntry> = {},
-): StatusFleetEntry {
-  return observedFleetEntry({
-    branch,
-    path,
-    last_activity: "2026-07-11T11:00:00Z",
-    ...patch,
-  });
-}
-
-const CONTEXT: LifecycleContext = {
-  root: ROOT,
-  cwd: ROOT,
-  config: CONFIG,
-  log: new Logger({ json: true, noColor: true }),
-};
-
 const START_COMMIT = "a".repeat(40);
 
-/** Build one retained start preview for the scripted Desk boundary. */
-function preparedStart(
-  title = "New task",
-  patch: Partial<PreparedStart["plan"]> = {},
-): PreparedStart {
-  const plan = {
-    id: "new-task",
-    branch: "agent/new-task",
-    worktreePath: "/worktrees/new-task",
-    from: "main",
-    fromCommit: START_COMMIT,
-    trunk: "main",
-    title,
-    resources: [],
-    ...patch,
-  };
-  return {
-    plan,
-    taskMetadata: {
-      schema_version: 1,
-      title: plan.title,
-      ...(plan.brief === undefined ? {} : { brief: plan.brief }),
-      created_from: { ref: plan.from, commit: plan.fromCommit },
-    },
-    reproduceCmd: "discern start",
-  };
+/** Run one Desk session, quitting it once `body` finishes. */
+async function withDesk(
+  options: DeskSessionOptions,
+  body: (desk: DeskSession) => Promise<void>,
+): Promise<DeskSession> {
+  const desk = await deskSession(options);
+  try {
+    await body(desk);
+  } catch (error) {
+    desk.io.close();
+    await desk.exit.catch(() => undefined);
+    throw error;
+  }
+  assertEquals(await desk.quit(), 0, "the Desk quits cleanly");
+  return desk;
 }
 
-/** Project a scripted retained start into the public start payload. */
-function startedTask(prepared: PreparedStart): StartData {
-  const { plan } = prepared;
-  return {
-    id: plan.id,
-    branch: plan.branch,
-    path: plan.worktreePath,
-    from: plan.from,
-    task: {
-      id: plan.id,
-      branch: plan.branch,
-      title: plan.title,
-      title_source: "recorded",
-      ...(plan.brief === undefined ? {} : { brief: plan.brief }),
-      created_from: { ref: plan.from, commit: plan.fromCommit },
-    },
-    ...(plan.note === undefined ? {} : { name_note: plan.note }),
-  };
+/** A status seam that answers every survey with `data()`. */
+function surveys(
+  data: () => StatusData,
+): Pick<DeskRuntime, "status"> {
+  return { status: () => ({ ok: true, data: data() }) };
 }
 
-/** Return the status row created by a scripted start result. */
-function startedFleetEntry(started: StartData): StatusFleetEntry {
-  return fleetEntry(started.branch, started.path, {
-    id: started.id,
-    task: started.task,
-  });
+/** Open a task's action menu and run one action from it. */
+async function runAction(
+  desk: DeskSession,
+  taskId: string,
+  action: DeskAction,
+): Promise<void> {
+  await desk.select(taskId);
+  await desk.press(".");
+  await desk.opened("actions");
+  await desk.choose(action);
+}
+
+/** Move focus to a form field. */
+async function focusField(
+  desk: DeskSession,
+  fieldId: string,
+): Promise<void> {
+  const layer = desk.top();
+  assert(layer !== undefined, "no form is open");
+  for (let step = 0; step < 30; step += 1) {
+    const state = desk.state().layers[layer];
+    if (state?.focusedControlId === `field:${fieldId}`) return;
+    if (
+      state?.focusedControlId === "group:options" &&
+      !state.open.includes("options")
+    ) {
+      await desk.press("enter");
+      continue;
+    }
+    await desk.press("tab");
+  }
+  throw new Error(`${layer} has no field ${fieldId}`);
+}
+
+/** Replace a text field's value. */
+async function fill(
+  desk: DeskSession,
+  fieldId: string,
+  text: string,
+): Promise<void> {
+  await focusField(desk, fieldId);
+  const layer = desk.top() ?? "";
+  const current = desk.state().fields[layer]?.[fieldId] ?? "";
+  if (current !== "") {
+    await desk.press("ctrl-e");
+    await desk.type("\x7f".repeat([...current].length));
+  }
+  if (text !== "") await desk.type(text);
+}
+
+/** Cycle a choice field to one option. */
+async function pick(
+  desk: DeskSession,
+  fieldId: string,
+  value: string,
+): Promise<void> {
+  await focusField(desk, fieldId);
+  const layer = desk.top() ?? "";
+  for (let step = 0; step < 20; step += 1) {
+    if (desk.state().fields[layer]?.[fieldId] === value) return;
+    await desk.press("right");
+  }
+  throw new Error(`${fieldId} never offered ${value}`);
+}
+
+/** Close the top layer with Escape and wait for it to go. */
+async function close(desk: DeskSession): Promise<void> {
+  const layer = desk.top();
+  await desk.escape(() => desk.top() !== layer, `${layer} to close`);
 }
 
 /** Start seams that record each request and add the started task to later surveys. */
@@ -205,13 +164,19 @@ interface ScriptedStart {
   readonly requests: Array<Parameters<DeskRuntime["startPlan"]>[1]>;
   /** The task `start` produced, once it ran. */
   created(): StartData | undefined;
-  /** A main-checkout survey of `fleet`, plus the started task once it exists. */
-  survey(fleet: StatusFleetEntry[], patch?: Partial<StatusData>): StatusData;
-  startPlan: DeskRuntime["startPlan"];
-  start: DeskRuntime["start"];
+  /** A survey of `fleet`, plus the started task once it exists. */
+  survey(
+    fleet: readonly StatusFleetEntry[],
+    patch?: Partial<StatusData>,
+  ): StatusData;
+  startPlan(
+    ctx: unknown,
+    request: Parameters<DeskRuntime["startPlan"]>[1],
+  ): PreparedStart;
+  start(ctx: unknown, prepared: PreparedStart): StartData;
 }
 
-/** Script task creation; `plan` fixes retained start facts beyond the request. */
+/** Task creation seams that add the started task to later surveys. */
 function scriptedStart(
   plan: Partial<PreparedStart["plan"]> = {},
 ): ScriptedStart {
@@ -219,13 +184,24 @@ function scriptedStart(
   let created: StartData | undefined;
   return {
     requests,
-    created: () => created,
-    survey: (fleet, patch = {}) =>
-      statusData([
+    created: (): StartData | undefined => created,
+    survey: (
+      fleet: readonly StatusFleetEntry[],
+      patch: Partial<StatusData> = {},
+    ): StatusData =>
+      deskSurvey([
         ...fleet,
-        ...(created === undefined ? [] : [startedFleetEntry(created)]),
+        ...(created === undefined ? [] : [
+          deskTaskEntry(created.branch, created.path, {
+            id: created.id,
+            task: created.task,
+          }),
+        ]),
       ], patch),
-    startPlan: (_ctx, request) => {
+    startPlan: (
+      _ctx: unknown,
+      request: Parameters<DeskRuntime["startPlan"]>[1],
+    ): PreparedStart => {
       requests.push(request);
       return preparedStart(request.title ?? "Generated title", {
         ...plan,
@@ -233,278 +209,11 @@ function scriptedStart(
         ...(request.brief === undefined ? {} : { brief: request.brief }),
       });
     },
-    start: (_ctx, prepared) => {
+    start: (_ctx: unknown, prepared: PreparedStart): StartData => {
       created = startedTask(prepared);
       return created;
     },
   };
-}
-
-interface ScriptedSelectionValue<T> {
-  readonly token: string;
-  readonly value: T;
-}
-
-/** Recover one typed form value from the string-only Desk script seam. */
-function scriptedSelectionValue<T>(
-  choices: readonly ScriptedSelectionValue<T>[],
-  token: string,
-): T {
-  const choice = choices.find((candidate) => candidate.token === token);
-  if (choice === undefined) {
-    throw new Error(`Scripted selection returned unknown token ${token}.`);
-  }
-  return choice.value;
-}
-
-/** Adapt one generic form request to the Desk test runtime without a cast. */
-async function scriptedSequentialSelection<T>(
-  request: SelectionRequestOptions<T>,
-  select: DeskRuntime["select"],
-): Promise<T> {
-  const choices: ScriptedSelectionValue<T>[] = [];
-  const options: SelectionEntry<string>[] = request.options.map(
-    (entry, index) => {
-      if (isSelectionHeading(entry)) return entry;
-      const token = typeof entry.value === "string"
-        ? entry.value
-        : entry.id ?? `scripted-choice-${index}`;
-      choices.push({ token, value: entry.value });
-      return { ...entry, value: token };
-    },
-  );
-  const defaultToken = request.default === undefined
-    ? undefined
-    : choices.find((choice) => Object.is(choice.value, request.default))?.token;
-  const validate = request.validate;
-  const selected = await select({
-    message: request.message,
-    options,
-    ...(defaultToken === undefined ? {} : { default: defaultToken }),
-    ...(request.hint === undefined ? {} : { hint: request.hint }),
-    ...(request.required === undefined ? {} : { required: request.required }),
-    ...(request.completion === undefined
-      ? {}
-      : { completion: request.completion }),
-    ...(request.presentation === undefined
-      ? {}
-      : { presentation: request.presentation }),
-    ...(validate === undefined ? {} : {
-      validate: (token: string) =>
-        validate(scriptedSelectionValue(choices, token)),
-    }),
-    ...(request.search === undefined ? {} : { search: request.search }),
-    ...(request.searchLabel === undefined
-      ? {}
-      : { searchLabel: request.searchLabel }),
-    ...(request.maxRows === undefined ? {} : { maxRows: request.maxRows }),
-    ...(request.reservedRows === undefined
-      ? {}
-      : { reservedRows: request.reservedRows }),
-  });
-  return scriptedSelectionValue(choices, selected);
-}
-
-/** A scripted answer to a consent screen or sequential-form confirmation. */
-type ScriptedConfirm = (
-  message: string,
-  options: ConfirmationRequestOptions,
-) => boolean | Promise<boolean>;
-
-/** Runtime overrides plus the scripted consent answer the screens use. */
-type ScriptedRuntimePatch = Partial<DeskRuntime> & {
-  readonly confirm?: ScriptedConfirm;
-};
-
-/** Provide deterministic desk dependencies whose behavior can be selectively overridden. */
-function scriptedRuntime(
-  output: Transcript,
-  scripted: ScriptedRuntimePatch = {},
-): DeskRuntime {
-  const { confirm: scriptedConfirm, ...patch } = scripted;
-  const main = mainFleetEntry(ROOT);
-  const data = statusData([main]);
-  let latest = data;
-  const select = patch.select ?? (() => QUIT);
-  const confirm = scriptedConfirm ?? (() => true);
-  const input = patch.input ?? (() => "");
-  const sequence = async (
-    options: SequentialFormRequestOptions,
-  ): Promise<Record<string, unknown>> => {
-    const values: Record<string, unknown> = {};
-    const requests: SequentialInteractionRequests = {
-      select: async <T>(request: SelectionRequestOptions<T>): Promise<T> =>
-        await scriptedSequentialSelection(request, select),
-      text: async (request: TextRequestOptions): Promise<string> =>
-        await input(request),
-      confirm: async (
-        message: string,
-        request: ConfirmationRequestOptions,
-      ): Promise<boolean> => await confirm(message, request),
-    };
-    for (const step of options.steps) {
-      if (step.when?.(values) === false) {
-        delete values[step.id];
-        continue;
-      }
-      values[step.id] = await step.run(
-        values,
-        values[step.id],
-        requests,
-      );
-    }
-    return values;
-  };
-  return {
-    screen: async (request) => {
-      output.stdout.push(
-        [
-          request.title,
-          request.source,
-          ...(request.actions?.map((action) => action.label) ?? []),
-        ].join("\n"),
-      );
-      if (request.title === "Stored brief") return "launch";
-      if (request.confirmation) {
-        return await confirm(
-            request.confirmation.question,
-            request.confirmation.options,
-          )
-          ? "apply"
-          : "back";
-      }
-      if (request.actions) {
-        const choice = await select({
-          message: request.title,
-          options: request.actions.map((a) => ({ name: a.label, value: a.id })),
-        });
-        assert(
-          choice === BACK ||
-            request.actions.some((action) => action.id === choice),
-          `Scripted choice ${
-            JSON.stringify(choice)
-          } is unavailable in ${request.title}`,
-        );
-        return choice;
-      }
-      return "back";
-    },
-    docs: () => 0,
-    submit: (path, options) => ({
-      ok: true,
-      verb: "accept",
-      data: {
-        revision: {
-          path,
-          branch: "agent/test",
-          head: "a".repeat(40),
-          proof: { candidate_id: "candidate", proof_id: "proof" },
-        },
-        submission: {
-          state: options.dryRun ? "planned" : "queued",
-          authority: { kind: "authorized", source: "effort-grant" },
-        },
-      },
-    }),
-    canInteract: () => true,
-    inDeskSession: () => false,
-    findRoot: () => ROOT,
-    loadConfig: () => CONFIG,
-    mainRepoPath: () => ROOT,
-    grantEffortPlan: () => ({
-      title: "Landing pre-authorization plan",
-      details: [],
-      steps: [],
-    }),
-    grantEffort: (_path, branch) => ({
-      status: "granted",
-      grant: fixtureEffortGrant(branch),
-    }),
-    clearEffortGrantPlan: () => ({
-      title: "Landing pre-authorization revocation plan",
-      details: [],
-      steps: [],
-    }),
-    clearEffortGrant: () => true,
-    makeOut: () => output.out,
-    error: (message) => output.stderr.push(`console:${message}`),
-    select,
-    input,
-    sequence,
-    pause: () => {},
-    lifecycle: () => CONTEXT,
-    done: () => ({ ok: true, verb: "done" }),
-    donePlan: () => ({ ok: true, verb: "done" }),
-    acceptPlan: () => ({ ok: true, verb: "accept" }),
-    accept: () => {},
-    update: () => {},
-    updatePlan: () => ({ ok: true, verb: "update" }),
-    setup: () => {},
-    setupPlan: () => ({ title: "Setup plan", details: [], steps: [] }),
-    drop: () => {},
-    dropPlan: () => ({ title: "Drop plan", details: [], steps: [] }),
-    park: () => {},
-    parkPlan: () => ({ title: "Park plan", details: [], steps: [] }),
-    reclaim: () => {},
-    reclaimPlan: () => ({ title: "Reclaim plan", details: [], steps: [] }),
-    git: () => ({ success: true, stdout: "", stderr: "" }),
-    proof: () => ({ status: "missing" }),
-    landedProof: () => ({ status: "missing" }),
-    pager: () => ({ shown: true }),
-    editor: () => ({ reason: "No editor configured." }),
-    openEditor: () => 0,
-    interactive: () => 0,
-    detectAgents: () => [],
-    startPlan: (_ctx, opts) =>
-      preparedStart(opts.title ?? "Random codename", {
-        ...(opts.brief === undefined ? {} : { brief: opts.brief }),
-        ...(opts.from === undefined ? {} : { from: opts.from }),
-      }),
-    start: (_ctx, prepared) => startedTask(prepared),
-    renamePlan: (_ctx, title) => ({
-      ok: true,
-      verb: "worktree rename",
-      dry_run: true,
-      plan: { title: `Change title to ${title}`, details: [], steps: [] },
-    }),
-    rename: (_ctx, title) => ({
-      ok: true,
-      verb: "worktree rename",
-      message: `Changed the task title to ${JSON.stringify(title)}.`,
-    }),
-    scripts: () => [],
-    runScript: () => 0,
-    openBrowser: (url) => ({
-      status: "opened",
-      launch: { command: "open", args: [url] },
-    }),
-    now: () => NOW,
-    readTipState: () => freshTipSeenState(DISCERN_VERSION),
-    writeTipState: () => {},
-    readPreferences: () => ({ schema_version: 1 }),
-    writePreferences: () => ({ status: "saved" }),
-    recordTipShown: () => {},
-    ...patch,
-    status: async (root) => {
-      const result = patch.status === undefined
-        ? { ok: true, data }
-        : await patch.status(root);
-      if (result.data) latest = result.data;
-      return result;
-    },
-    application: (options) =>
-      scriptedDeskEffects(
-        options,
-        select,
-        () => latest,
-        (frame) => output.stdout.push(frame),
-      ),
-  };
-}
-
-/** Combine both captured desk streams for order-insensitive message assertions. */
-function joined(output: Transcript): string {
-  return [...output.stdout, ...output.stderr].join("\n");
 }
 
 Deno.test("the desk-session overlays mark and neutralize the one key inDeskSession reads", () => {
@@ -547,7 +256,6 @@ Deno.test("desk-owned Project Scripts receive no private desk-session marker", a
         "",
       ].join("\n"),
     );
-
     assertEquals(
       await runDeskProjectScript(
         dir,
@@ -569,13 +277,7 @@ Deno.test("Desk Project Script arguments are literal argv, not shell syntax", ()
     ),
     {
       ok: true,
-      args: [
-        "--target",
-        "review environment",
-        "",
-        "--literal=$HOME",
-        "a;b",
-      ],
+      args: ["--target", "review environment", "", "--literal=$HOME", "a;b"],
     },
   );
   assertEquals(parseProjectScriptArguments("'unfinished"), {
@@ -588,2733 +290,1747 @@ Deno.test("Desk Project Script arguments are literal argv, not shell syntax", ()
   });
 });
 
-Deno.test("Desk scripted surveys preserve session boundaries, refresh, and tip behavior", async () => {
-  const cases = [
-    {
-      name:
-        "a desk-owned child refuses a nested desk before surveying the fleet",
-      check: async () => {
-        const output = transcript();
-        let surveyed = false;
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(output, {
-              inDeskSession: () => true,
-              status: () => {
-                surveyed = true;
-                return {
-                  ok: true,
-                  data: statusData([], { location: "worktree" }),
-                };
-              },
-            }),
-          ),
-          1,
-        );
-        assertEquals(surveyed, false);
-        assertStringIncludes(joined(output), "already active");
-        assertStringIncludes(joined(output), "exit");
-        assert(!joined(output).includes("cd /"));
-      },
-    },
-    {
-      name: "dirty main is inspectable without offering agent work",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT, {
-          clean: false,
-          changed_files: 2,
-        });
-        const data = statusData([main]);
-        const choices = [DESK_ROUTES.mainCheckout, "inspect", BACK, QUIT];
-        const commands: string[][] = [];
-        const pages: string[] = [];
-        const menus: string[] = [];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data }),
-          select: (options) => {
-            menus.push(JSON.stringify(options.options));
-            return choices.shift() ?? QUIT;
-          },
-          git: (args) => {
-            commands.push([...args]);
-            return {
-              success: true,
-              stdout: args[0] === "status"
-                ? "## main\n M src/main.ts\n?? notes.txt\n"
-                : " src/main.ts | 2 +-\n",
-              stderr: "",
-            };
-          },
-          pager: (page) => {
-            pages.push(page);
-            return { shown: true };
-          },
-        });
+Deno.test("the Desk refuses before surveying when it cannot run here", async () => {
+  let surveyed = false;
+  const status = () => {
+    surveyed = true;
+    return { ok: true, data: deskSurvey() };
+  };
 
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(commands, [
-          ["status", "--short", "--branch"],
-          ["diff", "--stat", "HEAD"],
-        ]);
-        assertStringIncludes(menus[0] ?? "", "Main checkout");
-        assertStringIncludes(menus[1] ?? "", "Inspect status and diff");
-        assert(!menus[1]?.includes('"value":"agent"'), menus[1]);
-        assertStringIncludes(
-          pages[0] ?? "",
-          "Command: git status --short --branch",
-        );
-        assertStringIncludes(pages[0] ?? "", "src/main.ts");
-        assertStringIncludes(
-          joined(output).replaceAll(/\s+/gu, " "),
-          "Start task work in its own worktree",
-        );
-        assertStringIncludes(joined(output), "worktree.");
+  const nested = deskTranscript();
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedDeskRuntime(nested, { inDeskSession: () => true, status }),
+    ),
+    1,
+  );
+  assertStringIncludes(joinedTranscript(nested), "already active");
+  assert(!joinedTranscript(nested).includes("cd /"));
+
+  const noProject = deskTranscript();
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedDeskRuntime(noProject, { findRoot: () => undefined, status }),
+    ),
+    1,
+  );
+  assertStringIncludes(
+    joinedTranscript(noProject),
+    "Run the read-only `discern setup` welcome, then `discern setup begin`",
+  );
+
+  const worktree = deskTranscript();
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedDeskRuntime(worktree, {
+        mainRepoPath: () => "/main-checkout",
+        status,
+      }),
+    ),
+    0,
+  );
+  assertStringIncludes(joinedTranscript(worktree), "cd /main-checkout");
+  assertStringIncludes(joinedTranscript(worktree), "discern status");
+  assertEquals(surveyed, false);
+});
+
+Deno.test("a failed survey keeps the Desk open, and Refresh replaces the list from a fresh one", async () => {
+  let calls = 0;
+  const results: Array<() => Awaited<ReturnType<DeskRuntime["status"]>>> = [
+    () => ({ ok: false, message: "status is unavailable" }),
+    () => ({ ok: true, data: deskSurvey() }),
+    () => ({
+      ok: true,
+      data: deskSurvey([
+        deskTaskEntry("agent/newly-created", "/worktrees/newly-created", {
+          id: "newly-created",
+        }),
+      ]),
+    }),
+    () => ({ ok: false, message: "status is unavailable" }),
+  ];
+  await withDesk({
+    runtime: {
+      status: () => {
+        const result = results[Math.min(calls, results.length - 1)];
+        calls += 1;
+        assert(result !== undefined);
+        return result();
       },
     },
-    {
-      name: "recent completed tasks expose bounded local landing evidence",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const data: StatusData = {
-          ...statusData([main]),
-          recent_completed_tasks: [{
-            branch: "agent/completed",
-            head: "abc1234",
-            completed_at: "2026-07-11T11:58:00.000Z",
-            proof_line: "Proof: agent/completed abc1234 · gate passed",
+  }, async (desk) => {
+    await desk.shows("Retrying");
+    await desk.press("r");
+    await desk.until(() => calls === 2, "the second survey");
+    await desk.shows("Live");
+    assert(!desk.screen().includes("Newly created"));
+    await desk.press("r");
+    await desk.until(() => calls === 3, "the third survey");
+    desk.settle();
+    await desk.shows("Newly created");
+    await desk.press("r");
+    await desk.shows("Retrying");
+    assertStringIncludes(desk.screen(), "Newly created");
+  });
+});
+
+Deno.test("the Desk rotates its tip across sessions and survives a tip-state failure", async () => {
+  const seen = { state: freshTipSeenState(DISCERN_VERSION) };
+  const shown: string[] = [];
+  for (let session = 0; session < 3; session += 1) {
+    await withDesk({
+      runtime: {
+        readTipState: () => seen.state,
+        writeTipState: (_root, state) => {
+          seen.state = state;
+        },
+        recordTipShown: (id) => {
+          shown.push(id);
+        },
+      },
+    }, async (desk) => {
+      await desk.until(() => shown.length === session + 1, "the tip shown");
+      await desk.shows("Tip");
+    });
+  }
+  assertEquals(shown, [
+    "standards-first-rule",
+    "desk-is-home",
+    "status-orients-anywhere",
+  ]);
+
+  const output = deskTranscript();
+  await withDesk({
+    output,
+    runtime: {
+      readTipState: () => {
+        throw new Error("tip state unreadable");
+      },
+    },
+  }, async (desk) => {
+    await desk.shows("Live");
+    assert(!desk.screen().includes("Tip"), "a failed tip read shows no tip");
+  });
+  assertEquals(output.stderr, [], "and warns about nothing");
+});
+
+Deno.test("the main checkout is inspectable without offering agent work", async () => {
+  const commands: string[][] = [];
+  const pages: string[] = [];
+  await withDesk({
+    runtime: {
+      ...surveys(() =>
+        deskSurvey([], {
+          fleet: [{
+            path: DESK_ROOT,
+            is_main: true,
+            is_current: true,
+            branch: "main",
+            clean: false,
+            changed_files: 2,
+            ahead: 0,
+            behind: 0,
           }],
+        })
+      ),
+      git: (args) => {
+        commands.push([...args]);
+        return {
+          success: true,
+          stdout: args[0] === "status"
+            ? "## main\n M src/main.ts\n?? notes.txt\n"
+            : " src/main.ts | 2 +-\n",
+          stderr: "",
         };
-        const choices = [DESK_ROUTES.recentCompleted, "0", BACK, QUIT];
-        const menus: string[] = [];
-        let pauses = 0;
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data }),
-          git: () => ({
-            success: false,
-            stdout: "",
-            stderr: "Recorded revision is unavailable",
-          }),
-          select: (options) => {
-            menus.push(JSON.stringify(options.options));
-            return choices.shift() ?? QUIT;
-          },
-          pause: () => {
-            pauses++;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(pauses, 0);
-        assertStringIncludes(menus[0] ?? "", "Recent completed tasks");
-        assertStringIncludes(joined(output), "agent/completed");
-        assertStringIncludes(
-          joined(output),
-          "Proof: agent/completed abc1234",
-        );
-        assertStringIncludes(joined(output), "gate passed");
-        assertStringIncludes(joined(output), "Stored Proof unavailable");
-        assertStringIncludes(
-          joined(output),
-          "Recorded revision is unavailable",
-        );
+      },
+      pager: (page) => {
+        pages.push(page);
+        return { shown: true };
       },
     },
-    {
-      name: "desk bootstrap and refresh failures remain actionable",
-      check: async () => {
-        const noProject = transcript();
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(noProject, {
-              findRoot: () => undefined,
-            }),
-          ),
-          1,
-        );
-        assertStringIncludes(
-          joined(noProject),
-          "Run the read-only `discern setup` welcome, then `discern setup begin`",
-        );
-
-        const failedSurvey = transcript();
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(failedSurvey, {
-              status: () => ({
-                ok: false,
-                message: "Stale",
-              }),
-            }),
-          ),
-          0,
-        );
-        assertStringIncludes(joined(failedSurvey), "Stale");
-
-        const worktree = transcript();
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(worktree, {
-              status: () => ({
-                ok: true,
-                data: statusData([], { location: "worktree" }),
-              }),
-              mainRepoPath: () => "/main-checkout",
-            }),
-          ),
-          0,
-        );
-        assertStringIncludes(joined(worktree), "cd /main-checkout");
-        assertStringIncludes(joined(worktree), "discern status");
-
-        const refreshFailure = transcript();
-        let surveys = 0;
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(refreshFailure, {
-              status: () => {
-                surveys++;
-                return surveys === 1
-                  ? { ok: true, data: statusData() }
-                  : { ok: false };
-              },
-              select: (options) => {
-                assertStringIncludes(
-                  String(options.message),
-                  "Choose a desk command",
-                );
-                return surveys === 1 ? REFRESH : QUIT;
-              },
-            }),
-          ),
-          0,
-        );
-        assertStringIncludes(joined(refreshFailure), "Stale");
-      },
-    },
-    {
-      name: "desk Refresh replaces the root menu from a fresh fleet survey",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const created = fleetEntry(
-          "agent/newly-created-a1b2c3",
-          "/worktrees/newly-created-a1b2c3",
-          { id: "newly-created-a1b2c3" },
-        );
-        const menus: string[] = [];
-        const choices = [REFRESH, QUIT];
-        let surveys = 0;
-        const runtime = scriptedRuntime(output, {
-          status: () => {
-            surveys++;
-            return {
-              ok: true,
-              data: statusData(surveys === 1 ? [main] : [main, created]),
-            };
-          },
-          select: (options) => {
-            menus.push(JSON.stringify(options.options));
-            return choices.shift() ?? QUIT;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(surveys, 2);
-        assertEquals(menus.length, 2);
-        assert(!menus[0]?.includes("Newly created"));
-        assertStringIncludes(menus[1] ?? "", "Newly created");
-      },
-    },
-    {
-      name: "Park refreshes a removed checkout into its resumable branch",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const effort = fleetEntry(
-          "agent/park-refresh",
-          "/worktrees/park-refresh",
-          {
-            ahead: 1,
-            task: {
-              id: "park-refresh",
-              branch: "agent/park-refresh",
-              title: "Park refresh",
-              title_source: "recorded",
-            },
-          },
-        );
-        let parked = false;
-        const choices = [effort.path, "park", BACK, QUIT];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({
-            ok: true,
-            data: parked
-              ? {
-                ...statusData([main]),
-                unlanded_branches: [effort.branch],
-                parked_tasks: [{
-                  id: "park-refresh",
-                  branch: effort.branch,
-                  head: "a".repeat(40),
-                  parked_at: "2026-07-11T12:00:00.000Z",
-                  task: effort.task ?? {
-                    id: "park-refresh",
-                    branch: effort.branch,
-                    title: "Park refresh",
-                    title_source: "recorded",
-                  },
-                }],
-              }
-              : statusData([main, effort]),
-          }),
-          select: () => choices.shift() ?? QUIT,
-          park: () => {
-            parked = true;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertStringIncludes(
-          joined(output),
-          "Task checkout closed; branch available to resume",
-        );
-        assertStringIncludes(joined(output), effort.branch);
-      },
-    },
-    ...[
-      {
-        name: "landed",
-        refusal: "The selected task landed before Park could apply.",
-        shown: "The selected task landed before Park could apply.",
-        after: (main: StatusFleetEntry, effort: StatusFleetEntry) =>
-          statusData([main], {
-            recent_completed_tasks: [{
-              branch: effort.branch,
-              head: "b".repeat(40),
-              completed_at: "2026-07-11T12:00:00.000Z",
-            }],
-          }),
-        reported: "Task landed",
-      },
-      {
-        name: "removed",
-        refusal: "The selected task no longer has a registered checkout.",
-        // The refusal wraps in the frame; its unwrapped tail is enough.
-        shown: "registered checkout.",
-        after: (main: StatusFleetEntry) => statusData([main]),
-        reported: "Task no longer observed",
-      },
-    ].map((outcome) => ({
-      name:
-        `a lifecycle refusal refreshes a task ${outcome.name} outside the Desk`,
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const effort = fleetEntry(
-          `agent/external-${outcome.name}`,
-          `/worktrees/external-${outcome.name}`,
-          { ahead: 1 },
-        );
-        let changed = false;
-        const choices = [effort.path, "park", QUIT];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({
-            ok: true,
-            data: changed
-              ? outcome.after(main, effort)
-              : statusData([main, effort]),
-          }),
-          select: () => choices.shift() ?? QUIT,
-          park: () => {
-            changed = true;
-            throw new WorktreeGitError(outcome.refusal);
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertStringIncludes(joined(output), outcome.shown);
-        assertStringIncludes(joined(output), outcome.reported);
-      },
-    })),
-    {
-      name: "desk rotates the tip across sessions through the seen-state",
-      check: async () => {
-        const stateRef = { state: freshTipSeenState(DISCERN_VERSION) };
-        const shown: string[] = [];
-        const session = async (): Promise<void> => {
-          const output = transcript();
-          const runtime = scriptedRuntime(output, {
-            readTipState: () => stateRef.state,
-            writeTipState: (_root, state) => {
-              stateRef.state = state;
-            },
-            recordTipShown: (id) => {
-              shown.push(id);
-            },
-          });
-          assertEquals(await runDesk({}, runtime), 0);
-        };
-
-        await session();
-        await session();
-        await session();
-        // Contextual first (no standards configured), then the curriculum in
-        // authored order; entries whose predicates do not hold never surface.
-        assertEquals(shown, [
-          "standards-first-rule",
-          "desk-is-home",
-          "status-orients-anywhere",
-        ]);
-      },
-    },
-    {
-      name:
-        "desk survives a tip-state failure with a tipless header, no warning",
-      check: async () => {
-        const output = transcript();
-        const runtime = scriptedRuntime(output, {
-          readTipState: () => {
-            throw new Error("tip state unreadable");
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assert(
-          !joined(output).includes("Tip:"),
-          "a failed tip read renders no tip line",
-        );
-        assertEquals(output.stderr, [], "and warns about nothing");
-      },
-    },
-  ];
-  await assertCasesAsync(cases, (row) => row.name, async (row) => {
-    await row.check();
+  }, async (desk) => {
+    await desk.palette("Main checkout", "main_checkout");
+    await desk.opened("reader-main");
+    assert(!desk.screen().includes("Open agent"));
+    await desk.press("o");
+    await desk.until(() => pages.length === 1, "the main checkout's diff");
+    await desk.opened("reader-main");
+    await close(desk);
   });
+  assertEquals(commands, [
+    ["status", "--short", "--branch"],
+    ["diff", "--stat", "HEAD"],
+  ]);
+  assertStringIncludes(pages[0] ?? "", "src/main.ts");
+  assertStringIncludes(pages[0] ?? "", "notes.txt");
 });
 
-Deno.test("Desk scripted lifecycle actions preserve authority, confirmation, and recovery", async () => {
-  const cases = [
-    {
-      name: "desk grants and revokes one effort only through its human action",
-      check: async () => {
-        const output = transcript();
-        const effort = fleetEntry("agent/overnight", "/worktrees/overnight", {
-          ahead: 2,
-        });
-        const data = statusData([
-          mainFleetEntry(ROOT),
-          effort,
-        ]);
-        const choices = [
-          effort.path,
-          "grant",
-          "revoke_grant",
-          BACK,
-          QUIT,
-        ];
-        const menus: string[] = [];
-        const confirmations: Array<{
-          message: string;
-          options: ConfirmationRequestOptions;
-        }> = [];
-        const grants: Array<{ path: string; branch: string }> = [];
-        const revokes: string[] = [];
-        const grantPlans: Array<{ path: string; branch: string }> = [];
-        const revokePlans: string[] = [];
-        let granted = false;
-        let pauses = 0;
-        const runtime = scriptedRuntime(output, {
-          status: () => {
-            if (granted) {
-              effort.landing_authority = {
-                kind: "authorized",
-                source: "effort-grant",
-              };
-            } else {
-              delete effort.landing_authority;
-            }
-            return { ok: true, data };
-          },
-          select: (options) => {
-            menus.push(JSON.stringify(options.options));
-            return choices.shift() ?? QUIT;
-          },
-          confirm: (message, options) => {
-            confirmations.push({ message, options });
-            return true;
-          },
-          grantEffortPlan: (path, branch) => {
-            grantPlans.push({ path, branch });
-            return {
-              title: "Landing pre-authorization plan",
-              details: [],
-              steps: [],
-            };
-          },
-          grantEffort: (path, branch) => {
-            grants.push({ path, branch });
-            granted = true;
-            return {
-              status: "granted",
-              grant: fixtureEffortGrant(branch),
-            };
-          },
-          clearEffortGrantPlan: (path) => {
-            revokePlans.push(path);
-            return {
-              title: "Landing pre-authorization revocation plan",
-              details: [],
-              steps: [],
-            };
-          },
-          clearEffortGrant: (path) => {
-            revokes.push(path);
-            granted = false;
-            return true;
-          },
-          pause: () => {
-            pauses++;
-          },
-        });
+Deno.test("a recent landing reads its stored Proof, or says why it can't", async () => {
+  const landed = {
+    branch: "agent/completed",
+    head: "abc1234",
+    completed_at: "2026-07-11T11:58:00.000Z",
+    proof_line: "Proof: agent/completed abc1234 · gate passed",
+  };
+  let pauses = 0;
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([], { recent_completed_tasks: [landed] })),
+      git: () => ({
+        success: false,
+        stdout: "",
+        stderr: "Recorded revision is unavailable",
+      }),
+      pause: () => {
+        pauses += 1;
+      },
+    },
+  }, async (desk) => {
+    await desk.select(landedRowId(landed.branch, landed.completed_at));
+    await desk.press("enter");
+    await desk.opened("reader-landed");
+    await desk.shows("Recorded revision is unavailable");
+    await close(desk);
+  });
+  assertEquals(pauses, 0);
+});
 
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(grants, [{ path: effort.path, branch: effort.branch }]);
-        assertEquals(revokes, [effort.path]);
-        assertEquals(grantPlans, [{
-          path: effort.path,
-          branch: effort.branch,
-        }]);
-        assertEquals(revokePlans, [effort.path]);
-        assertEquals(pauses, 0);
-        assertEquals(confirmations, [
-          {
-            message: "Let Overnight land without asking?",
-            options: { defaultTo: false, noLabel: "Keep", yesLabel: "Allow" },
-          },
-          {
-            message: "Revoke pre-authorization for Overnight?",
-            options: { defaultTo: false, noLabel: "Keep", yesLabel: "Revoke" },
-          },
-        ]);
-        assertStringIncludes(
-          joined(output),
-          "Pre-authorized Overnight. Nothing is queued yet.",
-        );
-        assertStringIncludes(
-          joined(output),
-          "Revoked pre-authorization for Overnight.",
-        );
-        assert(
-          !joined(output).includes("discern grant"),
-          "the human-only grant must not imply an agent-run command",
-        );
+Deno.test("every registered Desk action reaches its shared runtime effect", async () => {
+  interface ActionCase {
+    readonly entry?: Partial<StatusFleetEntry>;
+    readonly cliModel?: boolean;
+    readonly runtime: (effects: DeskAction[]) => Partial<DeskRuntime>;
+    /** What follows choosing the action from its menu. */
+    readonly finish: (
+      desk: DeskSession,
+      effects: DeskAction[],
+    ) => Promise<void>;
+  }
+  const review = async (desk: DeskSession): Promise<void> => {
+    await desk.until(
+      () => desk.top()?.startsWith("review-") ?? false,
+      "the review to open",
+    );
+    await desk.confirm();
+  };
+  const cases: Readonly<Record<DeskAction, ActionCase>> = {
+    recovery: {
+      entry: { broken: true },
+      runtime: () => ({}),
+      finish: async (desk, effects) => {
+        await desk.opened("reader-recovery");
+        effects.push("recovery");
       },
     },
-    {
-      name:
-        "after a grant, the desk offers only the landings the task can make now",
-      check: async () => {
-        const cases = [
-          {
-            name: "ready work",
-            proof: { status: "honored" as const },
-            choices: ["grant", BACK, BACK, QUIT],
-            offered: [["accept", "submit"]],
+    retry_setup: {
+      entry: {
+        setup: {
+          state: "incomplete",
+          marker: "missing",
+          repair: {
+            kind: "retry",
+            command: "discern worktree setup",
+            reason: "The ready marker is missing.",
           },
-          {
-            name: "an exception",
-            proof: {
-              status: "honored" as const,
-              proof_data: exceptionProof(["exactness"]),
-            },
-            choices: ["grant", BACK, QUIT],
-            offered: [],
-          },
-        ];
-        for (const testCase of cases) {
-          const output = transcript();
-          const effort = fleetEntry("agent/granted", "/worktrees/granted", {
-            ahead: 2,
-            gate_proof: testCase.proof,
-          });
-          const data = statusData([mainFleetEntry(ROOT), effort]);
-          const choices = [effort.path, ...testCase.choices];
-          const followUps: string[][] = [];
-          let granted = false;
-          const runtime = scriptedRuntime(output, {
-            status: () => {
-              if (granted) {
-                effort.landing_authority = {
-                  kind: "authorized",
-                  source: "effort-grant",
-                };
-              }
-              return { ok: true, data };
-            },
-            select: (options) => {
-              if (
-                options.message ===
-                  "Choose how this proven revision enters landing"
-              ) {
-                followUps.push(
-                  options.options.flatMap((option) =>
-                    "value" in option && option.value !== BACK
-                      ? [String(option.value)]
-                      : []
-                  ),
-                );
-              }
-              return choices.shift() ?? QUIT;
-            },
-            grantEffort: (_path, branch) => {
-              granted = true;
-              return {
-                status: "granted",
-                grant: fixtureEffortGrant(branch),
-              };
-            },
-          });
-          assertEquals(await runDesk({}, runtime), 0, testCase.name);
-          assert(granted, testCase.name);
-          assertEquals(followUps, testCase.offered, testCase.name);
-        }
+        },
       },
+      runtime: (effects) => ({
+        setup: () => {
+          effects.push("retry_setup");
+        },
+      }),
+      finish: review,
     },
-    {
-      name:
-        "desk keeps landing pre-authorization selectable during final checks",
-      check: async () => {
-        const output = transcript();
-        const effort = fleetEntry(
-          "agent/running-gate",
-          "/worktrees/running-gate",
-          {
-            ahead: 2,
-            gate_proof: { status: "honored" },
-            running: {
-              verb: "done",
-              started: "2026-07-11T11:59:00.000Z",
-              elapsed_ms: 60_000,
-              typical_duration_ms: 60_000,
-            },
-          },
-        );
-        const data = statusData([
-          mainFleetEntry(ROOT),
-          effort,
-        ]);
-        // The task's other actions sit under More actions, unavailable ones
-        // marked with their reason.
-        const choices = [effort.path, "more", BACK, BACK, QUIT];
-        const options: SelectionEntry<string>[] = [];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data }),
-          select: (request) => {
-            if (request.message === "Choose an action") {
-              options.push(...request.options);
-            }
-            return choices.shift() ?? QUIT;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        const action = (value: string) =>
-          options.find((entry) =>
-            !isSelectionHeading(entry) && entry.value === value
-          );
-        const grant = action("grant");
-        assert(grant !== undefined && !isSelectionHeading(grant));
-        assertEquals(grant.disabled, undefined);
-      },
+    done: {
+      entry: { ahead: 1, gate_proof: { status: "missing" } },
+      cliModel: true,
+      runtime: (effects) => ({
+        done: () => {
+          effects.push("done");
+          return { ok: true, verb: "done" };
+        },
+      }),
+      finish: review,
     },
-    {
-      name:
-        "renaming changes only the recorded title through preview and apply",
-      check: async () => {
-        const output = transcript();
-        const oldTitle = "Original title";
-        const newTitle = "Renamed: Unicode 修复";
-        const branch = "agent/stable-identity";
-        const path = "/worktrees/stable-identity";
-        let currentTitle = oldTitle;
-        const main = mainFleetEntry(ROOT);
-        const task = (): StatusFleetEntry =>
-          fleetEntry(branch, path, {
-            id: "stable-identity",
-            task: {
-              id: "stable-identity",
-              branch,
-              title: currentTitle,
-              title_source: "recorded",
-              brief: "Keep this brief.",
-              created_from: { ref: "main", commit: START_COMMIT },
-            },
-          });
-        const choices = [path, "rename", BACK, QUIT];
-        const previews: string[] = [];
-        const applies: string[] = [];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data: statusData([main, task()]) }),
-          select: () => choices.shift() ?? QUIT,
-          input: () => newTitle,
-          renamePlan: (_ctx, title) => {
-            previews.push(title);
-            return {
-              ok: true,
-              verb: "worktree rename",
-              dry_run: true,
-              plan: {
-                title: "Task title plan",
-                details: [
-                  `Branch: ${branch}`,
-                  `Path: ${path}`,
-                  `New title: ${title}`,
-                ],
-                steps: [],
+    submit: {
+      entry: { ahead: 1, gate_proof: { status: "honored" } },
+      runtime: (effects) => ({
+        submit: (path, options) => {
+          if (options.dryRun !== true) effects.push("submit");
+          return {
+            ok: true,
+            verb: "accept",
+            data: {
+              revision: {
+                path,
+                branch: "agent/test",
+                head: "a".repeat(40),
+                proof: { candidate_id: "candidate", proof_id: "proof" },
               },
-            };
-          },
-          rename: (_ctx, title) => {
-            applies.push(title);
-            currentTitle = title;
-            return {
-              ok: true,
-              verb: "worktree rename",
-              message: `Changed the task title to ${JSON.stringify(title)}.`,
-            };
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(previews, [newTitle]);
-        assertEquals(applies, [newTitle]);
-        assertEquals(task().branch, branch);
-        assertEquals(task().path, path);
-        assertEquals(task().task?.brief, "Keep this brief.");
-        assertStringIncludes(
-          joined(output),
-          "discern worktree rename 'Renamed: Unicode 修复'",
-        );
-      },
-    },
-    {
-      name:
-        "desk final checks use the shared core and return to refreshed Proof",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const effort = fleetEntry(
-          "agent/final-checks",
-          "/worktrees/final-checks",
-          {
-            ahead: 2,
-            gate_proof: { status: "missing" },
-          },
-        );
-        const data = statusData([main, effort]);
-        const choices = [effort.path, "done", BACK, QUIT];
-        let finished = false;
-        let planCalls = 0;
-        let doneCalls = 0;
-        let planWasVisibleAtConfirmation = false;
-        const confirmations: ConfirmationRequestOptions[] = [];
-        const runtime = scriptedRuntime(output, {
-          status: () => {
-            if (finished) {
-              effort.proof_honored = true;
-              effort.proof_line =
-                "Proof: agent/final-checks abc1234 · gate passed in 1m";
-              effort.gate_proof = {
-                status: "honored",
-                proof_line: effort.proof_line,
-              };
-            }
-            return { ok: true, data };
-          },
-          select: () => choices.shift() ?? QUIT,
-          donePlan: () => {
-            planCalls++;
-            return {
-              ok: true,
-              verb: "done",
-              plan: { title: "Final checks plan", details: [], steps: [] },
-            };
-          },
-          confirm: (_message, options) => {
-            confirmations.push(options);
-            planWasVisibleAtConfirmation = joined(output).includes(
-              "Final checks plan",
-            );
-            return true;
-          },
-          done: () => {
-            doneCalls++;
-            finished = true;
-            return {
-              ok: true,
-              verb: "done",
-              message: "Final checks passed and Proof was refreshed.",
-            };
-          },
-        });
-
-        assertEquals(
-          await runDesk({ cliModel: TEST_CLI_MODEL }, runtime),
-          0,
-        );
-        assertEquals(planCalls, 1);
-        assertEquals(doneCalls, 1);
-        assert(planWasVisibleAtConfirmation);
-        assertEquals(confirmations, [{
-          defaultTo: false,
-          noLabel: "Cancel",
-          yesLabel: "Run",
-        }]);
-        const text = joined(output);
-        assertStringIncludes(
-          text,
-          "Final checks passed and Proof was refreshed.",
-        );
-        // The refreshed task reads status's Ready state, and its next step
-        // is the registry's landing action.
-        assertStringIncludes(text, "✓ Ready");
-        assertStringIncludes(text, DESK_ACTION_LABELS.accept);
-
-        const cancelledOutput = transcript();
-        const cancelledChoices = [effort.path, "done", BACK, QUIT];
-        let cancelledDoneCalls = 0;
-        assertEquals(
-          await runDesk(
-            { cliModel: TEST_CLI_MODEL },
-            scriptedRuntime(cancelledOutput, {
-              status: () => ({ ok: true, data }),
-              select: () => cancelledChoices.shift() ?? QUIT,
-              confirm: () => false,
-              done: () => {
-                cancelledDoneCalls++;
-                return { ok: true, verb: "done" };
+              submission: {
+                state: options.dryRun === true ? "planned" : "queued",
+                authority: { kind: "authorized" },
               },
-            }),
-          ),
-          0,
-        );
-        assertEquals(cancelledDoneCalls, 0);
-      },
-    },
-    {
-      name:
-        "Desk retains failed final-check and acceptance details in the shared reader",
-      check: async () => {
-        for (const action of ["done", "accept"] as const) {
-          const output = transcript();
-          const main = mainFleetEntry(ROOT);
-          const effort = fleetEntry("agent/reading", "/worktrees/reading", {
-            ahead: 1,
-            gate_proof: {
-              status: action === "done"
-                ? "missing" as const
-                : "honored" as const,
             },
-          });
-          const choices = [effort.path, action, BACK, QUIT];
-          const failure = {
-            ok: false as const,
-            verb: action,
-            error: "precondition_failed" as const,
-            message: "The selected revision needs another review.",
-            hints: ["Read the current Proof before retrying."],
           };
-          const base = scriptedRuntime(output, {
-            status: () => ({ ok: true, data: statusData([main, effort]) }),
-            select: () => choices.shift() ?? QUIT,
-            done: () => failure,
-            accept: () => failure,
-          });
-          const readings: string[] = [];
-          assertEquals(
-            await runDesk({ cliModel: TEST_CLI_MODEL }, {
-              ...base,
-              screen: async (request) => {
-                if (
-                  request.title === "Checks failed on Reading" ||
-                  request.title === "Reading didn't land"
-                ) {
-                  readings.push(request.source);
-                }
-                return await base.screen(request);
-              },
-            }),
-            0,
-          );
-          assertEquals(readings.length, 1, `${action}: ${joined(output)}`);
-          assertStringIncludes(readings[0] ?? "", failure.message);
-          assertStringIncludes(readings[0] ?? "", failure.hints[0] ?? "");
-          assertEquals(
-            choices,
-            [],
-            "the reader must return to the selected task",
-          );
-        }
+        },
+      }),
+      finish: review,
+    },
+    accept: {
+      entry: {
+        ahead: 1,
+        proof_honored: true,
+        gate_proof: { status: "honored" },
+      },
+      cliModel: true,
+      runtime: (effects) => ({
+        accept: () => {
+          effects.push("accept");
+        },
+      }),
+      finish: review,
+    },
+    update: {
+      entry: { ahead: 1, behind: 1 },
+      runtime: (effects) => ({
+        update: () => {
+          effects.push("update");
+        },
+      }),
+      finish: review,
+    },
+    agent: {
+      runtime: (effects) => ({
+        loadConfig: () =>
+          configSchema.parse({
+            project: { slug: "demo", agents: ["claude_code"] },
+            repository: { trunk: "main" },
+          }),
+        detectAgents: () => [{ name: "claude_code", binary: "claude" }],
+        interactive: () => {
+          effects.push("agent");
+          return 0;
+        },
+      }),
+      finish: async (desk) => {
+        if (desk.top() === "agents") await desk.choose("claude_code:open");
       },
     },
-    {
-      name: "every registered Desk action reaches its shared runtime effect",
-      check: async () => {
-        interface RuntimeActionCase {
-          readonly entry?: Partial<StatusFleetEntry>;
-          readonly choices: readonly string[];
-          readonly needsCliModel?: boolean;
-          readonly runtime: (
-            effects: DeskAction[],
-          ) => Partial<DeskRuntime>;
-        }
-        const cases: Readonly<Record<DeskAction, RuntimeActionCase>> = {
-          recovery: {
-            entry: { broken: true },
-            choices: ["recovery", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              screen: () => {
-                effects.push("recovery");
-                return "back";
+    follow_up: {
+      runtime: (effects) => ({
+        start: (_ctx, prepared) => {
+          effects.push("follow_up");
+          return startedTask(prepared);
+        },
+      }),
+      finish: async (desk) => {
+        await desk.opened("form-follow_up-review");
+        await fill(desk, "title", "Follow-up task");
+        await desk.confirm();
+        await review(desk);
+      },
+    },
+    scripts: {
+      runtime: (effects) => ({
+        scripts: () => [{
+          name: "verify",
+          path: "/worktrees/action-class/discern/scripts/verify",
+          workingDirectory: "/worktrees/action-class",
+          availability: "enabled",
+        }],
+        runScript: () => {
+          effects.push("scripts");
+          return 0;
+        },
+      }),
+      finish: async (desk) => {
+        await desk.opened("scripts");
+        await desk.choose("verify");
+        await desk.opened("form-scripts-review");
+        await desk.confirm();
+      },
+    },
+    jump: {
+      runtime: (effects) => ({
+        interactive: () => {
+          effects.push("jump");
+          return 0;
+        },
+      }),
+      finish: () => Promise.resolve(),
+    },
+    inspect: {
+      runtime: (effects) => ({
+        proof: () => {
+          effects.push("inspect");
+          return { status: "missing" };
+        },
+      }),
+      finish: async (desk) => {
+        await desk.opened("reader-changes");
+      },
+    },
+    rename: {
+      runtime: (effects) => ({
+        rename: (_ctx, title) => {
+          effects.push("rename");
+          return {
+            ok: true,
+            verb: "worktree rename",
+            message: `Changed the task title to ${JSON.stringify(title)}.`,
+          };
+        },
+      }),
+      finish: async (desk) => {
+        await desk.opened("form-rename-review");
+        await fill(desk, "title", "A clearer task title");
+        await desk.confirm();
+        await review(desk);
+      },
+    },
+    grant: {
+      runtime: (effects) => ({
+        grantEffort: (_path, branch) => {
+          effects.push("grant");
+          return { status: "granted", grant: fixtureEffortGrant(branch) };
+        },
+      }),
+      finish: review,
+    },
+    revoke_grant: {
+      entry: {
+        landing_authority: { kind: "authorized", source: "effort-grant" },
+      },
+      runtime: (effects) => ({
+        clearEffortGrant: () => {
+          effects.push("revoke_grant");
+          return true;
+        },
+      }),
+      finish: review,
+    },
+    reclaim: {
+      entry: { ahead: 1, contained_in: "agent/later" },
+      runtime: (effects) => ({
+        reclaim: () => {
+          effects.push("reclaim");
+        },
+      }),
+      finish: review,
+    },
+    park: {
+      runtime: (effects) => ({
+        park: () => {
+          effects.push("park");
+        },
+      }),
+      finish: review,
+    },
+    drop: {
+      entry: { broken: true },
+      runtime: (effects) => ({
+        drop: () => {
+          effects.push("drop");
+        },
+      }),
+      finish: review,
+    },
+  };
+  assertEquals(Object.keys(cases).sort(), [...DESK_ACTIONS].sort());
+
+  for (const action of DESK_ACTIONS) {
+    const testCase = cases[action];
+    const effort = deskTaskEntry(
+      `agent/action-${action}`,
+      "/worktrees/action-class",
+      { id: "action-class", ...testCase.entry },
+    );
+    const effects: DeskAction[] = [];
+    let discovered = 0;
+    const runtime = testCase.runtime(effects);
+    const detect = runtime.detectAgents;
+    await withDesk({
+      ...(testCase.cliModel === true ? { cliModel: TEST_CLI_MODEL } : {}),
+      runtime: {
+        ...surveys(() => deskSurvey([effort])),
+        ...runtime,
+        detectAgents: async () => {
+          discovered += 1;
+          return detect === undefined ? [] : await detect();
+        },
+      },
+    }, async (desk) => {
+      await desk.select("action-class");
+      await desk.until(() => discovered > 0, `${action}: capabilities read`);
+      await desk.press(".");
+      await desk.opened("actions");
+      await desk.choose(action);
+      await testCase.finish(desk, effects);
+      await desk.until(
+        () => effects.includes(action),
+        `${action} to reach its runtime effect`,
+      );
+    });
+  }
+});
+
+Deno.test("Pre-authorize and Revoke reach their writers only through their reviews", async () => {
+  const effort = deskTaskEntry("agent/overnight", "/worktrees/overnight", {
+    id: "overnight",
+    ahead: 2,
+  });
+  let granted = false;
+  const grants: Array<{ path: string; branch: string }> = [];
+  const revokes: string[] = [];
+  const grantPlans: string[] = [];
+  const revokePlans: string[] = [];
+  let pauses = 0;
+  await withDesk({
+    runtime: {
+      ...surveys(() =>
+        deskSurvey([{
+          ...effort,
+          ...(granted
+            ? {
+              landing_authority: {
+                kind: "authorized" as const,
+                source: "effort-grant" as const,
               },
-            }),
-          },
-          retry_setup: {
-            entry: {
-              setup: {
-                state: "incomplete",
-                marker: "missing",
-                repair: {
-                  kind: "retry",
-                  command: "discern worktree setup",
-                  reason: "The ready marker is missing.",
-                },
-              },
-            },
-            choices: ["retry_setup", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              setup: () => {
-                effects.push("retry_setup");
-              },
-            }),
-          },
-          done: {
-            entry: { ahead: 1, gate_proof: { status: "missing" } },
-            choices: ["done", BACK, QUIT],
-            needsCliModel: true,
-            runtime: (effects: DeskAction[]) => ({
-              done: () => {
-                effects.push("done");
-                return { ok: true, verb: "done" };
-              },
-            }),
-          },
-          submit: {
-            entry: { ahead: 1, gate_proof: { status: "honored" } },
-            choices: ["submit", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              submit: (path, options) => {
-                if (!options.dryRun) effects.push("submit");
-                return {
-                  ok: true,
-                  verb: "accept",
-                  data: {
-                    revision: {
-                      path,
-                      branch: "agent/test",
-                      head: "a".repeat(40),
-                      proof: { candidate_id: "candidate", proof_id: "proof" },
-                    },
-                    submission: {
-                      state: options.dryRun ? "planned" : "queued",
-                      authority: { kind: "authorized" },
-                    },
-                  },
-                };
-              },
-            }),
-          },
-          accept: {
-            entry: {
-              ahead: 1,
-              proof_honored: true,
-              gate_proof: { status: "honored" },
-            },
-            choices: ["accept", BACK, QUIT],
-            needsCliModel: true,
-            runtime: (effects: DeskAction[]) => ({
-              accept: () => {
-                effects.push("accept");
-              },
-            }),
-          },
-          update: {
-            entry: { ahead: 1, behind: 1 },
-            choices: ["update", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              update: () => {
-                effects.push("update");
-              },
-            }),
-          },
-          agent: {
-            choices: ["agent", "claude_code:open", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              loadConfig: () =>
-                configSchema.parse({
-                  project: { slug: "demo", agents: ["claude_code"] },
-                  repository: { trunk: "main" },
-                }),
-              detectAgents: () => [{ name: "claude_code", binary: "claude" }],
-              interactive: () => {
-                effects.push("agent");
-                return 0;
-              },
-            }),
-          },
-          follow_up: {
-            choices: ["follow_up", "describe", "none", QUIT],
-            runtime: (effects: DeskAction[]) => {
-              const inputs = [
-                "Follow-up task",
-                "Carry the current work forward.",
-              ];
-              return {
-                input: () => inputs.shift() ?? "",
-                start: (_ctx, prepared) => {
-                  effects.push("follow_up");
-                  return startedTask(prepared);
-                },
-              };
-            },
-          },
-          scripts: {
-            choices: ["scripts", "verify", "run", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              scripts: () => [{
-                name: "verify",
-                path: "/worktrees/action-class/discern/scripts/verify",
-                workingDirectory: "/worktrees/action-class",
-                availability: "enabled",
-              }],
-              runScript: () => {
-                effects.push("scripts");
-                return 0;
-              },
-            }),
-          },
-          jump: {
-            choices: ["jump", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              interactive: () => {
-                effects.push("jump");
-                return 0;
-              },
-            }),
-          },
-          inspect: {
-            choices: ["inspect", DESK_REVIEW_ROUTES.back, BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              git: () => {
-                effects.push("inspect");
-                return { success: true, stdout: "", stderr: "" };
-              },
-            }),
-          },
-          rename: {
-            choices: ["rename", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              input: () => "A clearer task title",
-              rename: (_ctx, title) => {
-                effects.push("rename");
-                return {
-                  ok: true,
-                  verb: "worktree rename",
-                  message: `Changed the task title to ${
-                    JSON.stringify(title)
-                  }.`,
-                };
-              },
-            }),
-          },
-          grant: {
-            choices: ["grant", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              grantEffort: (_path, branch) => {
-                effects.push("grant");
-                return {
-                  status: "granted",
-                  grant: fixtureEffortGrant(branch),
-                };
-              },
-            }),
-          },
-          revoke_grant: {
-            entry: {
-              landing_authority: { kind: "authorized", source: "effort-grant" },
-            },
-            choices: ["revoke_grant", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              clearEffortGrant: () => {
-                effects.push("revoke_grant");
-                return true;
-              },
-            }),
-          },
-          reclaim: {
-            entry: { ahead: 1, contained_in: "agent/later" },
-            choices: ["reclaim", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              reclaim: () => {
-                effects.push("reclaim");
-              },
-            }),
-          },
-          park: {
-            choices: ["park", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              park: () => {
-                effects.push("park");
-              },
-            }),
-          },
-          drop: {
-            entry: { broken: true },
-            choices: ["drop", BACK, QUIT],
-            runtime: (effects: DeskAction[]) => ({
-              drop: () => {
-                effects.push("drop");
-              },
-            }),
-          },
+            }
+            : {}),
+        }])
+      ),
+      grantEffortPlan: (path) => {
+        grantPlans.push(path);
+        return {
+          title: "Landing pre-authorization plan",
+          details: [],
+          steps: [],
         };
-        assertEquals(Object.keys(cases).sort(), [...DESK_ACTIONS].sort());
-
-        for (const action of DESK_ACTIONS) {
-          const output = transcript();
-          const effort = fleetEntry(
-            `agent/action-${action}`,
-            "/worktrees/action-class",
-            cases[action].entry ?? {},
-          );
-          const data = statusData([
-            mainFleetEntry(ROOT),
-            effort,
-          ]);
-          const choices = [effort.path, ...cases[action].choices];
-          const effects: DeskAction[] = [];
-          const opts = cases[action].needsCliModel === true
-            ? { cliModel: TEST_CLI_MODEL }
-            : {};
-          assertEquals(
-            await runDesk(
-              opts,
-              scriptedRuntime(output, {
-                status: () => ({ ok: true, data }),
-                select: () => choices.shift() ?? QUIT,
-                confirm: () => true,
-                ...cases[action].runtime(effects),
-              }),
-            ),
-            0,
-            action,
-          );
-          assert(
-            effects.includes(action),
-            `${action} did not reach its shared runtime effect`,
-          );
-        }
+      },
+      grantEffort: (path, branch) => {
+        grants.push({ path, branch });
+        granted = true;
+        return { status: "granted", grant: fixtureEffortGrant(branch) };
+      },
+      clearEffortGrantPlan: (path) => {
+        revokePlans.push(path);
+        return {
+          title: "Landing pre-authorization revocation plan",
+          details: [],
+          steps: [],
+        };
+      },
+      clearEffortGrant: (path) => {
+        revokes.push(path);
+        granted = false;
+        return true;
+      },
+      pause: () => {
+        pauses += 1;
       },
     },
+  }, async (desk) => {
+    await desk.select("overnight");
+    await desk.press("g");
+    await desk.opened("review-grant-review");
+    await desk.shows("Let Overnight land without asking?");
+    assert(!desk.screen().includes("discern grant"));
+    await desk.confirm();
+    await desk.until(() => grants.length === 1, "the grant");
+    await desk.shows("Pre-authorized Overnight");
+    while (desk.top() !== undefined) await close(desk);
+    await runAction(desk, "overnight", "revoke_grant");
+    await desk.opened("review-revoke_grant-review");
+    await desk.confirm();
+    await desk.until(() => revokes.length === 1, "the revocation");
+    await desk.shows("Revoked pre-authorization for Overnight");
+  });
+  assertEquals(grants, [{ path: effort.path, branch: effort.branch }]);
+  assertEquals(revokes, [effort.path]);
+  assertEquals(grantPlans, [effort.path]);
+  assertEquals(revokePlans, [effort.path]);
+  assertEquals(pauses, 0);
+});
+
+Deno.test("after a grant the Desk offers only the landings the task can make now", async () => {
+  const cases = [
     {
-      name:
-        "desk lifecycle actions preview, confirm, apply, and contain refusals",
-      check: async () => {
-        const effort = fleetEntry("agent/actions", "/worktrees/actions", {
-          ahead: 2,
-          behind: 1,
-          gate_proof: { status: "honored" },
-        });
-        const main = mainFleetEntry(ROOT);
-        const data = statusData([main, effort]);
-
-        const updateOutput = transcript();
-        const updateChoices = [effort.path, "update", BACK, QUIT];
-        const confirmationOptions: ConfirmationRequestOptions[] = [];
-        let updatePlanCalls = 0;
-        const updateCalls: Array<{ dryRun?: boolean }> = [];
-        let updatePauses = 0;
-        assertEquals(
-          await runDesk(
-            { cliModel: TEST_CLI_MODEL },
-            scriptedRuntime(updateOutput, {
-              status: () => ({ ok: true, data }),
-              select: () => updateChoices.shift() ?? QUIT,
-              confirm: (_message, options) => {
-                confirmationOptions.push(options);
-                return true;
-              },
-              updatePlan: () => {
-                updatePlanCalls++;
-                return { ok: true, verb: "update" };
-              },
-              update: (_ctx, opts) => {
-                updateCalls.push(opts);
-              },
-              pause: () => {
-                updatePauses++;
-              },
-            }),
-          ),
-          0,
-        );
-        assertEquals(updatePlanCalls, 1);
-        assertEquals(updateCalls, [{}]);
-        assertEquals(updatePauses, 0);
-        assertEquals(confirmationOptions, [{
-          defaultTo: false,
-          noLabel: "Keep",
-          yesLabel: "Update",
-        }]);
-
-        const acceptOutput = transcript();
-        const ready = fleetEntry("agent/ready", "/worktrees/ready", {
-          ahead: 2,
-          behind: 0,
-          proof_honored: true,
-          gate_proof: { status: "honored" },
-        });
-        const readyData = statusData([main, ready]);
-        const acceptChoices = [ready.path, "accept", BACK, QUIT];
-        let acceptPlanCalls = 0;
-        const appliedAccept: Array<Parameters<DeskRuntime["accept"]>[1]> = [];
-        let acceptPauses = 0;
-        assertEquals(
-          await runDesk(
-            { cliModel: TEST_CLI_MODEL },
-            scriptedRuntime(acceptOutput, {
-              status: () => ({ ok: true, data: readyData }),
-              select: () => acceptChoices.shift() ?? QUIT,
-              acceptPlan: () => {
-                acceptPlanCalls++;
-                return { ok: true, verb: "accept" };
-              },
-              accept: (_ctx, opts) => {
-                appliedAccept.push(opts);
-              },
-              pause: () => {
-                acceptPauses++;
-              },
-            }),
-          ),
-          0,
-        );
-        // The desk's interactive confirm IS the acceptance, so the apply carries the
-        // attestation (ADR 0134) — never a bare, consent-less landing.
-        assertEquals(acceptPlanCalls, 1);
-        assertEquals(appliedAccept, [{
-          confirmed: true,
-          cliModel: TEST_CLI_MODEL,
-        }]);
-        assertEquals(acceptPauses, 0);
-
-        const dropOutput = transcript();
-        const abandoned = fleetEntry(
-          "agent/abandoned",
-          "/worktrees/abandoned",
-          {
-            broken: true,
-          },
-        );
-        const dropData = statusData([main, abandoned]);
-        const dropChoices = [abandoned.path, "drop", BACK, QUIT];
-        const dropCalls: Array<{ dryRun?: boolean; force?: boolean }> = [];
-        const dropPlans: string[] = [];
-        const dropTargets: string[] = [];
-        const dropConfirmations: ConfirmationRequestOptions[] = [];
-        let dropPauses = 0;
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(dropOutput, {
-              status: () => ({ ok: true, data: dropData }),
-              select: () => dropChoices.shift() ?? QUIT,
-              confirm: (_message, options) => {
-                dropConfirmations.push(options);
-                return true;
-              },
-              input: () => abandoned.branch,
-              dropPlan: (_ctx, target) => {
-                dropPlans.push(target);
-                return { title: "Drop plan", details: [], steps: [] };
-              },
-              drop: (_ctx, target, opts) => {
-                dropTargets.push(target);
-                dropCalls.push(opts);
-                if (!(opts.dryRun ?? false) && !(opts.force ?? false)) {
-                  throw new DropWouldDiscardWork(
-                    "unlanded work would be discarded",
-                  );
-                }
-              },
-              pause: () => {
-                dropPauses++;
-              },
-            }),
-          ),
-          0,
-        );
-        assertEquals(dropPlans, [abandoned.path]);
-        assertEquals(dropCalls, [{}, { force: true }]);
-        assertEquals(dropTargets, [
-          abandoned.path,
-          abandoned.path,
-        ]);
-        assertEquals(dropPauses, 0);
-        assertEquals(dropConfirmations, [{
-          defaultTo: false,
-          noLabel: "Keep",
-          yesLabel: "Drop",
-        }]);
-        assertStringIncludes(
-          joined(dropOutput),
-          "unlanded work would be discarded",
-        );
-        assertStringIncludes(
-          joined(dropOutput),
-          "uncommitted files can't be recovered",
-        );
-        assertStringIncludes(
-          joined(dropOutput),
-          `discern worktree drop ${abandoned.path}`,
-        );
-
-        const refusalOutput = transcript();
-        const refusalChoices = [effort.path, "accept", BACK, QUIT];
-        assertEquals(
-          await runDesk(
-            { cliModel: TEST_CLI_MODEL },
-            scriptedRuntime(refusalOutput, {
-              status: () => ({ ok: true, data }),
-              select: () => refusalChoices.shift() ?? QUIT,
-              accept: () =>
-                Promise.reject(new IdentityError("identity is unavailable")),
-            }),
-          ),
-          0,
-        );
-        assertStringIncludes(joined(refusalOutput), "identity is unavailable");
-      },
+      name: "ready work",
+      proof: { status: "honored" as const },
+      offered: ["Land…", "Queue for landing…"],
     },
     {
-      name: "Park cancellation keeps the checkout without calling apply",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const effort = fleetEntry(
-          "agent/park-cancel",
-          "/worktrees/park-cancel",
-          {
-            ahead: 1,
-          },
-        );
-        const data = statusData([main, effort]);
-        const choices = [effort.path, "park", BACK, QUIT];
-        let planCalls = 0;
-        let applyCalls = 0;
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data }),
-          select: () => choices.shift() ?? QUIT,
-          confirm: () => false,
-          parkPlan: () => {
-            planCalls++;
-            return { title: "Park plan", details: [], steps: [] };
-          },
-          park: () => {
-            applyCalls++;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(planCalls, 1);
-        assertEquals(applyCalls, 0);
+      name: "an exception",
+      proof: {
+        status: "honored" as const,
+        proof_data: exceptionProof(["exactness"]),
       },
-    },
-    {
-      name:
-        "desk reclaims a contained checkout only through its explicit confirmation",
-      check: async () => {
-        const main = mainFleetEntry(ROOT);
-        const spent = fleetEntry("agent/stage-a", "/worktrees/stage-a", {
-          ahead: 1,
-          contained_in: "agent/stage-b",
-        });
-        const data = statusData([main, spent]);
-
-        // Declined: the confirmation names the specific worktree, what is kept (the
-        // branch ref), where the work travels, and the proof consequence — and a
-        // "no" runs nothing.
-        const declinedOutput = transcript();
-        const declinedChoices = [spent.path, "reclaim", BACK, QUIT];
-        const declinedReclaims: string[] = [];
-        const confirmMessages: string[] = [];
-        const confirmOptions: ConfirmationRequestOptions[] = [];
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(declinedOutput, {
-              status: () => ({ ok: true, data }),
-              select: () => declinedChoices.shift() ?? QUIT,
-              confirm: (message, options) => {
-                confirmMessages.push(message);
-                confirmOptions.push(options);
-                return false;
-              },
-              reclaim: (_ctx, target) => {
-                declinedReclaims.push(target);
-              },
-            }),
-          ),
-          0,
-        );
-        assertEquals(
-          declinedReclaims,
-          [],
-          "declining the confirmation must reclaim nothing",
-        );
-        assertEquals(confirmMessages, ["Reclaim Stage a's checkout?"]);
-        assertStringIncludes(joined(declinedOutput), "agent/stage-a");
-        assertStringIncludes(joined(declinedOutput), "Keeps the branch");
-        assertStringIncludes(
-          joined(declinedOutput),
-          "Its commits are already in agent/stage-b; removes this checkout",
-        );
-        assertEquals(confirmOptions, [{
-          defaultTo: false,
-          noLabel: "Keep",
-          yesLabel: "Reclaim",
-        }]);
-
-        // Confirmed: the validated core runs against the selected worktree, and the
-        // action menu offered the reclaim with its containing branch named.
-        const output = transcript();
-        const choices = [spent.path, "reclaim", BACK, QUIT];
-        const reclaims: string[] = [];
-        let pauses = 0;
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(output, {
-              status: () => ({ ok: true, data }),
-              select: () => choices.shift() ?? QUIT,
-              confirm: () => true,
-              reclaim: (_ctx, target) => {
-                reclaims.push(target);
-              },
-              pause: () => {
-                pauses++;
-              },
-            }),
-          ),
-          0,
-        );
-        // The core receives the ABSOLUTE selected path — two roots can hold
-        // same-named worktree directories, and the reclaim must hit exactly the
-        // row the confirmation named.
-        assertEquals(reclaims, ["/worktrees/stage-a"]);
-        assertEquals(pauses, 0);
-        assertStringIncludes(joined(output), "Branch agent/stage-a remains");
-      },
-    },
-    {
-      name: "Drop never turns a generic refusal into destructive force consent",
-      check: async () => {
-        const effort = fleetEntry(
-          "agent/refused-drop",
-          "/worktrees/refused-drop",
-          {
-            ahead: 1,
-          },
-        );
-        for (
-          const error of [
-            new WorktreeGitError("The checkout is locked."),
-            new Error("The target is unavailable."),
-          ]
-        ) {
-          const output = transcript();
-          const choices = [effort.path, "drop", BACK, QUIT];
-          const calls: unknown[] = [];
-          let typed = false;
-          assertEquals(
-            await runDesk(
-              {},
-              scriptedRuntime(output, {
-                status: () => ({
-                  ok: true,
-                  data: statusData([
-                    mainFleetEntry(ROOT, { is_current: false }),
-                    effort,
-                  ]),
-                }),
-                select: () => choices.shift() ?? QUIT,
-                input: () => {
-                  typed = true;
-                  return effort.branch;
-                },
-                drop: (_ctx, _target, options) => {
-                  calls.push(options);
-                  throw error;
-                },
-              }),
-            ),
-            0,
-          );
-          assertEquals(calls, [{}]);
-          assertEquals(typed, false);
-          assertStringIncludes(joined(output), error.message);
-        }
-      },
+      offered: [],
     },
   ];
-  await assertCasesAsync(cases, (row) => row.name, async (row) => {
-    await row.check();
+  for (const testCase of cases) {
+    let granted = false;
+    await withDesk({
+      runtime: {
+        ...surveys(() =>
+          deskSurvey([
+            deskTaskEntry("agent/granted", "/worktrees/granted", {
+              id: "granted",
+              ahead: 2,
+              gate_proof: testCase.proof,
+              ...(granted
+                ? {
+                  landing_authority: {
+                    kind: "authorized" as const,
+                    source: "effort-grant" as const,
+                  },
+                }
+                : {}),
+            }),
+          ])
+        ),
+        grantEffort: (_path, branch) => {
+          granted = true;
+          return { status: "granted", grant: fixtureEffortGrant(branch) };
+        },
+      },
+    }, async (desk) => {
+      await runAction(desk, "granted", "grant");
+      await desk.confirm();
+      await desk.until(() => granted, `${testCase.name}: granted`);
+      if (testCase.offered.length === 0) {
+        await desk.shows("Pre-authorized Granted");
+        assertEquals(desk.top(), undefined, "nothing more to decide");
+        return;
+      }
+      await desk.opened("review-grant-granted");
+      for (const label of testCase.offered) await desk.shows(label);
+      await close(desk);
+    });
+  }
+});
+
+Deno.test("Pre-authorize stays available while final checks run", async () => {
+  await withDesk({
+    runtime: surveys(() =>
+      deskSurvey([
+        deskTaskEntry("agent/running-gate", "/worktrees/running-gate", {
+          id: "running-gate",
+          ahead: 2,
+          gate_proof: { status: "honored" },
+          running: {
+            verb: "done",
+            started: "2026-07-11T11:59:00.000Z",
+            elapsed_ms: 60_000,
+            typical_duration_ms: 60_000,
+          },
+        }),
+      ])
+    ),
+  }, async (desk) => {
+    await desk.select("running-gate");
+    await desk.press("g");
+    await desk.opened("review-grant-review");
+    await close(desk);
   });
 });
 
-Deno.test("Desk scripted creation preserves names, bases, preferences, and cancellation", async () => {
-  const cases = [
-    {
-      name:
-        "desk starts a named task and focuses its ready worktree immediately",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const startedEntry = fleetEntry(
-          "agent/desk-launchers",
-          "/worktrees/desk-launchers",
-        );
-        const prepared = preparedStart("  desk launchers  ", {
-          id: "desk-launchers",
-          branch: startedEntry.branch,
-          worktreePath: startedEntry.path,
-        });
-        const started = startedTask(prepared);
-        let hasStarted = false;
-        const choices = [
-          START_TASK,
-          "describe",
-          "compact",
-          "none",
-          BACK,
-          QUIT,
-        ];
-        const menus: Array<{ message: string; options: string }> = [];
-        const starts: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
-        const applied: PreparedStart[] = [];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({
-            ok: true,
-            data: statusData(hasStarted ? [main, startedEntry] : [main]),
-          }),
-          select: (options) => {
-            menus.push({
-              message: String(options.message),
-              options: JSON.stringify(options.options),
-            });
-            return choices.shift() ?? QUIT;
+Deno.test("Rename changes only the recorded title, through its form and review", async () => {
+  const branch = "agent/stable-identity";
+  const path = "/worktrees/stable-identity";
+  const newTitle = "Renamed: Unicode 修复";
+  let title = "Original title";
+  const previews: string[] = [];
+  const applies: string[] = [];
+  const entry = (): StatusFleetEntry =>
+    deskTaskEntry(branch, path, {
+      id: "stable-identity",
+      task: {
+        id: "stable-identity",
+        branch,
+        title,
+        title_source: "recorded",
+        brief: "Keep this brief.",
+        created_from: { ref: "main", commit: START_COMMIT },
+      },
+    });
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([entry()])),
+      renamePlan: (_ctx, next) => {
+        previews.push(next);
+        return {
+          ok: true,
+          verb: "worktree rename",
+          dry_run: true,
+          plan: {
+            title: "Task title plan",
+            details: [`Branch: ${branch}`, `New title: ${next}`],
+            steps: [],
           },
-          input: () => "  desk launchers  ",
-          startPlan: (_ctx, opts) => {
-            starts.push(opts);
-            return prepared;
-          },
-          start: (_ctx, retained) => {
-            applied.push(retained);
-            hasStarted = true;
-            return started;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(starts, [{
-          worktreeRoot: "/project.worktrees",
-          title: "  desk launchers  ",
-        }]);
-        assertEquals(applied, [prepared]);
-        assertStringIncludes(
-          menus[0]?.options ?? "",
-          DESK_COMMAND_LABELS.new_task,
-        );
-        assertStringIncludes(
-          menus[0]?.message ?? "",
-          "Choose a desk command",
-        );
-        assert(
-          menus.some((menu) => menu.message === "Choose an action"),
-          "the new worktree action menu should open without another root-menu choice",
-        );
-        assertStringIncludes(
-          joined(output),
-          "Run: discern start --title ' desk launchers '",
-        );
+        };
+      },
+      rename: (_ctx, next) => {
+        applies.push(next);
+        title = next;
+        return {
+          ok: true,
+          verb: "worktree rename",
+          message: `Changed the task title to ${JSON.stringify(next)}.`,
+        };
       },
     },
-    {
-      name: "desk uses a generated codename only after the explicit fallback",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const random = fleetEntry(
-          "agent/random-codename",
-          "/worktrees/random-codename",
-        );
-        let hasStarted = false;
-        const choices = [START_TASK, "codename", "compact", "none", BACK, QUIT];
-        const starts: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
-        const prepared = preparedStart("Random codename", {
-          id: "random-codename",
-          branch: random.branch,
-          worktreePath: random.path,
-        });
-        const runtime = scriptedRuntime(output, {
-          status: () => ({
-            ok: true,
-            data: statusData(hasStarted ? [main, random] : [main]),
-          }),
-          select: () => choices.shift() ?? QUIT,
-          startPlan: (_ctx, opts) => {
-            starts.push(opts);
-            return prepared;
-          },
-          start: () => {
-            hasStarted = true;
-            return startedTask(prepared);
-          },
-        });
+  }, async (desk) => {
+    await desk.select("stable-identity");
+    await desk.press("e");
+    await desk.opened("form-rename-review");
+    assertEquals(
+      desk.state().fields["form-rename-review"]?.title,
+      "Original title",
+    );
+    await fill(desk, "title", newTitle);
+    await desk.confirm();
+    await desk.opened("review-rename-review");
+    await desk.shows(`New title: ${newTitle}`);
+    await desk.confirm();
+    await desk.until(() => applies.length === 1, "the rename");
+    await desk.shows(newTitle);
+  });
+  assertEquals(previews, [newTitle]);
+  assertEquals(applies, [newTitle]);
+  assertEquals(entry().branch, branch);
+  assertEquals(entry().path, path);
+  assertEquals(entry().task?.brief, "Keep this brief.");
+});
 
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(starts, [{ worktreeRoot: "/project.worktrees" }]);
-        assertStringIncludes(joined(output), "Run: discern start");
-        assert(!joined(output).includes("--title"));
+Deno.test("Run checks reads its plan, runs the shared core once, and Cancel runs nothing", async () => {
+  let finished = false;
+  let planCalls = 0;
+  let doneCalls = 0;
+  const effort = (): StatusFleetEntry =>
+    deskTaskEntry("agent/final-checks", "/worktrees/final-checks", {
+      id: "final-checks",
+      ahead: 2,
+      gate_proof: finished
+        ? {
+          status: "honored",
+          proof_line: "Proof: agent/final-checks abc1234 · gate passed in 1m",
+        }
+        : { status: "missing" },
+      ...(finished ? { proof_honored: true } : {}),
+    });
+  await withDesk({
+    cliModel: TEST_CLI_MODEL,
+    runtime: {
+      ...surveys(() => deskSurvey([effort()])),
+      donePlan: () => {
+        planCalls += 1;
+        return {
+          ok: true,
+          verb: "done",
+          plan: {
+            title: "Final checks plan",
+            details: ["Runs the gate"],
+            steps: [],
+          },
+        };
+      },
+      done: () => {
+        doneCalls += 1;
+        finished = true;
+        return { ok: true, verb: "done" };
       },
     },
-    {
-      name: "expanded creation retains trunk, live-task, and unlanded bases",
-      check: async () => {
-        const main = mainFleetEntry(ROOT);
-        const live = fleetEntry(
-          "agent/existing-task",
-          "/worktrees/existing-task",
-          {
-            id: "existing-task",
-          },
-        );
-        const orphan = "agent/unlanded-branch";
-        const cases = [
-          { name: "trunk", base: "main", expectedFrom: undefined },
-          { name: "live task", base: live.branch, expectedFrom: live.branch },
-          { name: "unlanded branch", base: orphan, expectedFrom: orphan },
-        ] as const;
+  }, async (desk) => {
+    await desk.select("final-checks");
+    await desk.press("c");
+    await desk.opened("review-done-review");
+    await close(desk);
+    assertEquals(doneCalls, 0, "Cancel runs nothing");
+    await desk.press("c");
+    await desk.opened("review-done-review");
+    await desk.shows("Runs the gate");
+    await desk.confirm();
+    await desk.until(() => doneCalls === 1, "the checks");
+    await desk.shows("Ready");
+  });
+  assertEquals(planCalls, 2);
+  assertEquals(doneCalls, 1);
+});
 
-        for (const testCase of cases) {
-          const output = transcript();
-          const title = `Repair ingress from ${testCase.name} — 修复`;
-          const brief =
-            `Preserve the exact ${testCase.name} base and human wording.`;
-          const inputs = [title, brief];
-          const choices = [
-            START_TASK,
-            "describe",
-            "expanded",
-            testCase.base,
-            "none",
-            BACK,
-            QUIT,
-          ];
-          const confirmations = [true];
-          const grants: Array<{ path: string; branch: string }> = [];
-          const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> =
-            [];
-          const slug = testCase.name.replaceAll(" ", "-");
-          const started = scriptedStart({
-            id: `created-from-${slug}`,
-            branch: `agent/created-from-${slug}`,
-            worktreePath: `/worktrees/created-from-${slug}`,
-            resources: [{ name: "database", identity: "demo_created_task" }],
-          });
-          const runtime = scriptedRuntime(output, {
-            status: () => ({
-              ok: true,
-              data: started.survey([main, live], {
-                unlanded_branches: [orphan],
-              }),
+Deno.test("a failed final check or landing keeps its details in the result reader", async () => {
+  for (const action of ["done", "accept"] as const) {
+    const failure = {
+      ok: false as const,
+      verb: action,
+      error: "precondition_failed" as const,
+      message: "The selected revision needs another review.",
+      hints: ["Read the current Proof before retrying."],
+    };
+    await withDesk({
+      cliModel: TEST_CLI_MODEL,
+      runtime: {
+        ...surveys(() =>
+          deskSurvey([
+            deskTaskEntry("agent/reading", "/worktrees/reading", {
+              id: "reading",
+              ahead: 1,
+              gate_proof: {
+                status: action === "done" ? "missing" : "honored",
+              },
+              ...(action === "accept" ? { proof_honored: true } : {}),
             }),
-            select: () => choices.shift() ?? QUIT,
-            input: () => inputs.shift() ?? "",
-            confirm: () => confirmations.shift() ?? false,
-            startPlan: started.startPlan,
-            start: started.start,
-            grantEffort: (path, branch) => {
-              grants.push({ path, branch });
-              return {
-                status: "granted",
-                grant: fixtureEffortGrant(branch),
-              };
-            },
-            writePreferences: (_root, preferences) => {
-              saved.push(preferences);
-              return { status: "saved" };
-            },
-          });
+          ])
+        ),
+        done: () => failure,
+        accept: () => failure,
+      },
+    }, async (desk) => {
+      await runAction(desk, "reading", action);
+      await desk.confirm();
+      await desk.opened("reader-result");
+      await desk.shows(failure.message);
+      await desk.shows(failure.hints[0] ?? "");
+      await close(desk);
+      assertEquals(
+        desk.state().lists.inbox?.selectedId,
+        "reading",
+        `${action}: the reader returns to the selected task`,
+      );
+    });
+  }
+});
 
-          assertEquals(await runDesk({}, runtime), 0, testCase.name);
-          assertEquals(started.requests, [{
-            worktreeRoot: "/project.worktrees",
-            title,
-            brief,
-            ...(testCase.expectedFrom === undefined
-              ? {}
-              : { from: testCase.expectedFrom }),
-          }], testCase.name);
-          assertEquals(
-            grants.length,
-            0,
-            testCase.name,
-          );
-          assertEquals(saved, [{
-            schema_version: 1,
-            creation_path: "expanded",
-          }]);
-          const text = joined(output).replaceAll(/\s+/gu, "");
-          assertStringIncludes(text, title.replaceAll(/\s+/gu, ""));
-          assertStringIncludes(text, brief.replaceAll(/\s+/gu, ""));
-          assertStringIncludes(text, testCase.base.replaceAll(/\s+/gu, ""));
-          assertStringIncludes(
-            text,
-            "recordthe displaytitle".replaceAll(" ", ""),
-          );
-          assertStringIncludes(text, "Noagentwilllaunch");
-          assertStringIncludes(
-            text,
-            started.created()?.path.replaceAll(/\s+/gu, "") ?? "",
-          );
+Deno.test("Update, Land and Drop preview, confirm, apply, and contain refusals", async () => {
+  const updateCalls: Array<{ dryRun?: boolean }> = [];
+  let updatePlans = 0;
+  await withDesk({
+    runtime: {
+      ...surveys(() =>
+        deskSurvey([
+          deskTaskEntry("agent/actions", "/worktrees/actions", {
+            id: "actions",
+            ahead: 2,
+            behind: 1,
+            gate_proof: { status: "honored" },
+          }),
+        ])
+      ),
+      updatePlan: () => {
+        updatePlans += 1;
+        return { ok: true, verb: "update" };
+      },
+      update: (_ctx, options) => {
+        updateCalls.push(options);
+      },
+    },
+  }, async (desk) => {
+    await desk.select("actions");
+    await desk.press("u");
+    await desk.opened("review-update-review");
+    await desk.confirm();
+    await desk.until(() => updateCalls.length === 1, "the update");
+  });
+  assertEquals(updatePlans, 1);
+  assertEquals(updateCalls, [{}]);
+
+  const applied: Array<Parameters<DeskRuntime["accept"]>[1]> = [];
+  await withDesk({
+    cliModel: TEST_CLI_MODEL,
+    runtime: {
+      ...surveys(() =>
+        deskSurvey([
+          deskTaskEntry("agent/ready", "/worktrees/ready", {
+            id: "ready",
+            ahead: 2,
+            proof_honored: true,
+            gate_proof: { status: "honored" },
+          }),
+        ])
+      ),
+      accept: (_ctx, options) => {
+        applied.push(options);
+      },
+    },
+  }, async (desk) => {
+    await desk.select("ready");
+    await desk.press("l");
+    await desk.opened("review-accept-review");
+    await desk.confirm();
+    await desk.until(() => applied.length === 1, "the landing");
+  });
+  // The Desk's confirm IS the acceptance, so the apply carries the
+  // attestation (ADR 0134): never a bare, consent-less landing.
+  assertEquals(applied, [{ confirmed: true, cliModel: TEST_CLI_MODEL }]);
+
+  const abandoned = deskTaskEntry("agent/abandoned", "/worktrees/abandoned", {
+    id: "abandoned",
+    broken: true,
+  });
+  const dropCalls: Array<{ force?: boolean }> = [];
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([abandoned])),
+      drop: (_ctx, _target, options) => {
+        dropCalls.push(
+          options.force === undefined ? {} : {
+            force: options.force,
+          },
+        );
+        if (options.force !== true) {
+          throw new DropWouldDiscardWork("unlanded work would be discarded");
         }
       },
     },
+  }, async (desk) => {
+    await desk.select("abandoned");
+    await desk.press("D");
+    await desk.opened("review-drop-review");
+    await desk.confirm();
+    await desk.opened("review-drop-challenge");
+    await desk.shows("unlanded work would be discarded");
+    await fill(desk, "challenge", abandoned.branch);
+    await desk.confirm();
+    await desk.until(() => dropCalls.length === 2, "the forced drop");
+  });
+  assertEquals(dropCalls, [{}, { force: true }]);
+
+  await withDesk({
+    cliModel: TEST_CLI_MODEL,
+    runtime: {
+      ...surveys(() =>
+        deskSurvey([
+          deskTaskEntry("agent/refused", "/worktrees/refused", {
+            id: "refused",
+            ahead: 2,
+            proof_honored: true,
+            gate_proof: { status: "honored" },
+          }),
+        ])
+      ),
+      accept: () =>
+        Promise.reject(new IdentityError("identity is unavailable")),
+    },
+  }, async (desk) => {
+    await runAction(desk, "refused", "accept");
+    await desk.confirm();
+    await desk.shows("identity is unavailable");
+  });
+});
+
+Deno.test("Park applies only on confirm and refreshes the checkout into its branch", async () => {
+  let parked = false;
+  let planCalls = 0;
+  let applyCalls = 0;
+  const task = {
+    id: "park-refresh",
+    branch: "agent/park-refresh",
+    title: "Park refresh",
+    title_source: "recorded" as const,
+  };
+  const effort = deskTaskEntry(task.branch, "/worktrees/park-refresh", {
+    id: task.id,
+    ahead: 1,
+    task,
+  });
+  await withDesk({
+    runtime: {
+      ...surveys(() =>
+        parked
+          ? deskSurvey([], {
+            unlanded_branches: [task.branch],
+            parked_tasks: [{
+              id: task.id,
+              branch: task.branch,
+              head: "a".repeat(40),
+              parked_at: "2026-07-11T12:00:00.000Z",
+              task,
+            }],
+          })
+          : deskSurvey([effort])
+      ),
+      parkPlan: () => {
+        planCalls += 1;
+        return { title: "Park plan", details: [], steps: [] };
+      },
+      park: () => {
+        applyCalls += 1;
+        parked = true;
+      },
+    },
+  }, async (desk) => {
+    await desk.select(task.id);
+    await desk.press("p");
+    await desk.opened("review-park-review");
+    await close(desk);
+    assertEquals(applyCalls, 0, "Keep parks nothing");
+    await desk.press("p");
+    await desk.confirm();
+    await desk.until(() => applyCalls === 1, "the park");
+    await desk.shows("Parked Park refresh; its branch is kept");
+    desk.settle();
+    await desk.until(
+      () => desk.state().lists.inbox?.selectedId !== task.id,
+      "the task leaves the inbox",
+    );
+  });
+  assertEquals(planCalls, 2);
+});
+
+Deno.test("a refusal is contained as a message and the next survey shows why", async () => {
+  const cases = [
     {
-      name: "compact creation opens the remembered available agent",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const config = configSchema.parse({
+      name: "landed",
+      refusal: "The selected task landed before Park could apply.",
+      after: (entry: StatusFleetEntry): StatusData =>
+        deskSurvey([], {
+          recent_completed_tasks: [{
+            branch: entry.branch,
+            head: "b".repeat(40),
+            completed_at: "2026-07-11T12:00:00.000Z",
+          }],
+        }),
+    },
+    {
+      name: "removed",
+      refusal: "The selected task no longer has a registered checkout.",
+      after: (): StatusData => deskSurvey(),
+    },
+  ];
+  for (const testCase of cases) {
+    const effort = deskTaskEntry(
+      `agent/external-${testCase.name}`,
+      `/worktrees/${testCase.name}`,
+      { id: testCase.name, ahead: 1 },
+    );
+    let changed = false;
+    await withDesk({
+      runtime: {
+        ...surveys(() =>
+          changed ? testCase.after(effort) : deskSurvey([effort])
+        ),
+        park: () => {
+          changed = true;
+          throw new WorktreeGitError(testCase.refusal);
+        },
+      },
+    }, async (desk) => {
+      await desk.select(testCase.name);
+      await desk.press("p");
+      await desk.confirm();
+      await desk.shows(testCase.refusal.slice(0, 40));
+      desk.settle();
+      await desk.shows("No tasks yet");
+    });
+  }
+});
+
+Deno.test("Reclaim names its consequences and reclaims the exact checkout on confirm", async () => {
+  const spent = deskTaskEntry("agent/stage-a", "/worktrees/stage-a", {
+    id: "stage-a",
+    ahead: 1,
+    contained_in: "agent/stage-b",
+  });
+  const reclaims: string[] = [];
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([spent])),
+      reclaim: (_ctx, target) => {
+        reclaims.push(target);
+      },
+    },
+  }, async (desk) => {
+    await runAction(desk, "stage-a", "reclaim");
+    await desk.opened("review-reclaim-review");
+    await desk.shows("Reclaim Stage a's checkout?");
+    await desk.shows("agent/stage-b");
+    await close(desk);
+    assertEquals(reclaims, [], "Keep reclaims nothing");
+    await desk.press(".");
+    await desk.opened("actions");
+    await desk.choose("reclaim");
+    await desk.confirm();
+    await desk.until(() => reclaims.length === 1, "the reclaim");
+  });
+  // The core receives the absolute selected path: two roots can hold
+  // same-named worktree directories.
+  assertEquals(reclaims, ["/worktrees/stage-a"]);
+});
+
+Deno.test("Drop never turns a generic refusal into destructive force", async () => {
+  for (
+    const error of [
+      new WorktreeGitError("The checkout is locked."),
+      new Error("The target is unavailable."),
+    ]
+  ) {
+    const calls: Array<{ force?: boolean }> = [];
+    await withDesk({
+      runtime: {
+        ...surveys(() =>
+          deskSurvey([
+            deskTaskEntry("agent/refused-drop", "/worktrees/refused-drop", {
+              id: "refused-drop",
+              ahead: 1,
+            }),
+          ])
+        ),
+        drop: (_ctx, _target, options) => {
+          calls.push(
+            options.force === undefined ? {} : { force: options.force },
+          );
+          throw error;
+        },
+      },
+    }, async (desk) => {
+      await desk.select("refused-drop");
+      await desk.press("D");
+      await desk.confirm();
+      await desk.shows(error.message);
+      assert(desk.top() !== "review-drop-challenge");
+    });
+    assertEquals(calls, [{}]);
+  }
+});
+
+Deno.test("New task creates a named task from its form and review, then selects it", async () => {
+  const started = scriptedStart({
+    id: "desk-launchers",
+    branch: "agent/desk-launchers",
+    worktreePath: "/worktrees/desk-launchers",
+  });
+  const output = deskTranscript();
+  await withDesk({
+    output,
+    runtime: {
+      ...surveys(() => started.survey([])),
+      startPlan: started.startPlan,
+      start: started.start,
+    },
+  }, async (desk) => {
+    await desk.press("n");
+    await desk.opened("form-new_task-review");
+    await fill(desk, "title", "desk launchers");
+    await desk.confirm();
+    await desk.opened("review-new_task-review");
+    await desk.shows("Create desk launchers from main?");
+    await desk.confirm();
+    await desk.until(() => started.created() !== undefined, "the start");
+    await desk.until(
+      () => desk.state().lists.inbox?.selectedId === "desk-launchers",
+      "the new task selected",
+    );
+  });
+  assertEquals(started.requests, [{
+    worktreeRoot: "/project.worktrees",
+    title: "desk launchers",
+  }]);
+  assertStringIncludes(
+    joinedTranscript(output),
+    "discern start --title 'desk launchers'",
+  );
+});
+
+Deno.test("an empty title starts a generated codename and the command says so", async () => {
+  const started = scriptedStart();
+  const output = deskTranscript();
+  await withDesk({
+    output,
+    runtime: {
+      ...surveys(() => started.survey([])),
+      startPlan: started.startPlan,
+      start: started.start,
+    },
+  }, async (desk) => {
+    await desk.press("n");
+    await desk.opened("form-new_task-review");
+    await desk.confirm();
+    await desk.opened("review-new_task-review");
+    await desk.confirm();
+    await desk.until(() => started.created() !== undefined, "the start");
+  });
+  assertEquals(started.requests, [{ worktreeRoot: "/project.worktrees" }]);
+  assert(!joinedTranscript(output).includes("--title"));
+});
+
+Deno.test("a new task can start from the trunk, a live task, or an unlanded branch", async () => {
+  const live = deskTaskEntry(
+    "agent/existing-task",
+    "/worktrees/existing-task",
+    {
+      id: "existing-task",
+    },
+  );
+  const orphan = "agent/unlanded-branch";
+  const cases = [
+    { name: "trunk", base: "main", from: undefined },
+    { name: "live task", base: live.branch, from: live.branch },
+    { name: "unlanded branch", base: orphan, from: orphan },
+  ];
+  for (const testCase of cases) {
+    const started = scriptedStart();
+    const title = `Repair ingress from ${testCase.name} — 修复`;
+    const brief = `Preserve the exact ${testCase.name} base and wording.`;
+    let grants = 0;
+    await withDesk({
+      runtime: {
+        ...surveys(() =>
+          started.survey([live], { unlanded_branches: [orphan] })
+        ),
+        startPlan: started.startPlan,
+        start: started.start,
+        grantEffort: () => {
+          grants += 1;
+          throw new Error("creation must not call the grant writer");
+        },
+      },
+    }, async (desk) => {
+      await desk.press("n");
+      await desk.opened("form-new_task-review");
+      await fill(desk, "title", title);
+      await pick(desk, "base", testCase.base);
+      await fill(desk, "brief", brief);
+      await desk.confirm();
+      await desk.opened("review-new_task-review");
+      await desk.shows("Landing permission");
+      await desk.confirm();
+      await desk.until(
+        () => started.created() !== undefined,
+        testCase.name,
+      );
+    });
+    assertEquals(started.requests, [{
+      worktreeRoot: "/project.worktrees",
+      title,
+      brief,
+      ...(testCase.from === undefined ? {} : { from: testCase.from }),
+    }], testCase.name);
+    assertEquals(grants, 0, testCase.name);
+  }
+});
+
+Deno.test("New task opens the remembered available agent, and a stale one falls back to None", async () => {
+  const cases = [
+    { name: "remembered", detected: "codex" as const, launches: 1 },
+    { name: "stale", detected: "gemini" as const, launches: 0 },
+  ];
+  for (const testCase of cases) {
+    const started = scriptedStart();
+    const opened: Array<{ command: string; cwd: string }> = [];
+    const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
+    await withDesk({
+      runtime: {
+        loadConfig: () =>
+          configSchema.parse({
+            project: { slug: "demo", agents: [testCase.detected] },
+            repository: { trunk: "main" },
+          }),
+        ...surveys(() => started.survey([])),
+        detectAgents: () => [{
+          name: testCase.detected,
+          binary: testCase.detected,
+        }],
+        readPreferences: () => ({ schema_version: 2, last_agent: "codex" }),
+        startPlan: started.startPlan,
+        start: started.start,
+        interactive: (command, _args, cwd) => {
+          opened.push({ command, cwd });
+          return 0;
+        },
+        writePreferences: (_root, preferences) => {
+          saved.push(preferences);
+          return { status: "saved" };
+        },
+      },
+    }, async (desk) => {
+      await desk.press("n");
+      await desk.opened("form-new_task-review");
+      await fill(desk, "title", "Human title");
+      await desk.confirm();
+      await desk.opened("review-new_task-review");
+      await desk.confirm();
+      await desk.until(() => started.created() !== undefined, testCase.name);
+    });
+    assertEquals(opened.length, testCase.launches, testCase.name);
+    if (testCase.launches > 0) {
+      assertEquals(opened, [{ command: "codex", cwd: "/worktrees/new-task" }]);
+      assertEquals(saved[0]?.last_agent, "codex");
+    }
+  }
+});
+
+Deno.test("an unavailable preference write leaves creation intact and says so", async () => {
+  const started = scriptedStart();
+  const output = deskTranscript();
+  await withDesk({
+    output,
+    runtime: {
+      loadConfig: () =>
+        configSchema.parse({
           project: { slug: "demo", agents: ["codex"] },
           repository: { trunk: "main" },
-        });
-        const choices = [START_TASK, "describe", "compact", BACK, QUIT];
-        const menus: string[] = [];
-        const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
-        const launches: Array<{
-          command: string;
-          args: readonly string[];
-          cwd: string;
-        }> = [];
-        const started = scriptedStart();
-        const runtime = scriptedRuntime(output, {
-          loadConfig: () => config,
-          status: () => ({
-            ok: true,
-            data: started.survey([main]),
-          }),
-          detectAgents: () => [{ name: "codex", binary: "codex" }],
-          readPreferences: () => ({
-            schema_version: 1,
-            last_agent: "codex",
-            creation_path: "compact",
-          }),
-          select: (options) => {
-            menus.push(String(options.message));
-            return choices.shift() ?? QUIT;
-          },
-          input: () => "Human title",
-          start: started.start,
-          interactive: (command, args, cwd) => {
-            launches.push({ command, args, cwd });
-            return 0;
-          },
-          writePreferences: (_root, preferences) => {
-            saved.push(preferences);
-            return { status: "saved" };
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(menus.includes("Choose an agent action"), false);
-        assertEquals(launches, [{
-          command: "codex",
-          args: [],
-          cwd: "/worktrees/new-task",
-        }]);
-        assertEquals(saved, [{
-          schema_version: 1,
-          last_agent: "codex",
-          creation_path: "compact",
-        }]);
-        assertStringIncludes(joined(output), "Open in Codex");
-      },
+        }),
+      ...surveys(() => started.survey([])),
+      detectAgents: () => [{ name: "codex", binary: "codex" }],
+      readPreferences: () => ({ schema_version: 2, last_agent: "codex" }),
+      startPlan: started.startPlan,
+      start: started.start,
+      writePreferences: () => ({
+        status: "unavailable",
+        reason: "the repository preference store is read-only",
+      }),
     },
-    {
-      name:
-        "an unavailable preference write leaves creation intact and explains the fallback",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const choices = [START_TASK, "codename", "compact", "none", BACK, QUIT];
-        const confirmations = [true];
-        const started = scriptedStart();
-        const runtime = scriptedRuntime(output, {
-          status: () => ({
-            ok: true,
-            data: started.survey([main]),
-          }),
-          select: () => choices.shift() ?? QUIT,
-          confirm: () => confirmations.shift() ?? false,
-          start: started.start,
-          writePreferences: () => ({
-            status: "unavailable",
-            reason: "the repository preference store is read-only",
-          }),
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assert(started.created() !== undefined);
-        assertStringIncludes(joined(output), "Desk preferences were not saved");
-        assertStringIncludes(joined(output), "preference store is read-only");
-        assertStringIncludes(joined(output), "current task is unchanged");
-        assertStringIncludes(joined(output), "may ask you to choose again");
-      },
-    },
-    {
-      name: "task creation cannot approve future authored source",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const choices = [
-          START_TASK,
-          "codename",
-          "expanded",
-          "main",
-          "none",
-          BACK,
-          QUIT,
-        ];
-        const confirmations = [true];
-        const started = scriptedStart();
-        let grants = 0;
-        const runtime = scriptedRuntime(output, {
-          status: () => ({
-            ok: true,
-            data: started.survey([main]),
-          }),
-          select: () => choices.shift() ?? QUIT,
-          input: () => "",
-          confirm: () => confirmations.shift() ?? false,
-          start: started.start,
-          grantEffort: () => {
-            grants++;
-            throw new Error("creation must not call the grant writer");
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assert(started.created() !== undefined);
-        assertEquals(grants, 0);
-        assertStringIncludes(
-          joined(output),
-          "Landing permission is a separate decision",
-        );
-      },
-    },
-    {
-      name: "a stale remembered agent falls back to an explicit choice",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const config = configSchema.parse({
-          project: { slug: "demo", agents: ["gemini"] },
-          repository: { trunk: "main" },
-        });
-        const choices = [
-          START_TASK,
-          "codename",
-          "compact",
-          "gemini:open",
-          BACK,
-          QUIT,
-        ];
-        let agentMenu = "";
-        let launchCount = 0;
-        const started = scriptedStart();
-        const runtime = scriptedRuntime(output, {
-          loadConfig: () => config,
-          status: () => ({
-            ok: true,
-            data: started.survey([main]),
-          }),
-          detectAgents: () => [{ name: "gemini", binary: "gemini" }],
-          readPreferences: () => ({
-            schema_version: 1,
-            last_agent: "codex",
-            creation_path: "compact",
-          }),
-          select: (options) => {
-            if (String(options.message) === "Choose an agent action") {
-              agentMenu = JSON.stringify(options.options);
-            }
-            return choices.shift() ?? QUIT;
-          },
-          start: started.start,
-          interactive: () => {
-            launchCount++;
-            return 0;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertStringIncludes(agentMenu, "Gemini");
-        assert(!agentMenu.includes("Codex"));
-        assertStringIncludes(agentMenu, "Create without opening an agent");
-        assertEquals(launchCount, 1);
-      },
-    },
-    {
-      name: "task creation returns safely from every progressive prompt",
-      check: async () => {
-        const cases = [
-          {
-            name: "title route",
-            choices: [START_TASK, BACK, QUIT],
-            cancelInputAt: 0,
-            planned: 0,
-          },
-          {
-            name: "title text",
-            choices: [START_TASK, "describe", QUIT],
-            cancelInputAt: 1,
-            planned: 0,
-          },
-          {
-            name: "creation path",
-            choices: [START_TASK, "codename", BACK, QUIT],
-            cancelInputAt: 0,
-            planned: 0,
-          },
-          {
-            name: "creation base",
-            choices: [START_TASK, "codename", "expanded", BACK, QUIT],
-            cancelInputAt: 0,
-            planned: 0,
-          },
-          {
-            name: "brief",
-            choices: [START_TASK, "codename", "expanded", "main", QUIT],
-            cancelInputAt: 1,
-            planned: 0,
-          },
-          {
-            name: "agent action",
-            choices: [
-              START_TASK,
-              "codename",
-              "expanded",
-              "main",
-              BACK,
-              QUIT,
-            ],
-            cancelInputAt: 0,
-            planned: 0,
-          },
-          {
-            name: "expanded creation confirmation",
-            choices: [
-              START_TASK,
-              "codename",
-              "expanded",
-              "main",
-              "none",
-              QUIT,
-            ],
-            cancelInputAt: 0,
-            cancelConfirmAt: 1,
-            planned: 1,
-          },
-          {
-            name: "creation confirmation",
-            choices: [START_TASK, "codename", "compact", "none", QUIT],
-            cancelInputAt: 0,
-            planned: 1,
-          },
-        ] as const;
-
-        for (const testCase of cases) {
-          const output = transcript();
-          const main = mainFleetEntry(ROOT);
-          const choices = [...testCase.choices];
-          let inputCalls = 0;
-          let confirmCalls = 0;
-          let planCalls = 0;
-          let startCalls = 0;
-          let preferenceWrites = 0;
-          const runtime = scriptedRuntime(output, {
-            status: () => ({ ok: true, data: statusData([main]) }),
-            select: () => choices.shift() ?? QUIT,
-            input: () => {
-              inputCalls++;
-              if (inputCalls === testCase.cancelInputAt) {
-                throw new InteractionCancelled();
-              }
-              return "";
-            },
-            confirm: () => {
-              confirmCalls++;
-              if (
-                "cancelConfirmAt" in testCase &&
-                confirmCalls === testCase.cancelConfirmAt
-              ) {
-                throw new InteractionCancelled();
-              }
-              return false;
-            },
-            startPlan: (_ctx, request) => {
-              planCalls++;
-              return preparedStart(request.title ?? "Generated codename");
-            },
-            start: (_ctx, prepared) => {
-              startCalls++;
-              return startedTask(prepared);
-            },
-            writePreferences: () => {
-              preferenceWrites++;
-              return { status: "saved" };
-            },
-          });
-
-          assertEquals(await runDesk({}, runtime), 0, testCase.name);
-          assertEquals(planCalls, testCase.planned, testCase.name);
-          assertEquals(startCalls, 0, testCase.name);
-          assertEquals(preferenceWrites, 0, testCase.name);
-        }
-      },
-    },
-    {
-      name: "an unlanded branch can be inspected or resumed by its exact ref",
-      check: async () => {
-        const branch = "agent/orphan-修复";
-        const main = mainFleetEntry(ROOT);
-
-        const inspectOutput = transcript();
-        const inspectChoices = [
-          deskUnlandedRoute(branch),
-          "inspect",
-          BACK,
-          QUIT,
-        ];
-        const gitCalls: string[][] = [];
-        let branchMenu = "";
-        let page = "";
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(inspectOutput, {
-              status: () => ({
-                ok: true,
-                data: { ...statusData([main]), unlanded_branches: [branch] },
-              }),
-              select: (options) => {
-                if (String(options.message) === "Unlanded branch") {
-                  branchMenu = JSON.stringify(options.options);
-                }
-                return inspectChoices.shift() ?? QUIT;
-              },
-              git: (args) => {
-                gitCalls.push(args);
-                return {
-                  success: true,
-                  stdout: args[0] === "log"
-                    ? "abc1234 Keep orphan work\n"
-                    : "src/a.ts | 2 ++\n",
-                  stderr: "",
-                };
-              },
-              pager: (text) => {
-                page = text;
-                return { shown: true };
-              },
-            }),
-          ),
-          0,
-        );
-        assertEquals(gitCalls, [
-          ["log", "--oneline", "--decorate", `main..${branch}`],
-          ["diff", "--stat", `main...${branch}`],
-        ]);
-        assertStringIncludes(page, branch);
-        assertStringIncludes(page, "abc1234 Keep orphan work");
-        assertStringIncludes(page, "src/a.ts | 2 ++");
-        assertStringIncludes(branchMenu, "Resume in a worktree");
-        assert(!branchMenu.includes("Delete"));
-
-        const resumeOutput = transcript();
-        const resumeChoices = [
-          deskUnlandedRoute(branch),
-          "resume",
-          "describe",
-          "none",
-          BACK,
-          QUIT,
-        ];
-        const inputs = [
-          "Resume orphan work",
-          "Retain the branch's committed base.",
-        ];
-        const confirmations = [true];
-        const started = scriptedStart();
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(resumeOutput, {
-              status: () => ({
-                ok: true,
-                data: started.survey([main], { unlanded_branches: [branch] }),
-              }),
-              select: () => resumeChoices.shift() ?? QUIT,
-              input: () => inputs.shift() ?? "",
-              confirm: () => confirmations.shift() ?? false,
-              startPlan: started.startPlan,
-              start: started.start,
-            }),
-          ),
-          0,
-        );
-        assertEquals(started.requests, [{
-          worktreeRoot: "/project.worktrees",
-          title: "Resume orphan work",
-          brief: "Retain the branch's committed base.",
-          from: branch,
-        }]);
-        assertStringIncludes(joined(resumeOutput), branch);
-      },
-    },
-    {
-      name: "a live task starts a follow-up from its exact branch tip",
-      check: async () => {
-        const output = transcript();
-        const main = mainFleetEntry(ROOT);
-        const parent = fleetEntry(
-          "agent/parent-task",
-          "/worktrees/parent-task",
-          {
-            id: "parent-task",
-          },
-        );
-        const choices = [
-          parent.path,
-          "follow_up",
-          "describe",
-          "none",
-          BACK,
-          QUIT,
-        ];
-        const inputs = [
-          "Follow-up: preserve metadata",
-          "Build on the selected task's committed tip.",
-        ];
-        const confirmations = [true];
-        const preferences: Array<
-          Parameters<DeskRuntime["writePreferences"]>[1]
-        > = [];
-        const started = scriptedStart();
-        const runtime = scriptedRuntime(output, {
-          status: () => ({
-            ok: true,
-            data: started.survey([main, parent]),
-          }),
-          readPreferences: () => ({
-            schema_version: 1,
-            creation_path: "compact",
-          }),
-          select: () => choices.shift() ?? QUIT,
-          input: () => inputs.shift() ?? "",
-          confirm: () => confirmations.shift() ?? false,
-          startPlan: started.startPlan,
-          start: started.start,
-          writePreferences: (_root, value) => {
-            preferences.push(value);
-            return { status: "saved" };
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(started.requests, [{
-          worktreeRoot: "/project.worktrees",
-          title: "Follow-up: preserve metadata",
-          brief: "Build on the selected task's committed tip.",
-          from: parent.branch,
-        }]);
-        assertEquals(preferences, [{
-          schema_version: 1,
-          creation_path: "compact",
-        }]);
-        assertStringIncludes(joined(output), parent.branch);
-        assertStringIncludes(joined(output), START_COMMIT);
-      },
-    },
-  ];
-  await assertCasesAsync(cases, (row) => row.name, async (row) => {
-    await row.check();
+  }, async (desk) => {
+    await desk.press("n");
+    await desk.opened("form-new_task-review");
+    await desk.confirm();
+    await desk.opened("review-new_task-review");
+    await desk.confirm();
+    await desk.until(() => started.created() !== undefined, "the start");
   });
+  assertStringIncludes(
+    joinedTranscript(output),
+    "Desk preferences were not saved",
+  );
+  assertStringIncludes(joinedTranscript(output), "read-only");
 });
 
-Deno.test("Desk scripted readers and launchers preserve selected targets and literal arguments", async () => {
-  const cases = [
-    {
-      name:
-        "desk explains missing configured agents and launches available argv in the worktree",
-      check: async () => {
-        const output = transcript();
-        const effort = fleetEntry("agent/agents", "/worktrees/agents");
-        const data = statusData([
-          mainFleetEntry(ROOT),
-          effort,
-        ]);
-        const worktreeConfig = configSchema.parse({
+Deno.test("task creation returns safely from its form and from its review", async () => {
+  let plans = 0;
+  let starts = 0;
+  let writes = 0;
+  await withDesk({
+    runtime: {
+      startPlan: (_ctx, request) => {
+        plans += 1;
+        return preparedStart(request.title ?? "Generated codename");
+      },
+      start: (_ctx, prepared) => {
+        starts += 1;
+        return startedTask(prepared);
+      },
+      writePreferences: () => {
+        writes += 1;
+        return { status: "saved" };
+      },
+    },
+  }, async (desk) => {
+    await desk.press("n");
+    await desk.opened("form-new_task-review");
+    await desk.type("Abandoned");
+    await close(desk);
+    assertEquals(plans, 0, "Cancel on the form plans nothing");
+    await desk.press("n");
+    await desk.opened("form-new_task-review");
+    await desk.confirm();
+    await desk.opened("review-new_task-review");
+    await desk.until(() => plans === 1, "the plan");
+    await close(desk);
+    await close(desk);
+  });
+  assertEquals(plans, 1);
+  assertEquals(starts, 0);
+  assertEquals(writes, 0);
+});
+
+Deno.test("a parked branch can be read or resumed by its exact ref", async () => {
+  const branch = "agent/orphan-修复";
+  const gitCalls: string[][] = [];
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([], { unlanded_branches: [branch] })),
+      git: (args) => {
+        gitCalls.push([...args]);
+        return {
+          success: true,
+          stdout: args[0] === "log"
+            ? "abc1234 Keep orphan work\n"
+            : "src/a.ts | 2 ++\n",
+          stderr: "",
+        };
+      },
+    },
+  }, async (desk) => {
+    await desk.select(parkedRowId(branch));
+    await desk.press("v");
+    await desk.opened("reader-branch");
+    await desk.shows("abc1234 Keep orphan work");
+    await desk.shows("src/a.ts | 2 ++");
+    await close(desk);
+  });
+  assert(
+    gitCalls.some((args) =>
+      args.join(" ") === `log --oneline --decorate main..${branch}`
+    ),
+  );
+  assert(
+    gitCalls.some((args) => args.join(" ") === `diff --stat main...${branch}`),
+  );
+
+  const started = scriptedStart();
+  await withDesk({
+    runtime: {
+      ...surveys(() => started.survey([], { unlanded_branches: [branch] })),
+      startPlan: started.startPlan,
+      start: started.start,
+    },
+  }, async (desk) => {
+    await desk.select(parkedRowId(branch));
+    await desk.press("enter");
+    await desk.opened("form-resume-review");
+    await fill(desk, "title", "Resume orphan work");
+    await fill(desk, "brief", "Retain the branch's committed base.");
+    await desk.confirm();
+    await desk.opened("review-resume-review");
+    await desk.confirm();
+    await desk.until(() => started.created() !== undefined, "the resume");
+  });
+  assertEquals(started.requests, [{
+    worktreeRoot: "/project.worktrees",
+    title: "Resume orphan work",
+    brief: "Retain the branch's committed base.",
+    from: branch,
+  }]);
+});
+
+Deno.test("Start follow-up starts from the task's exact branch", async () => {
+  const parent = deskTaskEntry("agent/parent-task", "/worktrees/parent-task", {
+    id: "parent-task",
+  });
+  const started = scriptedStart();
+  await withDesk({
+    runtime: {
+      ...surveys(() => started.survey([parent])),
+      startPlan: started.startPlan,
+      start: started.start,
+    },
+  }, async (desk) => {
+    await desk.select("parent-task");
+    await desk.press("f");
+    await desk.opened("form-follow_up-review");
+    await desk.shows(`from ${parent.branch}`);
+    await fill(desk, "title", "Follow-up: preserve metadata");
+    await fill(desk, "brief", "Build on the selected task's committed tip.");
+    await desk.confirm();
+    await desk.opened("review-follow_up-review");
+    await desk.confirm();
+    await desk.until(() => started.created() !== undefined, "the follow-up");
+  });
+  assertEquals(started.requests, [{
+    worktreeRoot: "/project.worktrees",
+    title: "Follow-up: preserve metadata",
+    brief: "Build on the selected task's committed tip.",
+    from: parent.branch,
+  }]);
+});
+
+Deno.test("Open agent lists configured agents, explains missing ones, and launches exact argv", async () => {
+  const effort = deskTaskEntry("agent/agents", "/worktrees/agents", {
+    id: "agents",
+  });
+  const launches: Array<{
+    command: string;
+    args: readonly string[];
+    cwd: string;
+    env: Record<string, string>;
+  }> = [];
+  const preferences: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
+  let discovered = 0;
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([effort])),
+      loadConfig: () =>
+        configSchema.parse({
           project: { slug: "demo", agents: ["claude_code", "codex"] },
           repository: { trunk: "main" },
-        });
-        const choices = [
-          effort.path,
-          "agent",
-          "claude_code:open",
-          BACK,
-          effort.path,
-          "agent",
-          "claude_code:continue",
-          BACK,
-          QUIT,
+        }),
+      detectAgents: () => {
+        discovered += 1;
+        return [
+          { name: "claude_code", binary: "claude" },
+          { name: "gemini", binary: "gemini" },
         ];
-        const menus: Array<{
-          message: string;
-          options: string;
-          reservedRows: number | undefined;
-        }> = [];
-        const launches: Array<{
-          command: string;
-          args: readonly string[];
-          cwd: string;
-          env: Record<string, string>;
-        }> = [];
-        const preferences: Array<
-          Parameters<DeskRuntime["writePreferences"]>[1]
-        > = [];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data }),
-          loadConfig: (root) => root === effort.path ? worktreeConfig : CONFIG,
-          detectAgents: () => [
-            { name: "claude_code", binary: "claude" },
-            { name: "gemini", binary: "gemini" },
-          ],
-          select: (options) => {
-            menus.push({
-              message: String(options.message),
-              options: JSON.stringify(options.options),
-              reservedRows: options.reservedRows,
-            });
-            return choices.shift() ?? QUIT;
-          },
-          interactive: (command, args, cwd, env) => {
-            launches.push({ command, args, cwd, env });
-            return 0;
-          },
-          readPreferences: () => ({
-            schema_version: 1,
-            creation_path: "expanded",
-          }),
-          writePreferences: (_root, value) => {
-            preferences.push(value);
-            return { status: "saved" };
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(launches, [
-          {
-            command: "claude",
-            args: [],
-            cwd: effort.path,
-            env: { [DESK_SESSION_ENV]: "1" },
-          },
-          {
-            command: "claude",
-            args: ["--continue"],
-            cwd: effort.path,
-            env: { [DESK_SESSION_ENV]: "1" },
-          },
-        ]);
-        assertEquals(preferences, [{
-          schema_version: 1,
-          creation_path: "expanded",
-          last_agent: "claude_code",
-        }, {
-          schema_version: 1,
-          creation_path: "expanded",
-          last_agent: "claude_code",
-        }]);
-        const actionMenu = menus.find((menu) =>
-          menu.message === "Choose an action"
-        );
-        const agentMenu = menus.find((menu) =>
-          menu.message.startsWith("Choose an agent for Agents")
-        );
-        const boardMenu = menus.find((menu) =>
-          menu.message === "Choose a task or desk command"
-        );
-        assert(actionMenu !== undefined);
-        assert(agentMenu !== undefined);
-        assert(boardMenu !== undefined);
-        assertStringIncludes(
-          agentMenu.options,
-          '"kind":"group-heading","id":"agent-claude_code","name":"Claude Code"',
-        );
-        assertStringIncludes(
-          agentMenu.options,
-          '"kind":"group-heading","id":"task-navigation","name":"Task"',
-        );
-        assert(
-          !agentMenu.options.includes('"name":"Agents"'),
-          "agent actions should be grouped by provider",
-        );
-        assertStringIncludes(agentMenu.options, "Open in Claude Code");
-        assertStringIncludes(agentMenu.options, "Continue in Claude Code");
-        assertStringIncludes(agentMenu.options, "Codex");
-        assertStringIncludes(agentMenu.options, "Codex is configured");
-        assertStringIncludes(agentMenu.options, "not on PATH");
-        assertStringIncludes(agentMenu.options, '"disabled":true');
-        assert(
-          !agentMenu.options.includes("Gemini"),
-          "detected but unconfigured stays hidden",
-        );
-        // What the Desk printed while the agent owned the terminal was true
-        // only until it exited, so no frame keeps it as the Desk's message.
-        assertStringIncludes(joined(output), "to return to this task");
-        const titles = output.stdout
-          .map((frame) => frame.split("\n")[0] ?? "")
-          .filter((title) => title.startsWith("discern · "));
-        assert(titles.length > 1, "the Desk repainted after the agent exited");
-        assert(
-          titles.every((title) =>
-            !title.includes("to return") && !title.includes("Returned from")
-          ),
-          titles.join("\n"),
-        );
+      },
+      interactive: (command, args, cwd, env) => {
+        launches.push({ command, args, cwd, env });
+        return 0;
+      },
+      writePreferences: (_root, value) => {
+        preferences.push(value);
+        return { status: "saved" };
       },
     },
-    {
-      name: "desk inspect and jump actions use the scripted effect boundary",
-      check: async () => {
-        const output = transcript();
-        const effort = fleetEntry("agent/inspect", "/worktrees/inspect", {
-          ahead: 2,
-          behind: 1,
-          proof_honored: true,
-          gate_proof: { status: "honored" },
-        });
-        const data = statusData([
-          mainFleetEntry(ROOT),
-          effort,
-        ]);
-        const choices = [
-          effort.path,
-          "inspect",
-          "changes",
-          "proof",
-          DESK_REVIEW_ROUTES.diff,
-          DESK_REVIEW_ROUTES.back,
-          "jump",
-          BACK,
-          QUIT,
-        ];
-        const menus: string[] = [];
-        const gitResults = [
-          { success: true, stdout: "abc123 Explain the change\n", stderr: "" },
-          { success: true, stdout: '3\t1\tsrc/café"desk.ts\0', stderr: "" },
-          { success: true, stdout: 'M\0src/café"desk.ts\0', stderr: "" },
-          { success: true, stdout: ' M src/café"desk.ts\0', stderr: "" },
-          { success: false, stdout: "", stderr: "diff unavailable\n" },
-        ];
-        const shellCalls: Array<{
-          command: string;
-          args: readonly string[];
-          cwd: string;
-          env: Record<string, string>;
-        }> = [];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data }),
-          proof: () => ({
-            status: "honored",
-            proof: "Proof honored for this commit",
-          }),
-          select: (options) => {
-            menus.push(JSON.stringify(options.options));
-            const choice = choices.shift();
-            assert(
-              choice !== undefined,
-              "the scripted desk exhausted its choices",
-            );
-            return choice;
-          },
-          git: () => {
-            const result = gitResults.shift();
-            assert(result !== undefined, "inspect ran an unexpected git read");
-            return result;
-          },
-          interactive: (command, args, cwd, env) => {
-            shellCalls.push({ command, args, cwd, env });
-            return 0;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(shellCalls.length, 1);
-        assertEquals(shellCalls[0]?.cwd, effort.path);
-        assertEquals(shellCalls[0]?.args, []);
-        assertEquals(shellCalls[0]?.env, { [DESK_SESSION_ENV]: "1" });
-        assert((shellCalls[0]?.command ?? "").length > 0);
-        const text = joined(output);
-        assertStringIncludes(text, "abc123 Explain the change");
-        assertStringIncludes(text, 'src/café"desk.ts');
-        assertStringIncludes(text, "diff unavailable");
-        assertStringIncludes(text, "Proof honored for this commit");
-        const actionMenu = menus.join("\n");
-        // A ready task offers its next step and its keyed alternatives; the
-        // rest of the registry waits under More actions.
-        for (
-          const label of [
-            DESK_ACTION_LABELS.accept,
-            DESK_ACTION_LABELS.inspect,
-            DESK_ACTION_LABELS.grant,
-            "Task details",
-            "More actions",
-          ]
-        ) assertStringIncludes(actionMenu, label);
-      },
-    },
-    {
-      name: "desk offers and runs only the selected worktree's Project Scripts",
-      check: async () => {
-        const output = transcript();
-        const empty = fleetEntry("agent/empty", "/worktrees/empty");
-        const scripted = fleetEntry("agent/scripted", "/worktrees/scripted");
-        const data = statusData([
-          mainFleetEntry(ROOT),
-          empty,
-          scripted,
-        ]);
-        const choices = [
-          empty.path,
-          BACK,
-          scripted.path,
-          "scripts",
-          "deploy",
-          "run",
-          BACK,
-          QUIT,
-        ];
-        const menus: Array<{ message: string; options: string }> = [];
-        const discoveryRoots: string[] = [];
-        const runs: Array<{
-          root: string;
-          name: string;
-          args: readonly string[];
-          env: Record<string, string>;
-        }> = [];
-        let pauses = 0;
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data }),
-          scripts: (root) => {
-            discoveryRoots.push(root);
-            return root === scripted.path
-              ? [{ name: "deploy", description: "deploy this checkout" }]
-              : [];
-          },
-          select: (options) => {
-            menus.push({
-              message: String(options.message),
-              options: JSON.stringify(options.options),
-            });
-            const choice = choices.shift();
-            assert(
-              choice !== undefined,
-              "the scripted desk exhausted its choices",
-            );
-            return choice;
-          },
-          runScript: (root, name, args, env) => {
-            runs.push({ root, name, args, env });
-            return 7;
-          },
-          pause: () => {
-            pauses++;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assert(discoveryRoots.includes(empty.path));
-        assert(discoveryRoots.includes(scripted.path));
-        assertEquals(runs, [{
-          root: scripted.path,
-          name: "deploy",
-          args: [],
-          env: { [DESK_SESSION_ENV]: "1" },
-        }]);
-        assertEquals(pauses, 1);
-
-        const actionMenus = menus.filter((menu) =>
-          menu.message === "Choose an action"
-        );
-        assert(actionMenus.length > 0);
-        const scriptMenu = menus.find((menu) =>
-          menu.message.startsWith("Choose a Project Script for Scripted")
-        );
-        assert(scriptMenu !== undefined);
-        assertStringIncludes(scriptMenu.options, "deploy");
-        assertStringIncludes(scriptMenu.options, "deploy this checkout");
-
-        const text = joined(output);
-        assertStringIncludes(text, "Run: discern scripts deploy (in Scripted)");
-        assertStringIncludes(text, "Project Script exited with status 7");
-      },
-    },
-    {
-      name:
-        "desk collects and forwards literal arguments to a worktree Project Script",
-      check: async () => {
-        const output = transcript();
-        const scripted = fleetEntry(
-          "agent/script-arguments",
-          "/worktrees/script-arguments",
-        );
-        const data = statusData([
-          mainFleetEntry(ROOT),
-          scripted,
-        ]);
-        const choices = [
-          scripted.path,
-          "scripts",
-          "publish-canary",
-          "run",
-          BACK,
-          QUIT,
-        ];
-        const inputs: TextRequestOptions[] = [];
-        const runs: unknown[][] = [];
-        const runtime = scriptedRuntime(output, {
-          status: () => ({ ok: true, data }),
-          scripts: (root) =>
-            root === scripted.path
-              ? [{ name: "publish-canary", description: "publish one preview" }]
-              : [],
-          select: () => choices.shift() ?? QUIT,
-          input: (options) => {
-            inputs.push(options);
-            return `--target 'review environment' '--literal=$HOME'`;
-          },
-          runScript: (...values: unknown[]) => {
-            runs.push(values);
-            return 0;
-          },
-          pause: () => {},
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(inputs.length, 1);
-        assertEquals(runs, [[
-          scripted.path,
-          "publish-canary",
-          ["--target", "review environment", "--literal=$HOME"],
-          { [DESK_SESSION_ENV]: "1" },
-          undefined,
-        ]]);
-        const text = joined(output);
-        assertTerminalTextIncludes(
-          text,
-          "discern scripts publish-canary --target 'review environment' '--literal=$HOME'",
-        );
-      },
-    },
-    {
-      name: "desk offers and runs Project Scripts from the project root",
-      check: async () => {
-        const output = transcript();
-        const choices = [RUN_PROJECT_SCRIPT, "health", "run", QUIT];
-        const menus: Array<{ message: string; options: string }> = [];
-        const runs: Array<{
-          root: string;
-          name: string;
-          args: readonly string[];
-          env: Record<string, string>;
-        }> = [];
-        let pauses = 0;
-        const confirmations: ConfirmationRequestOptions[] = [];
-        const runtime = scriptedRuntime(output, {
-          scripts: (root) =>
-            root === ROOT
-              ? [{ name: "health", description: "check the project" }]
-              : [],
-          select: (options) => {
-            menus.push({
-              message: String(options.message),
-              options: JSON.stringify(options.options),
-            });
-            return choices.shift() ?? QUIT;
-          },
-          input: () => `--mode 'full scan'`,
-          runScript: (root, name, args, env) => {
-            runs.push({ root, name, args, env });
-            return 0;
-          },
-          confirm: (_message, options) => {
-            confirmations.push(options);
-            return true;
-          },
-          pause: () => {
-            pauses++;
-          },
-        });
-
-        assertEquals(await runDesk({}, runtime), 0);
-        assertEquals(runs, [{
-          root: ROOT,
-          name: "health",
-          args: ["--mode", "full scan"],
-          env: { [DESK_SESSION_ENV]: "1" },
-        }]);
-        assertEquals(pauses, 0);
-        assertEquals(confirmations, [{
-          defaultTo: false,
-          noLabel: "Cancel",
-          yesLabel: "Run",
-        }]);
-
-        const rootMenu = menus[0]?.options ?? "";
-        const startAt = rootMenu.indexOf(DESK_COMMAND_LABELS.new_task);
-        const scriptAt = rootMenu.indexOf(DESK_COMMAND_LABELS.main_scripts);
-        const docsAt = rootMenu.indexOf(DESK_COMMAND_LABELS.manual);
-        assert(startAt >= 0 && startAt < scriptAt && scriptAt < docsAt);
-        const scriptMenu = menus.find((menu) =>
-          menu.message.startsWith(
-            "Choose a Project Script for demo — project root",
-          )
-        );
-        assert(scriptMenu !== undefined);
-        assertStringIncludes(scriptMenu.options, "health");
-        assertStringIncludes(scriptMenu.options, "check the project");
-        assertStringIncludes(
-          scriptMenu.options,
-          '"kind":"group-heading","id":"desk-navigation","name":"Desk"',
-        );
-        assertStringIncludes(
-          joined(output),
-          "Run: discern scripts health --mode 'full scan' (in project root)",
-        );
-        assertStringIncludes(joined(output), "Executable");
-        assertStringIncludes(joined(output), "Working directory");
-        assertStringIncludes(joined(output), "Destructive policy: undeclared");
-      },
-    },
-    {
-      name:
-        "Check for updates asks before it opens a browser, and Cancel opens nothing",
-      check: async () => {
-        const output = transcript();
-        const choices = ["releases", QUIT];
-        const asked: Array<{
-          message: string;
-          options: ConfirmationRequestOptions;
-        }> = [];
-        let opened = 0;
-        assertEquals(
-          await runDesk(
-            {},
-            scriptedRuntime(output, {
-              select: () => choices.shift() ?? QUIT,
-              confirm: (message, options) => {
-                asked.push({ message, options });
-                return false;
-              },
-              openBrowser: () => {
-                opened++;
-                throw new Error("a declined disclosure must open nothing");
-              },
-            }),
-          ),
-          0,
-        );
-        assertEquals(asked, [{
-          message: "Check for updates?",
-          options: { defaultTo: false, noLabel: "Cancel", yesLabel: "Open" },
-        }]);
-        assertEquals(opened, 0);
-        assertStringIncludes(joined(output), "Nothing is installed");
-        assertStringIncludes(joined(output), DISCERN_VERSION);
-      },
-    },
-    {
-      name:
-        "desk suspends into the shared manual and returns without a success pause",
-      check: async () => {
-        for (const code of [0, 1]) {
-          const output = transcript();
-          const choices = [READ_DOCS, QUIT];
-          let opens = 0;
-          let pauses = 0;
-          assertEquals(
-            await runDesk(
-              {},
-              scriptedRuntime(output, {
-                select: () => choices.shift() ?? QUIT,
-                docs: () => {
-                  opens++;
-                  return code;
-                },
-                pause: () => {
-                  pauses++;
-                },
-                openBrowser: () => {
-                  throw new Error(
-                    "Desk must use the shared offline manual browser",
-                  );
-                },
-              }),
-            ),
-            0,
-          );
-          assertEquals(opens, 1);
-          assertEquals(pauses, 0);
-          if (code !== 0) {
-            assertStringIncludes(joined(output), "manual could not open");
-          }
-        }
-      },
-    },
-  ];
-  await assertCasesAsync(cases, (row) => row.name, async (row) => {
-    await row.check();
+  }, async (desk) => {
+    await desk.select("agents");
+    await desk.until(() => discovered > 0, "agent discovery");
+    for (const [index, launch] of ["open", "continue"].entries()) {
+      await desk.press("a");
+      await desk.opened("agents");
+      const screen = desk.screen();
+      assertStringIncludes(screen, "Claude Code");
+      assertStringIncludes(screen, "Codex");
+      assert(
+        !screen.includes("Gemini"),
+        "detected but unconfigured stays hidden",
+      );
+      await desk.choose(`claude_code:${launch}`);
+      await desk.until(() => launches.length === index + 1, launch);
+      await desk.shows("Back from Claude Code");
+    }
   });
+  assertEquals(launches, [
+    {
+      command: "claude",
+      args: [],
+      cwd: effort.path,
+      env: { [DESK_SESSION_ENV]: "1" },
+    },
+    {
+      command: "claude",
+      args: ["--continue"],
+      cwd: effort.path,
+      env: { [DESK_SESSION_ENV]: "1" },
+    },
+  ]);
+  assertEquals(preferences.map((value) => value.last_agent), [
+    "claude_code",
+    "claude_code",
+  ]);
+  assertEquals(
+    preferences.filter((value) => value.folded_groups !== undefined),
+    [],
+    "unchanged folds are not written back",
+  );
+});
+
+Deno.test("View changes reads the task's evidence and lends the terminal to the pager and a shell", async () => {
+  const effort = deskTaskEntry("agent/inspect", "/worktrees/inspect", {
+    id: "inspect",
+    ahead: 2,
+    behind: 1,
+    proof_honored: true,
+    gate_proof: { status: "honored" },
+  });
+  const reads = new Map<
+    string,
+    { success: boolean; stdout: string; stderr: string }
+  >([
+    ["log", {
+      success: true,
+      stdout: "abc123 Explain the change\n",
+      stderr: "",
+    }],
+    ["diff --numstat", {
+      success: true,
+      stdout: '3\t1\tsrc/café"desk.ts\0',
+      stderr: "",
+    }],
+    ["diff --name-status", {
+      success: true,
+      stdout: 'M\0src/café"desk.ts\0',
+      stderr: "",
+    }],
+    ["status", { success: false, stdout: "", stderr: "status unavailable\n" }],
+  ]);
+  const pages: string[] = [];
+  const shells: Array<{ cwd: string; env: Record<string, string> }> = [];
+  await withDesk({
+    runtime: {
+      ...surveys(() => deskSurvey([effort])),
+      git: (args) => {
+        const key = args[0] === "diff" ? `diff ${args[1]}` : args[0] ?? "";
+        return reads.get(key) ?? { success: true, stdout: "", stderr: "" };
+      },
+      pager: (text) => {
+        pages.push(text);
+        return { shown: true };
+      },
+      interactive: (_command, _args, cwd, env) => {
+        shells.push({ cwd, env });
+        return 0;
+      },
+    },
+  }, async (desk) => {
+    await desk.select("inspect");
+    await desk.press("v");
+    await desk.opened("reader-changes");
+    await desk.shows("abc123 Explain the change");
+    await desk.shows('src/café"desk.ts');
+    await desk.shows("status unavailable");
+    await desk.press("o");
+    await desk.until(() => pages.length === 1, "the pager");
+    await desk.opened("reader-changes");
+    await close(desk);
+    await desk.press("s");
+    await desk.until(() => shells.length === 1, "the shell");
+  });
+  assertEquals(shells, [{
+    cwd: effort.path,
+    env: { [DESK_SESSION_ENV]: "1" },
+  }]);
+});
+
+Deno.test("Run a script offers only the selected checkout's Project Scripts and passes literal arguments", async () => {
+  const empty = deskTaskEntry("agent/empty", "/worktrees/empty", {
+    id: "empty",
+  });
+  const scripted = deskTaskEntry("agent/scripted", "/worktrees/scripted", {
+    id: "scripted",
+  });
+  const runs: Array<{
+    root: string;
+    name: string;
+    args: readonly string[];
+    env: Record<string, string>;
+  }> = [];
+  const discovered: string[] = [];
+  let pauses = 0;
+  const output = deskTranscript();
+  await withDesk({
+    output,
+    runtime: {
+      ...surveys(() => deskSurvey([empty, scripted])),
+      scripts: (root) => {
+        discovered.push(root);
+        return root === scripted.path
+          ? [{ name: "deploy", description: "deploy this checkout" }]
+          : [];
+      },
+      runScript: (root, name, args, env) => {
+        runs.push({ root, name, args, env });
+        return runs.length === 1 ? 7 : 0;
+      },
+      pause: () => {
+        pauses += 1;
+      },
+    },
+  }, async (desk) => {
+    await desk.select("empty");
+    await desk.until(() => discovered.includes(empty.path), "empty discovery");
+    await desk.press("x");
+    await desk.shows("No Project Scripts");
+    await close(desk);
+    await desk.select("scripted");
+    await desk.until(
+      () => discovered.includes(scripted.path),
+      "scripted discovery",
+    );
+    for (
+      const typed of ["", `--target 'review environment' '--literal=$HOME'`]
+    ) {
+      await desk.press("x");
+      await desk.opened("scripts");
+      await desk.shows("deploy this checkout");
+      await desk.choose("deploy");
+      await desk.opened("form-scripts-review");
+      if (typed !== "") await fill(desk, "args", typed);
+      await desk.confirm();
+      await desk.until(
+        () => runs.length === (typed === "" ? 1 : 2),
+        "the script run",
+      );
+    }
+  });
+  assertEquals(runs, [
+    {
+      root: scripted.path,
+      name: "deploy",
+      args: [],
+      env: { [DESK_SESSION_ENV]: "1" },
+    },
+    {
+      root: scripted.path,
+      name: "deploy",
+      args: ["--target", "review environment", "--literal=$HOME"],
+      env: { [DESK_SESSION_ENV]: "1" },
+    },
+  ]);
+  assertEquals(pauses, 1, "only the failed run waits to be read");
+  assertStringIncludes(
+    joinedTranscript(output),
+    "Project Script deploy exited with status 7",
+  );
+});
+
+Deno.test("Project Scripts run from the main checkout through the palette", async () => {
+  const runs: Array<{ root: string; name: string; args: readonly string[] }> =
+    [];
+  await withDesk({
+    runtime: {
+      scripts: (root) =>
+        root === DESK_ROOT
+          ? [{ name: "health", description: "check the project" }]
+          : [],
+      runScript: (root, name, args) => {
+        runs.push({ root, name, args });
+        return 0;
+      },
+    },
+  }, async (desk) => {
+    await desk.palette("Run a script in the main", "main_scripts");
+    await desk.opened("scripts");
+    await desk.shows("check the project");
+    await desk.choose("health");
+    await desk.opened("form-main_scripts-review");
+    await fill(desk, "args", `--mode 'full scan'`);
+    await desk.confirm();
+    await desk.until(() => runs.length === 1, "the script run");
+  });
+  assertEquals(runs, [{
+    root: DESK_ROOT,
+    name: "health",
+    args: ["--mode", "full scan"],
+  }]);
+});
+
+Deno.test("Check for updates asks before it opens a browser, and Cancel opens nothing", async () => {
+  let opened = 0;
+  await withDesk({
+    runtime: {
+      openBrowser: () => {
+        opened += 1;
+        throw new Error("a declined disclosure must open nothing");
+      },
+    },
+  }, async (desk) => {
+    await desk.palette("Check for updates", "updates");
+    await desk.opened("review-updates-review");
+    await desk.shows("Check for updates?");
+    await desk.shows(DISCERN_VERSION);
+    await close(desk);
+  });
+  assertEquals(opened, 0);
+});
+
+Deno.test("Read the manual lends the terminal to the shared manual and says when it fails", async () => {
+  for (const code of [0, 1]) {
+    let opens = 0;
+    let pauses = 0;
+    await withDesk({
+      runtime: {
+        docs: () => {
+          opens += 1;
+          return code;
+        },
+        pause: () => {
+          pauses += 1;
+        },
+        openBrowser: () => {
+          throw new Error("the Desk uses the shared offline manual");
+        },
+      },
+    }, async (desk) => {
+      await desk.palette("Read the manual", "manual");
+      await desk.until(() => opens === 1, "the manual");
+      await desk.shows(
+        code === 0 ? "Back from the manual" : "manual could not open",
+      );
+    });
+    assertEquals(pauses, 0);
+  }
 });

@@ -1,0 +1,533 @@
+/**
+ * The Desk's product state machine, driven event by event without a
+ * terminal: one survey at a time with a single queued follow-up, Retrying
+ * then Offline, layers that only the owner opens and closes, the messages
+ * a moved or vanished selection leaves, and what a returning child or effect
+ * leaves behind.
+ */
+
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  APPLICATION_LAYER_DEPTH,
+  DEFAULT_APPLICATION_LIST_MIN_TITLE,
+  terminalApplicationReservedKeys,
+} from "discern-design-system/cli/interactive";
+import {
+  DESK_OFFLINE_FAILURES,
+  DESK_REFRESH_MS,
+  type DeskEffect,
+  type DeskEvent,
+  type DeskIntent,
+  type DeskLayer,
+  deskProduct,
+  type DeskProductState,
+  type DeskTransition,
+  initialDeskProduct,
+  layerId,
+} from "../src/engine/desk/desk_state.ts";
+import {
+  DESK_LAYER_DEPTH,
+  open,
+  parkedRowId,
+} from "../src/engine/desk/desk_transitions.ts";
+import { deskLayers } from "../src/engine/desk/layer_view.ts";
+import { deskView, INBOX_MIN_TITLE } from "../src/engine/desk/inbox_view.ts";
+import { PACKAGE_RESERVED_KEYS } from "../src/engine/desk/keys.ts";
+import { DESK_GLYPHS } from "../src/engine/desk/glyphs.ts";
+import { TERMINAL_GLYPHS } from "discern-design-system/cli";
+import type { DeskPrepared } from "../src/engine/desk/flow_types.ts";
+import type {
+  StatusData,
+  StatusFleetEntry,
+} from "../src/shared/result_schemas.ts";
+import { taskFleetEntry } from "./status_fleet.ts";
+import {
+  deskIntent,
+  editingTask,
+  failDesk,
+  observedDesk,
+  observeDesk,
+  PRODUCT_NOW,
+  PRODUCT_UI,
+  PRODUCT_VIEW_ENV,
+  productSurvey,
+} from "./fixtures/desk_product.ts";
+
+const NOW = PRODUCT_NOW;
+const UI = PRODUCT_UI;
+const ENV = PRODUCT_VIEW_ENV;
+const survey = productSurvey;
+const editing = editingTask;
+const observe = observeDesk;
+const fail = failDesk;
+const intent = deskIntent;
+
+/** Apply events in order, collecting every effect. */
+function run(
+  state: DeskProductState,
+  ...events: readonly DeskEvent[]
+): DeskTransition {
+  const effects: DeskEffect[] = [];
+  for (const event of events) {
+    const transition = deskProduct(state, event);
+    state = transition.state;
+    effects.push(...transition.effects);
+  }
+  return { state, effects };
+}
+
+/** The ids of the layers that exist, bottom to top. */
+function layerIds(state: DeskProductState): string[] {
+  return state.layers.map((layer) => layerId(layer));
+}
+
+/** A ready review whose confirm applies. */
+function readyApply(title: string): DeskPrepared {
+  return {
+    content: { title, lines: [], safeLabel: "Cancel", confirmLabel: "Go" },
+    confirm: {
+      kind: "apply",
+      handoff: `${title} · output continues below`,
+      apply: () => Promise.resolve({ command: title, ok: true }),
+    },
+  };
+}
+
+/** A deterministic pseudo-random sequence. */
+function seeded(seed: number): () => number {
+  let value = seed >>> 0;
+  return () => {
+    value = (value + 0x6d2b79f5) >>> 0;
+    let mixed = Math.imul(value ^ (value >>> 15), 1 | value);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+Deno.test("one survey runs at a time and a refresh during one queues exactly one follow-up", () => {
+  const initial = initialDeskProduct({
+    trunk: "main",
+    preferences: { schema_version: 2 },
+  });
+  const first = deskProduct(initial, { kind: "refresh" });
+  assertEquals(first.effects, [{ kind: "survey", generation: 1 }]);
+  const queued = run(
+    first.state,
+    { kind: "refresh" },
+    { kind: "refresh" },
+    { kind: "refresh" },
+  );
+  assertEquals(queued.effects, [], "a running survey starts no other");
+  assert(queued.state.survey.followUp);
+
+  const stale = deskProduct(queued.state, {
+    kind: "observed",
+    generation: 0,
+    now: NOW,
+    data: survey([editing("alpha")]),
+    hints: [],
+    exceptionArgvs: new Map(),
+  });
+  assertEquals(stale.state, queued.state, "an obsolete survey is ignored");
+
+  const adopted = observe(queued.state, survey([editing("alpha")]));
+  assertEquals(adopted.effects, [{ kind: "survey", generation: 2 }]);
+  assertEquals(adopted.state.rows.length, 1);
+  const settled = observe(adopted.state, survey([editing("alpha")]));
+  assertEquals(settled.effects, [{
+    kind: "schedule-survey",
+    afterMs: DESK_REFRESH_MS,
+  }]);
+  assertEquals(settled.state.survey.followUp, false);
+});
+
+Deno.test("a failed survey retries once before the Desk says it is offline", () => {
+  const live = observedDesk(survey([editing("alpha")]));
+  const header = (state: DeskProductState): string =>
+    JSON.stringify(deskView(state, UI, ENV).header);
+
+  const once = fail(live, NOW + 60_000);
+  assertEquals(once.state.survey.failures, 1);
+  assertEquals(once.state.warning, undefined, "one failure only retries");
+  assertStringIncludes(header(once.state), "retrying");
+  assertEquals(once.effects, [{
+    kind: "schedule-survey",
+    afterMs: DESK_REFRESH_MS,
+  }]);
+  assertEquals(once.state.rows.length, 1, "the last good rows stay");
+
+  const offline = fail(once.state, NOW + 120_000);
+  assertEquals(offline.state.survey.failures, DESK_OFFLINE_FAILURES);
+  assertStringIncludes(header(offline.state), "stale");
+  const warning = offline.state.warning;
+  assert(warning !== undefined);
+  assertEquals(warning.persistent, true);
+  assertEquals(warning.key, { key: "r", label: "Retry" });
+  assertStringIncludes(warning.text, "showing what was seen 2m ago");
+  const again = fail(offline.state, NOW + 180_000);
+  assertEquals(again.state.warning?.id, warning.id, "one warning, kept");
+
+  const closed = deskProduct(again.state, {
+    kind: "dismissed",
+    target: { message: warning.id },
+  });
+  assertEquals(closed.state.warning, undefined);
+  assertEquals(
+    fail(closed.state).state.warning,
+    undefined,
+    "a closed offline warning stays closed while the outage lasts",
+  );
+  const back = observe(fail(closed.state).state, survey([editing("alpha")]));
+  assertEquals(back.state.warning, undefined);
+  assertEquals(back.state.offlineDismissed, undefined);
+  assertEquals(back.state.survey.failures, 0);
+
+  const never = fail(
+    deskProduct(
+      initialDeskProduct({ trunk: "main", preferences: { schema_version: 2 } }),
+      { kind: "refresh" },
+    ).state,
+  );
+  assertEquals(fail(never.state).state.warning?.text, "Couldn't read tasks");
+});
+
+Deno.test("observations never open or close a layer the owner did not", () => {
+  const pool = ["alpha", "beta", "gamma", "delta", "epsilon"];
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const random = seeded(seed);
+    const fleet = (): StatusFleetEntry[] =>
+      pool.filter(() => random() < 0.6).map((id) =>
+        editing(id, 1 + Math.floor(random() * 4))
+      );
+    const parked = (): Partial<StatusData> =>
+      random() < 0.5 ? { unlanded_branches: ["agent/spike"] } : {};
+    let state = observedDesk(survey(pool.map((id) => editing(id)), {
+      unlanded_branches: ["agent/spike"],
+    }));
+    const openers: readonly DeskIntent[] = [
+      { kind: "key", key: "." },
+      { kind: "command", command: "keys" },
+      { kind: "command", command: "activity" },
+      { kind: "action", action: "inspect", id: pool[0] ?? "" },
+      { kind: "action", action: "rename", id: pool[1] ?? "" },
+      { kind: "command", command: "new_task" },
+      { kind: "command", command: "branch_commits", ref: "agent/spike" },
+    ];
+    const opener = openers[Math.floor(random() * openers.length)];
+    assert(opener !== undefined);
+    state = intent(state, opener, { ...UI, selected: pool[2] ?? "" }).state;
+    const opened = layerIds(state);
+    assert(opened.length > 0, `seed ${seed}: ${JSON.stringify(opener)}`);
+    for (let step = 0; step < 12; step += 1) {
+      state = random() < 0.8
+        ? observe(state, survey(fleet(), parked())).state
+        : fail(state).state;
+      assertEquals(layerIds(state), opened, `seed ${seed} step ${step}`);
+      assertEquals(
+        deskLayers(state, ENV).map((layer) => layer.id),
+        opened,
+        `seed ${seed} step ${step}: the view draws every layer`,
+      );
+    }
+  }
+});
+
+Deno.test("a layer whose subject leaves says so and offers nothing", () => {
+  const listed = observedDesk(survey([editing("alpha"), editing("beta")]));
+  const menu = intent(listed, { kind: "key", key: "." }, {
+    ...UI,
+    selected: "alpha",
+  }).state;
+  const review = open(menu, {
+    kind: "review",
+    step: { kind: "action", action: "park", taskId: "alpha", stage: "review" },
+    load: { state: "loading" },
+  }).state;
+  const gone = observe(
+    review,
+    survey([editing("beta")], {
+      parked_tasks: [{
+        id: "alpha",
+        branch: "agent/alpha",
+        head: "a".repeat(40),
+        parked_at: "2026-07-11T12:00:00.000Z",
+        task: {
+          id: "alpha",
+          branch: "agent/alpha",
+          title: "Alpha",
+          title_source: "recorded",
+        },
+      }],
+    }),
+  ).state;
+  const [sheet] = deskLayers(gone, ENV);
+  assert(sheet?.kind === "sheet");
+  assertEquals(sheet.state, "gone");
+  assertStringIncludes(
+    JSON.stringify(sheet.banner),
+    "Alpha is gone: it was parked; its branch is kept",
+  );
+  assertEquals(
+    sheet.buttons.find((button) => button.role === "safe")?.label,
+    "Close",
+  );
+
+  const actions = observe(menu, survey([editing("beta")])).state;
+  const [gonemenu] = deskLayers(actions, ENV);
+  assert(gonemenu?.kind === "menu");
+  assertEquals(gonemenu.sections, []);
+  assertEquals(
+    gonemenu.unavailable?.items.map((item) => item.sentence),
+    ["Alpha is gone: it is no longer listed"],
+  );
+});
+
+Deno.test("the package reports a moved or vanished selection and the Desk names it once", () => {
+  const before = observedDesk(survey([editing("alpha"), editing("beta")]));
+  const regrouped = deskProduct(before, {
+    kind: "selection-moved",
+    itemId: "alpha",
+    move: { kind: "regrouped", from: "working", to: "attention" },
+  });
+  assertEquals(
+    regrouped.state.message?.text,
+    "Alpha moved to Needs attention: editing",
+  );
+
+  const landed = observe(
+    before,
+    survey([editing("beta")], {
+      recent_completed_tasks: [{
+        branch: "agent/alpha",
+        head: "b".repeat(40),
+        completed_at: "2026-07-11T12:00:00.000Z",
+      }],
+    }),
+  ).state;
+  const named = deskProduct(landed, {
+    kind: "selection-moved",
+    itemId: "alpha",
+    move: { kind: "removed", replacement: "beta" },
+  });
+  assertEquals(named.state.message?.text, "Alpha landed on main");
+  assertEquals(named.state.message?.tone, "muted");
+
+  const unknown = deskProduct(before, {
+    kind: "selection-moved",
+    itemId: "nobody",
+    move: { kind: "removed" },
+  });
+  assertEquals(unknown.state.message, undefined);
+});
+
+Deno.test("launcher layers close when their child starts; readers and forms that lend the terminal survive", () => {
+  const alpha = taskFleetEntry("alpha", {
+    clean: false,
+    changed_files: 1,
+    last_activity: "2026-07-11T11:00:00Z",
+  });
+  const listed = observedDesk(survey([alpha]));
+  const withAgents: DeskProductState = {
+    ...listed,
+    rows: listed.rows.map((row) => ({
+      ...row,
+      agentLaunches: ["one", "two"].map((name) => ({
+        id: `claude:${name}`,
+        kind: "open" as const,
+        agent: "claude_code" as const,
+        providerLabel: "Claude Code",
+        label: name,
+        binary: "claude",
+        args: [],
+        availability: "enabled" as const,
+      })),
+    })),
+  };
+  const picker = open(withAgents, { kind: "agents", taskId: "alpha" }).state;
+  const launched = intent(picker, {
+    kind: "launch",
+    taskId: "alpha",
+    launch: "claude:one",
+  });
+  assertEquals(layerIds(launched.state), []);
+  assertEquals(launched.effects, [{
+    kind: "child",
+    child: { kind: "agent", taskId: "alpha", launch: "claude:one" },
+  }]);
+
+  const reader = open(listed, {
+    kind: "reader",
+    reader: { kind: "changes", taskId: "alpha", load: { state: "loading" } },
+  }).state;
+  const paged = intent(reader, {
+    kind: "child",
+    child: { kind: "diff", taskId: "alpha" },
+  });
+  assertEquals(layerIds(paged.state), ["reader-changes"]);
+  assertEquals(paged.effects, [{
+    kind: "child",
+    child: { kind: "diff", taskId: "alpha" },
+  }]);
+
+  const updates = intent(listed, { kind: "command", command: "updates" });
+  const ready = deskProduct(updates.state, {
+    kind: "prepared",
+    layerId: "review-updates-review",
+    result: { state: "ready", value: readyApply("Check for updates") },
+  });
+  const applied = intent(ready.state, {
+    kind: "confirm",
+    layer: "review-updates-review",
+  });
+  assertEquals(layerIds(applied.state), []);
+  assertEquals(applied.effects.map((effect) => effect.kind), ["apply"]);
+
+  const scripts = deskProduct(
+    intent(listed, { kind: "command", command: "main_scripts" }).state,
+    {
+      kind: "scripts",
+      result: {
+        state: "ready",
+        value: {
+          directory: "/project",
+          scripts: [{
+            name: "deploy",
+            path: "/project/discern/scripts/deploy",
+            availability: "enabled",
+          }],
+        },
+      },
+    },
+  ).state;
+  const form = intent(scripts, { kind: "script", name: "deploy" }).state;
+  assertEquals(layerIds(form), ["form-main_scripts-review"]);
+  const ran = intent(form, {
+    kind: "confirm",
+    layer: "form-main_scripts-review",
+  }, {
+    ...UI,
+    fields: { "form-main_scripts-review": { args: "--fast" } },
+  });
+  assertEquals(layerIds(ran.state), []);
+  assertEquals(ran.effects, [{
+    kind: "script",
+    owner: { kind: "main" },
+    name: "deploy",
+    args: "--fast",
+  }]);
+});
+
+Deno.test("a returning effect leaves its message, its result, and one refresh", () => {
+  const listed = observedDesk(survey([editing("alpha", 2)]));
+  const back = deskProduct(listed, {
+    kind: "returned",
+    now: NOW,
+    outcome: {
+      command: "/bin/sh",
+      ok: true,
+      back: { label: "the shell", taskId: "alpha", changedBefore: 2 },
+    },
+  });
+  assertEquals(back.state.message?.text, "Back from the shell");
+  assertEquals(back.state.activity.map((entry) => entry.command), ["/bin/sh"]);
+  assertEquals(back.effects, [{ kind: "survey", generation: 2 }]);
+  const counted = observe(back.state, survey([editing("alpha", 5)]));
+  assertEquals(
+    counted.state.message?.text,
+    "Back from the shell · Alpha: 3 more files changed",
+  );
+  assertEquals(counted.state.pendingReturn, undefined);
+
+  const failed = deskProduct(listed, {
+    kind: "returned",
+    now: NOW,
+    outcome: {
+      command: "discern done",
+      ok: false,
+      message: { tone: "danger", text: "Checks failed" },
+      result: { title: "Checks failed", markdown: "**test** failed" },
+    },
+  });
+  assertEquals(failed.state.message?.tone, "danger");
+  assertEquals(layerIds(failed.state), ["reader-result"]);
+
+  const created = deskProduct(listed, {
+    kind: "returned",
+    now: NOW,
+    outcome: { command: "discern start", ok: true, select: "/worktrees/beta" },
+  });
+  const listedCreated = observe(
+    created.state,
+    survey([editing("alpha"), editing("beta")]),
+  );
+  assert(
+    listedCreated.effects.some((effect) =>
+      effect.kind === "select" && effect.id === "beta"
+    ),
+    "the created checkout is selected once a survey lists it",
+  );
+});
+
+Deno.test("an unavailable action answers with its reason and opens nothing", () => {
+  const listed = observedDesk(survey([editing("alpha")]));
+  const row = listed.rows[0];
+  assert(row !== undefined);
+  const disabled = row.decision.actions.find((offer) =>
+    offer.availability === "disabled"
+  );
+  assert(disabled !== undefined, "an editing task has an unavailable action");
+  const refused = intent(listed, {
+    kind: "action",
+    action: disabled.action,
+    id: "alpha",
+  });
+  assertEquals(refused.state.layers, []);
+  assertEquals(refused.effects, []);
+  assertStringIncludes(refused.state.message?.text ?? "", "isn't available");
+});
+
+Deno.test("Enter on a parked branch resumes it and Enter from the palette selects first", () => {
+  const listed = observedDesk(survey([], {
+    unlanded_branches: ["agent/spike"],
+  }));
+  const id = parkedRowId("agent/spike");
+  const resumed = intent(listed, { kind: "next", id }, {
+    ...UI,
+    topLayerId: "palette",
+  });
+  assertEquals(resumed.effects[0], { kind: "select", id });
+  assertEquals(layerIds(resumed.state), ["form-resume-review"]);
+});
+
+Deno.test("the Desk's limits match the package's", () => {
+  assertEquals(DESK_LAYER_DEPTH, APPLICATION_LAYER_DEPTH);
+  for (const [name, pair] of Object.entries(DESK_GLYPHS)) {
+    const shared = Object.entries(TERMINAL_GLYPHS).find(([candidate]) =>
+      candidate === name
+    )?.[1];
+    if (shared === undefined) continue;
+    assertEquals(
+      pair,
+      { unicode: shared.unicode, ascii: shared.ascii },
+      `${name} carries the package's pair`,
+    );
+  }
+  assertEquals(INBOX_MIN_TITLE, DEFAULT_APPLICATION_LIST_MIN_TITLE);
+  const view = deskView(
+    observedDesk(survey([editing("alpha")])),
+    UI,
+    ENV,
+  );
+  assertEquals(
+    [...PACKAGE_RESERVED_KEYS].sort(),
+    [...terminalApplicationReservedKeys(view.body, { viKeys: true })].sort(),
+  );
+  const layers: DeskLayer[] = [
+    { kind: "palette" },
+    { kind: "reader", reader: { kind: "keys" } },
+    { kind: "reader", reader: { kind: "activity" } },
+  ];
+  let state = observedDesk(survey([]));
+  for (const layer of layers) state = open(state, layer).state;
+  assertEquals(layerIds(state), ["reader-keys", "reader-activity"]);
+});

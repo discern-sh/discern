@@ -62,7 +62,7 @@ export const LOCAL_DESIGN_SYSTEM_SURFACES = {
       "scripts/desk_sandbox.ts",
       "scripts/terminal_capture.ts",
       "tests/fixtures/desk_tty_harness.ts",
-      "tests/fixtures/desk_scripted_application.ts",
+      "tests/fixtures/desk_session.ts",
     ],
   },
 } as const;

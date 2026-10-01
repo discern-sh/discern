@@ -67,16 +67,6 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
       "Extract one setup responsibility while keeping the plan and apply phases explicit.",
   },
   {
-    file: "src/engine/desk/desk.ts",
-    maxScore: 116.29,
-    maxCyclo: 287,
-    owner: "desk engine",
-    reason:
-      "The desk coordinator combines task discovery, state projection, interaction, and live rendering.",
-    recovery:
-      "Separate one view responsibility and remove this row once both thresholds are clear.",
-  },
-  {
     file: "src/engine/gate/finish.ts",
     maxScore: 112.65,
     maxCyclo: 295,

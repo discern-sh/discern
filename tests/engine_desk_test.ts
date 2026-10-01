@@ -128,15 +128,15 @@ realPtyTest({
         geometry,
         input: [{
           waitFor: applicationFrameReady(geometry, "No tasks yet"),
-          steps: [{ bytes: "\t" }],
+          steps: [{ bytes: "\x0b" }],
         }, {
-          waitFor: applicationFrameReady(geometry, "Desk commands"),
-          steps: [{ bytes: "\x1b[F\r" }],
+          waitFor: applicationFrameReady(geometry, "Search tasks and commands"),
+          steps: [{ bytes: "\x03" }],
         }],
       });
       assertEquals(r.code, 0, r.transcript);
       assertTerminalTextIncludes(r.transcript, "No tasks yet");
-      assertTerminalTextIncludes(r.transcript, "Desk commands");
+      assertTerminalTextIncludes(r.transcript, "New task");
       assertTerminalTextIncludes(r.transcript, "Quit");
       assertStringIncludes(r.transcript, "\x1b[?1049h");
       assertStringIncludes(r.transcript, "\x1b[?1049l");

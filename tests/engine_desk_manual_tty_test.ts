@@ -12,11 +12,25 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { encodeTerminalKeys } from "discern-design-system/cli/interactive/testing";
+import { deskScreenShows } from "./fixtures/desk_tty_harness.ts";
 
 const MANUAL_PROCESS = join(
   APPLICATION_FIXTURE_ROOT,
   "tests/fixtures/desk_manual_process.ts",
 );
+
+/** Both journeys run at 80 by 24. */
+const SIZE = { columns: 80, rows: 24 };
+
+/** Ctrl+K opens the Desk's command palette. */
+const OPEN_PALETTE = encodeTerminalKeys("ctrl-k");
+
+/** The palette's query is ready for typing. */
+const PALETTE_READY = "Search tasks and commands";
+
+/** The Desk again, saying where it came back from. */
+const RETURNED = ["No tasks yet", "Back from the manual"] as const;
 
 /** The bundled page the Desk opens: addressed by path, never by its prose. */
 const BUNDLED_PAGE = "20-guides/delegate-work.md";
@@ -102,12 +116,13 @@ realPtyTest({
         command: Deno.execPath(),
         args: repoSourceRunArgs(MANUAL_PROCESS, [manual]),
         cwd: root,
-        geometry: { columns: 80, rows: 24 },
+        geometry: SIZE,
         env: { NO_COLOR: "1" },
         input: [
+          { waitFor: "No tasks yet", steps: [{ bytes: OPEN_PALETTE }] },
           {
-            waitFor: ["No tasks yet", "/ find"],
-            steps: [{ bytes: "\t/manual\r\r" }],
+            waitFor: PALETTE_READY,
+            steps: [{ bytes: "Read the manual\r" }],
           },
           {
             waitFor: ["DISCERN MAP", "Enter open/action  Esc cancel"],
@@ -121,7 +136,7 @@ realPtyTest({
             steps: [{ bytes: "Alpha" }],
           },
           {
-            waitFor: ["Search: Alpha", "Alpha guide"],
+            waitFor: deskScreenShows(SIZE, "Search: Alpha", "Alpha guide"),
             steps: [{ bytes: "\r" }],
           },
           {
@@ -149,11 +164,8 @@ realPtyTest({
             steps: [{ bytes: "\x1b", allowLoneEscape: true }],
           },
           {
-            waitFor: ["Desk commands / manual", "/ find"],
-            capture: {
-              name: "returned",
-              when: ptyOutputContains(["Desk commands / manual", "/ find"]),
-            },
+            waitFor: RETURNED,
+            capture: { name: "returned", when: ptyOutputContains(RETURNED) },
             steps: [{ bytes: "q" }],
           },
         ],
@@ -165,7 +177,7 @@ realPtyTest({
       );
       assertStringIncludes(
         result.keyframes.returned ?? "",
-        "Desk commands / manual",
+        "Back from the manual",
       );
       assert(result.keyframes.manual !== undefined);
       const view = await bundledPageView();
@@ -173,22 +185,24 @@ realPtyTest({
         command: Deno.execPath(),
         args: repoSourceRunArgs(MANUAL_PROCESS, []),
         cwd: root,
-        geometry: { columns: 80, rows: 24 },
+        geometry: SIZE,
         env: { NO_COLOR: "1" },
         input: [
+          { waitFor: "No tasks yet", steps: [{ bytes: OPEN_PALETTE }] },
           {
-            waitFor: ["No tasks yet", "/ find"],
-            steps: [{ bytes: "\t/manual\r\r" }],
+            waitFor: PALETTE_READY,
+            steps: [{ bytes: "Read the manual\r" }],
           },
           {
             waitFor: ["DISCERN DOCS", "Enter open/action  Esc cancel"],
             steps: [{ bytes: view.title }],
           },
           {
-            waitFor: [
+            waitFor: deskScreenShows(
+              SIZE,
               `Search: ${view.title}`,
               BUNDLED_PAGE,
-            ],
+            ),
             steps: [{ bytes: "\r" }],
           },
           {
@@ -210,10 +224,7 @@ realPtyTest({
             waitFor: "Enter open/action  Esc cancel",
             steps: [{ bytes: "\x1b", allowLoneEscape: true }],
           },
-          {
-            waitFor: ["Desk commands / manual", "/ find"],
-            steps: [{ bytes: "q" }],
-          },
+          { waitFor: RETURNED, steps: [{ bytes: "q" }] },
         ],
       });
       assertEquals(bundled.code, 0, bundled.transcript);

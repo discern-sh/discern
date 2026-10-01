@@ -1404,6 +1404,15 @@ export function consequenceLines(
   );
 }
 
+/**
+ * The one sentence every surface shows for an action that cannot run now:
+ * "Update from main isn't available: the branch is not behind main."
+ */
+export function unavailableSentence(label: string, reason: string): string {
+  const because = reason.charAt(0).toLowerCase() + reason.slice(1);
+  return `${labelName(label)} isn't available: ${because}`;
+}
+
 /** The action whose `next` names this state, if any. */
 export function deskNextAction(
   state: FleetTaskRowStateId,

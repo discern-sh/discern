@@ -24,21 +24,35 @@ import {
   rowStateLabel,
 } from "../src/engine/status/row_states.ts";
 import { presentFleetRow } from "../src/engine/status/fleet_rows.ts";
-import { buildDeskDecision, buildDeskRows } from "../src/engine/desk/model.ts";
 import {
-  deskApplicationView,
-  semanticTone,
-} from "../src/engine/desk/application_view.ts";
+  buildDeskDecision,
+  buildDeskRows,
+  deskRowId,
+} from "../src/engine/desk/model.ts";
+import { deskView } from "../src/engine/desk/inbox_view.ts";
+import { tone } from "../src/engine/desk/inspector_view.ts";
+import {
+  freshDesk,
+  observeDesk,
+  PRODUCT_UI,
+  PRODUCT_VIEW_ENV,
+} from "./fixtures/desk_product.ts";
 
 /**
  * The Desk functions that may read a Proof's status, each for a fact other
  * than a row's look: the Proof fact itself, the consequence predicates, and
- * landing availability. A new reader must be named here with its reason.
+ * landing availability; and in the inspector, the Checks fact's diffstat,
+ * the Main fact's emphasis, and which landing facts a proven task lists. A
+ * new reader must be named here with its reason.
  */
 const PROOF_FACT_READERS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   [
     "src/engine/desk/model.ts",
     new Set(["proofFact", "actionContext", "landableReason"]),
+  ],
+  [
+    "src/engine/desk/inspector_view.ts",
+    new Set(["checksFact", "mainFact", "taskFacts"]),
   ],
 ]);
 
@@ -187,28 +201,37 @@ Deno.test("Desk Proof label guard", async () => {
           observation,
         );
         assert(desk !== undefined, `row ${row.row}`);
-        const tasks = deskApplicationView(
-          { data, rows: [desk], phase: "fresh" },
-          "overview",
-        ).regions[0];
-        assert(tasks?.kind === "choices");
-        const [shown] = tasks.entries;
-        assert(shown !== undefined && shown.kind !== "group-heading");
+        const view = deskView(
+          observeDesk(freshDesk(), data, NOW).state,
+          PRODUCT_UI,
+          { ...PRODUCT_VIEW_ENV, now: NOW },
+        );
+        assert(view.body.kind !== "reading", `row ${row.row}`);
+        const items = (view.body.list?.groups ?? []).flatMap((group) =>
+          group.items
+        );
+        assertEquals(
+          items.filter((item) => item.id.startsWith("integration")),
+          [],
+          `row ${row.row}: integration checkouts never show as tasks`,
+        );
+        const shown = items.find((item) => item.id === deskRowId(desk));
+        assert(shown !== undefined, `row ${row.row}`);
         const look = FLEET_ROW_STATES[row.state];
         assertEquals(
           {
-            glyph: shown.indicator?.content,
-            ascii: shown.indicator?.ascii,
-            glyphTone: shown.indicator?.tone,
-            label: shown.status?.content,
-            labelTone: shown.status?.tone,
+            glyph: shown.marker?.unicode,
+            ascii: shown.marker?.ascii,
+            glyphTone: shown.marker?.tone,
+            label: shown.cells?.label?.[0]?.text,
+            labelTone: shown.cells?.label?.[0]?.tone,
           },
           {
             glyph: look.glyph,
             ascii: look.ascii,
-            glyphTone: semanticTone(look.glyphTone),
+            glyphTone: tone(look.glyphTone),
             label: rowStateLabel(row.state, row.context?.queueRow),
-            labelTone: semanticTone(look.labelTone),
+            labelTone: tone(look.labelTone),
           },
           `row ${row.row}`,
         );

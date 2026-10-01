@@ -10,20 +10,30 @@
 import { assert, assertEquals } from "@std/assert";
 import { Node, Project } from "ts-morph";
 import {
+  createTerminalApplicationModel,
   renderTerminalApplication,
-  updateTerminalApplication,
+  type TerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import { FakeTerminalIO } from "discern-design-system/cli/interactive/testing";
 import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
 import { assertNamedCasesAsync } from "./assert_cases.ts";
 import { scanDeskModules } from "./desk_module_scan.ts";
-import { statusData, taskFleetEntry } from "./status_fleet.ts";
+import { taskFleetEntry } from "./status_fleet.ts";
 import { deskLine, deskLiteral } from "../src/engine/desk/text.ts";
-import { buildDeskRows } from "../src/engine/desk/model.ts";
 import {
-  deskApplicationView,
-  type DeskPage,
-} from "../src/engine/desk/application_view.ts";
+  type DeskIntent,
+  type DeskLayer,
+  deskProduct,
+  type DeskProductState,
+} from "../src/engine/desk/desk_state.ts";
+import { open } from "../src/engine/desk/desk_transitions.ts";
+import { deskKeymap, deskView } from "../src/engine/desk/inbox_view.ts";
+import {
+  observedDesk,
+  PRODUCT_UI,
+  PRODUCT_VIEW_ENV,
+  productSurvey,
+} from "./fixtures/desk_product.ts";
 
 const TEXT_MODULE = "src/engine/desk/text.ts";
 const CONTROL_PICTURE = /[\u2400-\u2421]/u;
@@ -54,14 +64,15 @@ function sanitizerImports(source: string): string[] {
   return [...imported, ...called];
 }
 
-/** One rendered page of the Desk, as a terminal would show it. */
-function rendered(
-  view: ReturnType<typeof deskApplicationView>,
+/** One view, as a terminal would show it. */
+function rendered<A>(
+  view: TerminalApplicationView<A>,
+  keymap: Parameters<typeof createTerminalApplicationModel<A>>[1] = {},
   columns = 100,
 ): string {
   const io = new FakeTerminalIO([], { columns, rows: 40 });
   return renderTerminalApplication(
-    updateTerminalApplication(view),
+    createTerminalApplicationModel(view, keymap).model,
     io.size(),
     io.capabilities(),
   ).frame;
@@ -89,24 +100,23 @@ Deno.test("Desk text guard", async () => {
         "abc1234 First commit def5678 Second commit",
       );
       assert(!CONTROL_PICTURE.test(deskLine("a\nb\u2028c")));
-      const io = new FakeTerminalIO([], { columns: 60, rows: 12 });
-      const frame = renderTerminalApplication(
-        updateTerminalApplication({
-          title: "Evidence",
-          regions: [{
+      const frame = rendered(
+        {
+          header: { leading: [{ text: "Evidence" }] },
+          body: {
             kind: "reading",
             id: "evidence",
-            title: "Commits",
             content: createCliBlock(renderMarkdownCli, {
               source: deskLiteral(
                 "abc1234 First commit\n- def5678 # Second *commit*\n1. ghi9012",
               ),
             }),
-          }],
-        }),
-        io.size(),
-        io.capabilities(),
-      ).frame;
+          },
+          footer: { left: [] },
+        },
+        {},
+        60,
+      );
       assert(!CONTROL_PICTURE.test(frame), frame);
       for (
         const line of [
@@ -121,9 +131,9 @@ Deno.test("Desk text guard", async () => {
         );
       }
     },
-    "no Desk page shows a control picture for multi-line observations": () => {
+    "no Desk view shows a control picture for multi-line observations": () => {
       const multiline = "first line\nsecond line";
-      const data = statusData([
+      const data = productSurvey([
         taskFleetEntry("alpha", {
           ahead: 1,
           task: {
@@ -149,34 +159,87 @@ Deno.test("Desk text guard", async () => {
           reason: multiline,
         }],
       });
-      const rows = buildDeskRows(data.fleet ?? [], new Map(), new Map(), {
-        trunk: "main",
-        nowMs: 0,
-      });
-      const pages: readonly DeskPage[] = [
-        "overview",
-        "task",
-        "more",
-        "details",
-        "help",
-        "tip",
-        "queue",
-        "notice",
-      ];
-      for (const page of pages) {
-        const frame = rendered(deskApplicationView(
-          {
-            data,
-            rows,
-            phase: "fresh",
-            message: multiline,
-            notice: multiline,
-            tip: multiline,
+      const listed: DeskProductState = deskProduct(
+        deskProduct(observedDesk(data), { kind: "tip", tip: multiline }).state,
+        {
+          kind: "returned",
+          now: PRODUCT_VIEW_ENV.now,
+          outcome: {
+            command: "discern done",
+            ok: false,
+            message: { tone: "danger", text: multiline },
           },
-          page,
-          "alpha",
-        ));
-        assert(!CONTROL_PICTURE.test(frame), `${page}:\n${frame}`);
+        },
+      ).state;
+      const step = {
+        kind: "action" as const,
+        action: "park" as const,
+        taskId: "alpha",
+        stage: "review" as const,
+      };
+      const layers: readonly DeskLayer[] = [
+        { kind: "actions", rowId: "alpha" },
+        { kind: "palette" },
+        { kind: "reader", reader: { kind: "keys" } },
+        { kind: "reader", reader: { kind: "tip" } },
+        { kind: "reader", reader: { kind: "landing" } },
+        { kind: "reader", reader: { kind: "main" } },
+        { kind: "reader", reader: { kind: "activity" } },
+        { kind: "reader", reader: { kind: "recovery", taskId: "alpha" } },
+        {
+          kind: "reader",
+          reader: { kind: "notice", title: "Notice", lines: [multiline] },
+        },
+        {
+          kind: "reader",
+          reader: {
+            kind: "result",
+            result: { title: "It didn't complete", markdown: multiline },
+          },
+        },
+        {
+          kind: "review",
+          step,
+          load: {
+            state: "ready",
+            value: {
+              content: {
+                title: "Park Alpha?",
+                lines: [{ text: multiline }, {
+                  mark: "warning",
+                  text: multiline,
+                }],
+                footnote: multiline,
+                safeLabel: "Keep",
+                confirmLabel: "Park",
+              },
+            },
+          },
+        },
+        { kind: "review", step, load: { state: "failed", error: multiline } },
+        {
+          kind: "form",
+          step: { ...step, action: "follow_up" },
+          values: { brief: multiline },
+        },
+      ];
+      const views: Array<[string, DeskProductState]> = [
+        ["inbox", listed],
+        ...layers.map((layer): [string, DeskProductState] => [
+          `${layer.kind} ${JSON.stringify(layer).slice(0, 60)}`,
+          open(listed, layer).state,
+        ]),
+      ];
+      for (const [name, state] of views) {
+        const frame = rendered<DeskIntent>(
+          deskView(
+            state,
+            { ...PRODUCT_UI, selected: "alpha" },
+            PRODUCT_VIEW_ENV,
+          ),
+          { keymap: deskKeymap(), viKeys: true },
+        );
+        assert(!CONTROL_PICTURE.test(frame), `${name}:\n${frame}`);
       }
     },
   });
