@@ -32,7 +32,7 @@ Reviews were also held to their task only loosely. Apply re-read the fleet and c
 - A guard holds every reviewed action and command to binding every fact its registry declares, and every action or command that asks first to exactly one flow.
 - The CLI's preview contract gains additive structured fields; agents reading `accept --dry-run --json` get the same facts the Desk words.
 - Reviews no longer show absolute paths or the queue's revision list on their face; those stay in the technical plan.
-- A sheet's read progress and initial focus depend on the package resetting both when a loading sheet becomes ready; until it does, the Desk draws a loading sheet under its own reading id.
+- A sheet's read progress and initial focus depend on the package starting a review over when a loading sheet becomes ready, so a sheet keeps one id throughout.
 
 ## Alternatives considered
 

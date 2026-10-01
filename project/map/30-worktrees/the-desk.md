@@ -145,7 +145,6 @@ The subsystem has focused [state machine](../../../tests/engine_desk_state_test.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A degraded checkout's next step is **Recovery steps** (or **Retry setup…** when replay is safe), with **Open shell** beside it when its folder exists. Drop stays in the Danger section and requires the branch name when work cannot be verified.
 - An Interrupted task's next step is **Recovery steps** too: its landing stopped and nothing landed, so the steps name `discern worktree prune` to reclaim discern's integration copy before landing again.
-- A sheet that opens loading draws under its own reading id until its review arrives, because the package counts an empty loading body as read and chooses focus before a challenge field exists.
-- Three package limits have desk-local workarounds: the inspector's next step has no heading (a section whose blocks render nothing still draws one), the inbox sets its minimum title width to its longest title (the content-sized split could drop the age column), and tests wait for Escape in wall time (the lone-Escape window is not on the injected clock).
+- A review sheet keeps one layer id from loading to ready; the package starts its review over as it arrives, so read progress counts only the real body and focus lands on its first control, its challenge field included.
 
 The [Desk terminal guard](../../../tests/engine_desk_terminal_guard_test.ts) enrolls authored modules in this subtree. It rejects raw terminal transport, control bytes, and generic foundation imports while admitting product state, types, and component composition.
