@@ -598,19 +598,23 @@ export function reclaimPlanToEngine(plan: ReclaimPlan): EnginePlan {
   };
 }
 
-/** The plan details naming the landing records a removal ends, with labels
- * padded to the plan's own label column. */
+/** The landing-record labels, each padded to its plan's own label column. */
+const LANDING_RECORD_LABELS = {
+  /** Park and reclaim, whose column fits "Checkout removed: ". */
+  checkout: { grant: "Landing grant:    ", queue: "Landing queue:    " },
+  /** Drop, whose column fits "Landing grant:  ". */
+  drop: { grant: "Landing grant:  ", queue: "Landing queue:  " },
+} as const;
+
+/** The plan details naming the landing records a removal ends. */
 function landingRecordDetails(
   ends: CheckoutRecordEnds,
-  width = "Checkout removed: ".length,
+  labels: { readonly grant: string; readonly queue: string } =
+    LANDING_RECORD_LABELS.checkout,
 ): string[] {
   return [
-    `${"Landing grant:".padEnd(width)}${
-      ends.endsGrant ? "removed" : "none recorded"
-    }`,
-    `${"Landing queue:".padEnd(width)}${
-      ends.leavesQueue ? "left" : "not queued"
-    }`,
+    `${labels.grant}${ends.endsGrant ? "removed" : "none recorded"}`,
+    `${labels.queue}${ends.leavesQueue ? "left" : "not queued"}`,
   ];
 }
 
@@ -696,7 +700,7 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
     `Path:           ${plan.targetPath}`,
     `Branch:         ${plan.branch !== "" ? plan.branch : "(detached)"}`,
     `Revision:       ${plan.head}`,
-    ...landingRecordDetails(plan, "Landing grant:  ".length),
+    ...landingRecordDetails(plan, LANDING_RECORD_LABELS.drop),
   ];
   if (plan.blockers.length > 0) {
     details.push(`Discards:       ${plan.blockers.join("; ")}`);
