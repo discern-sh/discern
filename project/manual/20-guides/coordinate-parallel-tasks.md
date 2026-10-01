@@ -94,7 +94,7 @@ The **desk** is the interactive view that opens when you run `discern` in your m
 discern
 ```
 
-Tasks are grouped by who moves next: **Ready for review**, **Needs attention**, **Working**, **Approved to land**, then **Idle**, with titles in alphabetical order inside each group. Each row shows the task's state, such as `✓ Ready`, `! Stale`, or `✕ Checks failed`, the same words `discern status` uses, and what the task last did. A row that changes files another task also changes carries `⇄` beside its state. A task moves to another group when its state changes.
+Tasks are grouped by who moves next: **Ready for review**, **Needs attention**, **Working**, **Approved to land**, then **Idle**, with titles in alphabetical order inside each group. Each row shows the task's state, such as `✓ Ready`, `! Stale`, or `✕ Checks failed`, in the same words `discern status` uses, with a short fact about it, such as `2 commits ahead` or `idle 11 days`. A row that changes files another task also changes carries `⇄` beside its state. A task moves to another group when its state changes.
 
 Select a task and its next step comes first, followed by a few others that fit its state:
 

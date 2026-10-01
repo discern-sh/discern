@@ -344,13 +344,6 @@ export interface DeskProofFact {
   readonly line?: string;
 }
 
-/** Running or most-recent command evidence, already interpreted for display. */
-export interface DeskActivityFact {
-  readonly status: "running" | "last_action" | "unrecorded";
-  readonly summary: string;
-  readonly detail?: string;
-}
-
 export interface DeskAuthorityFact {
   readonly status: "granted" | "needs_approval";
   readonly source?: NonNullable<LandingAuthorityData["source"]>;
@@ -393,7 +386,9 @@ export interface DeskDecision {
   /** What is true and who moves next, without commands. */
   readonly explanation: string;
   readonly details: readonly DeskDetail[];
-  readonly activity: DeskActivityFact;
+  /** The row's activity in status's words: "2d ago · last action done
+   * failed at test", "just now · usually 3m". */
+  readonly activity: string;
   readonly proof: DeskProofFact;
   readonly authority: DeskAuthorityFact;
   readonly collisions: readonly DeskCollision[];
@@ -491,51 +486,6 @@ function activeAge(iso: string | undefined, nowMs: number): string {
   if (age === "just now") return "active now";
   if (age === "—") return "No activity recorded";
   return `Last activity ${age}`;
-}
-
-/** Project command activity once so detail views never reinterpret survey rows. */
-function activityFact(
-  entry: StatusFleetEntry,
-  nowMs: number,
-): DeskActivityFact {
-  if (entry.running !== undefined) {
-    const timing = [
-      `Elapsed ${compactDuration(entry.running.elapsed_ms)}`,
-      ...(entry.running.typical_duration_ms === undefined
-        ? []
-        : [`usually ${compactDuration(entry.running.typical_duration_ms)}`]),
-    ].join("; ");
-    return {
-      status: "running",
-      summary: `Running ${discernCommand(entry.running.verb)}`,
-      detail: timing,
-    };
-  }
-  if (entry.last_action !== undefined) {
-    const age = relativeAge(entry.last_action.at, nowMs);
-    const outcome = entry.last_action.outcome === "ok"
-      ? "completed"
-      : entry.last_action.outcome === "partial"
-      ? "completed part of its work"
-      : entry.last_action.outcome === "refused"
-      ? "was refused"
-      : "failed";
-    const detail = [
-      ...(age === "—" ? [] : [`Recorded ${age}`]),
-      ...(entry.last_action.failed_stage === undefined
-        ? []
-        : [`failed check: ${entry.last_action.failed_stage}`]),
-    ].join("; ");
-    return {
-      status: "last_action",
-      summary: `${discernCommand(entry.last_action.verb)} ${outcome}`,
-      ...(detail === "" ? {} : { detail }),
-    };
-  }
-  return {
-    status: "unrecorded",
-    summary: activeAge(entry.last_activity, nowMs),
-  };
 }
 
 /** Select ADR-number collisions whose branch set includes this task. */
@@ -1687,7 +1637,7 @@ export function buildDeskDecision(
       : { qualifier: presentation.qualifier }),
     explanation: presentation.explanation,
     details,
-    activity: activityFact(entry, options.nowMs),
+    activity: presentation.activity,
     proof,
     authority,
     collisions,

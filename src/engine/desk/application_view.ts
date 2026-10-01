@@ -416,11 +416,7 @@ export function deskApplicationView(
     label: deskLine(
       `${row.task.name}${
         (titles.get(row.task.name) ?? 0) > 1 ? ` (${deskRowId(row)})` : ""
-      } · ${
-        row.entry.running
-          ? `${row.entry.running.verb} running`
-          : row.decision.activity.summary
-      }`,
+      } · ${row.decision.qualifier ?? row.decision.activity}`,
     ),
     value: { kind: "task", id: deskRowId(row) },
     // The state's glyph, then the overlap flag when another task changes the

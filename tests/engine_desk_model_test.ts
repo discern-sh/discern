@@ -495,11 +495,8 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
             proof_line: "Proof: agent/x abcdef0 · gate passed",
           },
         });
-        assertEquals(running.activity, {
-          status: "running",
-          summary: "Running discern done",
-          detail: "Elapsed 42s; usually 2m",
-        });
+        // Activity reads in status's words: one vocabulary for one fact.
+        assertEquals(running.activity, "just now · usually 2m");
         assertEquals(
           running.proof.line,
           "Proof: agent/x abcdef0 · gate passed",
@@ -513,16 +510,14 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
             failed_stage: "test",
           },
         });
-        assertEquals(completed.activity, {
-          status: "last_action",
-          summary: "discern done failed",
-          detail: "Recorded 3m ago; failed check: test",
-        });
-
-        assertEquals(decide({ last_activity: undefined }).activity, {
-          status: "unrecorded",
-          summary: "No activity recorded",
-        });
+        assertStringIncludes(
+          completed.activity,
+          "last action done failed at test",
+        );
+        assertEquals(
+          decide({ last_activity: undefined }).activity,
+          "no activity recorded",
+        );
       },
     },
     {
