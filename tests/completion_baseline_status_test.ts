@@ -121,7 +121,15 @@ Deno.test("fleet recovery offers manual action for ambiguous setup and preserves
   });
 });
 
-Deno.test("recent completions bound successful real landings and surface unreadable Park metadata", async () => {
+/** Acceptance effects that never moved the trunk. */
+const LANDED = {
+  recovery_performed: false,
+  trunk_landed: false,
+  worktree_removed: false,
+  branch_deleted: false,
+};
+
+Deno.test("recent completions bound landings that moved the trunk and surface unreadable Park metadata", async () => {
   await withTempDir(async (root) => {
     await Deno.writeTextFile(join(root, "seed"), "base");
     await gitInit(root);
@@ -138,6 +146,7 @@ Deno.test("recent completions bound successful real landings and surface unreada
       clean: true,
       outcome: "ok",
       duration_ms: 1,
+      landing: { ...LANDED, trunk_landed: true },
       epoch: null,
     };
     for (let i = 0; i < 10; i++) {
@@ -148,10 +157,24 @@ Deno.test("recent completions bound successful real landings and surface unreada
         head: i === 9 ? null : String(i).repeat(9),
       });
     }
+    // A queue submission is a successful accept that records no landing
+    // effects; a partial landing records that the trunk never moved.
+    const { landing: _landing, ...queued } = event;
+    await appendEvent(common, queued);
     for (
-      const patch of [{ dry_run: true }, { outcome: "failed" as const }, {
-        verb: "done",
-      }, { branch: null }]
+      const patch of [
+        { dry_run: true },
+        { outcome: "failed" as const },
+        {
+          verb: "done",
+        },
+        { branch: null },
+        {
+          outcome: "partial" as const,
+          landing: LANDED,
+        },
+        { landing: LANDED },
+      ]
     ) await appendEvent(common, { ...event, ...patch });
     const recent = await recentCompletedTasks(root, true, undefined);
     assertEquals(recent.length, 8);

@@ -11,10 +11,22 @@ import {
   type DurationPrior,
   readRecentLogbookStream,
 } from "../logbook/read.ts";
+import type { VerbEvent } from "../logbook/schema.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { listParkedTaskMetadata } from "../worktree/parked_task_metadata.ts";
 
 const RECENT_COMPLETED_TASK_LIMIT = 8;
+
+/**
+ * An acceptance whose recorded effects moved the trunk. Only that is a
+ * completed task: a queue submission is a successful `accept` that lands
+ * nothing and records no landing effects, and a preview or a partial landing
+ * leaves the trunk where it was.
+ */
+function landedTheTrunk(event: VerbEvent): boolean {
+  return event.verb === "accept" && event.outcome === "ok" &&
+    event.dry_run !== true && event.landing?.trunk_landed === true;
+}
 
 /** Project a bounded local landing tail without creating another task archive. */
 export async function recentCompletedTasks(
@@ -29,8 +41,7 @@ export async function recentCompletedTasks(
       const stream = await readRecentLogbookStream(commonGitDir, 200);
       for (const event of [...stream.events].reverse()) {
         if (
-          event.kind !== "verb" || event.verb !== "accept" ||
-          event.outcome !== "ok" || event.dry_run === true ||
+          event.kind !== "verb" || !landedTheTrunk(event) ||
           typeof event.branch !== "string"
         ) continue;
         if (completed.length >= RECENT_COMPLETED_TASK_LIMIT) break;
