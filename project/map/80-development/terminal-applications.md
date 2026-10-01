@@ -15,9 +15,9 @@ Use `runTerminalApplication` from [`terminal_interaction.ts`](../../../src/lib/t
 
 Import composition types and pure application functions from `discern-design-system/cli/interactive`. Import `createCliBlock` and renderers from `discern-design-system/cli`. The package owns region fitting, focus, key decoding, painting, resizing, and restoration. Its `TERMINAL_APPLICATION_MINIMUM` defines the minimum geometry; smaller terminals receive its resize prompt.
 
-The wrapper's `TerminalApplicationOptions<Action>` preserves the package options. Supply a view with stable region and entry identities. The `start` callback receives a context whose `update` method publishes a replacement immutable view; return cleanup for any provider subscription. An action can return a foreground command through `{ kind: "foreground", run }`. The package releases its input and terminal modes, awaits that command, and resumes the application. Keep product discovery and lifecycle execution in those provider and action boundaries.
+The wrapper's `TerminalApplicationOptions<Action>` preserves the package options: a view (header, body, message, footer hints, layers, window title), a static keymap, and callbacks. Supply stable list, item and layer identities. The `start` callback receives a context whose `update` method publishes a replacement immutable view; return cleanup for any provider subscription. A view returned from a callback applies before the next key is decoded, and a layer disappears only when the view stops declaring it. An action can return a foreground command through `{ kind: "foreground", handoff, run }`: the package paints the handoff line, releases its input and terminal modes, awaits the command, and resumes the application. Keep product discovery and lifecycle execution in those provider and action boundaries. The wrapper passes the runtime's `observe` and `clock` through, so tests can run the application on a manual clock.
 
-The [consumer fixture](../../../tests/fixtures/terminal_application.ts) demonstrates choices, an unavailable entry, a reading block, an asynchronous update, and a harmless child. Its [native process](../../../tests/fixtures/terminal_application_process.ts) exercises the production boundary. The [live desk](../../../src/engine/desk/live.ts) is the production consumer: its subscription observes status while synchronous handlers choose routes. The [view](../../../src/engine/desk/application_view.ts) composes package regions; foreground actions retain the shared lifecycle cores. Choice regions opt into package search with `search: true`, and product help comes from the same key map as shortcut handling.
+The [consumer fixture](../../../tests/fixtures/terminal_application.ts) demonstrates a master-detail list, an item without a primary action, an asynchronous update, a keymap, and a harmless child. Its [native process](../../../tests/fixtures/terminal_application_process.ts) exercises the production boundary. The [desk](../30-worktrees/the-desk.md) is the production consumer: its [live controller](../../../src/engine/desk/live.ts) maps every callback onto one event of a pure product state machine and returns the next view synchronously; foreground effects retain the shared lifecycle cores. Product help comes from the same key map as the keymap.
 
 Single-choice `requestSelection` accepts the package's `InteractionSelectionPresentation`, including `menu` for ordinary and searchable choices. Multi-select continues to use `InteractionChoicePresentation`. Each request keeps its existing default.
 
@@ -49,7 +49,7 @@ Run discern's CLI surfaces against an unreleased package checkout with the `cli:
 
 ```sh
 deno task cli:design-system check
-deno task cli:design-system --checkout /path/to/design-system-worktree test tests/engine_desk_live_test.ts
+deno task cli:design-system --checkout /path/to/design-system-worktree test tests/engine_desk_state_test.ts
 deno task cli:design-system capture .scratch/desk-local
 deno task cli:design-system desk --project .scratch/desk-sandbox/project
 ```

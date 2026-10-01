@@ -10,7 +10,7 @@ import {
   type DeskConfirmationPolicy,
 } from "../src/engine/desk/model.ts";
 import { DESK_ACTION_LABELS } from "../src/shared/desk_vocabulary.ts";
-import { deskShortcuts } from "../src/engine/desk/application_view.ts";
+import { deskKeymap } from "../src/engine/desk/inbox_view.ts";
 import { splitRow } from "../src/lib/markdown.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
@@ -33,7 +33,7 @@ function confirmationCell(policy: DeskConfirmationPolicy): string {
 /** The keys this desk answers to. The manual names an action's key only
  * once the desk serves it, so it never documents a key that does nothing. */
 const SERVED_KEYS: ReadonlySet<string> = new Set(
-  deskShortcuts().map((shortcut) => shortcut.key),
+  deskKeymap().map((binding) => binding.key),
 );
 
 /** An action's key, when the desk answers to it. */

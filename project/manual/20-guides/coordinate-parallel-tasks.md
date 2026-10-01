@@ -96,7 +96,7 @@ discern
 
 Tasks are grouped by who moves next: **Ready for review**, **Needs attention**, **Working**, **Approved to land**, then **Idle**, with titles in alphabetical order inside each group. Each row shows the task's state, such as `✓ Ready`, `! Stale`, or `✕ Checks failed`, in the same words `discern status` uses, with a short fact about it, such as `2 commits ahead` or `idle 11 days`. A row that changes files another task also changes carries `⇄` beside its state. A task moves to another group when its state changes.
 
-Select a task and its next step comes first, followed by a few others that fit its state:
+The selected task's details follow it on the right, or under the list on a narrow screen: its state in words, whether its checks passed, how far main has moved, whether it may land without asking, and its commits and changed files. Press Enter for its next step; a few others that fit its state have their own keys:
 
 | Choice                 | What it does                                                |
 | ---------------------- | ----------------------------------------------------------- |
@@ -108,7 +108,7 @@ Select a task and its next step comes first, followed by a few others that fit i
 | **Queue for landing…** | Queues the checked commit without starting a landing.       |
 | **Drop…**              | Discards the task after you confirm.                        |
 
-**More actions** holds the rest, and the [desk actions reference](../30-reference/worktrees-and-status.md#desk-actions) lists every action. A label that ends in `…` asks you to confirm before anything changes. An action that can't run yet stays in the list with the reason it can't. Before an action changes anything, the desk shows its plan, and discern checks the task again when you confirm. The desk also shows one tip suited to your project each time it opens.
+Press `.` to see every action for the task, with its key; the [desk actions reference](../30-reference/worktrees-and-status.md#desk-actions) lists them all. Ctrl+K opens every desk command, such as **New task…** and **Check for updates…**. A label that ends in `…` asks you to confirm before anything changes, and the question opens on the choice that changes nothing. An action that can't run yet is listed with the reason it can't. Before an action changes anything, the desk shows what it will do, and discern checks the task again when you confirm. The desk also shows one tip suited to your project each time it opens.
 
 ## Keep each task up to date
 
