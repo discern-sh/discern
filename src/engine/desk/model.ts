@@ -1500,10 +1500,8 @@ export const DESK_ACTION_REGISTRY = {
           ),
         "uncertain",
       ),
-      line(
-        "removes",
-        ({ context }) => `Removes its checkout and branch ${context.branch}`,
-      ),
+      // The typed challenge names the branch; the lines say what goes.
+      line("removes", "Removes its checkout and branch"),
       ...ENDS_RECORDS,
       ...ENDS_AUTHORITY,
       ...ENDS_RESOURCES,

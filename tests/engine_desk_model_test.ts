@@ -727,7 +727,7 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           "Discards 2 uncommitted changes",
         ]);
         assertEquals(lines(dropped, "drop", "removes", dropPlan), [
-          `Removes its checkout and branch ${task.branch}`,
+          "Removes its checkout and branch",
           "Removes its title and brief",
           "Removes its Proof",
           "Ends its pre-authorization",
@@ -737,6 +737,13 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           lines(dropped, "drop", "recoverable").join(" "),
           "last commit is kept",
         );
+        // Only the challenge names the branch, so it reads once.
+        for (
+          const text of consequenceLines("drop", {
+            context: dropped.context,
+            plan: dropPlan,
+          }).map((line) => line.text)
+        ) assert(!text.includes(task.branch), text);
 
         assertEquals(
           lines(decide({ ahead: 1 }), "park", "removes", {
