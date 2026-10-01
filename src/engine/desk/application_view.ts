@@ -5,7 +5,7 @@ import type {
   TerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import type { StatusData } from "../../shared/result_schemas.ts";
-import { terminalLine } from "../../lib/terminal.ts";
+import { deskLine, deskLiteral } from "./text.ts";
 import {
   DESK_ACTIONS,
   type DeskAction,
@@ -82,12 +82,8 @@ function route(
     id: target,
     label,
     value: { kind: "route", route: target },
-    ...(description ? { description: terminalLine(description) } : {}),
+    ...(description ? { description: deskLine(description) } : {}),
   };
-}
-/** Escape observed text before using it in a reading Component. */
-function literal(text: string): string {
-  return terminalLine(text).replace(/[\\`*_{}\[\]<>#|]/gu, "\\$&");
 }
 /** A package Markdown block in a scrollable reading region. */
 function reading(
@@ -179,12 +175,12 @@ export function deskApplicationView(
     ? " · Refreshing"
     : "";
   const base = {
-    title: terminalLine(
+    title: deskLine(
       `discern · ${data?.project ?? "Desk"}${phase}${
         snapshot.message ? ` · ${snapshot.message}` : ""
       }`,
     ),
-    ...(snapshot.tip ? { tip: terminalLine(`Tip: ${snapshot.tip}`) } : {}),
+    ...(snapshot.tip ? { tip: deskLine(`Tip: ${snapshot.tip}`) } : {}),
     help: `Tab ${page === "overview" ? "commands" : "regions"}  / find  ${
       DESK_KEYS[0].key
     } help  Arrows move  Enter select`,
@@ -194,10 +190,14 @@ export function deskApplicationView(
     page === "help" || page === "tip" || page === "queue" || page === "notice"
   ) {
     const lines = page === "notice"
-      ? [literal(snapshot.notice ?? snapshot.message ?? "No current notice.")]
+      ? [
+        deskLiteral(
+          snapshot.notice ?? snapshot.message ?? "No current notice.",
+        ),
+      ]
       : page === "tip"
       ? [
-        literal(
+        deskLiteral(
           snapshot.tip ?? "A tip will appear after the first observation.",
         ),
         'Read the manual from "Desk commands" for more information.',
@@ -210,9 +210,9 @@ export function deskApplicationView(
         ...DESK_KEYS.map((key) => `${key.key} — ${key.label}`),
       ]
       : [
-        ...(snapshot.message ? [literal(snapshot.message)] : []),
+        ...(snapshot.message ? [deskLiteral(snapshot.message)] : []),
         ...(data?.queue ?? []).map((item) =>
-          literal(
+          deskLiteral(
             `${item.position}. ${item.branch} · ${item.head} · ${item.readiness} · ${item.authority}${
               item.reason ? ` · ${item.reason}` : ""
             }${item.operation_handle ? ` · ${item.operation_handle}` : ""}`,
@@ -223,7 +223,7 @@ export function deskApplicationView(
           : []),
         ...(data?.operation
           ? [
-            literal(
+            deskLiteral(
               `${data.operation.verb} · ${data.operation.handle} · ${
                 data.operation.latest ?? "Running"
               }`,
@@ -233,7 +233,7 @@ export function deskApplicationView(
         ...(data?.emergency_validation ?? []).filter((item) =>
           item.state === "outstanding"
         ).map((item) =>
-          literal(
+          deskLiteral(
             `Outstanding emergency exception: ${item.reason} · ${item.next_action}`,
           )
         ),
@@ -306,10 +306,10 @@ export function deskApplicationView(
       ...row.decision.details.map((detail) => detail.text),
       ...(row.decision.proof.line ? [row.decision.proof.line] : []),
       ...(row.capabilityError ? [row.capabilityError] : []),
-    ].map(literal);
+    ].map(deskLiteral);
     return {
       ...base,
-      title: terminalLine(
+      title: deskLine(
         `${row.task.name}${phase}${
           snapshot.message ? ` · ${snapshot.message}` : ""
         }`,
@@ -341,7 +341,7 @@ export function deskApplicationView(
             ...(row.decision.collisions.length
               ? ["Advisory overlaps · Task details"]
               : []),
-          ].map(literal),
+          ].map(deskLiteral),
         ),
       ],
     };
@@ -352,7 +352,7 @@ export function deskApplicationView(
   }
   const tasks: InteractionEntry<DeskChoice>[] = rows.map((row) => ({
     id: deskRowId(row),
-    label: terminalLine(
+    label: deskLine(
       `${row.task.name}${
         (titles.get(row.task.name) ?? 0) > 1 ? ` (${deskRowId(row)})` : ""
       } · ${
@@ -395,7 +395,7 @@ export function deskApplicationView(
     route(snapshot.phase === "stale" ? "Retry" : "Refresh", "retry"),
     ...(data?.unlanded_branches ?? []).map((branch) => ({
       id: `unlanded:${branch}`,
-      label: terminalLine(`Resume ${branch}`),
+      label: deskLine(`Resume ${branch}`),
       value: { kind: "route" as const, route: "unlanded" as const, branch },
     })),
     route("Quit", "quit"),

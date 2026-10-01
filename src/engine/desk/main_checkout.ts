@@ -1,7 +1,7 @@
 /** Main-checkout diagnosis and bounded recent-completion views. */
 
 import type { StatusData } from "../../shared/result_schemas.ts";
-import { deskLiteral } from "./reading.ts";
+import { deskLiteral } from "./text.ts";
 import { isInteractionCancelled } from "../../lib/terminal_interaction.ts";
 import type { Out } from "../output.ts";
 import { userShell } from "../user_shell.ts";

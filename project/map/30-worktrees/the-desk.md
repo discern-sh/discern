@@ -85,7 +85,7 @@ The main checkout remains a project boundary. Its detail can inspect `git status
 
 `Run final checks` calls the same gate core as `discern done`. The task control remains `Accept` regardless of Proof state. A pass refreshes the task with its new Proof; submission and landing remain separate observations.
 
-**Proof and changes** starts with Proof currency, authority, and a small change summary. Separate reading routes expose the complete Proof and changed files and commits. The primary **Proof and changes** control opens this review directly, including when no Proof exists. Long content scrolls inside its reading region. Failed and unknown reads stay explicit.
+**Proof and changes** starts with Proof currency, authority, and a small change summary. Separate reading routes expose the complete Proof and changed files and commits. The primary **Proof and changes** control opens this review directly, including when no Proof exists. Long content scrolls inside its reading region, and multi-line evidence such as a commit list or Git's error output keeps each line on its own row: the desk's [text module](../../../src/engine/desk/text.ts) is the only route to the terminal sanitizers, and its [guard](../../../tests/engine_desk_text_guard_test.ts) refuses any other. Failed and unknown reads stay explicit.
 
 `View actual diff` opens `git diff --no-ext-diff --color=always <trunk>...HEAD` in the [shared pager](../../../src/lib/pager.ts), then returns to review. `Open in editor` runs an available simple command from `$VISUAL` or `$EDITOR`; unsafe values stay disabled with a reason.
 

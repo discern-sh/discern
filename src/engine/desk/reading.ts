@@ -5,7 +5,7 @@ import {
   runTerminalApplication,
   type TerminalApplicationRuntime,
 } from "../../lib/terminal_interaction.ts";
-import { terminalLine } from "../../lib/terminal.ts";
+import { deskLine } from "./text.ts";
 
 /** Product contents of a local reading or consent route. */
 export interface DeskReading {
@@ -23,11 +23,6 @@ export interface DeskReading {
   };
 }
 
-/** Keep observed names literal in Markdown prose. */
-export function deskLiteral(value: string): string {
-  return terminalLine(value).replace(/[\\`*_{}\[\]<>#|]/gu, "\\$&");
-}
-
 /** Read locally and return the activated action; Escape always leaves the route. */
 export async function readDeskScreen(
   request: DeskReading,
@@ -42,7 +37,7 @@ export async function readDeskScreen(
     ];
   await runTerminalApplication<string>({
     view: {
-      title: terminalLine(request.title),
+      title: deskLine(request.title),
       focusedRegionId: "desk-reading-content",
       help: "Tab choices/read  Esc back",
       regions: [{
