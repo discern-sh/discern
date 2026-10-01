@@ -6,10 +6,12 @@
  * instead: one short sentence-case phrase per built-in step, keyed the same
  * way, so a new built-in operation cannot reach a progress view without its
  * human words. Project-owned steps (jobs, ensure commands, scripts) keep their
- * configured spelling and have no entry here.
+ * configured spelling and have no entry here. A phrase that names the trunk
+ * carries the placeholder the configured trunk replaces.
  */
 
 import { BUILT_IN_STEP_LABELS } from "./result.ts";
+import { TRUNK_PLACEHOLDER, withTrunk } from "./desk_vocabulary.ts";
 
 /** One built-in operation's registry key. */
 export type BuiltInStepKey = keyof typeof BUILT_IN_STEP_LABELS;
@@ -24,11 +26,11 @@ export const STEP_HUMAN_LABELS = {
   configuredMarkdown: "Format the project's Markdown sources",
   deleteBranch: "Delete the branch",
   ensureBranch: "Create the branch",
-  fastForwardTrunk: "Move main to this branch",
+  fastForwardTrunk: `Move ${TRUNK_PLACEHOLDER} to this branch`,
   instructionCheck: "Check the agent instructions are current",
   inheritEnv: "Copy the environment settings",
-  materializeLocalAgentArtifacts: "Refresh agent files on main",
-  merge: "Merge main into the branch",
+  materializeLocalAgentArtifacts: "Refresh agent files in the main checkout",
+  merge: `Merge ${TRUNK_PLACEHOLDER} into the branch`,
   mergeCheck: "Check the branch merges cleanly",
   planIntegrity: "Check the plan is consistent",
   preserveBranchTip: "Keep the last commit for recovery",
@@ -45,11 +47,11 @@ export const STEP_HUMAN_LABELS = {
   teardownResources: "Release its ports and services",
   trackedArtifactsCheck: "Check tracked generated files",
   trackedRefreshCheck: "Check generated files need no refresh",
-  trackedRefreshLandingBoundary: "Check main needs no refresh",
+  trackedRefreshLandingBoundary: "Check generated files before landing",
   trackedRefreshProofBoundary: "Check generated files before recording Proof",
-  trunkLimits: "Check main's quality limits",
+  trunkLimits: `Check ${TRUNK_PLACEHOLDER}'s quality limits`,
   writeTaskMetadata: "Record the task title",
-  writeProofNote: "Record the Proof on main",
+  writeProofNote: "Record the Proof note",
 } as const satisfies Record<BuiltInStepKey, string>;
 
 const HUMAN_BY_LABEL: ReadonlyMap<string, string> = new Map(
@@ -61,8 +63,13 @@ const HUMAN_BY_LABEL: ReadonlyMap<string, string> = new Map(
   }),
 );
 
-/** The human phrase for a plan step's label, or undefined for a
- * project-owned step whose configured spelling is already its name. */
-export function humanStepLabel(label: string): string | undefined {
-  return HUMAN_BY_LABEL.get(label);
+/** The human phrase for a plan step's label, with the configured trunk, or
+ * undefined for a project-owned step whose configured spelling is already
+ * its name. */
+export function humanStepLabel(
+  label: string,
+  trunk: string,
+): string | undefined {
+  const human = HUMAN_BY_LABEL.get(label);
+  return human === undefined ? undefined : withTrunk(human, trunk);
 }

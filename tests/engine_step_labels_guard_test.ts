@@ -20,18 +20,22 @@ Deno.test("every built-in step label has one human phrase", () => {
   );
   const phrases: string[] = [];
   for (const [key, label] of Object.entries(BUILT_IN_STEP_LABELS)) {
-    const human = humanStepLabel(label);
+    const human = humanStepLabel(label, "develop");
     assert(human !== undefined, `${key}: ${label} has no human phrase`);
     phrases.push(human);
     assert(/^[A-Z]/u.test(human), `${key}: "${human}" starts with a capital`);
     assert(!/[.:;]$/u.test(human), `${key}: "${human}" ends without stops`);
     assert(!/\b[a-z]+-[a-z]+-[a-z]+\b/u.test(human), `${key}: kebab-case`);
     assert(human.length <= 48, `${key}: "${human}" fits one progress row`);
+    assert(
+      !/\bmain\b(?! checkout)/iu.test(human),
+      `${key}: "${human}" names the configured trunk, never main`,
+    );
   }
   assertEquals(
     phrases.filter((phrase, index) => phrases.indexOf(phrase) !== index),
     [],
     "two operations share one phrase",
   );
-  assertEquals(humanStepLabel("deno task test"), undefined);
+  assertEquals(humanStepLabel("deno task test", "develop"), undefined);
 });

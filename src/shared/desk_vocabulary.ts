@@ -6,8 +6,13 @@
  * plan titles quote them and must not import the Desk engine.
  *
  * A label ends with an ellipsis exactly when its control asks for more input or
- * a confirmation before it runs; the registry guard holds that rule.
+ * a confirmation before it runs; the registry guard holds that rule. A label
+ * that names the trunk carries {@link TRUNK_PLACEHOLDER}, which `withTrunk`
+ * renders with the project's configured trunk, so no label types one name.
  */
+
+/** Where a label names the project's configured trunk. */
+export const TRUNK_PLACEHOLDER = "<trunk>";
 
 /** Every task action, in the registry's presentation order. */
 export const DESK_ACTIONS = [
@@ -40,7 +45,7 @@ export const DESK_ACTION_LABELS = {
   done: "Run checks…",
   accept: "Land…",
   submit: "Queue for landing…",
-  update: "Update from main…",
+  update: `Update from ${TRUNK_PLACEHOLDER}…`,
   agent: "Open agent",
   follow_up: "Start follow-up…",
   scripts: "Run a script…",
@@ -83,7 +88,7 @@ export type DeskCommand = (typeof DESK_COMMANDS)[number];
 /** The label each command shows; a toggle shows its first label until used. */
 export const DESK_COMMAND_LABELS = {
   new_task: "New task…",
-  main_scripts: "Run a script on main…",
+  main_scripts: "Run a script in the main checkout…",
   landing: "Landing",
   parked: "Parked branches",
   main_checkout: "Main checkout",
@@ -115,6 +120,11 @@ const ELLIPSIS = "…";
 /** Whether a label promises more input or a confirmation before it runs. */
 export function asksBeforeRunning(label: string): boolean {
   return label.endsWith(ELLIPSIS);
+}
+
+/** A label with the configured trunk in place of its placeholder. */
+export function withTrunk(label: string, trunk: string): string {
+  return label.replaceAll(TRUNK_PLACEHOLDER, trunk);
 }
 
 /** A label as a name inside a sentence or title: "Queue for landing". */

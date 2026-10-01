@@ -146,25 +146,25 @@ Each task's state names its next step. A task that is ready offers **Land…**, 
 
 <!-- BEGIN DESK ACTION REGISTRY -->
 
-| Id             | Key | Section | Label                     | Command evidence                               | Confirmation                                                     |
-| -------------- | --- | ------- | ------------------------- | ---------------------------------------------- | ---------------------------------------------------------------- |
-| `recovery`     | —   | Work    | Recovery steps            | `discern status --all`                         | None                                                             |
-| `retry_setup`  | —   | Manage  | Retry setup…              | `discern worktree setup`                       | No by default; Retry                                             |
-| `done`         | `c` | Work    | Run checks…               | `discern done`                                 | No by default; Run                                               |
-| `accept`       | `l` | Review  | Land…                     | `discern accept --target <branch> --confirmed` | No by default; Land                                              |
-| `submit`       | —   | Review  | Queue for landing…        | `discern accept queue --target <branch>`       | No by default; Queue                                             |
-| `update`       | `u` | Manage  | Update from main…         | `discern update`                               | No by default; Update                                            |
-| `agent`        | `a` | Work    | Open agent                | `<configured-agent>`                           | None                                                             |
-| `follow_up`    | `f` | Work    | Start follow-up…          | `discern start --from <branch>`                | No by default; Create                                            |
-| `scripts`      | `x` | Work    | Run a script…             | `discern scripts <name>`                       | No by default; Run                                               |
-| `jump`         | `s` | Work    | Open shell                | `<user-shell>`                                 | None                                                             |
-| `inspect`      | `v` | Review  | View changes              | `git diff <trunk>...HEAD`                      | None                                                             |
-| `rename`       | `e` | Manage  | Rename…                   | `discern worktree rename <title>`              | No by default; Rename                                            |
-| `grant`        | `g` | Manage  | Pre-authorize…            | `discern desk`                                 | No by default; Allow                                             |
-| `revoke_grant` | —   | Manage  | Revoke pre-authorization… | `discern desk`                                 | No by default; Revoke                                            |
-| `reclaim`      | —   | Manage  | Reclaim checkout…         | `discern worktree prune --contained`           | No by default; Reclaim                                           |
-| `park`         | `p` | Manage  | Park…                     | `discern worktree park <path>`                 | No by default; Park                                              |
-| `drop`         | `D` | Danger  | Drop…                     | `discern worktree drop <path>`                 | No by default; Drop, then type the branch before discarding work |
+| Id             | Key | Section | Label                      | Command evidence                               | Confirmation                                                     |
+| -------------- | --- | ------- | -------------------------- | ---------------------------------------------- | ---------------------------------------------------------------- |
+| `recovery`     | —   | Work    | Recovery steps             | `discern status --all`                         | None                                                             |
+| `retry_setup`  | —   | Manage  | Retry setup…               | `discern worktree setup`                       | No by default; Retry                                             |
+| `done`         | `c` | Work    | Run checks…                | `discern done`                                 | No by default; Run                                               |
+| `accept`       | `l` | Review  | Land…                      | `discern accept --target <branch> --confirmed` | No by default; Land                                              |
+| `submit`       | —   | Review  | Queue for landing…         | `discern accept queue --target <branch>`       | No by default; Queue                                             |
+| `update`       | `u` | Manage  | Update from &lt;trunk&gt;… | `discern update`                               | No by default; Update                                            |
+| `agent`        | `a` | Work    | Open agent                 | `<configured-agent>`                           | None                                                             |
+| `follow_up`    | `f` | Work    | Start follow-up…           | `discern start --from <branch>`                | No by default; Create                                            |
+| `scripts`      | `x` | Work    | Run a script…              | `discern scripts <name>`                       | No by default; Run                                               |
+| `jump`         | `s` | Work    | Open shell                 | `<user-shell>`                                 | None                                                             |
+| `inspect`      | `v` | Review  | View changes               | `git diff <trunk>...HEAD`                      | None                                                             |
+| `rename`       | `e` | Manage  | Rename…                    | `discern worktree rename <title>`              | No by default; Rename                                            |
+| `grant`        | `g` | Manage  | Pre-authorize…             | `discern desk`                                 | No by default; Allow                                             |
+| `revoke_grant` | —   | Manage  | Revoke pre-authorization…  | `discern desk`                                 | No by default; Revoke                                            |
+| `reclaim`      | —   | Manage  | Reclaim checkout…          | `discern worktree prune --contained`           | No by default; Reclaim                                           |
+| `park`         | `p` | Manage  | Park…                      | `discern worktree park <path>`                 | No by default; Park                                              |
+| `drop`         | `D` | Danger  | Drop…                      | `discern worktree drop <path>`                 | No by default; Drop, then type the branch before discarding work |
 
 <!-- END DESK ACTION REGISTRY -->
 

@@ -18,6 +18,7 @@ import {
   DESK_COMMAND_LABELS,
   DESK_COMMAND_TOGGLED_LABELS,
   type DeskCommand,
+  withTrunk,
 } from "../src/shared/desk_vocabulary.ts";
 import { FLEET_ROW_STATE_IDS } from "../src/shared/fleet_row_vocabulary.ts";
 import {
@@ -223,6 +224,22 @@ Deno.test("Desk registry guard: labels and bindings", () => {
           );
         }
       }
+    },
+    "a label names the trunk only through its placeholder": () => {
+      const labels = [
+        ...Object.values(DESK_ACTION_LABELS),
+        ...Object.values(DESK_COMMAND_LABELS),
+        ...Object.values(DESK_COMMAND_TOGGLED_LABELS),
+      ];
+      // "main checkout" names the primary checkout, which every project has.
+      assertEquals(
+        labels.filter((label) => /\bmain\b(?! checkout)/iu.test(label)),
+        [],
+      );
+      assertEquals(
+        withTrunk(DESK_ACTION_LABELS.update, "develop"),
+        "Update from develop…",
+      );
     },
     "everything that changes the project or launches a child declares its binding":
       () => {

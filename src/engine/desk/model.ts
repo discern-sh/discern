@@ -28,6 +28,7 @@ import {
   DESK_COMMAND_LABELS,
   type DeskAction,
   labelName,
+  withTrunk,
 } from "../../shared/desk_vocabulary.ts";
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
@@ -1510,7 +1511,7 @@ function actionOffers(
       action,
       section: metadata.section,
       ...(metadata.key === undefined ? {} : { key: metadata.key }),
-      label: DESK_ACTION_LABELS[action],
+      label: withTrunk(DESK_ACTION_LABELS[action], context.trunk),
       summary: metadata.summary(context),
       reviewTitle: metadata.reviewTitle(context),
       command: metadata.command(context),
