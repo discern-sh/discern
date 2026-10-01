@@ -239,9 +239,13 @@ function setupFacts(
         : "Stopped before it finished",
     }]],
   }];
-  const reason = setup.journal?.reason ?? setup.repair?.reason;
-  if (reason !== undefined) {
-    facts.push({ label: "Error", value: [[{ text: reason }]] });
+  // A recorded failure is an error; a repair that needs the owner says why.
+  // A safe retry needs no words here: the explanation already says so.
+  const failure = setup.journal?.reason;
+  if (failure !== undefined) {
+    facts.push({ label: "Error", value: [[{ text: failure }]] });
+  } else if (setup.repair?.kind === "manual") {
+    facts.push({ label: "Why", value: [[{ text: setup.repair.reason }]] });
   }
   return facts;
 }

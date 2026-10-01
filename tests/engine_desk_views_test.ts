@@ -46,7 +46,7 @@ import {
   statusData,
 } from "./status_fleet.ts";
 import { renderProofLine } from "../src/engine/gate/proof_render.ts";
-import { NOW, TABLE_ROWS } from "./row_state_table.ts";
+import { NOW, SETUP, TABLE_ROWS, task } from "./row_state_table.ts";
 import {
   freshDesk,
   observeDesk,
@@ -241,6 +241,39 @@ Deno.test("a stored Proof line reads as styled words, without its CLI pointer", 
     { text: "x`y", role: "code" },
     { text: " b" },
   ]);
+});
+
+Deno.test("a stopped setup reads Error only for a recorded failure", () => {
+  const facts = (patch: Parameters<typeof task>[0]) => {
+    const state = desk(statusData([mainFleetEntry(), task(patch)]));
+    const [row] = state.rows;
+    assert(row !== undefined);
+    const view = deskView(state, { ...PRODUCT_UI, selected: "task" }, ENV);
+    assert(view.body.kind === "master-detail");
+    return said(view.body.detail.content.task);
+  };
+  const retry = facts({
+    ...SETUP("incomplete", "retry"),
+  });
+  assertStringIncludes(retry, "Stopped at step 3 of 4");
+  assert(!retry.includes('"Error"'), "a safe retry is no error");
+  assert(!retry.includes('"Why"'), "nor needs words of its own");
+  const manual = facts(SETUP("incomplete", "manual"));
+  assertStringIncludes(manual, '"Why"');
+  const failed = SETUP("incomplete", "retry");
+  const journal = failed.setup?.journal;
+  assert(journal !== undefined);
+  assertStringIncludes(
+    facts({
+      setup: {
+        ...failed.setup,
+        state: "incomplete",
+        marker: "missing",
+        journal: { ...journal, reason: "deno task site:build exited 1" },
+      },
+    }),
+    '"Error"',
+  );
 });
 
 Deno.test("every row state's inspector and strip render in status's words", () => {
