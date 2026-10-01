@@ -33,6 +33,7 @@ import {
   terminalPresentationContext,
 } from "../../lib/terminal.ts";
 import { byteWriter } from "../output.ts";
+import { reportStep, stepStarted } from "../plan_steps.ts";
 
 /**
  * Lifecycle events for one scheduler run. A live gate-job TTY table can observe
@@ -177,6 +178,25 @@ function chainExternal(
   return (): void => external.removeEventListener("abort", onAbort);
 }
 
+/** Report a job's start as its plan step's. */
+function jobStarted(job: Job, opts: RunOptions): void {
+  stepStarted(job.label);
+  opts.observer?.started(job);
+}
+
+/** Report a job's verdict as its plan step's. */
+function jobSettled(result: JobResult, opts: RunOptions): void {
+  reportStep(
+    result.label,
+    result.code === 0
+      ? "finished"
+      : result.cancelled === true
+      ? "cancelled"
+      : "failed",
+  );
+  opts.observer?.settled(result);
+}
+
 /** One settled physical job shares the static transcript used by every scheduler. */
 export function presentJobResult(settled: SpawnedJob, opts: RunOptions): void {
   if (opts.quiet) return;
@@ -210,7 +230,7 @@ export async function runParallel(
   try {
     const settled = await Promise.all(
       jobs.map((job) => {
-        opts.observer?.started(job);
+        jobStarted(job, opts);
         return spawnJob(
           job,
           spawnOptions(job, opts, controller.signal, stream, write),
@@ -220,7 +240,7 @@ export async function runParallel(
             if (opts.failFast && result.code !== 0) {
               controller.abort();
             }
-            opts.observer?.settled(result);
+            jobSettled(result, opts);
             return { ...s, result };
           });
       }),
@@ -267,13 +287,13 @@ export async function runSerial(
         ok = false;
         break;
       }
-      opts.observer?.started(job);
+      jobStarted(job, opts);
       const s = await spawnJob(
         job,
         spawnOptions(job, opts, controller.signal, stream, write),
       );
       const result = await evaluateResult(job, s.result);
-      opts.observer?.settled(result);
+      jobSettled(result, opts);
       if (!quiet) {
         presentJobResult({ ...s, result }, opts);
       }

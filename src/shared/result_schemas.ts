@@ -3694,6 +3694,21 @@ export const ProgressFactSchema = z.object({
   attempt_id: z.string().optional(),
 });
 
+/**
+ * One plan step as its executor reported it, named by the plan's own label:
+ * its latest state and when it started and settled. Advisory; the result
+ * envelope's `steps` remain the authority on how each step turned out.
+ */
+export const ProgressStepSchema = z.object({
+  label: z.string(),
+  state: openVocabulary("x-discern-plan-step-states"),
+  started_at: z.number().optional(),
+  finished_at: z.number().optional(),
+  /** Whose plan it belongs to, when the operation ran more than its own. */
+  subject: z.string().optional(),
+});
+export type ProgressStep = z.infer<typeof ProgressStepSchema>;
+
 /** One named timing boundary; each category is its own recorded fact. */
 export const ProgressTimingSchema = z.object({
   category: z.string(),
@@ -3724,6 +3739,8 @@ export const ProgressDataSchema = z.object({
   producers: z.array(ProgressWorkSchema).optional(),
   failures: z.array(ProgressFailureSchema).optional(),
   timings: z.array(ProgressTimingSchema).optional(),
+  /** The plan's steps in the order they started or settled. */
+  steps: z.array(ProgressStepSchema).optional(),
   result: z.unknown().optional(),
   result_truncated: z.boolean().optional(),
   result_path: z.string().optional(),

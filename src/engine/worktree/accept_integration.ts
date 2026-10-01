@@ -69,6 +69,7 @@ import {
 } from "./integration_landing.ts";
 import { retainedIntegrationJudgment } from "./integration_record.ts";
 import { removeIntegrationWorktree } from "./lifecycle.ts";
+import { recordSteps, stepStarted } from "../plan_steps.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import { clearSubmissionIfCurrent } from "./submission_writer.ts";
 import type {
@@ -116,7 +117,7 @@ function recordIntegrationCleanup(
   mainRepo: string,
   failures: readonly string[],
 ): void {
-  progress.steps.push({
+  recordSteps(progress.steps, {
     step: {
       kind: "git",
       label: BUILT_IN_STEP_LABELS.removeWorktree,
@@ -320,6 +321,9 @@ export async function executeIntegrationLanding(
       `The trunk moved after ${effort.branch}'s Proof, and this caller cannot run the combined check. Re-run discern accept from the command line or the MCP tools, or run discern update, discern done, then discern accept from ${effort.path}.`,
     );
   }
+  // Composing and proving the combined tree is how this landing moves the
+  // trunk, so the plan's move step runs from here.
+  stepStarted(BUILT_IN_STEP_LABELS.fastForwardTrunk);
   const ownership = classifyAutomaticBranchOwnership({
     kind: "worktree",
     branch: effort.branch,
@@ -757,7 +761,7 @@ export async function executeIntegrationLanding(
         short(composed.head)
       } at ${mainRepo}.`,
     );
-    progress.steps.push({
+    recordSteps(progress.steps, {
       step: {
         kind: "git",
         label: BUILT_IN_STEP_LABELS.fastForwardTrunk,
@@ -800,7 +804,7 @@ export async function executeIntegrationLanding(
       env,
     });
     progress.proofNote = recording.proofNote;
-    progress.steps.push(...recording.steps);
+    recordSteps(progress.steps, ...recording.steps);
     progress.convergenceHints.push(...recording.hints);
 
     await convergeMainCheckout(effort, plan, progress, request.signal);

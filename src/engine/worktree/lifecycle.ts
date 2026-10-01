@@ -113,6 +113,7 @@ import {
   runJobGroups,
 } from "../gate/execute.ts";
 import { type JobGroup, serializeJobSteps } from "../gate/plan.ts";
+import { recordSteps, reportStep, stepStarted } from "../plan_steps.ts";
 import { configEpoch } from "../logbook/epoch.ts";
 import { readFleetLogbookActivity } from "../logbook/read.ts";
 import {
@@ -682,18 +683,21 @@ export async function runEnsureCommands(
   for (const step of commands) {
     if (opts.signal?.aborted) {
       outcomes.push("cancelled");
+      reportStep(step, "cancelled");
       continue;
     }
     const label = opts.scope === "repository"
       ? "Repository ensure step"
       : "Worktree ensure step";
     ctx.log.info(`${label}: ${step}`);
+    stepStarted(step);
     const code = await runShellRouted(step, {
       cwd: opts.cwd,
       log: ctx.log,
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     });
     if (code !== 0) {
+      reportStep(step, opts.signal?.aborted ? "cancelled" : "failed");
       if (opts.fatal) {
         throw new WorktreeGitError(
           `The ${opts.scope} ensure step failed: ${step}. Fix that command or its ` +
@@ -712,6 +716,7 @@ export async function runEnsureCommands(
       );
     } else {
       outcomes.push("ok");
+      reportStep(step, "finished");
     }
   }
   return {
@@ -1034,10 +1039,13 @@ export async function worktreeSetup(
         commands,
         async (step) => {
           ctx.log.info(`Setup step: ${step.command}`);
-          return await runShellRouted(step.command, {
+          stepStarted(step.command);
+          const code = await runShellRouted(step.command, {
             cwd: ctx.cwd,
             log: ctx.log,
           });
+          reportStep(step.command, code === 0 ? "finished" : "failed");
+          return code;
         },
       );
       const identities = await configuredSetupSteps(commands);
@@ -1082,6 +1090,7 @@ export async function worktreeSetup(
   // gitignored directory from the main checkout. Non-fatal — but its real outcome
   // is recorded, not reported as a blanket success.
   ctx.log.info("Refreshing artifacts…");
+  stepStarted(BUILT_IN_STEP_LABELS.completeRefresh);
   let refresh: LifecycleRefreshRun;
   try {
     refresh = await refreshWorktreeArtifacts(ctx);
@@ -1090,6 +1099,10 @@ export async function worktreeSetup(
     refresh = failedRefreshRun([reason], ctx.root);
     ctx.log.warn("Artifact refresh reported an error — continuing.");
   }
+  reportStep(
+    BUILT_IN_STEP_LABELS.completeRefresh,
+    refresh.ok ? "finished" : "failed",
+  );
 
   await recordIgnoredFileBaseline(
     ctx.cwd,
@@ -1573,7 +1586,7 @@ export async function worktreeDrop(
       }
       preservedCommit = recovery.commit;
       ctx.log.ok(`Preserved branch tip at ${recovery.ref}.`);
-      steps.push({
+      recordSteps(steps, {
         step: {
           kind: "git",
           label: BUILT_IN_STEP_LABELS.preserveBranchTip,
@@ -1596,7 +1609,7 @@ export async function worktreeDrop(
         }
       }
     } else {
-      steps.push({
+      recordSteps(steps, {
         step: {
           kind: "git",
           label: BUILT_IN_STEP_LABELS.preserveBranchTip,
@@ -1627,7 +1640,7 @@ export async function worktreeDrop(
       ));
     }
     for (const item of plan.entries) {
-      steps.push({
+      recordSteps(steps, {
         step: {
           kind: "resource-destroy",
           label: verbatimStepLabel(item.entry.resource_name),
@@ -1644,6 +1657,7 @@ export async function worktreeDrop(
 
     // 2. Remove the worktree directory + registration.
     ctx.log.info(`Removing worktree: ${plan.targetPath}`);
+    stepStarted(BUILT_IN_STEP_LABELS.removeWorktree);
     try {
       await removeWorktreeSafely(plan.targetPath, ctx.root);
     } catch (e) {
@@ -1655,7 +1669,7 @@ export async function worktreeDrop(
         { cause: e },
       );
     }
-    steps.push({
+    recordSteps(steps, {
       step: {
         kind: "git",
         label: BUILT_IN_STEP_LABELS.removeWorktree,
@@ -1696,7 +1710,7 @@ export async function worktreeDrop(
         );
       }
       ctx.log.ok(`Deleted branch ${plan.branch}.`);
-      steps.push({
+      recordSteps(steps, {
         step: {
           kind: "git",
           label: BUILT_IN_STEP_LABELS.deleteBranch,
@@ -1708,7 +1722,7 @@ export async function worktreeDrop(
     } else if (plan.branch !== "") {
       const keepReason = plan.branchKeepReason ?? `${plan.branch} is kept`;
       ctx.log.ok(`Kept branch ${plan.branch} — ${keepReason}.`);
-      steps.push({
+      recordSteps(steps, {
         step: {
           kind: "git",
           label: BUILT_IN_STEP_LABELS.deleteBranch,
@@ -2397,6 +2411,7 @@ async function runUpdateConvergence(
 }> {
   const generated = await runUpdateGeneratedGroups(ctx, plan.generatedGroups);
   ctx.log.info("Refreshing artifacts…");
+  stepStarted(BUILT_IN_STEP_LABELS.completeRefresh);
   let refresh: LifecycleRefreshRun;
   const refreshedSharedPaths = new Set<string>();
   try {
@@ -2410,7 +2425,9 @@ async function runUpdateConvergence(
     refresh = failedRefreshRun([reason], ctx.root);
     ctx.log.warn("Artifact refresh reported an error — continuing.");
   }
-  const steps: StepResult[] = [...generated.steps, {
+  // The job runner reported each generated group's jobs as they ran.
+  const steps: StepResult[] = [...generated.steps];
+  recordSteps(steps, {
     step: {
       kind: "refresh",
       label: BUILT_IN_STEP_LABELS.completeRefresh,
@@ -2418,7 +2435,7 @@ async function runUpdateConvergence(
       note: FULL_REFRESH_STEP_NOTE,
     },
     outcome: refresh.ok ? "ok" : "failed",
-  }];
+  });
   const successful = new Set(generated.successful);
   if (refresh.ok) {
     successful.add(UPDATE_BUILTIN_GENERATED_GROUP);
@@ -2430,7 +2447,8 @@ async function runUpdateConvergence(
     refreshedSharedPaths,
     opts.commitRegenerated,
   );
-  steps.push(committed.step);
+  recordSteps(steps, committed.step);
+  // Each ensure command reported its own start and end as it ran.
   const repositoryEnsure = await runRepositoryEnsureSteps(ctx, {
     fatal: false,
   });
@@ -2583,6 +2601,7 @@ export async function applyUpdateCore(
 ): Promise<UpdateCoreOutcome> {
   observeMergeAttempt();
   const { source } = plan;
+  stepStarted(BUILT_IN_STEP_LABELS.merge);
   const outcome = await updateMain(
     ctx.cwd,
     undefined,
@@ -2607,13 +2626,19 @@ export async function applyUpdateCore(
     })
     : undefined;
   if (observation !== undefined) observeMergeAttempt(observation);
+  if (
+    outcome.kind === "dirty" || outcome.kind === "conflict" ||
+    outcome.kind === "merge_failed"
+  ) reportStep(BUILT_IN_STEP_LABELS.merge, "failed");
   switch (outcome.kind) {
     case "skipped":
     case "already": {
       ctx.log.ok(
         `Already up to date with ${source} — nothing to merge; converging the worktree.`,
       );
-      const steps: StepResult[] = [
+      const steps: StepResult[] = [];
+      recordSteps(
+        steps,
         {
           step: {
             kind: "git",
@@ -2632,7 +2657,7 @@ export async function applyUpdateCore(
           },
           outcome: "skipped",
         },
-      ];
+      );
       const convergence = await runUpdateConvergence(ctx, plan, {
         commitRegenerated: false,
       });
@@ -2679,7 +2704,9 @@ export async function applyUpdateCore(
           ? `Merged ${source} (was behind by ${behindText}).`
           : `Updated ${source} (${behindText}; merge mode unavailable).`,
       );
-      const steps: StepResult[] = [
+      const steps: StepResult[] = [];
+      recordSteps(
+        steps,
         {
           step: {
             kind: "git",
@@ -2704,7 +2731,7 @@ export async function applyUpdateCore(
           },
           outcome: outcome.autoResolved.length > 0 ? "ok" : "skipped",
         },
-      ];
+      );
       // Refresh + converge — the shared tail; a merge can bring in another line
       // of work's instructions/skill edits, generated metadata, or a changed lockfile.
       const convergence = await runUpdateConvergence(ctx, plan, {
@@ -3217,6 +3244,7 @@ export async function applyStartPlan(
     }
 
     ctx.log.heading(`Starting a new worktree (${plan.id})…`);
+    stepStarted(BUILT_IN_STEP_LABELS.addWorktree);
     await createAndSetupWorktree(
       ctx.root,
       plan.worktreePath,
@@ -3288,7 +3316,9 @@ export async function applyStartPlan(
         ? { landing_authority: authorityProjection }
         : {}),
     };
-    const result: DiscernResult<StartData> = appliedResult("start", [
+    const steps: StepResult[] = [];
+    recordSteps(
+      steps,
       {
         step: {
           kind: "git",
@@ -3316,7 +3346,8 @@ export async function applyStartPlan(
         },
         outcome: "ok",
       },
-    ]);
+    );
+    const result: DiscernResult<StartData> = appliedResult("start", steps);
     result.message =
       `Created worktree '${plan.id}' at ${plan.worktreePath} (branch ${plan.branch}).`;
     result.data = data;

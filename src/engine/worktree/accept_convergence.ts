@@ -31,6 +31,7 @@ import {
 import { type JobGroup, serializeJobSteps } from "../gate/plan.ts";
 import { materializeLocalRefreshArtifacts } from "../instructions.ts";
 import { hasUncommittedTrackedChanges } from "./git.ts";
+import { recordSteps, stepStarted } from "../plan_steps.ts";
 import {
   failedRefreshRun,
   instructionRefreshRun,
@@ -86,6 +87,7 @@ export async function convergeMainCheckout(
   }
 
   log.info("Materializing local agent artifacts in the landing checkout…");
+  stepStarted(BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts);
   const templatesDir = await postLandingLocalTemplatesDir(
     effort.path,
     mainRepo,
@@ -107,7 +109,7 @@ export async function convergeMainCheckout(
   }
   hints = mergeHintTexts(hints, refresh.hints);
   diagnostics.push(...refresh.diagnostics);
-  results.push({
+  recordSteps(results, {
     step: {
       kind: "refresh",
       label: BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts,
@@ -143,6 +145,7 @@ export async function convergeMainCheckout(
       ...(signal === undefined ? {} : { signal }),
     },
   );
+  // Each ensure command reported its own start and end as it ran.
   for (const [index, command] of plan.repositoryEnsureSteps.entries()) {
     results.push({
       step: {
@@ -189,6 +192,7 @@ export async function convergeMainCheckout(
         run.slots,
       );
       const smoke = await serializeJobSteps(mainRepo, [group], tested.results);
+      // The job runner reported each smoke job's start and end as it ran.
       results.push(...smoke.steps);
       diagnostics.push(...smoke.diagnostics);
       hints = mergeHintTexts(hints, hintTexts(smoke.hints));
@@ -197,7 +201,7 @@ export async function convergeMainCheckout(
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       for (const smoke of plan.smokeSteps) {
-        results.push({
+        recordSteps(results, {
           step: {
             kind: "job",
             label: verbatimStepLabel(smoke.label),
@@ -230,7 +234,7 @@ export async function convergeMainCheckout(
       checkoutClean = false;
     }
   }
-  results.push({
+  recordSteps(results, {
     step: {
       kind: "checkout-clean-check",
       label: BUILT_IN_STEP_LABELS.checkTrunkCheckout,

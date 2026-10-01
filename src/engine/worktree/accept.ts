@@ -131,6 +131,7 @@ import {
   unboundCompositionRefusal,
 } from "./accept_support.ts";
 import { walkQueue } from "./accept_walk.ts";
+import { recordSteps, stepStarted } from "../plan_steps.ts";
 import {
   cloneLandingConsent,
   recordLandingProofNote,
@@ -753,7 +754,7 @@ async function recordRecoveredLanding(
     log: effort.ctx.log,
     env,
   });
-  progress.steps.push(...recording.steps);
+  recordSteps(progress.steps, ...recording.steps);
   progress.proofNote = recording.proofNote;
   progress.convergenceHints.push(...recording.hints);
   if (matching !== undefined) {
@@ -1054,6 +1055,7 @@ async function executeLanding(
   for (const warning of authority.warnings) log.warn(warning);
 
   log.info(`Fast-forwarding ${trunk} to ${effort.branch}…`);
+  stepStarted(BUILT_IN_STEP_LABELS.fastForwardTrunk);
   // Only the transition itself runs under the common publication boundary;
   // note recording, convergence, and cleanup follow outside it under the
   // acceptance boundary alone.
@@ -1142,7 +1144,7 @@ async function executeLanding(
     abandoned: abandonedOpenQuestions,
   });
   log.ok(`${trunk} fast-forwarded to ${effort.branch} at ${mainRepo}.`);
-  progress.steps.push({
+  recordSteps(progress.steps, {
     step: {
       kind: "git",
       label: BUILT_IN_STEP_LABELS.fastForwardTrunk,
@@ -1168,7 +1170,7 @@ async function executeLanding(
     env,
   });
   progress.proofNote = recording.proofNote;
-  progress.steps.push(...recording.steps);
+  recordSteps(progress.steps, ...recording.steps);
   progress.convergenceHints.push(...recording.hints);
 
   await convergeMainCheckout(effort, plan, progress, signal);

@@ -21,6 +21,7 @@ import {
   AwaitDataSchema,
   ProgressFactSchema,
   ProgressFailureSchema,
+  ProgressStepSchema,
   ProgressTimingSchema,
   ProgressWaitSchema,
   ProgressWorkSchema,
@@ -54,6 +55,7 @@ import {
 import type { DiscernResult } from "../../shared/result.ts";
 import {
   type CompletionObservationFact,
+  type CompletionStep,
   emitCompletionProgress,
   type ProducerWork,
   withCompletionObserver,
@@ -68,6 +70,7 @@ const RESULT_MAX_BYTES = 256 * 1024;
 const FAILURES_LIMIT = 64;
 const TIMINGS_LIMIT = 128;
 const PRODUCERS_LIMIT = 64;
+const STEPS_LIMIT = 256;
 const RECORD_SUFFIX = ".json";
 /** An oversized final result is retained complete in a sibling file. */
 const RESULT_SUFFIX = ".result.json";
@@ -111,6 +114,7 @@ const OperationJournalRecordSchema = z.object({
   producers: z.record(z.string(), ProgressWorkSchema).optional(),
   failures: z.array(ProgressFailureSchema).optional(),
   timings: z.array(ProgressTimingSchema).optional(),
+  steps: z.array(ProgressStepSchema).optional(),
   outcome: z.enum(["completed", "failed", "cancelled"]).optional(),
   result: z.unknown().optional(),
   result_truncated: z.boolean().optional(),
@@ -291,6 +295,38 @@ async function pruneForCreate(
   }
 }
 
+/** One retained plan step, as a reconnect reading receives it. */
+export type JournalledStep = z.infer<typeof ProgressStepSchema>;
+
+/**
+ * Fold one step transition into the steps already retained. A step is the
+ * same step while its plan's subject and its label match; a new step joins
+ * the end, so the list keeps the order steps began or settled.
+ */
+export function foldStep(
+  steps: readonly JournalledStep[],
+  step: CompletionStep,
+): JournalledStep[] {
+  const at = steps.findIndex((existing) =>
+    existing.subject === step.subject && existing.label === step.label
+  );
+  const previous = at < 0 ? undefined : steps[at];
+  const next: JournalledStep = {
+    label: step.label,
+    state: step.state,
+    ...(step.state === "started"
+      ? { started_at: step.at }
+      : previous?.started_at === undefined
+      ? {}
+      : { started_at: previous.started_at }),
+    ...(step.state === "started" ? {} : { finished_at: step.at }),
+    ...(step.subject === undefined ? {} : { subject: step.subject }),
+  };
+  return at < 0
+    ? [...steps, next]
+    : steps.map((existing, index) => index === at ? next : existing);
+}
+
 /** Merge one work report the way live surfaces do: fields persist until replaced. */
 function mergeWork(
   previous: JournalledProducerWork | undefined,
@@ -446,6 +482,10 @@ export async function openOperationJournal(
         const failures = current.failures ?? [];
         if (failures.length >= FAILURES_LIMIT) return Promise.resolve();
         current = { ...current, failures: [...failures, fact.failure] };
+      } else if (fact.kind === "step") {
+        const steps = foldStep(current.steps ?? [], fact.step);
+        if (steps.length > STEPS_LIMIT) return Promise.resolve();
+        current = { ...current, steps };
       } else if (fact.event.fact.kind === "timing") {
         const timings = current.timings ?? [];
         if (timings.length >= TIMINGS_LIMIT) return Promise.resolve();

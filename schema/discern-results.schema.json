@@ -14562,6 +14562,34 @@
                     ]
                   }
                 },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "state": {
+                        "type": "string",
+                        "x-discern-vocabulary": "x-discern-plan-step-states"
+                      },
+                      "started_at": {
+                        "type": "number"
+                      },
+                      "finished_at": {
+                        "type": "number"
+                      },
+                      "subject": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "state"
+                    ]
+                  }
+                },
                 "result": {},
                 "result_truncated": {
                   "type": "boolean"
@@ -34619,6 +34647,13 @@
     "running",
     "passed",
     "failed",
+    "cancelled"
+  ],
+  "x-discern-plan-step-states": [
+    "started",
+    "finished",
+    "failed",
+    "skipped",
     "cancelled"
   ],
   "x-discern-wait-states": [

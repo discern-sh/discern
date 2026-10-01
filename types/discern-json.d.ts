@@ -362,6 +362,13 @@ export type DiscernKnownWorkState =
   | "failed"
   | "cancelled";
 
+export type DiscernKnownPlanStepState =
+  | "started"
+  | "finished"
+  | "failed"
+  | "skipped"
+  | "cancelled";
+
 export type DiscernKnownWaitState =
   | "waiting"
   | "resumed"
@@ -3954,6 +3961,13 @@ export type DiscernProgressResult = DiscernResultState & {
       interval_id: string;
       started_at: number;
       finished_at: number;
+    }>;
+    steps?: Array<{
+      label: string;
+      state: string;
+      started_at?: number;
+      finished_at?: number;
+      subject?: string;
     }>;
     result?: unknown;
     result_truncated?: boolean;

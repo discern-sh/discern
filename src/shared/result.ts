@@ -210,6 +210,29 @@ export const STEP_OUTCOMES = ["ok", "failed", "skipped", "cancelled"] as const;
 export type StepOutcome = (typeof STEP_OUTCOMES)[number];
 
 /**
+ * Where one plan step is while its plan runs: it started, or it settled the
+ * way its executed {@link StepOutcome} says (`finished` for `ok`). Live
+ * progress reads these; the result envelope's `steps` stay the authority.
+ */
+export const PLAN_STEP_STATES = [
+  "started",
+  "finished",
+  "failed",
+  "skipped",
+  "cancelled",
+] as const;
+/** One plan step's live state ({@link PLAN_STEP_STATES}). */
+export type PlanStepState = (typeof PLAN_STEP_STATES)[number];
+
+/** The live state a settled step reports, from its executed outcome. */
+export const PLAN_STEP_STATE_BY_OUTCOME = {
+  ok: "finished",
+  failed: "failed",
+  skipped: "skipped",
+  cancelled: "cancelled",
+} as const satisfies Record<StepOutcome, PlanStepState>;
+
+/**
  * Machine-stable kinds for degradations that a completion policy explicitly
  * permits under `ok: true`. Every record carries its evidence and next action;
  * a warning string alone can never waive a required postcondition.
@@ -737,6 +760,10 @@ export const RESULT_OPEN_VOCABULARIES = {
   "x-discern-work-states": {
     name: "WorkState",
     values: ["running", "passed", "failed", "cancelled"],
+  },
+  "x-discern-plan-step-states": {
+    name: "PlanStepState",
+    values: PLAN_STEP_STATES,
   },
   "x-discern-wait-states": {
     name: "WaitState",

@@ -21,6 +21,7 @@ import type { LifecycleContext } from "./lifecycle.ts";
 import { lifecycleContext, worktreeErrorResult } from "./lifecycle.ts";
 import { type SubmissionRow, submissionRows } from "./submissions_view.ts";
 import type { AcceptRequest, EffortCheckout } from "./accept.ts";
+import { withStepSubject } from "../plan_steps.ts";
 
 /** The accept-core callbacks the walk drives, injected to keep the module
  * boundary one-directional. */
@@ -124,30 +125,32 @@ export async function walkQueue(
       // Serialization stays with the held acceptance lease; the follower's
       // checkout boundary is acquired non-blockingly, so a busy follower
       // refuses and the walk stops there.
+      // The follower's steps belong to its own plan, not the selected one's.
       follower = await runWithAcceptanceLeaseOnly(() =>
         withAcceptanceTransactionLock(
           followerEffort.path,
           () =>
-            deps.landEffortOnce(
-              followerEffort,
-              {
-                expected: revision,
-                dryRun: false,
-                confirmed: false,
-                variance: [],
-                approveStandard: [],
-                met: [],
-                target: next.path,
-                ...(request.cliModel === undefined
-                  ? {}
-                  : { cliModel: request.cliModel }),
-                ...(request.signal === undefined
-                  ? {}
-                  : { signal: request.signal }),
-              },
-              env,
-              operationHandle,
-            ),
+            withStepSubject(next.branch, () =>
+              deps.landEffortOnce(
+                followerEffort,
+                {
+                  expected: revision,
+                  dryRun: false,
+                  confirmed: false,
+                  variance: [],
+                  approveStandard: [],
+                  met: [],
+                  target: next.path,
+                  ...(request.cliModel === undefined
+                    ? {}
+                    : { cliModel: request.cliModel }),
+                  ...(request.signal === undefined
+                    ? {}
+                    : { signal: request.signal }),
+                },
+                env,
+                operationHandle,
+              )),
         )
       );
     } catch (error) {

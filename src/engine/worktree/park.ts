@@ -33,6 +33,7 @@ import { writeParkedTaskMetadata } from "./parked_task_metadata.ts";
 import { type ParkPlan, parkPlanToEngine } from "./plan.ts";
 import { buildRemovalPlan } from "./removal_plan.ts";
 import { destroyResources } from "./resources.ts";
+import { recordSteps, stepStarted } from "../plan_steps.ts";
 import { readStoredTaskMetadata } from "./task_metadata.ts";
 
 interface PreparedPark {
@@ -167,6 +168,7 @@ export async function worktreeParkResult(
       parked_at: wallTimeIso(SYSTEM_CLOCK.wallNow()),
       task: prepared.task,
     };
+    const steps: StepResult[] = [];
     try {
       await writeParkedTaskMetadata(ctx.root, record);
     } catch (error) {
@@ -177,6 +179,15 @@ export async function worktreeParkResult(
         { cause: error },
       );
     }
+    recordSteps(steps, {
+      step: {
+        kind: "task-metadata",
+        label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+        disposition: "run",
+        note: `retained for ${prepared.plan.branch}`,
+      },
+      outcome: "ok",
+    });
 
     const { destroyed, failed } = await destroyResources(
       { config: ctx.config, log: ctx.log, cwd: prepared.plan.targetPath },
@@ -197,17 +208,8 @@ export async function worktreeParkResult(
         }. Run \`discern worktree setup\` in ${prepared.plan.targetPath}, review the refreshed state, then re-run Park.`,
       );
     }
-    await removeWorktreeSafely(prepared.plan.targetPath, ctx.root);
-    const steps: StepResult[] = [
-      {
-        step: {
-          kind: "task-metadata",
-          label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
-          disposition: "run",
-          note: `retained for ${prepared.plan.branch}`,
-        },
-        outcome: "ok",
-      },
+    recordSteps(
+      steps,
       ...prepared.plan.entries.map((item): StepResult => ({
         step: {
           kind: "resource-destroy",
@@ -219,6 +221,11 @@ export async function worktreeParkResult(
           ? "ok"
           : "skipped",
       })),
+    );
+    stepStarted(BUILT_IN_STEP_LABELS.removeWorktree);
+    await removeWorktreeSafely(prepared.plan.targetPath, ctx.root);
+    recordSteps(
+      steps,
       {
         step: {
           kind: "git",
@@ -237,7 +244,7 @@ export async function worktreeParkResult(
         },
         outcome: "skipped",
       },
-    ];
+    );
     return appliedResult("worktree park", steps);
   });
 }

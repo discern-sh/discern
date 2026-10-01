@@ -31,6 +31,7 @@ import {
   type JournalledFailure,
   type JournalledProducerWork,
   type JournalledProgressFact,
+  type JournalledStep,
   type OperationJournalRecord,
   type OperationOutcome,
   type OperationTiming,
@@ -67,6 +68,8 @@ export interface OperationProgressData {
   readonly producers?: readonly JournalledProducerWork[];
   readonly failures?: readonly JournalledFailure[];
   readonly timings?: readonly OperationTiming[];
+  /** The plan's steps as the executor reported them, in order. */
+  readonly steps?: readonly JournalledStep[];
   /** The retained final result envelope, when one exists and fit the bound. */
   readonly result?: unknown;
   readonly result_truncated?: boolean;
@@ -363,6 +366,9 @@ export async function operationProgressResult(
     ...(record.timings === undefined || record.timings.length === 0
       ? {}
       : { timings: record.timings }),
+    ...(record.steps === undefined || record.steps.length === 0
+      ? {}
+      : { steps: record.steps }),
     ...(record.result === undefined ? {} : { result: record.result }),
     ...(record.result_truncated === true ? { result_truncated: true } : {}),
     ...(record.result_path === undefined

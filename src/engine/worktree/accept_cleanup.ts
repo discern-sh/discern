@@ -19,6 +19,7 @@ import {
   WorktreeGitError,
 } from "./git.ts";
 import { teardownResources } from "./lifecycle.ts";
+import { recordSteps, stepStarted } from "../plan_steps.ts";
 import { deleteAutomaticallyOwnedBranch } from "./ownership.ts";
 import type { AcceptExecutionProgress, EffortCheckout } from "./accept.ts";
 
@@ -178,8 +179,9 @@ export async function cleanUpEffort(
   }
 
   log.info("Tearing down the worktree's resources…");
+  stepStarted(BUILT_IN_STEP_LABELS.teardownResources);
   const teardown = await teardownResources(effort.ctx);
-  results.push({
+  recordSteps(results, {
     step: {
       kind: "resource-destroy",
       label: BUILT_IN_STEP_LABELS.teardownResources,
@@ -202,6 +204,7 @@ export async function cleanUpEffort(
   });
 
   log.info(`Removing worktree: ${effort.path}`);
+  stepStarted(BUILT_IN_STEP_LABELS.removeWorktree);
   try {
     await removeWorktreeSafely(effort.path, effort.mainRepo);
   } catch (error) {
@@ -215,7 +218,7 @@ export async function cleanUpEffort(
     );
   }
   log.ok("Worktree directory removed.");
-  results.push({
+  recordSteps(results, {
     step: {
       kind: "git",
       label: BUILT_IN_STEP_LABELS.removeWorktree,
@@ -263,7 +266,7 @@ export async function cleanUpEffort(
     );
   }
   log.ok(`Deleted merged branch ${effort.branch}.`);
-  results.push({
+  recordSteps(results, {
     step: {
       kind: "git",
       label: BUILT_IN_STEP_LABELS.deleteBranch,

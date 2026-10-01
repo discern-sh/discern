@@ -3,6 +3,7 @@ import type {
   ProgressWait,
   ProgressWork,
 } from "../../shared/result_schemas.ts";
+import type { PlanStepState } from "../../shared/result.ts";
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
 import type { Clock } from "../../shared/clock.ts";
 import { candidateAuthor } from "./candidate.ts";
@@ -52,11 +53,31 @@ export interface CompletionProgress {
   readonly work?: ProducerWork;
   readonly attempt_id?: string;
 }
+/**
+ * One plan step's transition, named by the label the plan gave it: it
+ * started, or it settled. A view that shows the plan reads these to mark
+ * each of its steps as it runs; the result envelope stays the authority.
+ */
+export interface CompletionStep {
+  /** The plan's label for the step; labels are unique within one plan. */
+  readonly label: string;
+  readonly state: PlanStepState;
+  /** Wall-clock milliseconds. */
+  readonly at: number;
+  /**
+   * Whose plan the step belongs to when one operation runs several, such
+   * as the branch a queue walk lands after the selected one; absent for the
+   * operation's own plan.
+   */
+  readonly subject?: string;
+}
+
 export type CompletionObservationFact =
   | { readonly kind: "wait"; readonly wait: ProgressWait }
   | { readonly kind: "event"; readonly event: CompletionEvent }
   | { readonly kind: "progress"; readonly progress: CompletionProgress }
-  | { readonly kind: "failure"; readonly failure: CompletionFailure };
+  | { readonly kind: "failure"; readonly failure: CompletionFailure }
+  | { readonly kind: "step"; readonly step: CompletionStep };
 interface ObservationScope {
   readonly sink: (fact: CompletionObservationFact) => void | Promise<void>;
   readonly deliveries: Promise<void>[];
@@ -110,6 +131,10 @@ export function emitCompletionWait(wait: ProgressWait): void {
 /** Report a failure the moment it is known, ahead of the producer's verdict. */
 export function emitCompletionFailure(failure: CompletionFailure): void {
   emit({ kind: "failure", failure });
+}
+/** Report that a plan step started or settled. */
+export function emitCompletionStep(step: CompletionStep): void {
+  emit({ kind: "step", step });
 }
 /** Deliver an advisory projection of an established outcome. */
 export function emitCompletionEvent(event: CompletionEvent): void {
