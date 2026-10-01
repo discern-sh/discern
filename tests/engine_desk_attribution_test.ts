@@ -23,7 +23,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { verbatimStepLabel } from "../src/shared/result.ts";
 
@@ -140,8 +140,13 @@ Deno.test("an open shell is activity, not a running verb, and ends as ended", as
       "desk shell",
     );
     try {
-      await waitUntil(() => targetExists(started), "the shell to start");
-      await waitUntil(
+      await waitForPendingCondition(
+        session,
+        () => targetExists(started),
+        "the shell to start",
+      );
+      await waitForPendingCondition(
+        session,
         async () =>
           (await readLogbookEvents(root)).some((event) =>
             event.kind === "begin" && event.verb === "desk shell"

@@ -243,4 +243,32 @@ export const TEST_SHELL_WAIT_BOUNDARIES = [
     reason:
       "Both loops wait on startup or explicit release files; elapsed time cannot make the descendant advance.",
   },
+  {
+    path: "tests/engine_desk_attribution_test.ts",
+    enclosing:
+      "an open shell is activity, not a running verb, and ends as ended",
+    argument: "0.02",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The desk shell held open polls the parent-owned release file; status must read the open session before the test releases it.",
+  },
+  {
+    path: "tests/engine_desk_isolation_tty_test.ts",
+    enclosing: "<module>",
+    argument: "0.05",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "The landing's ensure command polls the parent-owned release file, so the interrupt reaches the Desk while the landing still has a child of its own.",
+  },
+  {
+    path: "tests/engine_desk_isolation_tty_test.ts",
+    enclosing: "<module>",
+    argument: "1",
+    count: 1,
+    classification: "serialization-stimulus",
+    reason:
+      "The foreground Project Script stays alive until Ctrl-C stops it; the test ends it by interrupt, never by elapsed time.",
+  },
 ] as const satisfies readonly ShellWaitBoundary[];

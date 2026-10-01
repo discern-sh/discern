@@ -46,24 +46,28 @@ const SCRIPT_FORM = "form-scripts-review";
 const SIGNALS = "DESK_TTY_SIGNALS";
 const SCRIPT_WAITING = "Fixture script waits for Ctrl-C";
 
+/** The landing's ensure command, as its progress names the step. */
+const ENSURE = "converge-main";
+
 /**
- * The landing's ensure command: it names its shell, says it has started,
- * and waits for the test's release. Outside the Desk session, as when the
- * fixture proves the task, it has nothing to wait for.
+ * What the ensure command does: it names its shell and waits for the test's
+ * release. Outside the Desk session, as when the fixture proves the task, it
+ * has nothing to wait for.
  */
-const ENSURE = [
+const ENSURE_SCRIPT = [
+  "#!/bin/sh",
   `[ -n "$${SIGNALS}" ] || exit 0`,
   `echo $$ > "$${SIGNALS}/ensure.pid"`,
-  `touch "$${SIGNALS}/landing-converging"`,
   `while [ ! -e "$${SIGNALS}/landing-release" ]; do sleep 0.05; done`,
-].join("; ");
+  "",
+].join("\n");
 
 /** A Project Script that names its shell and runs until it is stopped. */
 const SCRIPT = [
   "#!/bin/sh",
   `echo $$ > "$${SIGNALS}/script.pid"`,
   `echo "${SCRIPT_WAITING}"`,
-  "while :; do sleep 0.05; done",
+  "while :; do sleep 1; done",
   "",
 ].join("\n");
 
@@ -82,21 +86,30 @@ function showing(text: string): DeskFrameTest {
   return (capture) => capture.text.includes(text);
 }
 
-/** Whether a fixture child has left the named signal file. */
-function signalled(directory: string, name: string): boolean {
-  try {
-    Deno.statSync(join(directory, name));
-    return true;
-  } catch {
-    return false;
-  }
-}
+/**
+ * The progress sheet with the ensure step running for a second or more, by
+ * when its shell has named itself.
+ */
+const converging: DeskFrameTest = (capture) =>
+  capture.state?.topLayerId === "progress" &&
+  new RegExp(`${ENSURE}\\s+[1-9]\\d*s`, "u").test(capture.text);
 
-/** The project with its signal directory, as the Desk's children see it. */
-async function signalDirectory(project: DeskTtyProject): Promise<string> {
-  const directory = join(project.parent, "signals");
-  await Deno.mkdir(directory);
-  return directory;
+/**
+ * Where the Desk's children leave their signals, and the command directory
+ * that puts the ensure command on their `PATH`.
+ */
+async function fixtureDirectories(
+  project: DeskTtyProject,
+): Promise<{ readonly signals: string; readonly env: Record<string, string> }> {
+  const signals = join(project.parent, "signals");
+  const bin = join(project.parent, "bin");
+  await Deno.mkdir(signals);
+  await Deno.mkdir(bin);
+  await Deno.writeTextFile(join(bin, ENSURE), ENSURE_SCRIPT, { mode: 0o755 });
+  return {
+    signals,
+    env: { [SIGNALS]: signals, PATH: `${bin}:/usr/bin:/bin:/usr/sbin:/sbin` },
+  };
 }
 
 /** From the landing task at rest to its confirmed review. */
@@ -173,7 +186,7 @@ realPtyTest({
       }),
     ], { repositoryEnsure: [ENSURE] });
     await withDeskTtyProject(fixture, async (project) => {
-      const signals = await signalDirectory(project);
+      const { signals, env } = await fixtureDirectories(project);
       const landed = await gitOut(
         project.root,
         "rev-parse",
@@ -182,7 +195,7 @@ realPtyTest({
       const result = await runDeskTty(project, {
         geometry: SIZE,
         colorMode: "no-color-env",
-        env: { [SIGNALS]: signals },
+        env,
         timeoutMs: 120_000,
         input: [
           ...confirmLanding(),
@@ -190,10 +203,7 @@ realPtyTest({
             SIZE,
             "landing-progress",
             "the landing converging main",
-            both(
-              deskLayerOpen("progress"),
-              () => signalled(signals, "landing-converging"),
-            ),
+            converging,
             { keys: ["escape"], allowLoneEscape: true },
           ),
           phase(
@@ -241,10 +251,7 @@ realPtyTest({
             SIZE,
             "script-interrupted",
             "the Desk back from the interrupted script, the landing still converging",
-            both(
-              deskAtRest(SCRIPTED),
-              () => !signalled(signals, "landing-release"),
-            ),
+            deskAtRest(SCRIPTED),
             {
               effect: async () => {
                 assertEquals(
@@ -301,11 +308,11 @@ realPtyTest({
       }),
     ], { repositoryEnsure: [ENSURE] });
     await withDeskTtyProject(fixture, async (project) => {
-      const signals = await signalDirectory(project);
+      const { signals, env } = await fixtureDirectories(project);
       const result = await runDeskTty(project, {
         geometry: SIZE,
         colorMode: "no-color-env",
-        env: { [SIGNALS]: signals },
+        env,
         timeoutMs: 120_000,
         input: [
           ...confirmLanding(),
@@ -313,10 +320,7 @@ realPtyTest({
             SIZE,
             undefined,
             "the landing converging main",
-            both(
-              deskLayerOpen("progress"),
-              () => signalled(signals, "landing-converging"),
-            ),
+            converging,
             { keys: ["ctrl-c"] },
           ),
           phase(
