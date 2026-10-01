@@ -19,6 +19,18 @@ The wrapper's `TerminalApplicationOptions<Action>` preserves the package options
 
 The [consumer fixture](../../../tests/fixtures/terminal_application.ts) demonstrates a master-detail list, an item without a primary action, an asynchronous update, a key map, and a harmless child. Its [native process](../../../tests/fixtures/terminal_application_process.ts) exercises the production boundary. The [desk](../30-worktrees/the-desk.md) is the production consumer: its [live controller](../../../src/engine/desk/live.ts) maps every callback onto one event of a pure product state machine and returns the next view synchronously; its changes run as background commands and its launches as foreground commands, both through the shared lifecycle cores. Product help reads the same key map the package binds.
 
+## The application model
+
+The desk and the documentation browser run on the package's application model: one body (a grouped list, a list with a following detail, a reading, or an empty state), a header, a message line, two-cluster key hints, and up to two modal layers (sheets, menus, a palette, forms and readers). The caller declares what exists; the package owns selection, focus, scroll, folds, zoom, field values, read progress and painting, and reports them read-only through `context.state`. Keep product state in the caller's own reducer, as the desk's [`desk_state.ts`](../../../src/engine/desk/desk_state.ts) does, and never mirror the package's state there: a second owner of focus or selection drifts from the first. A layer leaves the screen only when the next view stops declaring it, so the caller answers `onDismiss` by dropping the layer from its own state in the same callback.
+
+## State reports
+
+With `TERMINAL_APPLICATION_STATE_REPORTS=1` in the environment, every paint carries a private OSC report of the top layer, the focused control, the body's list, its selected item and whether the detail is zoomed. Nothing else sets it, and [`terminal.ts`](../../../src/lib/terminal.ts) lists the variable among the terminal facts a process reads, so a session started without it paints exactly what a person sees. Real-terminal journeys and the gallery set it and wait on those reports (`deskLayerOpen`, `deskFocused` and `deskAtRest` in the [desk PTY fixture](../../../tests/fixtures/desk_tty_harness.ts)) instead of on the words a frame shows, so rewording a label never breaks a journey.
+
+## Signals
+
+A process-level SIGINT reaches every process in the foreground process group, including the application's own process while a foreground child owns the terminal. `runTerminalApplication` passes `onInterrupt` to the package, so the host decides what an interrupt on its owned screen means: the desk treats it as Quit, asking first while work runs. Background work started from the application must not listen for process signals itself. It runs under the `operation` interrupt source, whose children lead their own process groups ([subprocess boundaries](../50-engine-internals/subprocess-boundaries.md#work-beside-a-live-screen)), so a Ctrl+C typed into a foreground child stops that child and nothing else. The desk's [isolation journeys](../../../tests/engine_desk_isolation_tty_test.ts) prove both halves on a real terminal.
+
 Single-choice `requestSelection` accepts the package's `InteractionSelectionPresentation`, including `menu` for ordinary and searchable choices. Multi-select continues to use `InteractionChoicePresentation`. Each request keeps its existing default.
 
 ## Input ownership
