@@ -108,8 +108,11 @@ function confirmLanding(): DeskTtyInputPhase[] {
     phase(
       SIZE,
       "land-review",
-      "the landing review on its safe choice",
-      deskFocused(REVIEW, "button:safe"),
+      "the landing review read, on its safe choice",
+      both(
+        deskFocused(REVIEW, "button:safe"),
+        (capture) => !capture.text.includes("Checking current state"),
+      ),
       { keys: ["right"] },
     ),
     phase(

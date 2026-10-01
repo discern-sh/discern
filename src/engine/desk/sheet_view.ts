@@ -64,7 +64,6 @@ import {
   goneSentence,
   layerId,
   parkedBranches,
-  readingLayerId,
   renameTitle,
   resultAlternatives,
   rowRef,
@@ -394,7 +393,7 @@ export function reviewSheet(
   const challenge = review?.challenge?.mustEqual;
   return {
     kind: "sheet",
-    id: layer.load.state === "loading" ? readingLayerId(id) : id,
+    id,
     scope: layer.step.kind === "action" ? "item" : "global",
     title: review?.question ?? pendingTitle(state, layer.step),
     ...status,

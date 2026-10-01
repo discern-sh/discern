@@ -48,7 +48,6 @@ import {
   layerId,
   observedRows,
   open,
-  productLayerId,
   refresh,
   resurvey,
   rowTitle,
@@ -702,7 +701,7 @@ function dismissed(
     return { state, effects: [] };
   }
   return {
-    state: closeLayer(state, productLayerId(target.layer)),
+    state: closeLayer(state, target.layer),
     effects: [],
   };
 }

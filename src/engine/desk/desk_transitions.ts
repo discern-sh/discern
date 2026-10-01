@@ -87,28 +87,6 @@ export function layerId(layer: DeskLayer): string {
   }
 }
 
-/**
- * The id a review sheet shows while it reads its subject. A sheet that
- * opens loading draws under this id and takes its own id once its review
- * arrives, so the package starts it afresh: read progress counts only the
- * real body, and focus starts on the ready sheet's own first control, its
- * challenge field included.
- *
- * TODO(R-6): the package counts an empty loading body as read and keeps
- * that once the body arrives; drop the reading id when it resets read
- * progress as a sheet leaves loading.
- */
-export function readingLayerId(id: string): string {
-  return `${id}${READING_SUFFIX}`;
-}
-
-/** The product layer a view's layer id names, reading or ready. */
-export function productLayerId(id: string): string {
-  return id.endsWith(READING_SUFFIX) ? id.slice(0, -READING_SUFFIX.length) : id;
-}
-
-const READING_SUFFIX = "-reading";
-
 /** Every id a review sheet can take, for keys scoped to review sheets. */
 export function reviewLayerIds(): string[] {
   const steps: DeskFlowStep[] = DESK_FLOW_STAGES.flatMap((stage) => [
