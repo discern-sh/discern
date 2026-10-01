@@ -74,6 +74,8 @@ import {
   scaffoldEngine,
 } from "../engine_helpers.ts";
 import { Logger } from "../../src/lib/log.ts";
+import { TomlEditor } from "../../src/lib/toml_edit.ts";
+import { writeDiscernToml } from "../../src/lib/tidy_format.ts";
 import { acceptLandingResult } from "../../src/engine/worktree/accept.ts";
 import {
   type LifecycleContext,
@@ -172,6 +174,8 @@ export interface DeskLandingAuthorityFixture {
 export interface DeskAvailabilityFixture {
   readonly agents: "missing" | "project-default";
   readonly scripts: "missing" | "available";
+  /** The available Project Script's body; it exits at once when absent. */
+  readonly script?: string;
 }
 
 export interface DeskFleetEntryFixture {
@@ -215,6 +219,11 @@ export interface DeskFleetFixture {
   readonly entries: readonly DeskFleetEntryFixture[];
   readonly collisions: readonly DeskCollisionFixture[];
   readonly orphanBranches: readonly DeskOrphanBranchFixture[];
+  /**
+   * The repository's ensure commands, committed on main before any task
+   * branches, so every checkout and every landing runs them.
+   */
+  readonly repositoryEnsure: readonly string[];
 }
 
 /** Build current, structured Proof evidence without paying for a fixture gate. */
@@ -371,12 +380,14 @@ export function deskFleetFixture(
   options: {
     readonly collisions?: readonly DeskCollisionFixture[];
     readonly orphanBranches?: readonly DeskOrphanBranchFixture[];
+    readonly repositoryEnsure?: readonly string[];
   } = {},
 ): DeskFleetFixture {
   return {
     entries: [...entries],
     collisions: [...(options.collisions ?? [])],
     orphanBranches: [...(options.orphanBranches ?? [])],
+    repositoryEnsure: [...(options.repositoryEnsure ?? [])],
   };
 }
 
@@ -421,6 +432,9 @@ async function materialiseDeskProject(
 ): Promise<DeskTtyProject> {
   await Deno.mkdir(root, { recursive: true });
   await scaffoldEngine(root);
+  if (fixture.repositoryEnsure.length > 0) {
+    await setRepositoryEnsure(root, fixture.repositoryEnsure);
+  }
   await gitInit(root);
   const nowMs = SYSTEM_CLOCK.wallNow();
   const activeAt = (entry: DeskFleetEntryFixture): string | undefined =>
@@ -503,7 +517,10 @@ async function materialiseDeskProject(
         "desk-fixture",
       );
       await ensureDir(dirname(script));
-      await Deno.writeTextFile(script, "#!/bin/sh\nexit 0\n");
+      await Deno.writeTextFile(
+        script,
+        entry.availability.script ?? "#!/bin/sh\nexit 0\n",
+      );
       await Deno.chmod(script, 0o755);
       await commitFixture(worktree, `Add ${entry.name} fixture script`, at);
       committed = true;
@@ -592,6 +609,17 @@ async function materialiseDeskProject(
     worktrees,
     env: allAgentsMissing ? { PATH: SAFE_SYSTEM_PATH } : {},
   };
+}
+
+/** Set the repository's ensure commands through the canonical config writer. */
+async function setRepositoryEnsure(
+  root: string,
+  commands: readonly string[],
+): Promise<void> {
+  const path = join(root, "discern.toml");
+  const editor = new TomlEditor(await Deno.readTextFile(path));
+  editor.setStringArray("repository.ensure", [...commands]);
+  await writeDiscernToml(path, editor.toString());
 }
 
 /**
@@ -1381,7 +1409,8 @@ function combineInput(
   return output;
 }
 
-async function processExists(pid: number): Promise<boolean> {
+/** Whether a process with `pid` still exists. */
+export async function processExists(pid: number): Promise<boolean> {
   const result = await new Deno.Command("ps", {
     args: ["-p", String(pid), "-o", "pid="],
     stdout: "piped",
@@ -2287,6 +2316,10 @@ async function serviceResizeRequests(
 }
 
 async function runChildHarness(options: ChildOptions): Promise<number> {
+  // A shell keeps its own process out of its foreground job's Ctrl-C; the
+  // sentinel stands where that shell would, so it outlives one too.
+  const ignore = (): void => {};
+  Deno.addSignalListener("SIGINT", ignore);
   const before = await stty(["-g"]);
   const beforeDescription = await stty(["-a"]);
   const initialSize = consoleGeometry();
