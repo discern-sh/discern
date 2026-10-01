@@ -308,6 +308,15 @@ Deno.test("Desk registry guard: labels and bindings", () => {
             assert(!reads, `${id}: a confirmed control must change something`);
           }
         }
+        // A task's review binds the task it was read for, so a review that
+        // reached another task's sheet can never apply there.
+        for (const id of DESK_ACTIONS) {
+          const binding = action(id).binding;
+          assert(
+            binding.length === 0 || binding.includes("worktree-identity"),
+            `${id}: a task action that binds anything binds its task`,
+          );
+        }
       },
     "every global command sits in one palette section and projects its facts":
       () => {

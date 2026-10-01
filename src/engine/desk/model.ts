@@ -837,7 +837,7 @@ export const DESK_ACTION_REGISTRY = {
       line("recoverable", "Review any changed files before committing"),
     ],
     confirmation: confirm("Cancel", "Run"),
-    binding: ["branch-head", "dirty-stamp"],
+    binding: ["worktree-identity", "branch-head", "dirty-stamp"],
     availability: (facts: DeskActionFacts): string | undefined =>
       finalChecksAvailability(facts.entry, committedWorkReason(facts)),
   },
@@ -948,7 +948,13 @@ export const DESK_ACTION_REGISTRY = {
       ),
     ],
     confirmation: confirm("Keep", "Land"),
-    binding: ["branch-head", "trunk-head", "authority", "queue-walk"],
+    binding: [
+      "worktree-identity",
+      "branch-head",
+      "trunk-head",
+      "authority",
+      "queue-walk",
+    ],
     availability: (facts: DeskActionFacts): string | undefined =>
       healthyActionAvailability(
         facts.entry,
@@ -1042,7 +1048,7 @@ export const DESK_ACTION_REGISTRY = {
       ),
     ],
     confirmation: confirm("Keep", "Update"),
-    binding: ["branch-head", "trunk-head"],
+    binding: ["worktree-identity", "branch-head", "trunk-head"],
     availability: (facts: DeskActionFacts): string | undefined => {
       if (isUnhealthy(facts.entry)) {
         return "Follow its recovery steps before updating it.";
@@ -1133,7 +1139,7 @@ export const DESK_ACTION_REGISTRY = {
       line("keeps", "Keeps this task as it is"),
     ],
     confirmation: confirm("Cancel", "Create"),
-    binding: ["base-head"],
+    binding: ["worktree-identity", "base-head"],
     availability: (facts: DeskActionFacts): string | undefined =>
       healthyActionAvailability(
         facts.entry,
@@ -1356,7 +1362,7 @@ export const DESK_ACTION_REGISTRY = {
       line("recoverable", "Pre-authorize it again any time"),
     ],
     confirmation: confirm("Keep", "Revoke"),
-    binding: ["grant-record"],
+    binding: ["worktree-identity", "grant-record"],
     availability: (facts: DeskActionFacts): string | undefined =>
       facts.effortGranted ? undefined : "Nothing is pre-authorized.",
   },
@@ -1485,7 +1491,7 @@ export const DESK_ACTION_REGISTRY = {
       noLabel: "Keep",
       yesLabel: "Drop",
     },
-    binding: ["plan", "challenge"],
+    binding: ["worktree-identity", "plan", "challenge"],
     availability: (_facts: DeskActionFacts): string | undefined => undefined,
   },
 } as const satisfies Readonly<Record<DeskAction, DeskActionMetadata>>;

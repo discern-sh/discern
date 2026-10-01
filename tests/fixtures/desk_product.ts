@@ -142,7 +142,10 @@ export function readyReview(
   };
 }
 
-/** A review read for a form's values, as the live Desk reports it. */
+/**
+ * The read a review or form layer waits for, as the live Desk reports it:
+ * numbered for that opening, and for a form, its current values.
+ */
 export function formRead(
   state: DeskProductState,
   layerId: string,
@@ -154,6 +157,9 @@ export function formRead(
   return deskProduct(state, {
     kind: "prepared",
     layerId,
+    read: layer?.kind === "review" || layer?.kind === "form"
+      ? layer.read ?? 0
+      : 0,
     result: { state: "ready", value: review },
     ...(layer?.kind === "form"
       ? { readFor: formValuesKey(layer.values) }

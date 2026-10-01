@@ -686,6 +686,11 @@ function confirm(
   if (read.confirm === undefined || read.blockers.length > 0) {
     return UNCHANGED(state);
   }
+  // A review applies only to the task it was read for.
+  if (
+    layer.step.kind === "action" && read.subject !== undefined &&
+    read.subject.id !== layer.step.taskId
+  ) return UNCHANGED(state);
   if (read.confirm.kind === "review") {
     return review(closeLayer(state, id), read.confirm.step);
   }

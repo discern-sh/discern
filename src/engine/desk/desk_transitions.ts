@@ -122,15 +122,38 @@ function routes(layer: DeskLayer): boolean {
     layer.kind === "agents";
 }
 
+/**
+ * A layer that reads its review as it opens, numbered for that read: the
+ * opening takes only the read it started.
+ */
+function numberedRead(
+  state: DeskProductState,
+  layer: DeskLayer,
+): { readonly state: DeskProductState; readonly layer: DeskLayer } {
+  if (
+    (layer.kind !== "review" && layer.kind !== "form") ||
+    layer.load.state !== "loading"
+  ) return { state, layer };
+  const read = state.serial + 1;
+  return { state: { ...state, serial: read }, layer: { ...layer, read } };
+}
+
 /** The read a newly opened layer starts, if it shows something not yet read. */
 function readFor(layer: DeskLayer, id: string): DeskEffect | undefined {
-  if (layer.kind === "review" && layer.load.state === "loading") {
-    return { kind: "prepare", layerId: id, step: layer.step };
+  if (
+    layer.kind === "review" && layer.load.state === "loading" &&
+    layer.read !== undefined
+  ) {
+    return { kind: "prepare", layerId: id, read: layer.read, step: layer.step };
   }
-  if (layer.kind === "form" && layer.load.state === "loading") {
+  if (
+    layer.kind === "form" && layer.load.state === "loading" &&
+    layer.read !== undefined
+  ) {
     return {
       kind: "prepare",
       layerId: id,
+      read: layer.read,
       step: {
         ...layer.step,
         values: { ...layer.step.values, ...layer.values },
@@ -158,9 +181,10 @@ function readFor(layer: DeskLayer, id: string): DeskEffect | undefined {
  * gives way beyond the package's depth.
  */
 export function open(
-  state: DeskProductState,
-  layer: DeskLayer,
+  current: DeskProductState,
+  opening: DeskLayer,
 ): DeskTransition {
+  const { state, layer } = numberedRead(current, opening);
   const id = layerId(layer);
   const kept = state.layers.filter((existing) =>
     !routes(existing) && layerId(existing) !== id

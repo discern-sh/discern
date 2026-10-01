@@ -711,6 +711,73 @@ Deno.test("a detached checkout's Drop asks for its id, and an empty field drops 
   assertEquals(drops, [{ force: true }]);
 });
 
+Deno.test("a late review read for one task never fills another task's sheet", async () => {
+  const granted = {
+    landing_authority: { kind: "authorized", source: "effort-grant" },
+  } as const;
+  const alpha = deskTaskEntry("agent/alpha", "/worktrees/alpha", {
+    id: "alpha",
+    ...granted,
+  });
+  const beta = deskTaskEntry("agent/beta", "/worktrees/beta", {
+    id: "beta",
+    ...granted,
+  });
+  let releaseAlpha: () => void = () => {};
+  const alphaHeld = new Promise<void>((resolve) => {
+    releaseAlpha = resolve;
+  });
+  let alphaRead = false;
+  const revoked: string[] = [];
+  await withDeskSession({
+    runtime: {
+      status: () => ({ ok: true, data: deskSurvey([alpha, beta]) }),
+      clearEffortGrantPlan: async (path) => {
+        if (path === alpha.path) {
+          await alphaHeld;
+          alphaRead = true;
+        }
+        return {
+          title: `Revocation plan for ${path}`,
+          details: [`Target: ${path}`],
+          steps: [],
+        };
+      },
+      clearEffortGrant: (path) => {
+        revoked.push(path);
+        return true;
+      },
+    },
+  }, async (desk) => {
+    const id = "review-revoke_grant-review";
+    for (const task of ["alpha", "beta"]) {
+      await desk.select(task);
+      await desk.press(".");
+      await desk.opened("actions");
+      await desk.choose("revoke_grant");
+      await desk.opened(id);
+      if (task === "alpha") {
+        await desk.escape(() => desk.top() === undefined, "Escape keeps");
+      }
+    }
+    await desk.settleForm();
+    await desk.press("d");
+    await desk.shows("Target: /worktrees/beta");
+    releaseAlpha();
+    await desk.until(() => alphaRead, "Alpha's late read to finish");
+    // One more key lets the session paint whatever that read changed.
+    await desk.press("tab");
+    assertStringIncludes(desk.screen(), "Target: /worktrees/beta");
+    assert(
+      !desk.screen().includes("for Alpha?"),
+      "the sheet still asks about Beta",
+    );
+    await desk.confirm();
+    await desk.until(() => revoked.length === 1, "the revoke");
+  });
+  assertEquals(revoked, ["/worktrees/beta"]);
+});
+
 Deno.test("a typed confirmation must name something to type", () => {
   const row = rowOf(observedDesk(productSurvey([readyTask("alpha")])), "alpha");
   let refused: unknown;

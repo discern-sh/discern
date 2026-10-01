@@ -155,6 +155,12 @@ export type DeskLayer =
     readonly kind: "review";
     readonly step: DeskFlowStep;
     readonly load: DeskLoad<DeskReview>;
+    /**
+     * The read this opening waits for. A read that finishes for an earlier
+     * opening under the same id, such as the same action on another task,
+     * is set aside.
+     */
+    readonly read?: number;
   }
   | {
     readonly kind: "form";
@@ -165,6 +171,8 @@ export type DeskLayer =
     readonly load: DeskLoad<DeskReview>;
     /** The values `load` was read for, as `formValuesKey` spells them. */
     readonly readFor?: string;
+    /** The read it waits for: the latest one its values started. */
+    readonly read?: number;
   }
   /** A failed effect's result sheet. */
   | { readonly kind: "result"; readonly sheet: DeskResultSheet }
@@ -433,6 +441,8 @@ export type DeskEvent =
   | {
     readonly kind: "prepared";
     readonly layerId: string;
+    /** The read it answers, as its prepare effect numbered it. */
+    readonly read: number;
     readonly result: DeskLoad<DeskReview>;
     /** A form's values the review was read for. */
     readonly readFor?: string;
@@ -489,6 +499,8 @@ export type DeskEffect =
   | {
     readonly kind: "prepare";
     readonly layerId: string;
+    /** This read's number; only the layer waiting for it takes its result. */
+    readonly read: number;
     readonly step: DeskFlowStep;
     /** Wait this long for more typing first; a newer prepare replaces it. */
     readonly debounceMs?: number;
@@ -816,15 +828,17 @@ function fieldChanged(
   if (layer?.kind !== "form") return { state, effects: [] };
   const values = { ...layer.values, [event.fieldId]: event.value };
   const readFor = formValuesKey(values);
+  const read = state.serial + 1;
   return {
     state: updateLayer(
-      state,
+      { ...state, serial: read },
       event.layerId,
-      () => ({ ...layer, values, load: { state: "loading" } }),
+      () => ({ ...layer, values, load: { state: "loading" }, read }),
     ),
     effects: [{
       kind: "prepare",
       layerId: event.layerId,
+      read,
       step: { ...layer.step, values: { ...layer.step.values, ...values } },
       debounceMs: DESK_FORM_PREVIEW_MS,
       readFor,
@@ -833,8 +847,10 @@ function fieldChanged(
 }
 
 /**
- * A review's read finished: show what it read, or why it couldn't. A form
- * keeps only the read of its current values.
+ * A review's read finished: show what it read, or why it couldn't. Only the
+ * opening that started the read takes it, so a late read for one task never
+ * fills another task's sheet under the same id; a form keeps only the read
+ * of its current values.
  */
 function prepared(
   state: DeskProductState,
@@ -842,11 +858,12 @@ function prepared(
 ): DeskTransition {
   return {
     state: updateLayer(state, event.layerId, (layer) => {
-      if (layer.kind === "review") return { ...layer, load: event.result };
       if (
-        layer.kind !== "form" ||
-        (event.readFor ?? "") !== formValuesKey(layer.values)
+        (layer.kind !== "review" && layer.kind !== "form") ||
+        layer.read !== event.read
       ) return layer;
+      if (layer.kind === "review") return { ...layer, load: event.result };
+      if ((event.readFor ?? "") !== formValuesKey(layer.values)) return layer;
       return {
         ...layer,
         load: event.result,

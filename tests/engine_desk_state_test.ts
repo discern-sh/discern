@@ -276,6 +276,90 @@ Deno.test("a layer whose subject leaves says so and offers nothing", () => {
   );
 });
 
+Deno.test("a review takes only the read its own opening started", () => {
+  const listed = observedDesk(survey([editing("alpha"), editing("beta")]));
+  const step = (taskId: string) => ({
+    kind: "action" as const,
+    action: "park" as const,
+    taskId,
+    stage: "review" as const,
+  });
+  const id = "review-park-review";
+  const alphaOpened = open(listed, {
+    kind: "review",
+    step: step("alpha"),
+    load: { state: "loading" },
+  });
+  const alphaRead = alphaOpened.effects[0];
+  assert(alphaRead?.kind === "prepare");
+  // The owner closes Alpha's sheet and opens Beta's under the same id.
+  const closed = deskProduct(alphaOpened.state, {
+    kind: "dismissed",
+    target: { layer: id },
+  }).state;
+  const betaOpened = open(closed, {
+    kind: "review",
+    step: step("beta"),
+    load: { state: "loading" },
+  });
+  const betaRead = betaOpened.effects[0];
+  assert(betaRead?.kind === "prepare");
+  assert(betaRead.read !== alphaRead.read, "each opening numbers its read");
+  // Alpha's read finishes late: Beta's sheet keeps waiting for its own.
+  const late = deskProduct(betaOpened.state, {
+    kind: "prepared",
+    layerId: id,
+    read: alphaRead.read,
+    result: {
+      state: "ready",
+      value: readyReview("Park Alpha?", {
+        subject: {
+          id: "alpha",
+          title: "Alpha",
+          branch: "agent/alpha",
+          path: "/worktrees/alpha",
+        },
+      }),
+    },
+  }).state;
+  const waiting = late.layers[0];
+  assert(waiting?.kind === "review");
+  assertEquals(waiting.load.state, "loading", "Alpha's read is set aside");
+  assertEquals(
+    intent(late, { kind: "confirm", layer: id }).effects,
+    [],
+    "nothing confirms on a sheet still reading",
+  );
+  // Even a review read for another task never applies to this one.
+  const crossed = {
+    ...late,
+    layers: [{
+      kind: "review" as const,
+      step: step("beta"),
+      load: {
+        state: "ready" as const,
+        value: readyReview("Park Alpha?", {
+          subject: {
+            id: "alpha",
+            title: "Alpha",
+            branch: "agent/alpha",
+            path: "/worktrees/alpha",
+          },
+        }),
+      },
+    }],
+  };
+  assertEquals(intent(crossed, { kind: "confirm", layer: id }).effects, []);
+  const own = deskProduct(late, {
+    kind: "prepared",
+    layerId: id,
+    read: betaRead.read,
+    result: { state: "ready", value: readyReview("Park Beta?") },
+  }).state.layers[0];
+  assert(own?.kind === "review");
+  assertEquals(own.load.state, "ready", "Beta's own read fills its sheet");
+});
+
 Deno.test("the package reports a moved or vanished selection and the Desk names it once", () => {
   const before = observedDesk(survey([editing("alpha"), editing("beta")]));
   const regrouped = deskProduct(before, {
@@ -364,11 +448,11 @@ Deno.test("launcher layers close when their child starts; readers and forms that
   }]);
 
   const updates = intent(listed, { kind: "command", command: "updates" });
-  const ready = deskProduct(updates.state, {
-    kind: "prepared",
-    layerId: "review-updates-review",
-    result: { state: "ready", value: readyReview("Check for updates?") },
-  });
+  const ready = formRead(
+    updates.state,
+    "review-updates-review",
+    readyReview("Check for updates?"),
+  );
   const applied = intent(ready.state, {
     kind: "confirm",
     layer: "review-updates-review",
@@ -433,9 +517,12 @@ Deno.test("launcher layers close when their child starts; readers and forms that
     fieldId: "args",
     value: "--fast",
   });
+  const waiting = typed.state.layers[0];
+  assert(waiting?.kind === "form" && waiting.read !== undefined);
   assertEquals(typed.effects, [{
     kind: "prepare",
     layerId: "form-main_scripts-review",
+    read: waiting.read,
     step: {
       kind: "command",
       command: "main_scripts",

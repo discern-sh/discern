@@ -319,6 +319,7 @@ export function liveDesk(
             dispatch({
               kind: "prepared",
               layerId: effect.layerId,
+              read: effect.read,
               result: { state: "ready", value: review },
               ...(effect.readFor === undefined
                 ? {}
@@ -328,6 +329,7 @@ export function liveDesk(
             dispatch({
               kind: "prepared",
               layerId: effect.layerId,
+              read: effect.read,
               result: failure(error),
               ...(effect.readFor === undefined
                 ? {}
