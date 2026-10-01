@@ -9,7 +9,7 @@
 
 import type { TerminalApplicationCommand } from "discern-design-system/cli/interactive";
 import type { DocsBrowserRequest } from "../../commands/docs.ts";
-import { openDocsBrowserChoice } from "../../commands/docs_links.ts";
+import { docsBrowserPageResponder } from "../../commands/docs_links.ts";
 import type { BrowserOpenResult } from "../../lib/open_browser.ts";
 import {
   markdownBrowserCommand,
@@ -35,7 +35,7 @@ export function deskManual(
   openPage: (url: string) => Promise<BrowserOpenResult>,
 ): DeskManual {
   let place: MarkdownBrowserResumeState | undefined;
-  let pages = 0;
+  const respond = docsBrowserPageResponder(openPage);
   return {
     open: (mouse, closed) =>
       markdownBrowserCommand({
@@ -43,14 +43,7 @@ export function deskManual(
         mouse,
         ...(place === undefined ? {} : { initialState: place }),
       }, {
-        respond: (choice) => ({
-          kind: "background",
-          id: `manual-page-${++pages}`,
-          run: async () => {
-            const failure = await openDocsBrowserChoice(choice, openPage);
-            if (failure !== undefined) throw new Error(failure);
-          },
-        }),
+        respond,
         onClose: (state) => {
           place = state;
           closed();

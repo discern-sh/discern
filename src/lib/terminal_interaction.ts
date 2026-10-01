@@ -25,6 +25,7 @@ import {
     as PackageMarkdownBrowserLinkResolverInput,
   type MarkdownBrowserOptions as PackageMarkdownBrowserOptions,
   MarkdownBrowserRefusalError as PackageMarkdownBrowserRefusalError,
+  type MarkdownBrowserRequestHandlers as PackageMarkdownBrowserRequestHandlers,
   type MarkdownBrowserResult as PackageMarkdownBrowserResult,
   type MarkdownBrowserResumableState as PackageMarkdownBrowserResumableState,
   observeTerminalIO,
@@ -1169,16 +1170,28 @@ function productMarkdownBrowserResult<Action>(
     : { kind: result.kind, id, state: result.state };
 }
 
-/** Request the package's complete Markdown browser through the product boundary. */
+/**
+ * Request the package's complete Markdown browser through the product
+ * boundary. With `handlers.respond`, each chosen action or link that leaves
+ * the documents is answered while the browser stays on screen, and the
+ * request resolves only on an exit entry or a `{ kind: "exit" }` answer.
+ */
 export async function requestMarkdownBrowser<Action>(
   options: MarkdownBrowserRequestOptions<Action>,
   runtime: TerminalInteractionRuntime = {},
+  handlers: MarkdownBrowserRequestHandlers<Action> = {},
 ): Promise<MarkdownBrowserRequestResult<Action>> {
   requireInteraction("the documentation browser", runtime);
   const entries = adaptMarkdownBrowserEntries(options.entries);
+  const respond = packageMarkdownBrowserResponder(handlers.respond, entries);
   try {
     const result = await runInteractionRequest(
-      packageRequestMarkdownBrowser,
+      (packageOptions: PackageMarkdownBrowserOptions<Action>, session) =>
+        packageRequestMarkdownBrowser(
+          packageOptions,
+          session,
+          respond === undefined ? {} : { respond },
+        ),
       packageMarkdownBrowserOptions(options, entries),
       runtime,
       {
@@ -1210,8 +1223,8 @@ export type MarkdownBrowserChoiceResult<Action> = Extract<
   { readonly kind: "action" | "external-link" }
 >;
 
-/** How a browser opened inside a running application answers its reader. */
-export interface MarkdownBrowserHandlers<Action> {
+/** How a browser answers its reader, on its own screen or nested. */
+export interface MarkdownBrowserRequestHandlers<Action> {
   /**
    * Answer a chosen action or a link that leaves the documents while the
    * browser stays open. A background command it returns that fails shows
@@ -1220,8 +1233,27 @@ export interface MarkdownBrowserHandlers<Action> {
   readonly respond?: (
     result: MarkdownBrowserChoiceResult<Action>,
   ) => PackageTerminalApplicationCommand | void;
+}
+
+/** How a browser opened inside a running application answers its reader. */
+export interface MarkdownBrowserHandlers<Action>
+  extends MarkdownBrowserRequestHandlers<Action> {
   /** The browser closed: where the reader was, so the next opening resumes there. */
   readonly onClose?: (state: MarkdownBrowserResumeState) => void;
+}
+
+/** A product `respond` handler, answering in the package's entry ids. */
+function packageMarkdownBrowserResponder<Action>(
+  respond: MarkdownBrowserRequestHandlers<Action>["respond"],
+  entries: AdaptedMarkdownBrowserEntries<Action>,
+):
+  | NonNullable<PackageMarkdownBrowserRequestHandlers<Action>["respond"]>
+  | undefined {
+  if (respond === undefined) return undefined;
+  return (result) => {
+    const chosen = productMarkdownBrowserResult(result, entries);
+    return chosen.kind === "exit" ? undefined : respond(chosen);
+  };
 }
 
 /**
@@ -1235,16 +1267,12 @@ export function markdownBrowserCommand<Action>(
   handlers: MarkdownBrowserHandlers<Action> = {},
 ): PackageTerminalApplicationCommand {
   const entries = adaptMarkdownBrowserEntries(options.entries);
-  const { respond, onClose } = handlers;
+  const { onClose } = handlers;
+  const respond = packageMarkdownBrowserResponder(handlers.respond, entries);
   return packageMarkdownBrowserCommand(
     packageMarkdownBrowserOptions(options, entries),
     {
-      ...(respond === undefined ? {} : {
-        respond: (result) => {
-          const chosen = productMarkdownBrowserResult(result, entries);
-          return chosen.kind === "exit" ? undefined : respond(chosen);
-        },
-      }),
+      ...(respond === undefined ? {} : { respond }),
       ...(onClose === undefined ? {} : {
         onClose: (state) => onClose(state),
       }),

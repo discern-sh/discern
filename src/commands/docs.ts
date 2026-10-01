@@ -55,7 +55,7 @@ import {
 } from "../lib/open_browser.ts";
 import {
   type DocsBrowserChoice,
-  openDocsBrowserChoice,
+  docsBrowserPageResponder,
   resolveDocsBrowserLink,
 } from "./docs_links.ts";
 import {
@@ -116,7 +116,6 @@ import {
   isSelectionHeading,
   type MarkdownBrowserEntry,
   type MarkdownBrowserRequestOptions,
-  type MarkdownBrowserResumeState,
   plainModeEnabled,
   requestCompactAcknowledgement,
   requestMarkdownBrowser,
@@ -1025,21 +1024,6 @@ function docsBrowserFailureMessage(error: unknown): string {
   );
 }
 
-/** Keep an external-effect failure visible before restoring the rich browser. */
-async function acknowledgeDocsBrowserFailure(
-  message: string,
-  log: Logger,
-): Promise<boolean> {
-  log.error(terminalLine(message));
-  try {
-    await requestCompactAcknowledgement();
-    return true;
-  } catch (error) {
-    if (!isInteractionCancelled(error)) throw error;
-    return false;
-  }
-}
-
 /** One browser opening over a documentation corpus. */
 export type DocsBrowserRequest = MarkdownBrowserRequestOptions<
   DocsBrowserChoice
@@ -1198,38 +1182,24 @@ async function browseSequentially(
 type RichDocsBrowseDisposition = number | "fallback";
 
 /**
- * Run the package browser, opening each page a reader asks for once the
- * terminal is restored and resuming where they were.
+ * Run the package browser until its reader leaves, opening each page they
+ * ask for while it stays on screen.
  */
 async function browseRichly(
   request: DocsBrowserRequest,
   log: Logger,
 ): Promise<RichDocsBrowseDisposition> {
-  // TODO(R-7): answer a chosen page in place, as the Desk's manual does,
-  // once a standalone browser request takes a respond handler.
-  let state: MarkdownBrowserResumeState | undefined;
-  while (true) {
-    try {
-      const result = await requestMarkdownBrowser({
-        ...request,
-        ...(state === undefined ? {} : { initialState: state }),
-        mouse: true,
-      });
-      if (result.kind === "refused") return "fallback";
-      if (result.kind === "exit") return 0;
-      state = result.state;
-      const failure = await openDocsBrowserChoice(result);
-      if (
-        failure !== undefined &&
-        !await acknowledgeDocsBrowserFailure(failure, log)
-      ) {
-        return 0;
-      }
-    } catch (error) {
-      if (isInteractionCancelled(error)) return 0;
-      log.error(docsBrowserFailureMessage(error));
-      return 1;
-    }
+  try {
+    const result = await requestMarkdownBrowser(
+      { ...request, mouse: true },
+      {},
+      { respond: docsBrowserPageResponder() },
+    );
+    return result.kind === "refused" ? "fallback" : 0;
+  } catch (error) {
+    if (isInteractionCancelled(error)) return 0;
+    log.error(docsBrowserFailureMessage(error));
+    return 1;
   }
 }
 

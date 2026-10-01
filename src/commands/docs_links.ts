@@ -17,6 +17,7 @@ import type {
   MarkdownBrowserChoiceResult,
   MarkdownBrowserLinkResolution,
   MarkdownBrowserLinkResolverInput,
+  MarkdownBrowserRequestHandlers,
 } from "../lib/terminal_interaction.ts";
 import { DISCERN_DOCS_URL } from "../shared/brand.ts";
 
@@ -182,4 +183,23 @@ export async function openDocsBrowserChoice(
   return opened.status === "opened"
     ? undefined
     : browserOpenFailureMessage("the link", destination, opened);
+}
+
+/**
+ * Answer every page a documentation browser's reader chooses while the
+ * browser stays on screen: each opens through a background command with its
+ * own id, and a page that can't open shows why inside the browser.
+ */
+export function docsBrowserPageResponder(
+  open: (url: string) => Promise<BrowserOpenResult> = openInBrowser,
+): NonNullable<MarkdownBrowserRequestHandlers<DocsBrowserChoice>["respond"]> {
+  let pages = 0;
+  return (choice) => ({
+    kind: "background",
+    id: `docs-page-${++pages}`,
+    run: async () => {
+      const failure = await openDocsBrowserChoice(choice, open);
+      if (failure !== undefined) throw new Error(failure);
+    },
+  });
 }

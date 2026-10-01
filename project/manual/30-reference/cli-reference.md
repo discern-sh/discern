@@ -811,7 +811,7 @@ Bare `discern docs` on an interactive terminal opens the documentation reader: g
 | Anywhere     | `Escape`, `Backspace`                               | Go back to the previous place; where the reader started, leave it.                        |
 | Anywhere     | `q`, `Ctrl-C`, end of input                         | Leave the reader without changing project state.                                          |
 
-Admitted relative-document links and heading fragments stay inside the reader. Absolute `http://` and `https://` destinations open in the system browser: `discern docs` restores the terminal first and then reopens the reader where you were, and the desk opens them while its screen stays. Other external schemes are not supported.
+Admitted relative-document links and heading fragments stay inside the reader. Absolute `http://` and `https://` destinations open in the system browser while the reader stays on screen; if a page can't open, the reader says why. Other external schemes are not supported.
 
 With mouse tracking available, the wheel moves the contents selection or scrolls the document under the pointer by three rows. A left click selects an entry, a click on the selected entry opens it, and clicking a link follows it. Other mouse buttons and releases have no product action. Use the terminal application's own selection modifier to select terminal text while tracking is active; discern does not define that modifier.
 

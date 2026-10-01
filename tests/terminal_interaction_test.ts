@@ -77,6 +77,7 @@ import {
   pinnedTerminal,
   withTempDir,
 } from "./helpers.ts";
+import { waitForPendingCondition } from "./waiting.ts";
 
 const encoder = new TextEncoder();
 
@@ -1145,6 +1146,91 @@ Deno.test("scripted Markdown browsing preserves outcomes and terminal cleanup", 
               assertEquals(io.resizeListenerCount, 0);
             },
           );
+        },
+      },
+      {
+        name:
+          "Markdown browser adapter answers a choice in place and keeps the browser open",
+        check: async (): Promise<void> => {
+          const io = new FakeTerminalIO([encodeTerminalKeys("enter")], {
+            ansiControl: true,
+            columns: 80,
+            holdOpen: true,
+            rows: 24,
+          });
+          const answered: string[] = [];
+          const pending = requestMarkdownBrowser(
+            {
+              message: "discern docs",
+              entries: [
+                {
+                  kind: "action",
+                  id: "online",
+                  name: "Read online",
+                  value: { destination: "online" },
+                },
+                { kind: "exit", id: "quit", name: "Quit" },
+              ],
+            },
+            scriptedRuntime(io),
+            {
+              respond: (choice) => {
+                answered.push(choice.kind === "action" ? choice.id : "link");
+                return {
+                  kind: "background",
+                  id: `open-${answered.length}`,
+                  run: () => Promise.reject(new Error("Nothing opened here.")),
+                };
+              },
+            },
+          );
+          await waitForPendingCondition(
+            pending,
+            () => stripAnsi(io.output()).includes("Nothing opened here."),
+            "the failed answer's message inside the browser",
+          );
+          io.enqueue("q");
+          const closed = await pending.then(
+            () => undefined,
+            (error: unknown) => error,
+          );
+          assert(isInteractionCancelled(closed));
+
+          assertEquals(answered, ["online"]);
+          assertEquals(io.rawTransitions, [true, false]);
+          assertEquals(io.resizeListenerCount, 0);
+        },
+      },
+      {
+        name:
+          "Markdown browser adapter resolves with the choice an exit answer closes on",
+        check: async (): Promise<void> => {
+          const io = new FakeTerminalIO([encodeTerminalKeys("enter")], {
+            ansiControl: true,
+            columns: 80,
+            rows: 24,
+          });
+          const result = await requestMarkdownBrowser(
+            {
+              message: "discern docs",
+              entries: [
+                {
+                  kind: "action",
+                  id: "online",
+                  name: "Read online",
+                  value: { destination: "online" },
+                },
+                { kind: "exit", id: "quit", name: "Quit" },
+              ],
+            },
+            scriptedRuntime(io),
+            { respond: () => ({ kind: "exit" }) },
+          );
+
+          assertEquals(result.kind, "action");
+          if (result.kind !== "action") return;
+          assertEquals(result.id, "online");
+          assertEquals(io.rawTransitions, [true, false]);
         },
       },
       {
