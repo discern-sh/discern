@@ -409,6 +409,27 @@ Deno.test("a checkout's path reads short in the inspector and whole in View chan
   assertStringIncludes(said(reading), worktree);
 });
 
+Deno.test("the keys reader groups each meaning's keys into one readable row", () => {
+  const state = open(
+    desk(statusData([mainFleetEntry(), task({ ahead: 2 })])),
+    { kind: "reader", reader: { kind: "keys" } },
+  ).state;
+  const frame = render(deskView(state, PRODUCT_UI, ENV), 80, 60);
+  // Arrow pairs touch, other one-cell keys stand a space apart, a run of
+  // digits reads as a range, and wider names keep the slash.
+  for (
+    const row of [
+      /↑↓ k j\s+Move\b/u,
+      /→ \.\s+Actions\b/u,
+      /1–5\s+Go to group\b/u,
+      /\^K\/:\s+Commands\b/u,
+      /←→\s+Buttons\b/u,
+    ]
+  ) {
+    assert(row.test(frame), `${row} in\n${frame}`);
+  }
+});
+
 Deno.test("an open layer leaves the inspector beneath it whole", () => {
   // The package starts what shows below a layer at a block boundary, so the
   // inspector never trims itself for a layer.
