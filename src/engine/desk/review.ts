@@ -108,11 +108,63 @@ export interface DeskBindingObservation {
   readonly trunkHead?: string;
 }
 
-/** Binding facts the observation alone can read, and so re-check. */
+/**
+ * Who holds each binding fact to the review when its effect applies: the
+ * re-observation every apply runs first (`reviewDrift`), the flow's own
+ * apply, which reads the fact again, the lifecycle core, through the
+ * review's `expected.core`, or the session, for a fact that cannot change
+ * while it runs. A declared fact nothing compares is a type error here.
+ */
+export const DESK_BINDING_ENFORCEMENT = {
+  "worktree-identity": "observation",
+  path: "observation",
+  branch: "observation",
+  "branch-head": "observation",
+  "trunk-head": "observation",
+  authority: "observation",
+  "queue-walk": "apply",
+  plan: "core",
+  challenge: "apply",
+  clean: "observation",
+  "dirty-stamp": "observation",
+  "grant-absent": "observation",
+  "grant-record": "apply",
+  "grant-and-queue": "observation",
+  "contained-tip": "observation",
+  "setup-step": "observation",
+  title: "observation",
+  "script-path": "apply",
+  "script-digest": "apply",
+  argv: "core",
+  "main-path": "session",
+  "base-commit": "core",
+  "base-head": "core",
+  "branch-name": "core",
+  "parked-record": "core",
+  "parked-head": "core",
+  "running-version": "session",
+} as const satisfies Readonly<
+  Record<DeskBindingFact, "observation" | "apply" | "core" | "session">
+>;
+
+/** The binding facts the re-observation compares. */
+type ObservedBindingFact = {
+  [Fact in DeskBindingFact]: (typeof DESK_BINDING_ENFORCEMENT)[Fact] extends
+    "observation" ? Fact : never;
+}[DeskBindingFact];
+
+/** The tip of the branch a contained task's commits are in, as observed. */
+function containedTip({ row }: DeskBindingObservation): string {
+  const branch = row.entry.contained_in;
+  if (branch === undefined) return "none";
+  const tip = row.observation.fleet?.find((entry) => entry.branch === branch)
+    ?.registration?.head;
+  return `${branch}@${tip ?? "unknown"}`;
+}
+
+/** How the re-observation reads each fact it compares. */
 const OBSERVED_BINDINGS: Readonly<
-  Partial<
-    Record<DeskBindingFact, (seen: DeskBindingObservation) => string>
-  >
+  Record<ObservedBindingFact, (seen: DeskBindingObservation) => string>
 > = {
   "worktree-identity": ({ row }) => deskRowId(row),
   path: ({ row }) => row.entry.path,
@@ -123,10 +175,9 @@ const OBSERVED_BINDINGS: Readonly<
     `${row.entry.clean ?? "unknown"}:${row.entry.changed_files ?? "unknown"}`,
   clean: ({ row }) => String(row.entry.clean ?? "unknown"),
   "grant-absent": ({ row }) => String(row.decision.context.effortGranted),
-  "grant-record": ({ row }) => String(row.decision.context.effortGranted),
   "grant-and-queue": ({ row }) =>
     `${row.decision.context.effortGranted}:${row.decision.context.queued}`,
-  "contained-tip": ({ row }) => row.entry.contained_in ?? "none",
+  "contained-tip": containedTip,
   "setup-step": ({ row }) => JSON.stringify(row.entry.setup ?? null),
   title: ({ row }) => row.entry.task?.title ?? row.task.name,
   authority: ({ row }) =>
@@ -135,8 +186,8 @@ const OBSERVED_BINDINGS: Readonly<
     }`,
 };
 
-/** What moved, as the Changed banner says it. */
-function bindingChange(fact: DeskBindingFact, trunk: string): string {
+/** What moved, as the Changed banner and an apply's refusal say it. */
+export function bindingChange(fact: DeskBindingFact, trunk: string): string {
   switch (fact) {
     case "branch-head":
       return "a new commit";
@@ -154,11 +205,18 @@ function bindingChange(fact: DeskBindingFact, trunk: string): string {
       return "its landing approval changed";
     case "contained-tip":
       return "the branch containing it moved";
+    case "queue-walk":
+      return "the tasks that land after it changed";
     case "setup-step":
       return "its setup moved on";
     default:
       return "its checkout changed";
   }
+}
+
+/** Whether the re-observation compares a binding fact. */
+function observed(fact: DeskBindingFact): fact is ObservedBindingFact {
+  return DESK_BINDING_ENFORCEMENT[fact] === "observation";
 }
 
 /** Every binding fact the observation can read for this review. */
@@ -168,8 +226,7 @@ function observedBinding(
 ): Partial<Record<DeskBindingFact, string>> {
   const bound: Partial<Record<DeskBindingFact, string>> = {};
   for (const fact of facts) {
-    const read = OBSERVED_BINDINGS[fact];
-    if (read !== undefined) bound[fact] = read(seen);
+    if (observed(fact)) bound[fact] = OBSERVED_BINDINGS[fact](seen);
   }
   return bound;
 }
@@ -184,9 +241,8 @@ export function reviewDrift(
 ): string | undefined {
   for (const [fact, value] of Object.entries(expected.facts)) {
     const binding = DESK_BINDING_FACTS.find((known) => known === fact);
-    const read = binding === undefined ? undefined : OBSERVED_BINDINGS[binding];
-    if (binding === undefined || read === undefined) continue;
-    if (read(seen) !== value) {
+    if (binding === undefined || !observed(binding)) continue;
+    if (OBSERVED_BINDINGS[binding](seen) !== value) {
       return bindingChange(binding, seen.row.decision.context.trunk);
     }
   }

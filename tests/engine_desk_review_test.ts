@@ -38,6 +38,7 @@ import {
   type DeskReviewSource,
 } from "../src/engine/desk/review_facts.ts";
 import {
+  DESK_BINDING_ENFORCEMENT,
   type DeskReviewTarget,
   resultSheet,
   reviewDrift,
@@ -58,7 +59,10 @@ import { reviewSheet } from "../src/engine/desk/sheet_view.ts";
 import type { DeskFlowStep } from "../src/engine/desk/flow_types.ts";
 import type { DeskProductState } from "../src/engine/desk/desk_state.ts";
 import { DESK_REFRESH_MS } from "../src/engine/desk/desk_state.ts";
-import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
+import type {
+  AcceptPreviewData,
+  StatusFleetEntry,
+} from "../src/shared/result_schemas.ts";
 import type { DeskRuntime } from "../src/engine/desk/desk.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
 import { observedDesk, productSurvey } from "./fixtures/desk_product.ts";
@@ -70,6 +74,7 @@ import {
   deskTaskEntry,
   deskTranscript,
   landable,
+  LANDABLE_HEAD,
   landing,
   scriptedDeskRuntime,
   withDeskSession,
@@ -536,6 +541,9 @@ Deno.test("every reviewed action and command binds every fact its registry decla
         review.expected.facts[fact] !== undefined,
         `${action} binds ${fact}`,
       );
+      if (DESK_BINDING_ENFORCEMENT[fact] === "core") {
+        assert(review.expected.core !== undefined, `${action} cores ${fact}`);
+      }
     }
   }
   for (const [command, flow] of Object.entries(DESK_COMMAND_FLOWS)) {
@@ -554,8 +562,107 @@ Deno.test("every reviewed action and command binds every fact its registry decla
         review.expected.facts[fact] !== undefined,
         `${command} binds ${fact}`,
       );
+      if (DESK_BINDING_ENFORCEMENT[fact] === "core") {
+        assert(review.expected.core !== undefined, `${command} cores ${fact}`);
+      }
     }
   }
+});
+
+Deno.test("what only a preview knows is read again before the effect runs", async () => {
+  // Land's queue walk: a task queued after the review would land unseen.
+  const landed: unknown[] = [];
+  let walk: AcceptPreviewData["queue_walk"] = [];
+  const seams = landing(landed);
+  await withDeskSession({
+    cliModel: TEST_CLI_MODEL,
+    runtime: {
+      status: () => ({ ok: true, data: deskSurvey([landable()]) }),
+      ...seams,
+      acceptPlan: () => ({
+        ok: true,
+        verb: "accept",
+        dry_run: true,
+        data: {
+          preview: { ...acceptPreview(LANDABLE_HEAD), queue_walk: walk },
+        },
+      }),
+    },
+  }, async (desk) => {
+    await desk.select("alpha");
+    await desk.press("l");
+    await desk.opened(LAND);
+    await desk.settleForm();
+    walk = [{
+      effort: "follower",
+      branch: "agent/follower",
+      head: "f".repeat(40),
+    }];
+    await desk.confirm();
+    await desk.shows("the tasks that land after it changed");
+  });
+  assertEquals(landed, [], "nothing lands past an unseen follower");
+
+  // Revoke's grant record: a grant recorded again since the review.
+  const revoked: string[] = [];
+  let grantedAt = "2026-07-11T11:00:00.000Z";
+  await withDeskSession({
+    runtime: {
+      status: () => ({
+        ok: true,
+        data: deskSurvey([
+          deskTaskEntry("agent/alpha", "/worktrees/alpha", {
+            id: "alpha",
+            landing_authority: { kind: "authorized", source: "effort-grant" },
+          }),
+        ]),
+      }),
+      clearEffortGrantPlan: () => ({
+        title: "Revocation plan",
+        details: [],
+        steps: [],
+        subject: { grant: { id: "grant-1", granted_at: grantedAt } },
+      }),
+      clearEffortGrant: (path) => {
+        revoked.push(path);
+        return true;
+      },
+    },
+  }, async (desk) => {
+    await desk.select("alpha");
+    await desk.press(".");
+    await desk.opened("actions");
+    await desk.choose("revoke_grant");
+    await desk.opened("review-revoke_grant-review");
+    await desk.settleForm();
+    grantedAt = "2026-07-11T11:30:00.000Z";
+    await desk.confirm();
+    await desk.shows("its landing approval changed");
+  });
+  assertEquals(revoked, [], "a newer grant is not revoked unseen");
+});
+
+Deno.test("Reclaim binds the containing branch's tip, not only its name", () => {
+  const containing = readyTask("beta");
+  const contained = readyTask("alpha", { contained_in: "agent/beta" });
+  const before = observedDesk(productSurvey([contained, containing]));
+  const review = reviewFor(target(rowOf(before, "alpha"), "reclaim"), {
+    facts: {},
+  });
+  const moved = observedDesk(productSurvey([
+    contained,
+    readyTask("beta", {
+      registration: {
+        head: "9".repeat(40),
+        locked: false,
+        prunable: false,
+      },
+    }),
+  ]));
+  assertEquals(
+    reviewDrift(review.expected, { row: rowOf(moved, "alpha") }),
+    "the branch containing it moved",
+  );
 });
 
 const LAND = "review-accept-review";

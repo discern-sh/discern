@@ -19,6 +19,7 @@ import {
   DESK_ACTION_REGISTRY,
   type DeskAction,
   type DeskActionOffer,
+  type DeskBindingFact,
   deskExceptionArgvs,
   deskObservation,
   type DeskRow,
@@ -29,6 +30,7 @@ import type { DeskProductState } from "../desk_state.ts";
 import { rowRef, taskTitleOf } from "../desk_transitions.ts";
 import { trunkHead } from "../evidence.ts";
 import {
+  bindingChange,
   type DeskReviewRead,
   type DeskReviewTarget,
   resultSheet,
@@ -240,7 +242,16 @@ export async function rebound(
     row: seen.row,
     ...(seen.trunkHead === undefined ? {} : { trunkHead: seen.trunkHead }),
   });
-  return moved === undefined ? undefined : {
+  return moved === undefined ? undefined : changedSince(command, step, moved);
+}
+
+/** An effect that refused because `moved` since its review: review it again. */
+export function changedSince(
+  command: string,
+  step: DeskFlowStep,
+  moved: string,
+): DeskOutcome {
+  return {
     command,
     ok: false,
     message: {
@@ -249,6 +260,26 @@ export async function rebound(
     },
     next: step,
   };
+}
+
+/**
+ * Hold one binding fact the apply reads again itself to its review: the
+ * refusal when the fact moved, or nothing when it holds.
+ */
+export function recheck(
+  context: DeskFlowContext,
+  step: DeskFlowStep,
+  expected: DeskExpected,
+  command: string,
+  fact: DeskBindingFact,
+  now: string,
+): DeskOutcome | undefined {
+  const reviewed = expected.facts[fact];
+  return reviewed === undefined || reviewed === now ? undefined : changedSince(
+    command,
+    step,
+    bindingChange(fact, context.config.repository.trunk),
+  );
 }
 
 /** A successful effect's outcome. */

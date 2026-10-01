@@ -1362,7 +1362,7 @@ export const DESK_ACTION_REGISTRY = {
       line("recoverable", "Pre-authorize it again any time"),
     ],
     confirmation: confirm("Keep", "Revoke"),
-    binding: ["worktree-identity", "grant-record"],
+    binding: ["worktree-identity", "authority", "grant-record"],
     availability: (facts: DeskActionFacts): string | undefined =>
       facts.effortGranted ? undefined : "Nothing is pre-authorized.",
   },

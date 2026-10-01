@@ -40,12 +40,20 @@ import {
   offerCommand,
   offerFor,
   rebound,
+  recheck,
   resultPlan,
   reviewOffer,
   stepOffer,
   stepRow,
   succeeded,
 } from "./context.ts";
+
+/** A revocation's plan, and the grant record it would remove, if any. */
+export type DeskRevocationPlan = EnginePlan & {
+  readonly subject?: {
+    readonly grant?: { readonly id: string; readonly granted_at: string };
+  };
+};
 
 /** The runtime seams that read and write landing permission. */
 export interface DeskLandingPermission {
@@ -57,8 +65,21 @@ export interface DeskLandingPermission {
     path: string,
     branch: string,
   ): EffortGrantWrite | Promise<EffortGrantWrite>;
-  clearEffortGrantPlan(path: string): EnginePlan | Promise<EnginePlan>;
+  clearEffortGrantPlan(
+    path: string,
+  ): DeskRevocationPlan | Promise<DeskRevocationPlan>;
   clearEffortGrant(path: string): boolean | Promise<boolean>;
+}
+
+/** The grant record a revocation would remove, as its binding names it. */
+function grantRecord(plan: DeskRevocationPlan): string {
+  const grant = plan.subject?.grant;
+  return grant === undefined ? "none" : `${grant.id}@${grant.granted_at}`;
+}
+
+/** The tasks a landing's preview walks after it, as its binding names them. */
+function walkBinding(facts: DeskPlanFacts): string {
+  return (facts.queueWalk ?? []).map((queued) => queued.branch).join(" ");
 }
 
 /** Who approves a landing, from the preview's authority facts. */
@@ -144,10 +165,7 @@ const ACCEPT_FLOW: DeskFlow = {
             ? {}
             : { revision: preview.data.revision }),
         },
-        bound: {
-          "queue-walk": (facts.queueWalk ?? []).map((queued) => queued.branch)
-            .join(" "),
-        },
+        bound: { "queue-walk": walkBinding(facts) },
         running: `Landing ${row.task.name}`,
         follows: (facts.queueWalk ?? []).map((queued) => ({
           branch: queued.branch,
@@ -161,6 +179,23 @@ const ACCEPT_FLOW: DeskFlow = {
     const { row, offer } = stepOffer(context, step, "accept");
     const command = offerCommand(offer);
     const ctx = await context.runtime.lifecycle(row.entry.path);
+    // The queued tasks that would land after it are the preview's alone, so
+    // the apply reads them again rather than the survey.
+    const walk = recheck(
+      context,
+      step,
+      expected,
+      command,
+      "queue-walk",
+      walkBinding(
+        landingFacts(
+          context,
+          (await context.runtime.acceptPlan(ctx)).data
+            ?.preview,
+        ),
+      ),
+    );
+    if (walk !== undefined) return walk;
     const revision = expected.core?.kind === "accept"
       ? expected.core.revision
       : undefined;
@@ -366,14 +401,27 @@ const GRANT_FLOW: DeskFlow = {
 /** Revoke pre-authorization: the cleanup's plan, then the cleanup. */
 const REVOKE_FLOW: DeskFlow = {
   review: (context, step) =>
-    reviewOffer(context, step, "revoke_grant", async (row) => ({
-      plan: await context.runtime.clearEffortGrantPlan(row.entry.path),
-      running: `Revoking pre-authorization for ${row.task.name}`,
-    })),
+    reviewOffer(context, step, "revoke_grant", async (row) => {
+      const plan = await context.runtime.clearEffortGrantPlan(row.entry.path);
+      return {
+        plan,
+        bound: { "grant-record": grantRecord(plan) },
+        running: `Revoking pre-authorization for ${row.task.name}`,
+      };
+    }),
   apply: async (context, step, expected: DeskExpected) => {
     const changed = await rebound(context, step, expected, "revoke_grant");
     if (changed !== undefined) return changed;
     const { row, offer } = stepOffer(context, step, "revoke_grant");
+    const record = recheck(
+      context,
+      step,
+      expected,
+      offerCommand(offer),
+      "grant-record",
+      grantRecord(await context.runtime.clearEffortGrantPlan(row.entry.path)),
+    );
+    if (record !== undefined) return record;
     await context.runtime.clearEffortGrant(row.entry.path);
     return succeeded(
       offerCommand(offer),

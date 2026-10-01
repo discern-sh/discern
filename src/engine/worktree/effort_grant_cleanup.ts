@@ -38,8 +38,15 @@ export type EffortGrantClaimRead =
 const CLAIM_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** A revocation's plan, and the grant record it would remove, if any. */
+export interface EffortGrantRevocationPlan extends EnginePlan {
+  readonly subject: { readonly grant?: EffortGrant };
+}
+
 /** Preview grant revocation while leaving the apply path to revalidate it. */
-export async function clearEffortGrantPlan(cwd: string): Promise<EnginePlan> {
+export async function clearEffortGrantPlan(
+  cwd: string,
+): Promise<EffortGrantRevocationPlan> {
   const current = await readEffortGrant(cwd);
   if (current.status === "newer") {
     throw new Error(current.reason);
@@ -63,6 +70,7 @@ export async function clearEffortGrantPlan(cwd: string): Promise<EnginePlan> {
         ? "Git could not resolve the authority record path"
         : "no landing pre-authorization is recorded",
     }],
+    subject: current.status === "granted" ? { grant: current.grant } : {},
   };
 }
 
