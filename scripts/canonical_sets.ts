@@ -3629,7 +3629,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "spawn-surfaces",
     title: "Subprocess spawn boundaries",
     what:
-      "Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption, and src homes whether they run captured or own the terminal inside an operation.",
+      "Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption, and shipped homes declare whether they run captured or own the terminal inside an operation.",
     source: {
       kind: "module",
       module: "tests/spawn_surfaces.ts",
