@@ -336,15 +336,18 @@ function exceptionFact(
     : { name: "exception", label: "Exception", value: lines };
 }
 
-/** A section's skeleton, failure, or content. */
+/**
+ * A section's failure or content once read, and until then its skeleton,
+ * for a section that shows one while it is read.
+ */
 function evidenceSection<T>(
   title: string,
   section: DeskEvidenceSection<T> | undefined,
-  pending: boolean,
+  skeleton: boolean,
   content: (value: T) => ApplicationDetailBlock[] | undefined,
 ): ApplicationDetailBlock[] {
   if (section === undefined) {
-    return pending
+    return skeleton
       ? [{
         kind: "section",
         title,
@@ -388,7 +391,6 @@ function artifacts(
   inspection: DeskInspection,
 ): ApplicationDetailBlock[] {
   const evidence = inspection.evidence;
-  const pending = evidence === undefined;
   const overlapping = new Set(
     row.decision.collisions.flatMap((collision) =>
       collision.kind === "changed_files" ? collision.paths : []
@@ -434,7 +436,7 @@ function artifacts(
       ...evidenceSection(
         "Uncommitted",
         evidence?.uncommitted,
-        pending,
+        true,
         (files) => [{
           kind: "section",
           title: "Uncommitted",
@@ -467,7 +469,7 @@ function artifacts(
     ...evidenceSection(
       "Commits",
       evidence?.commits,
-      pending,
+      true,
       (commits) =>
         commits.length === 0 ? undefined : [{
           kind: "section",
@@ -793,7 +795,7 @@ export function parkedBlocks(
     ...evidenceSection(
       "Commits",
       evidence?.commits,
-      evidence === undefined,
+      true,
       (commits) =>
         commits.length === 0 ? undefined : [{
           kind: "section",

@@ -26,10 +26,7 @@ import { deskKeymap, deskView } from "../src/engine/desk/inbox_view.ts";
 import { UNSHOWABLE_LAYER_TITLE } from "../src/engine/desk/layer_view.ts";
 import { deskChips, toggleLabel } from "../src/engine/desk/header_view.ts";
 import { deskRowId } from "../src/engine/desk/model.ts";
-import {
-  evidenceKey,
-  taskEvidenceSubject,
-} from "../src/engine/desk/evidence.ts";
+import { taskEvidenceSubject } from "../src/engine/desk/evidence.ts";
 import type { DeskReview } from "../src/engine/desk/flow_types.ts";
 import {
   FLEET_ROW_STATES,
@@ -147,6 +144,47 @@ Deno.test("a layer the package would refuse gives way to a sheet that says so, u
   assert(palette !== undefined && palette.kind === "palette");
 });
 
+Deno.test("a survey that only restamps a checkout's edits keeps its commits on screen", () => {
+  const edited = (at: string) =>
+    statusData([
+      mainFleetEntry(),
+      fleetEntry({
+        id: "alpha",
+        clean: false,
+        changed_files: 2,
+        last_activity: at,
+      }),
+    ]);
+  const before = edited("2026-07-11T11:00:00Z");
+  let state = desk(before);
+  const [row] = state.rows;
+  assert(row !== undefined);
+  state = deskProduct(state, {
+    kind: "evidence",
+    subject: taskEvidenceSubject(row, before, "main"),
+    read: {
+      committed: {
+        commits: {
+          state: "ready",
+          value: [{ sha: "abc1234", subject: "Committed work" }],
+        },
+        files: { state: "ready", value: [] },
+      },
+      uncommitted: {
+        state: "ready",
+        value: [{ path: "notes.md", status: "updated" }],
+      },
+    },
+  }).state;
+  const after = observeDesk(state, edited("2026-07-11T11:00:05Z"), NOW).state;
+  const view = deskView(after, { ...PRODUCT_UI, selected: "alpha" }, ENV);
+  assert(view.body.kind === "master-detail");
+  const content = said(view.body.detail.content.alpha);
+  assertStringIncludes(content, "Committed work");
+  assertStringIncludes(content, "notes.md");
+  assert(!content.includes("Reading…"), "nothing blinks back to Reading…");
+});
+
 Deno.test("every row state's inspector and strip render in status's words", () => {
   for (const row of TABLE_ROWS) {
     const integration = row.context?.integration;
@@ -165,16 +203,18 @@ Deno.test("every row state's inspector and strip render in status's words", () =
     const id = deskRowId(shown);
     state = deskProduct(state, {
       kind: "evidence",
-      key: evidenceKey(taskEvidenceSubject(shown, data, "main")),
-      evidence: row.row % 2 === 0
+      subject: taskEvidenceSubject(shown, data, "main"),
+      read: row.row % 2 === 0
         ? {
-          commits: {
-            state: "ready",
-            value: [{ sha: "abc1234", subject: "Explain the change" }],
-          },
-          files: {
-            state: "ready",
-            value: [{ path: "src/a.ts", status: "updated", added: 3 }],
+          committed: {
+            commits: {
+              state: "ready",
+              value: [{ sha: "abc1234", subject: "Explain the change" }],
+            },
+            files: {
+              state: "ready",
+              value: [{ path: "src/a.ts", status: "updated", added: 3 }],
+            },
           },
           uncommitted: {
             state: "ready",
@@ -186,8 +226,10 @@ Deno.test("every row state's inspector and strip render in status's words", () =
           },
         }
         : {
-          commits: { state: "failed", error: "fatal: bad revision" },
-          files: { state: "ready", value: [] },
+          committed: {
+            commits: { state: "failed", error: "fatal: bad revision" },
+            files: { state: "ready", value: [] },
+          },
         },
     }).state;
     const view = deskView(state, { ...PRODUCT_UI, selected: id }, ENV);

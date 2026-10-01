@@ -74,7 +74,6 @@ import { DESK_OFFLINE_FAILURES } from "./desk_state.ts";
 import {
   branchEvidenceSubject,
   cachedEvidence,
-  evidenceKey,
   taskEvidenceSubject,
 } from "./evidence.ts";
 import {
@@ -387,9 +386,9 @@ function details(
     const id = deskRowId(row);
     const evidence = cachedEvidence(
       state.evidence,
-      evidenceKey(taskEvidenceSubject(row, state.data, state.trunk)),
+      taskEvidenceSubject(row, state.data, state.trunk),
     );
-    const read = { ...base, ...(evidence === undefined ? {} : { evidence }) };
+    const read = { ...base, evidence };
     content[id] = taskBlocks(row, read);
     strip[id] = taskStrip(row, read);
   }
@@ -398,14 +397,9 @@ function details(
     const title = branchTitle(branch, state.data);
     const evidence = cachedEvidence(
       state.evidence,
-      evidenceKey(
-        branchEvidenceSubject(branch, env.root, state.data, state.trunk),
-      ),
+      branchEvidenceSubject(branch, env.root, state.data, state.trunk),
     );
-    content[id] = parkedBlocks(branch, title, {
-      ...base,
-      ...(evidence === undefined ? {} : { evidence }),
-    });
+    content[id] = parkedBlocks(branch, title, { ...base, evidence });
     strip[id] = parkedStrip(branch, title);
   }
   for (const task of state.data?.recent_completed_tasks ?? []) {

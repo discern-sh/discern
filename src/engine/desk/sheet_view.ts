@@ -69,12 +69,7 @@ import {
   rowRef,
 } from "./desk_transitions.ts";
 import { diffRuns, fileRows, glyph } from "./inspector_view.ts";
-import {
-  cachedEvidence,
-  evidenceKey,
-  taskEvidenceSubject,
-  trunkHead,
-} from "./evidence.ts";
+import { cachedEvidence, taskEvidenceSubject, trunkHead } from "./evidence.ts";
 import { reviewDrift } from "./review.ts";
 import { compactDuration } from "../output.ts";
 import { canStop, progressActivity, stopPolicy } from "./operations.ts";
@@ -213,8 +208,8 @@ function changesContent(
   const files = ref?.kind === "task"
     ? cachedEvidence(
       state.evidence,
-      evidenceKey(taskEvidenceSubject(ref.row, state.data, state.trunk)),
-    )?.files
+      taskEvidenceSubject(ref.row, state.data, state.trunk),
+    ).files
     : undefined;
   return [
     totals,

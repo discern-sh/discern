@@ -1,7 +1,7 @@
 /**
  * Tier-two evidence for the settled selection: at most three Git reads with
- * their own failures, the retained failure record, the subject facts that key
- * the cache, and a cache that keeps the most recently used items.
+ * their own failures, the retained failure record, the facts that key each
+ * part of the cache, and a cache that keeps the most recently used items.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -11,11 +11,12 @@ import {
   DESK_EVIDENCE_CACHE_SIZE,
   DESK_EVIDENCE_COMMITS,
   DESK_EVIDENCE_FILES,
-  type DeskEvidence,
+  type DeskEvidenceRead,
   type DeskEvidenceReader,
+  type DeskEvidenceSubject,
   emptyEvidenceCache,
-  evidenceComplete,
-  evidenceKey,
+  evidenceKeys,
+  evidenceToRead,
   parseCommits,
   parseFileStats,
   readSelectedEvidence,
@@ -109,17 +110,19 @@ Deno.test("a clean task reads its commits and files in two bounded Git reads", a
     new AbortController().signal,
   );
   assertEquals(evidence, {
-    commits: {
-      state: "ready",
-      value: [{
-        sha: "abc1234",
-        subject: "Change",
-        at: "2026-07-11T11:00:00Z",
-      }],
-    },
-    files: {
-      state: "ready",
-      value: [{ path: "a.ts", status: "updated", added: 2, removed: 1 }],
+    committed: {
+      commits: {
+        state: "ready",
+        value: [{
+          sha: "abc1234",
+          subject: "Change",
+          at: "2026-07-11T11:00:00Z",
+        }],
+      },
+      files: {
+        state: "ready",
+        value: [{ path: "a.ts", status: "updated", added: 2, removed: 1 }],
+      },
     },
   });
   assertEquals(git.calls, [
@@ -147,22 +150,26 @@ Deno.test("each evidence section fails on its own, and a dirty failed task reads
     assertEquals([branch, verb], ["agent/alpha", "done"]);
     return Promise.resolve([{ name: "lint", message: "Unused import" }]);
   });
-  const evidence: DeskEvidence = await readSelectedEvidence(
+  const evidence: DeskEvidenceRead = await readSelectedEvidence(
     {
       cwd: "/worktrees/alpha",
       ref: "HEAD",
       trunk: "main",
       dirty: "2@2026-07-11T11:00:00Z",
-      failed: { branch: "agent/alpha", verb: "done" },
+      failed: {
+        branch: "agent/alpha",
+        verb: "done",
+        at: "2026-07-11T10:00:00Z",
+      },
     },
     git,
     new AbortController().signal,
   );
-  assertEquals(evidence.commits, {
+  assertEquals(evidence.committed?.commits, {
     state: "failed",
     error: "fatal: bad revision",
   });
-  assertEquals(evidence.files, {
+  assertEquals(evidence.committed?.files, {
     state: "failed",
     error: "Git returned a non-zero status.",
   });
@@ -184,12 +191,16 @@ Deno.test("each evidence section fails on its own, and a dirty failed task reads
       cwd: "/worktrees/alpha",
       ref: "HEAD",
       trunk: "main",
-      failed: { branch: "agent/alpha", verb: "done" },
+      failed: {
+        branch: "agent/alpha",
+        verb: "done",
+        at: "2026-07-11T10:00:00Z",
+      },
     },
     reader({}, () => Promise.reject(new Error("journal unreadable"))),
     new AbortController().signal,
   );
-  assertEquals(thrown.commits.state, "failed");
+  assertEquals(thrown.committed?.commits.state, "failed");
   assertEquals(thrown.failure, {
     state: "failed",
     error: "journal unreadable",
@@ -251,7 +262,11 @@ Deno.test("an evidence subject is keyed by everything that would change it", () 
     head: "a".repeat(40),
     trunkHead: "c".repeat(40),
     dirty: "2@2026-07-11T11:00:00Z",
-    failed: { branch: "agent/alpha", verb: "done" },
+    failed: {
+      branch: "agent/alpha",
+      verb: "done",
+      at: "2026-07-11T10:00:00Z",
+    },
   });
   const branch = branchEvidenceSubject(
     "agent/spike",
@@ -266,41 +281,108 @@ Deno.test("an evidence subject is keyed by everything that would change it", () 
     head: "b".repeat(40),
     trunkHead: "c".repeat(40),
   });
-  const keys = new Set([
-    evidenceKey(task),
-    evidenceKey({ ...task, head: "d".repeat(40) }),
-    evidenceKey({ ...task, trunkHead: "e".repeat(40) }),
-    evidenceKey({ ...task, dirty: "3@2026-07-11T11:30:00Z" }),
-    evidenceKey(branch),
-  ]);
-  assertEquals(keys.size, 5);
+  // Each part is keyed by exactly the facts that change it.
+  const committed = (subject: DeskEvidenceSubject) =>
+    evidenceKeys(subject).committed;
+  assertEquals(
+    new Set([
+      committed(task),
+      committed({ ...task, head: "d".repeat(40) }),
+      committed({ ...task, trunkHead: "e".repeat(40) }),
+      committed(branch),
+    ]).size,
+    4,
+  );
+  const edited = { ...task, dirty: "3@2026-07-11T11:30:00Z" };
+  assertEquals(
+    committed(edited),
+    committed(task),
+    "an edit in the checkout keeps its committed evidence",
+  );
+  assert(evidenceKeys(edited).uncommitted !== evidenceKeys(task).uncommitted);
+  const failedAgain = {
+    ...task,
+    failed: {
+      branch: "agent/alpha",
+      verb: "done",
+      at: "2026-07-11T11:30:00Z",
+    },
+  };
+  assert(
+    evidenceKeys(failedAgain).failure !== evidenceKeys(task).failure,
+    "a second failure of the same verb is a new record",
+  );
+  assertEquals(evidenceKeys(branch).uncommitted, undefined);
 });
 
+/** A complete read of every part, its commit named `sha`. */
+function readOf(sha: string): DeskEvidenceRead {
+  return {
+    committed: {
+      commits: { state: "ready", value: [{ sha, subject: sha }] },
+      files: { state: "ready", value: [] },
+    },
+    uncommitted: { state: "ready", value: [{ path: sha, status: "added" }] },
+  };
+}
+
+/** A dirty task subject whose checkout path is `index`. */
+function item(index: number): DeskEvidenceSubject {
+  return {
+    cwd: `/worktrees/${index}`,
+    ref: "HEAD",
+    trunk: "main",
+    head: "a".repeat(40),
+    dirty: "1@2026-07-11T11:00:00Z",
+  };
+}
+
 Deno.test("the evidence cache keeps the most recently used items", () => {
-  const evidence = (sha: string): DeskEvidence => ({
-    commits: { state: "ready", value: [{ sha, subject: sha }] },
-    files: { state: "ready", value: [] },
-  });
   let cache = emptyEvidenceCache();
   for (let index = 0; index <= DESK_EVIDENCE_CACHE_SIZE; index += 1) {
-    cache = rememberEvidence(cache, `key-${index}`, evidence(`${index}`));
+    cache = rememberEvidence(cache, item(index), readOf(`${index}`));
   }
-  assertEquals(cache.entries.length, DESK_EVIDENCE_CACHE_SIZE);
-  assertEquals(cachedEvidence(cache, "key-0"), undefined, "the oldest goes");
-  cache = rememberEvidence(cache, "key-1", evidence("again"));
-  assertEquals(cache.entries.at(-1)?.[0], "key-1", "a reuse is the newest");
-  assertEquals(cache.entries.length, DESK_EVIDENCE_CACHE_SIZE);
+  assertEquals(cache.parts.committed.length, DESK_EVIDENCE_CACHE_SIZE);
   assertEquals(
-    cachedEvidence(cache, "key-1")?.commits,
-    { state: "ready", value: [{ sha: "again", subject: "again" }] },
+    cachedEvidence(cache, item(0)),
+    {},
+    "the oldest goes",
   );
-  assertEquals(evidenceComplete(evidence("whole")), true);
   assertEquals(
-    evidenceComplete({
-      ...evidence("partial"),
-      failure: { state: "failed", error: "journal unreadable" },
-    }),
-    false,
+    cachedEvidence(cache, item(1)).commits,
+    { state: "ready", value: [{ sha: "1", subject: "1" }] },
+  );
+  // A read that finds an item kept makes it the newest without a new read.
+  cache = rememberEvidence(cache, item(1), {});
+  cache = rememberEvidence(cache, item(99), readOf("99"));
+  assert(
+    cachedEvidence(cache, item(1)).commits !== undefined,
+    "a reuse is the newest, so a new item evicts another",
+  );
+  assertEquals(cachedEvidence(cache, item(2)), {}, "the least used goes");
+  assertEquals(evidenceToRead(cache, item(1)), [], "nothing left to read");
+  const partial = rememberEvidence(emptyEvidenceCache(), item(1), {
+    committed: {
+      commits: { state: "ready", value: [] },
+      files: { state: "failed", error: "git failed" },
+    },
+  });
+  assertEquals(
+    evidenceToRead(partial, item(1)),
+    ["committed", "uncommitted"],
     "a failed section is read again when its item settles",
+  );
+});
+
+Deno.test("an edit in a checkout reads only its uncommitted files again", () => {
+  const cache = rememberEvidence(emptyEvidenceCache(), item(1), readOf("1"));
+  const edited = { ...item(1), dirty: "2@2026-07-11T11:05:00Z" };
+  assertEquals(evidenceToRead(cache, edited), ["uncommitted"]);
+  const shown = cachedEvidence(cache, edited);
+  assert(shown.commits !== undefined, "the commits never blink to Reading…");
+  assertEquals(
+    shown.uncommitted,
+    { state: "ready", value: [{ path: "1", status: "added" }] },
+    "the last uncommitted files show while the new ones are read",
   );
 });

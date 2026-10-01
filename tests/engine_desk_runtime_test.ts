@@ -59,7 +59,11 @@ import {
 import { freshTipSeenState } from "../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { DISCERN_DOCS_URL } from "../src/shared/brand.ts";
-import { DESK_LIST_ID } from "../src/engine/desk/desk_state.ts";
+import {
+  DESK_LIST_ID,
+  DESK_REFRESH_MS,
+} from "../src/engine/desk/desk_state.ts";
+import { DESK_SELECTION_SETTLE_MS } from "../src/engine/desk/live.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
@@ -1818,6 +1822,59 @@ Deno.test("Open agent lists configured agents, explains missing ones, and launch
     [],
     "unchanged folds are not written back",
   );
+});
+
+Deno.test("an agent's edits re-read only the uncommitted files, and the commits stay on screen", async () => {
+  let surveysRun = 0;
+  const reads: string[] = [];
+  await withDeskSession({
+    columns: 120,
+    rows: 30,
+    runtime: {
+      status: () => {
+        surveysRun += 1;
+        return {
+          ok: true,
+          data: deskSurvey([
+            deskTaskEntry("agent/first", "/worktrees/first", {
+              id: "first",
+              clean: false,
+              changed_files: 2,
+              // An agent is editing: each survey sees newer activity.
+              last_activity: new Date(
+                Date.parse("2026-07-11T11:00:00Z") + surveysRun * 5_000,
+              ).toISOString(),
+            }),
+          ]),
+        };
+      },
+      git: (args) => {
+        reads.push(args[0] ?? "");
+        return args[0] === "log"
+          ? {
+            success: true,
+            stdout: "abc1234\u0000Committed work\u0000\n",
+            stderr: "",
+          }
+          : args[0] === "status"
+          ? { success: true, stdout: " M notes.md\u0000", stderr: "" }
+          : { success: true, stdout: "", stderr: "" };
+      },
+    },
+  }, async (desk) => {
+    await desk.select("first");
+    await desk.shows("Committed work");
+    reads.length = 0;
+    desk.advance(DESK_REFRESH_MS);
+    await desk.until(() => surveysRun >= 2, "the next survey");
+    // The slot reads once the survey lands and its settle passes.
+    await desk.until(() => {
+      desk.advance(DESK_SELECTION_SETTLE_MS / 10);
+      return reads.length > 0;
+    }, "the slot's read");
+    await desk.shows("Committed work");
+  });
+  assertEquals(reads, ["status"], "only the uncommitted files are read again");
 });
 
 Deno.test("View changes reads the task's evidence and lends the terminal to the pager, the editor and a shell", async () => {

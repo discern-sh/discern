@@ -34,7 +34,7 @@ The inspector follows the selection and never takes focus, so no key moves to it
 
 Proof validity, landing authority and submission stay separate facts in status's words, and a [structural guard](../../../tests/engine_desk_proof_label_guard_test.ts) keeps every desk view from deriving a label or tone from the Proof alone.
 
-Tier-two evidence is read only for the selection once it rests for 150 ms ([`evidence.ts`](../../../src/engine/desk/evidence.ts)): the commits beyond the trunk, the changed files largest first, a dirty checkout's uncommitted files, and the retained record of a failed run. That is at most three Git reads, each with a two-second timeout, and each section fails on its own. Evidence is kept for the 32 most recently used items, keyed by the head, the trunk head and the dirty stamp, so returning to an unchanged task reads nothing.
+Tier-two evidence is read only for the selection once it rests for 150 ms ([`evidence.ts`](../../../src/engine/desk/evidence.ts)): the commits beyond the trunk, the changed files largest first, a dirty checkout's uncommitted files, and the retained record of a failed run. That is at most three Git reads, each with a two-second timeout, and each section fails on its own. Each part of it is kept by only the facts that change it: the commits and files by the head and the trunk head, the uncommitted files by the dirty stamp, and the failure by the run that failed. While an agent edits a task, a survey re-reads only its uncommitted files, showing the last ones meanwhile, and the commits never blink back to Reading…. Each part keeps the 32 most recently used items, and a read that finds an item kept makes it the newest, so returning to an unchanged task reads nothing.
 
 ## Move with the keyboard
 

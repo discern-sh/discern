@@ -69,12 +69,9 @@ import {
 } from "./inbox_view.ts";
 import {
   branchEvidenceSubject,
-  cachedEvidence,
-  type DeskEvidence,
   type DeskEvidenceReader,
   type DeskEvidenceSubject,
-  evidenceComplete,
-  evidenceKey,
+  evidenceToRead,
   readSelectedEvidence,
   taskEvidenceSubject,
 } from "./evidence.ts";
@@ -150,11 +147,6 @@ export interface LiveDeskDependencies {
   ) => Promise<DeskPreferencesWriteResult>;
   readonly now: () => number;
   readonly scheduler: Scheduler;
-}
-
-/** Whether cached evidence needs no new read. */
-function complete(evidence: DeskEvidence | undefined): boolean {
-  return evidence !== undefined && evidenceComplete(evidence);
 }
 
 /** The package's read-only state, as the product state machine reads it. */
@@ -512,26 +504,24 @@ export function liveDesk(
       );
     }
     if (subject === undefined) return;
-    const key = evidenceKey(subject);
+    const parts = evidenceToRead(state.evidence, subject);
     const generation = ++slotGeneration;
     slotBusy = true;
     const read = subject;
     const task = row;
     own(
       Promise.all([
-        !complete(cachedEvidence(state.evidence, key))
-          ? readSelectedEvidence(
-            read,
-            deps.evidence,
-            new AbortController().signal,
-          )
-          : undefined,
+        parts.length === 0 ? {} : readSelectedEvidence(
+          read,
+          deps.evidence,
+          new AbortController().signal,
+          parts,
+        ),
         task === undefined ? undefined : deps.flows.capabilities(state, task),
       ]).then(([evidence, capabilities]) => {
         if (!alive || generation !== slotGeneration) return;
-        if (evidence !== undefined) {
-          dispatch({ kind: "evidence", key, evidence });
-        }
+        // Even a read of nothing keeps the item's kept parts the newest.
+        dispatch({ kind: "evidence", subject: read, read: evidence });
         if (capabilities !== undefined && task !== undefined) {
           dispatch({
             kind: "capabilities",

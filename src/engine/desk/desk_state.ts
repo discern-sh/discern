@@ -34,8 +34,9 @@ import type {
 } from "./flow_types.ts";
 import type { DeskOperationProgress } from "./operations.ts";
 import {
-  type DeskEvidence,
   type DeskEvidenceCache,
+  type DeskEvidenceRead,
+  type DeskEvidenceSubject,
   emptyEvidenceCache,
   rememberEvidence,
 } from "./evidence.ts";
@@ -414,8 +415,10 @@ export type DeskEvent =
   }
   | {
     readonly kind: "evidence";
-    readonly key: string;
-    readonly evidence: DeskEvidence;
+    /** The item the slot read for, whose parts the read keeps or reuses. */
+    readonly subject: DeskEvidenceSubject;
+    /** The parts it read; the rest it found kept. */
+    readonly read: DeskEvidenceRead;
   }
   | { readonly kind: "tip"; readonly tip: string }
   | {
@@ -1174,7 +1177,7 @@ export function deskProduct(
       return {
         state: {
           ...state,
-          evidence: rememberEvidence(state.evidence, event.key, event.evidence),
+          evidence: rememberEvidence(state.evidence, event.subject, event.read),
         },
         effects: [],
       };

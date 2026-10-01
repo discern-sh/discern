@@ -6,9 +6,13 @@
  * The status survey carries none of these, so the inspector reads them for
  * the one item the owner settled on: at most three Git commands, each with a
  * timeout, through an injected runner, and the retained operation record for
- * a failed run. Each section fails on its own. Results are kept in a small
- * least-recently-used cache keyed by everything that would change them, so
- * returning to a task whose head has not moved reads nothing.
+ * a failed run. Each section fails on its own. Each part of the evidence is
+ * kept by only the facts that change it: the committed part (commits and
+ * files) by the head and the trunk's head, the uncommitted part by the dirty
+ * stamp, and the failure by the run that failed. So an agent's edits re-read
+ * only the uncommitted files, and the committed sections never blink back
+ * to Reading… while it works. Each part keeps the 32 most recently used
+ * items, and returning to a task whose head has not moved reads nothing.
  */
 
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
@@ -24,7 +28,7 @@ export const DESK_EVIDENCE_FILES = 200;
 /** Each Git read gives up after this long. */
 export const DESK_EVIDENCE_TIMEOUT_MS = 2_000;
 
-/** Items whose evidence the cache keeps. */
+/** Items whose evidence each part of the cache keeps. */
 export const DESK_EVIDENCE_CACHE_SIZE = 32;
 
 /** One commit beyond the trunk. */
@@ -56,13 +60,34 @@ export type DeskEvidenceSection<T> =
   | { readonly state: "ready"; readonly value: T }
   | { readonly state: "failed"; readonly error: string };
 
-/** Everything tier two read for one item. */
+/**
+ * What an item's evidence shows: each section once it has been read, and
+ * absent until then.
+ */
 export interface DeskEvidence {
-  readonly commits: DeskEvidenceSection<readonly DeskCommit[]>;
-  readonly files: DeskEvidenceSection<readonly DeskFileStat[]>;
+  readonly commits?: DeskEvidenceSection<readonly DeskCommit[]>;
+  readonly files?: DeskEvidenceSection<readonly DeskFileStat[]>;
   /** Present when the checkout had uncommitted files. */
   readonly uncommitted?: DeskEvidenceSection<readonly DeskFileStat[]>;
   /** Present for a failed run; empty when no record was retained. */
+  readonly failure?: DeskEvidenceSection<readonly DeskFailureEvidence[]>;
+}
+
+/** The parts evidence is read and kept in, each by its own facts. */
+export const DESK_EVIDENCE_PARTS = [
+  "committed",
+  "uncommitted",
+  "failure",
+] as const;
+export type DeskEvidencePart = (typeof DESK_EVIDENCE_PARTS)[number];
+
+/** One read's parts: whichever it was asked for. */
+export interface DeskEvidenceRead {
+  readonly committed?: {
+    readonly commits: DeskEvidenceSection<readonly DeskCommit[]>;
+    readonly files: DeskEvidenceSection<readonly DeskFileStat[]>;
+  };
+  readonly uncommitted?: DeskEvidenceSection<readonly DeskFileStat[]>;
   readonly failure?: DeskEvidenceSection<readonly DeskFailureEvidence[]>;
 }
 
@@ -77,8 +102,12 @@ export interface DeskEvidenceSubject {
   readonly trunkHead?: string;
   /** Present when the checkout has uncommitted files. */
   readonly dirty?: string;
-  /** Present when the task's last run of a verb failed. */
-  readonly failed?: { readonly branch: string; readonly verb: string };
+  /** Present when the task's last run of a verb failed, and when it did. */
+  readonly failed?: {
+    readonly branch: string;
+    readonly verb: string;
+    readonly at: string;
+  };
 }
 
 /** How evidence reaches Git and the operation journal. */
@@ -94,16 +123,38 @@ export interface DeskEvidenceReader {
   ): Promise<readonly DeskFailureEvidence[] | undefined>;
 }
 
-/** The cache key: a new head, trunk, or dirty stamp is a miss. */
-export function evidenceKey(subject: DeskEvidenceSubject): string {
-  return [
-    subject.cwd,
-    subject.ref,
-    subject.head ?? "",
-    subject.trunkHead ?? "",
-    subject.dirty ?? "",
-    subject.failed === undefined ? "" : subject.failed.verb,
-  ].join("\u0000");
+/** The facts that change one part, as its cache key. */
+function partKey(...facts: readonly string[]): string {
+  return facts.join("\u0000");
+}
+
+/**
+ * Each part's cache key: the committed part by the head and the trunk's
+ * head, the uncommitted part by the dirty stamp, the failure by the run
+ * that failed. A part the subject doesn't have has no key.
+ */
+export function evidenceKeys(
+  subject: DeskEvidenceSubject,
+): Readonly<Partial<Record<DeskEvidencePart, string>>> {
+  return {
+    committed: partKey(
+      subject.cwd,
+      subject.ref,
+      subject.head ?? "",
+      subject.trunk,
+      subject.trunkHead ?? "",
+    ),
+    ...(subject.dirty === undefined
+      ? {}
+      : { uncommitted: partKey(subject.cwd, subject.dirty) }),
+    ...(subject.failed === undefined ? {} : {
+      failure: partKey(
+        subject.failed.branch,
+        subject.failed.verb,
+        subject.failed.at,
+      ),
+    }),
+  };
 }
 
 /** The trunk's head: the main checkout's registered commit. */
@@ -120,8 +171,8 @@ export function taskEvidenceSubject(
   const entry = row.entry;
   const head = entry.registration?.head;
   const trunkTip = trunkHead(data);
-  const failedVerb = entry.last_action?.outcome === "failed"
-    ? entry.last_action.verb
+  const failed = entry.last_action?.outcome === "failed"
+    ? entry.last_action
     : undefined;
   return {
     cwd: entry.path,
@@ -132,9 +183,9 @@ export function taskEvidenceSubject(
     ...(entry.clean === false
       ? { dirty: `${entry.changed_files ?? "?"}@${entry.last_activity ?? ""}` }
       : {}),
-    ...(failedVerb === undefined || entry.branch === ""
-      ? {}
-      : { failed: { branch: entry.branch, verb: failedVerb } }),
+    ...(failed === undefined || entry.branch === "" ? {} : {
+      failed: { branch: entry.branch, verb: failed.verb, at: failed.at },
+    }),
   };
 }
 
@@ -246,55 +297,67 @@ async function section<T>(
   }
 }
 
-/** Read one item's tier-two evidence: each section succeeds or fails alone. */
+/**
+ * Read the asked parts of one item's tier-two evidence: each section
+ * succeeds or fails alone, and at most three Git commands run.
+ */
 export async function readSelectedEvidence(
   subject: DeskEvidenceSubject,
   reader: DeskEvidenceReader,
   signal: AbortSignal,
-): Promise<DeskEvidence> {
+  parts: readonly DeskEvidencePart[] = DESK_EVIDENCE_PARTS,
+): Promise<DeskEvidenceRead> {
   const range = `${subject.trunk}..${subject.ref}`;
+  const committed = parts.includes("committed");
   const [commits, files, uncommitted, failure] = await Promise.all([
-    section(
-      reader,
-      [
-        "log",
-        "--format=%h%x00%s%x00%cI",
-        "-n",
-        String(DESK_EVIDENCE_COMMITS),
-        range,
-      ],
-      subject.cwd,
-      signal,
-      parseCommits,
-    ),
-    section(
-      reader,
-      [
-        "diff",
-        "--raw",
-        "--numstat",
-        "-z",
-        "--no-renames",
-        `${subject.trunk}...${subject.ref}`,
-      ],
-      subject.cwd,
-      signal,
-      parseFileStats,
-    ),
-    subject.dirty === undefined ? undefined : section(
-      reader,
-      ["status", "--porcelain=v1", "-z"],
-      subject.cwd,
-      signal,
-      parseUncommitted,
-    ),
-    subject.failed === undefined
+    committed
+      ? section(
+        reader,
+        [
+          "log",
+          "--format=%h%x00%s%x00%cI",
+          "-n",
+          String(DESK_EVIDENCE_COMMITS),
+          range,
+        ],
+        subject.cwd,
+        signal,
+        parseCommits,
+      )
+      : undefined,
+    committed
+      ? section(
+        reader,
+        [
+          "diff",
+          "--raw",
+          "--numstat",
+          "-z",
+          "--no-renames",
+          `${subject.trunk}...${subject.ref}`,
+        ],
+        subject.cwd,
+        signal,
+        parseFileStats,
+      )
+      : undefined,
+    subject.dirty === undefined || !parts.includes("uncommitted")
+      ? undefined
+      : section(
+        reader,
+        ["status", "--porcelain=v1", "-z"],
+        subject.cwd,
+        signal,
+        parseUncommitted,
+      ),
+    subject.failed === undefined || !parts.includes("failure")
       ? undefined
       : failures(reader, subject.failed.branch, subject.failed.verb),
   ]);
   return {
-    commits,
-    files,
+    ...(commits === undefined || files === undefined
+      ? {}
+      : { committed: { commits, files } }),
     ...(uncommitted === undefined ? {} : { uncommitted }),
     ...(failure === undefined ? {} : { failure }),
   };
@@ -316,45 +379,139 @@ async function failures(
   }
 }
 
-/** Whether every section of an item's evidence was read; a failed section
- * is read again the next time its item settles. */
-export function evidenceComplete(evidence: DeskEvidence): boolean {
-  return [
-    evidence.commits,
-    evidence.files,
-    evidence.uncommitted,
-    evidence.failure,
-  ].every((section) => section === undefined || section.state === "ready");
+/** Whether a part's read is kept: a failed section is read again next time. */
+function settled(value: DeskEvidencePartValue): boolean {
+  const sections = value.part === "committed"
+    ? [value.commits, value.files]
+    : [value.section];
+  return sections.every((section) => section.state === "ready");
 }
 
-/** Evidence kept per item, most recently used last. */
+/** One part's kept read. */
+type DeskEvidencePartValue =
+  | {
+    readonly part: "committed";
+    readonly commits: DeskEvidenceSection<readonly DeskCommit[]>;
+    readonly files: DeskEvidenceSection<readonly DeskFileStat[]>;
+  }
+  | {
+    readonly part: "uncommitted";
+    readonly section: DeskEvidenceSection<readonly DeskFileStat[]>;
+  }
+  | {
+    readonly part: "failure";
+    readonly section: DeskEvidenceSection<readonly DeskFailureEvidence[]>;
+  };
+
+/** Evidence kept per part and key, most recently used last. */
 export interface DeskEvidenceCache {
-  readonly entries: readonly (readonly [string, DeskEvidence])[];
+  readonly parts: Readonly<
+    Record<
+      DeskEvidencePart,
+      readonly (readonly [string, DeskEvidencePartValue])[]
+    >
+  >;
 }
 
 /** A cache with nothing in it. */
 export function emptyEvidenceCache(): DeskEvidenceCache {
-  return { entries: [] };
+  return { parts: { committed: [], uncommitted: [], failure: [] } };
 }
 
-/** The cached evidence for a key, if any. */
+/** One part's kept read for a key, if any. */
+function kept(
+  cache: DeskEvidenceCache,
+  part: DeskEvidencePart,
+  key: string | undefined,
+): DeskEvidencePartValue | undefined {
+  return key === undefined
+    ? undefined
+    : cache.parts[part].find(([candidate]) => candidate === key)?.[1];
+}
+
+/**
+ * What the cache shows for a subject. The committed part and the failure
+ * show only for their exact key; the uncommitted files show the checkout's
+ * newest read while a new one is read, since every edit restamps them.
+ */
 export function cachedEvidence(
   cache: DeskEvidenceCache,
-  key: string,
-): DeskEvidence | undefined {
-  return cache.entries.find(([candidate]) => candidate === key)?.[1];
+  subject: DeskEvidenceSubject,
+): DeskEvidence {
+  const keys = evidenceKeys(subject);
+  const committed = kept(cache, "committed", keys.committed);
+  const failure = kept(cache, "failure", keys.failure);
+  const uncommitted = keys.uncommitted === undefined
+    ? undefined
+    : kept(cache, "uncommitted", keys.uncommitted) ??
+      cache.parts.uncommitted.findLast(([key]) =>
+        key.startsWith(partKey(subject.cwd, ""))
+      )?.[1];
+  return {
+    ...(committed?.part === "committed"
+      ? { commits: committed.commits, files: committed.files }
+      : {}),
+    ...(uncommitted?.part === "uncommitted"
+      ? { uncommitted: uncommitted.section }
+      : {}),
+    ...(failure?.part === "failure" ? { failure: failure.section } : {}),
+  };
 }
 
-/** Keep one item's evidence as the most recently used, dropping the oldest. */
+/** The parts a subject still needs read: unkept, or kept only as a failure. */
+export function evidenceToRead(
+  cache: DeskEvidenceCache,
+  subject: DeskEvidenceSubject,
+): DeskEvidencePart[] {
+  const keys = evidenceKeys(subject);
+  return DESK_EVIDENCE_PARTS.filter((part) => {
+    if (keys[part] === undefined) return false;
+    const value = kept(cache, part, keys[part]);
+    return value === undefined || !settled(value);
+  });
+}
+
+/** One read part as the cache keeps it. */
+function partValue(
+  read: DeskEvidenceRead,
+  part: DeskEvidencePart,
+): DeskEvidencePartValue | undefined {
+  switch (part) {
+    case "committed":
+      return read.committed === undefined
+        ? undefined
+        : { part, ...read.committed };
+    case "uncommitted":
+      return read.uncommitted === undefined
+        ? undefined
+        : { part, section: read.uncommitted };
+    case "failure":
+      return read.failure === undefined
+        ? undefined
+        : { part, section: read.failure };
+  }
+}
+
+/**
+ * Keep what a read found for a subject, and make every part the subject has
+ * the most recently used, read now or kept from before; each part drops its
+ * oldest beyond the cache size.
+ */
 export function rememberEvidence(
   cache: DeskEvidenceCache,
-  key: string,
-  evidence: DeskEvidence,
+  subject: DeskEvidenceSubject,
+  read: DeskEvidenceRead,
 ): DeskEvidenceCache {
-  return {
-    entries: [
-      ...cache.entries.filter(([candidate]) => candidate !== key),
-      [key, evidence] as const,
-    ].slice(-DESK_EVIDENCE_CACHE_SIZE),
-  };
+  const keys = evidenceKeys(subject);
+  const parts = { ...cache.parts };
+  for (const part of DESK_EVIDENCE_PARTS) {
+    const key = keys[part];
+    const value = partValue(read, part) ?? kept(cache, part, key);
+    if (key === undefined || value === undefined) continue;
+    parts[part] = [
+      ...parts[part].filter(([candidate]) => candidate !== key),
+      [key, value] as const,
+    ].slice(-DESK_EVIDENCE_CACHE_SIZE);
+  }
+  return { parts };
 }
