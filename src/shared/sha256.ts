@@ -9,12 +9,25 @@
 
 /** Lowercase hex SHA-256 of `text`'s UTF-8 bytes. */
 export async function sha256Hex(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(text),
-  );
+  return await sha256HexBytes(new TextEncoder().encode(text));
+}
+
+/** Lowercase hex SHA-256 of `bytes`, exactly as given. */
+async function sha256HexBytes(
+  bytes: Uint8Array<ArrayBuffer>,
+): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(
     new Uint8Array(digest),
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
+}
+
+/**
+ * Lowercase hex SHA-256 of a file's bytes. A file's content digest reads
+ * bytes, never decoded text: decoding maps every invalid sequence to the
+ * same replacement character, so two different files could share a digest.
+ */
+export async function fileSha256Hex(path: string): Promise<string> {
+  return await sha256HexBytes(await Deno.readFile(path));
 }

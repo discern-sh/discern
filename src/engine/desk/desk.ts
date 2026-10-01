@@ -97,7 +97,7 @@ import {
 } from "../worktree/lifecycle.ts";
 import { mainRepoPath } from "../worktree/git.ts";
 import { commandExists, runGit } from "../../shared/subprocess.ts";
-import { sha256Hex } from "../../shared/sha256.ts";
+import { fileSha256Hex } from "../../shared/sha256.ts";
 import { makeOut, type Out } from "../output.ts";
 import { latestOperationRecord } from "../completion/operation_journal.ts";
 import {
@@ -624,7 +624,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   runScript: (root, name, args, env, expectedExecutable) =>
     runDeskProjectScript(root, name, args, env, expectedExecutable),
   openBrowser: (url) => openInBrowser(url),
-  fileDigest: async (path) => await sha256Hex(await Deno.readTextFile(path)),
+  fileDigest: (path) => fileSha256Hex(path),
   now: SYSTEM_CLOCK.wallNow,
   scheduler: SYSTEM_SCHEDULER,
   readTipState: (root) => readTipSeenState(root, DISCERN_VERSION),
