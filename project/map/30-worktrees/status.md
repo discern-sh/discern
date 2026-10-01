@@ -54,7 +54,7 @@ Status first classifies a row into one of its closed kinds (`classifyRowKind`): 
 3. A running verb: `done` is Checking, `accept` is Landing, `update` is Updating, any other is Running.
 4. A failed verb: `done` is Checks failed, `accept` is Didn't land, any other is Failed.
 5. A refusal, by its `last_action.error` slug while the work can still land: a variance or standard approval wait is Exception, a consent wait is Wants to land; anything else is Refused.
-6. Stale work: Stale either way; honored Proof keeps its own state so its explanation can say landing is still open.
+6. Stale work: Stale either way; honored Proof keeps its own state so its explanation can say landing is still open. A clean contained branch stays Contained however long it idles, because its commits travel on in a later task.
 7. Uncommitted work: Editing.
 8. Ready work: unmet checkpoint answers or standard proposals in the Proof are Exception; a queue row awaiting the owner is Wants to land; recorded authority is Queued #N when queued and Approved when not; otherwise Ready.
 9. Containment, then the behind and Proof kinds: Contained, Behind, Proof error, Proof unknown, Needs recheck, Needs checks.

@@ -274,6 +274,15 @@ export const TABLE_ROWS: readonly TableRow[] = [
     entry: task({ ahead: 1, contained_in: "agent/later" }),
     state: "contained",
   },
+  {
+    row: 32,
+    entry: task({
+      ahead: 2,
+      contained_in: "agent/later",
+      last_activity: daysAgo(10),
+    }),
+    state: "contained",
+  },
   { row: 33, entry: task(), state: "empty" },
   {
     row: 34,

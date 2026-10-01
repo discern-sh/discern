@@ -381,6 +381,11 @@ function activityState(
         : "refused";
     }
     case "stale":
+      // A contained branch idles by design: its commits travel on in a
+      // later task, so its age never makes it abandoned work.
+      if (entry.contained_in !== undefined && entry.clean === true) {
+        return "contained";
+      }
       return fleetRowProof(entry).status === "honored"
         ? "stale-proven"
         : "stale";
@@ -394,10 +399,11 @@ function activityState(
 /**
  * Refine a status kind into exactly one state. The written precedence; the
  * first match wins: P1 degraded kinds; P2 integration facts for the task; P3
- * running, by verb; P4 failed, by verb; P5 refused, by slug; P6 stale; P7
- * editing; P8 ready, by exception, queue, and authority; then containment,
- * which outranks the behind and Proof kinds (P9) and idle (P10) because a
- * contained branch's commits travel in a later task.
+ * running, by verb; P4 failed, by verb; P5 refused, by slug; P6 stale, where
+ * a clean contained branch stays Contained; P7 editing; P8 ready, by
+ * exception, queue, and authority; then containment, which outranks the
+ * behind and Proof kinds (P9) and idle (P10) because a contained branch's
+ * commits travel in a later task.
  */
 export function rowStateFor(
   kind: FleetRowStatusKind,

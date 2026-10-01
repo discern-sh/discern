@@ -17,7 +17,7 @@ Status owns one closed table of row states, beside its classifier. `classifyRowK
 3. a running verb (`done` Checking, `accept` Landing, `update` Updating, else Running);
 4. a failed verb (`done` Checks failed, `accept` Didn't land, else Failed);
 5. a refusal, by the `last_action.error` slug while the work can still land: variance or standard approval waits are Exception, a consent wait is Wants to land, else Refused;
-6. stale, with honored Proof kept as its own state;
+6. stale, with honored Proof kept as its own state, except that a clean contained branch stays Contained;
 7. editing;
 8. ready, by Proof exceptions, then the queue row's `awaiting-owner` authority, then recorded authority (Queued #N, Approved), else Ready;
 9. containment, then the behind and Proof kinds;
@@ -39,7 +39,7 @@ ADR 0318's `DESK_STATE_BY_STATUS_KIND` mapping and its rule that a known positiv
 
 Status's human output changes visibly: labels such as Needs checks, Checking and Editing replace Needs gate, Gate running and In progress; rows group by decision instead of priority; and a landing's integration copy no longer has a row while its task does. Agents reading the wire see two new fields and a `last_action` that skips observations. The ready and stale hints no longer list a task whose setup is incomplete, because that task's state is Needs setup.
 
-Containment resolves before the behind and Proof kinds, a departure from a literal idle-only rule: a contained branch carries commits without its own Proof, so it would otherwise read as Needs checks and never offer its reclaim.
+Containment resolves before staleness and before the behind and Proof kinds, a departure from a literal idle-only rule: a contained branch carries commits without its own Proof and idles by design while a later task carries them on, so it would otherwise read as Needs checks or Stale and never offer its reclaim.
 
 The table lives in three pure modules (states, sentences, facts) rather than one, so none of them joins the complexity tail. The stale-and-pre-authorized case keeps its stale state and says it may land with the next landing; the queue fact stays visible.
 

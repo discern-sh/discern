@@ -289,8 +289,9 @@ const INTEGRATIONS = {
 /**
  * The written precedence, restated as the specification reads: P1 degraded
  * kinds, P2 integration facts, P3 running by verb, P4 failed by verb, P5
- * refusals by slug while landable, P6 stale, P7 editing, P8 ready by
- * exception, queue and authority, then containment, P9 and P10.
+ * refusals by slug while landable, P6 stale unless clean and contained, P7
+ * editing, P8 ready by exception, queue and authority, then containment, P9
+ * and P10.
  */
 function specifiedState(
   kind: FleetRowStatusKind,
@@ -343,7 +344,12 @@ function specifiedState(
     ) return "exception";
     return "refused";
   }
-  if (kind === "stale") return honoredProof ? "stale-proven" : "stale";
+  if (kind === "stale") {
+    if (entry.contained_in !== undefined && entry.clean === true) {
+      return "contained";
+    }
+    return honoredProof ? "stale-proven" : "stale";
+  }
   if (kind === "in-progress") return "editing";
   if (kind === "ready") {
     if (exceptionFacts) return "exception";
