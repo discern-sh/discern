@@ -31,8 +31,8 @@ export async function pageThrough(
   text: string,
   pager: string | undefined = Deno.env.get("PAGER")?.trim(),
 ): Promise<PagerResult> {
-  assertTerminalOwnerAllowed("The pager");
   await assertOutsideCommonPublication();
+  assertTerminalOwnerAllowed("The pager");
   const command = pager ? "sh" : "less";
   const args = pager ? ["-c", pager] : ["-R"];
   const displayedCommand = commandEvidence([command, ...args]);

@@ -222,8 +222,8 @@ export async function runOwnedChild(
   command: string,
   opts: OwnedChildOptions = {},
 ): Promise<OwnedChildResult> {
-  assertTerminalOwnerAllowed(`The child ${command}`);
   await assertOutsideCommonPublication();
+  assertTerminalOwnerAllowed(`The child ${command}`);
   // A detached POSIX child leads a process group, which makes descendants
   // reachable through a negative PID. An interactive child must remain in the
   // terminal's foreground group or terminal reads can suspend it with SIGTTIN.
