@@ -1839,7 +1839,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "restricted-writer-modules",
     title: "Restricted writer modules",
     what:
-      "The shipped capability modules whose importers are restricted: attributed commits, human effort grants, effort-grant cleanup, and acceptance transactions.",
+      "The shipped capability modules whose importers are restricted: attributed commits, human effort grants and the desk entry that holds them, effort-grant cleanup, acceptance transactions, and submissions.",
     source: {
       kind: "module",
       module: "tests/writer_boundaries.ts",
