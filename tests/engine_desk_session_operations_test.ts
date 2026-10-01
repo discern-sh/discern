@@ -164,6 +164,15 @@ async function landsInSession(
   await desk.shows("Landing Alpha");
   await desk.shows("Move main to this branch");
   await desk.shows("deno install --frozen");
+  // Once main starts to move nothing stops the landing: the sheet has no
+  // buttons for Enter to run, so its footer leads with the way out.
+  await desk.until(
+    () =>
+      desk.screen().trimEnd().split("\n").at(-1)?.trimStart().startsWith(
+        "Esc Hide",
+      ) === true,
+    "the footer to lead with Esc Hide",
+  );
   await desk.press("o");
   await desk.opened("reader-output");
   await desk.shows("Fast-forwarding main to agent/alpha");
