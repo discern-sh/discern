@@ -451,6 +451,15 @@ export type DeskEvent =
     readonly kind: "dismissed";
     readonly target: TerminalApplicationDismissTarget;
   }
+  /**
+   * The package left a layer out of the screen because it broke one of its
+   * view rules; `reason` says which. The session carries on without it.
+   */
+  | {
+    readonly kind: "refused";
+    readonly layer: string;
+    readonly reason: string;
+  }
   | {
     readonly kind: "selection-moved";
     readonly itemId: string;
@@ -1258,6 +1267,15 @@ export function deskProduct(
       });
     case "dismissed":
       return dismissed(state, event.target);
+    case "refused":
+      return {
+        state: toast(
+          closeLayer(state, event.layer),
+          "warning",
+          `Couldn't show that, and nothing ran: ${event.reason}`,
+        ),
+        effects: [],
+      };
     case "selection-moved":
       return selectionMoved(state, event);
     case "field":

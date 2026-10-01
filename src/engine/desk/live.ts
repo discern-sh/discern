@@ -22,6 +22,7 @@ import type {
   TerminalApplicationCommandOutcome,
   TerminalApplicationContext,
   TerminalApplicationState,
+  TerminalApplicationViewIssue,
 } from "discern-design-system/cli/interactive";
 import { stripAnsi } from "../../shared/color_env.ts";
 import type { DeskEffectSession } from "./execution.ts";
@@ -206,6 +207,19 @@ export function deskEpilogue(
   ];
 }
 
+/**
+ * What a refused layer broke, as its message says: the first rule the
+ * package names, without the layer's index in the view.
+ */
+export function refusalReason(
+  issues: readonly TerminalApplicationViewIssue[],
+): string {
+  const [issue] = issues;
+  if (issue === undefined) return "it broke a view rule";
+  return `${issue.path.replace(/^layers\[\d+\]\.?/u, "")} ${issue.message}`
+    .trim();
+}
+
 /** One Desk session's package options, and what its caller waits for. */
 export type LiveDesk = TerminalApplicationOptions<DeskIntent> & {
   /** Settles once every preference write the session asked for has. */
@@ -240,6 +254,11 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
     { progress: DeskOperation["progress"]; output: string }
   >();
   const finished = new Map<string, DeskOutcome>();
+  /**
+   * The rules the view the package last refused layers from broke; each
+   * refused layer's dismissal follows in the same pass and says so.
+   */
+  let refusal: readonly TerminalApplicationViewIssue[] = [];
   let tipRequested = false;
   /** Tasks whose first discovery is under way. */
   const discovering = new Set<string>();
@@ -784,9 +803,23 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
       if (listId !== DESK_LIST_ID) return;
       dispatch({ kind: "selection-moved", itemId, move });
     },
-    onDismiss: (target, _via, live) => {
+    onDismiss: (target, via, live) => {
       context = live;
-      dispatch({ kind: "dismissed", target });
+      dispatch(
+        via === "refused" && "layer" in target
+          ? {
+            kind: "refused",
+            layer: target.layer,
+            reason: refusalReason(refusal),
+          }
+          : { kind: "dismissed", target },
+      );
+    },
+    // A layer built from an unusual observation that breaks a view rule is
+    // left out instead of ending the session and what runs beside it.
+    onViewRejected: (issues, live) => {
+      context = live;
+      refusal = issues;
     },
     onField: (layerId, fieldId, value, live) => {
       context = live;

@@ -76,11 +76,7 @@ import {
   cachedEvidence,
   taskEvidenceSubject,
 } from "./evidence.ts";
-import {
-  type DeskLayerEnv,
-  deskLayers,
-  withShowableLayers,
-} from "./layer_view.ts";
+import { type DeskLayerEnv, deskLayers } from "./layer_view.ts";
 import { FULL_OUTPUT_KEY, REVIEW_AGAIN_KEY } from "./sheet_view.ts";
 import { deskChips, inlineRuns } from "./header_view.ts";
 import { inertView } from "./text.ts";
@@ -631,7 +627,7 @@ export function deskView(
   // Observed text reaches the view in many slots; one pass keeps every
   // single-line slot free of line breaks and control characters.
   inertView(view);
-  return withShowableLayers(view, DESK_KEYMAP, DESK_VI_KEYS);
+  return view;
 }
 
 /** The body: the inbox, the empty state, or the list alone. */

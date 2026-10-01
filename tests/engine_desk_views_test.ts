@@ -9,6 +9,7 @@ import {
   createTerminalApplicationModel,
   renderTerminalApplication,
   type TerminalApplicationView,
+  validateTerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import { proofLineBlock } from "../src/engine/desk/inspector_view.ts";
 import { planBlocks, planLines } from "../src/engine/desk/sheet_view.ts";
@@ -34,7 +35,6 @@ import {
   deskView,
   meterCells,
 } from "../src/engine/desk/inbox_view.ts";
-import { UNSHOWABLE_LAYER_TITLE } from "../src/engine/desk/layer_view.ts";
 import {
   deskChips,
   inlineRuns,
@@ -87,8 +87,8 @@ function render(
 
 /**
  * The view for `state` with one item selected, rendered wide and narrow.
- * Every layer must be the Desk's own: none stands in for one the package
- * would refuse.
+ * The view keeps every package rule, so the running package would refuse
+ * none of its layers.
  */
 function frames(state: DeskProductState, selected?: string): string[] {
   const view = deskView(
@@ -96,12 +96,14 @@ function frames(state: DeskProductState, selected?: string): string[] {
     { ...PRODUCT_UI, ...(selected === undefined ? {} : { selected }) },
     ENV,
   );
-  for (const layer of view.layers ?? []) {
-    assert(
-      !("title" in layer && layer.title === UNSHOWABLE_LAYER_TITLE),
-      `${layer.id} breaks a package rule`,
-    );
-  }
+  assertEquals(
+    validateTerminalApplicationView(view, {
+      keymap: deskKeymap(),
+      viKeys: true,
+    }),
+    [],
+    "a layer the package would refuse",
+  );
   return [render(view, 120, 40), render(view, 60, 20)];
 }
 
@@ -126,44 +128,6 @@ function said(value: unknown): string {
 function desk(data: StatusData): DeskProductState {
   return observeDesk(freshDesk(), data, NOW).state;
 }
-
-Deno.test("a layer the package would refuse gives way to a sheet that says so, under its id", () => {
-  const state = desk(
-    statusData([mainFleetEntry(), fleetEntry({ id: "alpha" })]),
-  );
-  const step = {
-    kind: "action" as const,
-    action: "drop" as const,
-    taskId: "alpha",
-    stage: "review" as const,
-  };
-  const broken = open(state, {
-    kind: "review",
-    step,
-    load: {
-      state: "ready",
-      value: readyReview("Drop Alpha?", {
-        challenge: { mustEqual: "" },
-        destructive: true,
-        confirmLabel: "Drop",
-      }),
-    },
-  }).state;
-  const view = deskView(broken, PRODUCT_UI, ENV);
-  const [layer] = view.layers ?? [];
-  assertEquals(
-    layer?.id,
-    "review-drop-review",
-    "the same id, so Escape closes it",
-  );
-  assert(layer !== undefined && "title" in layer);
-  assertEquals(layer.title, UNSHOWABLE_LAYER_TITLE);
-  assert(render(view, 80, 24).includes("Nothing ran"), "the package draws it");
-  // A layer that keeps every rule is left exactly as the Desk built it.
-  const kept = open(state, { kind: "palette" }).state;
-  const palette = deskView(kept, PRODUCT_UI, ENV).layers?.[0];
-  assert(palette !== undefined && palette.kind === "palette");
-});
 
 Deno.test("a survey that only restamps a checkout's edits keeps its commits on screen", () => {
   const edited = (at: string) =>

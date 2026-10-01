@@ -167,7 +167,7 @@ The subsystem has focused [state machine](../../../tests/engine_desk_state_test.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A degraded checkout's next step is **Recovery steps** (or **Retry setup…** when replay is safe), with **Open shell** beside it when its folder exists. Drop stays in the Danger section and requires the branch name when work cannot be verified.
 - An Interrupted task's next step is **Recovery steps** too: its landing stopped and nothing landed, so the steps name `discern worktree prune` to reclaim discern's integration copy before landing again.
-- A layer the package would refuse, such as one built from an unusual observation, gives way to a sheet under the same id that says it couldn't be shown. The session and every operation beside it carry on. [`withShowableLayers`](../../../src/engine/desk/layer_view.ts) holds this until the design system refuses such a layer itself.
+- A layer that breaks one of the package's view rules, such as one built from an unusual observation, is refused alone: it closes with a message naming the rule, and the session and every operation beside it carry on. [`liveDesk`](../../../src/engine/desk/live.ts) turns refusal on by answering `onViewRejected`.
 - A review sheet keeps one layer id from loading to ready; the package starts its review over as it arrives, so read progress counts only the real body and focus lands on its first control, its challenge field included.
 
 The [Desk terminal guard](../../../tests/engine_desk_terminal_guard_test.ts) enrolls authored modules in this subtree. It rejects raw terminal transport, control bytes, and generic foundation imports while admitting product state, types, and component composition.

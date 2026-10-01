@@ -2126,6 +2126,36 @@ Deno.test("Run a script offers only the selected checkout's Project Scripts and 
   );
 });
 
+Deno.test("a layer the package refuses closes with a message while the session carries on", async () => {
+  const scripted = deskTaskEntry("agent/scripted", "/worktrees/scripted", {
+    id: "scripted",
+  });
+  const discovered: string[] = [];
+  await withDeskSession({
+    runtime: {
+      ...surveys(() => deskSurvey([scripted])),
+      // Two scripts under one name make a menu that lists one id twice,
+      // which breaks one of the package's view rules.
+      scripts: (root) => {
+        discovered.push(root);
+        return [{ name: "deploy" }, { name: "deploy" }];
+      },
+    },
+  }, async (desk) => {
+    await desk.select("scripted");
+    await desk.until(
+      () => discovered.includes(scripted.path),
+      "scripted discovery",
+    );
+    await desk.press("x");
+    await desk.shows("Couldn't show that, and nothing ran");
+    assertEquals(desk.top(), undefined, "the refused menu is gone");
+    // The session answers on: the task's actions open as before.
+    await desk.press(".");
+    await desk.opened("actions");
+  });
+});
+
 Deno.test("Project Scripts run from the main checkout through the palette once their argument line reads", async () => {
   const runs: Array<{ root: string; name: string; args: readonly string[] }> =
     [];
