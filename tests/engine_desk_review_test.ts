@@ -61,13 +61,11 @@ import { observedDesk, productSurvey } from "./fixtures/desk_product.ts";
 import {
   DESK_CONFIG,
   DESK_ROOT,
-  type DeskSession,
-  deskSession,
-  type DeskSessionOptions,
   deskSurvey,
   deskTaskEntry,
   deskTranscript,
   scriptedDeskRuntime,
+  withDeskSession,
 } from "./fixtures/desk_session.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { WorktreeGitError } from "../src/engine/worktree/lifecycle.ts";
@@ -568,22 +566,6 @@ Deno.test("every reviewed action and command binds every fact its registry decla
   }
 });
 
-/** Run one Desk session over a ready task, quitting once `body` finishes. */
-async function withReview(
-  options: DeskSessionOptions,
-  body: (desk: DeskSession) => Promise<void>,
-): Promise<void> {
-  const desk = await deskSession(options);
-  try {
-    await body(desk);
-  } catch (error) {
-    desk.io.close();
-    await desk.exit.catch(() => undefined);
-    throw error;
-  }
-  assertEquals(await desk.quit(), 0);
-}
-
 /** A ready task the session lands, at its own head. */
 function landable(
   head = "3f9c2e1".padEnd(40, "0"),
@@ -627,7 +609,7 @@ const LAND = "review-accept-review";
 
 Deno.test("a review opens on its safe choice; letters never confirm; Escape keeps", async () => {
   const landed: unknown[] = [];
-  await withReview({
+  await withDeskSession({
     cliModel: TEST_CLI_MODEL,
     runtime: {
       status: () => ({ ok: true, data: deskSurvey([landable()]) }),
@@ -665,7 +647,7 @@ Deno.test("a challenge must match exactly; Enter in it moves to the safe choice;
     ahead: 1,
     clean: true,
   });
-  await withReview({
+  await withDeskSession({
     runtime: {
       status: () => ({ ok: true, data: deskSurvey([entry]) }),
       dropPlan: () => ({
@@ -725,7 +707,7 @@ Deno.test("a changed subject disables confirm until r reads it again", async () 
   let head = "3f9c2e1".padEnd(40, "0");
   let previews = 0;
   const seams = landing(landed);
-  await withReview({
+  await withDeskSession({
     cliModel: TEST_CLI_MODEL,
     runtime: {
       status: () => ({ ok: true, data: deskSurvey([landable(head)]) }),
@@ -760,7 +742,7 @@ Deno.test("a changed subject disables confirm until r reads it again", async () 
 
 Deno.test("a body taller than the sheet keeps confirm disabled until it has been read", async () => {
   const landed: unknown[] = [];
-  await withReview({
+  await withDeskSession({
     columns: 80,
     rows: 13,
     cliModel: TEST_CLI_MODEL,
@@ -803,7 +785,7 @@ Deno.test("review sheets open on their safe choice at every geometry the redesig
       [80, 13],
     ] as const
   ) {
-    await withReview({
+    await withDeskSession({
       columns,
       rows,
       cliModel: TEST_CLI_MODEL,
@@ -868,7 +850,7 @@ Deno.test("apply re-observes the task and runs nothing when what the review boun
   for (const testCase of cases) {
     const landed: unknown[] = [];
     let moved = false;
-    await withReview({
+    await withDeskSession({
       cliModel: TEST_CLI_MODEL,
       runtime: {
         status: () => ({
@@ -898,7 +880,7 @@ Deno.test("an update that stops becomes a result sheet with its next steps", asy
     behind: 3,
     clean: true,
   });
-  await withReview({
+  await withDeskSession({
     runtime: {
       status: () => ({ ok: true, data: deskSurvey([entry]) }),
       update: () => {

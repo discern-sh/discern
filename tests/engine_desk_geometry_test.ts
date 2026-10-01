@@ -11,6 +11,7 @@ import {
   type DeskSession,
   deskSession,
   deskSurvey,
+  withDeskSession,
 } from "./fixtures/desk_session.ts";
 import type {
   StatusData,
@@ -97,26 +98,23 @@ async function atSize(
   data: () => StatusData | undefined,
   body: (desk: DeskSession) => Promise<void>,
 ): Promise<void> {
-  const desk = await deskSession({
-    columns,
-    rows,
-    runtime: {
-      status: () => {
-        const observed = data();
-        return observed === undefined
-          ? { ok: false, message: "status is unavailable" }
-          : { ok: true, data: observed };
+  await withDeskSession(
+    {
+      columns,
+      rows,
+      runtime: {
+        status: () => {
+          const observed = data();
+          return observed === undefined
+            ? { ok: false, message: "status is unavailable" }
+            : { ok: true, data: observed };
+        },
       },
     },
-  });
-  try {
-    await body(desk);
-  } catch (error) {
-    desk.io.close();
-    await desk.exit.catch(() => undefined);
-    throw new Error(`${columns}x${rows}: ${String(error)}`, { cause: error });
-  }
-  assertEquals(await desk.quit(), 0, `${columns}x${rows} quits cleanly`);
+    body,
+    (error) =>
+      new Error(`${columns}x${rows}: ${String(error)}`, { cause: error }),
+  );
 }
 
 Deno.test("the inbox needs no Tab at any pinned geometry", async () => {

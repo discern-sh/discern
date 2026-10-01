@@ -8,7 +8,7 @@
  * here waits on real time or touches a real worktree.
  */
 
-import { assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   DEFAULT_APPLICATION_SETTLE_MS,
   type TerminalApplicationContext,
@@ -435,6 +435,28 @@ export interface DeskSession {
   quit(): Promise<number>;
   /** The session's exit code once it ends. */
   readonly exit: Promise<number>;
+}
+
+/**
+ * Run one Desk session, quitting it once `body` finishes. A failing body
+ * closes the terminal, waits for the session to end, and rethrows its error
+ * as `describe` words it.
+ */
+export async function withDeskSession(
+  options: DeskSessionOptions,
+  body: (desk: DeskSession) => Promise<void>,
+  describe: (error: unknown) => unknown = (error) => error,
+): Promise<DeskSession> {
+  const desk = await deskSession(options);
+  try {
+    await body(desk);
+  } catch (error) {
+    desk.io.close();
+    await desk.exit.catch(() => undefined);
+    throw describe(error);
+  }
+  assertEquals(await desk.quit(), 0, "the Desk quits cleanly");
+  return desk;
 }
 
 /** Start a Desk and wait for its first survey to paint. */

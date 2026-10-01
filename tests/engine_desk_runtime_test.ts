@@ -14,8 +14,6 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   DESK_ROOT,
   type DeskSession,
-  deskSession,
-  type DeskSessionOptions,
   deskSurvey,
   deskTaskEntry,
   deskTranscript,
@@ -23,6 +21,7 @@ import {
   preparedStart,
   scriptedDeskRuntime,
   startedTask,
+  withDeskSession,
 } from "./fixtures/desk_session.ts";
 import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
@@ -65,23 +64,6 @@ import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 const START_COMMIT = "a".repeat(40);
-
-/** Run one Desk session, quitting it once `body` finishes. */
-async function withDesk(
-  options: DeskSessionOptions,
-  body: (desk: DeskSession) => Promise<void>,
-): Promise<DeskSession> {
-  const desk = await deskSession(options);
-  try {
-    await body(desk);
-  } catch (error) {
-    desk.io.close();
-    await desk.exit.catch(() => undefined);
-    throw error;
-  }
-  assertEquals(await desk.quit(), 0, "the Desk quits cleanly");
-  return desk;
-}
 
 /** A status seam that answers every survey with `data()`. */
 function surveys(
@@ -373,7 +355,7 @@ Deno.test("a failed survey keeps the Desk open, and Refresh replaces the list fr
     }),
     () => ({ ok: false, message: "status is unavailable" }),
   ];
-  await withDesk({
+  await withDeskSession({
     runtime: {
       status: () => {
         const result = results[Math.min(calls, results.length - 1)];
@@ -402,7 +384,7 @@ Deno.test("the Desk rotates its tip across sessions and survives a tip-state fai
   const seen = { state: freshTipSeenState(DISCERN_VERSION) };
   const shown: string[] = [];
   for (let session = 0; session < 3; session += 1) {
-    await withDesk({
+    await withDeskSession({
       runtime: {
         readTipState: () => seen.state,
         writeTipState: (_root, state) => {
@@ -424,7 +406,7 @@ Deno.test("the Desk rotates its tip across sessions and survives a tip-state fai
   ]);
 
   const output = deskTranscript();
-  await withDesk({
+  await withDeskSession({
     output,
     runtime: {
       readTipState: () => {
@@ -441,7 +423,7 @@ Deno.test("the Desk rotates its tip across sessions and survives a tip-state fai
 Deno.test("the main checkout is inspectable without offering agent work", async () => {
   const commands: string[][] = [];
   const pages: string[] = [];
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() =>
         deskSurvey([], {
@@ -497,7 +479,7 @@ Deno.test("a recent landing reads its stored Proof, or says why it can't", async
     proof_line: "Proof: agent/completed abc1234 · gate passed",
   };
   let pauses = 0;
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([], { recent_completed_tasks: [landed] })),
       git: () => ({
@@ -772,7 +754,7 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
     let discovered = 0;
     const runtime = testCase.runtime(effects);
     const detect = runtime.detectAgents;
-    await withDesk({
+    await withDeskSession({
       ...(testCase.cliModel === true ? { cliModel: TEST_CLI_MODEL } : {}),
       runtime: {
         ...surveys(() => deskSurvey([effort])),
@@ -808,7 +790,7 @@ Deno.test("Pre-authorize and Revoke reach their writers only through their revie
   const grantPlans: string[] = [];
   const revokePlans: string[] = [];
   let pauses = 0;
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() =>
         deskSurvey([{
@@ -894,7 +876,7 @@ Deno.test("after a grant the Desk offers only the landings the task can make now
   ];
   for (const testCase of cases) {
     let granted = false;
-    await withDesk({
+    await withDeskSession({
       runtime: {
         ...surveys(() =>
           deskSurvey([
@@ -935,7 +917,7 @@ Deno.test("after a grant the Desk offers only the landings the task can make now
 });
 
 Deno.test("Pre-authorize stays available while final checks run", async () => {
-  await withDesk({
+  await withDeskSession({
     runtime: surveys(() =>
       deskSurvey([
         deskTaskEntry("agent/running-gate", "/worktrees/running-gate", {
@@ -978,7 +960,7 @@ Deno.test("Rename changes only the recorded title, through its form and review",
         created_from: { ref: "main", commit: START_COMMIT },
       },
     });
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([entry()])),
       renamePlan: (_ctx, next) => {
@@ -1044,7 +1026,7 @@ Deno.test("Run checks reads its plan, runs the shared core once, and Cancel runs
         : { status: "missing" },
       ...(finished ? { proof_honored: true } : {}),
     });
-  await withDesk({
+  await withDeskSession({
     cliModel: TEST_CLI_MODEL,
     runtime: {
       ...surveys(() => deskSurvey([effort()])),
@@ -1094,7 +1076,7 @@ Deno.test("a failed final check or landing keeps its details in a result sheet",
       message: "The selected revision needs another review.",
       hints: ["Read the current Proof before retrying."],
     };
-    await withDesk({
+    await withDeskSession({
       cliModel: TEST_CLI_MODEL,
       runtime: {
         ...surveys(() =>
@@ -1137,7 +1119,7 @@ Deno.test("a failed final check or landing keeps its details in a result sheet",
 Deno.test("Update, Land and Drop preview, confirm, apply, and contain refusals", async () => {
   const updateCalls: Array<{ dryRun?: boolean }> = [];
   let updatePlans = 0;
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() =>
         deskSurvey([
@@ -1168,7 +1150,7 @@ Deno.test("Update, Land and Drop preview, confirm, apply, and contain refusals",
   assertEquals(updateCalls, [{}]);
 
   const applied: Array<Parameters<DeskRuntime["accept"]>[1]> = [];
-  await withDesk({
+  await withDeskSession({
     cliModel: TEST_CLI_MODEL,
     runtime: {
       ...surveys(() =>
@@ -1201,7 +1183,7 @@ Deno.test("Update, Land and Drop preview, confirm, apply, and contain refusals",
     broken: true,
   });
   const dropCalls: Array<{ force?: boolean }> = [];
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([abandoned])),
       dropPlan: () => ({
@@ -1239,7 +1221,7 @@ Deno.test("Update, Land and Drop preview, confirm, apply, and contain refusals",
   });
   assertEquals(dropCalls, [{ force: true }]);
 
-  await withDesk({
+  await withDeskSession({
     cliModel: TEST_CLI_MODEL,
     runtime: {
       ...surveys(() =>
@@ -1277,7 +1259,7 @@ Deno.test("Park applies only on confirm and refreshes the checkout into its bran
     ahead: 1,
     task,
   });
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() =>
         parked
@@ -1348,7 +1330,7 @@ Deno.test("a refusal is contained as a message and the next survey shows why", a
       { id: testCase.name, ahead: 1 },
     );
     let changed = false;
-    await withDesk({
+    await withDeskSession({
       runtime: {
         ...surveys(() =>
           changed ? testCase.after(effort) : deskSurvey([effort])
@@ -1376,7 +1358,7 @@ Deno.test("Reclaim names its consequences and reclaims the exact checkout on con
     contained_in: "agent/stage-b",
   });
   const reclaims: string[] = [];
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([spent])),
       reclaim: (_ctx, target) => {
@@ -1409,7 +1391,7 @@ Deno.test("Drop never turns a generic refusal into destructive force", async () 
     ]
   ) {
     const calls: Array<{ force?: boolean }> = [];
-    await withDesk({
+    await withDeskSession({
       runtime: {
         ...surveys(() =>
           deskSurvey([
@@ -1444,7 +1426,7 @@ Deno.test("New task creates a named task from its form, then selects it", async 
     worktreePath: "/worktrees/desk-launchers",
   });
   const output = deskTranscript();
-  await withDesk({
+  await withDeskSession({
     output,
     runtime: {
       ...surveys(() => started.survey([])),
@@ -1477,7 +1459,7 @@ Deno.test("New task creates a named task from its form, then selects it", async 
 Deno.test("an empty title starts a generated codename and the command says so", async () => {
   const started = scriptedStart();
   const output = deskTranscript();
-  await withDesk({
+  await withDeskSession({
     output,
     runtime: {
       ...surveys(() => started.survey([])),
@@ -1513,7 +1495,7 @@ Deno.test("a new task can start from the trunk, a live task, or an unlanded bran
     const title = `Repair ingress from ${testCase.name} — 修复`;
     const brief = `Preserve the exact ${testCase.name} base and wording.`;
     let grants = 0;
-    await withDesk({
+    await withDeskSession({
       runtime: {
         ...surveys(() =>
           started.survey([live], { unlanded_branches: [orphan] })
@@ -1558,7 +1540,7 @@ Deno.test("New task opens the remembered available agent, and a stale one falls 
     const started = scriptedStart();
     const opened: Array<{ command: string; cwd: string }> = [];
     const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
-    await withDesk({
+    await withDeskSession({
       runtime: {
         loadConfig: () =>
           configSchema.parse({
@@ -1602,7 +1584,7 @@ Deno.test("New task opens the remembered available agent, and a stale one falls 
 Deno.test("an unavailable preference write leaves creation intact and says so", async () => {
   const started = scriptedStart();
   const output = deskTranscript();
-  await withDesk({
+  await withDeskSession({
     output,
     runtime: {
       loadConfig: () =>
@@ -1637,7 +1619,7 @@ Deno.test("task creation creates nothing until Create, whatever its preview read
   let plans = 0;
   let starts = 0;
   let writes = 0;
-  await withDesk({
+  await withDeskSession({
     runtime: {
       startPlan: (_ctx, request) => {
         plans += 1;
@@ -1672,7 +1654,7 @@ Deno.test("task creation creates nothing until Create, whatever its preview read
 Deno.test("a parked branch can be read or resumed by its exact ref", async () => {
   const branch = "agent/orphan-修复";
   const gitCalls: string[][] = [];
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([], { unlanded_branches: [branch] })),
       git: (args) => {
@@ -1704,7 +1686,7 @@ Deno.test("a parked branch can be read or resumed by its exact ref", async () =>
   );
 
   const started = scriptedStart();
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => started.survey([], { unlanded_branches: [branch] })),
       startPlan: started.startPlan,
@@ -1732,7 +1714,7 @@ Deno.test("Start follow-up starts from the task's exact branch", async () => {
     id: "parent-task",
   });
   const started = scriptedStart();
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => started.survey([parent])),
       startPlan: started.startPlan,
@@ -1768,7 +1750,7 @@ Deno.test("Open agent lists configured agents, explains missing ones, and launch
   }> = [];
   const preferences: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
   let discovered = 0;
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([effort])),
       loadConfig: () =>
@@ -1869,7 +1851,7 @@ Deno.test("View changes reads the task's evidence and lends the terminal to the 
   const editors: Array<
     { program: string; args: readonly string[]; cwd: string }
   > = [];
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([effort])),
       editor: () => ({
@@ -1940,7 +1922,7 @@ Deno.test("Run a script offers only the selected checkout's Project Scripts and 
   const discovered: string[] = [];
   let pauses = 0;
   const output = deskTranscript();
-  await withDesk({
+  await withDeskSession({
     output,
     runtime: {
       ...surveys(() => deskSurvey([empty, scripted])),
@@ -2009,7 +1991,7 @@ Deno.test("Run a script offers only the selected checkout's Project Scripts and 
 Deno.test("Project Scripts run from the main checkout through the palette once their argument line reads", async () => {
   const runs: Array<{ root: string; name: string; args: readonly string[] }> =
     [];
-  await withDesk({
+  await withDeskSession({
     runtime: {
       scripts: (root) =>
         root === DESK_ROOT
@@ -2042,7 +2024,7 @@ Deno.test("Project Scripts run from the main checkout through the palette once t
 
 Deno.test("Check for updates asks before it opens a browser, and Cancel opens nothing", async () => {
   let opened = 0;
-  await withDesk({
+  await withDeskSession({
     runtime: {
       openBrowser: () => {
         opened += 1;
@@ -2063,7 +2045,7 @@ Deno.test("Read the manual lends the terminal to the shared manual and says when
   for (const code of [0, 1]) {
     let opens = 0;
     let pauses = 0;
-    await withDesk({
+    await withDeskSession({
       runtime: {
         docs: () => {
           opens += 1;
@@ -2101,7 +2083,7 @@ Deno.test("an agent without a prompt option shows the stored brief before it ope
   const launches: string[][] = [];
   let discovered = 0;
   const output = deskTranscript();
-  await withDesk({
+  await withDeskSession({
     output,
     runtime: {
       ...surveys(() => deskSurvey([effort])),
@@ -2152,7 +2134,7 @@ Deno.test("Queue for landing asks for a pre-authorization first when the queue n
   });
   const calls: string[] = [];
   let authorized = false;
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([effort])),
       submit: (path, options) => {
@@ -2212,7 +2194,7 @@ Deno.test("a failed run's retained failures reach the inspector, and a toggle is
   });
   const selectors: Array<{ branch: string; verb: string }> = [];
   const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
-  await withDesk({
+  await withDeskSession({
     runtime: {
       ...surveys(() => deskSurvey([effort])),
       operationRecord: (_root, selector) => {
