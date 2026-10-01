@@ -1,13 +1,16 @@
 /**
  * The Desk's one key map.
  *
- * Every layer the Desk shows (the inbox with a task or a branch selected, the
- * action menu, the palette, a sheet or form, a reader) resolves each key to
- * exactly one meaning: a task action from the action registry, a command from
- * the command registry, or a navigation gesture. Task mnemonics and command
- * keys come from their registries, never from a copy here. The keys sheet and
- * every footer hint are projections of this map; the registry guard proves one
- * meaning per key per layer and keeps mnemonics clear of the package's keys.
+ * Every layer the Desk shows (the inbox with a task, a parked branch, or a
+ * landed row selected, the action menu, the palette, a sheet or form, a
+ * reader) resolves each key to exactly one meaning: a task action from the
+ * action registry, a command from the command registry, or a navigation
+ * gesture. Task mnemonics, command keys, and the decision groups a number
+ * jumps to come from their registries, never from a copy here; a key that
+ * runs a registered control names that control, so its label is read from
+ * the vocabulary. The keys sheet and every footer hint are projections of this
+ * map; the registry guard proves one meaning per key per layer and keeps
+ * mnemonics clear of the package's keys.
  */
 
 import {
@@ -23,11 +26,16 @@ import {
   type DeskCommandMetadata,
   type DeskCommandScope,
 } from "./commands.ts";
+import {
+  FLEET_ROW_DECISIONS,
+  type FleetRowGroup,
+} from "../../shared/fleet_row_vocabulary.ts";
 
 /** The layers that own the keyboard, bottom to top. */
 export const DESK_LAYERS = [
   "inbox",
   "branch",
+  "landed",
   "menu",
   "palette",
   "sheet",
@@ -63,12 +71,9 @@ export type DeskGesture =
   | "toggle-command"
   | "toggle-changes"
   | "edit-text"
-  | "alternative"
   | "review-again"
   | "full-output"
-  | "open-editor"
-  | "open-shell"
-  | "quit-request";
+  | "open-editor";
 
 /** What one key does in one layer. */
 export type DeskKeyMeaning =
@@ -77,10 +82,10 @@ export type DeskKeyMeaning =
   | {
     readonly kind: "gesture";
     readonly gesture: DeskGesture;
-    /** The footer and keys-sheet words for it. */
+    /** The footer and keys-sheet words for it; never a control's label. */
     readonly label: string;
-    /** For a group jump, the group's position (1 = Ready for review). */
-    readonly group?: number;
+    /** For a group jump, the decision group it selects. */
+    readonly group?: FleetRowGroup;
   };
 
 /** One key in one layer. `key` uses the terminal's key names ("up",
@@ -139,7 +144,7 @@ function gesture(
   key: string,
   name: DeskGesture,
   label: string,
-  group?: number,
+  group?: FleetRowGroup,
 ): DeskKeyBinding {
   return {
     key,
@@ -160,6 +165,16 @@ function actionKeys(): DeskKeyBinding[] {
       ? []
       : [{ key: metadata.key, meaning: { kind: "action", action } }];
   });
+}
+
+/** A key that runs one registered task action from another layer. */
+function runs(key: string, action: DeskAction): DeskKeyBinding {
+  return { key, meaning: { kind: "action", action } };
+}
+
+/** A key that runs one registered command. */
+function calls(key: string, command: DeskCommand): DeskKeyBinding {
+  return { key, meaning: { kind: "command", command } };
 }
 
 /** Every keyed command of one scope, read from the command registry. */
@@ -191,9 +206,10 @@ const LIST_GESTURES = [
   gesture("escape", "dismiss", "Clear"),
   gesture("ctrl-k", "palette", "Commands"),
   gesture(":", "palette", "Commands"),
-  gesture("ctrl-c", "quit-request", "Quit"),
-  ...[1, 2, 3, 4, 5].map((group) =>
-    gesture(String(group), "jump-group", "Go to group", group)
+  calls("ctrl-c", "quit"),
+  // One number per decision group, in status's display order.
+  ...FLEET_ROW_DECISIONS.map((group, index) =>
+    gesture(String(index + 1), "jump-group", "Go to group", group)
   ),
   ...commandKeys("global"),
 ] as const;
@@ -211,7 +227,14 @@ export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
     branch: [
       ...LIST_GESTURES,
       gesture("enter", "next-step", "Next step"),
+      gesture("right", "actions", "Actions"),
+      gesture(".", "actions", "Actions"),
       ...commandKeys("parked-row"),
+    ],
+    landed: [
+      ...LIST_GESTURES,
+      gesture("enter", "next-step", "Next step"),
+      ...commandKeys("landed-row"),
     ],
     menu: [
       gesture("up", "move", "Move"),
@@ -225,7 +248,7 @@ export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
       gesture("left", "back", "Back"),
       gesture("escape", "back", "Back"),
       gesture("/", "filter", "Filter"),
-      gesture("ctrl-c", "quit-request", "Quit"),
+      calls("ctrl-c", "quit"),
       ...actionKeys(),
     ],
     palette: [
@@ -235,7 +258,7 @@ export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
       gesture("page-down", "page", "Page"),
       gesture("enter", "run", "Run"),
       gesture("escape", "dismiss", "Close"),
-      gesture("ctrl-c", "quit-request", "Quit"),
+      calls("ctrl-c", "quit"),
     ],
     sheet: [
       gesture("left", "previous-button", "Buttons"),
@@ -254,12 +277,13 @@ export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
       gesture("ctrl-t", "toggle-plan", "Plan"),
       gesture("ctrl-x", "toggle-command", "Command"),
       gesture("ctrl-o", "edit-text", "Edit"),
-      gesture("p", "alternative", "Park instead"),
-      gesture("a", "alternative", "Open agent"),
-      gesture("u", "alternative", "Update from main"),
+      // A sheet's alternatives switch to another registered action.
+      runs("p", "park"),
+      runs("a", "agent"),
+      runs("u", "update"),
       gesture("o", "full-output", "Full output"),
       gesture("r", "review-again", "Review again"),
-      gesture("ctrl-c", "quit-request", "Quit"),
+      calls("ctrl-c", "quit"),
     ],
     reader: [
       gesture("up", "move", "Scroll"),
@@ -273,10 +297,10 @@ export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
       gesture("left", "back", "Back"),
       gesture("o", "full-output", "Full diff"),
       gesture("e", "open-editor", "Open in editor"),
-      gesture("s", "open-shell", "Open shell"),
-      { key: "x", meaning: { kind: "command", command: "main_scripts" } },
-      { key: "m", meaning: { kind: "command", command: "manual" } },
-      gesture("ctrl-c", "quit-request", "Quit"),
+      runs("s", "jump"),
+      calls("x", "main_scripts"),
+      calls("m", "manual"),
+      calls("ctrl-c", "quit"),
     ],
   };
 

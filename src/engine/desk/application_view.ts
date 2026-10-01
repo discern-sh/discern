@@ -283,9 +283,7 @@ export function deskApplicationView(
         "Press / to find a task. Type to filter; Enter returns to navigation, Escape clears the filter. Typing never runs global shortcuts.",
         "Escape goes Back, then exits from the overview.",
         ...shortcuts.map((item) =>
-          `${deskLiteral(item.key)} — ${
-            DESK_COMMAND_LABELS[item.command]
-          }`
+          `${deskLiteral(item.key)} — ${DESK_COMMAND_LABELS[item.command]}`
         ),
       ]
       : [

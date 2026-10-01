@@ -12,6 +12,7 @@
 import type { StatusData } from "../../shared/result_schemas.ts";
 import { DISCERN_URL } from "../../shared/product_identity.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
+import { FLEET_ROW_DECISIONS } from "../../shared/fleet_row_vocabulary.ts";
 import {
   DESK_COMMANDS,
   type DeskCommand,
@@ -184,7 +185,8 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   parked: {
-    key: "6",
+    // The number after the decision groups' own jump keys.
+    key: String(FLEET_ROW_DECISIONS.length + 1),
     scope: "global",
     section: "go",
     parameters: false,

@@ -18,9 +18,13 @@ import {
   DESK_COMMAND_LABELS,
   DESK_COMMAND_TOGGLED_LABELS,
   type DeskCommand,
+  labelName,
   withTrunk,
 } from "../src/shared/desk_vocabulary.ts";
-import { FLEET_ROW_STATE_IDS } from "../src/shared/fleet_row_vocabulary.ts";
+import {
+  FLEET_ROW_DECISIONS,
+  FLEET_ROW_STATE_IDS,
+} from "../src/shared/fleet_row_vocabulary.ts";
 import {
   type FleetTaskRowStateId,
   TASK_ROW_SENTENCES,
@@ -164,7 +168,11 @@ Deno.test("Desk registry guard: keys", () => {
       for (const id of DESK_COMMANDS) {
         const metadata = command(id);
         if (metadata.key === undefined) continue;
-        const layer = metadata.scope === "parked-row" ? "branch" : "inbox";
+        const layer = metadata.scope === "parked-row"
+          ? "branch"
+          : metadata.scope === "landed-row"
+          ? "landed"
+          : "inbox";
         assert(
           DESK_KEYS[layer].some((binding) =>
             binding.key === metadata.key &&
@@ -175,6 +183,45 @@ Deno.test("Desk registry guard: keys", () => {
         );
       }
     },
+    "a key that runs a control names it, never a typed copy of its label":
+      () => {
+        const names = [
+          ...Object.values(DESK_ACTION_LABELS),
+          ...Object.values(DESK_COMMAND_LABELS),
+          ...Object.values(DESK_COMMAND_TOGGLED_LABELS),
+        ].map((label) => labelName(withTrunk(label, "main")));
+        const typed = DESK_LAYERS.flatMap((layer) =>
+          DESK_KEYS[layer].flatMap((binding) => {
+            if (binding.meaning.kind !== "gesture") return [];
+            const label = binding.meaning.label;
+            return names.some((name) =>
+                label === name ||
+                (label.startsWith(name) &&
+                  /^\W/u.test(label.slice(name.length)))
+              )
+              ? [`${layer} ${binding.key}: ${label}`]
+              : [];
+          })
+        );
+        assertEquals(typed, []);
+      },
+    "number keys jump to status's decision groups, then to parked branches":
+      () => {
+        const jumps = DESK_KEYS.inbox.flatMap((binding) =>
+          binding.meaning.kind === "gesture" &&
+            binding.meaning.gesture === "jump-group"
+            ? [[binding.key, binding.meaning.group]]
+            : []
+        );
+        assertEquals(
+          jumps,
+          FLEET_ROW_DECISIONS.map((group, index) => [String(index + 1), group]),
+        );
+        assertEquals(
+          command("parked").key,
+          String(FLEET_ROW_DECISIONS.length + 1),
+        );
+      },
     "sheet chords work inside a text field and avoid the editor's chords":
       () => {
         const editor: readonly string[] = EDITOR_RESERVED_CHORDS;
