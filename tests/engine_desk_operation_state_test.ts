@@ -253,7 +253,7 @@ Deno.test("a success closes the progress with its message and records the run", 
   );
 });
 
-Deno.test("the Desk's own run times its row, and its end clears it before the next survey", () => {
+Deno.test("the Desk's own run times its row, and its end waits for the next survey", () => {
   const started = confirmed(landing(), actionStep("accept")).state;
   const id = onlyOperation(started);
   const operation = started.operations.get(id);
@@ -297,10 +297,11 @@ Deno.test("the Desk's own run times its row, and its end clears it before the ne
     message: { tone: "success", text: "Landed Alpha on main" },
   });
   assertEquals(
-    row(done.state)?.entry.running,
-    undefined,
-    "the row stops running as the run ends, not at the next survey",
+    row(done.state)?.decision.state,
+    row(observed)?.decision.state,
+    "the row keeps what the last survey saw until the next one reads it",
   );
+  assertEquals(done.state.message?.text, "Landed Alpha on main");
 });
 
 Deno.test("a survey that began while an operation ran is set aside when it ends", () => {
