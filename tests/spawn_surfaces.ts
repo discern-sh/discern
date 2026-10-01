@@ -420,3 +420,63 @@ export function registeredSpawnBoundaryCount(): number {
     entry.role === "registered-boundary"
   ).length;
 }
+
+/**
+ * What one `src/` spawn home does when it runs inside work that answers only
+ * to its operation, such as a Desk effect running beside the live screen.
+ * A captured home spawns with explicit non-inherited standard streams and a
+ * child that leads its own process group, so neither input nor a signal the
+ * terminal sends its foreground group can reach the child. A terminal owner
+ * inherits the terminal and refuses there instead; the Desk runs it only as
+ * a foreground command.
+ */
+export type SpawnSessionContract =
+  | { readonly captured: true }
+  | { readonly terminalOwner: string };
+
+/** One contract per `src/` row of {@link SUBPROCESS_SPAWN_BOUNDARIES}, keyed
+ * `<path>#<enclosing function>`. */
+export const SPAWN_SESSION_CONTRACTS = {
+  "src/shared/subprocess.ts#runGit": { captured: true },
+  "src/shared/subprocess.ts#runShell": { captured: true },
+  "src/shared/subprocess.ts#commandExists": { captured: true },
+  "src/shared/discern_commit.ts#commitDiscernChanges": { captured: true },
+  "src/shared/deno_metadata.ts#denoMetadata": { captured: true },
+  "src/lib/pager.ts#pageThrough": {
+    terminalOwner:
+      "the pager reads the keyboard and draws on the terminal until its reader quits",
+  },
+  "src/lib/open_browser.ts#runBrowserCommand": { captured: true },
+  "src/engine/owned_child.ts#runOwnedChild": {
+    terminalOwner:
+      "agents, shells, editors and Project Scripts own the terminal until the person ends them",
+  },
+  "src/engine/jobs/command.ts#spawnJob": { captured: true },
+  "src/engine/worktree/shell.ts#runShellRouted": { captured: true },
+  "src/engine/mcp/version_check.ts#captureVersionCommand": { captured: true },
+} as const satisfies Readonly<Record<string, SpawnSessionContract>>;
+
+/**
+ * Who each process-signal listener under `src/` serves. `process` listeners
+ * stop work that owns its process and install nothing when the current
+ * interrupt source is an operation; `command` listeners belong to a
+ * standalone command no session runs beside other work; a `session`
+ * listener is a long-lived session's own termination, which ends its work
+ * through each operation's signal.
+ */
+export type SignalListenerContract =
+  | { readonly serves: "process" }
+  | { readonly serves: "command"; readonly reason: string }
+  | { readonly serves: "session"; readonly reason: string };
+
+/** One contract per `Deno.addSignalListener` site, keyed like
+ * {@link SPAWN_SESSION_CONTRACTS}. */
+export const SIGNAL_LISTENER_CONTRACTS = {
+  "src/engine/owned_child.ts#superviseSpawn": { serves: "process" },
+  "src/engine/jobs/interrupt.ts#install": { serves: "process" },
+  "src/lib/terminal_animation.ts#runTerminalPlayback": {
+    serves: "command",
+    reason:
+      "terminal art plays in its own command and stops with the process that plays it",
+  },
+} as const satisfies Readonly<Record<string, SignalListenerContract>>;

@@ -6,6 +6,8 @@
  * or teaching their tests to open a real browser.
  */
 
+import { childLeadsOwnGroup } from "../shared/interrupt_source.ts";
+
 /** One direct executable invocation for a supported host platform. */
 export interface BrowserLaunch {
   readonly command: string;
@@ -78,6 +80,7 @@ async function runBrowserCommand(
     stdin: "null",
     stdout: "null",
     stderr: "piped",
+    detached: childLeadsOwnGroup(false),
   }).output();
   return {
     success: output.success,

@@ -127,6 +127,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `scripts/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                       | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 31      | —                | node `interruption-safety`  |
+| [`signal-listeners`](#signal-listeners--process-signal-listeners)                                                     | `tests/spawn_surfaces.ts#SIGNAL_LISTENER_CONTRACTS`                               | 3       | —                | node `interruption-safety`  |
 | [`checkout-mutation-surfaces`](#checkout-mutation-surfaces--checkout-mutation-boundaries)                             | `tests/checkout_mutation_surfaces.ts#CHECKOUT_MUTATION_BOUNDARIES`                | 17      | —                | node `worktrees`            |
 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries)                                  | `src/shared/process_boundaries.ts#PROCESS_OUTPUT_BOUNDARIES`                      | 6       | —                | —                           |
 | [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                        | `src/shared/process_boundaries.ts#PROCESS_EXIT_BOUNDARIES`                        | 5       | —                | —                           |
@@ -148,9 +149,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 16      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 4       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 137     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 138     | —                | node `canonical-sets`       |
 
-137 sets · 198 guard tests · 75 committed artifacts.
+138 sets · 199 guard tests · 75 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -284,6 +285,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/hint_inventory_codegen_test.ts`             | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/improve_catalog_test.ts`                    | [`improve-categories`](#improve-categories--improvement-categories)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/improve_count_adrs_test.ts`                 | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/in_session_isolation_guard_test.ts`         | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries), [`signal-listeners`](#signal-listeners--process-signal-listeners)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/install_script_test.ts`                     | [`build-targets`](#build-targets--release-build-targets)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/instruction_corpus_guard_test.ts`           | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools), [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/logbook_no_network_test.ts`                 | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -5175,7 +5177,7 @@ The generated third-party notice artifacts and their license cache.
 
 ## `spawn-surfaces` — Subprocess spawn boundaries
 
-Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption.
+Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption, and src homes whether they run captured or own the terminal inside an operation.
 
 - Source: `tests/spawn_surfaces.ts` — `SUBPROCESS_SPAWN_BOUNDARIES`
 - Members: 31
@@ -5210,8 +5212,21 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `src/engine/jobs/command.ts#spawnJob`
   - `src/engine/worktree/shell.ts#runShellRouted`
   - `src/engine/mcp/version_check.ts#captureVersionCommand`
-- Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/operation_execution_guard_test.ts`, `tests/engine_child_lineage_guard_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
+- Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/operation_execution_guard_test.ts`, `tests/engine_child_lineage_guard_test.ts`, `tests/engine_interrupt_surfaces_test.ts`, `tests/in_session_isolation_guard_test.ts`
 - Glossary: not enrolled — the interruption-safety reference owns this subprocess contract
+- Feature canon: described by the `interruption-safety` node
+
+## `signal-listeners` — Process-signal listeners
+
+Every process-signal listener in the shipped product, keyed by path and enclosing function, with whom it serves: the process, a standalone command, or a session's own termination.
+
+- Source: `tests/spawn_surfaces.ts` — `SIGNAL_LISTENER_CONTRACTS`
+- Members: 3
+  - `src/engine/owned_child.ts#superviseSpawn`
+  - `src/engine/jobs/interrupt.ts#install`
+  - `src/lib/terminal_animation.ts#runTerminalPlayback`
+- Guards: `tests/in_session_isolation_guard_test.ts`
+- Glossary: not enrolled — signal listeners are an internal interrupt boundary rather than user-facing vocabulary
 - Feature canon: described by the `interruption-safety` node
 
 ## `checkout-mutation-surfaces` — Checkout-mutation boundaries
@@ -5840,7 +5855,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 137
+- Members: 138
   - `site-marketing-pages`
   - `site-endpoints`
   - `public-site-routes`
@@ -5956,6 +5971,7 @@ This meta-registry: the closed set of closed sets.
   - `first-party-legal-documents`
   - `third-party-artifacts`
   - `spawn-surfaces`
+  - `signal-listeners`
   - `checkout-mutation-surfaces`
   - `process-output-boundaries`
   - `process-exit-boundaries`

@@ -14,8 +14,18 @@
  * signals keep their normal behavior; off a terminal, the child leads a process
  * group that discern can stop as one tree. The logger-routed setup runner
  * (worktree/shell.ts) supervises its piped children through the same core.
+ *
+ * Under the `operation` interrupt source (work a session runs beside a live
+ * screen), supervision installs no process-signal listener: the operation's
+ * `AbortSignal` is the only interrupt, so a Ctrl+C meant for a foreground
+ * child never stops it. A terminal-owning child cannot run there at all.
  */
 import { currentOperationSignal } from "../shared/operation_signal.ts";
+import {
+  assertTerminalOwnerAllowed,
+  currentInterruptSource,
+  type InterruptSource,
+} from "../shared/interrupt_source.ts";
 import { assertOutsideCommonPublication } from "../shared/operation_execution_boundary.ts";
 
 import {
@@ -77,6 +87,11 @@ export interface SuperviseOptions {
   readonly isolatedGroup: boolean;
   /** Keep this process alive after an interrupt once the child is reaped. */
   readonly resumeAfterInterrupt?: boolean;
+  /**
+   * Who interrupts the child: the process's signals, or only the operation's
+   * `signal`. Defaults to the current scope's source.
+   */
+  readonly interruptSource?: InterruptSource;
   /** Escalation timer lifecycle; defaults to the host scheduler. */
   readonly scheduler?: Scheduler;
 }
@@ -143,7 +158,11 @@ export async function superviseSpawn<T>(
   };
   signal?.addEventListener("abort", cancel, { once: true });
   const handlers = new Map<Deno.Signal, () => void>();
-  for (const signal of INTERRUPT_SIGNALS) {
+  const signals = (opts.interruptSource ?? currentInterruptSource()) ===
+      "operation"
+    ? []
+    : INTERRUPT_SIGNALS;
+  for (const signal of signals) {
     const handler = (): void => {
       interruptedBy ??= signal;
       signalChild(signal);
@@ -203,6 +222,7 @@ export async function runOwnedChild(
   command: string,
   opts: OwnedChildOptions = {},
 ): Promise<OwnedChildResult> {
+  assertTerminalOwnerAllowed(`The child ${command}`);
   await assertOutsideCommonPublication();
   // A detached POSIX child leads a process group, which makes descendants
   // reachable through a negative PID. An interactive child must remain in the

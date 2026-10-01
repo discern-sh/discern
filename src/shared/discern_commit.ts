@@ -721,6 +721,7 @@ export async function commitDiscernChanges(
         ...gitChildEnvironment({ GIT_REFLOG_ACTION: reflogAction }),
         ...spawnedByEnv(),
       },
+      stdin: "null",
       stdout: "piped",
       stderr: "piped",
       detached: Deno.build.os !== "windows",

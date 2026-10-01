@@ -23,6 +23,7 @@ import { assertOutsideCommonPublication } from "./operation_execution_boundary.t
 import type { GitAdminPathRunner } from "./git_admin_paths.ts";
 import { operationLockChildEnv } from "./operation_lock_context.ts";
 import { spawnedByEnv } from "./invocation_context.ts";
+import { childLeadsOwnGroup } from "./interrupt_source.ts";
 import {
   selfShimDir as resolveSelfShimDir,
   selfShimPath as resolveSelfShimPath,
@@ -762,8 +763,7 @@ export async function runGit(
       stdin: opts.stdin === undefined ? "null" : "piped",
       stdout: "piped",
       stderr: "piped",
-      detached: (opts.quiesceDescendants ?? false) &&
-        Deno.build.os !== "windows",
+      detached: childLeadsOwnGroup(opts.quiesceDescendants ?? false),
     });
     if (opts.quiesceDescendants ?? false) {
       const bounded = await boundedChildOutput(command.spawn(), {
@@ -938,6 +938,7 @@ export async function runShell(
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
+      detached: childLeadsOwnGroup(false),
     }).output();
     return {
       success: output.success,
@@ -1085,8 +1086,10 @@ export async function commandExists(
       args: ["-c", 'command -v "$1" >/dev/null 2>&1', "sh", word],
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
       env: { PATH: await selfShimPath(opts.cwd) },
+      stdin: "null",
       stdout: "null",
       stderr: "null",
+      detached: childLeadsOwnGroup(false),
     }).output();
     return out.success;
   } catch {

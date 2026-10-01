@@ -10,6 +10,7 @@ import { assertOutsideCommonPublication } from "../shared/operation_execution_bo
 import { bestEffort } from "../shared/best_effort.ts";
 import { commandEvidence } from "../shared/command_evidence.ts";
 import { spawnedByEnv } from "../shared/invocation_context.ts";
+import { assertTerminalOwnerAllowed } from "../shared/interrupt_source.ts";
 
 /** The outcome of handing rendered text to the configured external pager. */
 export interface PagerResult {
@@ -30,6 +31,7 @@ export async function pageThrough(
   text: string,
   pager: string | undefined = Deno.env.get("PAGER")?.trim(),
 ): Promise<PagerResult> {
+  assertTerminalOwnerAllowed("The pager");
   await assertOutsideCommonPublication();
   const command = pager ? "sh" : "less";
   const args = pager ? ["-c", pager] : ["-R"];

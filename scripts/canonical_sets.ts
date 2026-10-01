@@ -3629,7 +3629,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "spawn-surfaces",
     title: "Subprocess spawn boundaries",
     what:
-      "Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption.",
+      "Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption, and src homes whether they run captured or own the terminal inside an operation.",
     source: {
       kind: "module",
       module: "tests/spawn_surfaces.ts",
@@ -3640,6 +3640,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/operation_execution_guard_test.ts",
       "tests/engine_child_lineage_guard_test.ts",
       "tests/engine_interrupt_surfaces_test.ts",
+      "tests/in_session_isolation_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -3654,6 +3655,31 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .SUBPROCESS_SPAWN_BOUNDARIES.map((entry) =>
           `${entry.path}#${entry.enclosingFunction}`
         ),
+  },
+  {
+    id: "signal-listeners",
+    title: "Process-signal listeners",
+    what:
+      "Every process-signal listener in the shipped product, keyed by path and enclosing function, with whom it serves: the process, a standalone command, or a session's own termination.",
+    source: {
+      kind: "module",
+      module: "tests/spawn_surfaces.ts",
+      exportName: "SIGNAL_LISTENER_CONTRACTS",
+    },
+    guards: ["tests/in_session_isolation_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "signal listeners are an internal interrupt boundary rather than user-facing vocabulary",
+      },
+      featureCanon: { nodeId: "interruption-safety" },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../tests/spawn_surfaces.ts"))
+          .SIGNAL_LISTENER_CONTRACTS,
+      ),
   },
   {
     id: "checkout-mutation-surfaces",

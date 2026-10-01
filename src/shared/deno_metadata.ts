@@ -12,6 +12,7 @@ export async function denoMetadata(
       new Deno.Command("deno", {
         args: [...args],
         cwd: repoRoot,
+        stdin: "null",
         stdout: "piped",
         stderr: "piped",
         detached: isolatedGroup,

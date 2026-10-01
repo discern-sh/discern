@@ -19,6 +19,7 @@
  * durable settlement. Nested owners share this same watcher.
  */
 import { runWithOperationSignal } from "../../shared/operation_signal.ts";
+import { currentInterruptSource } from "../../shared/interrupt_source.ts";
 
 import { INTERRUPT_SIGNALS, reraiseInterrupt } from "../process_signals.ts";
 
@@ -59,11 +60,16 @@ function uninstall(): void {
  * rendered); if an interrupt arrived meanwhile, the release of the LAST active
  * run re-raises it — i.e. the process finishes reporting what was cancelled,
  * then dies with the signal's conventional status.
+ *
+ * Under the `operation` interrupt source the run is not tracked at all: no
+ * listener is installed for it and no process signal aborts it, because its
+ * own operation signal is its only interrupt.
  */
 export function trackRun(
   controller: AbortController,
   options: { resumeAfterInterrupt?: boolean } = {},
 ): () => void {
+  if (currentInterruptSource() === "operation") return (): void => {};
   active.add(controller);
   install();
   return (): void => {

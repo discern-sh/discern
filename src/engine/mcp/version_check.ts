@@ -29,6 +29,7 @@ import { parseVersionOutput } from "../../lib/version.ts";
  */
 
 import { DISCERN_VERSION } from "../../lib/version.ts";
+import { childLeadsOwnGroup } from "../../shared/interrupt_source.ts";
 import { colorResolvedEnv, stripAnsi } from "../../shared/color_env.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 
@@ -84,12 +85,15 @@ export interface InstalledVersionDeps {
 async function captureVersionCommand(
   binary: string,
   args: string[],
-  options: { env?: Record<string, string>; stderr: "null" },
+  options: { env?: Record<string, string> } = {},
 ): Promise<Deno.CommandOutput> {
   return await new Deno.Command(binary, {
     args,
+    ...(options.env === undefined ? {} : { env: options.env }),
+    stdin: "null",
     stdout: "piped",
-    ...options,
+    stderr: "null",
+    detached: childLeadsOwnGroup(false),
   }).output();
 }
 
@@ -153,9 +157,6 @@ export async function resolveCommandPath(
     const output = await captureVersionCommand(
       "sh",
       ["-c", 'command -v "$1"', "sh", command],
-      {
-        stderr: "null",
-      },
     );
     if (!output.success) return undefined;
     const path = new TextDecoder().decode(output.stdout).trim();
@@ -207,7 +208,7 @@ async function defaultProbeVersion(
     const output = await captureVersionCommand(
       execPath,
       ["--version"],
-      { stderr: "null", env: colorResolvedEnv() },
+      { env: colorResolvedEnv() },
     );
     if (!output.success) {
       return undefined;
