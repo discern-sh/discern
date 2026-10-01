@@ -37,6 +37,8 @@ export interface CliDesignSystemRequest {
   /** The project `desk` opens; relative paths start at this checkout. */
   readonly project?: string;
   readonly operands: readonly string[];
+  /** The gallery journeys `capture` runs; every journey when absent. */
+  readonly only?: string;
 }
 
 /** One planned child: Deno arguments and an optional working directory. */
@@ -60,13 +62,14 @@ const USAGE = `Run discern's CLI against a local design-system checkout
 
 Usage:
   deno task cli:design-system [--checkout <path>] desk [--project <dir>] [-- <desk arguments>]
-  deno task cli:design-system [--checkout <path>] capture [<output directory>]
+  deno task cli:design-system [--checkout <path>] capture [--only <journeys>] [<output directory>]
   deno task cli:design-system [--checkout <path>] check [<module>...]
   deno task cli:design-system [--checkout <path>] test <test file>...
 
 desk     opens the Desk from this checkout's source in --project, a path
          relative to this checkout (default: this checkout)
-capture  runs the Desk gallery (scripts/desk_capture.ts) through the test queue
+capture  runs the Desk gallery (scripts/desk_capture.ts) through the test queue;
+         --only names the journeys to run, comma-separated
 check    type-checks the CLI entry and the Desk surfaces, or the named modules
 test     runs the named test files through the test queue
 
@@ -99,6 +102,13 @@ export function parseCliDesignSystemArgs(
   }
   let rest = args.slice(at + 1);
   let project: string | undefined;
+  let only: string | undefined;
+  if (mode === "capture") {
+    while (rest[0] === "--only") {
+      only = toolOptionValue(rest, 0);
+      rest = rest.slice(2);
+    }
+  }
   if (mode === "desk") {
     while (rest[0] === "--project") {
       project = toolOptionValue(rest, 0);
@@ -122,6 +132,7 @@ export function parseCliDesignSystemArgs(
     operands: rest,
     ...(checkout === undefined ? {} : { checkout }),
     ...(project === undefined ? {} : { project }),
+    ...(only === undefined ? {} : { only }),
   };
 }
 
@@ -165,6 +176,7 @@ export function cliDesignSystemCommand(
           ...request.operands,
           "--config",
           config,
+          ...(request.only === undefined ? [] : ["--only", request.only]),
         ]),
       };
     case "check":

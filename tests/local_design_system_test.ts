@@ -537,6 +537,8 @@ Deno.test("CLI loop arguments name a checkout, a mode, and its operands", () => 
       [["--checkout"], "--checkout needs a value"],
       [["test"], "name the test files"],
       [["capture", "a", "b"], "at most one output directory"],
+      [["capture", "--only"], "--only needs a value"],
+      [["capture", "--theme", "light"], "takes no options"],
       [["check", "--watch"], "takes no options"],
       [["desk", "--theme"], "after --"],
     ] as const
@@ -573,6 +575,12 @@ Deno.test("every CLI loop child runs this source under the one linked config", (
   ]);
   assert(capture.args.includes(join(ROOT, "scripts/desk_capture.ts")));
   assertEquals(configsIn(capture.args), [config, config, config]);
+  assertEquals(
+    plan(["capture", "--only", "standard,sizes", "/tmp/gallery"]).args.slice(
+      -4,
+    ),
+    ["--config", config, "--only", "standard,sizes"],
+  );
 
   const test = plan(["test", "tests/engine_desk_state_test.ts"]);
   assertEquals(test.args.slice(4, 7), [main, "queue", "--"]);
