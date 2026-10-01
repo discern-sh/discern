@@ -380,27 +380,29 @@ Deno.test("a technical plan reads as sheet text, every word of the shared render
   );
 });
 
-Deno.test("beneath an open layer the inspector keeps only its head", () => {
+Deno.test("an open layer leaves the inspector beneath it whole", () => {
+  // The package starts what shows below a layer at a block boundary, so the
+  // inspector never trims itself for a layer.
   const state = desk(statusData([mainFleetEntry(), task({ ahead: 2 })]));
-  const sections = (opened: DeskProductState): string[] => {
+  const inspector = (opened: DeskProductState) => {
     const view = deskView(opened, { ...PRODUCT_UI, selected: "task" }, ENV);
     assert(view.body.kind === "master-detail");
-    return (view.body.detail.content.task ?? []).map((block) =>
-      block.kind === "section" ? `section:${block.title}` : block.kind
-    );
+    return view.body.detail.content.task ?? [];
   };
-  const open = sections(state);
-  assert(open.includes("section:Next") && open.includes("section:Identity"));
-  const covered = sections(
-    deskProduct(state, {
-      kind: "intent",
-      intent: { kind: "key", key: "." },
-      ui: { ...PRODUCT_UI, selected: "task" },
-      now: NOW,
-      clock: 0,
-    }).state,
+  const open = inspector(state);
+  const titles = open.flatMap((block) =>
+    block.kind === "section" ? [block.title] : []
   );
-  assertEquals(covered, ["heading", "state", "text", "facts"]);
+  assert(titles.includes("Next") && titles.includes("Identity"), `${titles}`);
+  const covered = deskProduct(state, {
+    kind: "intent",
+    intent: { kind: "key", key: "." },
+    ui: { ...PRODUCT_UI, selected: "task" },
+    now: NOW,
+    clock: 0,
+  }).state;
+  assert(covered.layers.length > 0, "the actions menu is open");
+  assertEquals(inspector(covered), open);
 });
 
 Deno.test("every row state's inspector and strip render in status's words", () => {

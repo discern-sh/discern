@@ -123,10 +123,6 @@ function inspection(
       ? {}
       : { observedAt: state.survey.observedAt }),
     frozen: frozen(state),
-    // TODO(R-10): beneath a layer the package shows whichever inspector rows
-    // fall below it, starting mid-block (a widowed hint or "↓ N more"), so
-    // while a layer is open the inspector keeps only its head.
-    receded: state.layers.length > 0,
   };
 }
 

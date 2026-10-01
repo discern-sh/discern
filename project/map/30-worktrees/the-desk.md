@@ -62,7 +62,7 @@ Readers open over the inbox and paint from the last observation: the queue, the 
 
 The inbox has one layout per width ([ADR 0420](../_adr/0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md)). From 80 columns the list and inspector sit side by side, and the list takes the width its titles and columns need, clamped so the inspector keeps its minimum; from 100 columns both get roomier padding. When a title would fall below its minimum, the overlap flag drops first and then the age; the state label never drops. Below 80 columns the list takes the full width and a summary strip under it shows the selection's state and headline facts, with Space to zoom; below 14 rows the strip is one line. Below 56 columns every layer takes the body.
 
-Beside a wide list, menus, sheets and forms sit in the inspector's column, sized to their content, with the receded inspector below; palettes and readers fill the column. On a narrower screen sheets, menus and forms sit at the bottom, the palette at the top, and a reader takes the body. A layer never clips list rows. A sheet whose lines outrun the screen scrolls them and keeps confirm disabled until every line has been on screen.
+Beside a wide list, menus, sheets and forms sit in the inspector's column, sized to their content, with the receded inspector below from the first of its blocks the layer leaves whole; palettes and readers fill the column. On a narrower screen sheets, menus and forms sit at the bottom, the palette at the top, and a reader takes the body. A layer never clips list rows. A sheet whose lines outrun the screen scrolls them and keeps confirm disabled until every line has been on screen.
 
 The package's minimum is 32 columns by 10 rows. Below it the screen says how much room it needs and **Quit** still answers; growing the terminal restores the desk as it was.
 
@@ -167,7 +167,6 @@ The subsystem has focused [state machine](../../../tests/engine_desk_state_test.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A degraded checkout's next step is **Recovery steps** (or **Retry setup…** when replay is safe), with **Open shell** beside it when its folder exists. Drop stays in the Danger section and requires the branch name when work cannot be verified.
 - An Interrupted task's next step is **Recovery steps** too: its landing stopped and nothing landed, so the steps name `discern worktree prune` to reclaim discern's integration copy before landing again.
-- While a layer is open the inspector keeps only its head (title, state, explanation and facts): the design system shows whichever inspector rows fall below a layer, starting mid-block, until it starts them at a block boundary.
 - A layer the package would refuse, such as one built from an unusual observation, gives way to a sheet under the same id that says it couldn't be shown. The session and every operation beside it carry on. [`withShowableLayers`](../../../src/engine/desk/layer_view.ts) holds this until the design system refuses such a layer itself.
 - A review sheet keeps one layer id from loading to ready; the package starts its review over as it arrives, so read progress counts only the real body and focus lands on its first control, its challenge field included.
 
