@@ -443,6 +443,7 @@ Deno.test("every layer the Desk opens is a view the package renders", () => {
       kind: "result",
       sheet: {
         title: "Checks failed",
+        tone: "danger",
         lines: prepared.lines,
         output: "**test** failed",
         command: "discern done",

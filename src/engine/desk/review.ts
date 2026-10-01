@@ -11,6 +11,9 @@
 
 import type { EnginePlan } from "../../shared/result.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { z } from "@zod/zod";
+import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
+import { LandingOutcomeSchema } from "../../shared/result_schemas.ts";
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import {
   DESK_ACTION_LABELS,
@@ -428,14 +431,89 @@ function stoppedLine(result: DiscernResult): DeskReviewLine {
   };
 }
 
+/** What an acceptance recorded about the landings it made. */
+const LandingEffectsSchema = z.object({
+  landing: AcceptLandingStateSchema,
+  landings: z.array(LandingOutcomeSchema).optional(),
+});
+
+/** The first sentence of a reason, which says why without the route. */
+function firstSentence(text: string): string {
+  const end = text.search(/\.(\s|$)/u);
+  return end < 0 ? text : text.slice(0, end + 1);
+}
+
+/**
+ * A landing that moved the trunk and then stopped: what landed, what
+ * stopped and why, and what a refused walk left as it was. It never says
+ * the trunk is unchanged, because it is not.
+ */
+function partialLandingSheet(
+  failed: ResultSubject,
+  result: DiscernResult,
+  effects: z.infer<typeof LandingEffectsSchema>,
+): Pick<DeskResultSheet, "title" | "lines"> {
+  const walked = (effects.landings ?? []).filter((landing) =>
+    !landing.selected
+  );
+  const titleOf = failed.titleOf ?? ((branch: string) => branch);
+  const stopped = walked.filter((landing) => landing.status !== "landed");
+  const landings: DeskReviewSource = { kind: "result", field: "landings" };
+  return {
+    title: stopped.length === 0
+      ? `${failed.title} landed, but not everything finished`
+      : `${failed.title} landed; ${
+        stopped.map((landing) => titleOf(landing.branch)).join(", ")
+      } didn't`,
+    lines: [
+      {
+        mark: "evidence",
+        text: `Landed ${failed.title} on ${failed.trunk}`,
+        source: { kind: "result", field: "landing" },
+      },
+      ...walked.filter((landing) => landing.status === "landed").map((
+        landing,
+      ): DeskReviewLine => ({
+        mark: "evidence",
+        text: `${titleOf(landing.branch)} landed too`,
+        source: landings,
+      })),
+      ...(stopped.length === 0 ? [stoppedLine(result)] : stopped.map((
+        landing,
+      ): DeskReviewLine => ({
+        mark: "failure",
+        text: `${titleOf(landing.branch)} didn't land`,
+        ...(landing.reason === undefined
+          ? {}
+          : { detail: [firstSentence(landing.reason)] }),
+        source: landings,
+      }))),
+      ...stopped.filter((landing) => landing.status === "refused").map((
+        landing,
+      ): DeskReviewLine => ({
+        mark: "keeps",
+        text: `${
+          titleOf(landing.branch)
+        } is as it was: branch, checkout and Proof`,
+        source: landings,
+      })),
+    ],
+  };
+}
+
+/** The task a failed effect concerns, as its result sheet names it. */
+interface ResultSubject {
+  readonly action: DeskAction;
+  readonly title: string;
+  readonly trunk: string;
+  readonly taskId?: string;
+  /** A branch's task title, for the further tasks an effect reached. */
+  readonly titleOf?: (branch: string) => string;
+}
+
 /** A failed effect's result sheet, in the registry's words for its action. */
 export function resultSheet(
-  failed: {
-    readonly action: DeskAction;
-    readonly title: string;
-    readonly trunk: string;
-    readonly taskId?: string;
-  },
+  failed: ResultSubject,
   result: DiscernResult,
   command: string,
 ): DeskResultSheet {
@@ -445,23 +523,32 @@ export function resultSheet(
     bucket: `${failed.action}:result`,
     index,
   });
+  const effects = failed.action === "accept"
+    ? LandingEffectsSchema.safeParse(result.data)
+    : undefined;
+  const partial = effects?.success === true && effects.data.landing.trunk_landed
+    ? partialLandingSheet(failed, result, effects.data)
+    : undefined;
   const keeps = copy?.keeps(failed.trunk) ?? [];
   return {
-    title: copy?.title(failed.title) ??
-      `${labelName(DESK_ACTION_LABELS[failed.action])} didn't complete`,
-    lines: [
-      stoppedLine(result),
-      ...keeps.map((text, index): DeskReviewLine => ({
-        mark: "keeps",
-        text,
-        source: source(index),
-      })),
-      ...(copy === undefined ? [] : [{
-        mark: "changes" as const,
-        text: copy.next(failed.trunk),
-        source: source(keeps.length),
-      }]),
-    ],
+    ...(partial ?? {
+      title: copy?.title(failed.title) ??
+        `${labelName(DESK_ACTION_LABELS[failed.action])} didn't complete`,
+      lines: [
+        stoppedLine(result),
+        ...keeps.map((text, index): DeskReviewLine => ({
+          mark: "keeps",
+          text,
+          source: source(index),
+        })),
+        ...(copy === undefined ? [] : [{
+          mark: "changes" as const,
+          text: copy.next(failed.trunk),
+          source: source(keeps.length),
+        }]),
+      ],
+    }),
+    tone: partial === undefined ? "danger" : "warning",
     output: renderResultReading(
       result,
       resultPresenterForVerb(result.verb),
@@ -481,6 +568,7 @@ export function failureSheet(
   const [first = text, ...rest] = text.split("\n");
   return {
     title,
+    tone: "danger",
     lines: [{
       mark: "failure",
       text: first,

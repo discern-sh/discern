@@ -1008,8 +1008,8 @@ function operationSettled(
       next = opened.state;
       effects.push(...opened.effects);
     } else {
-      next = toast(next, "danger", sheet.title, {
-        mark: DESK_GLYPHS.failed,
+      next = toast(next, sheet.tone, sheet.title, {
+        mark: OUTCOME_MARKS[sheet.tone],
         ...about,
       });
     }

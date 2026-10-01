@@ -26,7 +26,7 @@ import {
 } from "../model.ts";
 import type { DeskRuntime } from "../desk.ts";
 import type { DeskProductState } from "../desk_state.ts";
-import { rowRef } from "../desk_transitions.ts";
+import { rowRef, taskTitleOf } from "../desk_transitions.ts";
 import { trunkHead } from "../evidence.ts";
 import {
   type DeskReviewRead,
@@ -274,6 +274,7 @@ export function failedWith(
       title: ref?.kind === "task" ? ref.row.task.name : "This task",
       trunk: context.config.repository.trunk,
       ...(step.kind === "action" ? { taskId: step.taskId } : {}),
+      titleOf: (branch) => taskTitleOf(context.state, branch),
     },
     result,
     command,
@@ -281,7 +282,7 @@ export function failedWith(
   return {
     command,
     ok: false,
-    message: message ?? { tone: "danger", text: sheet.title },
+    message: message ?? { tone: sheet.tone, text: sheet.title },
     result: sheet,
   };
 }

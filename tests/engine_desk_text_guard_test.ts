@@ -195,6 +195,7 @@ Deno.test("Desk text guard", async () => {
           kind: "result",
           sheet: {
             title: "It didn't complete",
+            tone: "danger",
             lines: [{
               mark: "failure",
               text: multiline,

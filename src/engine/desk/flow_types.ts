@@ -200,6 +200,8 @@ export interface DeskOutcomeMessage {
  */
 export interface DeskResultSheet {
   readonly title: string;
+  /** How bad it is: nothing it set out to do happened, or only part. */
+  readonly tone: "danger" | "warning";
   readonly lines: readonly DeskReviewLine[];
   /** The complete output, as Markdown. */
   readonly output?: string;

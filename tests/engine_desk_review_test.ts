@@ -39,9 +39,15 @@ import {
 } from "../src/engine/desk/review_facts.ts";
 import {
   type DeskReviewTarget,
+  resultSheet,
   reviewDrift,
   reviewFor,
 } from "../src/engine/desk/review.ts";
+import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
+import {
+  ACCEPT_LANDING_STATE_FIELDS,
+  type AcceptLandingState,
+} from "../src/shared/accept_landing_state.ts";
 import {
   DESK_ACTION_FLOWS,
   DESK_COMMAND_FLOWS,
@@ -846,4 +852,112 @@ Deno.test("an update that stops becomes a result sheet with its next steps", asy
       "button:safe",
     );
   });
+});
+
+/** A registered next step, as every failed result carries one. */
+const NEXT_STEP = hintTexts([
+  fire(HINTS["completion-pending"], {
+    action: "Run discern status and follow its next action.",
+  }),
+]);
+
+/** Every landing state that says the trunk moved, each other effect either way. */
+function trunkMovedStates(): AcceptLandingState[] {
+  const others = ACCEPT_LANDING_STATE_FIELDS.filter((field) =>
+    field !== "trunk_landed"
+  );
+  return Array.from(
+    { length: 2 ** others.length },
+    (_, bits) =>
+      Object.fromEntries([
+        ["trunk_landed", true],
+        ...others.map((field, index) => [field, (bits & (1 << index)) !== 0]),
+      ]) as unknown as AcceptLandingState,
+  );
+}
+
+Deno.test("a landing that moved the trunk never reads as if nothing landed", () => {
+  const walks = [
+    [],
+    [{
+      effort: "beta",
+      branch: "agent/beta",
+      head: "b".repeat(40),
+      selected: false,
+      status: "refused",
+      reason:
+        "The trunk moved after agent/beta's Proof. Run discern update, then try again.",
+    }],
+  ];
+  for (const landing of trunkMovedStates()) {
+    for (const walk of walks) {
+      const sheet = resultSheet(
+        {
+          action: "accept",
+          title: "Alpha",
+          trunk: "main",
+          taskId: "alpha",
+          titleOf: (branch) => branch === "agent/beta" ? "Beta" : branch,
+        },
+        {
+          ok: false,
+          verb: "accept",
+          error: "partial_acceptance",
+          message:
+            "Landed agent/alpha on main.\nThe walk stopped at agent/beta.",
+          hints: NEXT_STEP,
+          data: {
+            landing,
+            landings: [{
+              effort: "alpha",
+              branch: "agent/alpha",
+              head: "a".repeat(40),
+              selected: true,
+              status: "landed",
+            }, ...walk],
+          },
+        },
+        "discern accept --target agent/alpha --confirmed",
+      );
+      const words = [sheet.title, ...sheet.lines.map((line) => line.text)];
+      const name = `${JSON.stringify(landing)} with ${walk.length} walked`;
+      assert(
+        words.every((text) =>
+          !text.includes("Nothing landed") && !text.includes("unchanged") &&
+          !text.includes("Alpha didn't")
+        ),
+        `${name}: ${JSON.stringify(words)}`,
+      );
+      assertEquals(sheet.tone, "warning", name);
+      assertEquals(sheet.lines[0]?.text, "Landed Alpha on main", name);
+      if (walk.length > 0) {
+        assertEquals(sheet.title, "Alpha landed; Beta didn't", name);
+        assertEquals(
+          sheet.lines.map((line) => [line.mark, line.text]).slice(1),
+          [
+            ["failure", "Beta didn't land"],
+            ["keeps", "Beta is as it was: branch, checkout and Proof"],
+          ],
+          name,
+        );
+        assertEquals(sheet.lines[1]?.detail, [
+          "The trunk moved after agent/beta's Proof.",
+        ]);
+      }
+    }
+  }
+  const refused = resultSheet(
+    { action: "accept", title: "Alpha", trunk: "main" },
+    {
+      ok: false,
+      verb: "accept",
+      error: "precondition_failed",
+      message: "Combining it with main stopped: 2 files conflict",
+      hints: NEXT_STEP,
+    },
+    "discern accept",
+  );
+  assertEquals(refused.title, "Alpha didn't land");
+  assertEquals(refused.tone, "danger");
+  assert(refused.lines.some((line) => line.text.includes("Nothing landed")));
 });

@@ -285,6 +285,7 @@ Deno.test("a failure becomes a result sheet while its progress shows, and a mess
     message: { tone: "danger", text: "Alpha didn't land" },
     result: {
       title: "Alpha didn't land",
+      tone: "danger",
       lines: [{
         mark: "failure",
         text: "Combining it with main stopped: 2 files conflict",

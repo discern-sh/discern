@@ -482,6 +482,7 @@ const UPDATES_FLOW: DeskFlow = {
       },
       result: {
         title,
+        tone: "warning",
         lines: [
           {
             mark: "failure",

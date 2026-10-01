@@ -467,6 +467,7 @@ Deno.test("a returning effect leaves its message, its result, and one refresh", 
       message: { tone: "danger", text: "Checks failed" },
       result: {
         title: "Checks failed",
+        tone: "danger",
         lines: [{
           mark: "failure",
           text: "test failed",
