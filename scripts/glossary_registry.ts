@@ -964,7 +964,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     // "tip" is also a branch tip and ordinary English across the manual.
     matches: ["desk tip"],
     definition:
-      "A short, practical suggestion that the [desk](#desk) shows on one line below its main view. The line starts with `Tip:`. The desk picks one tip when it opens and keeps it until you leave. Press `t` to read the full tip. Each tip only teaches, and every action works without it. When recording is on, the desk notes which tip it showed in the [logbook](#logbook). Advice for agents comes in their command results instead. See [desk tips](../30-worktrees/desk-tips.md).",
+      "A short, practical suggestion that the [desk](#desk) shows on one line above its keys. The line starts with `Tip`, and your first key clears it. The desk picks one tip when it opens and keeps it until you leave; **Tip of the session**, under Ctrl+K, shows it in full. Each tip only teaches, and every action works without it. When recording is on, the desk notes which tip it showed in the [logbook](#logbook). Advice for agents comes in their command results instead. See [desk tips](../30-worktrees/desk-tips.md).",
   },
   {
     term: "Update",
