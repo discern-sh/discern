@@ -903,50 +903,50 @@ export async function runDesk(
   }
   const termination = runtime.terminations();
   try {
-    const final = await runtime.application(
-      liveDesk({
-        trunk: config.repository.trunk,
-        root,
-        version: DISCERN_VERSION,
-        preferences: await runtime.readPreferences(root),
-        launches: () => startLaunches(config, runtime),
-        now: runtime.now,
-        scheduler: runtime.scheduler,
-        observe: async () => {
-          const result = await runtime.status(root);
-          if (!result.ok || result.data === undefined) {
-            throw new Error(result.message ?? "The status survey failed.");
-          }
-          return { data: result.data, hints: result.hints ?? [] };
+    const session = liveDesk({
+      trunk: config.repository.trunk,
+      root,
+      version: DISCERN_VERSION,
+      preferences: await runtime.readPreferences(root),
+      launches: () => startLaunches(config, runtime),
+      now: runtime.now,
+      scheduler: runtime.scheduler,
+      observe: async () => {
+        const result = await runtime.status(root);
+        if (!result.ok || result.data === undefined) {
+          throw new Error(result.message ?? "The status survey failed.");
+        }
+        return { data: result.data, hints: result.hints ?? [] };
+      },
+      tip: (data) => sessionTip(root, config, runtime, data),
+      manual: async () =>
+        deskManual(
+          await runtime.manual(),
+          async (url) => await runtime.openBrowser(url),
+        ),
+      evidence: {
+        git: async (args, cwd, signal) =>
+          await runtime.git([...args], cwd, {
+            timeoutMs: DESK_EVIDENCE_TIMEOUT_MS,
+            signal,
+          }),
+        failures: async (branch, verb) => {
+          const found = await runtime.operationRecord(root, { branch, verb });
+          return found?.record.failures?.map((failure) => ({
+            name: failure.name,
+            message: failure.message,
+            ...(failure.file === undefined ? {} : { file: failure.file }),
+            ...(failure.line === undefined ? {} : { line: failure.line }),
+          }));
         },
-        tip: (data) => sessionTip(root, config, runtime, data),
-        manual: async () =>
-          deskManual(
-            await runtime.manual(),
-            async (url) => await runtime.openBrowser(url),
-          ),
-        evidence: {
-          git: async (args, cwd, signal) =>
-            await runtime.git([...args], cwd, {
-              timeoutMs: DESK_EVIDENCE_TIMEOUT_MS,
-              signal,
-            }),
-          failures: async (branch, verb) => {
-            const found = await runtime.operationRecord(root, { branch, verb });
-            return found?.record.failures?.map((failure) => ({
-              name: failure.name,
-              message: failure.message,
-              ...(failure.file === undefined ? {} : { file: failure.file }),
-              ...(failure.line === undefined ? {} : { line: failure.line }),
-            }));
-          },
-        },
-        flows: deskFlows(root, config, runtime, opts.cliModel),
-        persist: async (preferences) =>
-          await runtime.writePreferences(root, preferences),
-      }),
-      termination,
-    );
+      },
+      flows: deskFlows(root, config, runtime, opts.cliModel),
+      persist: async (preferences) =>
+        await runtime.writePreferences(root, preferences),
+    });
+    const final = await runtime.application(session, termination);
+    // A toggle's write may still be landing; the folds must not overtake it.
+    await session.saved();
     await rememberFolds(root, runtime, out, final);
   } catch (error) {
     if (!isInteractionCancelled(error)) {

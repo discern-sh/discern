@@ -14,6 +14,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   DESK_ROOT,
   type DeskSession,
+  deskSession,
   deskSurvey,
   deskTaskEntry,
   deskTranscript,
@@ -1875,6 +1876,44 @@ Deno.test("an agent's edits re-read only the uncommitted files, and the commits 
     await desk.shows("Committed work");
   });
   assertEquals(reads, ["status"], "only the uncommitted files are read again");
+});
+
+Deno.test("the session waits for a toggle's write before it remembers its folds", async () => {
+  let release: (() => void) | undefined;
+  let written = false;
+  // Each read records whether the toggle's write had finished by then.
+  const reads: boolean[] = [];
+  const desk = await deskSession({
+    runtime: {
+      readPreferences: () => {
+        reads.push(written);
+        return { schema_version: 2 };
+      },
+      writePreferences: async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        written = true;
+        return { status: "saved" };
+      },
+    },
+  });
+  await desk.palette("Sort by title", "sort");
+  await desk.until(() => release !== undefined, "the toggle's write to start");
+  desk.io.enqueueKeys("ctrl-c");
+  // The package leaves the alternate screen once the session has ended.
+  await desk.until(
+    () => desk.io.output().includes("\x1b[?1049l"),
+    "the screen to be restored",
+  );
+  release?.();
+  assertEquals(await desk.exit, 0);
+  desk.io.close();
+  assertEquals(
+    reads,
+    [false, true],
+    "the folds are read and written only after the toggle's write",
+  );
 });
 
 Deno.test("View changes reads the task's evidence and lends the terminal to the pager, the editor and a shell", async () => {

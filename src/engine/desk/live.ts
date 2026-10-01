@@ -206,10 +206,14 @@ export function deskEpilogue(
   ];
 }
 
+/** One Desk session's package options, and what its caller waits for. */
+export type LiveDesk = TerminalApplicationOptions<DeskIntent> & {
+  /** Settles once every preference write the session asked for has. */
+  readonly saved: () => Promise<void>;
+};
+
 /** Build the package options for one Desk session. */
-export function liveDesk(
-  deps: LiveDeskDependencies,
-): TerminalApplicationOptions<DeskIntent> {
+export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
   const scheduler = deps.scheduler;
   let state = initialDeskProduct({
     trunk: deps.trunk,
@@ -253,8 +257,9 @@ export function liveDesk(
   const fail = (error: unknown): void => context?.fail(error);
   /**
    * Work the session started and has not seen settle. Each read and effect
-   * reports into the session when it finishes; a failure fails the session,
-   * and nothing reports after the session ends.
+   * reports into the session when it finishes; a failure fails the session.
+   * A read that outlives the session reports nothing; the preference writes
+   * the session's caller must not overtake are awaited through `saved`.
    */
   const pending = new Set<Promise<void>>();
   const own = (work: Promise<unknown>): void => {
@@ -263,6 +268,12 @@ export function liveDesk(
     });
     pending.add(owned);
   };
+  /**
+   * The preference writes, one after another, so a later toggle never loses
+   * to an earlier one; the session's caller waits for the last before it
+   * writes what the session leaves behind.
+   */
+  let preferencesSaved: Promise<void> = Promise.resolve();
 
   /** Keep running times current while any is visible and surveys succeed. */
   const tick = (): void => {
@@ -402,15 +413,17 @@ export function liveDesk(
         case "abort":
           context?.abort(effect.operationId);
           break;
-        case "persist":
-          own(
-            deps.persist(effect.preferences).then((result) => {
-              if (result.status !== "saved") {
-                dispatch({ kind: "preferences-failed", reason: result.reason });
-              }
-            }),
-          );
+        case "persist": {
+          const preferences = effect.preferences;
+          preferencesSaved = preferencesSaved.then(async () => {
+            const result = await deps.persist(preferences);
+            if (result.status !== "saved") {
+              dispatch({ kind: "preferences-failed", reason: result.reason });
+            }
+          }).catch(fail);
+          own(preferencesSaved);
           break;
+        }
       }
     }
     return terminal;
@@ -686,6 +699,7 @@ export function liveDesk(
   };
 
   return {
+    saved: () => preferencesSaved,
     view: deskView(state, { zoomed: false, fields: {} }, env()),
     keymap: [...DESK_KEYMAP],
     viKeys: DESK_VI_KEYS,
