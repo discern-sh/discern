@@ -61,6 +61,8 @@ import {
 import { configEpoch } from "../../src/engine/logbook/epoch.ts";
 import { LOGBOOK_SCHEMA_VERSION, type LogbookEvent } from "../../src/engine/logbook/schema.ts";
 import { appendEvent } from "../../src/engine/logbook/store.ts";
+import { openOperationJournal } from "../../src/engine/completion/operation_journal.ts";
+import type { CompletionFailure } from "../../src/engine/completion/events.ts";
 import { grantEffort } from "../../src/engine/worktree/effort_grant_writer.ts";
 import {
   addWorktree,
@@ -162,6 +164,11 @@ export interface DeskFailedActionFixture {
   readonly verb: string;
   readonly failedStage?: string;
   readonly finishedAgoMs: number;
+  /**
+   * The failures the run's operation journal retains, as `discern progress`
+   * reads them back; no journal is written when absent.
+   */
+  readonly failures?: readonly CompletionFailure[];
 }
 
 export type DeskActionFixture =
@@ -265,6 +272,7 @@ export function deskFailedAction(
   options: {
     readonly failedStage?: string;
     readonly finishedAgoMs?: number;
+    readonly failures?: readonly CompletionFailure[];
   } = {},
 ): DeskFailedActionFixture {
   return {
@@ -274,6 +282,7 @@ export function deskFailedAction(
     ...(options.failedStage === undefined
       ? {}
       : { failedStage: options.failedStage }),
+    ...(options.failures === undefined ? {} : { failures: options.failures }),
   };
 }
 
@@ -793,6 +802,24 @@ async function materialiseProof(
   }
 }
 
+/**
+ * Record one action on a task of an existing project, through the same
+ * logbook writes its fleet fixture uses: a scripted effect can leave the
+ * trace its real counterpart would.
+ */
+export async function recordDeskAction(
+  project: DeskTtyProject,
+  name: string,
+  action: DeskActionFixture,
+): Promise<void> {
+  await materialiseAction(
+    requiredWorktree(project.worktrees, name),
+    await gitOut(project.root, "rev-parse", "--absolute-git-dir"),
+    configEpoch(await loadConfig(project.root)).fingerprint,
+    action,
+  );
+}
+
 async function materialiseAction(
   worktree: string,
   commonGitDir: string,
@@ -846,6 +873,31 @@ async function materialiseAction(
       ? {}
       : { failed_stage: action.failedStage }),
   } satisfies LogbookEvent);
+  if (action.failures !== undefined) {
+    await retainFailures(worktree, branch, action, now);
+  }
+}
+
+/** Write the failed run's operation journal through its own writer. */
+async function retainFailures(
+  worktree: string,
+  branch: string,
+  action: DeskFailedActionFixture,
+  now: number,
+): Promise<void> {
+  const finished = now - action.finishedAgoMs;
+  const journal = await openOperationJournal(
+    worktree,
+    { verb: action.verb, path: worktree, branch },
+    { clock: { wallNow: () => finished } },
+  );
+  if (journal === undefined) {
+    throw new Error(`could not open a Desk fixture journal for ${branch}`);
+  }
+  for (const failure of action.failures ?? []) {
+    await journal.observe({ kind: "failure", failure });
+  }
+  await journal.finish("failed");
 }
 
 export type DeskTtyColorMode = "color" | "no-color-flag" | "no-color-env";
@@ -989,13 +1041,39 @@ interface ChildTerminalEvidence {
 /** What a settled frame must show before a phase's input goes in. */
 export type DeskFrameTest = (capture: TerminalFrameCapture) => boolean;
 
+/**
+ * The words a frame shows while it waits on the Desk: a review still reading
+ * its plan, and evidence or tasks still loading. TODO(R-9): the package's
+ * state report does not say whether the top layer is loading or the detail
+ * pending, so readiness reads these words; replace them with the report's
+ * fields once it carries them.
+ */
+const DESK_PENDING_WORDS = {
+  review: "Checking current state",
+  detail: ["Reading", "Loading"],
+} as const;
+
 /** The inbox at rest: a row selected, its evidence read, no layer open. */
 export function deskAtRest(id?: string): DeskFrameTest {
   return (capture) =>
     capture.state?.topLayerId === undefined &&
     capture.state?.selectedItemId !== undefined &&
     (id === undefined || capture.state.selectedItemId === id) &&
-    !capture.text.includes("Reading") && !capture.text.includes("Loading");
+    DESK_PENDING_WORDS.detail.every((word) => !capture.text.includes(word));
+}
+
+/** The selected item's details zoomed to fill the body, its evidence read. */
+export function deskZoomed(): DeskFrameTest {
+  return (capture) =>
+    capture.state?.zoomed === true &&
+    DESK_PENDING_WORDS.detail.every((word) => !capture.text.includes(word));
+}
+
+/** A project with no tasks: the empty body, its New task hint focused. */
+export function deskEmpty(): DeskFrameTest {
+  return (capture) =>
+    capture.state?.topLayerId === undefined &&
+    capture.state?.focusedControlId === "primary";
 }
 
 /** A layer on top. */
@@ -1003,15 +1081,24 @@ export function deskLayerOpen(id: string): DeskFrameTest {
   return (capture) => capture.state?.topLayerId === id;
 }
 
+/** A review or form on top whose plan has arrived. */
+export function deskLayerReady(id: string): DeskFrameTest {
+  return (capture) =>
+    capture.state?.topLayerId === id &&
+    !capture.text.includes(DESK_PENDING_WORDS.review);
+}
+
 /** Focus on one control of the top layer, such as `field:title`. */
 export function deskFocused(layer: string, control: string): DeskFrameTest {
   return (capture) => capture.state?.focusedControlId === `${layer}:${control}`;
 }
 
-/** No layer open and `text` on screen: the inbox, or an empty project. */
-export function deskShowing(text: string): DeskFrameTest {
-  return (capture) =>
-    capture.state?.topLayerId === undefined && capture.text.includes(text);
+/**
+ * The message line shows `text`. TODO(R-9): the package's state report
+ * names no message, so this reads the frame's words.
+ */
+export function deskMessage(text: string): DeskFrameTest {
+  return (capture) => capture.text.includes(text);
 }
 
 /**

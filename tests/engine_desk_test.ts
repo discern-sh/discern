@@ -1,7 +1,7 @@
 /**
- * CLI entry contracts for Desk and a minimal real application journey.
- * Piped, CI and nested sessions retain their non-interactive entry contracts;
- * the PTY case exercises package region navigation and terminal restoration.
+ * CLI entry contracts for the Desk: piped, CI and nested sessions keep their
+ * non-interactive entry contracts. The Desk's real-terminal journeys live in
+ * engine_desk_tty_test.ts.
  */
 
 import {
@@ -14,17 +14,14 @@ import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
-  runAgentPtyJourney,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { applicationFrameReady } from "./fixtures/terminal_application_capture.ts";
 import {
   DESK_SESSION_ENV,
   deskSessionEnv,
 } from "../src/engine/desk/session.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
-import { realPtyTest } from "./real_pty.ts";
 
 const DESK_SESSION = deskSessionEnv();
 
@@ -112,37 +109,6 @@ Deno.test("desk without a TTY: refuses with a pointer at status", async () => {
     assertTerminalTextIncludes(r.stderr, "interactive terminal");
     assertTerminalTextIncludes(r.stderr, "discern status");
   });
-});
-
-realPtyTest({
-  name: "discern desk opens its production application on a real PTY",
-  contracts: ["line-discipline", "terminal-modes", "control-rendering"],
-  canary: true,
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      await scaffoldEngine(dir);
-      await gitInit(dir);
-      const geometry = { columns: 80, rows: 24 };
-      const r = await runAgentPtyJourney(dir, ["desk"], {
-        geometry,
-        input: [{
-          waitFor: applicationFrameReady(geometry, "No tasks yet"),
-          steps: [{ bytes: "\x0b" }],
-        }, {
-          waitFor: applicationFrameReady(geometry, "Search tasks and commands"),
-          steps: [{ bytes: "\x03" }],
-        }],
-      });
-      assertEquals(r.code, 0, r.transcript);
-      assertTerminalTextIncludes(r.transcript, "No tasks yet");
-      assertTerminalTextIncludes(r.transcript, "New task");
-      assertTerminalTextIncludes(r.transcript, "Quit");
-      assertStringIncludes(r.transcript, "\x1b[?1049h");
-      assertStringIncludes(r.transcript, "\x1b[?1049l");
-      assertStringIncludes(r.transcript, "\x1b[?25h");
-    });
-  },
 });
 
 Deno.test("desk pre-setup: the setup redirect fires before the surface", async () => {

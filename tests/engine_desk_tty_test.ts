@@ -1,6 +1,19 @@
-/** Real-PTY characterisation of the complete package-backed Desk session. */
+/**
+ * Real-PTY characterisation of the complete package-backed Desk session.
+ *
+ * Each journey here exists for a property only the operating system's
+ * terminal creates (ADR 0355): mode and screen restoration, raw input and
+ * its bytes, Ctrl-C, kernel resize, a pager descendant, and the colour
+ * posture of real control sequences. Behaviour (menus, reviews, readers,
+ * the manual) is held below the boundary by the fake-terminal runtime
+ * tests. Phases wait on the package's state reports: the open layer, the
+ * focused control, and the selected row.
+ */
 
-import { DESK_COMMAND_LABELS } from "../src/shared/desk_vocabulary.ts";
+import {
+  DESK_COMMAND_LABELS,
+  labelName,
+} from "../src/shared/desk_vocabulary.ts";
 import {
   assert,
   assertEquals,
@@ -13,6 +26,7 @@ import {
   assertDeskTtyInputPhase,
   deskAtRest,
   deskCollision,
+  deskEmpty,
   deskFailedAction,
   deskFleetEntry,
   deskFleetFixture,
@@ -21,12 +35,13 @@ import {
   type DeskImplicitWrap,
   deskLandingAuthority,
   deskLayerOpen,
+  deskLayerReady,
+  deskMessage,
   deskMissingAgentsAndScripts,
   deskOrphanBranch,
   deskProof,
   deskRunningAction,
   deskSettledPhase,
-  deskShowing,
   type DeskTtyInputPhase,
   type DeskTtyRunResult,
   type DeskVisibleFrame,
@@ -54,23 +69,19 @@ function colours(transcript: string): boolean {
     })
   );
 }
-const NEW_TASK = DESK_COMMAND_LABELS.new_task;
-const EMPTY = deskShowing("No tasks yet");
+const NEW_TASK = labelName(DESK_COMMAND_LABELS.new_task);
+const EMPTY = deskEmpty();
 const phase = deskSettledPhase;
-
-/** A review or form whose plan read has finished. */
-function readyLayer(id: string): DeskFrameTest {
-  return (capture) =>
-    deskLayerOpen(id)(capture) &&
-    !capture.text.includes("Checking current state");
-}
 
 /** Both tests hold. */
 function both(left: DeskFrameTest, right: DeskFrameTest): DeskFrameTest {
   return (capture) => left(capture) && right(capture);
 }
 
-/** The screen shows `text`, whatever is open. */
+/**
+ * The screen shows data the journey supplied, such as text it typed or a
+ * fixture's file name: evidence its input arrived, never product wording.
+ */
 function showing(text: string): DeskFrameTest {
   return (capture) => capture.text.includes(text);
 }
@@ -102,7 +113,7 @@ function submitForm(
       size,
       undefined,
       `${form}'s confirm button`,
-      both(readyLayer(form), deskFocused(form, "button:confirm")),
+      both(deskLayerReady(form), deskFocused(form, "button:confirm")),
       { keys: ["enter"] },
     ),
   ];
@@ -261,62 +272,6 @@ realPtyTest({
 });
 
 realPtyTest({
-  name: "Desk PTY: an incomplete setup reads its recovery steps from the menu",
-  contracts: [
-    "terminal-modes",
-    "control-rendering",
-    "process-lifecycle",
-    "platform-transport",
-  ],
-  canary: true,
-  ignore: PTY_UNAVAILABLE,
-  fn: async () => {
-    const size = { columns: 100, rows: 42 };
-    const fixture = deskFleetFixture([
-      deskFleetEntry("recovery-task-a1b2c3", { setup: "incomplete" }),
-    ]);
-    await withDeskTtyProject(fixture, async (project) => {
-      const result = await runDeskTty(project, {
-        geometry: size,
-        colorMode: "no-color-env",
-        input: [
-          phase(size, undefined, "the task at rest", deskAtRest(), {
-            input: ".",
-          }),
-          phase(
-            size,
-            undefined,
-            "its actions",
-            deskLayerOpen("actions"),
-            { input: "/Recovery" },
-          ),
-          phase(
-            size,
-            undefined,
-            "the filtered menu",
-            both(deskLayerOpen("actions"), showing("Recovery steps")),
-            { keys: ["enter"] },
-          ),
-          phase(
-            size,
-            "recovery-detail",
-            "the recovery reader",
-            deskLayerOpen("reader-recovery"),
-            { keys: ["escape"], allowLoneEscape: true },
-          ),
-          phase(size, undefined, "back at rest", deskAtRest(), {
-            input: "q",
-          }),
-        ],
-        timeoutMs: 60_000,
-      });
-      assertHealthySession(result);
-      assertStringIncludes(frame(result, "recovery-detail").text, "Recovery");
-    });
-  },
-});
-
-realPtyTest({
   name: "Desk PTY: New task records its title, brief, base, and identity",
   contracts: [
     "terminal-modes",
@@ -351,19 +306,14 @@ realPtyTest({
             both(deskFocused(form, "field:title"), showing(title)),
             { keys: ["tab"] },
           ),
+          // Enter opens More options and Tab moves into it; the package
+          // applies each key before decoding the next.
           phase(
             size,
             undefined,
             "More options",
             deskFocused(form, "group:options"),
-            { keys: ["enter"] },
-          ),
-          phase(
-            size,
-            undefined,
-            "More options open",
-            both(deskFocused(form, "group:options"), showing("Brief")),
-            { keys: ["tab"] },
+            { keys: ["enter", "tab"] },
           ),
           ...tabThrough(size, form, "field:base"),
           phase(
@@ -381,13 +331,10 @@ realPtyTest({
             { keys: ["shift-tab", "shift-tab", "shift-tab", "shift-tab"] },
           ),
           ...submitForm(size, form),
-          phase(
-            size,
-            "created",
-            "the created task at rest",
-            both(deskAtRest(), showing("Complete task ingress")),
-            { input: "q" },
-          ),
+          // The fleet was empty, so the one row selected is the new task.
+          phase(size, "created", "the created task at rest", deskAtRest(), {
+            input: "q",
+          }),
         ],
         env: { LANG: "en_GB.UTF-8", LC_ALL: "en_GB.UTF-8" },
       });
@@ -401,88 +348,6 @@ realPtyTest({
       assertEquals(created.task?.id, created.id);
       assertEquals(created.task?.branch, created.branch);
     });
-  },
-});
-
-realPtyTest({
-  name: "Desk PTY: Rename changes the title without changing identity",
-  contracts: [
-    "terminal-modes",
-    "control-rendering",
-    "process-lifecycle",
-    "platform-transport",
-  ],
-  canary: true,
-  ignore: PTY_UNAVAILABLE,
-  fn: async () => {
-    const wide = { columns: 100, rows: 50 };
-    const narrow = { columns: 80, rows: 24 };
-    const form = "form-rename-review";
-    const id = "rename-journey-a1b2c3";
-    const originalTitle = "Rename journey";
-    const title = "Renamed task: Unicode 修复";
-    await withDeskTtyProject(
-      deskFleetFixture([deskFleetEntry(id, { aheadCommits: 1 })]),
-      async (project) => {
-        const result = await runDeskTty(project, {
-          geometry: wide,
-          colorMode: "no-color-env",
-          input: [
-            phase(wide, undefined, "the task at rest", deskAtRest(), {
-              input: "e",
-            }),
-            phase(
-              wide,
-              undefined,
-              "the title field",
-              deskFocused(form, "field:title"),
-              { input: `${"\u007f".repeat(originalTitle.length)}${title}` },
-            ),
-            phase(
-              wide,
-              "edited-form",
-              "the edited title",
-              both(deskFocused(form, "field:title"), showing(title)),
-              { resize: narrow },
-            ),
-            // Enter in the field moves to the safe choice; Right reaches
-            // Rename once the typed title's preview reads.
-            phase(
-              narrow,
-              "resized-form",
-              "the edited title after resize",
-              both(deskFocused(form, "field:title"), showing(title)),
-              { keys: ["enter"] },
-            ),
-            phase(
-              narrow,
-              undefined,
-              "the form on its safe choice",
-              deskFocused(form, "button:safe"),
-              { keys: ["right"] },
-            ),
-            ...submitForm(narrow, form),
-            phase(
-              narrow,
-              undefined,
-              "the renamed task at rest",
-              both(deskAtRest(), showing("Renamed task")),
-              { input: "q" },
-            ),
-          ],
-          env: { LANG: "en_GB.UTF-8", LC_ALL: "en_GB.UTF-8" },
-        });
-        assertHealthySession(result);
-        assertEquals(frame(result, "edited-form").columns, 100);
-        assertEquals(frame(result, "resized-form").columns, 80);
-        assertStringIncludes(frame(result, "resized-form").text, title);
-        const renamed = await onlyTask(project.root);
-        assertEquals(renamed.id, id);
-        assertEquals(renamed.branch, `agent/${id}`);
-        assertEquals(renamed.task?.title, title);
-        assertEquals(renamed.task?.title_source, "recorded");
-      },
-    );
   },
 });
 
@@ -532,7 +397,7 @@ realPtyTest({
             size,
             "pager-return",
             "the reader after the pager",
-            both(deskLayerOpen("reader-changes"), showing("Back from")),
+            both(deskLayerOpen("reader-changes"), deskMessage("Back from")),
             { keys: ["escape"], allowLoneEscape: true },
           ),
           phase(size, undefined, "back at rest", deskAtRest(), {
@@ -551,7 +416,7 @@ realPtyTest({
 
 realPtyTest({
   name:
-    "Desk PTY: Escape closes and never quits, and Ctrl-C quits from anywhere",
+    "Desk PTY: a lone Escape closes and never quits, and Ctrl-C quits from a layer",
   contracts: [
     "line-discipline",
     "signal-delivery",
@@ -562,48 +427,39 @@ realPtyTest({
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
     const size = { columns: 86, rows: 28 };
+    const task = "cancellation-task-c0ffee";
     const fixture = deskFleetFixture([
-      deskFleetEntry("cancellation-task-c0ffee", { aheadCommits: 1 }),
+      deskFleetEntry(task, { aheadCommits: 1 }),
     ]);
     await withDeskTtyProject(fixture, async (project) => {
-      const root = await runDeskTty(project, {
+      const result = await runDeskTty(project, {
         geometry: size,
         colorMode: "no-color-env",
         input: [
-          // The first key dismisses the session's tip; Escape closes that
-          // first, as it closes anything open, and only then answers.
+          // A lone Escape at rest closes the tip, then answers; neither
+          // quits. Each waits for the last to land, so the next byte can't
+          // join it as an Alt chord.
           phase(
             size,
             "escape-at-root",
             "the task at rest with its tip",
-            both(deskAtRest(), showing("Tip")),
+            both(deskAtRest(task), deskMessage("Tip")),
             { keys: ["escape"], allowLoneEscape: true },
           ),
           phase(
             size,
             undefined,
             "the tip dismissed",
-            both(deskAtRest(), (capture) => !capture.text.includes("Tip")),
+            both(deskAtRest(task), (capture) => !deskMessage("Tip")(capture)),
             { keys: ["escape"], allowLoneEscape: true },
           ),
           phase(
             size,
-            "escape-answered",
-            "the quit hint",
-            both(deskAtRest(), showing("q quits")),
-            { keys: ["ctrl-c"] },
+            undefined,
+            "the Escape answered",
+            both(deskAtRest(task), deskMessage("q quits")),
+            { input: "." },
           ),
-        ],
-      });
-      assertHealthySession(root);
-
-      const layer = await runDeskTty(project, {
-        geometry: size,
-        colorMode: "no-color-env",
-        input: [
-          phase(size, undefined, "the task at rest", deskAtRest(), {
-            input: ".",
-          }),
           phase(
             size,
             "escape-at-actions",
@@ -615,7 +471,7 @@ realPtyTest({
             size,
             "escape-returned",
             "back at rest",
-            both(deskAtRest(), showing("Cancellation task")),
+            deskAtRest(task),
             { input: "." },
           ),
           phase(
@@ -627,7 +483,7 @@ realPtyTest({
           ),
         ],
       });
-      assertHealthySession(layer);
+      assertHealthySession(result);
     });
   },
 });
@@ -706,7 +562,11 @@ realPtyTest({
               wide,
               "wide",
               "its actions, wide",
-              both(deskLayerOpen("actions"), showing("Responsive task")),
+              both(
+                deskLayerOpen("actions"),
+                (capture) =>
+                  capture.state?.selectedItemId === "responsive-task-a1b2c3",
+              ),
               { keys: ["ctrl-c"] },
             ),
           ],
@@ -714,7 +574,6 @@ realPtyTest({
         assertHealthySession(result);
         assertEquals(frame(result, "narrow").columns, 60);
         assertEquals(frame(result, "wide").columns, 120);
-        assertStringIncludes(frame(result, "wide").text, "Responsive task");
         assertEquals(result.terminal.resizes, [wide]);
       },
     );
@@ -846,120 +705,4 @@ Deno.test("Desk PTY recipes separate resize from keyboard input before launching
     waitFor: "View",
     chunks: [{ ...resize, input: "" }],
   });
-});
-
-/** The manual's open document, scrolled down or at its start. */
-function manualReading(scrolled: boolean): DeskFrameTest {
-  return (capture) =>
-    capture.state?.topLayerId === undefined &&
-    String(capture.state?.focusedControlId).startsWith("document:") &&
-    /↑ \d+ more/u.test(capture.text) === scrolled;
-}
-
-realPtyTest({
-  name:
-    "Desk PTY: the manual opens in place of the inbox, keeps its scroll through resize, and returns to the same selection",
-  contracts: [
-    "resize-delivery",
-    "control-rendering",
-    "terminal-modes",
-    "line-discipline",
-  ],
-  canary: true,
-  ignore: PTY_UNAVAILABLE,
-  fn: async () => {
-    const size = { columns: 80, rows: 24 };
-    const narrow = { columns: 40, rows: 24 };
-    const second = "beta-task-d4e5f6";
-    await withDeskTtyProject(
-      deskFleetFixture([
-        deskFleetEntry("alpha-task-a1b2c3", { aheadCommits: 1 }),
-        deskFleetEntry(second, { aheadCommits: 1 }),
-      ]),
-      async (project) => {
-        const result = await runDeskTty(project, {
-          geometry: size,
-          colorMode: "no-color-env",
-          input: [
-            phase(
-              size,
-              undefined,
-              "the inbox",
-              deskAtRest("alpha-task-a1b2c3"),
-              {
-                keys: ["down"],
-              },
-            ),
-            phase(size, undefined, "the second task", deskAtRest(second), {
-              keys: ["ctrl-k"],
-            }),
-            phase(
-              size,
-              undefined,
-              "the palette",
-              deskLayerOpen("palette"),
-              { input: "Read the manual" },
-            ),
-            phase(
-              size,
-              undefined,
-              "the manual found",
-              both(deskLayerOpen("palette"), showing("Read the manual")),
-              { keys: ["enter"] },
-            ),
-            phase(
-              size,
-              undefined,
-              "the manual's contents",
-              (capture) =>
-                capture.state?.listId === "contents" &&
-                capture.state.focusedControlId === "contents",
-              { input: "/" },
-            ),
-            phase(
-              size,
-              undefined,
-              "the manual's search",
-              deskLayerOpen("search"),
-              { input: "Delegate substantial work" },
-            ),
-            phase(
-              size,
-              undefined,
-              "the guide found",
-              both(deskLayerOpen("search"), showing("delegate-work.md")),
-              { keys: ["enter"] },
-            ),
-            phase(size, undefined, "the guide open", manualReading(false), {
-              keys: ["page-down"],
-            }),
-            phase(
-              size,
-              "scrolled-document",
-              "the guide scrolled",
-              manualReading(true),
-              { resize: narrow },
-            ),
-            phase(
-              narrow,
-              "resized-document",
-              "the guide resized",
-              manualReading(true),
-              { input: "q" },
-            ),
-            phase(
-              narrow,
-              "manual-return",
-              "back at the inbox",
-              deskAtRest(second),
-              { input: "q" },
-            ),
-          ],
-        });
-        assertHealthySession(result);
-        assertEquals(frame(result, "resized-document").columns, 40);
-        assertEquals(result.terminal.resizes, [narrow]);
-      },
-    );
-  },
 });

@@ -71,6 +71,14 @@ export function briefFleet(): DeskFleetFixture {
       action: deskFailedAction("done", {
         failedStage: "test",
         finishedAgoMs: 2 * HOUR,
+        failures: [{
+          producer: "test",
+          name: "refreshes an expired session",
+          message: "expected 200, received 401",
+          file: "tests/auth/session_test.ts",
+          line: 48,
+          partial: false,
+        }],
       }),
     }),
     deskFleetEntry("docs-glossary-e5f6a7", {

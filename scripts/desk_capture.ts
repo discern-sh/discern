@@ -3,8 +3,10 @@
  * brief's sandbox fleet and projected by the package.
  *
  * Every phase waits for a settled package frame whose state report names the
- * screen (the selected row, the open layer, zoom), never for prose, so the
- * journeys survive copy changes. The gallery is for visual judgment against
+ * screen (the selected row, the open layer, the focused control, zoom), so
+ * the journeys survive copy changes. Words are read only for what the report
+ * cannot say yet (a loading review or detail, a message, the header's
+ * liveness; request R-9) and for data a journey typed or a fixture holds. The gallery is for visual judgment against
  * the mockups, not for screenshot comparison tests.
  */
 import { assert, assertEquals } from "@std/assert";
@@ -14,15 +16,22 @@ import { captureTerminalFrame } from "discern-design-system/cli/interactive/test
 import { withRealPtyBoundary } from "../tests/real_pty.ts";
 import {
   deskAtRest as atRest,
+  deskEmpty,
+  deskFailedAction,
   type DeskFleetFixture,
   deskFleetFixture,
+  deskFocused,
   type DeskFrameTest,
   deskLandingAuthority,
   deskLayerOpen as layer,
+  deskLayerReady,
+  deskMessage,
   deskSettledPhase,
   type DeskTtyInputChunk,
   type DeskTtyInputPhase,
   type DeskTtyProject,
+  deskZoomed,
+  recordDeskAction,
   runDeskTty,
   withDeskTtyProject,
 } from "../tests/fixtures/desk_tty_harness.ts";
@@ -32,6 +41,12 @@ import { parseToolArguments } from "./tool_arguments.ts";
 import { briefFleet } from "./desk_sandbox.ts";
 import { deskSession } from "../tests/fixtures/desk_session.ts";
 import { git } from "../tests/engine_helpers.ts";
+import { directoryExists } from "../src/shared/fs_presence.ts";
+import { DESK_COMMAND_LABELS } from "../src/shared/desk_vocabulary.ts";
+import {
+  freshDeskPreferences,
+  writeDeskPreferences,
+} from "../src/engine/desk/preferences.ts";
 
 /** Where the gallery writes, and the Deno config every captured Desk runs under. */
 export interface DeskGalleryTarget {
@@ -88,6 +103,43 @@ interface JourneyOptions {
   readonly env?: Readonly<Record<string, string>>;
 }
 
+/** Where the brief's fleet finds its agents, beside the project. */
+const GALLERY_AGENT_BIN = "agent-bin";
+const SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
+
+/**
+ * Put Claude Code and Codex on the fleet's PATH, as the brief's owner has
+ * them, with Claude Code remembered as the agent they last opened. Opening
+ * Claude Code stands in for an agent's session: it changes two files in its
+ * checkout and exits.
+ */
+async function installGalleryAgents(project: DeskTtyProject): Promise<void> {
+  const remembered = await writeDeskPreferences(project.root, {
+    ...freshDeskPreferences(),
+    last_agent: "claude_code",
+  });
+  assertEquals(remembered.status, "saved");
+  const bin = join(project.parent, GALLERY_AGENT_BIN);
+  await Deno.mkdir(bin, { recursive: true });
+  const agents = {
+    claude: "touch return-1.txt return-2.txt",
+    codex: "exit 0",
+  };
+  for (const [agent, body] of Object.entries(agents)) {
+    await Deno.writeTextFile(join(bin, agent), `#!/bin/sh\n${body}\n`, {
+      mode: 0o755,
+    });
+  }
+}
+
+/** The PATH that finds a project's gallery agents, when it has them. */
+async function galleryAgentPath(
+  project: DeskTtyProject,
+): Promise<Readonly<Record<string, string>>> {
+  const bin = join(project.parent, GALLERY_AGENT_BIN);
+  return await directoryExists(bin) ? { PATH: `${bin}:${SYSTEM_PATH}` } : {};
+}
+
 /** Capture one journey and keep per-viewport evidence, never stitched scrollback. */
 async function capture(
   project: DeskTtyProject,
@@ -108,6 +160,7 @@ async function capture(
       SHELL: "/bin/sh",
       LANG: plain ? "C" : "en_US.UTF-8",
       LC_ALL: plain ? "C" : "en_US.UTF-8",
+      ...await galleryAgentPath(project),
       ...options.env,
     },
   });
@@ -173,10 +226,7 @@ const RUNNING = "fix-flaky-upload-c3d4e5";
 const QUEUED = "search-index-a7b8c9";
 
 /** A review sheet that has read its subject. */
-function reviewRead(id: string): DeskFrameTest {
-  return (capture) =>
-    layer(id)(capture) && !capture.text.includes("Checking current state");
-}
+const reviewRead = deskLayerReady;
 
 const LAND = "review-accept-review";
 const DROP = "review-drop-review";
@@ -188,7 +238,15 @@ const DROP = "review-drop-review";
 function wideJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
     phase(size, "overview", "inbox at rest", atRest(MANUAL), keys("right")),
-    phase(size, "actions", "action menu", layer("actions"), keys("escape")),
+    // An unavailable action's key unfolds Unavailable and says why.
+    phase(size, undefined, "action menu", layer("actions"), text("u")),
+    phase(
+      size,
+      "actions",
+      "an unavailable action's reason",
+      deskFocused("actions", "unavailable:update"),
+      keys("escape"),
+    ),
     phase(size, undefined, "menu closed", atRest(MANUAL), text("2")),
     phase(size, undefined, "needs attention", atRest(AUTH), keys("down")),
     phase(size, undefined, "the stale task", atRest(STALE), text("l")),
@@ -226,8 +284,8 @@ function sheetsJourney(size: PtyGeometry): DeskTtyInputPhase[] {
       undefined,
       "the new task's title",
       (capture) =>
-        capture.state?.focusedControlId === `${form}:field:title` &&
-        !capture.text.includes("Checking current state"),
+        deskLayerReady(form)(capture) &&
+        capture.state?.focusedControlId === `${form}:field:title`,
       text("Tighten upload retries"),
     ),
     phase(
@@ -235,9 +293,9 @@ function sheetsJourney(size: PtyGeometry): DeskTtyInputPhase[] {
       "new-task",
       "the new task's preview",
       (capture) =>
-        layer(form)(capture) &&
+        deskLayerReady(form)(capture) &&
         capture.text.includes("Tighten upload retries") &&
-        capture.text.includes("Create branch"),
+        capture.text.includes("tighten-upload-retries"),
       { keys: ["escape"], allowLoneEscape: true },
     ),
     phase(size, undefined, "form closed", atRest(MANUAL), text("2")),
@@ -306,14 +364,15 @@ function manualJourney(size: PtyGeometry): DeskTtyInputPhase[] {
       undefined,
       "palette",
       layer("palette"),
-      text("Read the manual"),
+      text(DESK_COMMAND_LABELS.manual),
     ),
     phase(
       size,
       undefined,
       "the manual found",
       (capture) =>
-        layer("palette")(capture) && capture.text.includes("Read the manual"),
+        layer("palette")(capture) &&
+        capture.text.includes(DESK_COMMAND_LABELS.manual),
       keys("enter"),
     ),
     phase(
@@ -425,21 +484,33 @@ async function landingFailedJourney(
       inDeskSession: () => false,
       findRoot: () => project.root,
       mainRepoPath: () => project.root,
-      accept: () => ({
-        ok: false,
-        verb: "accept",
-        error: "precondition_failed",
-        message: "Combining it with main stopped: 2 files conflict",
-        diagnostics: ["src/session/store.ts", "site/_includes/home.njk"].map((
-          file,
-        ) => ({
-          tool: "integration",
-          severity: "error" as const,
-          message: `${file} conflicts`,
-          reproduce_cmd: "git merge main",
-          file,
-        })),
-      }),
+      // The refusal leaves the failed landing's trace, as acceptance does,
+      // so the next survey reads the task as Didn't land.
+      accept: async () => {
+        await recordDeskAction(
+          project,
+          STALE,
+          deskFailedAction("accept", {
+            failedStage: "merge",
+            finishedAgoMs: 0,
+          }),
+        );
+        return {
+          ok: false,
+          verb: "accept",
+          error: "precondition_failed",
+          message: "Combining it with main stopped: 2 files conflict",
+          diagnostics: ["src/session/store.ts", "site/_includes/home.njk"].map((
+            file,
+          ) => ({
+            tool: "integration",
+            severity: "error" as const,
+            message: `${file} conflicts`,
+            reproduce_cmd: "git merge main",
+            file,
+          })),
+        };
+      },
     },
   });
   try {
@@ -454,6 +525,9 @@ async function landingFailedJourney(
     ) await desk.press("page-down");
     await desk.confirm();
     await desk.opened("result");
+    // The survey after the refusal reads the task as Didn't land, and the
+    // sheet's alternatives become its next steps from there.
+    await desk.shows("Didn't land");
     return [
       await writeFrame(
         target,
@@ -481,13 +555,6 @@ async function agentJourney(
   assert(worktree !== undefined, `the fleet has no ${AUTH}`);
   const config = join(worktree, "discern.toml");
   const saved = await Deno.readTextFile(config);
-  const bin = join(project.parent, "agent-bin");
-  await Deno.mkdir(bin, { recursive: true });
-  for (const agent of ["claude", "codex"]) {
-    await Deno.writeTextFile(join(bin, agent), "#!/bin/sh\nexit 0\n", {
-      mode: 0o755,
-    });
-  }
   const skip = (flag: string): Promise<void> =>
     git(worktree, "update-index", flag, "discern.toml");
   await skip("--skip-worktree");
@@ -507,7 +574,7 @@ async function agentJourney(
         allowLoneEscape: true,
       }),
       phase(STANDARD, undefined, "picker closed", atRest(AUTH), text("q")),
-    ], { env: { PATH: `${bin}:/usr/bin:/bin:/usr/sbin:/sbin` } });
+    ]);
   } finally {
     await Deno.writeTextFile(config, saved);
     await skip("--no-skip-worktree");
@@ -522,8 +589,7 @@ function standardJourney(size: PtyGeometry): DeskTtyInputPhase[] {
       size,
       "zoom",
       "details zoomed",
-      (capture) =>
-        capture.state?.zoomed === true && !capture.text.includes("Reading"),
+      deskZoomed(),
       text(" "),
     ),
     phase(size, undefined, "zoom closed", atRest(MANUAL), text("2")),
@@ -597,22 +663,19 @@ function offlineJourney(
   ];
 }
 
-/** A shell opened from a task returns with what it changed. */
+/** An agent opened from a task returns with what it changed. */
 function returnJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
     phase(size, undefined, "inbox at rest", atRest(MANUAL), text("3")),
-    phase(size, undefined, "editing task", atRest(GLOSSARY), text("s")),
-    {
-      waitFor: "Exit the shell to come back here.",
-      chunks: [text("touch return-1.txt return-2.txt; exit\r")],
-    },
+    phase(size, undefined, "editing task", atRest(GLOSSARY), text("a")),
+    phase(size, undefined, "the agent picker", layer("agents"), keys("enter")),
     phase(
       size,
       "return",
-      "back from the shell",
+      "back from the agent",
       (capture) =>
         capture.state?.selectedItemId === GLOSSARY &&
-        capture.text.includes("more files changed"),
+        deskMessage("more files changed")(capture),
       text("q"),
     ),
   ];
@@ -696,8 +759,6 @@ const FLEET_JOURNEYS: Readonly<Record<string, Journey>> = {
     ...await capture(project, target, STANDARD, manualJourney(STANDARD)),
     ...await capture(project, target, WIDE, manualJourney(WIDE)),
   ],
-  // Its scripted refusal leaves the fleet as it found it.
-  "landing-failed": landingFailedJourney,
   standard: (project, target) =>
     capture(project, target, STANDARD, standardJourney(STANDARD)),
   sizes,
@@ -705,9 +766,12 @@ const FLEET_JOURNEYS: Readonly<Record<string, Journey>> = {
     capture(project, target, STANDARD, offlineJourney(STANDARD, project)),
   return: (project, target) =>
     capture(project, target, STANDARD, returnJourney(STANDARD)),
-  // Opening Parked is remembered for later sessions, so it runs last.
+  // Opening Parked is remembered for later sessions, so it runs late.
   parked: (project, target) =>
     capture(project, target, WIDE, parkedJourney(WIDE), { light: true }),
+  // Its refusal leaves the stale task's failed landing in the logbook, so
+  // the task reads Didn't land from then on: it runs last.
+  "landing-failed": landingFailedJourney,
 };
 
 /**
@@ -873,9 +937,7 @@ async function emptyJourney(target: DeskGalleryTarget): Promise<string[]> {
           STANDARD,
           "empty",
           "no tasks yet",
-          (capture) =>
-            capture.text.includes("No tasks yet") &&
-            capture.state?.focusedControlId === "primary",
+          deskEmpty(),
           text("q"),
         ),
       ]),
@@ -903,6 +965,7 @@ async function main(): Promise<void> {
     const fleet = Object.entries(FLEET_JOURNEYS).filter(([name]) => runs(name));
     if (fleet.length > 0) {
       await withDeskTtyProject(briefFleet(), async (project) => {
+        await installGalleryAgents(project);
         for (const [, journey] of fleet) {
           artifacts.push(...await journey(project, target));
         }

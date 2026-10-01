@@ -10,12 +10,13 @@ import { SYSTEM_CLOCK } from "../../src/shared/clock.ts";
 import { DISCERN_VERSION } from "../../src/lib/version.ts";
 import { writeExecutable } from "../engine_helpers.ts";
 import {
+  deskEmpty,
   deskFleetFixture,
   deskFocused,
   type DeskFrameTest,
   deskLayerOpen,
+  deskLayerReady,
   deskSettledPhase as phase,
-  deskShowing,
   type DeskTtyInputPhase,
   type DeskTtyRunResult,
   runDeskTty,
@@ -60,19 +61,19 @@ export async function releaseDeskJourney(
     );
     const resized = resize ? { columns: 40, rows: 20 } : geometry;
     const review = "review-updates-review";
-    const empty = deskShowing("No tasks yet");
+    const empty = deskEmpty();
     const palette = deskLayerOpen("palette");
     // Ready markers come from the settled application's state, never elapsed
     // sleep. Below 40 columns the palette row truncates, so only its start is
     // asserted.
     const due = geometry.columns < 40 ? "check" : "check due";
     // The release information reader, once the page has been handed over:
-    // its loading line gives way to what the browser did.
+    // its loading line gives way to what the browser did. TODO(R-9): the
+    // state report doesn't say a reader's content is pending, so this reads
+    // the loading line's words.
     const result = both(
       deskLayerOpen("reader-opened"),
-      (capture) =>
-        capture.text.includes("Release information") &&
-        !capture.text.includes("Opening the release page"),
+      (capture) => !capture.text.includes("Opening the release page"),
     );
     const leave = { keys: ["escape" as const], allowLoneEscape: true };
     const input: DeskTtyInputPhase[] = [
@@ -95,10 +96,7 @@ export async function releaseDeskJourney(
         geometry,
         "confirm",
         "the disclosure on Cancel",
-        both(
-          (capture) => !capture.text.includes("Checking current state"),
-          deskFocused(review, "button:safe"),
-        ),
+        both(deskLayerReady(review), deskFocused(review, "button:safe")),
         { keys: ["page-down", "page-down", "page-down", "page-down", "tab"] },
       ),
       phase(
