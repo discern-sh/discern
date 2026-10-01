@@ -74,9 +74,9 @@ import {
   gitOut,
   gitWithInput,
   repoSourceRunArgs,
-  runAgent,
   scaffoldEngine,
 } from "../engine_helpers.ts";
+import { refreshResult } from "../../src/engine/instructions.ts";
 import { Logger } from "../../src/lib/log.ts";
 import { TomlEditor } from "../../src/lib/toml_edit.ts";
 import { writeDiscernToml } from "../../src/lib/tidy_format.ts";
@@ -640,11 +640,19 @@ async function materialiseDeskProject(
   };
 }
 
-/** Refresh the agent files and commit them, as a set-up project has them. */
+/**
+ * Refresh the agent files and commit them, as a set-up project has them.
+ * The refresh runs in this process, like the fixture's other cores, so a
+ * linked design-system loop needs no child under a second Deno config.
+ */
 async function commitAgentFiles(root: string): Promise<void> {
-  const refreshed = await runAgent(root, ["refresh", "--json"]);
-  if (refreshed.code !== 0) {
-    throw new Error(`could not refresh Desk fixture agent files:\n${refreshed.output}`);
+  const refreshed = await refreshResult(root);
+  if (!refreshed.ok) {
+    throw new Error(
+      `could not refresh Desk fixture agent files: ${
+        refreshed.message ?? refreshed.error
+      }`,
+    );
   }
   await commitFixture(root, "Commit the agent files");
 }
