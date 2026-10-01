@@ -3707,7 +3707,6 @@ export const ProgressStepSchema = z.object({
   /** Whose plan it belongs to, when the operation ran more than its own. */
   subject: z.string().optional(),
 });
-export type ProgressStep = z.infer<typeof ProgressStepSchema>;
 
 /** One named timing boundary; each category is its own recorded fact. */
 export const ProgressTimingSchema = z.object({
