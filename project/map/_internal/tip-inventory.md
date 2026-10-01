@@ -20,7 +20,7 @@ The guard omits a reading-grade ceiling because command names and placeholders d
 
 Rendered line:
 
-> Select a task to see its state and next step. Press / to find work, and Escape to return to the task list.
+> Tasks are grouped by what they need next: Enter runs the selected task's next step, . lists its actions, and Ctrl+K finds any command.
 
 ## `status-orients-anywhere`
 

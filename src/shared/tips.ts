@@ -213,8 +213,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      "Select a task to see its state and next step. Press / to find work, " +
-      "and Escape to return to the task list.",
+      "Tasks are grouped by what they need next: Enter runs the selected " +
+      "task's next step, . lists its actions, and Ctrl+K finds any command.",
   }),
 
   defineTip({
