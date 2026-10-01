@@ -19,19 +19,30 @@ export function readFailureFact(value: unknown): string | undefined {
   } unreadable: ${code(reason)}.`;
 }
 
-/** One fleet row's Git state, divergence, Proof status, and any failed read
- * as a single line. */
+/** The row's state and its group, when status named them. */
+function rowStateFact(entry: Record<string, unknown>): string {
+  const state = text(entry.state);
+  if (state === undefined) return "";
+  const group = text(entry.group);
+  return ` state ${code(state)}${
+    group === undefined ? "" : ` in ${code(group)}`
+  };`;
+}
+
+/** One fleet row's state, Git state, divergence, Proof status, and any
+ * failed read as a single line. */
 export function statusFleetRowFact(entry: Record<string, unknown>): string {
   const rowBranch = text(entry.branch) ?? "unknown branch";
   const unreadable = readFailureFact(entry.read_failure);
   const suffix = unreadable === undefined ? "" : ` ${unreadable}`;
+  const subject = `${code(rowBranch)}:${rowStateFact(entry)}`;
   if (boolean(entry.git_unavailable) === true) {
-    return `${code(rowBranch)}: Git state unavailable.${suffix}`;
+    return `${subject} Git state unavailable.${suffix}`;
   }
   const rowProof = object(entry.gate_proof);
-  return `${code(rowBranch)}: ${
-    boolean(entry.clean) === true ? "clean" : "dirty"
-  }, ${number(entry.ahead) ?? "unknown"} ahead, ${
-    number(entry.behind) ?? "unknown"
-  } behind, Proof ${code(text(rowProof?.status) ?? "unknown")}.${suffix}`;
+  return `${subject} ${boolean(entry.clean) === true ? "clean" : "dirty"}, ${
+    number(entry.ahead) ?? "unknown"
+  } ahead, ${number(entry.behind) ?? "unknown"} behind, Proof ${
+    code(text(rowProof?.status) ?? "unknown")
+  }.${suffix}`;
 }

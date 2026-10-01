@@ -29,7 +29,7 @@ import {
   type DeskDecision,
   taskLabel,
 } from "../src/engine/desk/model.ts";
-import { presentFleetRow } from "../src/engine/status/tty.ts";
+import { presentFleetRow } from "../src/engine/status/fleet_rows.ts";
 import {
   FLEET_ROW_STATUS_KINDS,
   type FleetRowStatusKind,

@@ -18,7 +18,7 @@ Run it from any discern checkout in an interactive terminal:
 discern enter
 ```
 
-The menu derives its facts from `discern status --all`. It shows the main checkout and every registered worktree with its branch, Git state, [Proof](../20-quality-gate/the-proof.md) state, recent activity, and path. The menu keeps the current checkout visible but does not let you select it. Unavailable checkouts, unlanded branches without a checkout, and [reclaimed stage branches](reclaiming-contained-worktrees.md) also stay visible as non-selectable context.
+The menu derives its facts from `discern status --all` and shows them the way the status dashboard does: the current checkout, the main checkout, then each task under its decision group (Ready for review, Needs attention, Working, Approved to land, Idle) in title order. Each task line carries its branch, its state label and qualifier from [status's row-state table](status.md#row-states), its Git state, and its path. A landing's integration copy shows as its task's Landing, Exception or Interrupted state rather than as a row of its own. The menu keeps the current checkout visible but does not let you select it. Unavailable checkouts, parked branches without a checkout, and [reclaimed stage branches](reclaiming-contained-worktrees.md) also stay visible as non-selectable context.
 
 Selecting a worktree starts `$SHELL` as a child process. If the command starts in `src/engine`, the child shell starts in `src/engine` under the selected worktree. When that exact directory does not exist on the selected branch, discern warns and uses the nearest existing ancestor, stopping at the selected worktree's root.
 
@@ -39,6 +39,6 @@ There is no Model Context Protocol (MCP) tool for `worktrees`: an agent can read
 | ------------------------------- | --------------------------------------------------------------------- |
 | Picker, cwd mapping, and launch | [`shell_picker.ts`](../../../src/engine/worktree/shell_picker.ts)     |
 | Fleet facts                     | [`status.ts`](../../../src/engine/status/status.ts)                   |
-| Shared row wording              | [`model.ts`](../../../src/engine/desk/model.ts)                       |
+| Shared row states and wording   | [`row_states.ts`](../../../src/engine/status/row_states.ts)           |
 | Shared shell resolution         | [`user_shell.ts`](../../../src/engine/user_shell.ts)                  |
 | Behavioral and terminal tests   | [`engine_worktrees_test.ts`](../../../tests/engine_worktrees_test.ts) |

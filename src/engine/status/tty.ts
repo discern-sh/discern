@@ -1,10 +1,11 @@
 /**
  * Static human dashboard for `discern status`.
  *
- * The result core owns every observed fact. This module owns only their pure
- * presentation: row classification, importance ordering, responsive layout,
- * semantic color, and wrapped prose. Width, color, and time are injected so a
- * test can exercise every layout without a terminal or filesystem.
+ * The result core owns every observed fact, and `row_states.ts` owns every
+ * row's state, label, glyph, group, and sentences. This module owns only their
+ * pure presentation: grouped ordering, responsive layout, semantic color, and
+ * wrapped prose. Width, color, and time are injected so a test can exercise
+ * every layout without a terminal or filesystem.
  */
 
 import { landedExceptionSentence } from "./landed_exception.ts";
@@ -31,7 +32,6 @@ import {
 import type {
   GateProofCheckStatus,
   StatusData,
-  StatusFleetCollision,
   StatusFleetEntry,
 } from "../../shared/result_schemas.ts";
 import {
@@ -45,135 +45,29 @@ import { landingQueueLines } from "./queue_presentation.ts";
 import { isScopeMarker } from "../scopes/scopes.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import {
-  type GitCount,
   isPositiveGitCount,
   UNKNOWN_GIT_COUNT,
 } from "../../shared/git_count.ts";
-import {
-  degradedFleetAttention,
-  degradedFleetKind,
-} from "./recovery_presentation.ts";
+import { degradedFleetKind } from "./recovery_presentation.ts";
 import { renderSetupStatus } from "./setup_presentation.ts";
-import { classifyRowKind } from "./row_states.ts";
+import { FLEET_ROW_GROUP_TITLES } from "./row_states.ts";
+import type { FleetTaskRowStateId } from "./row_sentences.ts";
+import { relativeAge } from "./row_facts.ts";
 import {
-  fleetRowProof,
-  type FleetRowStatusKind,
-  hasLandableFacts,
-  idleDaysOf,
-  relativeAge,
-  STALE_WORKTREE_DAYS,
-} from "./row_facts.ts";
+  divergence,
+  fileCount,
+  type FleetRowPresentation,
+  presentFleetRow,
+  sortFleetRows,
+  speaksForAnotherRow,
+} from "./fleet_rows.ts";
+import {
+  FLEET_ROW_GROUPS,
+  type FleetRowGroup,
+} from "../../shared/fleet_row_vocabulary.ts";
 
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
-
-export type FleetRowTone = "red" | "cyan" | "yellow" | "green" | "dim";
-
-interface StatusMeta {
-  label: string;
-  glyph: string;
-  tone: FleetRowTone;
-  priority: number;
-}
-
-const STATUS_META = {
-  broken: { label: "Broken", glyph: "✗", tone: "red", priority: 0 },
-  "setup-incomplete": {
-    label: "Setup incomplete",
-    glyph: "!",
-    tone: "yellow",
-    priority: 0,
-  },
-  unreadable: { label: "Unreadable", glyph: "✗", tone: "red", priority: 0 },
-  failed: { label: "Failed", glyph: "✗", tone: "red", priority: 0 },
-  blocked: { label: "Blocked", glyph: "!", tone: "yellow", priority: 1 },
-  behind: { label: "Behind", glyph: "!", tone: "yellow", priority: 2 },
-  ready: { label: "Ready", glyph: "✓", tone: "green", priority: 3 },
-  running: { label: "Running", glyph: "●", tone: "cyan", priority: 4 },
-  stale: { label: "Stale", glyph: "!", tone: "yellow", priority: 5 },
-  "in-progress": {
-    label: "In progress",
-    glyph: "●",
-    tone: "cyan",
-    priority: 6,
-  },
-  "proof-unreadable": {
-    label: "Proof unreadable",
-    glyph: "✗",
-    tone: "red",
-    priority: 7,
-  },
-  "proof-unavailable": {
-    label: "Proof unavailable",
-    glyph: "!",
-    tone: "yellow",
-    priority: 8,
-  },
-  "proof-stale": {
-    label: "Proof stale",
-    glyph: "!",
-    tone: "yellow",
-    priority: 9,
-  },
-  "needs-gate": {
-    label: "Needs gate",
-    glyph: "!",
-    tone: "yellow",
-    priority: 10,
-  },
-  idle: { label: "Idle", glyph: "·", tone: "dim", priority: 11 },
-} as const satisfies Record<FleetRowStatusKind, StatusMeta>;
-
-interface RowIdentity {
-  primary: string;
-  /** Exact worktree id used as Fleet's persona identity. */
-  worktree: string;
-  secondary?: string;
-}
-
-interface ProofPresentation {
-  status: GateProofCheckStatus;
-  label: string;
-  tone: FleetRowTone;
-  detail?: string;
-}
-
-interface AuthorityPresentation {
-  label: "granted" | "needs approval" | "scope-limited";
-  tone: "green" | "yellow";
-  detail?: string;
-}
-
-interface RowCollision {
-  branch: string;
-  overlap: readonly string[];
-  total: number;
-}
-
-export interface FleetRowPresentation {
-  entry: StatusFleetEntry;
-  kind: FleetRowStatusKind;
-  label: string;
-  glyph: string;
-  tone: FleetRowTone;
-  priority: number;
-  identity: RowIdentity;
-  git: string;
-  gitTone: FleetRowTone;
-  proof: ProofPresentation;
-  activity: string;
-  /** Proof-backed landing readiness after the row's own state is classified. */
-  landingReady: boolean;
-  authority?: AuthorityPresentation;
-  collisions: readonly RowCollision[];
-  attention?: string;
-}
-
-export interface FleetRowPresentationOptions {
-  trunk: string;
-  nowMs: number;
-  collisions?: readonly StatusFleetCollision[];
-}
 
 export interface StatusDashboardOptions {
   terminal: TerminalContext;
@@ -182,319 +76,6 @@ export interface StatusDashboardOptions {
   nowMs: number;
   /** The result core's current-source landing and checkout explanation. */
   message?: string;
-}
-
-/** Human file-count phrase with a precise unit. */
-function fileCount(count: number): string {
-  return `${count} file${count === 1 ? "" : "s"} changed`;
-}
-
-/** The label and tone for each known proof-check status. The status is an
- * open vocabulary, so an unknown member from a newer writer shows as read. */
-const PROOF_STATUS_PRESENTATIONS: Readonly<
-  Record<GateProofCheckStatus, Omit<ProofPresentation, "status" | "detail">>
-> = {
-  honored: { label: "honored", tone: "green" },
-  report_only: { label: "report only", tone: "yellow" },
-  missing: { label: "missing", tone: "dim" },
-  stale: { label: "stale", tone: "yellow" },
-  dirty: { label: "dirty worktree", tone: "dim" },
-  unavailable: { label: "unavailable", tone: "yellow" },
-  read_failed: { label: "unreadable", tone: "red" },
-};
-
-/** Project the proof-check vocabulary into a labelled, toned fact. */
-function proofPresentation(entry: StatusFleetEntry): ProofPresentation {
-  const proof = fleetRowProof(entry);
-  const detail = proof.reason ?? (
-    proof.status === "stale" && proof.recorded !== undefined &&
-      proof.head !== undefined
-      ? `recorded at ${proof.recorded.slice(0, 12)}; HEAD is ${
-        proof.head.slice(0, 12)
-      }`
-      : undefined
-  );
-  const base = PROOF_STATUS_PRESENTATIONS[proof.status] ??
-    { label: proof.status, tone: "dim" };
-  return {
-    status: proof.status,
-    ...base,
-    ...(detail === undefined ? {} : { detail }),
-  };
-}
-
-/** Merge the ordinary id/branch pair while retaining a genuinely different id. */
-function rowIdentity(entry: StatusFleetEntry): RowIdentity {
-  const id = entry.id ?? basename(entry.path);
-  const primary = entry.branch === "" ? "(detached)" : entry.branch;
-  const equivalent = entry.branch !== "" &&
-    (entry.branch === id || entry.branch === `agent/${id}`);
-  return {
-    primary,
-    worktree: id,
-    ...(!equivalent && id !== "" ? { secondary: id } : {}),
-  };
-}
-
-/** Render nonzero ahead/behind dimensions as directional counts. */
-function divergence(
-  ahead: GitCount | undefined,
-  behind: GitCount | undefined,
-): string {
-  return [
-    ...(ahead === UNKNOWN_GIT_COUNT
-      ? ["↑?"]
-      : ahead !== undefined && isPositiveGitCount(ahead)
-      ? [`↑${ahead}`]
-      : []),
-    ...(behind === UNKNOWN_GIT_COUNT
-      ? ["↓?"]
-      : behind !== undefined && isPositiveGitCount(behind)
-      ? [`↓${behind}`]
-      : []),
-  ].join(" ");
-}
-
-/** Render Git state as one subordinate row fact. */
-function gitPresentation(entry: StatusFleetEntry): string {
-  if (entry.broken === true) return "unknown";
-  if (entry.git_unavailable === true) return "unreadable";
-  const state = entry.clean === true
-    ? "clean"
-    : entry.clean === false
-    ? fileCount(entry.changed_files ?? 0)
-    : "unknown";
-  const counts = divergence(entry.ahead, entry.behind);
-  return counts === "" ? state : `${state} · ${counts}`;
-}
-
-/** Semantic tone for the subordinate Git fact. */
-function gitTone(entry: StatusFleetEntry): FleetRowTone {
-  if (entry.broken === true || entry.git_unavailable === true) return "red";
-  if (
-    entry.clean === false || entry.behind === UNKNOWN_GIT_COUNT ||
-    (entry.behind !== undefined && isPositiveGitCount(entry.behind))
-  ) return "yellow";
-  return "dim";
-}
-
-/** Combine running, last-command, and winning-activity clocks. */
-function activityPresentation(entry: StatusFleetEntry, nowMs: number): string {
-  if (entry.running !== undefined) {
-    const typical = entry.running.typical_duration_ms === undefined
-      ? ""
-      : ` · usually ${compactDuration(entry.running.typical_duration_ms)}`;
-    return `just now${typical}`;
-  }
-  const activityAge = relativeAge(entry.last_activity, nowMs);
-  if (entry.last_action === undefined) {
-    return activityAge === "—" ? "no activity recorded" : activityAge;
-  }
-  const failedStage = entry.last_action.failed_stage === undefined
-    ? ""
-    : ` at ${entry.last_action.failed_stage}`;
-  const action =
-    `last action ${entry.last_action.verb} ${entry.last_action.outcome}${failedStage}`;
-  if (activityAge === "—") {
-    return `${action} · ${relativeAge(entry.last_action.at, nowMs)}`;
-  }
-  return `${activityAge} · ${action}`;
-}
-
-/** Select collision facts that affect one branch. */
-function rowCollisions(
-  entry: StatusFleetEntry,
-  collisions: readonly StatusFleetCollision[],
-): RowCollision[] {
-  if (entry.branch === "") return [];
-  return collisions.flatMap((collision) => {
-    const [left, right] = collision.branches;
-    if (entry.branch === left) {
-      return [{
-        branch: right,
-        overlap: collision.overlap,
-        total: collision.total,
-      }];
-    }
-    if (entry.branch === right) {
-      return [{
-        branch: left,
-        overlap: collision.overlap,
-        total: collision.total,
-      }];
-    }
-    return [];
-  });
-}
-
-/** Short landing-authority state plus optional wrapped detail. */
-function authorityPresentation(
-  entry: StatusFleetEntry,
-  ready: boolean,
-): AuthorityPresentation | undefined {
-  if (!ready) return undefined;
-  const authority = entry.landing_authority;
-  if (authority?.kind === "authorized") {
-    const detail = authority.source === "standing-grant"
-      ? `standing grant${
-        (authority.scopes?.length ?? 0) > 0
-          ? ` for ${authority.scopes?.join(", ")}`
-          : ""
-      }`
-      : authority.source === "effort-grant"
-      ? "effort grant"
-      : "conversation approval";
-    return { label: "granted", tone: "green", detail };
-  }
-  if (authority?.kind === "conversation-required") {
-    const standing = authority.standing_scopes?.length
-      ? `standing grant for ${authority.standing_scopes.join(", ")}`
-      : undefined;
-    const uncovered = authority.uncovered?.map((item) =>
-      `${item.path}${
-        item.scopes.length > 0 ? ` (${item.scopes.join(", ")})` : ""
-      }`
-    );
-    const warnings = authority.warnings ?? [];
-    const details = [
-      ...(standing === undefined ? [] : [standing]),
-      ...((uncovered?.length ?? 0) === 0
-        ? []
-        : [`approval needed for ${uncovered?.join(", ")}`]),
-      ...warnings,
-    ];
-    const scoped = standing !== undefined || (uncovered?.length ?? 0) > 0;
-    return {
-      label: scoped ? "scope-limited" : "needs approval",
-      tone: "yellow",
-      ...(details.length === 0 ? {} : { detail: details.join(" · ") }),
-    };
-  }
-  return { label: "needs approval", tone: "yellow" };
-}
-
-/** Derive the concrete action attached to one classified status. */
-function attentionFor(
-  kind: FleetRowStatusKind,
-  entry: StatusFleetEntry,
-  proof: ProofPresentation,
-  authority: AuthorityPresentation | undefined,
-  trunk: string,
-  nowMs: number,
-): string | undefined {
-  const degraded = degradedFleetAttention(kind, entry);
-  if (degraded !== undefined) return degraded;
-  switch (kind) {
-    case "failed": {
-      const action = entry.last_action;
-      const stage = action?.failed_stage === undefined
-        ? ""
-        : ` at ${action.failed_stage}`;
-      return `${action?.verb ?? "The last command"} ${
-        action?.outcome ?? "failed"
-      }${stage} ${
-        relativeAge(action?.at, nowMs)
-      }. Fix the failure before rerunning the final check.`;
-    }
-    case "blocked":
-      return `${entry.last_action?.verb ?? "The last command"} was refused ${
-        relativeAge(entry.last_action?.at, nowMs)
-      }. Read its refusal and complete the named prerequisite.`;
-    case "behind": {
-      const count = typeof entry.behind === "number" ? entry.behind : 0;
-      return `Run \`discern update\` in this worktree. Its branch is ${count} commit${
-        count === 1 ? "" : "s"
-      } behind ${trunk}.`;
-    }
-    case "ready":
-      return authority?.label === "granted"
-        ? undefined
-        : authority?.label === "scope-limited"
-        ? "The clean branch has a valid Proof. Its recorded grant does not cover every changed path."
-        : "The clean branch has a valid Proof and is ready for owner review; landing needs approval.";
-    case "running":
-      return undefined;
-    case "stale": {
-      const days = idleDaysOf(entry.last_activity, nowMs);
-      return `This worktree has unlanded work and no recorded activity for ${
-        days ?? STALE_WORKTREE_DAYS
-      } days. Resume it, Park its clean checkout, or review Drop before discarding work.`;
-    }
-    case "in-progress":
-      return undefined;
-    case "proof-unreadable":
-      return `The clean branch's Proof is unreadable${
-        proof.detail === undefined ? "" : `: ${proof.detail}`
-      }. Repair the Proof state or run \`discern done\` again.`;
-    case "proof-unavailable":
-      return `The clean branch's Proof is unavailable${
-        proof.detail === undefined ? "" : `: ${proof.detail}`
-      }. Run \`discern done\` before review.`;
-    case "proof-stale":
-      return "The recorded Proof names another commit. Run `discern done` on the current clean HEAD before review.";
-    case "needs-gate":
-      return "This clean branch has committed work and no valid Proof. Run `discern done` before review.";
-    case "idle":
-      return undefined;
-  }
-  return undefined;
-}
-
-/** Derive one complete human row model from already-collected result facts. */
-export function presentFleetRow(
-  entry: StatusFleetEntry,
-  options: FleetRowPresentationOptions,
-): FleetRowPresentation {
-  const nowMs = options.nowMs;
-  const proof = proofPresentation(entry);
-  const collisions = rowCollisions(entry, options.collisions ?? []);
-  const proofReady = hasLandableFacts(entry);
-  const kind = classifyRowKind(entry, nowMs);
-  const meta = STATUS_META[kind];
-  const landingReady = proofReady && kind === "ready";
-  const authority = authorityPresentation(entry, landingReady);
-  const attention = attentionFor(
-    kind,
-    entry,
-    proof,
-    authority,
-    options.trunk,
-    nowMs,
-  );
-  return {
-    entry,
-    kind,
-    ...meta,
-    identity: rowIdentity(entry),
-    git: gitPresentation(entry),
-    gitTone: gitTone(entry),
-    proof,
-    activity: activityPresentation(entry, nowMs),
-    landingReady,
-    ...(authority === undefined ? {} : { authority }),
-    collisions,
-    ...(attention === undefined ? {} : { attention }),
-  };
-}
-
-/** Comparable activity timestamp with unknown values ordered last. */
-function activityMillis(entry: StatusFleetEntry): number {
-  const parsed = Date.parse(entry.last_activity ?? "");
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-/** Importance first; current first inside a class; then recent activity and a
- * lexical identity make ties stable across Git worktree enumeration order. */
-export function sortFleetRows(
-  rows: readonly FleetRowPresentation[],
-): FleetRowPresentation[] {
-  return [...rows].sort((left, right) =>
-    left.priority - right.priority ||
-    Number(right.entry.is_current) - Number(left.entry.is_current) ||
-    activityMillis(right.entry) - activityMillis(left.entry) ||
-    left.identity.primary.localeCompare(right.identity.primary) ||
-    left.entry.path.localeCompare(right.entry.path)
-  );
 }
 
 const BACKTICKED_DISCERN_COMMAND = /`(discern(?:[ \t]+[^`\r\n]+)?)`/gu;
@@ -547,23 +128,38 @@ function section(
 /** Exhaustive adaptation into Result summary's outcome vocabulary. */
 export const FLEET_ROW_RESULT_STATE = {
   broken: "failed",
-  "setup-incomplete": "blocked",
   unreadable: "failed",
-  failed: "failed",
-  blocked: "blocked",
-  behind: "blocked",
-  ready: "passed",
+  "setup-retry": "blocked",
+  "setup-manual": "blocked",
+  "setup-unknown": "blocked",
+  landing: "changed",
+  exception: "blocked",
+  interrupted: "blocked",
+  checking: "changed",
+  updating: "changed",
   running: "changed",
+  "checks-failed": "failed",
+  "land-failed": "failed",
+  failed: "failed",
+  "awaiting-owner": "passed",
+  refused: "blocked",
+  "stale-proven": "blocked",
   stale: "blocked",
-  "in-progress": "changed",
-  "proof-unreadable": "failed",
-  "proof-unavailable": "blocked",
-  "proof-stale": "blocked",
-  "needs-gate": "blocked",
-  idle: "unchanged",
+  editing: "changed",
+  queued: "passed",
+  approved: "passed",
+  ready: "passed",
+  behind: "blocked",
+  "proof-error": "failed",
+  "proof-unknown": "blocked",
+  recheck: "blocked",
+  "needs-checks": "blocked",
+  contained: "unchanged",
+  empty: "unchanged",
+  "idle-unknown": "unchanged",
 } as const satisfies Readonly<
   Record<
-    FleetRowStatusKind,
+    FleetTaskRowStateId,
     "passed" | "failed" | "blocked" | "changed" | "unchanged"
   >
 >;
@@ -581,21 +177,20 @@ export const STATUS_PROOF_STATE = {
   Record<GateProofCheckStatus, "pass" | "fail" | "skip">
 >;
 
-/** State label for Fleet, including the operation and elapsed time when live. */
-function fleetStatusLabel(row: FleetRowPresentation): string {
+/** State label for Fleet, with the elapsed time while a verb runs and, when
+ * asked, the state's qualifier. */
+function fleetStatusLabel(
+  row: FleetRowPresentation,
+  qualified = false,
+): string {
   const running = row.entry.running;
-  if (row.entry.integration !== undefined) {
-    return row.entry.integration.owner === "live"
-      ? `discern's integration copy for ${row.entry.integration.for_branch} · checking`
-      : `discern's interrupted integration copy · reclaim with discern worktree prune`;
-  }
-  if (row.kind !== "running" || running === undefined) {
-    return `${row.label}${row.entry.is_current ? " · current" : ""}`;
-  }
-  const operation = running.verb === "done"
-    ? "Gate"
-    : `${running.verb.slice(0, 1).toUpperCase()}${running.verb.slice(1)}`;
-  return `${operation} running · ${compactDuration(running.elapsed_ms)}${
+  const elapsed = running === undefined || row.kind !== "running"
+    ? ""
+    : ` · ${compactDuration(running.elapsed_ms)}`;
+  const qualifier = qualified && row.qualifier !== undefined
+    ? ` · ${row.qualifier}`
+    : "";
+  return `${row.label}${elapsed}${qualifier}${
     row.entry.is_current ? " · current" : ""
   }`;
 }
@@ -641,21 +236,12 @@ function styledDriftArrows(
     );
 }
 
-/** Pair every non-idle state with a repertoire-safe glyph and complete label. */
+/** Pair every state with its glyph, or its ASCII form, and complete label. */
 function rowStateCue(
   row: FleetRowPresentation,
   unicode: boolean,
 ): string {
-  const label = fleetStatusLabel(row);
-  if (row.kind === "idle") return label;
-  const asciiGlyph = row.tone === "red"
-    ? "x"
-    : row.tone === "green"
-    ? "+"
-    : row.tone === "cyan"
-    ? "*"
-    : "!";
-  return `${unicode ? row.glyph : asciiGlyph} ${label}`;
+  return `${unicode ? row.glyph : row.ascii} ${fleetStatusLabel(row)}`;
 }
 
 /** Human task names, adding minted tails only when visible names collide. */
@@ -675,108 +261,136 @@ function displayTaskNames(
   );
 }
 
-/** Task labels lead the human list; exact Git identities remain in expanded
- * evidence where they are actionable. */
-function renderWorktrees(
-  rows: readonly FleetRowPresentation[],
+/** The groups whose rows wait on the owner: what "need you" counts. */
+const NEEDS_YOU: ReadonlySet<FleetRowGroup> = new Set(["review", "attention"]);
+
+interface NamedRow {
+  readonly row: FleetRowPresentation;
+  readonly name: string;
+}
+
+/** One group's heading: its title, then its count. */
+function groupHeading(
+  group: FleetRowGroup,
+  count: number,
+  terminal: TerminalContext,
+): string {
+  return `${terminal.role(FLEET_ROW_GROUP_TITLES[group], "strong")}  ${
+    terminal.role(String(count), "muted")
+  }`;
+}
+
+/** One line per row: name, state, drift, and activity. */
+function rowList(
+  rows: readonly NamedRow[],
   width: number,
   terminal: TerminalContext,
-  ownershipCaption: boolean,
-  expanded: boolean,
-): StatusComponent[] {
-  const displayNames = displayTaskNames(rows);
+): string {
   const list = terminal.presenter.present(renderListCli, {
     kind: "unordered",
     spacing: "tight",
-    items: rows.map((row, index) => ({
+    items: rows.map(({ row, name }) => ({
       content: terminalLine(
-        `${displayNames[index] ?? row.identity.worktree} · ${
-          rowStateCue(row, terminal.capabilities.unicode)
-        } · DRIFT ${
+        `${name} · ${rowStateCue(row, terminal.capabilities.unicode)} · DRIFT ${
           rowDivergence(row, terminal.capabilities.unicode)
         } · Activity: ${row.activity}`,
       ),
     })),
     maxWidth: width,
   });
-  const components: StatusComponent[] = [styledDriftArrows(list, terminal)];
-  for (const [index, row] of (expanded ? rows : []).entries()) {
-    const displayName = displayNames[index] ?? row.identity.worktree;
-    const proofValue = row.proof.detail === undefined
-      ? row.proof.label
-      : `${row.proof.label} · ${row.proof.detail}`;
-    const summary = terminal.presenter.present(renderResultSummaryCli, {
-      state: FLEET_ROW_RESULT_STATE[row.kind],
-      fact: terminalLine(
-        `${displayName}${
-          row.entry.is_current ? " is the current worktree. " : ". "
-        }${fleetStatusLabel(row)}.`,
-      ),
-      counts: [
-        { label: terminalLine("Git"), value: terminalLine(row.git) },
-        { label: terminalLine("Activity"), value: terminalLine(row.activity) },
-      ],
-      ...(row.attention === undefined
+  return styledDriftArrows(list, terminal);
+}
+
+/** The expanded evidence for one row: its state and next step, then its
+ * identity, landing, queue, and Proof facts. */
+function rowDetails(
+  { row, name }: NamedRow,
+  width: number,
+  terminal: TerminalContext,
+): StatusComponent[] {
+  const summary = terminal.presenter.present(renderResultSummaryCli, {
+    state: FLEET_ROW_RESULT_STATE[row.state],
+    fact: terminalLine(
+      `${name} · ${fleetStatusLabel(row, true)}. ${row.explanation}`,
+    ),
+    counts: [
+      { label: terminalLine("Git"), value: terminalLine(row.git) },
+      { label: terminalLine("Activity"), value: terminalLine(row.activity) },
+    ],
+    ...(row.attention === undefined
+      ? {}
+      : { nextAction: terminalMultiline(row.attention) }),
+    maxWidth: width,
+  });
+  const facts: ReadonlyArray<readonly [string, string | undefined]> = [
+    ["Worktree", row.identity.worktree],
+    ["Branch", row.identity.primary],
+    ["Landing", row.authority],
+    ["Queue", row.queue],
+    ["Contained in", row.entry.contained_in],
+    ...row.collisions.map((collision) =>
+      [
+        "Shares files with",
+        `${collision.branch} · ${collision.total} shared file${
+          collision.total === 1 ? "" : "s"
+        }`,
+      ] as const
+    ),
+  ];
+  const proofReport = terminal.presenter.present(renderReportCli, {
+    title: terminalLine(`${name} Proof`),
+    checks: [{
+      label: terminalLine("Proof"),
+      state: STATUS_PROOF_STATE[row.proof.status],
+      stateLabel: terminalLine(row.proof.label),
+      ...(row.proof.status !== "stale" || row.proof.detail === undefined
         ? {}
-        : { nextAction: terminalMultiline(row.attention) }),
-      maxWidth: width,
-    });
-    const meta = [
-      {
-        label: terminalLine("Worktree"),
-        value: terminalLine(row.identity.worktree),
-      },
-      {
-        label: terminalLine("Branch"),
-        value: terminalLine(row.identity.primary),
-      },
-      ...(row.authority === undefined ? [] : [{
-        label: terminalLine("Landing"),
-        value: terminalLine(
-          `${row.authority.label}${
-            row.authority.detail === undefined
-              ? ""
-              : ` · ${row.authority.detail}`
-          }`,
-        ),
-      }]),
-      ...(row.entry.contained_in === undefined ? [] : [{
-        label: terminalLine("Contained in"),
-        value: terminalLine(row.entry.contained_in),
-      }]),
-      ...row.collisions.map((collision) => ({
-        label: terminalLine("Shares files with"),
-        value: terminalLine(
-          `${collision.branch} · ${collision.total} shared file${
-            collision.total === 1 ? "" : "s"
-          }`,
-        ),
-      })),
-    ];
-    const proofReport = terminal.presenter.present(renderReportCli, {
-      title: terminalLine(`${displayName} Proof`),
-      checks: [{
-        label: terminalLine("Proof"),
-        state: STATUS_PROOF_STATE[row.proof.status],
-        stateLabel: terminalLine(row.proof.label),
-        ...(row.proof.detail === undefined
-          ? {}
-          : { value: terminalLine(proofValue) }),
-      }],
-      ...(meta.length === 0 ? {} : {
-        meta: meta.map((item) => ({
-          label: terminalLine(item.label),
-          value: terminalLine(item.value),
-        })),
-      }),
-      maxWidth: width,
-    });
-    components.push(
-      styledDiscernCommands(summary, terminal),
-      proofReport,
-    );
-  }
-  if (ownershipCaption) {
+        : { value: terminalLine(row.proof.detail) }),
+    }],
+    meta: facts.flatMap(([label, value]) =>
+      value === undefined
+        ? []
+        : [{ label: terminalLine(label), value: terminalLine(value) }]
+    ),
+    maxWidth: width,
+  });
+  return [styledDiscernCommands(summary, terminal), proofReport];
+}
+
+/** Task labels lead the human list, grouped by who moves next; exact Git
+ * identities remain in expanded evidence where they are actionable. */
+function renderWorktrees(
+  rows: readonly FleetRowPresentation[],
+  width: number,
+  terminal: TerminalContext,
+  options: {
+    readonly ownershipCaption: boolean;
+    readonly expanded: boolean;
+    readonly grouped: boolean;
+  },
+): StatusComponent[] {
+  const displayNames = displayTaskNames(rows);
+  const named = rows.map((row, index): NamedRow => ({
+    row,
+    name: displayNames[index] ?? row.identity.worktree,
+  }));
+  const groups = options.grouped
+    ? FLEET_ROW_GROUPS.map((group) => ({
+      group,
+      members: named.filter(({ row }) => row.group === group),
+    })).filter(({ members }) => members.length > 0)
+    : [{ group: undefined, members: named }];
+  const components = groups.flatMap(({ group, members }) => [
+    group === undefined
+      ? rowList(members, width, terminal)
+      : `${groupHeading(group, members.length, terminal)}\n${
+        rowList(members, width, terminal)
+      }`,
+    ...(options.expanded
+      ? members.flatMap((member) => rowDetails(member, width, terminal))
+      : []),
+  ]);
+  if (options.ownershipCaption) {
     components.push(
       terminal.presenter.present(renderResultSummaryCli, {
         state: "unchanged",
@@ -790,24 +404,18 @@ function renderWorktrees(
   return components;
 }
 
-/** Lead fleet views with counts that answer what needs attention. */
+/** Lead fleet views with the count of tasks waiting on the owner. */
 function renderFleetSummary(
   rows: readonly FleetRowPresentation[],
   width: number,
   c: TerminalContext,
 ): StatusComponent {
-  const ready = rows.filter((row) => row.landingReady).length;
-  const active =
-    rows.filter((row) => row.kind === "running" || row.kind === "in-progress")
-      .length;
-  const attention = rows.filter((row) => row.attention !== undefined).length;
+  const needYou = rows.filter((row) => NEEDS_YOU.has(row.group)).length;
   const summary = [
     `${rows.length} active worktree${rows.length === 1 ? "" : "s"}`,
-    ...(attention === 0
+    ...(needYou === 0
       ? []
-      : [`${attention} ${attention === 1 ? "needs" : "need"} attention`]),
-    ...(ready === 0 ? [] : [`${ready} ready`]),
-    ...(active === 0 ? [] : [`${active} in progress`]),
+      : [`${needYou} ${needYou === 1 ? "needs" : "need"} you`]),
   ].join(" · ");
   return c.presenter.present(renderParagraphCli, {
     content: terminalLine(`Fleet · ${summary}`),
@@ -919,7 +527,7 @@ function renderWorktreeAttention(
 ): StatusComponent[] {
   const components: StatusComponent[] = [];
   for (const row of rows) {
-    if (row.attention === undefined) continue;
+    if (row.attention === undefined || !NEEDS_YOU.has(row.group)) continue;
     const diagnostic = c.presenter.present(renderDiagnosticCli, {
       title: terminalLine(
         `${row.identity.primary}: ${row.label}${
@@ -927,10 +535,10 @@ function renderWorktreeAttention(
         }`,
       ),
       impact: terminalLine(
-        `Git ${row.git}; Proof ${row.proof.label}; ${row.activity}.`,
+        `Git ${row.git}; Proof: ${row.proof.label}; ${row.activity}.`,
       ),
       correction: terminalMultiline(row.attention),
-      severity: row.tone === "red" ? "failure" : "attention",
+      severity: row.tones.glyph === "danger" ? "failure" : "attention",
       path: terminalLine(row.entry.path),
       maxWidth: width,
     });
@@ -1386,13 +994,17 @@ export function renderStatusDashboard(
   if (setup.length > 0) blocks.push(section("Setup", setup, c, width));
 
   const trunk = trunkOf(data);
+  const surveyed = (data.fleet ?? []).filter((entry) => !entry.is_main);
+  const queue = data.queue === undefined ? {} : { queue: data.queue };
   const fleetRows = sortFleetRows(
-    (data.fleet ?? [])
-      .filter((entry) => !entry.is_main)
+    surveyed
+      .filter((entry) => !speaksForAnotherRow(entry, surveyed))
       .map((entry) =>
         presentFleetRow(entry, {
           trunk,
           nowMs,
+          fleet: surveyed,
+          ...queue,
           ...(data.fleet_collisions === undefined
             ? {}
             : { collisions: data.fleet_collisions }),
@@ -1402,7 +1014,7 @@ export function renderStatusDashboard(
   const local = data.fleet === undefined ? localEntry(data) : undefined;
   const localRows = local === undefined
     ? []
-    : [presentFleetRow(local, { trunk, nowMs })];
+    : [presentFleetRow(local, { trunk, nowMs, ...queue })];
   const shownRows = fleetRows.length > 0 ? fleetRows : localRows;
   const hintGroups = groupStatusHints(hints);
   const fleetTaskNames = displayTaskNames(fleetRows);
@@ -1413,14 +1025,12 @@ export function renderStatusDashboard(
       fleetRows.length > 0
         ? section(
           "Worktrees",
-          renderWorktrees(
-            fleetRows,
-            width,
-            c,
-            data.location === "worktree" &&
+          renderWorktrees(fleetRows, width, c, {
+            ownershipCaption: data.location === "worktree" &&
               fleetRows.some((row) => !row.entry.is_current),
-            !compactFleet,
-          ),
+            expanded: !compactFleet,
+            grouped: true,
+          }),
           c,
           width,
         )
@@ -1433,7 +1043,11 @@ export function renderStatusDashboard(
     blocks.push(
       section(
         "Current worktree",
-        renderWorktrees(localRows, width, c, false, true),
+        renderWorktrees(localRows, width, c, {
+          ownershipCaption: false,
+          expanded: true,
+          grouped: false,
+        }),
         c,
         width,
       ),
@@ -1454,7 +1068,7 @@ export function renderStatusDashboard(
 
   if (compactFleet) {
     const laggingOwners = fleetRows.flatMap((row, index) =>
-      row.kind === "behind" && row.attention !== undefined
+      row.state === "behind" && row.attention !== undefined
         ? [
           `${fleetTaskNames[index] ?? row.identity.worktree}: ${row.attention}`,
         ]

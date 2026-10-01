@@ -22,6 +22,10 @@ import {
   runEnter,
 } from "../src/engine/worktree/shell_picker.ts";
 import { userShell } from "../src/engine/user_shell.ts";
+import {
+  presentFleetRow,
+  sortFleetRows,
+} from "../src/engine/status/fleet_rows.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   git,
@@ -178,7 +182,7 @@ Deno.test("cwd-equivalent resolution chooses the nearest existing ancestor", asy
   );
 });
 
-Deno.test("worktree picker rows derive branch, Git, Proof, and activity facts from status", () => {
+Deno.test("worktree picker rows take their state, group, and Git facts from status", () => {
   const current = resolve("/project");
   const rows = buildWorktreeShellRows(
     [
@@ -197,9 +201,50 @@ Deno.test("worktree picker rows derive branch, Git, Proof, and activity facts fr
   );
   assertEquals(rows[0]?.current, true);
   assertEquals(rows[1]?.name, "Main checkout");
-  assertStringIncludes(rows[2]?.description ?? "", "agent/review");
-  assertStringIncludes(rows[2]?.description ?? "", "2 uncommitted files");
-  assertStringIncludes(rows[2]?.description ?? "", "3 commits ahead of main");
+  assertEquals(rows[2]?.group, "working");
+  assertStringIncludes(rows[2]?.description ?? "", "agent/review · Editing");
+  assertStringIncludes(rows[2]?.description ?? "", "2 files changed · ↑3");
+});
+
+Deno.test("worktree picker orders and labels tasks exactly as the status dashboard does", () => {
+  const current = resolve("/project");
+  const tasks = [
+    worktreeRow(resolve("/worktrees/idle"), "agent/idle"),
+    worktreeRow(resolve("/worktrees/failed"), "agent/failed", {
+      ahead: 1,
+      last_action: {
+        verb: "done",
+        outcome: "failed",
+        at: "2026-08-23T10:00:00Z",
+      },
+    }),
+    worktreeRow(resolve("/worktrees/ready"), "agent/ready", {
+      ahead: 2,
+      gate_proof: { status: "honored" },
+    }),
+  ];
+  const rows = buildWorktreeShellRows(
+    [worktreeRow(resolve("/main"), "main", { is_main: true }), ...tasks],
+    current,
+    NOW,
+    { trunk: "main" },
+  );
+  const dashboard = sortFleetRows(
+    tasks.map((entry) => presentFleetRow(entry, { trunk: "main", nowMs: NOW })),
+  );
+  assertEquals(
+    rows.filter((row) => !row.main).map((row) => [row.branch, row.group]),
+    dashboard.map((row) => [row.entry.branch, row.group]),
+  );
+  for (const presented of dashboard) {
+    const row = rows.find((candidate) =>
+      candidate.branch === presented.entry.branch
+    );
+    assertStringIncludes(
+      row?.description ?? "",
+      `${presented.entry.branch} · ${presented.label}`,
+    );
+  }
 });
 
 Deno.test("enter surveys from main, shows every state, and launches at the equivalent cwd", async () => {
@@ -236,12 +281,13 @@ Deno.test("enter surveys from main, shows every state, and launches at the equiv
   for (
     const expected of [
       "Current checkout",
-      "Worktrees",
-      "Branches without worktrees",
+      "Working",
+      "Parked",
       "Reclaimed stage branches",
       "agent/orphaned",
       "agent/stage-a",
-      "2 uncommitted files",
+      "Editing",
+      "2 files changed",
     ]
   ) {
     assertStringIncludes(options, expected);

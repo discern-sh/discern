@@ -25,7 +25,7 @@ import { providerFor } from "../../lib/providers.ts";
 import type { AgentCliPromptArgument } from "../../lib/providers.ts";
 import { compactDuration } from "../output.ts";
 import type { DeskProjectScript } from "../project_scripts.ts";
-import { presentFleetRow } from "../status/tty.ts";
+import { presentFleetRow } from "../status/fleet_rows.ts";
 import { type FleetRowStatusKind, relativeAge } from "../status/row_facts.ts";
 import {
   type UnreadableSubject,

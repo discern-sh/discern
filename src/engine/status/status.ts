@@ -66,10 +66,10 @@ import type {
   StatusGate,
   StatusGit,
   StatusWorktree,
+  SubmissionRowData,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
-import { isPositiveGitCount } from "../../shared/git_count.ts";
 import {
   findRoot,
   installedConfigRel,
@@ -168,12 +168,8 @@ import {
   type FleetLogbookActivity,
   readFleetLogbookActivity,
 } from "../logbook/read.ts";
-import {
-  presentFleetRow,
-  renderStatusDashboard,
-  sortFleetRows,
-} from "./tty.ts";
-import { idleDaysOf, STALE_WORKTREE_DAYS } from "./row_facts.ts";
+import { renderStatusDashboard } from "./tty.ts";
+import { presentFleetRow, sortFleetRows } from "./fleet_rows.ts";
 import { fleetFilesystem, fleetSetupEvidence } from "./recovery.ts";
 import { degradedFleetKind } from "./recovery_presentation.ts";
 import { applyLogbookActivity } from "./recent.ts";
@@ -187,21 +183,22 @@ import {
  * carries the true count). The intersection is usually small, so this rarely caps. */
 const STATUS_OVERLAP_CAP = 20;
 
-/** Order the canonical fleet before any bounded wire projection samples it. */
+/** Order the canonical fleet the way the dashboard groups it, and name each
+ * task row's state and group, before any bounded wire projection samples it. */
 export function prioritizeStatusFleet(
   fleet: readonly StatusFleetEntry[],
   options: {
     readonly trunk: string;
     readonly nowMs: number;
     readonly collisions?: readonly FleetCollision[];
+    readonly queue?: readonly SubmissionRowData[];
   },
 ): StatusFleetEntry[] {
   const main = fleet.filter((entry) => entry.is_main).slice(0, 1);
+  const tasks = fleet.filter((entry) => !entry.is_main);
   const active = sortFleetRows(
-    fleet
-      .filter((entry) => !entry.is_main)
-      .map((entry) => presentFleetRow(entry, options)),
-  ).map((row) => row.entry);
+    tasks.map((entry) => presentFleetRow(entry, { ...options, fleet: tasks })),
+  ).map((row) => ({ ...row.entry, state: row.state, group: row.group }));
   return [...main, ...active];
 }
 
@@ -593,6 +590,7 @@ export async function statusResult(
     fleet = prioritizeStatusFleet(fleet, {
       trunk: mainBranch,
       nowMs,
+      queue: queueRows,
       ...(fleetCollisionPairs === undefined
         ? {}
         : { collisions: fleetCollisionPairs }),
@@ -701,7 +699,6 @@ export async function statusResult(
     untrackedInstructions,
     setupPending,
     setupCompletion: cfg.meta.setup_completion,
-    nowMs,
     gateProof,
     landingAuthority,
     logbookEnabled: cfg.project.record_logbook,
@@ -1012,8 +1009,6 @@ interface HintContext {
   setupPending: string[] | undefined;
   /** Evidence recorded for the setup completion event, when present. */
   setupCompletion: "proven" | "unproven" | undefined;
-  /** The invocation clock already captured by the status effect boundary. */
-  nowMs: number;
   /** Whether the current clean HEAD has an honored proof from `discern done`. */
   gateProof: GateProofCheckData | undefined;
   /** The current branch's authority, from the one resolver used by acceptance. */
@@ -1264,14 +1259,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           }),
         );
       }
-      // Review readiness was read once, into each row (`proof_honored`), so the
-      // hint and the wire field cannot disagree.
-      const ready = others.filter((e) =>
-        isReadyToLand(e, e.proof_honored === true)
-      );
-      const authorizedReady = ready.filter((e) =>
-        e.landing_authority?.kind === "authorized"
-      );
+      // Each row's state group decides membership, so these hints and the
+      // row's label cannot disagree: a stale task with valid Proof is stale,
+      // and an exception waits on the owner even under a grant.
+      const authorizedReady = others.filter((e) => e.group === "approved");
       if (authorizedReady.length > 0) {
         hints.push(
           fireOwnerAttention(HINTS["status-fleet-authorized-landings"], {
@@ -1280,9 +1271,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           }),
         );
       }
-      const reviewReady = ready.filter((e) =>
-        e.landing_authority?.kind !== "authorized"
-      );
+      const reviewReady = others.filter((e) => e.group === "review");
       if (reviewReady.length > 0) {
         hints.push(
           fireOwnerAttention(HINTS["status-fleet-member-ready"], {
@@ -1322,16 +1311,11 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         );
       }
       // Stale members: idle for a while and still carrying work — surface the
-      // abandonment before it fossilises, with both ways out.
-      const stale = others.filter((e) => {
-        const idleDays = idleDaysOf(e.last_activity, ctx.nowMs);
-        return (
-          e.broken !== true && idleDays !== undefined &&
-          idleDays >= STALE_WORKTREE_DAYS &&
-          (e.clean === false ||
-            (e.ahead !== undefined && isPositiveGitCount(e.ahead)))
-        );
-      });
+      // abandonment before it fossilises, with both ways out. The row state
+      // decides membership, so the hint names exactly the rows labelled Stale.
+      const stale = others.filter((e) =>
+        e.state === "stale" || e.state === "stale-proven"
+      );
       if (stale.length > 0) {
         hints.push(
           fireOwnerAttention(HINTS["status-fleet-member-stale"], {

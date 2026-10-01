@@ -552,6 +552,7 @@ Deno.test("status hints that a stale worktree with work should be resumed or dro
       stderr: "piped",
     }).output();
     assert(add.success, new TextDecoder().decode(add.stderr));
+    await markReady(wt);
     await Deno.writeTextFile(join(wt, "wip.txt"), "abandoned\n");
     await Deno.utime(join(wt, "wip.txt"), tenDaysAgo, tenDaysAgo);
 

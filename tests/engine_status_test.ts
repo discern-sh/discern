@@ -490,7 +490,7 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
 
     const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
-    assertTerminalTextIncludes(human.output, "Gate running");
+    assertTerminalTextIncludes(human.output, "Checking · ");
     assertTerminalTextIncludes(human.output, "usually 4m");
     assertTerminalTextIncludes(human.output, "done failed at test");
   });
@@ -825,7 +825,7 @@ Deno.test("status fleet (human): the wide brief is bounded and defers row eviden
     assert(!r.output.includes("Proof"), r.output);
     assertStringIncludes(r.output, "Activity");
     assert(!r.output.includes("agent/alpha"), r.output);
-    assertTerminalTextIncludes(r.output, "Alpha · Idle · DRIFT");
+    assertTerminalTextIncludes(r.output, "Alpha · ○ Empty · DRIFT");
     assertEquals(r.output.match(/main checkout/giu)?.length, 1);
     assert(!r.output.includes("AHEAD/BEHIND"), r.output);
     for (const line of r.output.trimEnd().split("\n")) {
@@ -1060,7 +1060,7 @@ Deno.test("status: one worktree's journey from dirty iteration to a landed proof
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
     await gitInit(dir);
-    const wt = await addWorktree(dir, "alpha");
+    const wt = await addReadyWorktree(dir, "alpha");
 
     await t.step(
       "status: a dirty worktree hints to prepare while iterating and finish clean",
@@ -1189,7 +1189,7 @@ Deno.test("status: one worktree's journey from dirty iteration to a landed proof
         assertTerminalTextIncludes(plain.output, "Alpha Proof");
         assertTerminalTextIncludes(plain.output, "Branch: agent/alpha");
         assertStringIncludes(plain.output, "Proof");
-        assertStatusFactLine(plain.output, "Proof", "honored");
+        assertStatusFactLine(plain.output, "Proof", "Passed");
         assert(
           !plain.output.includes("### Proof"),
           `plain status must not print the page:\n${plain.output}`,

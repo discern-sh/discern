@@ -56,12 +56,6 @@ export const FLEET_ROW_DECISIONS = [
 /** Branches without a checkout and recent landings, after the live groups. */
 export const FLEET_BRANCH_GROUPS = ["parked", "landed"] as const;
 
-/** One decision group ({@link FLEET_ROW_DECISIONS}). */
-export type FleetRowDecision = (typeof FLEET_ROW_DECISIONS)[number];
-
-/** One branch group ({@link FLEET_BRANCH_GROUPS}). */
-export type FleetBranchGroup = (typeof FLEET_BRANCH_GROUPS)[number];
-
 /** Every group, in display order. */
 export const FLEET_ROW_GROUPS = [
   ...FLEET_ROW_DECISIONS,

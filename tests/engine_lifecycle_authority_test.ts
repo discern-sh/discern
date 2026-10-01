@@ -226,8 +226,11 @@ Deno.test("covered standing authority agrees across green done, local status, an
       names: ["covered"],
     });
     const human = await runAgent(dir, ["status", "--verbose"]);
-    assertTerminalTextIncludes(human.output, "Landing: granted");
-    assertTerminalTextIncludes(human.output, "standing grant for map");
+    assertTerminalTextIncludes(
+      human.output,
+      "Landing: Covered by your standing approval (map)",
+    );
+    assertTerminalTextIncludes(human.output, "▲ Approved");
   });
 });
 

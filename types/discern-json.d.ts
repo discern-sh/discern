@@ -403,6 +403,49 @@ export type DiscernKnownFleetActionOutcome =
   | "partial"
   | "refused";
 
+export type DiscernKnownFleetRowState =
+  | "broken"
+  | "unreadable"
+  | "setup-retry"
+  | "setup-manual"
+  | "setup-unknown"
+  | "landing"
+  | "exception"
+  | "interrupted"
+  | "checking"
+  | "updating"
+  | "running"
+  | "checks-failed"
+  | "land-failed"
+  | "failed"
+  | "awaiting-owner"
+  | "refused"
+  | "stale-proven"
+  | "stale"
+  | "editing"
+  | "queued"
+  | "approved"
+  | "ready"
+  | "behind"
+  | "proof-error"
+  | "proof-unknown"
+  | "recheck"
+  | "needs-checks"
+  | "contained"
+  | "empty"
+  | "idle-unknown"
+  | "parked"
+  | "landed";
+
+export type DiscernKnownFleetRowGroup =
+  | "review"
+  | "attention"
+  | "working"
+  | "approved"
+  | "idle"
+  | "parked"
+  | "landed";
+
 export type DiscernKnownFleetSetupState =
   | "ready"
   | "incomplete"
@@ -5819,6 +5862,8 @@ export type DiscernStatusResult = DiscernResultState & {
         for_branch: string;
         awaiting_judgment?: boolean;
       };
+      state?: string;
+      group?: string;
       gate_proof?: {
         status: string;
         path?: string;

@@ -11,6 +11,10 @@ import {
 } from "./checkpoint_drops.ts";
 import { CONFIG_ISSUE_KINDS } from "./config_issues.ts";
 import { CONFIG_RECONCILE_OPERATION_KINDS } from "./config_reconcile.ts";
+import {
+  FLEET_ROW_GROUPS,
+  FLEET_ROW_STATE_IDS,
+} from "./fleet_row_vocabulary.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { FIRST_PARTY_LEGAL_DOCUMENT_KINDS } from "./license_registry.ts";
 import { MANUAL_KINDS } from "./manual.ts";
@@ -770,6 +774,14 @@ export const RESULT_OPEN_VOCABULARIES = {
   "x-discern-fleet-action-outcomes": {
     name: "FleetActionOutcome",
     values: ["ok", "failed", "partial", "refused"],
+  },
+  "x-discern-fleet-row-states": {
+    name: "FleetRowState",
+    values: FLEET_ROW_STATE_IDS,
+  },
+  "x-discern-fleet-row-groups": {
+    name: "FleetRowGroup",
+    values: FLEET_ROW_GROUPS,
   },
   "x-discern-fleet-setup-states": {
     name: "FleetSetupState",

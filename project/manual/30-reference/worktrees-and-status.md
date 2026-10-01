@@ -67,7 +67,7 @@ While setup is unfinished, status reports what's left in `data.setup_unfinished`
 
 What the report shows depends on where you run it:
 
-- **In the main checkout, with other tasks:** a row for each task, then the **Landing queue**, **Owner attention**, **Landing risks**, and **Next action** sections. `--verbose` adds the Checks, Local environment, and Landing sections, and the stored Proof pages. Here, Checks shows only the count of standards.
+- **In the main checkout, with other tasks:** a row for each task, grouped by who moves next, then the **Landing queue**, **Owner attention**, **Landing risks**, and **Next action** sections. `--verbose` adds the Checks, Local environment, and Landing sections, and the stored Proof pages. Here, Checks shows only the count of standards.
 - **In a worktree, or in a main checkout with no other tasks:** the current checkout, with its Checks, Local environment, and Landing sections. `--verbose` adds the stored Proof pages.
 
 | Section               | What it holds                                                                                                                                          |
@@ -103,22 +103,36 @@ A trunk that only moved after the Proof isn't a reason to wait, because acceptan
 
 The report uses a task's stored title when it has one, like `recipe-search`, and `--verbose` shows the complete worktree and branch names. Use the stable id or the branch name in commands, even when the report shows a friendlier title.
 
-Rows are ordered by status, so problems come first: broken, setup incomplete, unreadable, and failed. Then come blocked, behind, ready, running, stale, and in progress, then Proof unreadable, Proof unavailable, Proof stale, needs gate, and idle. Within a status, the current checkout comes first, then the most recent activity. Overlapping file changes and contested ADR numbers appear separately, as landing risks.
+Each task has one state, and the rows sit under their state's group, in this order. Within a group, the current checkout comes first, then the task titles in alphabetical order. The summary line above the rows counts the tasks that need you: those ready for review or needing attention.
 
-Once the recipe search task passes the gate, its row in the main checkout's report reads:
+| Group                | States                                                                                                                                                                                      | What it means                                                                                                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ready for review** | `✓ Ready`, `✓ Wants to land`, `! Exception`                                                                                                                                                 | Its checks passed on the exact commit, and landing waits for you. Wants to land means its agent asked to land it. An exception waits for your decision on an unmet checkpoint answer or a proposed limit change. |
+| **Needs attention**  | `✕ Broken`, `✕ Unreadable`, `! Needs setup`, `! Setup unknown`, `! Interrupted`, `✕ Checks failed`, `✕ Didn't land`, `✕ Failed`, `! Refused`, `! Stale`, `✕ Proof error`, `! Proof unknown` | Something stopped: a failed or refused command, a setup or landing that didn't finish, a record discern can't read, or work nobody has touched for a week. Stale work whose checks passed can still land.        |
+| **Working**          | `◐ Landing`, `◐ Checking`, `◐ Updating`, `◐ Running`, `● Editing`                                                                                                                           | A discern command is running in the task, or its files are changing.                                                                                                                                             |
+| **Approved to land** | `▲ Approved`, `▲ Queued #1`                                                                                                                                                                 | Its checks passed and a grant lets it land. A queued task lands with the next landing.                                                                                                                           |
+| **Idle**             | `△ Behind`, `△ Needs recheck`, `△ Needs checks`, `○ Contained`, `○ Empty`, `○ Idle`                                                                                                         | Nothing is running, and the next step is its agent's: update, run checks, reclaim a checkout whose commits travel in a later task, or start work.                                                                |
+
+Without Unicode, each symbol has its own plain stand-in, such as `x`, `!`, `@`, `v`, and `^`. While a task's landing runs in discern's own integration worktree, the task's row shows it as Landing, Exception, or Interrupted, and the copy has no row of its own. Overlapping file changes and contested ADR numbers appear separately, as landing risks.
+
+Once the recipe search task passes the gate, the main checkout's report shows:
 
 ```text
+Ready for review  1
 • recipe-search · ✓ Ready · DRIFT ↑1 · Activity: just now · last action done ok
 ```
 
-The row gives the task's title, its status, how far its branch has moved from the trunk (one commit ahead, none behind), and its latest activity.
+The row gives the task's title, its state, how far its branch has moved from the trunk (one commit ahead, none behind), and its latest activity. A task whose checks passed but which nobody has touched for a week reads `! Stale` under **Needs attention**, however far main has moved.
 
 Each task row reports:
 
 - **Git:** `clean` or, for example, `6 files changed`. **DRIFT** shows `↑8`, `↓3`, or both. Color only reinforces the arrow and count.
-- **Proof:** honored, report-only, missing, stale, dirty worktree, unavailable, or unreadable. Report-only means the commit is current, but CI reported checkpoint review without enforcing it, so the task still needs an ordinary `discern done` before it can land. A clean branch with honored strict Proof can be ready, like the recipe search row.
-- **Activity:** the most recent observed activity and recorded action. A running gate reads `Gate running · 2m`, and `usually 4m` gives the usual time from history.
-- **Landing:** on a ready row, granted, needs approval, or scope-limited, with the detail on the line below.
+- **Proof:** the recorded checks in words: `Passed 20m ago`, `None yet`, `Not run on these changes`, `Outdated: for an older commit`, `Unavailable` or `Unreadable` with the reason, or `Reported only: not a landing Proof`. Reported only means CI reported checkpoint review without enforcing it, so the task still needs an ordinary `discern done` before it can land.
+- **Activity:** the most recent observed activity and recorded action. A running gate reads `Checking · 2m`, and `usually 4m` gives the usual time from history.
+- **Landing:** on a task whose checks passed or that a grant covers: `Needs your approval`, `Pre-authorized by you`, `Covered by your standing approval (<scopes>)`, or `Needs your approval · 3 paths aren't covered`.
+- **Queue:** on a queued task, its place and why it waits, such as `#1 · lands with any landing`.
+
+`--verbose` adds each task's state line, a sentence explaining it, and its next step with the exact command.
 
 Text and symbols carry every state, so `--no-color` changes no facts.
 
@@ -200,6 +214,7 @@ A readable row also carries its activity, one `gate_proof`, and its `landing_aut
 - **`task`**, in full mode only, holds the display title, `title_source`, the optional brief, and the ref and commit the task started from. `title_source` is `recorded`, `identity-fallback` for a worktree without stored task metadata, or `unavailable-fallback` when discern couldn't read the record.
 - **`resources`**, in full mode only, holds the resource handles recorded in the checkout's env files.
 - **`integration`**, in full mode only, marks a landing's own integration worktree, which belongs to discern and never to an agent. Its `owner` is `live` while the landing runs, or `interrupted` once the landing's process is gone, when `discern worktree prune` reclaims it. `for_branch` names the branch the landing composes, and `awaiting_judgment` marks a copy discern keeps for a served checkpoint decision.
+- **`state`** and **`group`** name the task's state and group from the table above, as identifiers such as `stale-proven` and `attention`. The main checkout's row has neither.
 - **`last_action`** is the newest completed action that works on the task, with its `error` code when it refused or failed with one. Commands that only read, such as `discern status`, `discern progress`, and `discern doctor`, never replace it, so an agent checking status doesn't hide a failed gate. **`running`** is a recent start with no matching completion. **`last_activity`** is the later of the Git time and the [logbook](logbook.md) time. Turning the logbook off removes the action fields, and Git activity stays.
 
 Structured fleet rows leave out the older `proof_honored`, `proof`, and `proof_line` copies.

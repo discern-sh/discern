@@ -23703,6 +23703,14 @@
                           "for_branch"
                         ]
                       },
+                      "state": {
+                        "type": "string",
+                        "x-discern-vocabulary": "x-discern-fleet-row-states"
+                      },
+                      "group": {
+                        "type": "string",
+                        "x-discern-vocabulary": "x-discern-fleet-row-groups"
+                      },
                       "gate_proof": {
                         "type": "object",
                         "properties": {
@@ -34482,6 +34490,49 @@
     "failed",
     "partial",
     "refused"
+  ],
+  "x-discern-fleet-row-states": [
+    "broken",
+    "unreadable",
+    "setup-retry",
+    "setup-manual",
+    "setup-unknown",
+    "landing",
+    "exception",
+    "interrupted",
+    "checking",
+    "updating",
+    "running",
+    "checks-failed",
+    "land-failed",
+    "failed",
+    "awaiting-owner",
+    "refused",
+    "stale-proven",
+    "stale",
+    "editing",
+    "queued",
+    "approved",
+    "ready",
+    "behind",
+    "proof-error",
+    "proof-unknown",
+    "recheck",
+    "needs-checks",
+    "contained",
+    "empty",
+    "idle-unknown",
+    "parked",
+    "landed"
+  ],
+  "x-discern-fleet-row-groups": [
+    "review",
+    "attention",
+    "working",
+    "approved",
+    "idle",
+    "parked",
+    "landed"
   ],
   "x-discern-fleet-setup-states": [
     "ready",

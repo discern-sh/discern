@@ -580,6 +580,8 @@ Deno.test("status rendering preserves unknown counts, projection budgets, and re
                 branch: "agent/sealed-row",
                 git_unavailable: true,
                 read_failure: { reason: "Permission denied" },
+                state: "unreadable",
+                group: "attention",
               }],
             },
           },
@@ -595,7 +597,7 @@ Deno.test("status rendering preserves unknown counts, projection budgets, and re
         );
         assertStringIncludes(
           rendered,
-          "`agent/sealed-row`: Git state unavailable. Checkout files are unreadable: `Permission denied`.",
+          "`agent/sealed-row`: state `unreadable` in `attention`; Git state unavailable. Checkout files are unreadable: `Permission denied`.",
         );
       },
   });

@@ -11,11 +11,15 @@ import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { directoryExists, realPathIfExists } from "../../shared/fs_presence.ts";
 import type {
-  StatusAdrCollision,
   StatusData,
   StatusFleetCollision,
   StatusFleetEntry,
+  SubmissionRowData,
 } from "../../shared/result_schemas.ts";
+import {
+  FLEET_ROW_DECISIONS,
+  type FleetRowGroup,
+} from "../../shared/fleet_row_vocabulary.ts";
 import { Logger } from "../../lib/log.ts";
 import {
   canInteract,
@@ -26,7 +30,16 @@ import {
   type SelectionRequestOptions,
 } from "../../lib/terminal_interaction.ts";
 import { terminalLine } from "../../lib/terminal.ts";
-import { buildDeskDecision, decisionSummary } from "../desk/model.ts";
+import {
+  branchRowState,
+  FLEET_ROW_GROUP_TITLES,
+} from "../status/row_states.ts";
+import {
+  type FleetRowPresentation,
+  presentFleetRow,
+  sortFleetRows,
+  speaksForAnotherRow,
+} from "../status/fleet_rows.ts";
 import { runOwnedChild } from "../owned_child.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { statusResult } from "../status/status.ts";
@@ -75,7 +88,8 @@ export interface WorktreeShellRow {
   readonly description: string;
   readonly current: boolean;
   readonly main: boolean;
-  readonly lastActivity?: string;
+  /** The task's decision group; absent for the main checkout. */
+  readonly group?: FleetRowGroup;
 }
 
 /** Candidate directories in the selected checkout, nearest equivalent first. */
@@ -168,17 +182,18 @@ function displayRelative(path: string): string {
   return path === "" ? "." : path.split(SEPARATOR).join("/");
 }
 
-/** Most-recent-first, with unknown activity last. */
-function byActivityDesc(a: WorktreeShellRow, b: WorktreeShellRow): number {
-  const at = a.lastActivity === undefined ? 0 : Date.parse(a.lastActivity);
-  const bt = b.lastActivity === undefined ? 0 : Date.parse(b.lastActivity);
-  return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
+/** The picker's line for one task: its branch, its state as status names it,
+ * its Git facts, and its checkout. */
+function taskDescription(row: FleetRowPresentation, branch: string): string {
+  const qualifier = row.qualifier === undefined ? "" : ` · ${row.qualifier}`;
+  return `${branch} · ${row.label}${qualifier} · ${row.git} · ${row.entry.path}`;
 }
 
 /**
- * Derive picker rows from the fleet survey. The current checkout and main
- * checkout are presentation roles; branch, Git, Proof, and activity facts stay
- * owned by `StatusFleetEntry` and the Desk's shared row summary.
+ * Derive picker rows from the fleet survey, in the dashboard's order: the
+ * current checkout, the main checkout, then tasks by decision group and
+ * title. Labels, groups, and Git facts come from status's row presentation;
+ * a landing's integration copy appears as its task's state, not a row.
  */
 export function buildWorktreeShellRows(
   fleet: readonly StatusFleetEntry[],
@@ -187,58 +202,61 @@ export function buildWorktreeShellRows(
   options: {
     readonly trunk: string;
     readonly fleetCollisions?: readonly StatusFleetCollision[];
-    readonly adrCollisions?: readonly StatusAdrCollision[];
+    readonly queue?: readonly SubmissionRowData[];
   },
 ): WorktreeShellRow[] {
-  const labels = fleet.map((entry) => ({ entry, task: taskLabel(entry) }));
-  const counts = new Map<string, number>();
-  for (const { entry, task } of labels) {
-    if (!entry.is_main) {
-      counts.set(task.name, (counts.get(task.name) ?? 0) + 1);
-    }
-  }
   const current = resolve(currentRoot);
-  const rows = labels.map(({ entry, task }): WorktreeShellRow => {
-    const duplicate = !entry.is_main && (counts.get(task.name) ?? 0) > 1;
-    const disambiguator = duplicate
-      ? task.disambiguator ?? entry.id ?? entry.branch
+  const tasks = fleet.filter((entry) => !entry.is_main);
+  const presented = sortFleetRows(
+    tasks.filter((entry) => !speaksForAnotherRow(entry, tasks)).map((entry) =>
+      presentFleetRow(entry, {
+        trunk: options.trunk,
+        nowMs,
+        fleet: tasks,
+        ...(options.fleetCollisions === undefined
+          ? {}
+          : { collisions: options.fleetCollisions }),
+        ...(options.queue === undefined ? {} : { queue: options.queue }),
+      })
+    ),
+  );
+  const counts = new Map<string, number>();
+  for (const row of presented) {
+    const name = taskLabel(row.entry).name;
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  const branchOf = (entry: StatusFleetEntry): string =>
+    entry.branch === "" ? "(detached)" : entry.branch;
+  const main = fleet.filter((entry) => entry.is_main).map((
+    entry,
+  ): WorktreeShellRow => ({
+    path: entry.path,
+    branch: branchOf(entry),
+    name: "Main checkout",
+    description: `${branchOf(entry)} · ${entry.path}`,
+    current: resolve(entry.path) === current,
+    main: true,
+  }));
+  const rows = presented.map((row): WorktreeShellRow => {
+    const task = taskLabel(row.entry);
+    const disambiguator = (counts.get(task.name) ?? 0) > 1
+      ? task.disambiguator ?? row.entry.id ?? row.entry.branch
       : undefined;
-    const name = entry.is_main
-      ? "Main checkout"
-      : disambiguator === undefined
-      ? task.name
-      : `${task.name}  ${disambiguator}`;
-    const branch = entry.branch === "" ? "(detached)" : entry.branch;
-    const decision = buildDeskDecision(entry, {
-      trunk: options.trunk,
-      nowMs,
-      ...(options.fleetCollisions === undefined
-        ? {}
-        : { fleetCollisions: options.fleetCollisions }),
-      ...(options.adrCollisions === undefined
-        ? {}
-        : { adrCollisions: options.adrCollisions }),
-    });
-    const description = `${branch} · ${
-      decisionSummary(decision)
-    } · ${entry.path}`;
     return {
-      path: entry.path,
-      branch,
-      name,
-      description,
-      current: resolve(entry.path) === current,
-      main: entry.is_main,
-      ...(entry.last_activity === undefined
-        ? {}
-        : { lastActivity: entry.last_activity }),
+      path: row.entry.path,
+      branch: branchOf(row.entry),
+      name: disambiguator === undefined
+        ? task.name
+        : `${task.name}  ${disambiguator}`,
+      description: taskDescription(row, branchOf(row.entry)),
+      current: resolve(row.entry.path) === current,
+      main: false,
+      group: row.group,
     };
   });
-  return rows.sort((a, b) => {
-    if (a.current !== b.current) return a.current ? -1 : 1;
-    if (a.main !== b.main) return a.main ? -1 : 1;
-    return byActivityDesc(a, b);
-  });
+  return [...main, ...rows].sort((a, b) =>
+    Number(b.current) - Number(a.current)
+  );
 }
 
 /** Turn one row into a terminal selection option. */
@@ -273,11 +291,13 @@ function selectionGroups(
   const unavailable = rows.filter((row) =>
     !row.current && !availablePaths.has(row.path)
   );
-  const unlanded = (data.unlanded_branches ?? []).map((branch) => ({
+  const parkedState = branchRowState("parked");
+  const parked = (data.unlanded_branches ?? []).map((branch) => ({
     id: `branch:${branch}`,
     name: branch,
-    description:
-      `No worktree checkout · Run discern start --from ${branch} to open one.`,
+    description: `${parkedState.label} · ${
+      parkedState.qualifier({ branch, nowMs: 0 })
+    } · Run discern start --from ${branch} to open one.`,
     value: `\x00branch:${branch}`,
     disabled: true,
   }));
@@ -296,19 +316,28 @@ function selectionGroups(
       items: current.map((row) => rowOption(row, "current")),
     },
     {
-      id: "worktrees-available",
-      label: "Worktrees",
-      items: available.map((row) => rowOption(row, "available")),
+      id: "worktrees-main",
+      label: "Main checkout",
+      items: available.filter((row) => row.main).map((row) =>
+        rowOption(row, "available")
+      ),
     },
+    ...FLEET_ROW_DECISIONS.map((group) => ({
+      id: `worktrees-${group}`,
+      label: FLEET_ROW_GROUP_TITLES[group],
+      items: available.filter((row) => row.group === group).map((row) =>
+        rowOption(row, "available")
+      ),
+    })),
     {
       id: "worktrees-unavailable",
       label: "Unavailable checkouts",
       items: unavailable.map((row) => rowOption(row, "unavailable")),
     },
     {
-      id: "worktrees-unlanded",
-      label: "Branches without worktrees",
-      items: unlanded,
+      id: "worktrees-parked",
+      label: FLEET_ROW_GROUP_TITLES.parked,
+      items: parked,
     },
     {
       id: "worktrees-contained",
@@ -386,9 +415,7 @@ export async function runEnter(
       ...(survey.data.fleet_collisions === undefined
         ? {}
         : { fleetCollisions: survey.data.fleet_collisions }),
-      ...(survey.data.adr_collisions === undefined
-        ? {}
-        : { adrCollisions: survey.data.adr_collisions }),
+      ...(survey.data.queue === undefined ? {} : { queue: survey.data.queue }),
     },
   );
   const availability = await Promise.all(

@@ -107,16 +107,6 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
       "Extract a complete pattern form with shared parsing contracts and focused tests.",
   },
   {
-    file: "src/engine/status/tty.ts",
-    maxScore: 108.65,
-    maxCyclo: 275,
-    owner: "terminal status",
-    reason:
-      "Interactive status rendering combines multiple terminal states and presentation modes.",
-    recovery:
-      "Move one stable presentation responsibility behind a pure rendering boundary.",
-  },
-  {
     file: "src/engine/worktree/accept.ts",
     maxScore: 109.85,
     maxCyclo: 258,

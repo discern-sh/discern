@@ -1902,6 +1902,13 @@ const statusFleetEntrySchema = z.strictObject({
      * reclaimable while its submission stands. */
     awaiting_judgment: z.boolean().optional(),
   }).optional(),
+  /** The row's state in status's row-state vocabulary: what the fleet
+   * views show for it ("stale-proven", "checks-failed", ...). Derived from
+   * this row's other facts plus the queue and integration facts. */
+  state: openVocabulary("x-discern-fleet-row-states").optional(),
+  /** The state's group: who moves next ("review", "attention", "working",
+   * "approved", "idle"). */
+  group: openVocabulary("x-discern-fleet-row-groups").optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 

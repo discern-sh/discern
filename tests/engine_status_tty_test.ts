@@ -29,12 +29,14 @@ import {
   statusData,
 } from "./fixtures/status_fleet.ts";
 import {
-  type FleetRowPresentationOptions,
-  presentFleetRow,
   renderStatusDashboard,
-  sortFleetRows,
   STATUS_REPORT_MAX_WIDTH,
 } from "../src/engine/status/tty.ts";
+import {
+  type FleetRowPresentationOptions,
+  presentFleetRow,
+  sortFleetRows,
+} from "../src/engine/status/fleet_rows.ts";
 import {
   FLEET_ROW_STATUS_KINDS,
   type FleetRowStatusKind,
@@ -45,6 +47,7 @@ import { projectStatusData } from "../src/shared/result_wire.ts";
 const ESC = String.fromCharCode(27);
 const ANSI = new RegExp(`${ESC}\\[[0-9;]*m`, "gu");
 const NOW = Date.parse("2026-08-03T12:00:00.000Z");
+const NOW_ISO = new Date(NOW).toISOString();
 
 /** Strip styling while preserving every visible word and glyph. */
 function plain(text: string): string {
@@ -542,7 +545,7 @@ Deno.test("status dashboards preserve fleet identity, evidence, priorities, and 
           );
           assertStringIncludes(
             output,
-            kind === "running" ? "Gate running · 2m" : model.label,
+            kind === "running" ? `${model.label} · 2m` : model.label,
           );
           assertLinesFit(output, 72);
         }
@@ -679,18 +682,22 @@ Deno.test("status dashboards preserve fleet identity, evidence, priorities, and 
         );
         const words = plain(output);
         assertStringIncludes(words, "last action done failed at test");
-        assertStringIncludes(words, "Gate running · 2m");
+        assertStringIncludes(words, "Checking · 2m");
         assertStringIncludes(words, "Activity: just now · usually 2m");
         assertStringIncludes(words, "Git: 2 files changed · ↑8 ↓3");
-        assertStringIncludes(words, "Changed: Observed. In progress");
+        assertStringIncludes(words, "Changed: Observed · Editing");
         assertStringIncludes(words, "Git: 3 files changed");
         assertStringIncludes(words, "last action status ok");
         assertStringIncludes(
           words,
-          "Landing: granted · standing grant for map",
+          "Landing: Covered by your standing approval (map)",
         );
-        assertStringIncludes(words, "Landing: needs approval");
-        assertStringIncludes(words, "Landing: scope-limited");
+        assertStringIncludes(words, "Landing: Needs your approval");
+        assertStringIncludes(
+          words,
+          "Landing: Needs your approval · 1 path isn't covered",
+        );
+        assert(!/scope.limited|authority unknown/iu.test(words), words);
         assert(!words.includes("2m of ~2m"));
         assert(!words.includes("↓0"));
         assert(!words.includes("▴────"));
@@ -913,8 +920,12 @@ Deno.test("status dashboards preserve fleet identity, evidence, priorities, and 
           collisions: [collision],
         });
         assertEquals(model.kind, "ready");
+        assertEquals(model.state, "approved");
         assertEquals(model.landingReady, true);
-        assertEquals(model.authority?.label, "granted");
+        assertEquals(
+          model.authority,
+          "Covered by your standing approval (map)",
+        );
 
         const output = render(
           data([mainEntry(), ready], { fleet_collisions: [collision] }),
@@ -923,11 +934,11 @@ Deno.test("status dashboards preserve fleet identity, evidence, priorities, and 
           undefined,
           true,
         );
-        assertStringIncludes(output, "1 ready");
+        assertStringIncludes(output, "Approved to land  1");
         assertStringIncludes(output, "Landing risks");
         assertStringIncludes(
           output,
-          "Landing: granted · standing grant for map",
+          "Landing: Covered by your standing approval (map)",
         );
         assertLinesFit(output, 72);
       },
@@ -1120,7 +1131,7 @@ Deno.test("status dashboards preserve fleet identity, evidence, priorities, and 
           },
         });
         const output = render(value, 72, false, hints, true);
-        assertStringIncludes(output, "1 needs attention");
+        assertStringIncludes(output, "1 needs you");
         assertStringIncludes(output, "git diff main...<branch>");
         assertStringIncludes(output, "discern status --verbose");
         assertStringIncludes(squash(output), "complete branch and Proof");
@@ -1188,13 +1199,13 @@ Deno.test("status dashboards preserve fleet identity, evidence, priorities, and 
 });
 
 const PROOF_LABELS = {
-  honored: "honored",
-  report_only: "report only",
-  missing: "missing",
-  stale: "stale",
-  dirty: "dirty worktree",
-  unavailable: "unavailable",
-  read_failed: "unreadable",
+  honored: "Passed",
+  report_only: "Reported only: not a landing Proof",
+  missing: "None yet",
+  stale: "Outdated: for an older commit",
+  dirty: "Not run on these changes",
+  unavailable: "Unavailable: fixture reason",
+  read_failed: "Unreadable: fixture reason",
 } as const satisfies Record<GateProofCheckStatus, string>;
 
 Deno.test("status dashboard: every interactive status hint avoids machine-field directions", () => {
@@ -1215,6 +1226,124 @@ Deno.test("status dashboard: every interactive status hint avoids machine-field 
       );
     }
   }
+});
+
+/** A named task row; `title` becomes its recorded task title. */
+function titled(
+  id: string,
+  title: string,
+  patch: Partial<StatusFleetEntry> = {},
+): StatusFleetEntry {
+  return entry({
+    path: `/repo.worktrees/${id}`,
+    branch: `agent/${id}`,
+    id,
+    task: {
+      id,
+      branch: `agent/${id}`,
+      title,
+      title_source: "recorded",
+    },
+    ...patch,
+  });
+}
+
+Deno.test("status dashboard: the owner's stale task reads Stale under Needs attention", () => {
+  const stale = titled("homepage-a1b2c3", "Homepage session prototype", {
+    ahead: 1,
+    behind: 361,
+    last_activity: new Date(NOW - 11 * 86_400_000).toISOString(),
+    gate_proof: { status: "honored" },
+  });
+  const model = presentFleetRow(stale, { trunk: "main", nowMs: NOW });
+  assertEquals([model.kind, model.state, model.group], [
+    "stale",
+    "stale-proven",
+    "attention",
+  ]);
+  for (const mode of ["no-color", "ascii"] as const) {
+    const words = plain(
+      renderStatusDashboard(data([mainEntry(), stale]), undefined, {
+        terminal: terminalMode(80, mode),
+        width: 80,
+        nowMs: NOW,
+      }),
+    );
+    const row = words.split("\n").find((line) =>
+      line.includes("Homepage session prototype")
+    );
+    assert(row !== undefined, words);
+    assertStringIncludes(row, "· ! Stale · DRIFT");
+    assert(!/Ready|Proof valid|✓/u.test(row), row);
+    assert(
+      words.indexOf("Needs attention  1") < words.indexOf(row),
+      `${mode}: the row sits under its group`,
+    );
+  }
+});
+
+Deno.test("status dashboard: groups follow the decision order with case-folded titles inside", () => {
+  const honored = { gate_proof: { status: "honored" as const }, ahead: 1 };
+  const fleet = [
+    titled("zeta-000001", "zeta idle"),
+    titled("emile-000002", "Émile idle"),
+    titled("alpha-000003", "alpha idle"),
+    titled("queued-000004", "Queued work", {
+      ...honored,
+      landing_authority: { kind: "authorized", source: "effort-grant" },
+    }),
+    titled("editing-000005", "Editing work", {
+      clean: false,
+      changed_files: 1,
+      gate_proof: { status: "dirty" },
+    }),
+    titled("failed-000006", "Failed work", {
+      last_action: { verb: "done", outcome: "failed", at: NOW_ISO },
+    }),
+    titled("ready-000007", "Ready work", honored),
+  ];
+  const words = plain(render(data([mainEntry(), ...fleet]), 104));
+  const order = [
+    "Ready for review  1",
+    "Ready work",
+    "Needs attention  1",
+    "Failed work",
+    "Working  1",
+    "Editing work",
+    "Approved to land  1",
+    "Queued work",
+    "Idle  3",
+    "alpha idle",
+    "Émile idle",
+    "zeta idle",
+  ].map((text) => words.indexOf(text));
+  assert(order.every((at) => at >= 0), words);
+  assertEquals(order, [...order].sort((left, right) => left - right), words);
+  assertStringIncludes(words, "Fleet · 7 active worktrees · 2 need you");
+});
+
+Deno.test("status dashboard: a landing's integration copy reads as its task's state", () => {
+  const task = titled("search-000001", "Search index", {
+    ahead: 3,
+    gate_proof: { status: "honored" },
+  });
+  const copy = entry({
+    path: "/repo.worktrees/integration-000002",
+    branch: "discern/integration/search-000001",
+    id: "integration-000002",
+    integration: { owner: "live", for_branch: "agent/search-000001" },
+  });
+  const orphan = entry({
+    path: "/repo.worktrees/integration-000003",
+    branch: "discern/integration/gone-000003",
+    id: "integration-000003",
+    integration: { owner: "interrupted", for_branch: "agent/gone-000003" },
+  });
+  const words = plain(render(data([mainEntry(), task, copy, orphan]), 104));
+  assertStringIncludes(words, "Search index · ◐ Landing");
+  assert(!words.includes("integration-000002"), words);
+  assertStringIncludes(words, "! Interrupted");
+  assertStringIncludes(words, "Fleet · 2 active worktrees · 1 needs you");
 });
 
 Deno.test("status dashboard: importance sorting is stable and current wins only inside its class", () => {
@@ -1239,7 +1368,7 @@ Deno.test("status dashboard: importance sorting is stable and current wins only 
   ]);
 });
 
-Deno.test("status orientation samples main plus six from canonical attention/current/recent/lexical priority", () => {
+Deno.test("status orientation samples main plus six in the dashboard order: decision group, current, then title", () => {
   const main = entry({
     path: "/repo",
     branch: "main",
@@ -1283,6 +1412,12 @@ Deno.test("status orientation samples main plus six from canonical attention/cur
   assertEquals(sampled.length, 7);
   assertEquals(sampled[0]?.branch, "main");
   assertEquals(sampled[1]?.branch, "agent/failed");
+  assertEquals(
+    [sampled[1]?.state, sampled[1]?.group],
+    ["checks-failed", "attention"],
+    "every structured task row names its state and group",
+  );
+  assertEquals(sampled[0]?.state, undefined, "the main checkout is no task");
   assertEquals(sampled[2]?.branch, "agent/current");
   assertEquals(
     (projected.projection as { omitted: Record<string, number> }).omitted.fleet,

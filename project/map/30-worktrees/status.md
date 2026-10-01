@@ -17,7 +17,7 @@ Run it when a session starts or the next move is unclear. Terminal, JSON, Markdo
 
 ## Human dashboard
 
-Worktrees default to a local view. The main checkout shows its state, fleet task rows, the **Landing queue**, **Owner attention**, **Landing risks**, and **Next action**. `--verbose` adds per-task evidence, configured checks, local environment, landing history, shared paths, and stored Proof pages.
+Worktrees default to a local view. The main checkout shows its state, fleet task rows grouped by [row state](#row-states), the **Landing queue**, **Owner attention**, **Landing risks**, and **Next action**. `--verbose` adds per-task evidence, configured checks, local environment, landing history, shared paths, and stored Proof pages.
 
 The **Landing queue** lists each submission with honored Proof that has not landed: pre-authorized submissions first, by grant time, then submissions awaiting the owner, by submission time, one line each with the single reason it waits. A submission the trunk overtook stays ready — its landing composes and checks the combined code in an [integration worktree](../00-orientation/glossary.md#integration-worktree) — and its row carries that integration detail; a submission a running landing is checking says so and names the landing's progress handle; a submission whose branch has moved on says so and names `discern done` then `discern accept` for the new work. The current worktree's own effort is marked. A failed or abandoned run, or a run its agent never submitted, is absent. The desk and `accept --dry-run` show the same list, derived from the same projection, so the surfaces cannot disagree. `data.queue` carries the rows in the structured result. Fleet rows label an integration copy as discern-owned — live while its landing runs, interrupted with the `discern worktree prune` route when its owner died — so it is never read as an effort to adopt.
 
@@ -29,18 +29,40 @@ One observation feeds every projection; shared CLI components render each termin
 
 The 104-column report uses stored task titles when available; `--verbose` reveals complete worktree and branch identities. A title that differs from its normalized id never replaces the id or branch.
 
-Rows prioritize live, stale, or uncommitted work while still showing branch drift. Shared-file and Architecture Decision Record (ADR) number collisions remain separate landing risks.
+Fleet rows sit under their decision group's heading, in the fixed group order, with case-folded titles inside a group; the current checkout leads its group. The summary line counts the tasks that need you: those in Ready for review and Needs attention. A landing's integration copy is not a row of its own while its task has one: the task's row carries the Landing, Exception or Interrupted state instead. Shared-file and Architecture Decision Record (ADR) number collisions remain separate landing risks.
 
-The other fields explain that status:
+Each row reads `name · glyph Label · DRIFT … · Activity: …`, for example `Homepage session prototype · ! Stale · DRIFT ↑1 ↓361 · Activity: 1w ago`. The other fields explain that state:
 
 - **Git** says `clean` or `6 files changed`; **DRIFT** keeps `↑8`, `↓3`, or both. Color reinforces the complete arrow-and-count text.
-- **Proof** is honored, report-only, missing, stale, dirty worktree, unavailable, or unreadable. Report-only means the commit is current but CI reported checkpoint review without enforcing it; ordinary `discern done` is still required before landing. A clean branch with an honored strict Proof can be ready.
-- **Activity** combines the winning clock and completed action. A live Gate reads `Gate running · 2m`; `usually 4m` is historical context.
-- **Landing** is granted, needs approval, or scope-limited on ready rows; detail wraps below it.
+- **Proof** reads in human words: `Passed 20m ago`, `None yet`, `Not run on these changes`, `Outdated: for an older commit`, `Unavailable: <reason>`, `Unreadable: <reason>`, or `Reported only: not a landing Proof`. Report-only means CI reported checkpoint review without enforcing it; ordinary `discern done` is still required before landing.
+- **Activity** combines the winning clock and completed action. A live Gate reads `Checking · 2m`; `usually 4m` is historical context.
+- **Landing**, on rows with honored Proof or a grant, reads `Needs your approval`, `Pre-authorized by you`, `Covered by your standing approval (<scopes>)`, or `Needs your approval · 3 paths aren't covered`. "Scope limited" and "Authority unknown" never reach the dashboard; the structured `landing_authority` keeps the exact decision.
+- **Queue**, on queued rows, reads `#1 · lands with any landing`, `#2 · needs your approval`, or `#2 · waiting: <reason>`.
 
-Text and glyphs carry every state; `--no-color` changes no facts.
+Text and glyphs carry every state; `--no-color` changes no facts, and plain terminals use each state's ASCII form.
 
-**Owner attention** holds lifecycle and landing decisions; **Landing risks** holds file, trunk, and ADR conflicts; **Next action** holds the executable continuation. `--verbose` adds evidence.
+**Owner attention** holds lifecycle and landing decisions, including the next step of every row that needs you; **Landing risks** holds file, trunk, and ADR conflicts; **Next action** holds the executable continuation. `--verbose` adds evidence: each row's state line, its explanation, and its next step with the exact command. The ready, authorized-landing, and stale hints take their members from the row states, so a hint never calls a row ready that the dashboard labels stale.
+
+## Row states
+
+One table, [`row_states.ts`](../../../src/engine/status/row_states.ts), names every state a fleet row can be in: its group, label of at most 13 cells, glyph, ASCII form, glyph and label tones, and the two facts a one-line summary leads with. `discern status`, [`discern enter`](opening-worktrees.md), and the desk read it, so the three surfaces show one vocabulary. Each state's sentences live beside it in [`row_sentences.ts`](../../../src/engine/status/row_sentences.ts): a short qualifier, an `explanation` in the human register with no commands, and an `attention` line in the CLI register with the exact command. The facts they read and their human wording (`proofHuman`, `authorityHuman`, `queueHuman`, `exceptionArgv`) live in [`row_facts.ts`](../../../src/engine/status/row_facts.ts).
+
+Status first classifies a row into one of its closed kinds (`classifyRowKind`): degraded, failed, refused, running, stale, editing, ready, behind, then the Proof kinds and idle. `rowStateFor` refines the kind by a written precedence, and the first match wins:
+
+1. Degraded kinds: Broken, Unreadable, or setup split by its record into Needs setup (retry or manual) and Setup unknown.
+2. An integration copy landing this task: live is Landing, a retained decision is Exception, a dead owner is Interrupted. These outrank the task's own kind because the landing is what is happening.
+3. A running verb: `done` is Checking, `accept` is Landing, `update` is Updating, any other is Running.
+4. A failed verb: `done` is Checks failed, `accept` is Didn't land, any other is Failed.
+5. A refusal, by its `last_action.error` slug while the work can still land: a variance or standard approval wait is Exception, a consent wait is Wants to land; anything else is Refused.
+6. Stale work: Stale either way; honored Proof keeps its own state so its explanation can say landing is still open.
+7. Uncommitted work: Editing.
+8. Ready work: unmet checkpoint answers or standard proposals in the Proof are Exception; a queue row awaiting the owner is Wants to land; recorded authority is Queued #N when queued and Approved when not; otherwise Ready.
+9. Containment, then the behind and Proof kinds: Contained, Behind, Proof error, Proof unknown, Needs recheck, Needs checks.
+10. Idle: Empty when clean with nothing ahead, otherwise Idle.
+
+Containment resolves before the behind and Proof kinds because a contained branch carries commits without its own Proof; the queue's `awaiting-owner` authority is the durable form of a consent refusal, which the agent's next command overwrites.
+
+The groups are `FLEET_ROW_DECISIONS` (Ready for review, Needs attention, Working, Approved to land, Idle) and `FLEET_BRANCH_GROUPS` (Parked, Landed). Green marks only the states that can land (Ready, Wants to land, Approved, Queued). An Exception's next step is the exact hand-off: `discern accept --target <branch> --confirmed`, one `--variance <id>` per unmet checkpoint and one `--approve-standard <token>` per standard proposal, with the token acceptance serves.
 
 In the expanded view, **Checks** shows configured changed scopes, each changed scope's configured preview command, planned gate jobs, and a standards count. It labels preview commands as not run. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. **Landing** shows pass, branch, files changed, diff size, commit, and age. **Proofs** contains stored Proof Markdown.
 
@@ -71,13 +93,15 @@ Fleet retains the main row. Each sampled row carries independent recovery facts:
 
 `read_failure` records any other checkout-local read that failed, with its reason, and marks the checkout Unreadable. When a configured env file caused it, `file` names that file. The row then keeps its derived `id` and `port` and omits `resources`. The local `worktree` block carries the same field, with empty `resources`. A row whose remaining reads fail keeps its registration and Git facts, so one checkout's failure never fails the survey ([identity and environment](identity-and-env.md#inherit-selected-env-values)).
 
+Every task row carries `state` and `group` from the [row-state table](#row-states); the main checkout's row carries neither. The Markdown projection names both on each fleet line.
+
 Readable worktrees also carry activity, one `gate_proof`, and authority. Newer rows carry `task`: the display title, title source, optional brief, and creation ref and commit. `title_source: "identity-fallback"` identifies an older worktree with no record. Unavailable metadata remains a separate diagnostic. `gate_proof` always carries its inspection status, and an honored marker adds compact structured Proof facts. Every structured mode omits rendered Proof pages, legacy one-line marker copies, and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision, six authored-first path examples plus uncovered totals and scopes. In full mode, `landed_proof.proof` is compact and `landed_proof.commit_at` supplies landing age when Git can read it.
 
 Ahead and behind are non-negative integers, `"unknown"` after a failed or malformed count, and `null` on local status when the trunk is missing. Only a number can support readiness or containment ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
 
 Status carries no landing outcome for a checkout that stayed after its submission landed. The acceptance result's first sentence names that route ([Land the reviewed commit](lifecycle.md#land-the-reviewed-commit)); afterwards the row reports the checkout's current state like any other task. Local feedback stays visible as changed files.
 
-`last_action` records the newest completed task action, with its `error` slug when the verb refused or failed with one. An invocation the verb registry classifies as observation — `status`, `progress`, `doctor`, `map` and `docs` reads — never replaces it ([`isTaskAction`](../../../src/engine/logbook/read.ts)), so an agent reading status can't erase a failed Gate; it still counts as activity. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or logbook time. Disabling the logbook removes the action fields; Git activity remains available ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
+`last_action` records the newest completed task action, with its `error` slug when the verb refused or failed with one. An invocation the verb registry classifies as observation — `status`, `progress`, `doctor`, `map` and `docs` reads — never replaces it ([`isTaskAction`](../../../src/engine/logbook/read.ts)), so an agent reading status can't erase a failed gate; it still counts as activity. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or logbook time. Disabling the logbook removes the action fields; Git activity remains available ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
 
 `fleet_collisions` pairs branches sharing changed files and retains the shared-file count; `adr_collisions` retains each contested number and its claimant branches, including branches without worktrees. Their path lists stay out of structured results. Terminal `--verbose` shows those paths, and a later `update` result names the shared paths that need re-reading. Full stored Proof pages appear only through terminal `--verbose`; structured modes carry the compact Proof claim ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)). Dirty, behind, and missing-Proof states remain `ok: true`; operational refusals do not.
 
@@ -91,16 +115,19 @@ After setup, detectors can add recent logbook observations to `hints[]`. They in
 
 ## Where it lives in code
 
-| Concern                               | Source                                                                              |
-| ------------------------------------- | ----------------------------------------------------------------------------------- |
-| Status facts and hints                | [`status.ts`](../../../src/engine/status/status.ts)                                 |
-| Pure package-component adaptation     | [`tty.ts`](../../../src/engine/status/tty.ts)                                       |
-| Shared terminal facts and safe text   | [`terminal.ts`](../../../src/lib/terminal.ts)                                       |
-| Result and Proof schemas              | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                        |
-| Human and machine hint routing        | [`hints.ts`](../../../src/shared/hints.ts)                                          |
-| Width, degradation, and state matrix  | [`engine_status_tty_test.ts`](../../../tests/engine_status_tty_test.ts)             |
-| End-to-end status behavior            | [`engine_status_test.ts`](../../../tests/engine_status_test.ts)                     |
-| Terminal-observation structural guard | [`terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts) |
+| Concern                               | Source                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| Status facts and hints                | [`status.ts`](../../../src/engine/status/status.ts)                                   |
+| Pure package-component adaptation     | [`tty.ts`](../../../src/engine/status/tty.ts)                                         |
+| Fleet row model shared by every view  | [`fleet_rows.ts`](../../../src/engine/status/fleet_rows.ts)                           |
+| Row states, groups, and precedence    | [`row_states.ts`](../../../src/engine/status/row_states.ts)                           |
+| Row-state matrix and wording guards   | [`engine_status_row_states_test.ts`](../../../tests/engine_status_row_states_test.ts) |
+| Shared terminal facts and safe text   | [`terminal.ts`](../../../src/lib/terminal.ts)                                         |
+| Result and Proof schemas              | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                          |
+| Human and machine hint routing        | [`hints.ts`](../../../src/shared/hints.ts)                                            |
+| Width, degradation, and state matrix  | [`engine_status_tty_test.ts`](../../../tests/engine_status_tty_test.ts)               |
+| End-to-end status behavior            | [`engine_status_test.ts`](../../../tests/engine_status_test.ts)                       |
+| Terminal-observation structural guard | [`terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts)   |
 
 ## Current state and gotchas
 
