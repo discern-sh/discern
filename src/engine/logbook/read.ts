@@ -23,6 +23,7 @@ import {
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { logbookVerbIsEffectful } from "../../shared/verbs.ts";
 import {
+  isInteractiveSessionAction,
   operationEffectPolicy,
   type OperationLockBoundary,
 } from "../../shared/operation_effects.ts";
@@ -419,8 +420,12 @@ export function deriveFleetLogbookActivity(
     event.kind === "verb"
   );
   const durationPriors = durationPriorsFor(completions, currentEpoch);
+  // An open agent, shell or editor session is activity, not a running verb:
+  // its row shows when it began, and nothing waits for it to end.
   const freshBegins = byBranch(
-    freshUnmatchedBegins(events, completions, durationPriors, nowMs),
+    freshUnmatchedBegins(events, completions, durationPriors, nowMs).filter(
+      (event) => !isInteractiveSessionAction(event.verb),
+    ),
   );
   const attributed = events.filter((event): event is BranchEvent =>
     event.kind !== "prune"

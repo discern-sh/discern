@@ -92,7 +92,7 @@ A Project Script asks for an optional argument line first. Spaces separate argum
 
 The agent picker retains configured providers whose binary is missing from `PATH`, with a reason. When a task has a stored brief and its provider takes no prompt option, a review shows the brief to copy before the agent opens.
 
-Each task effect enters `executeOperation` under its own command identity and selected absolute target. A shell, editor, agent, or Project Script is project code and holds no exclusion boundary while it runs ([ADR 0408](../_adr/0408-project-code-holds-no-exclusion-boundary.md)). Process groups stop with the desk ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
+Each task effect enters `executeOperation` under its own command identity and selected absolute target, and records begin and verb events on its task's branch, so status and another desk see the run and its outcome ([ADR 0418](../_adr/0418-desk-effects-are-attributed-to-their-task.md)). A shell, editor, agent, or Project Script is project code and holds no exclusion boundary while it runs ([ADR 0408](../_adr/0408-project-code-holds-no-exclusion-boundary.md)). Process groups stop with the desk ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
 
 ## Observe without stopping navigation
 

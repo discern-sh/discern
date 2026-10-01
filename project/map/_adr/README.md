@@ -392,6 +392,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0415 — The Desk is an inbox on the application runtime](0415-the-desk-is-an-inbox-on-the-application-runtime.md)
 - [0416 — Desk reviews lead with consequences; the plan is one key away](0416-desk-reviews-lead-with-consequences.md)
 - [0417 — Desk-owned effects run in session](0417-desk-owned-effects-run-in-session.md)
+- [0418 — Desk effects are attributed to their task](0418-desk-effects-are-attributed-to-their-task.md)
 
 <!-- END GENERATED: current ADR records -->
 
