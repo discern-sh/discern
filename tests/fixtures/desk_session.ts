@@ -22,6 +22,7 @@ import {
   TERMINAL_KEY_SEQUENCES,
 } from "discern-design-system/cli/interactive/testing";
 import { runTerminalApplication } from "../../src/lib/terminal_interaction.ts";
+import type { TerminalColorDepth } from "discern-design-system/cli";
 import { type DeskRuntime, runDesk } from "../../src/engine/desk/desk.ts";
 import { statusResult } from "../../src/engine/status/status.ts";
 import type { CliModelProvider } from "../../src/shared/cli_reference_codegen.ts";
@@ -373,6 +374,8 @@ export interface DeskSessionOptions {
   readonly columns?: number;
   readonly rows?: number;
   readonly unicode?: boolean;
+  /** The terminal's colours; the fake terminal's own default otherwise. */
+  readonly colorDepth?: TerminalColorDepth;
   /** Runtime seams; the rest come from {@linkcode scriptedDeskRuntime}. */
   readonly runtime?: Partial<DeskRuntime>;
   readonly output?: DeskTranscript;
@@ -443,6 +446,9 @@ export async function deskSession(
     columns: options.columns ?? 120,
     rows: options.rows ?? 40,
     unicode: options.unicode ?? true,
+    ...(options.colorDepth === undefined
+      ? {}
+      : { colorDepth: options.colorDepth }),
   });
   const clock = new ManualTerminalClock();
   const output = options.output ?? deskTranscript();

@@ -15,6 +15,7 @@ import { withRealPtyBoundary } from "../tests/real_pty.ts";
 import {
   deskAtRest as atRest,
   deskFleetFixture,
+  type DeskFrameTest,
   deskLayerOpen as layer,
   deskSettledPhase,
   type DeskTtyInputChunk,
@@ -27,6 +28,8 @@ import type { PtyGeometry } from "../tests/fixtures/pty_process.ts";
 import { assertChildDesignSystemGraph } from "./local_design_system.ts";
 import { parseToolArguments } from "./tool_arguments.ts";
 import { briefFleet } from "./desk_sandbox.ts";
+import { deskSession } from "../tests/fixtures/desk_session.ts";
+import { git } from "../tests/engine_helpers.ts";
 
 /** Where the gallery writes, and the Deno config every captured Desk runs under. */
 export interface DeskGalleryTarget {
@@ -79,6 +82,8 @@ interface JourneyOptions {
   /** Capture on a light terminal; journeys capture on a dark one by default. */
   readonly light?: boolean;
   readonly plain?: boolean;
+  /** Environment beyond the gallery's own, such as a PATH with agents. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 /** Capture one journey and keep per-viewport evidence, never stitched scrollback. */
@@ -101,6 +106,7 @@ async function capture(
       SHELL: "/bin/sh",
       LANG: plain ? "C" : "en_US.UTF-8",
       LC_ALL: plain ? "C" : "en_US.UTF-8",
+      ...options.env,
     },
   });
   assertEquals(result.code, 0, result.transcript.slice(-4000));
@@ -150,23 +156,273 @@ const GLOSSARY = "docs-glossary-e5f6a7";
 const RUNNING = "fix-flaky-upload-c3d4e5";
 const QUEUED = "search-index-a7b8c9";
 
-/** The wide inbox, its action menu, and a review sheet in the detail column. */
+/** A review sheet that has read its subject. */
+function reviewRead(id: string): DeskFrameTest {
+  return (capture) =>
+    layer(id)(capture) && !capture.text.includes("Checking current state");
+}
+
+const LAND = "review-accept-review";
+const DROP = "review-drop-review";
+
+/**
+ * The wide inbox, its action menu, and the stale task's integrating Land
+ * review in the detail column.
+ */
 function wideJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
     phase(size, "overview", "inbox at rest", atRest(MANUAL), keys("right")),
     phase(size, "actions", "action menu", layer("actions"), keys("escape")),
-    phase(size, undefined, "menu closed", atRest(MANUAL), text("l")),
+    phase(size, undefined, "menu closed", atRest(MANUAL), text("2")),
+    phase(size, undefined, "needs attention", atRest(AUTH), keys("down")),
+    phase(size, undefined, "the stale task", atRest(STALE), text("l")),
+    phase(size, "review-land", "land review read", reviewRead(LAND), {
+      keys: ["escape"],
+      allowLoneEscape: true,
+    }),
+    phase(size, undefined, "review closed", atRest(STALE), text("q")),
+  ];
+}
+
+/**
+ * Every review sheet and form at the standard size: Land and its plan,
+ * New task with its live preview, Drop with its challenge half typed, and
+ * the Check for updates disclosure.
+ */
+function sheetsJourney(size: PtyGeometry): DeskTtyInputPhase[] {
+  const form = "form-new_task-review";
+  return [
+    phase(size, undefined, "inbox at rest", atRest(MANUAL), text("l")),
+    phase(size, "review-land", "land review read", reviewRead(LAND), {
+      input: "d",
+    }),
     phase(
       size,
-      "review-land",
-      "land review read",
+      "review-land-plan",
+      "the technical plan",
       (capture) =>
-        layer("review-accept-review")(capture) &&
+        reviewRead(LAND)(capture) && capture.text.includes("Acceptance plan"),
+      { keys: ["escape"], allowLoneEscape: true },
+    ),
+    phase(size, undefined, "review closed", atRest(MANUAL), text("n")),
+    phase(
+      size,
+      undefined,
+      "the new task's title",
+      (capture) =>
+        capture.state?.focusedControlId === `${form}:field:title` &&
         !capture.text.includes("Checking current state"),
-      keys("escape"),
+      text("Tighten upload retries"),
+    ),
+    phase(
+      size,
+      "new-task",
+      "the new task's preview",
+      (capture) =>
+        layer(form)(capture) &&
+        capture.text.includes("Tighten upload retries") &&
+        capture.text.includes("Create branch"),
+      { keys: ["escape"], allowLoneEscape: true },
+    ),
+    phase(size, undefined, "form closed", atRest(MANUAL), text("2")),
+    phase(size, undefined, "needs attention", atRest(AUTH), keys("down")),
+    phase(size, undefined, "the stale task", atRest(STALE), text("D")),
+    phase(
+      size,
+      undefined,
+      "the drop challenge",
+      (capture) =>
+        reviewRead(DROP)(capture) &&
+        capture.state?.focusedControlId === `${DROP}:field:challenge`,
+      text("agent/homepage-sess"),
+    ),
+    phase(
+      size,
+      "review-drop",
+      "the challenge half typed",
+      (capture) =>
+        reviewRead(DROP)(capture) &&
+        capture.text.includes("agent/homepage-sess"),
+      { keys: ["escape"], allowLoneEscape: true },
+    ),
+    phase(size, undefined, "drop closed", atRest(STALE), keys("ctrl-k")),
+    phase(
+      size,
+      undefined,
+      "palette",
+      layer("palette"),
+      text("Check for updates\r"),
+    ),
+    phase(
+      size,
+      "updates",
+      "the update disclosure",
+      reviewRead("review-updates-review"),
+      { keys: ["escape"], allowLoneEscape: true },
+    ),
+    phase(size, undefined, "disclosure closed", atRest(STALE), text("q")),
+  ];
+}
+
+/** Land's confirm button focused, on a light terminal. */
+function confirmJourney(size: PtyGeometry): DeskTtyInputPhase[] {
+  return [
+    phase(size, undefined, "inbox at rest", atRest(MANUAL), text("l")),
+    phase(size, undefined, "land review read", reviewRead(LAND), {
+      keys: ["page-down", "page-down", "page-down"],
+    }),
+    phase(
+      size,
+      undefined,
+      "land review on its safe choice",
+      (capture) =>
+        reviewRead(LAND)(capture) &&
+        capture.state?.focusedControlId === `${LAND}:button:safe`,
+      keys("right"),
+    ),
+    phase(
+      size,
+      "review-land-confirm",
+      "land review on its confirm",
+      (capture) => capture.state?.focusedControlId === `${LAND}:button:confirm`,
+      { keys: ["escape"], allowLoneEscape: true },
     ),
     phase(size, undefined, "review closed", atRest(MANUAL), text("q")),
   ];
+}
+
+/** One review at a size that needs no other layer. */
+function sheetJourney(
+  size: PtyGeometry,
+  row: string,
+  key: string,
+  id: string,
+  name: string,
+): DeskTtyInputPhase[] {
+  const reach = row === STALE
+    ? [
+      phase(size, undefined, "inbox at rest", atRest(MANUAL), text("2")),
+      phase(size, undefined, "needs attention", atRest(AUTH), keys("down")),
+      phase(size, undefined, "the task", atRest(STALE), text(key)),
+    ]
+    : [phase(size, undefined, "the task", atRest(row), text(key))];
+  return [
+    ...reach,
+    phase(size, name, "the review read", reviewRead(id), {
+      keys: ["escape"],
+      allowLoneEscape: true,
+    }),
+    phase(size, undefined, "review closed", atRest(row), text("q")),
+  ];
+}
+
+/**
+ * A landing that stopped on a conflict, as its result sheet shows it. The
+ * sandbox holds no change that conflicts with main, so only the landing's
+ * refusal is scripted; the survey, the review and its preview are real.
+ */
+async function landingFailedJourney(
+  project: DeskTtyProject,
+  target: DeskGalleryTarget,
+): Promise<string[]> {
+  const desk = await deskSession({
+    production: true,
+    columns: STANDARD.columns,
+    rows: STANDARD.rows,
+    colorDepth: "truecolor",
+    runtime: {
+      canInteract: () => true,
+      inDeskSession: () => false,
+      findRoot: () => project.root,
+      mainRepoPath: () => project.root,
+      accept: () => ({
+        ok: false,
+        verb: "accept",
+        error: "precondition_failed",
+        message: "Combining it with main stopped: 2 files conflict",
+        diagnostics: ["src/session/store.ts", "site/_includes/home.njk"].map((
+          file,
+        ) => ({
+          tool: "integration",
+          severity: "error" as const,
+          message: `${file} conflicts`,
+          reproduce_cmd: "git merge main",
+          file,
+        })),
+      }),
+    },
+  });
+  try {
+    await desk.select(STALE);
+    await desk.press("l");
+    await desk.opened(LAND);
+    await desk.settleForm();
+    for (
+      let page = 0;
+      page < 12 && desk.state().fullyRead[LAND] !== true;
+      page += 1
+    ) await desk.press("page-down");
+    await desk.confirm();
+    await desk.opened("result");
+    const frame = captureTerminalFrame(desk.io.output(), desk.io.size(), {
+      theme: "dark",
+    });
+    const id = `landing-failed-${STANDARD.columns}x${STANDARD.rows}`;
+    await Deno.writeTextFile(
+      join(target.directory, `${id}.html`),
+      `<!doctype html><meta charset="utf-8"><title>${id}</title><style>pre{display:inline-block}</style>${frame.html}`,
+    );
+    console.log(join(target.directory, `${id}.html`));
+    return [`${id}.html`];
+  } finally {
+    await desk.quit();
+  }
+}
+
+/**
+ * The agent picker for the failed task, with two agents installed and one
+ * missing. The task's own configuration names the three; Git is told to
+ * leave that edit out of the task's status, so its row keeps its state.
+ */
+async function agentJourney(
+  project: DeskTtyProject,
+  target: DeskGalleryTarget,
+): Promise<string[]> {
+  const worktree = project.worktrees.get(AUTH);
+  assert(worktree !== undefined, `the fleet has no ${AUTH}`);
+  const config = join(worktree, "discern.toml");
+  const saved = await Deno.readTextFile(config);
+  const bin = join(project.parent, "agent-bin");
+  await Deno.mkdir(bin, { recursive: true });
+  for (const agent of ["claude", "codex"]) {
+    await Deno.writeTextFile(join(bin, agent), "#!/bin/sh\nexit 0\n", {
+      mode: 0o755,
+    });
+  }
+  const skip = (flag: string): Promise<void> =>
+    git(worktree, "update-index", flag, "discern.toml");
+  await skip("--skip-worktree");
+  await Deno.writeTextFile(
+    config,
+    saved.replace(
+      'agents = ["claude_code"]',
+      'agents = ["claude_code", "codex", "gemini"]',
+    ),
+  );
+  try {
+    return await capture(project, target, STANDARD, [
+      phase(STANDARD, undefined, "inbox at rest", atRest(MANUAL), text("2")),
+      phase(STANDARD, undefined, "the failed task", atRest(AUTH), text("a")),
+      phase(STANDARD, "agent", "the agent picker", layer("agents"), {
+        keys: ["escape"],
+        allowLoneEscape: true,
+      }),
+      phase(STANDARD, undefined, "picker closed", atRest(AUTH), text("q")),
+    ], { env: { PATH: `${bin}:/usr/bin:/bin:/usr/sbin:/sbin` } });
+  } finally {
+    await Deno.writeTextFile(config, saved);
+    await skip("--no-skip-worktree");
+  }
 }
 
 /** Every task state at the standard width, then the layers. */
@@ -319,11 +575,36 @@ type Journey = (
 
 const WIDE = { columns: 120, rows: 30 };
 const STANDARD = { columns: 80, rows: 24 };
+const SHORT = { columns: 80, rows: 13 };
+const NARROW = { columns: 40, rows: 24 };
 
 /** Every journey over the brief's fleet, in the order the gallery runs them;
  * journeys that change the fleet run last. */
 const FLEET_JOURNEYS: Readonly<Record<string, Journey>> = {
   wide: (project, target) => capture(project, target, WIDE, wideJourney(WIDE)),
+  sheets: (project, target) =>
+    capture(project, target, STANDARD, sheetsJourney(STANDARD)),
+  confirm: (project, target) =>
+    capture(project, target, STANDARD, confirmJourney(STANDARD), {
+      light: true,
+    }),
+  "sheet-sizes": async (project, target) => [
+    ...await capture(
+      project,
+      target,
+      SHORT,
+      sheetJourney(SHORT, MANUAL, "l", LAND, "review-land"),
+    ),
+    ...await capture(
+      project,
+      target,
+      NARROW,
+      sheetJourney(NARROW, STALE, "D", DROP, "review-drop"),
+    ),
+  ],
+  agent: agentJourney,
+  // Its scripted refusal leaves the fleet as it found it.
+  "landing-failed": landingFailedJourney,
   standard: (project, target) =>
     capture(project, target, STANDARD, standardJourney(STANDARD)),
   sizes,
