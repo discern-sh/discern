@@ -337,6 +337,7 @@ Deno.test("status dashboards preserve complete facts across layout and terminal 
             path: `/repo.worktrees/${id}`,
             branch,
             id,
+            ahead: 1,
             behind: 2,
             is_current: true,
           }),
@@ -850,7 +851,7 @@ Deno.test("status dashboards preserve fleet identity, evidence, priorities, and 
       name:
         "status dashboard: actionable package commands are accented while stored proof stays verbatim",
       check: () => {
-        const behind = entry({ behind: 2 });
+        const behind = entry({ ahead: 1, behind: 2 });
         const proofUnavailable = entry({
           path: "/repo.worktrees/proof-def456",
           branch: "agent/proof-def456",

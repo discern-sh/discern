@@ -58,7 +58,7 @@ Status first classifies a row into one of its closed kinds (`classifyRowKind`): 
 7. Uncommitted work: Editing.
 8. Ready work: unmet checkpoint answers or standard proposals in the Proof are Exception; a queue row awaiting the owner is Wants to land; recorded authority is Queued #N when queued and Approved when not; otherwise Ready.
 9. Containment, then the behind and Proof kinds: Contained, Behind, Proof error, Proof unknown, Needs recheck, Needs checks.
-10. Idle: Empty when clean with nothing ahead, otherwise Idle.
+10. Idle: Empty when clean with nothing ahead, otherwise Idle. A clean task with nothing ahead reads Empty however far main has moved, because it has no work to update or check yet.
 
 Containment resolves before the behind and Proof kinds because a contained branch carries commits without its own Proof; the queue's `awaiting-owner` authority is the durable form of a consent refusal, which the agent's next command overwrites.
 

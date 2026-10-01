@@ -362,7 +362,9 @@ function specifiedState(
     return "ready";
   }
   if (entry.contained_in !== undefined) return "contained";
-  if (kind === "behind") return "behind";
+  if (kind === "behind") {
+    return entry.clean === true && entry.ahead === 0 ? "empty" : "behind";
+  }
   if (kind === "proof-unreadable") return "proof-error";
   if (kind === "proof-unavailable") return "proof-unknown";
   if (kind === "proof-stale") return "recheck";

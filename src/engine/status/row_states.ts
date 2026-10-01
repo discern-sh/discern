@@ -403,7 +403,7 @@ function activityState(
  * a clean contained branch stays Contained; P7 editing; P8 ready, by
  * exception, queue, and authority; then containment, which outranks the
  * behind and Proof kinds (P9) and idle (P10) because a contained branch's
- * commits travel in a later task.
+ * commits travel in a later task. Behind needs commits of its own.
  */
 export function rowStateFor(
   kind: FleetRowStatusKind,
@@ -413,8 +413,20 @@ export function rowStateFor(
   return degradedState(kind, entry) ??
     integrationState(context.integration) ??
     activityState(kind, entry, context) ??
-    (entry.contained_in === undefined || kind === "in-progress"
-      ? KIND_STATES[kind]
-      : "contained") ??
-    (entry.clean === true && entry.ahead === 0 ? "empty" : "idle-unknown");
+    restingState(kind, entry);
+}
+
+/** P9 and P10: containment, then the behind and Proof kinds, then idle. A
+ * clean task with nothing of its own reads Empty however far the trunk has
+ * moved, because there is no work to update or check yet. */
+function restingState(
+  kind: FleetRowStatusKind,
+  entry: StatusFleetEntry,
+): FleetTaskRowStateId {
+  if (entry.contained_in !== undefined && kind !== "in-progress") {
+    return "contained";
+  }
+  const empty = entry.clean === true && entry.ahead === 0;
+  if (kind === "behind" && empty) return "empty";
+  return KIND_STATES[kind] ?? (empty ? "empty" : "idle-unknown");
 }

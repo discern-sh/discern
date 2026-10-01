@@ -284,6 +284,7 @@ export const TABLE_ROWS: readonly TableRow[] = [
     state: "contained",
   },
   { row: 33, entry: task(), state: "empty" },
+  { row: 33, entry: task({ behind: 5 }), state: "empty" },
   {
     row: 34,
     entry: task({ ahead: "unknown", behind: "unknown" }),

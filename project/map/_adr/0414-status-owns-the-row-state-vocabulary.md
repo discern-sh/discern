@@ -21,7 +21,7 @@ Status owns one closed table of row states, beside its classifier. `classifyRowK
 7. editing;
 8. ready, by Proof exceptions, then the queue row's `awaiting-owner` authority, then recorded authority (Queued #N, Approved), else Ready;
 9. containment, then the behind and Proof kinds;
-10. idle, as Empty or Idle.
+10. idle, as Empty or Idle; a clean task with nothing ahead is Empty even when the trunk has moved.
 
 Each state has a group, a label of at most 13 cells, a glyph with an ASCII form unique within the state column, glyph and label tones, and two headline facts. Green is reserved for states that can land. The groups are `FLEET_ROW_DECISIONS` (Ready for review, Needs attention, Working, Approved to land, Idle) and `FLEET_BRANCH_GROUPS` (Parked, Landed). Each state builds a qualifier and two sentences: `explanation` in the human register with no commands, and `attention` in the CLI register with the exact command. The human wording of Proof, landing authority and queue place is built once beside them; "scope limited" and "authority unknown" never reach people. An exception's hand-off is derived per kind: `discern accept --target <branch> --confirmed`, one `--variance` per unmet checkpoint and one `--approve-standard` per standard proposal, with the token acceptance serves.
 
