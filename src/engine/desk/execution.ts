@@ -110,9 +110,42 @@ export async function executeDeskOperation<T>(
   run: (signal: AbortSignal) => Promise<T>,
   explicitSignal?: AbortSignal,
 ): Promise<T> {
-  if (invocation.dryRun === true) {
-    return await executeAttributed(path, invocation, run, explicitSignal);
-  }
+  const signal = explicitSignal ?? deskEffectSignal();
+  let envelope: DiscernResult | undefined;
+  const execute = async (): Promise<T> => {
+    try {
+      return await executeOperation(
+        path,
+        invocation,
+        async (signal) => {
+          try {
+            return await run(signal);
+          } catch (error) {
+            const mapped = worktreeErrorResult(invocation.command, error);
+            if (mapped !== undefined) {
+              throw new OperationLockError(mapped, { cause: error });
+            }
+            throw error;
+          }
+        },
+        (value, rendered) => {
+          envelope = deskEnvelope(invocation, value, rendered);
+          return envelope;
+        },
+        signal,
+        undefined,
+        { resumeAfterInterrupt: true },
+      );
+    } catch (error) {
+      if (error instanceof OperationLockError) envelope = error.result;
+      if (
+        error instanceof OperationLockError &&
+        error.cause instanceof WorktreeGitError
+      ) throw error.cause;
+      throw error;
+    }
+  };
+  if (invocation.dryRun === true) return await execute();
   const lockBoundary = operationEffectPolicy(invocation.command, invocation)
     ?.lock;
   const driver = Promise.resolve({ session: "desk", tty: true });
@@ -123,13 +156,8 @@ export async function executeDeskOperation<T>(
     ...(lockBoundary === undefined ? {} : { lockBoundary }),
   });
   const started = SYSTEM_CLOCK.monotonicNow();
-  let envelope: DiscernResult | undefined;
   try {
-    const value = await recording.run(() =>
-      executeAttributed(path, invocation, run, explicitSignal, (result) => {
-        envelope = result;
-      })
-    );
+    const value = await recording.run(execute);
     envelope ??= deskEnvelope(invocation, value, undefined);
     return value;
   } finally {
@@ -144,49 +172,6 @@ export async function executeDeskOperation<T>(
       ...(envelope === undefined ? {} : { result: envelope }),
       driver: await driver,
     });
-  }
-}
-
-/** One effect through the shared executor, reporting the envelope it ends with. */
-async function executeAttributed<T>(
-  path: string,
-  invocation: OperationInvocation,
-  run: (signal: AbortSignal) => Promise<T>,
-  explicitSignal: AbortSignal | undefined,
-  ended: (envelope: DiscernResult) => void = () => {},
-): Promise<T> {
-  const signal = explicitSignal ?? deskEffectSignal();
-  try {
-    return await executeOperation(
-      path,
-      invocation,
-      async (signal) => {
-        try {
-          return await run(signal);
-        } catch (error) {
-          const mapped = worktreeErrorResult(invocation.command, error);
-          if (mapped !== undefined) {
-            throw new OperationLockError(mapped, { cause: error });
-          }
-          throw error;
-        }
-      },
-      (value, rendered) => {
-        const envelope = deskEnvelope(invocation, value, rendered);
-        ended(envelope);
-        return envelope;
-      },
-      signal,
-      undefined,
-      { resumeAfterInterrupt: true },
-    );
-  } catch (error) {
-    if (error instanceof OperationLockError) ended(error.result);
-    if (
-      error instanceof OperationLockError &&
-      error.cause instanceof WorktreeGitError
-    ) throw error.cause;
-    throw error;
   }
 }
 
