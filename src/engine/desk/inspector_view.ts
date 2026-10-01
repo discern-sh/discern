@@ -46,6 +46,8 @@ import type {
 
 /** What the detail builder reads besides the row itself. */
 export interface DeskInspection {
+  /** The main checkout, which a checkout's path is shown from. */
+  readonly root: string;
   readonly rows: readonly DeskRow[];
   readonly data?: StatusData;
   readonly trunk: string;
@@ -128,6 +130,29 @@ function taskTitleFor(branch: string, rows: readonly DeskRow[]): string {
 }
 
 const SEPARATOR: ApplicationRun = { text: " · ", ascii: " - ", tone: "faint" };
+
+/**
+ * A checkout's path as the inspector shows it, short enough to read at a
+ * glance. A checkout beside the main one reads from the folder that holds
+ * them both (`…/project.worktrees/tidy-scripts`, and `…/project` for the
+ * main checkout); a path elsewhere keeps its first folder and its last two
+ * names around an ellipsis. View changes and the recovery steps show it
+ * whole.
+ */
+export function checkoutPathRuns(path: string, root: string): ApplicationRun[] {
+  const parent = root.slice(0, root.lastIndexOf("/"));
+  if (parent !== "" && path.startsWith(`${parent}/`)) {
+    const tail = path.slice(parent.length + 1);
+    return [{ text: `…/${tail}`, ascii: `.../${tail}` }];
+  }
+  const names = path.split("/").filter((name) => name !== "");
+  const [first, ...rest] = names;
+  if (first === undefined || rest.length <= 2 || !path.startsWith("/")) {
+    return [{ text: path }];
+  }
+  const last = rest.slice(-2).join("/");
+  return [{ text: `/${first}/…/${last}`, ascii: `/${first}/.../${last}` }];
+}
 
 /** The Checks fact: the run in progress, the failed run, or the Proof. */
 function checksFact(
@@ -703,7 +728,10 @@ function taskTail(
       blocks: [{
         kind: "facts",
         rows: [
-          { label: "Path", value: [[{ text: entry.path }]] },
+          {
+            label: "Path",
+            value: [checkoutPathRuns(entry.path, inspection.root)],
+          },
           { label: "Id", value: [[{ text: deskRowId(row) }]] },
           ...(entry.task?.created_from === undefined ? [] : [{
             label: "From",

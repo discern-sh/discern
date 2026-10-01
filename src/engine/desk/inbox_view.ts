@@ -111,6 +111,7 @@ function inspection(
   env: DeskViewEnv,
 ): Omit<DeskInspection, "evidence"> {
   return {
+    root: env.root,
     rows: state.rows,
     ...(state.data === undefined ? {} : { data: state.data }),
     trunk: state.trunk,

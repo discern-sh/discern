@@ -463,6 +463,10 @@ function changesBlocks(
           ? []
           : [{ label: "Landing", value: [[{ text: authority }]] }]),
         { label: "Changes", value: [totals] },
+        // The inspector shortens it; here it is whole, to copy.
+        ...(ref?.kind === "task"
+          ? [{ label: "Path", value: [[{ text: ref.row.entry.path }]] }]
+          : []),
       ],
     },
     ...(proofLine === undefined ? [] : [proofLineBlock(proofLine)]),

@@ -11,7 +11,10 @@ import {
   type TerminalApplicationView,
   validateTerminalApplicationView,
 } from "discern-design-system/cli/interactive";
-import { proofLineBlock } from "../src/engine/desk/inspector_view.ts";
+import {
+  checkoutPathRuns,
+  proofLineBlock,
+} from "../src/engine/desk/inspector_view.ts";
 import { planBlocks, planLines } from "../src/engine/desk/sheet_view.ts";
 import {
   BUILT_IN_STEP_LABELS,
@@ -342,6 +345,68 @@ Deno.test("a technical plan reads as sheet text, every word of the shared render
     context.blocks.some((block) => block.kind === "text"),
     "a detail that isn't a label and value stays a line of its own",
   );
+});
+
+Deno.test("a checkout's path reads short in the inspector and whole in View changes", () => {
+  const root = "/private/var/folders/bc/tp3rgcfj4/T/discern-desk-42a1/project";
+  const worktree = `${root}.worktrees/tidy-scripts-b8c9d0`;
+  const shown = (path: string): string =>
+    checkoutPathRuns(path, root).map((run) => run.text).join("");
+  assertEquals(shown(worktree), "…/project.worktrees/tidy-scripts-b8c9d0");
+  assertEquals(shown(root), "…/project");
+  assertEquals(shown(`${root}/.trees/alpha`), "…/project/.trees/alpha");
+  assertEquals(shown("/srv/checkouts/team/alpha"), "/srv/…/team/alpha");
+  assertEquals(shown("/srv/team/alpha"), "/srv/team/alpha");
+  assertEquals(
+    checkoutPathRuns(worktree, root).map((run) => run.ascii ?? run.text)
+      .join(""),
+    ".../project.worktrees/tidy-scripts-b8c9d0",
+  );
+
+  const env = { ...ENV, root };
+  const state = desk(
+    statusData([
+      mainFleetEntry(root),
+      fleetEntry({ id: "alpha", branch: "agent/alpha", path: worktree }),
+    ]),
+  );
+  const view = deskView(state, { ...PRODUCT_UI, selected: "alpha" }, env);
+  assert(view.body.kind === "master-detail");
+  const identity = (view.body.detail.content.alpha ?? []).find((block) =>
+    block.kind === "section" && block.title === "Identity"
+  );
+  assert(identity?.kind === "section");
+  const facts = identity.blocks.find((block) => block.kind === "facts");
+  assert(facts?.kind === "facts");
+  assertEquals(
+    facts.rows.find((row) => row.label === "Path")?.value,
+    [checkoutPathRuns(worktree, root)],
+  );
+  const reading = deskView(
+    open(state, {
+      kind: "reader",
+      reader: {
+        kind: "changes",
+        taskId: "alpha",
+        load: {
+          state: "ready",
+          value: {
+            trunk: "main",
+            proof: { status: "honored" },
+            commits: "",
+            files: [],
+            insertions: 0,
+            deletions: 0,
+            failures: [],
+            diffCommand: "git diff main...HEAD",
+          },
+        },
+      },
+    }).state,
+    PRODUCT_UI,
+    env,
+  ).layers?.[0];
+  assertStringIncludes(said(reading), worktree);
 });
 
 Deno.test("an open layer leaves the inspector beneath it whole", () => {
