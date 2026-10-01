@@ -8,8 +8,9 @@
  * gesture. Task mnemonics, command keys, and the decision groups a number
  * jumps to come from their registries, never from a copy here; a key that
  * runs a registered control names that control, so its label is read from
- * the vocabulary. The keys sheet and every footer hint are projections of this
- * map; the registry guard proves one meaning per key per layer and keeps
+ * the vocabulary. This map is the contract a keys sheet and footer hints
+ * project; today's desk serves the inbox command keys `deskShortcuts` reads
+ * from it. The registry guard proves one meaning per key per layer and keeps
  * mnemonics clear of the package's keys.
  */
 

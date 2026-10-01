@@ -2,10 +2,10 @@
  * Human words for the operations discern performs itself.
  *
  * `BUILT_IN_STEP_LABELS` keeps each operation's stable kebab-case label for
- * plans, results, and agents. People watching an operation read these
- * instead: one short sentence-case phrase per built-in step, keyed the same
- * way, so a new built-in operation cannot reach a progress view without its
- * human words. Project-owned steps (jobs, ensure commands, scripts) keep their
+ * plans, results, and agents. These are the words for a view that shows an
+ * operation to people: one short sentence-case phrase per built-in step,
+ * keyed the same way, so a new built-in operation has its human words before
+ * any progress view reads them. Project-owned steps (jobs, ensure commands, scripts) keep their
  * configured spelling and have no entry here. A phrase that names the trunk
  * carries the placeholder the configured trunk replaces.
  */

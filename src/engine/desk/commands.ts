@@ -4,9 +4,10 @@
  * Commands are everything the Desk offers beyond one task's actions: creating
  * work, readers over the fleet and main checkout, help, session toggles, and
  * the routes of parked and landed branch rows. Each command declares its
- * label, key, palette section, effect, confirmation, revision binding, and
- * consequences once, on the action registry's pattern, so the palette, the
- * keys sheet, footers, and any consent disclosure read the same facts.
+ * key, palette section, effect, confirmation, revision binding, and
+ * consequences once, on the action registry's pattern, so every surface that
+ * offers a command reads the same facts: today the overview's command list,
+ * its disclosure and its confirmation; a palette and keys sheet next.
  */
 
 import type { StatusData } from "../../shared/result_schemas.ts";
