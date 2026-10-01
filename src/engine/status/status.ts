@@ -169,12 +169,11 @@ import {
   readFleetLogbookActivity,
 } from "../logbook/read.ts";
 import {
-  idleDaysOf,
   presentFleetRow,
   renderStatusDashboard,
   sortFleetRows,
-  STALE_WORKTREE_DAYS,
 } from "./tty.ts";
+import { idleDaysOf, STALE_WORKTREE_DAYS } from "./row_facts.ts";
 import { fleetFilesystem, fleetSetupEvidence } from "./recovery.ts";
 import { degradedFleetKind } from "./recovery_presentation.ts";
 import { applyLogbookActivity } from "./recent.ts";
@@ -183,8 +182,6 @@ import {
   type ReappearedWorktreePath,
   reappearedWorktreePaths,
 } from "../worktree/retired_paths.ts";
-
-export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
 
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */

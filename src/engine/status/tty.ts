@@ -29,7 +29,6 @@ import {
   interactiveHintTexts,
 } from "../../shared/hints.ts";
 import type {
-  GateProofCheckData,
   GateProofCheckStatus,
   StatusData,
   StatusFleetCollision,
@@ -45,7 +44,6 @@ import { compactDuration } from "../output.ts";
 import { landingQueueLines } from "./queue_presentation.ts";
 import { isScopeMarker } from "../scopes/scopes.ts";
 import { taskLabel } from "../worktree/task_label.ts";
-import { isReadyToLand } from "../worktree/readiness.ts";
 import {
   type GitCount,
   isPositiveGitCount,
@@ -56,34 +54,19 @@ import {
   degradedFleetKind,
 } from "./recovery_presentation.ts";
 import { renderSetupStatus } from "./setup_presentation.ts";
+import { classifyRowKind } from "./row_states.ts";
+import {
+  fleetRowProof,
+  type FleetRowStatusKind,
+  hasLandableFacts,
+  idleDaysOf,
+  relativeAge,
+  STALE_WORKTREE_DAYS,
+} from "./row_facts.ts";
 
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
 
-/** Fleet activity older than this is stale when unlanded work remains. */
-export const STALE_WORKTREE_DAYS = 7;
-
-/** The closed human-status vocabulary. Renderer tests key their state matrix to
- * this tuple, so a new semantic state cannot bypass the width and text guards. */
-export const FLEET_ROW_STATUS_KINDS = [
-  "broken",
-  "setup-incomplete",
-  "unreadable",
-  "failed",
-  "blocked",
-  "behind",
-  "ready",
-  "running",
-  "stale",
-  "in-progress",
-  "proof-unreadable",
-  "proof-unavailable",
-  "proof-stale",
-  "needs-gate",
-  "idle",
-] as const;
-
-export type FleetRowStatusKind = (typeof FLEET_ROW_STATUS_KINDS)[number];
 export type FleetRowTone = "red" | "cyan" | "yellow" | "green" | "dim";
 
 interface StatusMeta {
@@ -201,62 +184,9 @@ export interface StatusDashboardOptions {
   message?: string;
 }
 
-/** Whole days since an ISO timestamp, or undefined when absent/unparseable. */
-export function idleDaysOf(
-  iso: string | undefined,
-  nowMs: number,
-): number | undefined {
-  if (iso === undefined) return undefined;
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) return undefined;
-  return Math.max(0, Math.floor((nowMs - then) / 86_400_000));
-}
-
-/** A compact relative age for row activity. */
-export function relativeAge(
-  iso: string | undefined,
-  nowMs: number,
-): string {
-  if (iso === undefined) return "—";
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) return "—";
-  const secs = Math.max(0, Math.floor((nowMs - then) / 1000));
-  if (secs < 60) return "just now";
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
-}
-
 /** Human file-count phrase with a precise unit. */
 function fileCount(count: number): string {
   return `${count} file${count === 1 ? "" : "s"} changed`;
-}
-
-/** Resolve the new full inspection field with compatibility fallbacks. */
-function proofFromEntry(entry: StatusFleetEntry): GateProofCheckData {
-  if (entry.gate_proof !== undefined) return entry.gate_proof;
-  if (entry.proof_honored === true) {
-    return {
-      status: "honored",
-      ...(entry.proof === undefined ? {} : { proof: entry.proof }),
-      ...(entry.proof_line === undefined
-        ? {}
-        : { proof_line: entry.proof_line }),
-    };
-  }
-  if (entry.clean === false) return { status: "dirty" };
-  return {
-    status: "unavailable",
-    reason: "Proof state was not inspected",
-  };
 }
 
 /** The label and tone for each known proof-check status. The status is an
@@ -275,7 +205,7 @@ const PROOF_STATUS_PRESENTATIONS: Readonly<
 
 /** Project the proof-check vocabulary into a labelled, toned fact. */
 function proofPresentation(entry: StatusFleetEntry): ProofPresentation {
-  const proof = proofFromEntry(entry);
+  const proof = fleetRowProof(entry);
   const detail = proof.reason ?? (
     proof.status === "stale" && proof.recorded !== undefined &&
       proof.head !== undefined
@@ -443,51 +373,6 @@ function authorityPresentation(
   return { label: "needs approval", tone: "yellow" };
 }
 
-/** One precedence point for all row status. Successful observation commands are
- * intentionally absent: `status ok` is activity, never overall health evidence. */
-function classifyKind(
-  entry: StatusFleetEntry,
-  proof: ProofPresentation,
-  ready: boolean,
-  nowMs: number,
-): FleetRowStatusKind {
-  const degraded = degradedFleetKind(entry);
-  if (degraded !== undefined) return degraded;
-  if (
-    entry.running === undefined &&
-    (entry.last_action?.outcome === "failed" ||
-      entry.last_action?.outcome === "partial")
-  ) return "failed";
-  if (
-    entry.running === undefined && entry.last_action?.outcome === "refused"
-  ) return "blocked";
-  if (entry.running !== undefined) return "running";
-  const idleDays = idleDaysOf(entry.last_activity, nowMs);
-  if (
-    idleDays !== undefined && idleDays >= STALE_WORKTREE_DAYS &&
-    (entry.clean === false ||
-      (entry.ahead !== undefined && isPositiveGitCount(entry.ahead)))
-  ) return "stale";
-  if (entry.clean === false) return "in-progress";
-  // Ready outranks behind: honored Proof covers the exact HEAD, and a moved
-  // trunk is composed by acceptance itself — the row is landable, not owed
-  // an author-side update.
-  if (ready) return "ready";
-  if (entry.behind !== undefined && isPositiveGitCount(entry.behind)) {
-    return "behind";
-  }
-  if (proof.status === "read_failed") return "proof-unreadable";
-  if (proof.status === "unavailable") return "proof-unavailable";
-  if (proof.status === "stale") return "proof-stale";
-  if (
-    entry.ahead !== undefined && isPositiveGitCount(entry.ahead) &&
-    proof.status !== "honored"
-  ) {
-    return "needs-gate";
-  }
-  return "idle";
-}
-
 /** Derive the concrete action attached to one classified status. */
 function attentionFor(
   kind: FleetRowStatusKind,
@@ -563,8 +448,8 @@ export function presentFleetRow(
   const nowMs = options.nowMs;
   const proof = proofPresentation(entry);
   const collisions = rowCollisions(entry, options.collisions ?? []);
-  const proofReady = isReadyToLand(entry, proof.status === "honored");
-  const kind = classifyKind(entry, proof, proofReady, nowMs);
+  const proofReady = hasLandableFacts(entry);
+  const kind = classifyRowKind(entry, nowMs);
   const meta = STATUS_META[kind];
   const landingReady = proofReady && kind === "ready";
   const authority = authorityPresentation(entry, landingReady);

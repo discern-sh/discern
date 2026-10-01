@@ -29,14 +29,16 @@ import {
   statusData,
 } from "./fixtures/status_fleet.ts";
 import {
-  FLEET_ROW_STATUS_KINDS,
   type FleetRowPresentationOptions,
-  type FleetRowStatusKind,
   presentFleetRow,
   renderStatusDashboard,
   sortFleetRows,
   STATUS_REPORT_MAX_WIDTH,
 } from "../src/engine/status/tty.ts";
+import {
+  FLEET_ROW_STATUS_KINDS,
+  type FleetRowStatusKind,
+} from "../src/engine/status/row_facts.ts";
 import { prioritizeStatusFleet } from "../src/engine/status/status.ts";
 import { projectStatusData } from "../src/shared/result_wire.ts";
 

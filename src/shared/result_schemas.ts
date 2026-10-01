@@ -1509,6 +1509,7 @@ export const SubmissionRowSchema = z.strictObject({
     "branch, the exact submitted commit, whether a recorded grant covers it, " +
     "and the one sentence that says why it waits.",
 });
+export type SubmissionRowData = z.infer<typeof SubmissionRowSchema>;
 /** One attempted landing in an acceptance call: the selected submission or
  * a further queue-walk landing. Broad terminal states stay stable; optional
  * fields carry detail a consumer may ignore. */

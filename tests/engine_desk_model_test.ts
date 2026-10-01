@@ -29,11 +29,11 @@ import {
   type DeskDecision,
   taskLabel,
 } from "../src/engine/desk/model.ts";
+import { presentFleetRow } from "../src/engine/status/tty.ts";
 import {
   FLEET_ROW_STATUS_KINDS,
   type FleetRowStatusKind,
-  presentFleetRow,
-} from "../src/engine/status/tty.ts";
+} from "../src/engine/status/row_facts.ts";
 
 const NOW = Date.parse("2026-08-23T12:00:00Z");
 const TRUNK = "main";
