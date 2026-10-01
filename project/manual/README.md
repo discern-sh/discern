@@ -48,7 +48,7 @@ Ask your agent in your own words. Each guide shows what your agent does with the
 
 ## Read it anywhere
 
-Search the manual at [discern.sh/docs](https://discern.sh/docs), or run `discern docs` to read it offline in your terminal. There, type to search, press Enter to open a page, and press `q` to close it. Your agent reads the same pages through `discern_docs`, so you and your agent work from the same text.
+Search the manual at [discern.sh/docs](https://discern.sh/docs), or run `discern docs` to read it offline in your terminal. There, press `/` to search, Enter to open a page, and `q` to close the reader. Your agent reads the same pages through `discern_docs`, so you and your agent work from the same text.
 
 Add `.md` to the end of a page's web address to get its raw Markdown. The [CLI reference](30-reference/cli-reference.md#interactive-documentation-reader) covers the reader's other keys, opening a page directly, raw output, and paging.
 

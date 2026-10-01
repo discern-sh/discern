@@ -24,6 +24,7 @@ import {
     as PackageMarkdownBrowserLinkResolverInput,
   type MarkdownBrowserOptions as PackageMarkdownBrowserOptions,
   MarkdownBrowserRefusalError as PackageMarkdownBrowserRefusalError,
+  type MarkdownBrowserResult as PackageMarkdownBrowserResult,
   type MarkdownBrowserResumableState as PackageMarkdownBrowserResumableState,
   observeTerminalIO,
   requestAcknowledgement as packageRequestAcknowledgement,
@@ -263,7 +264,7 @@ export type MarkdownBrowserLinkResolution =
   | { readonly kind: "external"; readonly destination: string }
   | { readonly kind: "unresolved"; readonly message?: string };
 
-/** Package state retained opaquely across product-owned external effects. */
+/** Where a reader was, kept opaquely so a later browser resumes there. */
 export type MarkdownBrowserResumeState = PackageMarkdownBrowserResumableState;
 
 /** Framework-neutral options for one complete Markdown browsing request. */
@@ -665,6 +666,15 @@ function packageGroupId(id: string): string {
 /** Package identity for one explicitly named product choice or browser row. */
 function packageExplicitChoiceId(id: string): string {
   return `id:${encodedIdentity(id)}`;
+}
+
+/**
+ * The identity the package browser reports for one product corpus entry:
+ * the contents' selected item, and a document's reading body as
+ * `document:<identity>`.
+ */
+export function markdownBrowserItemId(id: string): string {
+  return packageExplicitChoiceId(id);
 }
 
 interface AdaptedChoices<T> {
@@ -1090,15 +1100,13 @@ export async function runTerminalApplication<Action>(
   );
 }
 
-/** Request the package's complete Markdown browser through the product boundary. */
-export async function requestMarkdownBrowser<Action>(
+/** The package browser options for one product corpus, mapped once. */
+function packageMarkdownBrowserOptions<Action>(
   options: MarkdownBrowserRequestOptions<Action>,
-  runtime: TerminalInteractionRuntime = {},
-): Promise<MarkdownBrowserRequestResult<Action>> {
-  requireInteraction("the documentation browser", runtime);
-  const entries = adaptMarkdownBrowserEntries(options.entries);
+  entries: AdaptedMarkdownBrowserEntries<Action>,
+): PackageMarkdownBrowserOptions<Action> {
   const linkResolver = options.resolveLink;
-  const packageOptions: PackageMarkdownBrowserOptions<Action> = {
+  return {
     label: terminalLine(options.message),
     entries: entries.entries,
     ...(options.searchLabel === undefined
@@ -1116,34 +1124,13 @@ export async function requestMarkdownBrowser<Action>(
         resolveMarkdownBrowserLink(input, entries, linkResolver),
     }),
   };
-  const result = await (async () => {
-    try {
-      return await runInteractionRequest(
-        packageRequestMarkdownBrowser,
-        packageOptions,
-        runtime,
-        {
-          leadingBoundary: false,
-          terminateUnexpectedFrame: false,
-          errorOutcome: (error) =>
-            error instanceof PackageMarkdownBrowserRefusalError
-              ? `refused:${error.reason}`
-              : undefined,
-        },
-      );
-    } catch (error) {
-      if (error instanceof PackageMarkdownBrowserRefusalError) {
-        return {
-          kind: "refused" as const,
-          reason: error.reason,
-          columns: error.columns,
-          rows: error.rows,
-        };
-      }
-      throw error;
-    }
-  })();
-  if (result.kind === "refused") return result;
+}
+
+/** A package browser outcome, in the product corpus's identities. */
+function productMarkdownBrowserResult<Action>(
+  result: PackageMarkdownBrowserResult<Action>,
+  entries: AdaptedMarkdownBrowserEntries<Action>,
+): Exclude<MarkdownBrowserRequestResult<Action>, { readonly kind: "refused" }> {
   if (result.kind === "external-link") {
     const sourceDocumentId = entries.productIdForPackageId(
       result.sourceDocumentId,
@@ -1179,6 +1166,47 @@ export async function requestMarkdownBrowser<Action>(
     }
     : { kind: result.kind, id, state: result.state };
 }
+
+/** Request the package's complete Markdown browser through the product boundary. */
+export async function requestMarkdownBrowser<Action>(
+  options: MarkdownBrowserRequestOptions<Action>,
+  runtime: TerminalInteractionRuntime = {},
+): Promise<MarkdownBrowserRequestResult<Action>> {
+  requireInteraction("the documentation browser", runtime);
+  const entries = adaptMarkdownBrowserEntries(options.entries);
+  try {
+    const result = await runInteractionRequest(
+      packageRequestMarkdownBrowser,
+      packageMarkdownBrowserOptions(options, entries),
+      runtime,
+      {
+        leadingBoundary: false,
+        terminateUnexpectedFrame: false,
+        errorOutcome: (error) =>
+          error instanceof PackageMarkdownBrowserRefusalError
+            ? `refused:${error.reason}`
+            : undefined,
+      },
+    );
+    return productMarkdownBrowserResult(result, entries);
+  } catch (error) {
+    if (error instanceof PackageMarkdownBrowserRefusalError) {
+      return {
+        kind: "refused",
+        reason: error.reason,
+        columns: error.columns,
+        rows: error.rows,
+      };
+    }
+    throw error;
+  }
+}
+
+/** A chosen action, or a followed link that leaves the documents. */
+export type MarkdownBrowserChoiceResult<Action> = Extract<
+  MarkdownBrowserRequestResult<Action>,
+  { readonly kind: "action" | "external-link" }
+>;
 
 /** Guard policy before delegating to the package selection or search request. */
 export async function requestSelection<T>(

@@ -1051,7 +1051,10 @@ Deno.test("scripted Markdown browsing preserves outcomes and terminal cleanup", 
           assertEquals(result.value, { destination: "online" });
           assertEquals(io.rawTransitions, [true, false]);
           assertEquals(io.resizeListenerCount, 0);
-          assertTerminalTextIncludes(stripAnsi(io.output()), "DISCERN DOCS");
+          assertTerminalTextIncludes(
+            stripAnsi(io.output()),
+            "discern docs — 1 document in manual",
+          );
         },
       },
       {
@@ -1082,9 +1085,11 @@ Deno.test("scripted Markdown browsing preserves outcomes and terminal cleanup", 
         name:
           "Markdown browser adapter preserves external-link state and product document identity",
         check: async (): Promise<void> => {
+          // Enter opens the document, Tab focuses its first link, and Enter
+          // follows it out of the documents.
           const io = new FakeTerminalIO([
             encodeTerminalKeys("enter"),
-            "]",
+            encodeTerminalKeys("tab"),
             encodeTerminalKeys("enter"),
           ], { ansiControl: true, columns: 80, rows: 24, hyperlinks: true });
           const result = await requestMarkdownBrowser({
@@ -1144,7 +1149,7 @@ Deno.test("scripted Markdown browsing preserves outcomes and terminal cleanup", 
       },
       {
         name:
-          "Markdown browser adapter forwards live resize and mouse IO into coherent single panes",
+          "Markdown browser adapter forwards live resize and mouse IO and resumes the scrolled document",
         check: async (): Promise<void> => {
           const longDocument = `# Long document\n\n${
             Array.from({ length: 40 }, (_, index) => `- Row ${index + 1}`).join(
@@ -1187,13 +1192,18 @@ Deno.test("scripted Markdown browsing preserves outcomes and terminal cleanup", 
             row: 6,
             modifiers: { shift: false, alt: false, control: false },
           }));
-          io.enqueueKeys("tab", "down", "enter");
+          // The contents key returns to the contents with the document the
+          // reader left selected; the action below it answers the request.
+          io.enqueue("c");
+          io.enqueueKeys("down", "enter");
           const result = await pending;
 
           assertEquals(result.kind, "action");
           if (result.kind !== "action") return;
           assertEquals(result.value, "returned");
-          assert(result.state.documentScrollOffset > 0);
+          const positions = Object.values(result.state.positions ?? {});
+          assertEquals(positions.length, 1);
+          assert((positions[0] ?? 0) > 0, "the wheel scrolled the document");
           assertEquals(io.rawTransitions, [true, false]);
           assertEquals(io.resizeListenerCount, 0);
         },

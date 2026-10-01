@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Dependency releases:** Discern now consumes later immutable design-system packages; `deno.json` holds the live pin. The composite browser contract this record introduced remains in force — the newer releases' terminal repertoire and motif defaults, public alternate-screen runtime option, and revised frame presentation do not move ownership of the default reading loop.
+> - **The browser on the application runtime:** the package browser became an application on its terminal application runtime: grouped contents with a preview of the selected entry, one document at a time with Tab-focused links, a search palette, and Back through the reader's history, in place of the adaptive picker and document panes described below. The ownership split stands: the package owns input, painting, and restoration, and discern owns admission, actions, link resolution, and operating-system effects. `discern docs` still opens a browser page only after the terminal is restored.
 
 **Status**: accepted; extends [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md) and [ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md)
 

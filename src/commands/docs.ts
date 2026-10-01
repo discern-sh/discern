@@ -8,10 +8,11 @@ import { localMapEntries } from "../lib/map_policy.ts";
  * discern's OWN documentation, bundled into every install. Both serve two
  * audiences, decided by how the verb is invoked:
  *
- *  - **A human at a terminal** gets an interactive Markdown browser with a
- *    searchable picker, adaptive document pane, links, and mouse support. The
- *    tree is growing, so search is the primary way in. An explicit `--pager`
- *    hands rendered documents to the person's external pager instead.
+ *  - **A human at a terminal** gets an interactive Markdown browser: grouped
+ *    contents with a preview, one document at a time with followable links,
+ *    search over every entry, and mouse support. An explicit `--pager` hands
+ *    rendered documents to the person's external pager instead. The Desk
+ *    opens the same browser over the manual inside its own session.
  *  - **An agent or a script** gets non-interactive surfaces it can consume: a
  *    target to render straight to stdout, `--raw` for the pristine Markdown
  *    source, `--json` for a structured index (or a single doc's record),
@@ -50,6 +51,7 @@ import {
 } from "../lib/terminal.ts";
 import {
   browserOpenFailureMessage,
+  type BrowserOpenResult,
   openInBrowser,
 } from "../lib/open_browser.ts";
 import {
@@ -108,9 +110,11 @@ import {
   groupedSelectionEntries,
   isInteractionCancelled,
   isSelectionHeading,
+  type MarkdownBrowserChoiceResult,
   type MarkdownBrowserEntry,
   type MarkdownBrowserLinkResolution,
   type MarkdownBrowserLinkResolverInput,
+  type MarkdownBrowserRequestOptions,
   type MarkdownBrowserResumeState,
   plainModeEnabled,
   requestCompactAcknowledgement,
@@ -200,7 +204,7 @@ function unresolvedDocsBrowserLink(
   return {
     kind: "unresolved",
     message:
-      `${target} is not in this documentation set. Choose a document from the picker.`,
+      `${target} is not in this documentation set. Choose a document from the contents.`,
   };
 }
 
@@ -586,6 +590,40 @@ function terminalBody(
     `https://discern.sh/docs/decisions/${citation.number}-${citation.slug})`
   );
   return `${body.trimEnd()}\n\n## Related decisions\n\n${related.join("\n")}\n`;
+}
+
+/** One verb's tree as the readers see it, or why there is none. */
+type BrowsableTree =
+  | { readonly kind: "tree"; readonly tree: DocsTree }
+  | { readonly kind: "missing" }
+  | { readonly kind: "external-decisions" };
+
+/**
+ * Resolve, discover, and project one verb's tree: `map` always admits its
+ * internal pages, `docs` only those `internal` admits.
+ */
+async function browsableTree(
+  desc: DocsVerb,
+  options: {
+    readonly dir?: string | undefined;
+    readonly adr?: boolean | undefined;
+    readonly target?: string | undefined;
+  },
+  cwd: string,
+  internal: boolean | readonly string[],
+): Promise<BrowsableTree> {
+  const resolved = await desc.resolveDir(options);
+  if (resolved.kind !== "ok") return resolved;
+  const discovered = await discoverDocs({
+    cwd,
+    dir: resolved.dir,
+    includeInternal: desc.verb === "map" ? true : internal,
+  });
+  if (discovered === undefined) return { kind: "missing" };
+  return {
+    kind: "tree",
+    tree: await verbTree(desc, discovered, resolved.corpus, options.target),
+  };
 }
 
 /** Options accepted by the `map` command (global flags folded in). */
@@ -1037,11 +1075,11 @@ function docsCorpusPath(entry: DocEntry): string {
   return entry.relToDocs.split(SEPARATOR).join("/");
 }
 
-/** Read the admitted corpus once before entering the alternate-screen browser. */
+/** Read the admitted corpus once, before the browser opens. */
 async function docsMarkdownBrowserCorpus(
   desc: DocsVerb,
   projection: DocsBrowseProjection,
-  returnLabel?: string,
+  exitLabel?: string,
 ): Promise<DocsMarkdownBrowserCorpus> {
   const entries: MarkdownBrowserEntry<DocsBrowserChoice>[] = [];
   const sourcesByPath = new Map<string, string>();
@@ -1071,7 +1109,7 @@ async function docsMarkdownBrowserCorpus(
       entries.push({
         kind: "exit",
         id: item.id,
-        name: returnLabel ?? item.name,
+        name: exitLabel ?? item.name,
         ...(item.description === undefined
           ? {}
           : { description: item.description }),
@@ -1136,6 +1174,60 @@ async function acknowledgeDocsBrowserFailure(
     if (!isInteractionCancelled(error)) throw error;
     return false;
   }
+}
+
+/** One browser opening over a documentation corpus. */
+export type DocsBrowserRequest = MarkdownBrowserRequestOptions<
+  DocsBrowserChoice
+>;
+
+/** The browser request over one admitted tree: its header fact, corpus, and link policy. */
+function docsBrowserRequest(
+  desc: DocsVerb,
+  tree: DocsTree,
+  cwd: string,
+  corpus: DocsMarkdownBrowserCorpus,
+  documentMeasure: number | undefined,
+): DocsBrowserRequest {
+  return {
+    message: docsHeaderFact(
+      desc.verb,
+      tree.entries.length,
+      display(tree.docsDir, cwd),
+    ),
+    entries: corpus.entries,
+    ...(documentMeasure === undefined ? {} : { documentMeasure }),
+    resolveLink: resolveDocsBrowserLink,
+  };
+}
+
+/**
+ * Open the page a browser's action or external link names in the system
+ * browser. Only the online docs and absolute HTTP and HTTPS links leave the
+ * documentation; the answer is why nothing opened, if nothing did.
+ */
+export async function openDocsBrowserChoice(
+  result: MarkdownBrowserChoiceResult<DocsBrowserChoice>,
+  open: (url: string) => Promise<BrowserOpenResult> = openInBrowser,
+): Promise<string | undefined> {
+  if (result.kind === "action") {
+    if (result.value.kind !== "read-online") {
+      throw new TypeError("Documentation browser returned an unknown action.");
+    }
+    const opened = await open(DISCERN_DOCS_URL);
+    return opened.status === "opened"
+      ? undefined
+      : browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened);
+  }
+  const destination = approvedDocsExternalUrl(result.destination);
+  if (destination === undefined) {
+    const visible = truncateText(terminalLine(result.destination), 48, "…");
+    return `discern didn't open "${visible}": only http:// and https:// links can leave the documentation browser.`;
+  }
+  const opened = await open(destination);
+  return opened.status === "opened"
+    ? undefined
+    : browserOpenFailureMessage("the link", destination, opened);
 }
 
 /** The 5A selection, print/page, acknowledge, and remembered-choice loop. */
@@ -1230,76 +1322,29 @@ async function browseSequentially(
 
 type RichDocsBrowseDisposition = number | "fallback";
 
-/** Run one or more package browser sessions around product-owned effects. */
+/**
+ * Run the package browser, opening each page a reader asks for once the
+ * terminal is restored and resuming where they were.
+ */
 async function browseRichly(
-  desc: DocsVerb,
-  tree: DocsTree,
-  options: DocsOptions,
-  cwd: string,
-  corpus: DocsMarkdownBrowserCorpus,
+  request: DocsBrowserRequest,
   log: Logger,
-  width: number,
 ): Promise<RichDocsBrowseDisposition> {
   let state: MarkdownBrowserResumeState | undefined;
   while (true) {
     try {
       const result = await requestMarkdownBrowser({
-        message: docsHeaderFact(
-          desc.verb,
-          tree.entries.length,
-          display(tree.docsDir, cwd),
-        ),
-        entries: corpus.entries,
+        ...request,
         ...(state === undefined ? {} : { initialState: state }),
-        ...(options.width === undefined ? {} : { documentMeasure: width }),
         mouse: true,
-        resolveLink: resolveDocsBrowserLink,
       });
       if (result.kind === "refused") return "fallback";
       if (result.kind === "exit") return 0;
       state = result.state;
-      if (result.kind === "action") {
-        if (result.value.kind !== "read-online") {
-          throw new TypeError(
-            "Documentation browser returned an unknown action.",
-          );
-        }
-        const opened = await openInBrowser(DISCERN_DOCS_URL);
-        if (
-          opened.status !== "opened" &&
-          !await acknowledgeDocsBrowserFailure(
-            browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
-            log,
-          )
-        ) {
-          return 0;
-        }
-        continue;
-      }
-      const destination = approvedDocsExternalUrl(result.destination);
-      if (destination === undefined) {
-        const visible = truncateText(
-          terminalLine(result.destination),
-          48,
-          "…",
-        );
-        if (
-          !await acknowledgeDocsBrowserFailure(
-            `discern didn't open "${visible}": only http:// and https:// links can leave the documentation browser.`,
-            log,
-          )
-        ) {
-          return 0;
-        }
-        continue;
-      }
-      const opened = await openInBrowser(destination);
+      const failure = await openDocsBrowserChoice(result);
       if (
-        opened.status !== "opened" &&
-        !await acknowledgeDocsBrowserFailure(
-          browserOpenFailureMessage("the link", destination, opened),
-          log,
-        )
+        failure !== undefined &&
+        !await acknowledgeDocsBrowserFailure(failure, log)
       ) {
         return 0;
       }
@@ -1346,13 +1391,14 @@ async function browse(
     return 1;
   }
   const rich = await browseRichly(
-    desc,
-    tree,
-    options,
-    cwd,
-    corpus,
+    docsBrowserRequest(
+      desc,
+      tree,
+      cwd,
+      corpus,
+      options.width === undefined ? undefined : width,
+    ),
     log,
-    width,
   );
   return rich === "fallback"
     ? await browseSequentially(
@@ -2158,28 +2204,16 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     return result.ok ? 0 : 1;
   }
 
-  const resolved = await desc.resolveDir(options);
-  if (resolved.kind === "external-decisions") {
+  const found = await browsableTree(desc, options, cwd, internal);
+  if (found.kind === "external-decisions") {
     log.line(renderExternalDecisionsNotice(terminal, width));
     return 0;
   }
-  const discovered = resolved.kind === "missing"
-    ? undefined
-    : await discoverDocs({
-      cwd,
-      dir: resolved.dir,
-      includeInternal: desc.verb === "map" ? true : internal,
-    });
-  const tree = discovered === undefined ? undefined : await verbTree(
-    desc,
-    discovered,
-    resolved.kind === "ok" ? resolved.corpus : "map",
-    options.target,
-  );
-  if (!tree) {
+  if (found.kind === "missing") {
     log.error(terminalLine(desc.missingTree(options)));
     return 1;
   }
+  const { tree } = found;
   if (options.search !== undefined && options.search.trim() === "") {
     log.error("--search must contain at least one non-space character.");
     return 1;

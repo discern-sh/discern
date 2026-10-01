@@ -14,8 +14,17 @@ import {
   assertExists,
   assertStringIncludes,
 } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
-import { measureText, stripAnsi } from "discern-design-system/cli";
+import { dirname, fromFileUrl, join, relative } from "@std/path";
+import {
+  measureText,
+  stripAnsi,
+  TERMINAL_APPLICATION_STATE_REPORTS_ENV,
+} from "discern-design-system/cli";
+import {
+  captureTerminalFrame,
+  encodeTerminalKeys,
+  ptySettledFrame,
+} from "discern-design-system/cli/interactive/testing";
 import {
   assertTerminalTextIncludes,
   fakeEnv,
@@ -41,7 +50,11 @@ import {
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
-import { ptyOutputContains, runPtyProcess } from "./fixtures/pty_process.ts";
+import {
+  type PtyOutputCondition,
+  runPtyProcess,
+} from "./fixtures/pty_process.ts";
+import { markdownBrowserItemId } from "../src/lib/terminal_interaction.ts";
 import { engineRunArgs } from "./engine_helpers.ts";
 import { realPtyTest } from "./real_pty.ts";
 import {
@@ -461,7 +474,7 @@ async function addSearchMatches(docs: string, count: number): Promise<void> {
 
 realPtyTest({
   name:
-    "docs browser opens a split reader and restores the full picker through the real PTY",
+    "docs browser opens a document from its contents and returns to them through the real PTY",
   contracts: [
     "line-discipline",
     "terminal-modes",
@@ -473,47 +486,65 @@ realPtyTest({
   fn: async () => {
     await withTempDir(async (dir) => {
       const docs = await makeDocsFixture(dir);
+      const geometry = { columns: 80, rows: 40 };
+      // A document's entry is named by its path from the working directory.
+      const home = markdownBrowserItemId(
+        `document:${relative(dir, join(docs, "README.md"))}`,
+      );
+      const contents = (
+        description: string,
+        selected?: string,
+      ): PtyOutputCondition =>
+        ptySettledFrame(
+          geometry,
+          description,
+          (capture) =>
+            capture.state?.focusedControlId === "contents" &&
+            (selected === undefined ||
+              capture.state.selectedItemId === selected),
+        );
+      const document = ptySettledFrame(
+        geometry,
+        "the manual's home document",
+        (capture) =>
+          capture.state?.focusedControlId === `document:${home}` &&
+          capture.text.includes("Welcome."),
+      );
       const process = await runPtyProcess({
         command: Deno.execPath(),
         args: engineRunArgs(["docs"]),
         cwd: dir,
-        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
-        geometry: { columns: 80, rows: 40 },
+        env: {
+          DISCERN_DOCS_DIR: docs,
+          NO_COLOR: "1",
+          PAGER: "false",
+          [TERMINAL_APPLICATION_STATE_REPORTS_ENV]: "1",
+        },
+        geometry,
         input: [
           // Browse and Start here precede the complete-navigation root.
           {
-            waitFor: "Enter open/action  Esc cancel",
-            capture: {
-              name: "initial",
-              when: ptyOutputContains([
-                "BROWSE",
-                "START HERE",
-                "OVERVIEW",
-                "INTRO",
-                "Concepts at a glance",
-                "Enter open/action  Esc cancel",
-              ]),
-            },
-            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
+            waitFor: contents("the contents"),
+            capture: { name: "initial", when: contents("the contents") },
+            steps: [{ bytes: encodeTerminalKeys("down", "down") }],
           },
           {
-            waitFor: ["Welcome.", "Tab picker"],
-            capture: {
-              name: "split",
-              when: ptyOutputContains(["Welcome.", "Tab picker"]),
-            },
-            steps: [{ bytes: "q" }],
+            waitFor: contents("the home document selected", home),
+            steps: [{ bytes: encodeTerminalKeys("enter") }],
           },
           {
-            waitFor: ["discern documentation", "Esc cancel"],
+            waitFor: document,
+            capture: { name: "document", when: document },
+            steps: [{ bytes: "\x1b", allowLoneEscape: true }],
+          },
+          // Back returns to the contents with the document it left selected.
+          {
+            waitFor: contents("the contents again", home),
             capture: {
               name: "restored",
-              when: ptyOutputContains([
-                "discern documentation",
-                "Esc cancel",
-              ]),
+              when: contents("the contents again", home),
             },
-            steps: [{ bytes: "\x03" }],
+            steps: [{ bytes: encodeTerminalKeys("ctrl-c") }],
           },
         ],
         timeoutMs: 8_000,
@@ -521,50 +552,34 @@ realPtyTest({
 
       assertEquals(process.code, 0, process.transcript);
       assertEquals(process.stderr, "", process.transcript);
-      assert((process.transcript.match(/Welcome\./gu)?.length ?? 0) >= 1);
-      assertStringIncludes(process.transcript, "DISCERN DOCS — 8 DOCUMENTS");
       assert(!process.transcript.includes("Press Enter to continue."));
       assert(!process.transcript.includes("The pager failed"));
 
-      const initial = process.keyframes.initial ?? "";
-      assertStringIncludes(
-        initial,
-        "If useful, ask your coding agent to explain this page in your project's",
-      );
-      assertStringIncludes(
-        initial,
-        "context. discern does not bundle, choose, or contact models.",
-      );
-      const groupOffsets = [
-        "BROWSE",
-        "START HERE",
-        "OVERVIEW",
-        "INTRO",
-      ].map(
-        (label) => initial.indexOf(label),
-      );
+      const screen = (name: string): string =>
+        captureTerminalFrame(process.keyframes[name] ?? "", geometry).text;
+      const initial = screen("initial");
+      assertStringIncludes(initial, "discern docs — 8 documents in");
+      // The selected action's preview carries its description.
+      assertStringIncludes(initial, "ask your coding agent");
+      const groupOffsets = ["Browse  1", "Start here", "Overview", "Intro  2"]
+        .map(
+          (label) => initial.indexOf(label),
+        );
       assert(groupOffsets.every((offset) => offset >= 0), initial);
       assertEquals([...groupOffsets].sort((a, b) => a - b), groupOffsets);
       for (
         const visible of [
           "Read the docs online",
           "discern documentation",
-          "README.md",
-          "00-start/",
           "Concepts at a glance",
         ]
       ) {
         assertStringIncludes(initial, visible);
       }
-      const split = process.keyframes.split ?? "";
-      assertStringIncludes(split, "Picker");
-      assertStringIncludes(split, "Document · discern documentation");
-      assertStringIncludes(split, "Welcome.");
-      assertStringIncludes(
-        process.keyframes.restored ?? "",
-        "discern documentation",
-      );
-      assertStringIncludes(process.keyframes.restored ?? "", "START HERE");
+      const opened = screen("document");
+      assertStringIncludes(opened, "discern documentation");
+      assertStringIncludes(opened, "README.md");
+      assertStringIncludes(screen("restored"), "Concepts at a glance");
     });
   },
 });
