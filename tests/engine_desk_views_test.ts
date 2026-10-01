@@ -46,6 +46,7 @@ import {
   toggleLabel,
 } from "../src/engine/desk/header_view.ts";
 import { deskRowId } from "../src/engine/desk/model.ts";
+import { actionsMenu } from "../src/engine/desk/menu_view.ts";
 import { taskEvidenceSubject } from "../src/engine/desk/evidence.ts";
 import type { DeskReview } from "../src/engine/desk/flow_types.ts";
 import {
@@ -941,4 +942,18 @@ Deno.test("only a message's mark carries its tone; its words stay neutral", () =
     );
     assertEquals(toned, [], `${tone}: its words carry no tone`);
   }
+});
+
+Deno.test("an action menu's section titles carry no tone; a destructive item is red", () => {
+  let destructive = 0;
+  for (const row of TABLE_ROWS) {
+    const [shown] = desk(statusData([mainFleetEntry(), row.entry])).rows;
+    assert(shown !== undefined, `row ${row.row}`);
+    for (const section of actionsMenu(shown).sections) {
+      assertEquals(section.tone, undefined, `row ${row.row}: ${section.title}`);
+      destructive += section.items.filter((item) => item.tone === "danger")
+        .length;
+    }
+  }
+  assert(destructive > 0, "some row offers a destructive action");
 });

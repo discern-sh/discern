@@ -86,9 +86,10 @@ export function actionsMenu(row: DeskRow): ApplicationMenu<DeskIntent> {
           ...(section === "danger" ? { tone: "danger" as const } : {}),
           description: [{ text: offer.summary }],
         }));
+      // A section title reads like every other; only a destructive item
+      // is red.
       return items.length === 0 ? [] : [{
         title: DESK_ACTION_SECTION_TITLES[section],
-        ...(section === "danger" ? { tone: "danger" as const } : {}),
         items,
       }];
     }),
