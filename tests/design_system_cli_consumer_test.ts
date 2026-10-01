@@ -22,6 +22,7 @@ import {
   type TerminalCapabilities,
 } from "discern-design-system/cli";
 import {
+  createTerminalApplicationModel,
   InlineFramePainter,
   type InteractionEntry,
   type MarkdownBrowserLinkResolution,
@@ -34,7 +35,7 @@ import {
   senseTerminalBackground,
   TERMINAL_APPLICATION_MINIMUM,
   type TerminalApplicationOptions,
-  type TerminalApplicationState,
+  terminalApplicationState,
   type TerminalApplicationView,
   type TerminalMouseEvent,
   transitionTerminalApplication,
@@ -657,36 +658,70 @@ Deno.test("CLI design-system graphs stay within the immutable release, lock-reso
 
 Deno.test("public application composition, pure functions and minimum geometry are consumable", async () => {
   const view: TerminalApplicationView<string> = {
-    title: "Public consumer",
-    regions: [{
-      kind: "choices",
-      id: "items",
-      title: "Items",
-      entries: [
-        { id: "a", label: "Available", value: "a" },
-        { id: "b", label: "Unavailable", value: "b", disabled: true },
-      ],
-    }],
+    header: { leading: [{ text: "Public consumer", role: "title" }] },
+    body: {
+      kind: "list",
+      list: {
+        id: "items",
+        groups: [{
+          id: "items",
+          title: "Items",
+          items: [
+            {
+              id: "a",
+              title: "Available",
+              marker: { unicode: "·", ascii: "-" },
+              primary: "a",
+            },
+            // Without a primary action the row explains itself and never runs.
+            {
+              id: "b",
+              title: "Unavailable",
+              marker: { unicode: "×", ascii: "x" },
+            },
+          ],
+        }],
+      },
+    },
+    footer: { left: [{ key: "q", label: "Quit" }] },
   };
-  const options: TerminalApplicationOptions<string> = { view };
-  const state: TerminalApplicationState<string> = updateTerminalApplication(
+  const options: TerminalApplicationOptions<string> = {
     view,
-  );
-  const selected =
-    transitionTerminalApplication(state, { kind: "named", name: "down" }).state;
+    keymap: [{ key: "q", action: "quit" }],
+    onAction: (action) => action === "quit" ? { kind: "exit" } : undefined,
+  };
+  const created = createTerminalApplicationModel(view, options, 0);
+  const moved = transitionTerminalApplication(created.model, {
+    kind: "key",
+    key: { kind: "named", name: "down" },
+  }, 0);
   assertEquals(
-    transitionTerminalApplication(selected, { kind: "named", name: "enter" })
-      .action,
-    undefined,
+    terminalApplicationState(moved.model).lists.items?.selectedId,
+    "b",
+  );
+  const entered = transitionTerminalApplication(moved.model, {
+    kind: "key",
+    key: { kind: "named", name: "enter" },
+  }, 0);
+  assertEquals(
+    entered.effects.filter((effect) => effect.kind === "action"),
+    [],
+  );
+  assertEquals(
+    terminalApplicationState(
+      updateTerminalApplication(entered.model, view, 0).model,
+    ).lists.items?.selectedId,
+    "b",
   );
   assertEquals(TERMINAL_APPLICATION_MINIMUM, { columns: 32, rows: 10 });
-  const io = new FakeTerminalIO([encodeTerminalKeys("escape")]);
+  const io = new FakeTerminalIO(["q"]);
   assertStringIncludes(
-    renderTerminalApplication(state, io.size(), io.capabilities()).frame,
+    renderTerminalApplication(created.model, io.size(), io.capabilities())
+      .frame,
     "Public consumer",
   );
   assertEquals(
-    (await runTerminalApplication(options, { io })).focusedRegionId,
+    (await runTerminalApplication(options, { io })).focusedControlId,
     "items",
   );
 });

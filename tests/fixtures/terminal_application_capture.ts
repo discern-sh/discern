@@ -1,13 +1,9 @@
 /** Product-owned launch and readiness for the small terminal adoption fixture. */
 import { fromFileUrl, join } from "@std/path";
 import { assertChildDesignSystemGraph } from "../../scripts/local_design_system.ts";
-import { captureTerminalFrame } from "discern-design-system/cli/interactive/testing";
+import { ptySettledFrame } from "discern-design-system/cli/interactive/testing";
 import { TERMINAL_APPLICATION_MINIMUM } from "discern-design-system/cli/interactive";
-import {
-  acceptedProjection,
-  type PtyGeometry,
-  type PtyOutputCondition,
-} from "./pty_process.ts";
+import type { PtyGeometry, PtyOutputCondition } from "./pty_process.ts";
 
 export const APPLICATION_FIXTURE_ROOT = fromFileUrl(
   new URL("../../", import.meta.url),
@@ -34,21 +30,22 @@ export function applicationProcessArgs(
   ];
 }
 
-/** Readiness requires a complete package frame at the observed kernel geometry. */
+/**
+ * Readiness requires a settled package frame at the observed kernel geometry,
+ * painted after the phase began: a phase's own output usually holds only the
+ * rows that changed, so the whole transcript is replayed.
+ */
 export function applicationFrameReady(
   size: PtyGeometry,
   content = "Refresh complete",
 ): PtyOutputCondition {
   const marker = size.columns < TERMINAL_APPLICATION_MINIMUM.columns ||
       size.rows < TERMINAL_APPLICATION_MINIMUM.rows
-    ? "Resize"
+    ? "Too small"
     : content;
-  return {
-    description: `complete ${size.columns}x${size.rows} application frame`,
-    test: ({ phaseStdout }) =>
-      acceptedProjection(
-        (transcript) => captureTerminalFrame(transcript, size).frame,
-        phaseStdout,
-      )?.includes(marker) === true,
-  };
+  return ptySettledFrame(
+    size,
+    `settled ${size.columns}x${size.rows} application frame`,
+    (capture) => capture.text.includes(marker),
+  );
 }

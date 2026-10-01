@@ -1054,22 +1054,23 @@ export type TerminalApplicationOptions<Action> =
 export interface TerminalApplicationRuntime extends TerminalInteractionRuntime {
   readonly abortSignal?: AbortSignal;
   readonly observe?: PackageTerminalApplicationRuntime["observe"];
+  readonly clock?: PackageTerminalApplicationRuntime["clock"];
 }
 
 /** Run a persistent package viewport through the shared refusal and error boundary. */
 export async function runTerminalApplication<Action>(
   options: TerminalApplicationOptions<Action>,
   runtime: TerminalApplicationRuntime = {},
-): Promise<TerminalApplicationState<Action>> {
+): Promise<TerminalApplicationState> {
   requireInteraction("this application", runtime);
+  const { abortSignal, observe, clock } = runtime;
   return await runInteractionRequest(
     (contents: TerminalApplicationOptions<Action>, session) =>
       packageRunTerminalApplication(contents, {
         ...session,
-        ...(runtime.abortSignal === undefined
-          ? {}
-          : { abortSignal: runtime.abortSignal }),
-        ...(runtime.observe === undefined ? {} : { observe: runtime.observe }),
+        ...(abortSignal === undefined ? {} : { abortSignal }),
+        ...(observe === undefined ? {} : { observe }),
+        ...(clock === undefined ? {} : { clock }),
       }),
     options,
     runtime,

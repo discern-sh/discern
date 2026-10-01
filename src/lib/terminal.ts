@@ -15,6 +15,7 @@ import {
   DISCERN_TERMINAL_MOTIF,
   resolveTerminalTheme,
   styleText,
+  TERMINAL_APPLICATION_STATE_REPORTS_ENV,
   type TerminalAppearance,
   type TerminalCapabilities,
   type TerminalColor,
@@ -63,6 +64,8 @@ const TERMINAL_ENVIRONMENT_KEYS = [
   "COLORFGBG",
   "NO_COLOR",
   "CI",
+  // Owned applications report their state only when this exact opt-in is set.
+  TERMINAL_APPLICATION_STATE_REPORTS_ENV,
 ] as const;
 
 declare const terminalLineBrand: unique symbol;

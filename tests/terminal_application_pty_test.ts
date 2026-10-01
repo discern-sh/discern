@@ -28,12 +28,12 @@ realPtyTest({
         geometry,
         env: { CI: "false", NO_COLOR: "1", DISCERN_INTERACTION_TRACE: trace },
         input: [
-          { waitFor: ready, steps: [{ bytes: "\x1b", allowLoneEscape: true }] },
+          { waitFor: ready, steps: [{ bytes: "q" }] },
           { waitFor: "CHILD_READY", steps: [{ bytes: "hello\n" }] },
           {
             waitFor: ready,
             capture: { name: "restored", when: ready },
-            steps: [{ bytes: "\x1b[F\r" }],
+            steps: [{ bytes: "q" }],
           },
         ],
       });

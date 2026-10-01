@@ -22,6 +22,7 @@ import {
   type SelectionsRequestOptions,
 } from "../src/lib/terminal_interaction.ts";
 import {
+  APPLICATION_KEYMAP,
   applicationView,
   consumerApplication,
 } from "./fixtures/terminal_application.ts";
@@ -63,9 +64,11 @@ Deno.test("application updates, availability and foreground return share the pro
     { io, interactive: () => true },
   );
   assertEquals(children, 1);
-  assertEquals(state.positions.actions?.selectedId, "quit");
-  assert(typeof state.view.tip === "string");
-  assertStringIncludes(state.view.tip, "Refresh complete");
+  assertEquals(state.lists.actions?.selectedId, "quit");
+  assertStringIncludes(
+    captureTerminalFrame(io.output(), io.size()).text,
+    "Refresh complete",
+  );
   assertEquals(io.rawTransitions, [true, false, true, false]);
   assertEquals(io.resizeListenerCount, 0);
 });
@@ -77,6 +80,7 @@ Deno.test("application cancellation normalizes after cleanup and unexpected erro
     const caught = await assertRejects(() =>
       runTerminalApplication({
         view: applicationView(false),
+        keymap: APPLICATION_KEYMAP,
         start: (context) => context.fail(error),
       }, { io, interactive: () => true })
     );
@@ -96,10 +100,7 @@ Deno.test("application frames remain bounded through every required geometry", a
     }, { columns: 24, rows: 8 }]
   ) {
     for (const unicode of [true, false]) {
-      const io = new FakeTerminalIO([encodeTerminalKeys("escape")], {
-        ...size,
-        unicode,
-      });
+      const io = new FakeTerminalIO(["q"], { ...size, unicode });
       await runTerminalApplication(consumerApplication(async () => {}), {
         io,
         interactive: () => true,
@@ -107,7 +108,7 @@ Deno.test("application frames remain bounded through every required geometry", a
       const captured = captureTerminalFrame(io.output(), size);
       assertStringIncludes(
         captured.frame,
-        size.columns < 32 ? "Resize" : "Terminal foundation",
+        size.columns < 32 ? "Too small" : "Terminal foundation",
       );
       if (!unicode) {
         assertEquals(
@@ -154,6 +155,7 @@ Deno.test("application forwards cooperative abort and preserves foreground failu
     () =>
       runTerminalApplication({
         view: applicationView(false),
+        keymap: APPLICATION_KEYMAP,
         start: () => abort.abort(),
       }, { io, interactive: () => true, abortSignal: abort.signal }),
     InteractionCancelled,

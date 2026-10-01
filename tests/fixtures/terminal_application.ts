@@ -1,53 +1,86 @@
 /** Minimal consumer composition; package code owns every terminal mechanic. */
 import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
-import type { TerminalApplicationView } from "discern-design-system/cli/interactive";
+import type {
+  ApplicationKeyBinding,
+  TerminalApplicationView,
+} from "discern-design-system/cli/interactive";
 import type { TerminalApplicationOptions } from "../../src/lib/terminal_interaction.ts";
 
-/** Two regions with stable identities and a replaceable reading block. */
+/** A grouped list with a following detail and a replaceable reading block. */
 export function applicationView(
   updated: boolean,
 ): TerminalApplicationView<string> {
+  const notes = createCliBlock(renderMarkdownCli, {
+    source: `# A small consumer\n\n${
+      updated
+        ? "The provider published a new immutable view."
+        : "The provider has not updated yet."
+    }\n\nThe package fits this content to the terminal.\n\nThe child borrows the normal terminal and returns here.\n\n${
+      "More notes to exercise detail scroll.\n\n".repeat(12)
+    }`,
+  });
   return {
-    title: "Terminal foundation",
-    tip: updated
-      ? "Refresh complete. Tab switches regions."
-      : "Waiting for the live update.",
-    regions: [{
-      kind: "choices",
-      id: "actions",
-      title: "Sample actions",
-      entries: [
-        {
-          id: "child",
-          label: "Run harmless child",
-          value: "child",
-          description: "Return to this selection after one line of input.",
+    header: {
+      leading: [{ text: "Terminal foundation", role: "title" }],
+      trailing: [{
+        text: updated ? "Refresh complete" : "Waiting for the live update",
+        tone: "muted",
+      }],
+    },
+    body: {
+      kind: "master-detail",
+      list: {
+        id: "actions",
+        groups: [{
+          id: "samples",
+          title: "Sample actions",
+          items: [
+            {
+              id: "child",
+              title: "Run harmless child",
+              marker: { unicode: "›", ascii: ">" },
+              primary: "child",
+            },
+            {
+              // No primary action: the row can be inspected but never runs.
+              id: "unavailable",
+              title: "Unavailable sample",
+              marker: { unicode: "×", ascii: "x", tone: "faint" },
+            },
+            {
+              id: "quit",
+              title: "Finish",
+              marker: { unicode: "·", ascii: "-" },
+              primary: "quit",
+            },
+          ],
+        }],
+      },
+      detail: {
+        follows: "actions",
+        content: {
+          child: [{ kind: "block", content: notes }],
+          unavailable: [{
+            kind: "text",
+            runs: [{ text: "This sample can be inspected but cannot run." }],
+          }],
+          quit: [{ kind: "text", runs: [{ text: "Leave the application." }] }],
         },
-        {
-          id: "unavailable",
-          label: "Unavailable sample",
-          value: "unavailable",
-          disabled: true,
-          description: "This choice can be inspected but cannot run.",
-        },
-        { id: "quit", label: "Finish", value: "quit" },
-      ],
-    }, {
-      kind: "reading",
-      id: "notes",
-      title: "Field notes",
-      content: createCliBlock(renderMarkdownCli, {
-        source: `# A small consumer\n\n${
-          updated
-            ? "The provider published a new immutable view."
-            : "The provider has not updated yet."
-        }\n\nUse Tab to reach either region. The package fits this content to the terminal.\n\nThe child borrows the normal terminal and returns here.\n\n${
-          "More notes to exercise reading scroll.\n\n".repeat(12)
-        }`,
-      }),
-    }],
+      },
+    },
+    footer: {
+      left: [{ key: "enter", label: "Choose" }],
+      right: [{ key: "q", label: "Quit" }],
+    },
+    windowTitle: "Terminal foundation",
+    tooSmallHints: [{ key: "q", label: "Quit" }],
   };
 }
+
+/** The fixture's one binding: `q` leaves from anywhere on the base layer. */
+export const APPLICATION_KEYMAP: readonly ApplicationKeyBinding<string>[] = [
+  { key: "q", action: "quit" },
+];
 
 /** Publish asynchronously without putting discovery or effects in key handlers. */
 export function consumerApplication(
@@ -55,14 +88,15 @@ export function consumerApplication(
 ): TerminalApplicationOptions<string> {
   return {
     view: applicationView(false),
+    keymap: APPLICATION_KEYMAP,
     start: (context) => {
       queueMicrotask(() => context.update(applicationView(true)));
     },
-    onAction: ({ value }) => {
-      if (value === "unavailable") {
+    onAction: (action) => {
+      if (action === "unavailable") {
         throw new Error("unavailable choice activated");
       }
-      return value === "quit"
+      return action === "quit"
         ? { kind: "exit" }
         : { kind: "foreground", run: foreground };
     },

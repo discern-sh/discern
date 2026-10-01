@@ -3,7 +3,8 @@ import { renderBadgeCli } from "discern-design-system/cli";
 import {
   MarkdownBrowserRefusalError,
   runTerminalApplication, renderTerminalApplication, updateTerminalApplication,
-  transitionTerminalApplication, TERMINAL_APPLICATION_MINIMUM,
+  transitionTerminalApplication, createTerminalApplicationModel,
+  terminalApplicationState, TERMINAL_APPLICATION_MINIMUM,
   type TerminalApplicationView,
   requestAcknowledgement,
   requestMarkdownBrowser,
@@ -25,6 +26,8 @@ void runTerminalApplication;
 void renderTerminalApplication;
 void updateTerminalApplication;
 void transitionTerminalApplication;
+void createTerminalApplicationModel;
+void terminalApplicationState;
 void TERMINAL_APPLICATION_MINIMUM;
 const publicView: TerminalApplicationView<string> | undefined = undefined;
 void publicView;
