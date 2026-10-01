@@ -47,6 +47,7 @@ import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
   type AcceptLandingState,
+  AcceptLandingStateSchema,
 } from "../src/shared/accept_landing_state.ts";
 import {
   DESK_ACTION_FLOWS,
@@ -869,10 +870,12 @@ function trunkMovedStates(): AcceptLandingState[] {
   return Array.from(
     { length: 2 ** others.length },
     (_, bits) =>
-      Object.fromEntries([
-        ["trunk_landed", true],
-        ...others.map((field, index) => [field, (bits & (1 << index)) !== 0]),
-      ]) as unknown as AcceptLandingState,
+      AcceptLandingStateSchema.parse(
+        Object.fromEntries([
+          ["trunk_landed", true],
+          ...others.map((field, index) => [field, (bits & (1 << index)) !== 0]),
+        ]),
+      ),
   );
 }
 
