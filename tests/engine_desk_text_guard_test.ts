@@ -8,7 +8,6 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
 import { Node, Project } from "ts-morph";
 import {
   renderTerminalApplication,
@@ -17,8 +16,7 @@ import {
 import { FakeTerminalIO } from "discern-design-system/cli/interactive/testing";
 import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
 import { assertNamedCasesAsync } from "./assert_cases.ts";
-import { REPO_ROOT } from "./repo_authored_paths.ts";
-import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { scanDeskModules } from "./desk_module_scan.ts";
 import { statusData, taskFleetEntry } from "./fixtures/status_fleet.ts";
 import { deskLine, deskLiteral } from "../src/engine/desk/text.ts";
 import { buildDeskRows } from "../src/engine/desk/model.ts";
@@ -70,26 +68,13 @@ function rendered(
 }
 
 Deno.test("Desk text guard", async () => {
-  const files = await structuralGuardScope({
-    guard: "tests/engine_desk_text_guard_test.ts#desk-text-sanitizers",
-    universe: "authored-ts",
-    narrow: {
-      reason:
-        "The Desk subtree composes product text into package slots; other commands keep their own presenters.",
-      include: (path) => path.startsWith("src/engine/desk/"),
-    },
+  const { files, findings } = await scanDeskModules({
+    owner: TEXT_MODULE,
+    scan: sanitizerImports,
   });
   await assertNamedCasesAsync({
-    "only the Desk's text module reaches the terminal sanitizers": async () => {
+    "only the Desk's text module reaches the terminal sanitizers": () => {
       assert(files.includes(TEXT_MODULE));
-      const findings: string[] = [];
-      for (const file of files) {
-        if (file === TEXT_MODULE) continue;
-        const source = await Deno.readTextFile(join(REPO_ROOT, file));
-        findings.push(
-          ...sanitizerImports(source).map((name) => `${file}: ${name}`),
-        );
-      }
       assertEquals(findings, []);
       assertEquals(
         sanitizerImports(
