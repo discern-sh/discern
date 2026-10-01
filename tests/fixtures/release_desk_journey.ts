@@ -71,24 +71,29 @@ export async function releaseDeskJourney(
       undefined,
       Date.parse("2000-01-01T00:00:00Z"),
     );
+    // Below 40 columns the command wraps and its meta truncates, so the
+    // markers name only what such a row still shows whole.
+    const narrow = geometry.columns < 40;
+    const filtered = narrow ? "Desk commands" : "Desk commands / Check";
+    const command = narrow ? "Check for" : "Check for updates";
     const input: DeskTtyInputPhase[] = [
       phase("empty", ["No tasks yet", "/ find"], "\t/Check for updates\r"),
       phase("due", [
-        "Desk commands / Check",
-        "Check for updates",
-        "check due",
+        filtered,
+        command,
+        narrow ? "check d" : "check due",
         "/ find",
       ], "\r"),
       // The browser opens only after the disclosure's explicit Open.
       phase(
         "confirm",
-        ["Check for updates?", "Nothing is installed"],
+        ["Check for updates", "Esc back"],
         encodeTerminalKeys("tab", "down", "enter"),
       ),
       ...(geometry.rows <= 10
         ? [
           phase("reader", ["Release information", "Esc back"], "\x1b[6~"),
-          phase("evidence", ["Browser:", "Esc back"], "\x1b[6~"),
+          phase("evidence", ["Evidence", "Esc back"], "\x1b[6~"),
         ]
         : []),
       phase(
@@ -99,16 +104,8 @@ export async function releaseDeskJourney(
       ...(resize
         ? [phase("resized", ["Release information", "Esc back"], "\x1b")]
         : []),
-      phase("returned", [
-        "Desk commands / Check",
-        "Check for updates",
-        "/ find",
-      ], "r"),
-      phase("refreshed", [
-        "Desk commands / Check",
-        "Check for updates",
-        "/ find",
-      ], "q"),
+      phase("returned", [filtered, command, "/ find"], "r"),
+      phase("refreshed", [filtered, command, "/ find"], "q"),
     ];
     const result = await runDeskTty(project, {
       geometry,
@@ -140,7 +137,7 @@ export async function releaseDeskJourney(
     if (resize) {
       assertStringIncludes(
         returned.text,
-        "whether an upgrade is available.",
+        "Opens the discern.sh release page",
       );
     }
     assert(
