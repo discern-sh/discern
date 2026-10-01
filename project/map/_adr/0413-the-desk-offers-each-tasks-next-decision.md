@@ -14,7 +14,7 @@ The action registry declares, per action, the row states whose next step it is (
 
 Tasks list by status's decision group (Ready for review, Needs attention, Working, Approved to land, Idle), then by case-folded, accent-aware title. A row's word, glyph and tone are its status row state; Proof validity, landing authority and the queue stay separate facts in the task's details. A landing's integration worktree gets no row and no actions.
 
-Each action has one label from the copy glossary, held in a leaf vocabulary module that hints, tips, status recovery advice, park refusals, plan titles and the feature registry import. A label ends with an ellipsis exactly when the action asks for a confirmation or more input. The Desk names landing **Land…**; the CLI keeps `discern accept`, and the command evidence is the true equivalent, `discern accept --target <branch> --confirmed`.
+Each action has one label from the copy glossary, held only in a leaf vocabulary module that the registries, the desk's views, status's row sentences and recovery advice, hints, tips, park refusals and plan titles import. The feature registry, which the Canon Editor rewrites as plain literals, types its control names instead, and each must resolve to a registered label. A label ends with an ellipsis exactly when the action asks for a confirmation or more input. The Desk names landing **Land…**; the CLI keeps `discern accept`, and the command evidence is the true equivalent, `discern accept --target <branch> --confirmed`.
 
 The registry also declares each action's menu section, key, summary, review question, consequence lines (each with a mark and an optional fact that must hold), effect, and the facts a review binds before the effect runs. Desk-level commands live in a sibling registry with the same shape, and one key map per layer draws its mnemonics and command keys from both. Built-in plan steps have human words keyed like their stable labels.
 
@@ -30,7 +30,7 @@ The recommendation predicate becomes the registry's `next` and `also` lists, key
 
 ## Consequences
 
-The owner reads a task's state and acts on its next step without assembling it from facts, and the same state reads the same in `discern status`, `discern enter` and the Desk. Relabelling an action changes one vocabulary entry; the label guard refuses a typed copy outside the Desk, and the registry guard holds the key, ellipsis, next-step and binding rules for every action, command and state.
+The owner reads a task's state and acts on its next step without assembling it from facts, and the same state reads the same in `discern status`, `discern enter` and the Desk. Relabelling an action changes one vocabulary entry; the label guard refuses a typed copy in any shipped module, and the registry guard holds the key, ellipsis, next-step and binding rules for every action, command and state.
 
 Rows move between groups as states change, which title order avoided. Tightened availability means fewer controls are enabled on unproven or dirty work, and actions that used to fail at review now explain themselves up front. An exception still needs a terminal: the Desk shows the command instead of recording the decision.
 

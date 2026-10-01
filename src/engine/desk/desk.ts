@@ -390,6 +390,10 @@ function displayedCommand(command: string, args: readonly string[]): string {
   return commandEvidence([command, ...args]);
 }
 
+/** The review screen's own controls, named once for its failure advice. */
+const VIEW_DIFF = "View actual diff";
+const OPEN_EDITOR = "Open in editor";
+
 /** Resolve the model-owned offer the selected action came from. */
 function selectedOffer(
   row: DeskRow,
@@ -906,10 +910,10 @@ async function reviewTask(
         { id: DESK_REVIEW_ROUTES.back, label: "Back" },
         { id: "proof", label: "Complete Proof" },
         { id: "changes", label: "Changed files and commits" },
-        { id: DESK_REVIEW_ROUTES.diff, label: "View actual diff" },
+        { id: DESK_REVIEW_ROUTES.diff, label: VIEW_DIFF },
         ...(review.editor === undefined
           ? []
-          : [{ id: DESK_REVIEW_ROUTES.editor, label: "Open in editor" }]),
+          : [{ id: DESK_REVIEW_ROUTES.editor, label: OPEN_EDITOR }]),
       ],
     });
     if (route === "back" || route === DESK_REVIEW_ROUTES.back) return;
@@ -953,7 +957,7 @@ async function reviewTask(
           command: displayedCommand("git", args),
           detail: result.stderr.trimEnd() || "Git returned a non-zero status.",
           nextAction:
-            "Resolve the reported Git failure, then choose View actual diff again.",
+            `Resolve the reported Git failure, then choose ${VIEW_DIFF} again.`,
           safeToRetry: true,
         });
         continue;
@@ -969,7 +973,7 @@ async function reviewTask(
             ? paged.error.message
             : String(paged.error ?? "The pager did not open."),
           nextAction:
-            "Set $PAGER to a working command, then choose View actual diff again.",
+            `Set $PAGER to a working command, then choose ${VIEW_DIFF} again.`,
           safeToRetry: true,
         });
       }
@@ -983,7 +987,7 @@ async function reviewTask(
           command: review.editor.command,
           detail: `The editor exited with status ${code}.`,
           nextAction:
-            "Repair the configured editor command, then choose Open in editor again.",
+            `Repair the configured editor command, then choose ${OPEN_EDITOR} again.`,
           safeToRetry: true,
         });
       }
@@ -2310,7 +2314,7 @@ async function dispatchAction(
     }
     case "rename": {
       const title = await runtime.input({
-        message: "New task title",
+        message: "Task title",
         default: row.entry.task?.title ?? row.task.name,
         required: "Enter a task title.",
         validate: (value) => taskTextValidationError(value, "title") ?? true,

@@ -10,6 +10,7 @@
 
 import type { FleetRowStateId } from "../../shared/fleet_row_vocabulary.ts";
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
+import { DESK_ACTION_LABELS, labelName } from "../../shared/desk_vocabulary.ts";
 import { compactDuration, elapsedDuration } from "../output.ts";
 import {
   degradedFleetAttention,
@@ -49,6 +50,10 @@ export type FleetBranchRowStateId = Extract<
 >;
 
 type TaskSentences = FleetRowSentences<FleetTaskRowFacts>;
+
+/** The controls these sentences point a person to, by their one label. */
+const LAND = labelName(DESK_ACTION_LABELS.accept);
+const RUN_CHECKS = labelName(DESK_ACTION_LABELS.done);
 
 /** `1 commit`, `3 commits`. */
 function plural(count: number, singular: string): string {
@@ -473,7 +478,7 @@ export const TASK_ROW_SENTENCES = {
         ? `Its checks passed and you pre-authorized it, but it can't land yet. ${
           facts.queueRow.reason ?? ""
         }`.trimEnd()
-        : "Its checks passed and you pre-authorized it. It lands the next time anything lands, or now if you choose Land.",
+        : `Its checks passed and you pre-authorized it. It lands the next time anything lands, or now if you choose ${LAND}.`,
     attention: (facts) =>
       facts.queueRow?.readiness === "waiting"
         ? facts.queueRow.reason
@@ -489,7 +494,7 @@ export const TASK_ROW_SENTENCES = {
         facts.entry.landing_authority?.source === "standing-grant"
           ? "your standing approval covers every changed path"
           : "you pre-authorized it"
-      }. It isn't queued yet; it lands when you choose Land.`,
+      }. It isn't queued yet; it lands when you choose ${LAND}.`,
     attention: () => undefined,
   },
   ready: {
@@ -525,7 +530,7 @@ export const TASK_ROW_SENTENCES = {
   "proof-error": {
     qualifier: () => "unreadable",
     explanation: () =>
-      "discern can't read its recorded checks, so they don't count. Run checks again to record them.",
+      `discern can't read its recorded checks, so they don't count. ${RUN_CHECKS} again to record them.`,
     attention: (facts) => {
       const reason = fleetRowProof(facts.entry).reason;
       return `The clean branch's Proof is unreadable${
@@ -536,7 +541,7 @@ export const TASK_ROW_SENTENCES = {
   "proof-unknown": {
     qualifier: () => "not inspected",
     explanation: () =>
-      "discern couldn't inspect its recorded checks. Run checks to record them again.",
+      `discern couldn't inspect its recorded checks. ${RUN_CHECKS} to record them again.`,
     attention: (facts) => {
       const reason = fleetRowProof(facts.entry).reason;
       return `The clean branch's Proof is unavailable${
@@ -547,7 +552,7 @@ export const TASK_ROW_SENTENCES = {
   recheck: {
     qualifier: () => "older commit",
     explanation: () =>
-      "Its recorded checks are for an older commit. Run checks on the current one.",
+      `Its recorded checks are for an older commit. ${RUN_CHECKS} on the current one.`,
     attention: () =>
       "The recorded Proof names another commit. Run `discern done` on the current clean HEAD before review.",
   },
@@ -556,7 +561,7 @@ export const TASK_ROW_SENTENCES = {
     explanation: (facts) =>
       `It has ${
         plural(positiveCount(facts.entry.ahead) ?? 0, "commit")
-      } and no passing checks yet. Run checks once its agent is done.`,
+      } and no passing checks yet. ${RUN_CHECKS} once its agent is done.`,
     attention: () =>
       "This clean branch has committed work and no valid Proof. Run `discern done` before review.",
   },

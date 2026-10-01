@@ -402,13 +402,13 @@ realPtyTest({
             waitFor: "› More actions",
             chunks: [{ input: "/rename\r\r" }],
           }, {
-            waitFor: "New task title",
+            waitFor: "Task title",
             chunks: [{
               input: `${"\u007f".repeat(originalTitle.length)}${title}`,
             }],
           }, {
-            waitFor: ["New task title", title],
-            capture: textCapture("edited-form", title, "New task title"),
+            waitFor: ["Task title", title],
+            capture: textCapture("edited-form", title, "Task title"),
             chunks: [{ resize: { columns: 80, rows: 24 } }],
           }, {
             waitFor: {
@@ -419,7 +419,7 @@ realPtyTest({
                   rows: 24,
                 }).text.includes(title),
             },
-            capture: textCapture("resized-form", title, "New task title"),
+            capture: textCapture("resized-form", title, "Task title"),
             chunks: [{ keys: ["enter"] }],
           }, {
             waitFor: [

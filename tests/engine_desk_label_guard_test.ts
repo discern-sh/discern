@@ -1,11 +1,12 @@
 /**
- * Copy outside the Desk that names a Desk control (status recovery advice,
- * hints, tips, park refusals and plan titles) quotes the control's
- * registered label, never a typed copy of it. The source scan keeps each
- * quote an import from the Desk vocabulary; the rendered scan proves every
- * control a hint or tip asks a person to choose exists. The feature registry
- * is edited as plain literals by the Canon Editor, so its typed control names
- * must resolve to registered labels instead.
+ * Shipped copy that names a desk control (the desk's own titles and reasons,
+ * status's row sentences and recovery advice, hints, tips, park refusals and
+ * plan titles) quotes the control's registered label, never a typed copy of
+ * it. The source scan covers every shipped module but the vocabulary itself,
+ * so a new module that addresses people enrolls without a list edit; the
+ * rendered scan proves every control a hint or tip asks a person to choose
+ * exists. The feature registry is edited as plain literals by the Canon
+ * Editor, so its typed control names must resolve to registered labels.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -20,32 +21,34 @@ import {
   DESK_COMMAND_LABELS,
   DESK_COMMAND_TOGGLED_LABELS,
   labelName,
+  withTrunk,
 } from "../src/shared/desk_vocabulary.ts";
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 
-/** Modules that tell people which Desk control to choose. */
-const QUOTING_MODULES = new Set([
-  "src/engine/status/recovery_presentation.ts",
-  "src/engine/worktree/park.ts",
-  "src/engine/worktree/plan.ts",
-  "src/shared/hints.ts",
-  "src/shared/tips.ts",
-]);
+/** The one module that holds every label. */
+const VOCABULARY = "src/shared/desk_vocabulary.ts";
 
-/** Every label a Desk control shows, from the vocabulary. */
+/** Every label a Desk control shows, from the vocabulary, as it reads in a
+ * project whose trunk is main. */
 const LABELS: readonly string[] = [
   ...Object.values(DESK_ACTION_LABELS),
   ...Object.values(DESK_COMMAND_LABELS),
   ...Object.values(DESK_COMMAND_TOGGLED_LABELS),
-];
+].map((label) => withTrunk(label, "main"));
+
+/** Labels that are also the plain name of the place they open: status and
+ * acceptance name the main checkout itself, not the command that shows it. */
+const PLACE_NAMES: ReadonlySet<string> = new Set([
+  DESK_COMMAND_LABELS.main_checkout,
+]);
 
 /** Labels distinctive enough that typing one in copy can only mean the
  * control: several words, or a promise of a question. */
 const DISTINCTIVE: readonly string[] = [
   ...new Set(
     LABELS.flatMap((label) => [label, labelName(label)]).filter((label) =>
-      label.includes(" ") || label.endsWith("…")
+      (label.includes(" ") || label.endsWith("…")) && !PLACE_NAMES.has(label)
     ),
   ),
 ];
@@ -59,9 +62,11 @@ function typedLabels(source: string): string[] {
     ...[...text.matchAll(/\b[Cc]hoose [A-Z]/gu)].map(() =>
       `line ${line}: "choose" a capitalized name typed in place`
     ),
-    ...[...text.matchAll(/"[A-Z][^"]*/gu)].map((match) =>
-      `line ${line}: quotes ${match[0]} in place`
-    ),
+    ...[
+      ...text.matchAll(
+        /\b(?:[Cc]hoose|[Ss]elect|[Uu]se|[Pp]ick|[Pp]ress|offers)\s+"[A-Z][^"]*/gu,
+      ),
+    ].map((match) => `line ${line}: quotes ${match[0]} in place`),
   ]);
 }
 
@@ -69,10 +74,16 @@ function typedLabels(source: string): string[] {
  * control's name, which must then be a registered label. */
 const LITERAL_COPY_MODULES = new Set(["scripts/feature_registry.ts"]);
 
-/** Whether a phrase starts with a registered control label. */
+/** Whether a phrase starts with a whole registered control label: the label
+ * ends the phrase or a word boundary follows it, so "Landmark" never
+ * passes as "Land…". */
 function startsWithLabel(phrase: string): boolean {
   return LABELS.some((label) =>
-    phrase.startsWith(label) || phrase.startsWith(labelName(label))
+    [label, labelName(label)].some((name) =>
+      phrase === name ||
+      (phrase.startsWith(name) &&
+        /^[\s.,;:)`'"]/u.test(phrase.slice(name.length)))
+    )
   );
 }
 
@@ -82,23 +93,33 @@ Deno.test("Desk label guard", async () => {
     universe: "authored-ts",
     narrow: {
       reason:
-        "These modules address people about Desk controls from outside the Desk; the Desk's own registries are the labels' source.",
-      include: (path) => QUOTING_MODULES.has(path),
+        "Every shipped module may address people about a desk control; the vocabulary is the labels' one source.",
+      include: (path) => path.startsWith("src/") && path !== VOCABULARY,
     },
   });
   await assertNamedCasesAsync({
-    "every quoting module is in scope": () => {
-      assertEquals(files.length, QUOTING_MODULES.size);
-    },
-    "copy outside the Desk imports control labels instead of typing them":
-      async () => {
-        const findings: string[] = [];
-        for (const file of files) {
-          const source = await Deno.readTextFile(join(REPO_ROOT, file));
-          findings.push(...typedLabels(source).map((hit) => `${file} ${hit}`));
-        }
-        assertEquals(findings, []);
+    "the scope reaches every module that names controls, the desk's own included":
+      () => {
+        for (
+          const module of [
+            "src/engine/desk/model.ts",
+            "src/engine/desk/desk.ts",
+            "src/engine/status/row_sentences.ts",
+            "src/engine/status/recovery_presentation.ts",
+            "src/shared/hints.ts",
+            "src/shared/tips.ts",
+          ]
+        ) assert(files.includes(module), module);
+        assert(!files.includes(VOCABULARY));
       },
+    "shipped copy imports control labels instead of typing them": async () => {
+      const findings: string[] = [];
+      for (const file of files) {
+        const source = await Deno.readTextFile(join(REPO_ROOT, file));
+        findings.push(...typedLabels(source).map((hit) => `${file} ${hit}`));
+      }
+      assertEquals(findings, []);
+    },
     "the scan recognizes a typed label, a typed choice, and a typed quote":
       () => {
         for (
@@ -111,10 +132,13 @@ Deno.test("Desk label guard", async () => {
         ) assert(typedLabels(typed).length > 0, typed);
         assertEquals(
           typedLabels(
-            'const a = `choose ${DESK_ACTION_LABELS.recovery}`; const b = "choose whether to wait";',
+            'const a = `choose ${DESK_ACTION_LABELS.recovery}`; const b = "choose whether to wait"; const c = "Main checkout at /repo";',
           ),
           [],
         );
+        assert(!startsWithLabel("Landmark"));
+        assert(startsWithLabel("Land in a terminal"));
+        assert(!startsWithLabel("Landed"));
       },
     "every control a literal registry names is a registered label":
       async () => {

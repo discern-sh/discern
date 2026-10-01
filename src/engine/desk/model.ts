@@ -650,7 +650,7 @@ function landableReason(facts: DeskActionFacts): string | undefined {
   if (fleetRowProof(entry).status === "honored") return undefined;
   const behind = positiveCount(entry.behind);
   return behind === undefined
-    ? "Run checks first."
+    ? `${actionName("done")} first.`
     : `${
       plural(behind, "commit")
     } behind ${facts.trunk}. Update it, then run checks.`;
@@ -738,7 +738,13 @@ function line(
 }
 
 const NO_CONFIRMATION = { kind: "none" } as const;
-const ACCEPT_NAME = labelName(DESK_ACTION_LABELS.accept);
+
+/** An action's label as a name inside a sentence or title. */
+function actionName(action: DeskAction): string {
+  return labelName(DESK_ACTION_LABELS[action]);
+}
+
+const ACCEPT_NAME = actionName("accept");
 
 /** The cleanup lines Park, Reclaim, and Drop share. */
 const ENDS_AUTHORITY = [
@@ -780,7 +786,7 @@ export const DESK_ACTION_REGISTRY = {
     summary: (_context: DeskActionContext): string =>
       "Read what failed and the command that repairs it",
     reviewTitle: (context: DeskActionContext): string =>
-      `Recovery steps for ${context.title}`,
+      `${actionName("recovery")} for ${context.title}`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "status", "--all"],
       workingDirectory: "main",
@@ -803,7 +809,7 @@ export const DESK_ACTION_REGISTRY = {
     summary: (_context: DeskActionContext): string =>
       "Resume setup from the step that failed",
     reviewTitle: (context: DeskActionContext): string =>
-      `Retry setup for ${context.title}?`,
+      `${actionName("retry_setup")} for ${context.title}?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "worktree", "setup"],
       workingDirectory: "task",
@@ -828,7 +834,7 @@ export const DESK_ACTION_REGISTRY = {
     summary: (_context: DeskActionContext): string =>
       "Run this project's checks on the committed work",
     reviewTitle: (context: DeskActionContext): string =>
-      `Run checks on ${context.title}?`,
+      `${actionName("done")} on ${context.title}?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "done"],
       workingDirectory: "task",
@@ -1016,7 +1022,7 @@ export const DESK_ACTION_REGISTRY = {
     summary: (_context: DeskActionContext): string =>
       "Open a coding agent in this task's checkout",
     reviewTitle: (context: DeskActionContext): string =>
-      `Open agent in ${context.title}`,
+      `${actionName("agent")} in ${context.title}`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["<configured-agent>"],
       workingDirectory: "task",
@@ -1082,7 +1088,7 @@ export const DESK_ACTION_REGISTRY = {
     summary: (_context: DeskActionContext): string =>
       "Run one of the project's scripts in this checkout",
     reviewTitle: (context: DeskActionContext): string =>
-      `Run a script in ${context.title}?`,
+      `${actionName("scripts")} in ${context.title}?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "scripts", "<name>"],
       workingDirectory: "task",
@@ -1129,7 +1135,7 @@ export const DESK_ACTION_REGISTRY = {
     summary: (_context: DeskActionContext): string =>
       "Open your shell in this task's checkout",
     reviewTitle: (context: DeskActionContext): string =>
-      `Open shell in ${context.title}`,
+      `${actionName("jump")} in ${context.title}`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["<user-shell>"],
       workingDirectory: "task",
@@ -1278,7 +1284,7 @@ export const DESK_ACTION_REGISTRY = {
     summary: (_context: DeskActionContext): string =>
       "Ask you again before it lands",
     reviewTitle: (context: DeskActionContext): string =>
-      `Revoke pre-authorization for ${context.title}?`,
+      `${actionName("revoke_grant")} for ${context.title}?`,
     command: (_context: DeskActionContext): DeskCommandEvidence => ({
       argv: ["discern", "desk"],
       workingDirectory: "main",
