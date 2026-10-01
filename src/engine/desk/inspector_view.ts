@@ -870,8 +870,8 @@ function parkedTail(inspection: DeskInspection): ApplicationDetailBlock[] {
         commits.length === 0 ? undefined : [{
           kind: "section",
           title: "Commits",
-          count: commits.length,
-          caption: `not on ${inspection.trunk}`,
+          // One phrase: the count reads with its caption ("3 not on main").
+          caption: `${commits.length} not on ${inspection.trunk}`,
           blocks: [{
             kind: "rows",
             lead: { id: "sha", width: 7 },
