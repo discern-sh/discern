@@ -29,9 +29,12 @@ Deno.test("Desk preferences: linked worktrees share safe repository defaults", a
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
     const preferences = {
-      schema_version: 1 as const,
+      schema_version: 2 as const,
       last_agent: "codex" as const,
-      creation_path: "expanded" as const,
+      mouse: true,
+      details: "hidden" as const,
+      sort: "title" as const,
+      folded_groups: ["parked"],
     };
     assertEquals(await writeDeskPreferences(dir, preferences), {
       status: "saved",
@@ -46,6 +49,28 @@ Deno.test("Desk preferences: linked worktrees share safe repository defaults", a
     const mode = (await Deno.stat(path)).mode;
     assert(mode !== null);
     assertEquals(mode & 0o777, 0o600);
+  });
+});
+
+Deno.test("Desk preferences: a version-1 record keeps its agent and drops its creation path", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const path = await deskPreferencesPath(dir);
+    assert(path !== undefined);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    await Deno.writeTextFile(
+      path,
+      JSON.stringify({
+        schema_version: 1,
+        last_agent: "codex",
+        creation_path: "compact",
+      }),
+    );
+    assertEquals(await readDeskPreferences(dir), {
+      schema_version: 2,
+      last_agent: "codex",
+    });
   });
 });
 
@@ -94,8 +119,8 @@ Deno.test("Desk preferences: a newer record is diagnosed and never replaced", as
     assertStringIncludes(inspected.reason, "written by a newer discern");
     assertEquals(await readDeskPreferences(dir), freshDeskPreferences());
     const written = await writeDeskPreferences(dir, {
-      schema_version: 1,
-      creation_path: "expanded",
+      schema_version: 2,
+      mouse: true,
     });
     assert(written.status === "newer");
     assertStringIncludes(written.reason, "Update discern");
@@ -108,8 +133,8 @@ Deno.test("Desk preferences: outside Git, reads reset and writes report unavaila
     assertEquals(await deskPreferencesPath(dir), undefined);
     assertEquals(await readDeskPreferences(dir), freshDeskPreferences());
     const result = await writeDeskPreferences(dir, {
-      schema_version: 1,
-      creation_path: "compact",
+      schema_version: 2,
+      sort: "title",
     });
     assertEquals(result.status, "unavailable");
     if (result.status === "unavailable") {

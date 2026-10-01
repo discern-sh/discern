@@ -24,21 +24,37 @@ import { inspectOnDiskJsonFile } from "../../shared/on_disk_json.ts";
 export const DESK_PREFERENCES_SCHEMA_VERSION =
   ON_DISK_FORMATS.deskPreferences.version;
 
-/** Creation routes whose default may be remembered. */
-export const DESK_CREATION_PATHS = ["compact", "expanded"] as const;
-export type DeskCreationPath = (typeof DESK_CREATION_PATHS)[number];
+/** Whether the selected task's details sit beside the list. */
+export const DESK_DETAILS_MODES = ["shown", "hidden"] as const;
+export type DeskDetailsMode = (typeof DESK_DETAILS_MODES)[number];
 
+/** How the inbox orders tasks: by who moves next, or by title alone. */
+export const DESK_SORT_MODES = ["decision", "title"] as const;
+export type DeskSortMode = (typeof DESK_SORT_MODES)[number];
+
+/** Every field a version-1 or a current record may carry. Version 1 also
+ * remembered a creation path, which no form asks for any more; reading it
+ * keeps an older record valid and writing drops it. */
 const DeskPreferencesSchema = z.strictObject({
-  schema_version: z.literal(DESK_PREFERENCES_SCHEMA_VERSION),
+  schema_version: z.union([z.literal(1), z.literal(2)]),
   last_agent: z.enum(AGENT_NAMES).optional(),
-  creation_path: z.enum(DESK_CREATION_PATHS).optional(),
+  creation_path: z.enum(["compact", "expanded"]).optional(),
+  mouse: z.boolean().optional(),
+  details: z.enum(DESK_DETAILS_MODES).optional(),
+  sort: z.enum(DESK_SORT_MODES).optional(),
+  folded_groups: z.array(z.string()).optional(),
 });
 
 /** Safe defaults retained per repository. */
 export interface DeskPreferences {
   readonly schema_version: typeof DESK_PREFERENCES_SCHEMA_VERSION;
   readonly last_agent?: AgentName;
-  readonly creation_path?: DeskCreationPath;
+  /** Report clicks and the wheel; off unless the owner turns it on. */
+  readonly mouse?: boolean;
+  readonly details?: DeskDetailsMode;
+  readonly sort?: DeskSortMode;
+  /** Inbox groups the owner left folded, by group id. */
+  readonly folded_groups?: readonly string[];
 }
 
 /** Observable outcome of persisting optional convenience defaults. */
@@ -73,17 +89,16 @@ export async function inspectDeskPreferences(
     await deskPreferencesPath(root),
     (text) => {
       const parsed = DeskPreferencesSchema.safeParse(JSON.parse(text));
-      return parsed.success
-        ? {
-          schema_version: parsed.data.schema_version,
-          ...(parsed.data.last_agent === undefined
-            ? {}
-            : { last_agent: parsed.data.last_agent }),
-          ...(parsed.data.creation_path === undefined
-            ? {}
-            : { creation_path: parsed.data.creation_path }),
-        }
-        : undefined;
+      if (!parsed.success) return undefined;
+      const { last_agent, mouse, details, sort, folded_groups } = parsed.data;
+      return {
+        schema_version: DESK_PREFERENCES_SCHEMA_VERSION,
+        ...(last_agent === undefined ? {} : { last_agent }),
+        ...(mouse === undefined ? {} : { mouse }),
+        ...(details === undefined ? {} : { details }),
+        ...(sort === undefined ? {} : { sort }),
+        ...(folded_groups === undefined ? {} : { folded_groups }),
+      };
     },
   );
   if (read.status === "recorded") {

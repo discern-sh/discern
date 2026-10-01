@@ -162,7 +162,9 @@ export const ON_DISK_FORMATS = {
   deskPreferences: {
     id: "desk-preferences",
     location: { kind: "git-admin", keys: ["deskPreferences"] },
-    version: 1,
+    // Version 2 adds the inbox's layout and input preferences; version-1
+    // records stay readable.
+    version: 2,
     versionField: "schema_version",
     reader: "src/engine/desk/preferences.ts#inspectDeskPreferences",
     writers: ["src/engine/desk/preferences.ts"],
