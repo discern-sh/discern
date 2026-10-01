@@ -3030,7 +3030,29 @@ Deno.test("public vocabulary compatibility follows input, output, and open-membe
     "every open vocabulary root grows freely and refuses removals":
       (): undefined => {
         const baseline = clone(RESULT_OUTPUT_FIXTURE);
+        const unpublished = clone(baseline);
+        delete unpublished["x-discern-advisory-kinds"];
         baseline["x-discern-advisory-kinds"] = ["signal-lost"];
+        assertEquals(
+          publicSchemaCompatibilityIssues(
+            unpublished,
+            baseline,
+            RESULT_SCHEMA_COMPATIBILITY_POLICY,
+          ),
+          [],
+          "a newly published vocabulary is growth from no members",
+        );
+        assertEquals(
+          publicSchemaCompatibilityIssues(
+            baseline,
+            unpublished,
+            RESULT_SCHEMA_COMPATIBILITY_POLICY,
+          ),
+          [
+            '$.x-discern-advisory-kinds: changed from ["signal-lost"] to undefined',
+          ],
+          "withdrawing a whole vocabulary removes every member",
+        );
         const grown = clone(baseline);
         grown["x-discern-advisory-kinds"] = ["signal-lost", "signal-weak"];
         assertEquals(

@@ -1017,10 +1017,11 @@ function compareNode(
     const after = current[key];
     const childPath = pathKey(path, key);
     if (isOpenVocabularyKey(key)) {
-      // An open vocabulary's published members grow freely; a member that
+      // An open vocabulary's published members grow freely, from none when
+      // the vocabulary itself is new; a member or a whole vocabulary that
       // disappears breaks every consumer that recognized it.
       const localIssues: string[] = [];
-      compareStringSets(before, after, childPath, localIssues);
+      compareStringSets(before ?? [], after, childPath, localIssues);
       issues.push(
         ...localIssues.filter((issue) => !issue.includes(": added value ")),
       );
