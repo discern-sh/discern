@@ -451,9 +451,18 @@ async function materialiseDeskProject(
 ): Promise<DeskTtyProject> {
   await Deno.mkdir(root, { recursive: true });
   await scaffoldEngine(root);
-  if (fixture.repositoryEnsure.length > 0) {
-    await setRepositoryEnsure(root, fixture.repositoryEnsure);
-  }
+  await editFixtureConfig(root, (editor) => {
+    // The seeded format job runs `discern tidy` through the engine's self
+    // shim, which pins this checkout's committed Deno config; under a
+    // linked design-system loop that config can't load the engine, and a
+    // fixture's Proof needs no formatting.
+    editor.setString("jobs.format", "true");
+    if (fixture.repositoryEnsure.length > 0) {
+      editor.setStringArray("repository.ensure", [
+        ...fixture.repositoryEnsure,
+      ]);
+    }
+  });
   await gitInit(root);
   if (fixture.committedAgentFiles) await commitAgentFiles(root);
   const nowMs = SYSTEM_CLOCK.wallNow();
@@ -640,14 +649,14 @@ async function commitAgentFiles(root: string): Promise<void> {
   await commitFixture(root, "Commit the agent files");
 }
 
-/** Set the repository's ensure commands through the canonical config writer. */
-async function setRepositoryEnsure(
+/** Edit the fixture's configuration through the canonical config writer. */
+async function editFixtureConfig(
   root: string,
-  commands: readonly string[],
+  edit: (editor: TomlEditor) => void,
 ): Promise<void> {
   const path = join(root, "discern.toml");
   const editor = new TomlEditor(await Deno.readTextFile(path));
-  editor.setStringArray("repository.ensure", [...commands]);
+  edit(editor);
   await writeDiscernToml(path, editor.toString());
 }
 
@@ -740,9 +749,13 @@ async function proveWithGate(worktree: string): Promise<void> {
     cliModel: TEST_CLI_MODEL,
   });
   if (!result.ok) {
-    throw new Error(
-      `could not prove Desk fixture ${worktree}: ${result.message ?? result.error}`,
-    );
+    // A pending completion carries neither a message nor an error: its
+    // first diagnostic and its hints say what stopped it.
+    const hints = (result.hints ?? []).join(" ");
+    const why = result.message ?? result.error ??
+      result.diagnostics?.[0]?.message ??
+      (hints === "" ? "the gate did not say why" : hints);
+    throw new Error(`could not prove Desk fixture ${worktree}: ${why}`);
   }
 }
 
