@@ -527,9 +527,13 @@ Deno.test("row-state precedence: every combination resolves to exactly the speci
     ) {
       consentFaults.push(`${matrixCase.name} (${state}): ${attention}`);
     }
+    // A sentence spells a usual time out ("about 3 minutes"); the compact
+    // form belongs to meters and cells.
     if (
       explanation.includes("`") ||
-      written.some((text) => /\bundefined\b|\bNaN\b|\s\.|^\s|\s$/u.test(text))
+      written.some((text) =>
+        /\bundefined\b|\bNaN\b|\s\.|^\s|\s$|\babout \d+[smhd]\b/u.test(text)
+      )
     ) {
       sentenceFaults.push(
         `${matrixCase.name} (${state}): ${written.join(" | ")}`,

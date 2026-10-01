@@ -153,6 +153,22 @@ export function compactDuration(ms: number): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
+/**
+ * A duration as a sentence says it, rounded like {@link compactDuration}
+ * but with its unit spelled out: `45 seconds`, `3 minutes`, `1 hour`.
+ */
+export function spokenDuration(ms: number): string {
+  const compact = compactDuration(ms);
+  const count = Number.parseInt(compact, 10);
+  const unit = {
+    s: "second",
+    m: "minute",
+    h: "hour",
+    d: "day",
+  }[compact.slice(-1)] ?? "second";
+  return `${count} ${count === 1 ? unit : `${unit}s`}`;
+}
+
 /** A run-summary duration with seconds retained: `45s`, `3m 12s`, `2h 4m 9s`. */
 export function elapsedDuration(ms: number): string {
   const totalSeconds = ms > 0 ? Math.max(1, Math.round(ms / 1000)) : 0;

@@ -11,7 +11,7 @@
 import type { FleetRowStateId } from "../../shared/fleet_row_vocabulary.ts";
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
 import { DESK_ACTION_LABELS, labelName } from "../../shared/desk_vocabulary.ts";
-import { compactDuration, elapsedDuration } from "../output.ts";
+import { elapsedDuration, spokenDuration } from "../output.ts";
 import {
   degradedFleetAttention,
   unreadableSubject,
@@ -129,7 +129,7 @@ function queuedNote(facts: FleetTaskRowFacts): string {
     : "";
 }
 
-/** `Checks started 1m 12s ago and usually take about 3m.` */
+/** `Checks started 1m 12s ago and usually take about 3 minutes.` */
 function runningSentence(
   subject: string,
   facts: FleetTaskRowFacts,
@@ -140,7 +140,7 @@ function runningSentence(
   const typical = running.typical_duration_ms === undefined
     ? ""
     : ` and usually ${verb} about ${
-      compactDuration(running.typical_duration_ms)
+      spokenDuration(running.typical_duration_ms)
     }`;
   return `${subject} started ${
     elapsedDuration(running.elapsed_ms)

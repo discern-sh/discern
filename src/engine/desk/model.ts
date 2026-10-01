@@ -36,7 +36,7 @@ import type { DetectedAgentBinary } from "../../lib/detect_agents.ts";
 import type { AgentName } from "../../lib/config.ts";
 import { providerFor } from "../../lib/providers.ts";
 import type { AgentCliPromptArgument } from "../../lib/providers.ts";
-import { compactDuration } from "../output.ts";
+import { compactDuration, spokenDuration } from "../output.ts";
 import type { DeskProjectScript } from "../project_scripts.ts";
 import {
   compareTaskTitles,
@@ -580,7 +580,7 @@ function runningReason(
       facts.entry.running.typical_duration_ms === undefined
         ? ""
         : ` It usually takes ${
-          compactDuration(facts.entry.running.typical_duration_ms)
+          spokenDuration(facts.entry.running.typical_duration_ms)
         }.`
     }`
     : undefined;

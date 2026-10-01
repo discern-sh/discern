@@ -927,7 +927,8 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           typical_duration_ms: 60_000,
         };
         const ungranted = decide({ ahead: 2, running });
-        const runningReason = "discern done is running. It usually takes 1m.";
+        const runningReason =
+          "discern done is running. It usually takes 1 minute.";
         for (const candidate of ungranted.actions) {
           const blockedByRunning = candidate.availability === "disabled" &&
             candidate.reason === runningReason;
