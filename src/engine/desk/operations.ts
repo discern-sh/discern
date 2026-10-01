@@ -16,7 +16,7 @@ import type {
   StepDisposition,
 } from "../../shared/result.ts";
 import { BUILT_IN_STEP_LABELS } from "../../shared/result.ts";
-import { humanStepLabel } from "../../shared/step_labels.ts";
+import { stepWords } from "../../shared/step_labels.ts";
 import type { CompletionObservationFact } from "../completion/events.ts";
 import { DESK_ACTION_REGISTRY, type DeskAction } from "./model.ts";
 import { DESK_COMMAND_REGISTRY, type DeskCommand } from "./commands.ts";
@@ -113,7 +113,7 @@ export function stopPolicy(step: DeskFlowStep): DeskStopPolicy | undefined {
 export interface DeskStepProgress {
   /** The plan's label, which the executor's facts name. */
   readonly label: string;
-  /** What the owner reads: the human words, or the configured spelling. */
+  /** What the owner reads: the step's words ({@linkcode stepWords}). */
   readonly words: string;
   readonly disposition: StepDisposition;
   readonly state: "pending" | "active" | "done" | "failed" | "skipped";
@@ -155,7 +155,7 @@ export function operationProgress(
     startedAt,
     steps: (plan?.steps ?? []).map((step): DeskStepProgress => ({
       label: step.label,
-      words: humanStepLabel(step.label, trunk) ?? step.label,
+      words: stepWords(step, trunk),
       disposition: step.disposition,
       state: step.disposition === "skip" ? "skipped" : "pending",
     })),

@@ -1,16 +1,17 @@
 /**
- * Human words for the operations discern performs itself.
+ * Human words for every step a plan can show.
  *
  * `BUILT_IN_STEP_LABELS` keeps each operation's stable kebab-case label for
  * plans, results, and agents. These are the words for a view that shows an
  * operation to people: one short sentence-case phrase per built-in step,
  * keyed the same way, so a new built-in operation has its human words before
- * any progress view reads them. Project-owned steps (jobs, ensure commands, scripts) keep their
- * configured spelling and have no entry here. A phrase that names the trunk
- * carries the placeholder the configured trunk replaces.
+ * any progress view reads them. A phrase that names the trunk carries the
+ * placeholder the configured trunk replaces. A project-owned step (a job, an
+ * ensure command, a resource) or a runtime name reads through its kind's
+ * phrase, with its configured spelling kept word for word inside it.
  */
 
-import { BUILT_IN_STEP_LABELS } from "./result.ts";
+import { BUILT_IN_STEP_LABELS, type StepKind } from "./result.ts";
 import { TRUNK_PLACEHOLDER, withTrunk } from "./desk_vocabulary.ts";
 
 /** One built-in operation's registry key. */
@@ -72,4 +73,54 @@ export function humanStepLabel(
 ): string | undefined {
   const human = HUMAN_BY_LABEL.get(label);
   return human === undefined ? undefined : withTrunk(human, trunk);
+}
+
+/** A step label that is already a lowercase phrase, in sentence case; a
+ * name such as a path or a branch, after `verb`. */
+function phraseOr(verb: string): (label: string) => string {
+  return (label) =>
+    /\s/u.test(label)
+      ? `${label.charAt(0).toUpperCase()}${label.slice(1)}`
+      : `${verb} ${label}`;
+}
+
+/**
+ * How a step whose label is not a built-in operation reads, by kind: the
+ * project's command or name inside a short phrase. Keyed by every step kind,
+ * so a new kind cannot reach a progress view as a bare identifier.
+ */
+export const STEP_KIND_PHRASES = {
+  job: (label) => `Run ${label}`,
+  "scope-gate": (label) => `Run the ${label} checks`,
+  "merge-check": (label) => `Check ${label}`,
+  "standards-limits-check": (label) => `Check ${label}`,
+  "tracked-artifacts-check": (label) => `Check ${label}`,
+  "instructions-check": (label) => `Check ${label}`,
+  "skills-check": (label) => `Check ${label}`,
+  "tracked-refresh-check": (label) => `Check ${label}`,
+  "resource-create": (label) => `Create ${label}`,
+  "resource-destroy": (label) => `Release ${label}`,
+  git: phraseOr("Update"),
+  "task-metadata": phraseOr("Record"),
+  "setup-step": (label) => `Run ${label}`,
+  "repository-ensure": (label) => `Run ${label}`,
+  "checkout-clean-check": (label) => `Check ${label}`,
+  "setup-ensure": (label) => `Run ${label}`,
+  env: (label) => `Record ${label}`,
+  refresh: (label) => `Refresh ${label}`,
+  tidy: (label) => `Format ${label}`,
+  standard: (label) => `Measure ${label}`,
+} as const satisfies Record<StepKind, (label: string) => string>;
+
+/**
+ * The words a person reads for one plan step: a built-in operation's
+ * phrase, with the configured trunk, or its kind's phrase around the
+ * configured spelling.
+ */
+export function stepWords(
+  step: { readonly kind: StepKind; readonly label: string },
+  trunk: string,
+): string {
+  return humanStepLabel(step.label, trunk) ??
+    STEP_KIND_PHRASES[step.kind](step.label);
 }

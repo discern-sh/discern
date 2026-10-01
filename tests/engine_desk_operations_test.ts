@@ -146,7 +146,7 @@ Deno.test("Desk operations: a plan's steps read in human words, and skips start 
   assertEquals(progress.steps.map((entry) => [entry.words, entry.state]), [
     ["Check generated files before landing", "pending"],
     ["Move develop to this branch", "pending"],
-    ["deno install --frozen", "pending"],
+    ["Run deno install --frozen", "pending"],
     ["Release its ports and services", "skipped"],
     ["Delete the branch", "pending"],
   ]);

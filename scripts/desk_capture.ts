@@ -38,6 +38,7 @@ import {
 import type { PtyGeometry } from "../tests/fixtures/pty_process.ts";
 import { assertChildDesignSystemGraph } from "./local_design_system.ts";
 import { parseToolArguments } from "./tool_arguments.ts";
+import { stepWords } from "../src/shared/step_labels.ts";
 import { briefFleet } from "./desk_sandbox.ts";
 import { deskSession } from "../tests/fixtures/desk_session.ts";
 import { git } from "../tests/engine_helpers.ts";
@@ -801,8 +802,14 @@ function landingFleet(committedAgentFiles: boolean): DeskFleetFixture {
   };
 }
 
-/** The ensure step the landing fleet runs, as the progress shows it. */
+/** The ensure step the landing fleet runs. */
 const BUILD_SITE = "build-site";
+
+/** That step as its progress row reads. */
+const BUILD_SITE_WORDS = stepWords(
+  { kind: "repository-ensure", label: BUILD_SITE },
+  "main",
+);
 
 /**
  * What `build-site` does: inside the gallery's Desk it builds until the
@@ -869,7 +876,9 @@ async function landManual(
           "the landing building the site",
           (capture) =>
             layer("progress")(capture) &&
-            new RegExp(`${BUILD_SITE}\\s+[3-9]s`, "u").test(capture.text),
+            new RegExp(`${BUILD_SITE_WORDS}\\s+[3-9]s`, "u").test(
+              capture.text,
+            ),
           {
             effect: async () =>
               await Deno.writeTextFile(join(signals, "built"), ""),

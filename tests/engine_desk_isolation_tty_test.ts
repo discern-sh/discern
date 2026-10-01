@@ -17,6 +17,7 @@ import {
   type OperationJournalRecord,
 } from "../src/engine/completion/operation_journal.ts";
 import { gitOut } from "./engine_helpers.ts";
+import { stepWords } from "../src/shared/step_labels.ts";
 import {
   deskAtRest,
   deskFleetEntry,
@@ -47,8 +48,14 @@ const SCRIPT_FORM = "form-scripts-review";
 const SIGNALS = "DESK_TTY_SIGNALS";
 const SCRIPT_WAITING = "Fixture script waits for Ctrl-C";
 
-/** The landing's ensure command, as its progress names the step. */
+/** The landing's ensure command. */
 const ENSURE = "converge-main";
+
+/** The ensure step as its progress row reads. */
+const ENSURE_WORDS = stepWords(
+  { kind: "repository-ensure", label: ENSURE },
+  "main",
+);
 
 /**
  * What the ensure command does: it names its shell and waits for the test's
@@ -93,7 +100,7 @@ function showing(text: string): DeskFrameTest {
  */
 const converging: DeskFrameTest = (capture) =>
   capture.state?.topLayerId === "progress" &&
-  new RegExp(`${ENSURE}\\s+[1-9]\\d*s`, "u").test(capture.text);
+  new RegExp(`${ENSURE_WORDS}\\s+[1-9]\\d*s`, "u").test(capture.text);
 
 /**
  * Where the Desk's children leave their signals, and the command directory

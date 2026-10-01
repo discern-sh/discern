@@ -163,7 +163,7 @@ async function landsInSession(
   await desk.opened("progress");
   await desk.shows("Landing Alpha");
   await desk.shows("Move main to this branch");
-  await desk.shows("deno install --frozen");
+  await desk.shows("Run deno install --frozen");
   // Once main starts to move nothing stops the landing: the sheet has no
   // buttons for Enter to run, so its footer leads with the way out.
   await desk.until(
