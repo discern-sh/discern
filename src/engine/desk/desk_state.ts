@@ -124,7 +124,15 @@ export type DeskReaderSubject =
     readonly lines: readonly string[];
   }
   /** What a running operation has written so far. */
-  | { readonly kind: "output"; readonly operationId: string };
+  | { readonly kind: "output"; readonly operationId: string }
+  /** What a page opened beside the screen left, once it has opened. */
+  | {
+    readonly kind: "opened";
+    readonly title: string;
+    /** What the reader says until the page has opened. */
+    readonly running: string;
+    readonly load: DeskLoad<DeskMarkdownReading>;
+  };
 
 /** Whose Project Scripts a picker lists. */
 export type DeskScriptOwner =
@@ -461,6 +469,13 @@ export type DeskEvent =
     readonly now: number;
   }
   | { readonly kind: "preferences-failed"; readonly reason: string }
+  /** A page opened beside the screen, and what it left for its reader. */
+  | {
+    readonly kind: "opened";
+    readonly layerId: string;
+    readonly outcome: DeskOutcome;
+    readonly now: number;
+  }
   /** The session's read of the manual finished. */
   | {
     readonly kind: "manual-read";
@@ -495,6 +510,15 @@ export type DeskEffect =
   }
   /** Run one operation beside the screen. */
   | { readonly kind: "operate"; readonly operationId: string }
+  /** Open a reviewed page beside the screen; its reader shows the outcome. */
+  | {
+    readonly kind: "open";
+    /** The package command that opens it, new for every opening. */
+    readonly commandId: string;
+    readonly layerId: string;
+    readonly step: DeskFlowStep;
+    readonly review: DeskReview;
+  }
   /** Stop one running operation through its signal. */
   | { readonly kind: "abort"; readonly operationId: string }
   | { readonly kind: "child"; readonly child: DeskChild }
@@ -510,13 +534,14 @@ const TERMINAL_EFFECT_KINDS = [
   "child",
   "exit",
   "manual",
+  "open",
   "operate",
 ] as const;
 
 /**
  * The effects the package runs as a command: a handoff of the terminal, an
- * operation beside the screen, the manual on the same screen, or the end
- * of the session.
+ * operation or a page opened beside the screen, the manual on the same
+ * screen, or the end of the session.
  */
 export type DeskTerminalEffect = Extract<
   DeskEffect,
@@ -932,6 +957,48 @@ function returned(
   return { state: survey.state, effects: [...effects, ...survey.effects] };
 }
 
+/**
+ * A page opened beside the screen: the session records the command, and
+ * the reader its confirm opened shows what it left. A survey follows, since
+ * opening a page can clear a reminder status reports.
+ */
+function pageOpened(
+  state: DeskProductState,
+  event: Extract<DeskEvent, { readonly kind: "opened" }>,
+): DeskTransition {
+  const { outcome } = event;
+  const next: DeskProductState = updateLayer(
+    {
+      ...state,
+      activity: [...state.activity, {
+        at: event.now,
+        command: outcome.command,
+        ok: outcome.ok,
+        ...(outcome.message === undefined
+          ? {}
+          : { summary: outcome.message.text }),
+      }],
+    },
+    event.layerId,
+    (layer) =>
+      layer.kind === "reader" && layer.reader.kind === "opened"
+        ? {
+          ...layer,
+          reader: {
+            ...layer.reader,
+            load: outcome.reading === undefined
+              ? {
+                state: "failed",
+                error: outcome.message?.text ?? "It didn't complete",
+              }
+              : { state: "ready", value: { markdown: outcome.reading } },
+          },
+        }
+        : layer,
+  );
+  return refresh(next);
+}
+
 /** The lines an operation's output keeps for its reader and activity. */
 export const DESK_OUTPUT_LINES = 400;
 
@@ -1128,6 +1195,8 @@ export function deskProduct(
         ),
         effects: [],
       };
+    case "opened":
+      return pageOpened(state, event);
     case "manual-read":
       return { state: { ...state, manual: event.result }, effects: [] };
   }

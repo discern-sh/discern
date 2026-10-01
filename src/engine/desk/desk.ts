@@ -745,6 +745,14 @@ function deskFlows(
               : { challenge: operation.challenge }),
           }),
       ),
+    open: (state, step, review, signal) =>
+      runDeskEffectInSession(
+        { signal, output: () => {}, observe: () => {} },
+        () =>
+          applyStep(context(state), step, review.expected, {
+            out: runtime.makeOut(),
+          }),
+      ),
     run: async (state, effect) => {
       const out = runtime.makeOut();
       switch (effect.kind) {

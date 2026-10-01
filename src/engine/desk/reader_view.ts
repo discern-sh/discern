@@ -694,6 +694,18 @@ export function deskReader(
         title: reader.title,
         blocks: reader.lines.map((line) => text(line)),
       };
+    case "opened":
+      return {
+        kind: "reader",
+        id,
+        scope: "global",
+        title: reader.title,
+        blocks: loaded(
+          reader.load,
+          `${reader.running}…`,
+          (reading: DeskMarkdownReading) => [markdown(reading.markdown)],
+        ),
+      };
     case "output": {
       const operation = state.operations.get(reader.operationId);
       return {

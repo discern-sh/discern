@@ -1,10 +1,10 @@
 /**
  * Terminal owners the Desk hands the screen to: a coding agent, a shell, an
- * editor, the pager, and Project Scripts, plus the release page
- * the browser opens after its disclosure. Each revalidates its task first,
- * runs with the terminal, and reports what came back. A Project Script and
- * the release page are reviewed first; an agent without a prompt option
- * shows the stored brief before it opens.
+ * editor, the pager, and Project Scripts. Each revalidates its task first,
+ * runs with the terminal, and reports what came back. A Project Script is
+ * reviewed first, and an agent without a prompt option shows the stored
+ * brief before it opens. The release page opens in the browser after its
+ * disclosure, beside the screen, with its release information in a reader.
  */
 
 import { basename } from "@std/path";
@@ -27,7 +27,8 @@ import {
   type DeskOutcome,
   untilChosen,
 } from "../flow_types.ts";
-import { failureSheet, reviewFor } from "../review.ts";
+import { reviewFor } from "../review.ts";
+import { releasesMarkdown } from "../../../shared/release_presentation.ts";
 import { DESK_COMMAND_REGISTRY } from "../commands.ts";
 import {
   actionTarget,
@@ -405,7 +406,14 @@ async function runScript(
   };
 }
 
-/** Check for updates: the disclosure, then the release page in the browser. */
+/** The reader Check for updates fills once the release page has opened. */
+const RELEASE_INFORMATION = "Release information";
+
+/**
+ * Check for updates: the disclosure, then the release page in the browser
+ * beside the screen, and the release information in a reader: the running
+ * version, whether the browser opened, and the page's address either way.
+ */
 const UPDATES_FLOW: DeskFlow = {
   review: (context) =>
     Promise.resolve(reviewFor({
@@ -422,6 +430,7 @@ const UPDATES_FLOW: DeskFlow = {
       bound: { "running-version": DISCERN_VERSION },
       footnote: untilChosen("opens", OPEN),
       running: "Opening the release page in your browser",
+      reads: RELEASE_INFORMATION,
     })),
   apply: async (context): Promise<DeskOutcome> => {
     const command = commandEvidence(
@@ -441,51 +450,16 @@ const UPDATES_FLOW: DeskFlow = {
           open: async (url) => await context.runtime.openBrowser(url),
         }),
     );
-    if (!result.ok) {
-      const title = "The release page didn't open";
-      return {
-        command,
-        ok: false,
-        message: { tone: "danger", text: title },
-        result: failureSheet(title, result.message ?? title, command),
-      };
-    }
-    if (result.data?.launch_succeeded === true) {
-      return {
-        command,
-        ok: true,
-        message: { tone: "success", text: "Opened the release page" },
-      };
-    }
-    // The browser could not open: the sheet carries the page's address.
-    const title = "Your browser didn't open";
     return {
       command,
-      ok: true,
+      ok: result.ok,
       message: {
-        tone: "warning",
-        text: "Your browser didn't open; the release page's address follows",
+        tone: result.data?.launch_succeeded === true ? "success" : "warning",
+        text: result.data?.launch_succeeded === true
+          ? "Opened the release page"
+          : "The release page didn't open",
       },
-      result: {
-        title,
-        tone: "warning",
-        lines: [
-          {
-            mark: "failure",
-            text: result.data?.launch_message ?? title,
-            source: { kind: "result", field: "data.launch_message" },
-          },
-          {
-            mark: "changes",
-            text: "Open the release page yourself:",
-            ...(result.data === undefined
-              ? {}
-              : { detail: [result.data.urls.html] }),
-            source: { kind: "result", field: "data.urls.html" },
-          },
-        ],
-        command,
-      },
+      reading: releasesMarkdown(result),
     };
   },
 };

@@ -43,6 +43,15 @@ export function runsInSession(
 }
 
 /**
+ * Whether a confirmed step opens a page in the system browser: it runs
+ * beside the screen with no progress to follow, and a reader shows what it
+ * left.
+ */
+export function opensBeside(step: DeskFlowStep): boolean {
+  return effectOf(step) === "open";
+}
+
+/**
  * The verb a command records, as status names a task running it:
  * `discern accept --target x` runs `accept`, and `discern worktree park x`
  * runs `worktree park`.

@@ -279,7 +279,7 @@ export const DESK_COMMAND_REGISTRY = {
     scope: "global",
     section: "help",
     parameters: false,
-    effect: "launch",
+    effect: "open",
     confirmation: confirm("Cancel", "Open"),
     binding: ["running-version"],
     summary: "See what's new and whether an upgrade is available",

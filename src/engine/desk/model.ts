@@ -126,6 +126,11 @@ export type DeskEffect =
   | "read"
   /** Hands the terminal to a child that may change the checkout. */
   | "launch"
+  /**
+   * Opens a page in the system browser while the screen stays, then shows
+   * what it left in a reader.
+   */
+  | "open"
   /** Changes project, Git, or authority state through a lifecycle core. */
   | "change";
 

@@ -86,6 +86,8 @@ export interface DeskReviewRead {
   readonly lead?: readonly DeskReviewLine[];
   /** What the effect is called while it runs. */
   readonly running?: string;
+  /** The title of the reader that shows what an opened page left. */
+  readonly reads?: string;
   /** Queued tasks that land after it. */
   readonly follows?: readonly DeskFollowingTask[];
   /** Confirm asks this next question instead of applying. */
@@ -316,7 +318,13 @@ function confirmOf(
 ): { readonly confirm?: DeskConfirm } {
   if (confirmLabel === undefined) return {};
   if (read.next !== undefined) return { confirm: read.next };
-  return { confirm: { kind: "apply", running: read.running ?? "Running" } };
+  return {
+    confirm: {
+      kind: "apply",
+      running: read.running ?? "Running",
+      ...(read.reads === undefined ? {} : { reads: read.reads }),
+    },
+  };
 }
 
 /** One Desk command's review. */

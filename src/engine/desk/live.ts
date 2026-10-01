@@ -107,6 +107,13 @@ export interface DeskFlows {
     operation: DeskOperation,
     session: DeskEffectSession,
   ): Promise<DeskOutcome>;
+  /** Open one reviewed page beside the screen; `signal` ends it with the session. */
+  open(
+    state: DeskProductState,
+    step: DeskFlowStep,
+    review: DeskReview,
+    signal: AbortSignal,
+  ): Promise<DeskOutcome>;
 }
 
 /** An effect that takes the terminal from the screen. */
@@ -614,6 +621,40 @@ export function liveDesk(
     });
   };
 
+  /**
+   * The background command that opens one reviewed page beside the screen
+   * and fills its reader with what that left. It reports no progress: the
+   * reader says what is happening until it has opened.
+   */
+  const openPage = (
+    effect: Extract<DeskTerminalEffect, { readonly kind: "open" }>,
+  ): TerminalApplicationCommand => {
+    const snapshot = state;
+    return {
+      kind: "background",
+      id: effect.commandId,
+      run: async (_report, signal) => {
+        let outcome: DeskOutcome;
+        try {
+          outcome = await deps.flows.open(
+            snapshot,
+            effect.step,
+            effect.review,
+            signal,
+          );
+        } catch (error) {
+          outcome = failedOutcome(error, effect.review.disclosures.command);
+        }
+        dispatch({
+          kind: "opened",
+          layerId: effect.layerId,
+          outcome,
+          now: deps.now(),
+        });
+      },
+    };
+  };
+
   /** The package command that runs an effect, hands over the terminal, or exits. */
   const command = (
     effect: DeskTerminalEffect,
@@ -623,6 +664,7 @@ export function liveDesk(
     }
     if (effect.kind === "operate") return operate(effect.operationId);
     if (effect.kind === "manual") return openManual();
+    if (effect.kind === "open") return openPage(effect);
     const snapshot = state;
     const handoff = deps.flows.handoff(snapshot, effect);
     return {

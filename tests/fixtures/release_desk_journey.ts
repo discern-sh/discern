@@ -66,22 +66,31 @@ export async function releaseDeskJourney(
     // sleep. Below 40 columns the palette row truncates, so only its start is
     // asserted.
     const due = geometry.columns < 40 ? "check" : "check due";
-    const result = failure
-      ? both(deskLayerOpen("result"), showing("since="))
-      : both(empty, showing("Opened the release page"));
-    const leave = failure
-      ? { keys: ["escape" as const], allowLoneEscape: true }
-      : { keys: ["ctrl-k" as const] };
+    // The release information reader, once the page has been handed over:
+    // its loading line gives way to what the browser did.
+    const result = both(
+      deskLayerOpen("reader-opened"),
+      (capture) =>
+        capture.text.includes("Release information") &&
+        !capture.text.includes("Opening the release page"),
+    );
+    const leave = { keys: ["escape" as const], allowLoneEscape: true };
     const input: DeskTtyInputPhase[] = [
       phase(geometry, "empty", "the empty Desk", empty, { keys: ["ctrl-k"] }),
+      // The query brings the command into view on any palette height.
+      phase(geometry, undefined, "the palette", palette, {
+        input: "Check for updates",
+      }),
       phase(
         geometry,
         "due",
         "Check for updates, due",
         both(palette, showing("Check for", due)),
-        { input: "Check for updates\r" },
+        { keys: ["enter"] },
       ),
-      // The browser opens only after the disclosure's explicit Open.
+      // The browser opens only after the disclosure's explicit Open, which
+      // waits until every line has been on screen: a short terminal pages
+      // through it first.
       phase(
         geometry,
         "confirm",
@@ -90,7 +99,7 @@ export async function releaseDeskJourney(
           (capture) => !capture.text.includes("Checking current state"),
           deskFocused(review, "button:safe"),
         ),
-        { keys: ["tab"] },
+        { keys: ["page-down", "page-down", "page-down", "page-down", "tab"] },
       ),
       phase(
         geometry,
@@ -99,19 +108,21 @@ export async function releaseDeskJourney(
         deskFocused(review, "button:confirm"),
         { keys: ["enter"] },
       ),
+      // End brings the page's address on screen at any height.
+      phase(geometry, "outcome", "what the browser did", result, {
+        keys: ["end"],
+      }),
       phase(
         geometry,
         "result",
-        "what the browser did",
-        result,
+        "the page's address",
+        both(result, showing("since=")),
         resize ? { resize: resized } : leave,
       ),
       ...(resize ? [phase(resized, "resized", "the result, resized", result, leave)] : []),
-      ...(failure
-        ? [phase(resized, undefined, "back at the inbox", empty, {
-          keys: ["ctrl-k" as const],
-        })]
-        : []),
+      phase(resized, undefined, "back at the inbox", empty, {
+        keys: ["ctrl-k"],
+      }),
       phase(
         resized,
         "returned",
@@ -155,6 +166,14 @@ export async function releaseDeskJourney(
     assert(
       !returned.text.includes("check due"),
       "the advisory clears without restarting",
+    );
+    const shown = run.frames.find((frame) => frame.name === "outcome");
+    assert(shown !== undefined);
+    assert(
+      shown.text.includes(
+        failure ? "Couldn't open your browser" : "Opening release notes",
+      ),
+      "the reader says what the browser did",
     );
     return run;
   });

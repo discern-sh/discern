@@ -62,7 +62,7 @@ import { DISCERN_DOCS_URL } from "../src/shared/brand.ts";
 import { DESK_LIST_ID } from "../src/engine/desk/desk_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { withTempDir } from "./helpers.ts";
-import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
+import { gitInit, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 const START_COMMIT = "a".repeat(40);
@@ -2041,6 +2041,42 @@ Deno.test("Check for updates asks before it opens a browser, and Cancel opens no
     await close(desk);
   });
   assertEquals(opened, 0);
+});
+
+Deno.test("Check for updates opens the release page beside the screen and reads out its release information", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root, { agents: [] });
+    await gitInit(root);
+    for (const launches of [true, false]) {
+      const opened: string[] = [];
+      await withDeskSession({
+        runtime: {
+          findRoot: () => root,
+          mainRepoPath: () => root,
+          openBrowser: (url) => {
+            opened.push(url);
+            const launch = { command: "open", args: [url] };
+            return launches
+              ? { status: "opened", launch }
+              : { status: "failed", launch, message: "no browser here" };
+          },
+        },
+      }, async (desk) => {
+        await desk.palette("Check for updates", "updates");
+        await desk.opened("review-updates-review");
+        await desk.confirm();
+        await desk.opened("reader-opened");
+        await desk.until(() => opened.length === 1, "the release page");
+        await desk.shows("Release information");
+        await desk.shows(
+          launches ? "Opening release notes" : "Couldn't open your browser",
+        );
+        assertStringIncludes(desk.screen(), `since=${DISCERN_VERSION}`);
+        await desk.escape(() => desk.top() === undefined, "the inbox");
+      });
+      assertEquals(opened.length, 1);
+    }
+  });
 });
 
 /** Two tasks, so returning from the manual can show the selection kept. */

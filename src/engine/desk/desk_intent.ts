@@ -34,6 +34,7 @@ import type { DeskFlowStep, DeskReview } from "./flow_types.ts";
 import {
   canStop,
   commandVerb,
+  opensBeside,
   operationProgress,
   runsInSession,
   stopPolicy,
@@ -611,6 +612,39 @@ function operate(
   };
 }
 
+/**
+ * Open a reviewed page beside the screen: the sheet gives way to the reader
+ * that shows what opening it left, which says what is happening until then.
+ */
+function openBeside(
+  state: DeskProductState,
+  step: DeskFlowStep,
+  read: DeskReview,
+): DeskTransition {
+  const confirmed = read.confirm?.kind === "apply" ? read.confirm : undefined;
+  const reader: DeskLayer = {
+    kind: "reader",
+    reader: {
+      kind: "opened",
+      title: confirmed?.reads ?? read.question,
+      running: confirmed?.running ?? read.question,
+      load: { state: "loading" },
+    },
+  };
+  const serial = state.serial + 1;
+  const shown = open({ ...state, serial }, reader);
+  return {
+    state: shown.state,
+    effects: [...shown.effects, {
+      kind: "open",
+      commandId: `open-${serial}`,
+      layerId: layerId(reader),
+      step,
+      review: read,
+    }],
+  };
+}
+
 /** Stop the operation the open progress sheet shows, if it can stop now. */
 function stop(state: DeskProductState): DeskTransition {
   const operation = shownOperation(state);
@@ -659,6 +693,7 @@ function confirm(
   const step = layer.kind === "form"
     ? { ...layer.step, values: { ...layer.step.values, ...layer.values } }
     : layer.step;
+  if (opensBeside(step)) return openBeside(closeLayer(state, id), step, read);
   if (runsInSession(step, openAgent)) {
     return operate(closeLayer(state, id), step, read, challenge, time);
   }

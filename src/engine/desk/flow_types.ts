@@ -141,9 +141,12 @@ export type DeskConfirm =
     readonly kind: "apply";
     /**
      * What the effect is called while it runs: its progress sheet's title,
-     * or the line painted before a launch takes the terminal.
+     * the line painted before a launch takes the terminal, or what the
+     * reader of a page opened beside the screen says until it has opened.
      */
     readonly running: string;
+    /** The title of the reader that shows what an opened page left. */
+    readonly reads?: string;
   }
   | { readonly kind: "review"; readonly step: DeskFlowStep };
 
@@ -223,6 +226,8 @@ export interface DeskOutcome {
   readonly select?: string;
   /** A child that owned the terminal: what to say once it returns. */
   readonly back?: DeskChildReturn;
+  /** What a page opened beside the screen left to read, as Markdown. */
+  readonly reading?: string;
 }
 
 /** A terminal owner that returned, and the task it worked in. */

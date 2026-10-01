@@ -373,8 +373,39 @@ Deno.test("launcher layers close when their child starts; readers and forms that
     kind: "confirm",
     layer: "review-updates-review",
   });
-  assertEquals(layerIds(applied.state), []);
-  assertEquals(applied.effects.map((effect) => effect.kind), ["apply"]);
+  // The release page opens beside the screen; its reader waits for it.
+  assertEquals(layerIds(applied.state), ["reader-opened"]);
+  assertEquals(applied.effects.map((effect) => effect.kind), ["open"]);
+  const page = applied.effects[0];
+  assert(page?.kind === "open");
+  const filled = deskProduct(applied.state, {
+    kind: "opened",
+    layerId: page.layerId,
+    outcome: {
+      command: "discern releases",
+      ok: true,
+      reading: "Release information for discern.",
+    },
+    now: NOW,
+  });
+  const release = filled.state.layers[0];
+  assert(release?.kind === "reader" && release.reader.kind === "opened");
+  assertEquals(release.reader.load, {
+    state: "ready",
+    value: { markdown: "Release information for discern." },
+  });
+  assertEquals(filled.state.activity.map((entry) => entry.command), [
+    "discern releases",
+  ]);
+  assert(filled.effects.some((effect) => effect.kind === "survey"));
+  const unread = deskProduct(applied.state, {
+    kind: "opened",
+    layerId: page.layerId,
+    outcome: { command: "discern releases", ok: false },
+    now: NOW,
+  }).state.layers[0];
+  assert(unread?.kind === "reader" && unread.reader.kind === "opened");
+  assertEquals(unread.reader.load.state, "failed");
 
   const scripts = deskProduct(
     intent(listed, { kind: "command", command: "main_scripts" }).state,

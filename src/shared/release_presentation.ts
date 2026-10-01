@@ -1,4 +1,4 @@
-/** Release information for terminal, Markdown, and desk readers. */
+/** Release information for terminal, Markdown, and Desk readers. */
 import type { Logger } from "../lib/log.ts";
 import type { DiscernResult } from "./result.ts";
 import type { ResultMarkdownPresentation } from "./result_markdown.ts";
@@ -25,6 +25,21 @@ export function printReleases(
   if (result.data === undefined) return;
   log.info(browserMessage(result.data, result.dry_run === true));
   log.line(result.data.urls.html);
+}
+
+/**
+ * The terminal's words as Markdown, for a reader inside an application:
+ * the version, what the browser did, and the page's address either way.
+ */
+export function releasesMarkdown(result: DiscernResult<ReleasesData>): string {
+  const lines = [result.message ?? "Release information"];
+  if (result.data !== undefined) {
+    lines.push(
+      browserMessage(result.data, result.dry_run === true),
+      `<${result.data.urls.html}>`,
+    );
+  }
+  return `${lines.join("\n\n")}\n`;
 }
 
 /** Structured readers retain both addresses for browser or tool use. */
