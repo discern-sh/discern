@@ -200,7 +200,7 @@ export const FLEET_ROW_STATES = {
     "landing",
     "checks",
   ]),
-  ready: look("review", "Ready", LANDABLE, GREEN, ["checks", "main"]),
+  ready: look("review", "Ready", LANDABLE, GREEN, ["checks", "landing"]),
   behind: look("idle", "Behind", WAITING, MUTED, ["main", "checks"]),
   "proof-error": look("attention", "Proof error", FAILED, DANGER, [
     "checks",

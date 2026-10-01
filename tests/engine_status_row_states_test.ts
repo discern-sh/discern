@@ -164,6 +164,19 @@ Deno.test("row-state table: every state's look keeps the shared contract", () =>
         },
       },
       {
+        // The strip shows two headline facts; for a landable row that waits
+        // on the owner's approval, one of them says so.
+        name:
+          "a landable state waiting for review headlines what landing needs",
+        check: () => {
+          for (const id of FLEET_ROW_STATE_IDS) {
+            const look = FLEET_ROW_STATES[id];
+            if (look.group !== "review" || !LANDABLE_STATES.has(id)) continue;
+            assert(look.headline.includes("landing"), id);
+          }
+        },
+      },
+      {
         name: "live states group by decision and branch states by branch group",
         check: () => {
           for (const id of FLEET_ROW_STATE_IDS) {
