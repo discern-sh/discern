@@ -6,6 +6,7 @@ import {
   unreadableSubject,
 } from "../status/recovery_presentation.ts";
 import type { DeskActionFacts } from "./model.ts";
+import type { FleetTaskRowStateId } from "../status/row_sentences.ts";
 import { DESK_ACTION_LABELS } from "../../shared/desk_vocabulary.ts";
 
 /** Typed evidence for a degraded task's read-only recovery view. */
@@ -76,11 +77,36 @@ export function reclaimAvailability(
     : undefined;
 }
 
-/** Build recovery evidence without inferring facts an observer could not read. */
+/** A landing that stopped before it finished: its retained integration copy
+ * is the thing to reclaim, from the main checkout. */
+function interruptedLandingFact(entry: StatusFleetEntry): DeskRecoveryFact {
+  return {
+    failure: "Its landing stopped before it finished, and nothing landed.",
+    verified: [
+      `Branch identity: ${entry.branch}`,
+      `Checkout path: ${entry.path}`,
+      "The task's own checkout and branch are unchanged",
+    ],
+    unavailable: [],
+    nextStep:
+      "Reclaim discern's integration copy with discern worktree prune from the main checkout, then land the task again.",
+    repair: "manual",
+    repairCommand: "discern worktree prune",
+  };
+}
+
+/**
+ * Build recovery evidence without inferring facts an observer could not read:
+ * a degraded checkout's own evidence, or an interrupted landing's copy. A
+ * task with neither has nothing to recover.
+ */
 export function recoveryFact(
   entry: StatusFleetEntry,
+  state: FleetTaskRowStateId,
 ): DeskRecoveryFact | undefined {
-  if (!isUnhealthy(entry)) return undefined;
+  if (!isUnhealthy(entry)) {
+    return state === "interrupted" ? interruptedLandingFact(entry) : undefined;
+  }
   const setup = entry.setup;
   const repair = setup?.repair;
   const gitFailure = entry.git_failure;

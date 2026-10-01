@@ -791,9 +791,9 @@ export const DESK_ACTION_REGISTRY = {
     confirmation: NO_CONFIRMATION,
     binding: [],
     availability: (facts: DeskActionFacts): string | undefined =>
-      isUnhealthy(facts.entry)
-        ? undefined
-        : "This task has nothing to recover.",
+      recoveryFact(facts.entry, facts.state) === undefined
+        ? "This task has nothing to recover."
+        : undefined,
   },
   retry_setup: {
     section: "manage",
@@ -1669,7 +1669,7 @@ export function buildDeskDecision(
       text: activeAge(entry.last_activity, options.nowMs),
     });
   }
-  const recovery = recoveryFact(entry);
+  const recovery = recoveryFact(entry, presentation.state);
   const nextAction = deskNextAction(presentation.state);
   const next = offers.find((offer) => offer.action === nextAction);
   const also = deskAlsoActions(presentation.state).flatMap((action) => {

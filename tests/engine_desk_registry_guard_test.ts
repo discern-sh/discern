@@ -27,6 +27,7 @@ import {
   DESK_ACTIONS,
   type DeskAction,
   type DeskActionMetadata,
+  type DeskAgentLaunch,
   deskAlsoActions,
   type DeskDecision,
   deskNextAction,
@@ -76,12 +77,25 @@ const DEGRADED_STATES = new Set<FleetTaskRowStateId>(
   ),
 );
 
+/** An installed agent, so a state whose next step opens one can run it. */
+const AGENT: DeskAgentLaunch = {
+  id: "claude_code:open",
+  agent: "claude_code",
+  providerLabel: "Claude Code",
+  binary: "claude",
+  kind: "open",
+  label: "Open",
+  args: [],
+  availability: "enabled",
+};
+
 /** A Desk decision for one written table row, with its queue and landing. */
 function tableDecision(row: (typeof TABLE_ROWS)[number]): DeskDecision {
   const integration = row.context?.integration;
   return buildDeskDecision(row.entry, {
     trunk: "main",
     nowMs: NOW,
+    agentLaunches: [AGENT],
     queue: row.context?.queueRow === undefined ? [] : [row.context.queueRow],
     fleet: [
       row.entry,
@@ -380,6 +394,16 @@ Deno.test("Desk registry guard: next steps", () => {
             `row ${row.row}`,
           );
           assertEquals(decision.next?.action, deskNextAction(decision.state));
+          assertEquals(
+            decision.next?.action,
+            row.next,
+            `row ${row.row} (${row.state}): the table's Next column`,
+          );
+          assertEquals(
+            decision.next?.availability,
+            "enabled",
+            `row ${row.row} (${row.state}): its own next step can run`,
+          );
           assert(
             decision.also.every((offer) => offer.availability === "enabled"),
             `row ${row.row}`,

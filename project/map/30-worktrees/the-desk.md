@@ -154,6 +154,7 @@ The subsystem has focused [model](../../../tests/engine_desk_model_test.ts), [li
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
 - A degraded checkout's next step is **Recovery steps** (or **Retry setup…** when replay is safe), with **Open shell** beside it when its folder exists. Drop stays under **More actions** and requires force when work cannot be verified.
+- An Interrupted task's next step is **Recovery steps** too: its landing stopped and nothing landed, so the steps name `discern worktree prune` to reclaim discern's integration copy before landing again. The registry guard requires every written state's next step to be available on that state's own fixture.
 - The key map declares a mnemonic for every keyed action, but this desk answers only `?`, `r` and `q`: the pinned package lets a key update the view, not hand the terminal to an action, so actions run from the task controls.
 
 The [Desk terminal guard](../../../tests/engine_desk_terminal_guard_test.ts) enrolls authored modules in this subtree. It rejects raw terminal transport, control bytes, and generic foundation imports while admitting product state, routes, consent, and component composition. The full-screen evidence renderers have no fallback route.
