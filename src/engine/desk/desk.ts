@@ -377,11 +377,13 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       cliModel,
       dryRun: true,
     }),
+  // The Desk's confirm is the owner's consent, so its preview reads the
+  // authority a confirmed landing would use.
   acceptPlan: (ctx) =>
     acceptLandingResult(ctx, {
       target: ctx.cwd,
       dryRun: true,
-      confirmed: false,
+      confirmed: true,
       variance: [],
       approveStandard: [],
       met: [],

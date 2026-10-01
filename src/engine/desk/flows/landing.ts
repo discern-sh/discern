@@ -34,7 +34,7 @@ import {
   deskObservation,
   type DeskRow,
 } from "../model.ts";
-import { branchTitle } from "../desk_transitions.ts";
+import { taskTitleOf } from "../desk_transitions.ts";
 import type { DeskPlanFacts } from "../review_facts.ts";
 import type {
   DeskExpected,
@@ -90,12 +90,6 @@ export const LANDING_PERMISSION_RUNTIME: DeskLandingPermission = {
     ),
 };
 
-/** A branch's title as the inbox shows it. */
-function titleOf(context: DeskFlowContext, branch: string): string {
-  return context.state.rows.find((row) => row.entry.branch === branch)?.task
-    .name ?? branchTitle(branch, context.state.data);
-}
-
 /** Who approves a landing, from the preview's authority facts. */
 function authorityFact(
   authority: AcceptPreviewData["authority"],
@@ -142,12 +136,12 @@ export function landingFacts(
     }),
     authority: authorityFact(preview.authority),
     queueWalk: preview.queue_walk.map((queued) => ({
-      title: titleOf(context, queued.branch),
+      title: taskTitleOf(context.state, queued.branch),
       branch: queued.branch,
     })),
     ...(preview.landing_in_progress === undefined ? {} : {
       landingInProgress: {
-        title: titleOf(context, preview.landing_in_progress.branch),
+        title: taskTitleOf(context.state, preview.landing_in_progress.branch),
       },
     }),
     ...(preview.ignored_roots === undefined

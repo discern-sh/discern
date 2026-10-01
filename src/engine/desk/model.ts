@@ -861,7 +861,9 @@ export const DESK_ACTION_REGISTRY = {
       line(
         "evidence",
         ({ context }) =>
-          `Checks passed ${context.proofAge ?? "earlier"} on this exact commit${
+          `Checks passed${
+            context.proofAge === undefined ? "" : ` ${context.proofAge}`
+          } on this exact commit${
             context.proofHead === undefined
               ? ""
               : ` (${shortCommit(context.proofHead)})`
@@ -926,9 +928,9 @@ export const DESK_ACTION_REGISTRY = {
       line(
         "removes",
         ({ context }) =>
-          `Removes its checkout, branch${
-            (context.resources?.length ?? 0) > 0 ? ", ports and services" : ""
-          }`,
+          (context.resources?.length ?? 0) > 0
+            ? "Removes its checkout, branch, ports and services"
+            : "Removes its checkout and branch",
       ),
       line(
         "warning",
@@ -1591,7 +1593,7 @@ function actionContext(
       ? {}
       : { head: entry.registration.head }),
     ...(proof.head === undefined ? {} : { proofHead: proof.head }),
-    ...(proof.recorded === undefined
+    ...(proof.recorded === undefined || Number.isNaN(Date.parse(proof.recorded))
       ? {}
       : { proofAge: relativeAge(proof.recorded, nowMs) }),
     ...(stale

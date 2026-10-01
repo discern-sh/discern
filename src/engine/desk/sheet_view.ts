@@ -30,7 +30,11 @@ import {
   DESK_COMMAND_LABELS,
   labelName,
 } from "../../shared/desk_vocabulary.ts";
-import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
+import {
+  createCliBlock,
+  renderCodeBlockCli,
+  renderMarkdownCli,
+} from "discern-design-system/cli";
 import {
   DESK_ACTION_REGISTRY,
   type DeskAgentLaunch,
@@ -226,11 +230,12 @@ function planDisclosure(plan: EnginePlan): ApplicationDisclosure {
     openHint: "Hide plan",
     key: "d",
     fieldKey: "ctrl-t",
+    // A code block wraps every line losslessly, so the plan reads exactly.
     content: [{
-      kind: "rows",
-      items: planLines(plan).map((line) => ({
-        text: [{ text: line, role: "code" as const }],
-      })),
+      kind: "block",
+      content: createCliBlock(renderCodeBlockCli, {
+        code: planLines(plan).join("\n"),
+      }),
     }],
   };
 }

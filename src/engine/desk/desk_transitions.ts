@@ -260,6 +260,12 @@ export function branchTitle(
   return parked?.task.title ?? taskLabel({ path: branch }).name;
 }
 
+/** A branch's title as the inbox shows it: its task's, or its own. */
+export function taskTitleOf(state: DeskProductState, branch: string): string {
+  return state.rows.find((row) => row.entry.branch === branch)?.task.name ??
+    branchTitle(branch, state.data);
+}
+
 /** What a list identity stands for. */
 export type DeskRowRef =
   | { readonly kind: "task"; readonly row: DeskRow }

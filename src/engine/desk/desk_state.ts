@@ -779,7 +779,8 @@ function returned(
         : { summary: outcome.message.text }),
     }],
   };
-  if (outcome.message !== undefined) {
+  // A result sheet is the failure's message; a toast would only repeat it.
+  if (outcome.message !== undefined && outcome.result === undefined) {
     next = toast(next, outcome.message.tone, outcome.message.text, {
       mark: OUTCOME_MARKS[outcome.message.tone],
     });

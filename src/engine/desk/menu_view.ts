@@ -32,7 +32,12 @@ import type {
   DeskProductState,
   DeskScriptOwner,
 } from "./desk_state.ts";
-import { branchTitle, goneSentence, rowRef } from "./desk_transitions.ts";
+import {
+  branchTitle,
+  goneSentence,
+  rowRef,
+  taskTitleOf,
+} from "./desk_transitions.ts";
 
 /** Every action for one task, by section, the unavailable ones folded last. */
 export function actionsMenu(row: DeskRow): ApplicationMenu<DeskIntent> {
@@ -169,14 +174,14 @@ function unavailableWords(launch: DeskAgentLaunch): string {
 }
 
 /** What opening an agent does to the window, and what it shares. */
-function agentFootnote(row: DeskRow): string {
+function agentFootnote(state: DeskProductState, row: DeskRow): string {
   const shared =
     row.decision.collisions.flatMap((collision) =>
       collision.kind === "changed_files"
         ? [
-          `Shares ${
-            collision.paths[0] ?? "files"
-          } with ${collision.otherBranch}.`,
+          `Shares ${collision.paths[0] ?? "files"} with ${
+            taskTitleOf(state, collision.otherBranch)
+          }.`,
         ]
         : []
     )[0];
@@ -253,8 +258,10 @@ export function agentsMenu(
         ? {
           unavailable: unavailable.map((item) => ({
             id: item.id,
-            label: `${item.label}  ${item.words}`,
-            sentence: item.sentence,
+            label: item.label,
+            sentence: item.words === "unavailable"
+              ? item.sentence
+              : `${item.words}: install it, or remove it from [project].agents in discern.toml`,
           })),
         }
         : {}),
@@ -271,7 +278,7 @@ export function agentsMenu(
         },
       }
       : {}),
-    footnote: [{ text: agentFootnote(ref.row) }],
+    footnote: [{ text: agentFootnote(state, ref.row) }],
   };
 }
 

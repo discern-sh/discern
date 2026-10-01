@@ -477,8 +477,10 @@ Deno.test("a returning effect leaves its message, its result, and one refresh", 
       },
     },
   });
-  assertEquals(failed.state.message?.tone, "danger");
+  // The result sheet is the failure's message; no toast repeats it.
+  assertEquals(failed.state.message, undefined);
   assertEquals(layerIds(failed.state), ["result"]);
+  assertEquals(failed.state.activity.at(-1)?.ok, false);
 
   const created = deskProduct(listed, {
     kind: "returned",
