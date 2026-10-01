@@ -1030,7 +1030,11 @@ Deno.test("Rename changes only the recorded title, through its form and review",
     // The technical plan is the core's own preview of the typed title.
     await desk.settleForm();
     await desk.press("ctrl-t");
-    await desk.shows(`New title: ${newTitle}`);
+    // The plan lays its details out as label and value.
+    await desk.until(
+      () => /New title\s+Renamed: Unicode 修复/u.test(desk.screen()),
+      "the plan's new title",
+    );
     await desk.confirm();
     await desk.until(() => applies.length === 1, "the rename");
     await desk.shows(newTitle);
