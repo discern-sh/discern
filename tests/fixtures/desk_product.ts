@@ -17,6 +17,11 @@ import type {
   StatusFleetEntry,
 } from "../../src/shared/result_schemas.ts";
 import { mainFleetEntry, statusData, taskFleetEntry } from "../status_fleet.ts";
+import type { DeskReview } from "../../src/engine/desk/flow_types.ts";
+import {
+  formValuesKey,
+  layerId as layerIdOf,
+} from "../../src/engine/desk/desk_transitions.ts";
 
 /** The wall time product events carry. */
 export const PRODUCT_NOW = Date.parse("2026-07-11T12:00:00Z");
@@ -111,5 +116,43 @@ export function deskIntent(
     intent: value,
     ui,
     now: PRODUCT_NOW,
+  });
+}
+
+/** A ready review whose confirm applies, with `patch` over its defaults. */
+export function readyReview(
+  question: string,
+  patch: Partial<DeskReview> = {},
+): DeskReview {
+  return {
+    question,
+    lines: [],
+    blockers: [],
+    expected: { facts: {} },
+    disclosures: { command: "discern example" },
+    safeLabel: "Cancel",
+    confirmLabel: "Go",
+    alternatives: [],
+    confirm: { kind: "apply", handoff: `${question} · output continues below` },
+    ...patch,
+  };
+}
+
+/** A review read for a form's values, as the live Desk reports it. */
+export function formRead(
+  state: DeskProductState,
+  layerId: string,
+  review: DeskReview,
+): DeskTransition {
+  const layer = state.layers.find((candidate) =>
+    layerIdOf(candidate) === layerId
+  );
+  return deskProduct(state, {
+    kind: "prepared",
+    layerId,
+    result: { state: "ready", value: review },
+    ...(layer?.kind === "form"
+      ? { readFor: formValuesKey(layer.values) }
+      : {}),
   });
 }

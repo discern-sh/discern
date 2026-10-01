@@ -1,79 +1,224 @@
 /**
- * Landing, queueing, and landing permission: each reviewed in session from
- * the lifecycle core's own preview, then run with the terminal. Queueing
- * without permission asks the grant question as its own review first;
- * granting never queues or lands by itself, and offers those as a separate
- * next decision.
+ * Landing, queueing, and landing permission: Land, Queue for landing,
+ * Pre-authorize, and Revoke pre-authorization. Each is reviewed in session
+ * from the lifecycle core's own preview, then run with the terminal.
+ *
+ * This is the only Desk module that writes landing permission: the grant
+ * writer and its cleanup are reached through the runtime seams declared
+ * here, so an agent's CLI and MCP surfaces can only read a grant. Queueing
+ * without permission asks the grant question first, and Keep there queues
+ * nothing; granting never queues or lands by itself, and offers those as a
+ * separate next decision.
  */
 
+import { SYSTEM_CLOCK, wallTimeIso } from "../../../shared/clock.ts";
+import type {
+  AcceptPreviewData,
+  SubmissionRevision,
+} from "../../../shared/result_schemas.ts";
+import { withCompletionPublication } from "../../operation_lock.ts";
 import {
-  DESK_ACTION_LABELS,
-  labelName,
-} from "../../../shared/desk_vocabulary.ts";
+  clearEffortGrant,
+  clearEffortGrantPlan,
+} from "../../worktree/effort_grant_cleanup.ts";
+import {
+  effortGrantPlan,
+  type EffortGrantWrite,
+  grantEffort,
+} from "../../worktree/effort_grant_writer.ts";
+import type { EnginePlan } from "../../../shared/result.ts";
+import { executeDeskOperation } from "../execution.ts";
 import {
   buildDeskRows,
   deskExceptionArgvs,
   deskObservation,
+  type DeskRow,
 } from "../model.ts";
-import type { DeskFlowStep, DeskPrepared } from "../flow_types.ts";
-import type { EnginePlan } from "../../../shared/result.ts";
-import type { SubmissionRevision } from "../../../shared/result_schemas.ts";
+import { branchTitle } from "../desk_transitions.ts";
+import type { DeskPlanFacts } from "../review_facts.ts";
+import type {
+  DeskExpected,
+  DeskFlowStep,
+  DeskOutcome,
+  DeskReviewAlternative,
+} from "../flow_types.ts";
+import { reviewFor } from "../review.ts";
 import {
+  actionTarget,
+  type DeskFlow,
   type DeskFlowContext,
   failedWith,
   offerCommand,
-  offerContent,
   offerFor,
+  rebound,
   resultPlan,
-  reviewedAction,
+  reviewOffer,
   stepOffer,
   stepRow,
   succeeded,
-  verifyTask,
 } from "./context.ts";
 
-type ActionStep = Extract<DeskFlowStep, { readonly kind: "action" }>;
-
-/** Land: the acceptance preview, then the landing with its reviewed revision. */
-export async function prepareAccept(
-  context: DeskFlowContext,
-  step: ActionStep,
-): Promise<DeskPrepared> {
-  const { row, offer } = stepOffer(context, step, "accept");
-  const ctx = await context.runtime.lifecycle(row.entry.path);
-  const preview = await context.runtime.acceptPlan(ctx);
-  const trunk = context.config.repository.trunk;
-  const cliModel = context.cliModel;
-  return reviewedAction(context, row, offer, {
-    plan: resultPlan(preview),
-    doing: `Landing ${row.task.name}`,
-    run: async (command) => {
-      const result = await context.runtime.accept(ctx, {
-        confirmed: true,
-        ...(preview.data?.revision === undefined
-          ? {}
-          : { expected: preview.data.revision }),
-        ...(cliModel === undefined ? {} : { cliModel }),
-      });
-      return result !== undefined && !result.ok
-        ? failedWith(command, `${row.task.name} didn't land`, result)
-        : `Landed ${row.task.name} on ${trunk}`;
-    },
-  });
+/** The runtime seams that read and write landing permission. */
+export interface DeskLandingPermission {
+  grantEffortPlan(
+    path: string,
+    branch: string,
+  ): EnginePlan | Promise<EnginePlan>;
+  grantEffort(
+    path: string,
+    branch: string,
+  ): EffortGrantWrite | Promise<EffortGrantWrite>;
+  clearEffortGrantPlan(path: string): EnginePlan | Promise<EnginePlan>;
+  clearEffortGrant(path: string): boolean | Promise<boolean>;
 }
+
+/** The landing permission seams, as production runs them. */
+export const LANDING_PERMISSION_RUNTIME: DeskLandingPermission = {
+  grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
+  grantEffort: (path, branch) =>
+    executeDeskOperation(
+      path,
+      { command: "desk grant" },
+      () => grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
+    ),
+  clearEffortGrantPlan: (path) => clearEffortGrantPlan(path),
+  clearEffortGrant: (path) =>
+    executeDeskOperation(
+      path,
+      { command: "desk revoke" },
+      () => withCompletionPublication(path, () => clearEffortGrant(path)),
+    ),
+};
+
+/** A branch's title as the inbox shows it. */
+function titleOf(context: DeskFlowContext, branch: string): string {
+  return context.state.rows.find((row) => row.entry.branch === branch)?.task
+    .name ?? branchTitle(branch, context.state.data);
+}
+
+/** Who approves a landing, from the preview's authority facts. */
+function authorityFact(
+  authority: AcceptPreviewData["authority"],
+): NonNullable<DeskPlanFacts["authority"]> {
+  if (authority.kind === "authorized") {
+    return authority.source === "standing-grant"
+      ? {
+        kind: "standing",
+        ...(authority.scopes === undefined ? {} : { scopes: authority.scopes }),
+      }
+      : { kind: "pre-authorized" };
+  }
+  return authority.covered_paths > 0
+    ? { kind: "partial", covered: authority.covered_paths }
+    : { kind: "conversation" };
+}
+
+/** The landing preview's facts in the Desk's terms. */
+export function landingFacts(
+  context: DeskFlowContext,
+  preview: AcceptPreviewData | undefined,
+): DeskPlanFacts {
+  if (preview === undefined) return {};
+  const lands = preview.lands;
+  const exception = preview.variances !== undefined ||
+      preview.standard_approvals !== undefined
+    ? {
+      variances: preview.variances ?? [],
+      standardApprovals: preview.standard_approvals ?? 0,
+    }
+    : undefined;
+  return {
+    lands: {
+      sha: lands.head,
+      ...(lands.commits === undefined ? {} : { commits: lands.commits }),
+      files: lands.files,
+      insertions: lands.insertions,
+      deletions: lands.deletions,
+    },
+    ...(preview.integrates === undefined ? {} : {
+      integrates: preview.integrates.behind === undefined
+        ? {}
+        : { behind: preview.integrates.behind },
+    }),
+    authority: authorityFact(preview.authority),
+    queueWalk: preview.queue_walk.map((queued) => ({
+      title: titleOf(context, queued.branch),
+      branch: queued.branch,
+    })),
+    ...(preview.landing_in_progress === undefined ? {} : {
+      landingInProgress: {
+        title: titleOf(context, preview.landing_in_progress.branch),
+      },
+    }),
+    ...(preview.ignored_roots === undefined
+      ? {}
+      : { ignoredRoots: preview.ignored_roots }),
+    endsGrant: preview.ends_grant,
+    leavesQueue: preview.leaves_queue,
+    ...(exception === undefined ? {} : { exception }),
+    ...(preview.stale_declarations === undefined
+      ? {}
+      : { staleDeclarations: preview.stale_declarations }),
+  };
+}
+
+/** Land: the acceptance preview, then the landing of its reviewed revision. */
+const ACCEPT_FLOW: DeskFlow = {
+  review: (context, step) =>
+    reviewOffer(context, step, "accept", async (row) => {
+      const ctx = await context.runtime.lifecycle(row.entry.path);
+      const preview = await context.runtime.acceptPlan(ctx);
+      const plan = resultPlan(preview);
+      const facts = landingFacts(context, preview.data?.preview);
+      return {
+        ...(plan === undefined ? {} : { plan }),
+        facts,
+        core: {
+          kind: "accept",
+          ...(preview.data?.revision === undefined
+            ? {}
+            : { revision: preview.data.revision }),
+        },
+        bound: {
+          "queue-walk": (facts.queueWalk ?? []).map((queued) => queued.branch)
+            .join(" "),
+        },
+        handoff: `Landing ${row.task.name} · output continues below`,
+      };
+    }),
+  apply: async (context, step, expected) => {
+    const changed = await rebound(context, step, expected, "accept");
+    if (changed !== undefined) return changed;
+    const { row, offer } = stepOffer(context, step, "accept");
+    const command = offerCommand(offer);
+    const ctx = await context.runtime.lifecycle(row.entry.path);
+    const revision = expected.core?.kind === "accept"
+      ? expected.core.revision
+      : undefined;
+    const cliModel = context.cliModel;
+    const result = await context.runtime.accept(ctx, {
+      confirmed: true,
+      ...(revision === undefined ? {} : { expected: revision }),
+      ...(cliModel === undefined ? {} : { cliModel }),
+    });
+    return result !== undefined && !result.ok
+      ? failedWith(context, step, "accept", result, command)
+      : succeeded(
+        command,
+        `Landed ${row.task.name} on ${context.config.repository.trunk}`,
+      );
+  },
+};
 
 /** What queueing would record, and whether a grant must come first. */
-interface SubmitPreview {
-  readonly plan: EnginePlan | undefined;
-  readonly revision: SubmissionRevision;
-  readonly needsAuthority: boolean;
-}
-
-/** The queue-only preview: what joins the queue, and whether a grant comes first. */
 async function submitPreview(
   context: DeskFlowContext,
   path: string,
-): Promise<SubmitPreview> {
+): Promise<{
+  readonly plan: EnginePlan | undefined;
+  readonly revision: SubmissionRevision;
+  readonly needsAuthority: boolean;
+}> {
   const preview = await context.runtime.submit(path, { dryRun: true });
   const plan = resultPlan(preview);
   const revision = preview.data?.revision;
@@ -88,113 +233,69 @@ async function submitPreview(
   };
 }
 
-/** Queue for landing: the queue preview, then either the grant question or the queue entry. */
-export async function prepareSubmit(
-  context: DeskFlowContext,
-  step: ActionStep,
-): Promise<DeskPrepared> {
-  const { row, offer } = stepOffer(context, step, "submit");
-  const { plan, revision, needsAuthority } = await submitPreview(
-    context,
-    row.entry.path,
-  );
-  const prepared = reviewedAction(context, row, offer, {
-    plan,
-    doing: `Queueing ${row.task.name} for landing`,
-    run: async (command) => {
-      const result = await context.runtime.submit(row.entry.path, {
-        expected: revision,
-      });
-      return result.ok
-        ? result.message ?? `Queued ${row.task.name}`
-        : failedWith(command, `${row.task.name} wasn't queued`, result);
-    },
-  });
-  return needsAuthority
-    ? {
-      ...prepared,
-      confirm: { kind: "review", step: { ...step, stage: "grant" } },
-    }
-    : prepared;
-}
-
-/** The grant a queue entry asks for first; Keep queues nothing. */
-export async function prepareSubmitGrant(
-  context: DeskFlowContext,
-  step: ActionStep,
-): Promise<DeskPrepared> {
-  const row = stepRow(context, step);
-  const grant = offerFor(row, "grant");
-  const submit = offerFor(row, "submit");
-  const { revision } = await submitPreview(context, row.entry.path);
-  const plan = await context.runtime.grantEffortPlan(
-    row.entry.path,
-    row.entry.branch,
-  );
-  const command = offerCommand(submit);
-  return {
-    content: offerContent(grant, plan, {
-      lines: [{
-        mark: "changes",
-        text: "Then queues this version for landing",
-      }],
-    }),
-    confirm: {
-      kind: "apply",
-      handoff:
-        `Pre-authorizing and queueing ${row.task.name} · output continues below`,
-      apply: async () => {
-        await verifyTask(context, row, "submit");
-        resultPlan(
-          await context.runtime.submit(row.entry.path, {
-            dryRun: true,
-            expected: revision,
-          }),
-        );
-        await context.runtime.grantEffort(row.entry.path, row.entry.branch);
-        const result = await context.runtime.submit(row.entry.path, {
-          expected: revision,
-        });
-        return result.ok
-          ? succeeded(command, result.message ?? `Queued ${row.task.name}`)
-          : failedWith(command, `${row.task.name} wasn't queued`, result);
-      },
-    },
-  };
-}
-
-/** Pre-authorize: the grant's plan, then the grant and a separate next decision. */
-export async function prepareGrant(
-  context: DeskFlowContext,
-  step: ActionStep,
-): Promise<DeskPrepared> {
-  const { row, offer } = stepOffer(context, step, "grant");
-  return reviewedAction(context, row, offer, {
-    plan: await context.runtime.grantEffortPlan(
+/**
+ * Queue for landing: the queue preview. Without landing permission the
+ * review asks the grant question first; Allow records it and asks the queue
+ * question next, and Keep queues nothing.
+ */
+const SUBMIT_FLOW: DeskFlow = {
+  review: async (context, step) => {
+    const { row, offer } = stepOffer(context, step, "submit");
+    const { plan, revision, needsAuthority } = await submitPreview(
+      context,
       row.entry.path,
-      row.entry.branch,
-    ),
-    doing: `Pre-authorizing ${row.task.name}`,
-    run: async (command) => {
+    );
+    if (needsAuthority) {
+      return reviewFor(actionTarget(context, row, offerFor(row, "grant")), {
+        plan: await context.runtime.grantEffortPlan(
+          row.entry.path,
+          row.entry.branch,
+        ),
+        facts: { revision: revision.head },
+        lead: [{
+          mark: "warning",
+          text: `${offer.label} asks this first; Keep queues nothing`,
+          source: { kind: "status", field: "landing_authority" },
+        }],
+        handoff: `Pre-authorizing ${row.task.name}`,
+      });
+    }
+    return reviewFor(actionTarget(context, row, offer), {
+      ...(plan === undefined ? {} : { plan }),
+      facts: { revision: revision.head },
+      core: { kind: "submit", revision },
+      handoff: `Queueing ${row.task.name} for landing`,
+    });
+  },
+  apply: async (context, step, expected) => {
+    const action = expected.core?.kind === "submit" ? "submit" : "grant";
+    const changed = await rebound(context, step, expected, action);
+    if (changed !== undefined) return changed;
+    const row = stepRow(context, step);
+    if (expected.core?.kind !== "submit") {
       await context.runtime.grantEffort(row.entry.path, row.entry.branch);
-      const followUp = await grantedOffers(
-        context,
-        row.entry.path,
-        row.entry.branch,
-      );
       return {
-        ...succeeded(command, `Pre-authorized ${row.task.name}`),
-        ...(followUp ? { next: { ...step, stage: "granted" as const } } : {}),
+        ...succeeded(
+          offerCommand(offerFor(row, "grant")),
+          `Pre-authorized ${row.task.name}`,
+        ),
+        next: step,
       };
-    },
-  });
-}
+    }
+    const command = offerCommand(offerFor(row, "submit"));
+    const result = await context.runtime.submit(row.entry.path, {
+      expected: expected.core.revision,
+    });
+    return result.ok
+      ? succeeded(command, result.message ?? `Queued ${row.task.name}`)
+      : failedWith(context, step, "submit", result, command);
+  },
+};
 
 /** Whether the granted task can now land or join the queue. */
 async function grantedOffers(
   context: DeskFlowContext,
-  path: string,
-  branch: string,
+  row: DeskRow,
 ): Promise<boolean> {
   const refreshed = (await context.runtime.status(context.root)).data;
   if (refreshed === undefined) return false;
@@ -207,7 +308,10 @@ async function grantedOffers(
       nowMs: context.runtime.now(),
       exceptionArgvs: await deskExceptionArgvs(refreshed),
     }),
-  ).find((row) => row.entry.path === path && row.entry.branch === branch);
+  ).find((candidate) =>
+    candidate.entry.path === row.entry.path &&
+    candidate.entry.branch === row.entry.branch
+  );
   return granted?.decision.actions.some((offer) =>
     (offer.action === "accept" || offer.action === "submit") &&
     offer.availability === "enabled"
@@ -215,56 +319,96 @@ async function grantedOffers(
 }
 
 /** After a grant: land now, queue, or leave it; nothing happens by default. */
-export function prepareGranted(
+function grantedReview(
   context: DeskFlowContext,
-  step: ActionStep,
-): DeskPrepared {
+  step: DeskFlowStep,
+): ReturnType<DeskFlow["review"]> {
   const row = stepRow(context, step);
-  const land = row.decision.actions.find((offer) => offer.action === "accept");
-  const queue = row.decision.actions.find((offer) => offer.action === "submit");
-  return {
-    content: {
-      title: `Pre-authorized ${row.task.name}. What next?`,
-      lines: [
-        {
+  const grant = row.decision.actions.find((offer) => offer.action === "grant");
+  const alternatives = row.decision.actions.flatMap(
+    (offer): DeskReviewAlternative[] =>
+      (offer.action === "accept" || offer.action === "submit") &&
+        offer.availability === "enabled"
+        ? [{
+          id: offer.action,
+          label: offer.label,
+          ...(offer.key === undefined ? {} : { key: offer.key }),
+          intent: {
+            kind: "action",
+            action: offer.action,
+            id: step.kind === "action" ? step.taskId : "",
+          },
+        }]
+        : [],
+  );
+  return Promise.resolve(
+    reviewFor(
+      actionTarget(context, row, grant ?? offerFor(row, "revoke_grant")),
+      {
+        question: `Pre-authorized ${row.task.name}. What next?`,
+        lead: [{
           mark: "keeps",
           text: "Nothing lands or joins the queue until you choose",
-        },
-        {
-          mark: "changes",
-          text: `${labelName(DESK_ACTION_LABELS.accept)} lands it now; ${
-            labelName(DESK_ACTION_LABELS.submit)
-          } lands it with the next landing`,
-        },
-      ],
-      footnote: "Done leaves it pre-authorized and not queued.",
-      safeLabel: "Done",
-      confirmLabel: "Done",
-      alternatives: [
-        ...(land?.availability === "enabled"
-          ? [{
-            id: "land",
-            label: land.label,
-            ...(land.key === undefined ? {} : { key: land.key }),
-            step: {
-              ...step,
-              action: "accept" as const,
-              stage: "review" as const,
-            },
-          }]
-          : []),
-        ...(queue?.availability === "enabled"
-          ? [{
-            id: "queue",
-            label: queue.label,
-            step: {
-              ...step,
-              action: "submit" as const,
-              stage: "review" as const,
-            },
-          }]
-          : []),
-      ],
-    },
-  };
+          source: { kind: "status", field: "landing_authority" },
+        }],
+        noConfirm: true,
+        safeLabel: "Done",
+        footnote: "Done leaves it pre-authorized and not queued.",
+        alternatives,
+      },
+    ),
+  );
 }
+
+/** Pre-authorize: the grant's plan, then the grant and a separate next decision. */
+const GRANT_FLOW: DeskFlow = {
+  review: (context, step) =>
+    step.stage === "granted"
+      ? grantedReview(context, step)
+      : reviewOffer(context, step, "grant", async (row) => ({
+        plan: await context.runtime.grantEffortPlan(
+          row.entry.path,
+          row.entry.branch,
+        ),
+        handoff: `Pre-authorizing ${row.task.name}`,
+      })),
+  apply: async (context, step, expected): Promise<DeskOutcome> => {
+    const changed = await rebound(context, step, expected, "grant");
+    if (changed !== undefined) return changed;
+    const { row, offer } = stepOffer(context, step, "grant");
+    await context.runtime.grantEffort(row.entry.path, row.entry.branch);
+    return {
+      ...succeeded(offerCommand(offer), `Pre-authorized ${row.task.name}`),
+      ...(await grantedOffers(context, row)
+        ? { next: { ...step, stage: "granted" as const } }
+        : {}),
+    };
+  },
+};
+
+/** Revoke pre-authorization: the cleanup's plan, then the cleanup. */
+const REVOKE_FLOW: DeskFlow = {
+  review: (context, step) =>
+    reviewOffer(context, step, "revoke_grant", async (row) => ({
+      plan: await context.runtime.clearEffortGrantPlan(row.entry.path),
+      handoff: `Revoking pre-authorization for ${row.task.name}`,
+    })),
+  apply: async (context, step, expected: DeskExpected) => {
+    const changed = await rebound(context, step, expected, "revoke_grant");
+    if (changed !== undefined) return changed;
+    const { row, offer } = stepOffer(context, step, "revoke_grant");
+    await context.runtime.clearEffortGrant(row.entry.path);
+    return succeeded(
+      offerCommand(offer),
+      `Revoked pre-authorization for ${row.task.name}`,
+    );
+  },
+};
+
+/** The landing family's flows, by registry action. */
+export const LANDING_FLOWS = {
+  accept: ACCEPT_FLOW,
+  submit: SUBMIT_FLOW,
+  grant: GRANT_FLOW,
+  revoke_grant: REVOKE_FLOW,
+} as const satisfies Readonly<Record<string, DeskFlow>>;

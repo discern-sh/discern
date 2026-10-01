@@ -20,6 +20,7 @@ import {
   buildAgentLaunches,
   buildDeskDecision,
   buildDeskRows,
+  consequenceLines,
   DESK_ACTION_REGISTRY,
   DESK_ACTION_SECTIONS,
   DESK_ACTIONS,
@@ -32,6 +33,7 @@ import {
   deskMainCheckoutFacts,
   taskLabel,
 } from "../src/engine/desk/model.ts";
+import type { DeskPlanFacts } from "../src/engine/desk/review_facts.ts";
 import { presentFleetRow } from "../src/engine/status/fleet_rows.ts";
 import {
   exceptionArgv,
@@ -89,14 +91,16 @@ function offer(
   return found;
 }
 
-/** One offer's consequence lines that carry a mark. */
+/** One action's consequence lines that carry a mark, for a decision and
+ * what its preview found. */
 function lines(
-  candidate: DeskActionOffer,
+  decision: DeskDecision,
+  action: DeskAction,
   mark: DeskConsequenceMark,
+  plan: DeskPlanFacts = {},
 ): string[] {
-  return candidate.consequence.flatMap((line) =>
-    line.mark === mark ? [line.text] : []
-  );
+  return consequenceLines(action, { context: decision.context, plan })
+    .flatMap((line) => line.mark === mark ? [line.text] : []);
 }
 
 /** Every fact line a decision lists, for substring checks. */
@@ -672,43 +676,53 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           },
           gate_proof: { status: "honored" as const },
         };
-        const parked = offer(decide(base), "park");
-        assertStringIncludes(lines(parked, "keeps").join(" "), task.branch);
+        const parked = decide(base);
+        const parkPlan = { endsGrant: true, removesProof: true };
         assertStringIncludes(
-          lines(parked, "keeps").join(" "),
+          lines(parked, "park", "keeps").join(" "),
+          task.branch,
+        );
+        assertStringIncludes(
+          lines(parked, "park", "keeps").join(" "),
           "title and brief",
         );
-        assertEquals(lines(parked, "removes"), [
+        assertEquals(lines(parked, "park", "removes", parkPlan), [
           "Removes its Proof",
           "Ends its pre-authorization",
           "Destroys its ports and services",
         ]);
-        assertEquals(lines(parked, "discards"), []);
-        assertStringIncludes(lines(parked, "recoverable").join(" "), "Resume");
-
-        const reclaimed = offer(
-          decide({ ...base, contained_in: "agent/later-stage" }),
-          "reclaim",
-        );
-        assertEquals(lines(reclaimed, "keeps"), ["Keeps the branch"]);
+        assertEquals(lines(parked, "park", "discards", parkPlan), []);
         assertStringIncludes(
-          lines(reclaimed, "changes").join(" "),
+          lines(parked, "park", "recoverable").join(" "),
+          "Resume",
+        );
+
+        const reclaimed = decide({
+          ...base,
+          contained_in: "agent/later-stage",
+        });
+        assertEquals(lines(reclaimed, "reclaim", "keeps"), [
+          "Keeps the branch",
+        ]);
+        assertStringIncludes(
+          lines(reclaimed, "reclaim", "changes").join(" "),
           "agent/later-stage",
         );
         assertStringIncludes(
-          lines(reclaimed, "recoverable").join(" "),
+          lines(reclaimed, "reclaim", "recoverable").join(" "),
           "cleans itself up",
         );
 
-        const dropped = offer(
-          decide({ ...base, clean: false, changed_files: 2 }),
-          "drop",
-        );
-        assertEquals(lines(dropped, "discards"), [
-          "Discards 3 commits that aren't on main",
-          "Deletes 2 uncommitted files; they can't be recovered",
+        const dropped = decide({ ...base, clean: false, changed_files: 2 });
+        const dropPlan = {
+          discards: ["3 commits not on main", "2 uncommitted changes"],
+          endsGrant: true,
+        };
+        assertEquals(lines(dropped, "drop", "discards", dropPlan), [
+          "Discards 3 commits not on main",
+          "Discards 2 uncommitted changes",
         ]);
-        assertEquals(lines(dropped, "removes"), [
+        assertEquals(lines(dropped, "drop", "removes", dropPlan), [
           `Removes its checkout and branch ${task.branch}`,
           "Removes its title and brief",
           "Removes its Proof",
@@ -716,12 +730,16 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
           "Destroys its ports and services",
         ]);
         assertStringIncludes(
-          lines(dropped, "recoverable").join(" "),
+          lines(dropped, "drop", "recoverable").join(" "),
           "last commit is kept",
         );
 
-        const noProof = offer(decide({ ahead: 1 }), "park");
-        assertEquals(lines(noProof, "removes"), []);
+        assertEquals(
+          lines(decide({ ahead: 1 }), "park", "removes", {
+            removesProof: false,
+          }),
+          [],
+        );
       },
     },
     {
@@ -761,11 +779,13 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
               ),
               `${candidate.action}: command argument`,
             );
+            const consequences = consequenceLines(candidate.action, {
+              context: decision.context,
+              plan: {},
+            });
             assert(
-              candidate.consequence.length > 0 &&
-                candidate.consequence.every((line) =>
-                  line.text.trim().length > 0
-                ),
+              consequences.length > 0 &&
+                consequences.every((line) => line.text.trim().length > 0),
               `${candidate.action}: consequence`,
             );
             if (candidate.confirmation.kind !== "none") {
@@ -877,20 +897,19 @@ Deno.test("Desk decisions preserve typed state, evidence, authority, and action 
     {
       name: "cleanup never claims no resources when their record is unreadable",
       check: () => {
-        const known = offer(decide({ resources: {} }), "drop");
+        const known = lines(decide({ resources: {} }), "drop", "warning");
         assert(
-          !lines(known, "warning").some((text) => text.includes("ports")),
-          JSON.stringify(known.consequence),
+          !known.some((text) => text.includes("ports")),
+          JSON.stringify(known),
         );
-        const unknown = offer(
+        const unknown = lines(
           decide({ read_failure: { file: ".env.local", reason: "denied" } }),
           "drop",
+          "warning",
         );
         assert(
-          lines(unknown, "warning").includes(
-            "Its recorded ports and services can't be read",
-          ),
-          JSON.stringify(unknown.consequence),
+          unknown.includes("Its recorded ports and services can't be read"),
+          JSON.stringify(unknown),
         );
       },
     },

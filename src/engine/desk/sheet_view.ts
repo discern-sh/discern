@@ -1,17 +1,22 @@
 /**
- * Review sheets and forms: every question the Desk asks before an effect.
+ * Review sheets, result sheets and forms: every question the Desk asks
+ * before an effect, and what it says when one fails.
  *
- * A review sheet paints at once from the last observation in its loading
- * state, then shows what its flow read: the plan's context and steps, the
- * registry's consequences, and the exact command, with the plan and command
- * one key away. It opens on its safe button and confirms only through its
- * confirm button. Forms collect a new task, a title, or a script's
- * arguments before their review. Pure.
+ * A review sheet paints at once in its loading state, then shows what its
+ * flow read: consequence lines first, each from a declared fact, never
+ * dropped for space; the changes, the exact shared plan, and the exact
+ * command one key away (`v`, `d`/`^T`, `c`/`^X`). It opens on its safe
+ * button or its challenge field and confirms only through its confirm
+ * button, which waits until every line has been on screen. A subject that
+ * changed since the review was read shows a banner and waits for `r`; a
+ * subject that is gone leaves only Close. Forms carry the same review as
+ * their live preview. Pure.
  */
 
 import type {
   ApplicationButton,
   ApplicationDetailBlock,
+  ApplicationDetailMark,
   ApplicationDisclosure,
   ApplicationForm,
   ApplicationFormField,
@@ -19,13 +24,13 @@ import type {
 } from "discern-design-system/cli/interactive";
 import { renderPlan } from "../../shared/result.ts";
 import type { EnginePlan } from "../../shared/result.ts";
-import { commandEvidence } from "../../shared/command_evidence.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
 import {
   DESK_ACTION_LABELS,
   DESK_COMMAND_LABELS,
   labelName,
 } from "../../shared/desk_vocabulary.ts";
+import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
 import {
   DESK_ACTION_REGISTRY,
   type DeskAgentLaunch,
@@ -33,9 +38,7 @@ import {
 } from "./model.ts";
 import { DESK_COMMAND_REGISTRY } from "./commands.ts";
 import { CONSEQUENCE_GLYPHS } from "./glyphs.ts";
-import { deskLine, deskLiteral } from "./text.ts";
-import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
-import { parseProjectScriptArguments } from "./literal_argv.ts";
+import { deskLine } from "./text.ts";
 import type {
   DeskIntent,
   DeskLayer,
@@ -44,7 +47,8 @@ import type {
 } from "./desk_state.ts";
 import {
   type DeskFlowStep,
-  type DeskPrepared,
+  type DeskResultSheet,
+  type DeskReview,
   type DeskReviewLine,
   untilChosen,
 } from "./flow_types.ts";
@@ -53,14 +57,25 @@ import {
   goneSentence,
   layerId,
   parkedBranches,
+  readingLayerId,
   renameTitle,
+  resultAlternatives,
   rowRef,
 } from "./desk_transitions.ts";
-import { glyph } from "./inspector_view.ts";
+import { diffRuns, fileRows, glyph } from "./inspector_view.ts";
+import {
+  cachedEvidence,
+  evidenceKey,
+  taskEvidenceSubject,
+  trunkHead,
+} from "./evidence.ts";
+import { reviewDrift } from "./review.ts";
 
-/** The buttons that create a task and run a script. */
-const CREATE = "Create";
-const RUN = "Run";
+/** The busy line while a sheet reads its subject again. */
+const CHECKING = "Checking current state…";
+
+/** The key that reads a changed review again. */
+export const REVIEW_AGAIN_KEY = "r";
 
 /** What forms read besides product state. */
 export interface DeskSheetEnv {
@@ -80,55 +95,50 @@ export function planLines(plan: EnginePlan): string[] {
   return lines.flatMap((line) => line.split("\n"));
 }
 
-/** Plain lines as one wrapped block, each line on its own row. */
-function plainBlock(lines: readonly string[]): ApplicationDetailBlock {
+/** The tone a line's mark takes. */
+function markTone(
+  mark: DeskReviewLine["mark"],
+): "danger" | "warning" | "success" | "muted" {
+  return mark === "discards" || mark === "failure"
+    ? "danger"
+    : mark === "warning"
+    ? "warning"
+    : mark === "evidence"
+    ? "success"
+    : "muted";
+}
+
+/** One review line as a marked item: its words, its counts, its detail. */
+function markItem(line: DeskReviewLine): ApplicationDetailMark {
   return {
-    kind: "block",
-    content: createCliBlock(renderMarkdownCli, {
-      source: lines.map((line) => deskLiteral(line)).join("  \n"),
+    mark: glyph(CONSEQUENCE_GLYPHS[line.mark], markTone(line.mark)),
+    runs: [
+      {
+        text: line.text,
+        ...(line.mark === "discards" ? { tone: "danger" as const } : {}),
+      },
+      ...(line.diff === undefined ? [] : [
+        { text: "  " },
+        ...diffRuns(line.diff.insertions, line.diff.deletions),
+      ]),
+    ],
+    ...(line.detail === undefined || line.detail.length === 0 ? {} : {
+      lines: line.detail.map((text) => [{
+        text,
+        tone: "muted" as const,
+      }]),
     }),
   };
 }
 
-/** Review lines as blocks: marked runs of lines, and plain runs between. */
-function lineBlocks(
+/** A review's lines as one block of marked items, in order. */
+export function reviewLineBlocks(
   lines: readonly DeskReviewLine[],
 ): ApplicationDetailBlock[] {
-  const blocks: ApplicationDetailBlock[] = [];
-  let plain: string[] = [];
-  const flush = (): void => {
-    if (plain.length > 0) blocks.push(plainBlock(plain));
-    plain = [];
-  };
-  for (const line of lines) {
-    if (line.mark === undefined) {
-      plain.push(line.text);
-      continue;
-    }
-    flush();
-    const item = {
-      mark: glyph(
-        CONSEQUENCE_GLYPHS[line.mark],
-        line.mark === "discards" || line.mark === "failure"
-          ? "danger"
-          : line.mark === "warning"
-          ? "warning"
-          : line.mark === "evidence"
-          ? "success"
-          : "muted",
-      ),
-      runs: [{
-        text: line.text,
-        ...(line.mark === "discards" ? { tone: "danger" as const } : {}),
-      }],
-    };
-    const last = blocks.at(-1);
-    if (last?.kind === "marks") {
-      blocks[blocks.length - 1] = { ...last, items: [...last.items, item] };
-    } else blocks.push({ kind: "marks", items: [item] });
-  }
-  flush();
-  return blocks;
+  return lines.length === 0 ? [] : [{
+    kind: "marks",
+    items: lines.map(markItem),
+  }];
 }
 
 /** The registry policy a step's sheet asks with. */
@@ -148,20 +158,20 @@ function gone(
   return goneSentence(state.departed, step.taskId, state.trunk);
 }
 
-/** A form's confirm button, disabled with the first reason it can't run. */
-function formConfirm(
-  layer: string,
-  label: string,
-  ...reasons: readonly (string | undefined)[]
-): ApplicationButton<DeskIntent> {
-  const reason = reasons.find((candidate) => candidate !== undefined);
-  return {
-    id: "confirm",
-    label,
-    role: "confirm",
-    action: { kind: "confirm", layer },
-    ...(reason === undefined ? {} : { enabled: false, disabledReason: reason }),
-  };
+/** What moved since the review was read, while its task is still listed. */
+function drift(
+  state: DeskProductState,
+  step: DeskFlowStep,
+  review: DeskReview,
+): string | undefined {
+  if (step.kind !== "action") return undefined;
+  const ref = rowRef(state, step.taskId);
+  if (ref?.kind !== "task") return undefined;
+  const head = trunkHead(state.data);
+  return reviewDrift(review.expected, {
+    row: ref.row,
+    ...(head === undefined ? {} : { trunkHead: head }),
+  });
 }
 
 /** The question a sheet asks before its read finishes. */
@@ -178,59 +188,106 @@ function pendingTitle(state: DeskProductState, step: DeskFlowStep): string {
   return offer?.reviewTitle ?? `${labelName(DESK_ACTION_LABELS[step.action])}?`;
 }
 
-/** The plan and command disclosures, each one key away from any focus. */
-function disclosures(
-  prepared: DeskPrepared | undefined,
-): ApplicationDisclosure[] {
-  const content = prepared?.content;
-  if (content === undefined) return [];
+/** The changes a landing lands: its totals, and its files once read. */
+function changesContent(
+  state: DeskProductState,
+  changes: NonNullable<DeskReview["disclosures"]["changes"]>,
+): ApplicationDetailBlock[] {
+  const totals: ApplicationDetailBlock = {
+    kind: "text",
+    runs: [
+      { text: `${plural(changes.files, "file")}  ` },
+      ...diffRuns(changes.insertions, changes.deletions),
+    ],
+  };
+  const ref = rowRef(state, changes.taskId);
+  const files = ref?.kind === "task"
+    ? cachedEvidence(
+      state.evidence,
+      evidenceKey(taskEvidenceSubject(ref.row, state.data, state.trunk)),
+    )?.files
+    : undefined;
   return [
-    ...(content.plan === undefined ? [] : [{
-      id: "plan",
-      label: `Technical plan · ${plural(content.plan.steps.length, "step")}`,
-      hint: "Plan",
-      openHint: "Hide plan",
-      key: "d",
-      fieldKey: "ctrl-t",
-      content: [{
-        kind: "rows" as const,
-        items: planLines(content.plan).map((line) => ({
-          text: [{ text: line, role: "code" as const }],
-        })),
-      }],
-    }]),
-    ...(content.command === undefined ? [] : [{
-      id: "command",
-      label: "Command",
-      key: "c",
-      fieldKey: "ctrl-x",
-      content: [{
-        kind: "text" as const,
-        runs: [{ text: content.command, role: "code" as const }],
-      }],
-    }]),
+    totals,
+    files?.state === "ready"
+      ? fileRows(files.value)
+      : files?.state === "failed"
+      ? { kind: "text", runs: [{ text: files.error, tone: "warning" }] }
+      : { kind: "pending", label: "Reading changes…" },
   ];
 }
 
-/** A review's confirm button: destructive when it removes work, and
- * disabled with its reason when the review found a blocker. */
+/** The plan disclosure: the exact shared rendering, line for line. */
+function planDisclosure(plan: EnginePlan): ApplicationDisclosure {
+  return {
+    id: "plan",
+    label: `Technical plan · ${plural(plan.steps.length, "step")}`,
+    hint: "Plan",
+    openHint: "Hide plan",
+    key: "d",
+    fieldKey: "ctrl-t",
+    content: [{
+      kind: "rows",
+      items: planLines(plan).map((line) => ({
+        text: [{ text: line, role: "code" as const }],
+      })),
+    }],
+  };
+}
+
+/** The command disclosure: the exact CLI equivalent with its flags. */
+function commandDisclosure(
+  command: string,
+  open: boolean,
+): ApplicationDisclosure {
+  return {
+    id: "command",
+    label: "Command",
+    key: "c",
+    fieldKey: "ctrl-x",
+    content: [{ kind: "text", runs: [{ text: command, role: "code" }] }],
+    ...(open ? { initiallyOpen: true } : {}),
+  };
+}
+
+/** A review's disclosures: changes, the plan, and the command. */
+function disclosures(
+  state: DeskProductState,
+  review: DeskReview | undefined,
+): ApplicationDisclosure[] {
+  if (review === undefined) return [];
+  const { changes, plan, command, open } = review.disclosures;
+  return [
+    ...(changes === undefined ? [] : [{
+      id: "changes",
+      label: `Changes · ${plural(changes.files, "file")}`,
+      hint: "Changes",
+      key: "v",
+      fieldKey: "ctrl-g",
+      content: changesContent(state, changes),
+    }]),
+    ...(plan === undefined ? [] : [planDisclosure(plan)]),
+    commandDisclosure(command, open === "command"),
+  ];
+}
+
+/** The confirm or destructive button, disabled with its first blocker. */
 function confirmButton(
   layer: string,
   label: string,
-  destructive: boolean,
-  challenged: boolean,
-  blocked: string | undefined,
+  review: DeskReview | undefined,
 ): ApplicationButton<DeskIntent> {
-  const disabled = blocked === undefined
+  const blocker = review?.blockers[0];
+  const disabled = blocker === undefined
     ? {}
-    : { enabled: false, disabledReason: blocked };
-  return destructive
+    : { enabled: false, disabledReason: blocker };
+  return review?.destructive === true
     ? {
       id: "confirm",
       label,
       role: "destructive",
       action: { kind: "confirm", layer },
-      ...(challenged ? { requiresChallenge: true } : {}),
+      ...(review.challenge === undefined ? {} : { requiresChallenge: true }),
       ...disabled,
     }
     : {
@@ -242,101 +299,234 @@ function confirmButton(
     };
 }
 
+/**
+ * A review's alternative buttons, each one key away on the button row. A
+ * key one of the sheet's disclosures already answers stays the
+ * disclosure's: the button is still there, without a key.
+ */
+function alternativeButtons(
+  layer: string,
+  review: Pick<DeskReview, "alternatives"> | undefined,
+  disclosed: readonly ApplicationDisclosure[],
+): ApplicationButton<DeskIntent>[] {
+  const taken = new Set(disclosed.map((disclosure) => disclosure.key));
+  return (review?.alternatives ?? []).map((alternative) => ({
+    id: alternative.id,
+    label: alternative.label,
+    role: "alternative" as const,
+    action: { kind: "alternative" as const, layer, id: alternative.id },
+    ...(alternative.key === undefined || taken.has(alternative.key)
+      ? {}
+      : { key: alternative.key }),
+  }));
+}
+
+/** The sheet's lifecycle state and the banner that explains it. */
+function sheetState(
+  state: DeskProductState,
+  step: DeskFlowStep,
+  load: DeskLoad<DeskReview>,
+): Pick<ApplicationSheet<DeskIntent>, "state" | "banner"> {
+  const vanished = gone(state, step);
+  if (vanished !== undefined) {
+    return {
+      state: "gone",
+      banner: { tone: "warning", runs: [{ text: vanished }] },
+    };
+  }
+  if (load.state === "loading") return { state: "loading" };
+  if (load.state === "failed") {
+    return {
+      state: "failed",
+      banner: { tone: "danger", runs: [{ text: load.error }] },
+    };
+  }
+  const moved = drift(state, step, load.value);
+  if (moved !== undefined) {
+    return {
+      state: "changed",
+      banner: {
+        tone: "warning",
+        runs: [{
+          text:
+            `Changed since you opened this: ${moved} · ${REVIEW_AGAIN_KEY} to review again`,
+        }],
+      },
+    };
+  }
+  return load.value.blockers.length === 0 ? { state: "ready" } : {
+    state: "ready",
+    banner: {
+      tone: "warning",
+      runs: [{ text: load.value.blockers.join(" · ") }],
+    },
+  };
+}
+
 /** One review sheet, from its loading state to what its flow read. */
 export function reviewSheet(
   state: DeskProductState,
   layer: Extract<DeskLayer, { readonly kind: "review" }>,
 ): ApplicationSheet<DeskIntent> {
   const id = layerId(layer);
-  const load: DeskLoad<DeskPrepared> = layer.load;
-  const prepared = load.state === "ready" ? load.value : undefined;
-  const content = prepared?.content;
-  const confirmation = policy(layer.step);
-  const vanished = gone(state, layer.step);
-  const safeLabel = vanished !== undefined ? "Close" : content?.safeLabel ??
-    (confirmation.kind === "none" ? "Close" : confirmation.noLabel);
-  const confirmLabel = content?.confirmLabel ??
-    (confirmation.kind === "none" ? "Open" : confirmation.yesLabel);
-  const destructive = content?.destructive === true;
-  const challenge = content?.challenge;
-  const buttons: ApplicationButton<DeskIntent>[] = [
-    ...(content?.alternatives ?? []).map((alternative) => ({
-      id: alternative.id,
-      label: alternative.label,
-      role: "alternative" as const,
-      action: { kind: "alternative" as const, layer: id, id: alternative.id },
-      ...(alternative.key === undefined ? {} : { key: alternative.key }),
-    })),
-    { id: "safe", label: safeLabel, role: "safe" },
-    ...(load.state === "ready" && prepared?.confirm === undefined ? [] : [
-      confirmButton(
-        id,
-        confirmLabel,
-        destructive,
-        challenge !== undefined,
-        content?.blocked,
-      ),
-    ]),
-  ];
+  const review = layer.load.state === "ready" ? layer.load.value : undefined;
+  const labels = policy(layer.step);
+  const status = sheetState(state, layer.step, layer.load);
+  const safeLabel = status.state === "gone" ? "Close" : review?.safeLabel ??
+    (labels.kind === "none" ? "Close" : labels.noLabel);
+  const confirmLabel = review === undefined
+    ? (labels.kind === "none" || layer.load.state === "failed"
+      ? undefined
+      : labels.yesLabel)
+    : review.confirmLabel;
+  const disclosed = disclosures(state, review);
+  const challenge = review?.challenge?.mustEqual;
   return {
     kind: "sheet",
-    id,
+    id: layer.load.state === "loading" ? readingLayerId(id) : id,
     scope: layer.step.kind === "action" ? "item" : "global",
-    title: content?.title ?? pendingTitle(state, layer.step),
-    state: vanished !== undefined
-      ? "gone"
-      : load.state === "loading"
-      ? "loading"
-      : load.state === "failed"
-      ? "failed"
-      : "ready",
-    busy: "Checking current state…",
-    ...(vanished !== undefined
-      ? { banner: { tone: "warning" as const, runs: [{ text: vanished }] } }
-      : load.state === "failed"
-      ? { banner: { tone: "danger" as const, runs: [{ text: load.error }] } }
-      : content?.blocked === undefined
-      ? {}
-      : {
-        banner: { tone: "warning" as const, runs: [{ text: content.blocked }] },
-      }),
-    body: content === undefined ? [] : lineBlocks(content.lines),
-    readHint: `to read before choosing ${confirmLabel}`,
-    disclosures: disclosures(prepared),
+    title: review?.question ?? pendingTitle(state, layer.step),
+    ...status,
+    busy: CHECKING,
+    body: review === undefined ? [] : reviewLineBlocks(review.lines),
+    readHint: `to read before choosing ${confirmLabel ?? safeLabel}`,
+    disclosures: disclosed,
     ...(challenge === undefined ? {} : {
       challenge: {
         fieldId: "challenge",
         label: [
           { text: "Type " },
-          { text: challenge.mustEqual, role: "title" as const },
-          { text: " to confirm" },
+          { text: challenge, role: "title" as const },
+          {
+            text: ` to ${(confirmLabel ?? "confirm").toLowerCase()} it`,
+          },
         ],
-        mustEqual: challenge.mustEqual,
+        mustEqual: challenge,
       },
     }),
     footnote: [{
-      text: content?.footnote ??
-        untilChosen("changes", confirmLabel),
+      text: review?.footnote ??
+        untilChosen("changes", confirmLabel ?? safeLabel),
     }],
-    buttons,
+    buttons: [
+      ...alternativeButtons(id, review, disclosed),
+      { id: "safe", label: safeLabel, role: "safe" },
+      ...(confirmLabel === undefined || status.state === "gone"
+        ? []
+        : [confirmButton(id, confirmLabel, review)]),
+    ],
+    ...(status.state === "changed"
+      ? { hints: [{ key: REVIEW_AGAIN_KEY, label: "Review again" }] }
+      : {}),
   };
 }
 
-/** The "This will" preview of what Create does. */
-function startPreview(
-  base: string,
-  agent: DeskAgentLaunch | undefined,
-): ApplicationDetailBlock[] {
-  const lines: DeskReviewLine[] = [
-    { mark: "changes", text: `Creates a task branch from ${base}` },
-    { mark: "changes", text: "Gives it its own checkout and runs setup" },
-    ...(agent === undefined ? [] : [{
-      mark: "changes" as const,
-      text: `Opens ${agent.providerLabel} in it`,
+/** A failed effect's result sheet: what stopped, what is unchanged, and
+ * the task's next steps as it now stands. */
+export function resultSheetView(
+  state: DeskProductState,
+  sheet: DeskResultSheet,
+): ApplicationSheet<DeskIntent> {
+  const id = "result";
+  const disclosed: ApplicationDisclosure[] = [
+    ...(sheet.output === undefined ? [] : [{
+      id: "output",
+      label: "Full output",
+      key: "o",
+      content: [{
+        kind: "block" as const,
+        content: createCliBlock(renderMarkdownCli, { source: sheet.output }),
+      }],
     }]),
-    { mark: "keeps", text: "Landing permission stays a separate decision" },
+    commandDisclosure(sheet.command, false),
   ];
-  return [{ kind: "section", title: "This will", blocks: lineBlocks(lines) }];
+  return {
+    kind: "sheet",
+    id,
+    scope: sheet.taskId === undefined ? "global" : "item",
+    title: sheet.title,
+    state: "ready",
+    body: reviewLineBlocks(sheet.lines),
+    requireFullRead: false,
+    disclosures: disclosed,
+    buttons: [
+      { id: "safe", label: "Close", role: "safe" },
+      ...alternativeButtons(
+        id,
+        { alternatives: resultAlternatives(state, sheet) },
+        disclosed,
+      ),
+    ],
+  };
+}
+
+/** A form's confirm button, disabled with the first reason it can't run. */
+function formConfirm(
+  layer: string,
+  label: string,
+  open: string | undefined,
+  role: "confirm" | "alternative",
+  ...reasons: readonly (string | undefined)[]
+): ApplicationButton<DeskIntent> {
+  const reason = reasons.find((candidate) => candidate !== undefined);
+  const action: DeskIntent = {
+    kind: "confirm",
+    layer,
+    ...(open === undefined ? {} : { open }),
+  };
+  return {
+    id: open === undefined ? "confirm" : "confirm-open",
+    label,
+    role,
+    action,
+    ...(reason === undefined ? {} : { enabled: false, disabledReason: reason }),
+  };
+}
+
+/** Why a form's preview can't be confirmed yet, if it can't. */
+function previewReason(
+  layer: Extract<DeskLayer, { readonly kind: "form" }>,
+): string | undefined {
+  if (layer.load.state === "loading") return CHECKING;
+  if (layer.load.state === "failed") return layer.load.error;
+  return layer.load.value.blockers[0];
+}
+
+/** A form's preview: its review's lines, or why there are none yet. */
+function previewBlocks(
+  layer: Extract<DeskLayer, { readonly kind: "form" }>,
+): ApplicationDetailBlock[] {
+  switch (layer.load.state) {
+    case "loading":
+      return [{ kind: "pending", label: CHECKING }];
+    case "failed":
+      return [{
+        kind: "text",
+        runs: [{ text: layer.load.error, tone: "warning" }],
+      }];
+    case "ready":
+      return [
+        ...reviewLineBlocks(layer.load.value.lines),
+        ...layer.load.value.blockers.map((blocker): ApplicationDetailBlock => ({
+          kind: "text",
+          runs: [{ text: blocker, tone: "warning" }],
+        })),
+      ];
+  }
+}
+
+/** A form's disclosures: the plan and command of its current preview. */
+function formDisclosures(
+  layer: Extract<DeskLayer, { readonly kind: "form" }>,
+): ApplicationDisclosure[] {
+  if (layer.load.state !== "ready") {
+    return [commandDisclosure("Checking…", false)];
+  }
+  const { plan, command } = layer.load.value.disclosures;
+  return [
+    ...(plan === undefined ? [] : [planDisclosure(plan)]),
+    commandDisclosure(command, false),
+  ];
 }
 
 /** A new task's form: title, then base, brief and agent folded away. */
@@ -366,7 +556,8 @@ function startForm(
   const values = layer.values;
   const base = fixed ?? values.base ?? state.trunk;
   const agent = launches.find((launch) =>
-    launch.id === (values.agent ?? remembered?.id ?? "none")
+    launch.id === (values.agent ?? remembered?.id ?? "none") &&
+    launch.availability !== "disabled"
   );
   const bases = [
     state.trunk,
@@ -375,18 +566,19 @@ function startForm(
     ),
     ...parkedBranches(state.data),
   ];
-  const title = values.title ?? parked?.task.title ?? "";
   const brief = values.brief ?? parked?.task.brief ?? "";
+  const branch = layer.load.state === "ready"
+    ? layer.load.value.expected.facts["branch-name"]
+    : undefined;
   const fields: ApplicationFormField<DeskIntent>[] = [
     {
       kind: "text",
       id: "title",
       label: "Title",
       initial: parked?.task.title ?? "",
-      hint: [{
-        text: "Leave it empty for a generated codename",
-        tone: "faint",
-      }],
+      hint: branch === undefined
+        ? [{ text: "Leave it empty for a generated codename", tone: "faint" }]
+        : [{ text: "Branch ", tone: "faint" }, { text: branch }],
     },
     {
       kind: "group",
@@ -402,11 +594,11 @@ function startForm(
             id: "base",
             label: "Base",
             initial: state.trunk,
-            options: [...new Set(bases)].map((branch) => ({
-              id: branch,
-              label: branch === state.trunk
-                ? branch
-                : branchTitle(branch, state.data),
+            options: [...new Set(bases)].map((choice) => ({
+              id: choice,
+              label: choice === state.trunk
+                ? choice
+                : branchTitle(choice, state.data),
             })),
           }]
           : []),
@@ -424,9 +616,11 @@ function startForm(
           initial: remembered?.id ?? "none",
           options: [
             { id: "none", label: "None" },
-            ...launches.map((launch) => ({
+            ...launches.filter((launch) => launch.kind === "open").map((
+              launch,
+            ) => ({
               id: launch.id,
-              label: `${launch.providerLabel}: ${launch.label}`,
+              label: launch.providerLabel,
               ...(launch.availability === "disabled"
                 ? { disabledReason: launch.reason ?? "Unavailable" }
                 : {}),
@@ -436,13 +630,8 @@ function startForm(
       ],
     },
   ];
-  const argv = [
-    "discern",
-    "start",
-    ...(title.trim() === "" ? [] : ["--title", title.trim()]),
-    ...(brief.trim() === "" ? [] : ["--brief", brief.trim()]),
-    ...(base === state.trunk ? [] : ["--from", base]),
-  ];
+  const vanished = gone(state, step);
+  const reason = previewReason(layer);
   return {
     kind: "form",
     id,
@@ -452,30 +641,33 @@ function startForm(
       : step.command === "resume"
       ? `Resume ${branchTitle(step.ref ?? "", state.data)}`
       : labelName(DESK_COMMAND_LABELS.new_task),
-    ...(fixed === undefined
-      ? {}
-      : { aside: [{ text: `from ${fixed}`, tone: "faint" as const }] }),
+    aside: [{ text: `from ${base}`, tone: "faint" }],
     fields,
-    preview: startPreview(base, agent),
-    disclosures: [{
-      id: "command",
-      label: "Command",
-      key: "c",
-      fieldKey: "ctrl-x",
-      content: [{
-        kind: "text",
-        runs: [{ text: commandEvidence(argv), role: "code" }],
-      }],
+    preview: [{
+      kind: "section",
+      title: "This will",
+      blocks: previewBlocks(layer),
     }],
-    footnote: [{ text: untilChosen("is created", CREATE) }],
+    disclosures: formDisclosures(layer),
+    footnote: [{ text: untilChosen("is created", "Create") }],
     buttons: [
       { id: "safe", label: "Cancel", role: "safe" },
-      formConfirm(id, CREATE, gone(state, step)),
+      formConfirm(id, "Create", undefined, "confirm", vanished, reason),
+      ...(agent === undefined ? [] : [
+        formConfirm(
+          id,
+          `Create and open ${agent.providerLabel}`,
+          agent.id,
+          "alternative",
+          vanished,
+          reason,
+        ),
+      ]),
     ],
   };
 }
 
-/** A rename's form: the title, prefilled. */
+/** A rename's form: the title, prefilled, and what renaming changes. */
 function renameForm(
   state: DeskProductState,
   layer: Extract<DeskLayer, { readonly kind: "form" }>,
@@ -492,7 +684,9 @@ function renameForm(
     kind: "form",
     id,
     scope: "item",
-    title: labelName(DESK_ACTION_LABELS.rename),
+    title: ref?.kind === "task"
+      ? `Rename ${ref.row.task.name}?`
+      : labelName(DESK_ACTION_LABELS.rename),
     fields: [{
       kind: "text",
       id: "title",
@@ -500,15 +694,19 @@ function renameForm(
       initial,
       required: true,
     }],
-    preview: lineBlocks([{
-      mark: "changes",
-      text: "Changes the task title only; the branch and checkout stay",
-    }]),
-    disclosures: [],
-    footnote: [{ text: "Nothing changes until you review the new title." }],
+    preview: previewBlocks(layer),
+    disclosures: formDisclosures(layer),
+    footnote: [{ text: untilChosen("changes", "Rename") }],
     buttons: [
       { id: "safe", label: "Keep", role: "safe" },
-      formConfirm(id, "Rename", gone(state, layer.step)),
+      formConfirm(
+        id,
+        "Rename",
+        undefined,
+        "confirm",
+        gone(state, step),
+        previewReason(layer),
+      ),
     ],
   };
 }
@@ -517,21 +715,18 @@ function renameForm(
 function scriptForm(
   state: DeskProductState,
   layer: Extract<DeskLayer, { readonly kind: "form" }>,
-  root: string,
 ): ApplicationForm<DeskIntent> {
   const id = layerId(layer);
-  const name = layer.values.script ?? "";
-  const args = layer.values.args ?? "";
-  const parsed = parseProjectScriptArguments(args);
+  const name = layer.values.script ?? layer.step.values?.script ?? "";
   const step = layer.step;
   const ref = step.kind === "action" ? rowRef(state, step.taskId) : undefined;
-  const where = ref?.kind === "task" ? ref.row.entry.path : root;
-  const argv = ["discern", "scripts", name, ...(parsed.ok ? parsed.args : [])];
   return {
     kind: "form",
     id,
     scope: step.kind === "action" ? "item" : "global",
-    title: `Run ${name}`,
+    title: layer.load.state === "ready"
+      ? layer.load.value.question
+      : `Run ${name}?`,
     aside: [{
       text: ref?.kind === "task" ? ref.row.task.name : "main checkout",
       tone: "faint",
@@ -546,51 +741,18 @@ function scriptForm(
         tone: "faint",
       }],
     }],
-    preview: [
-      {
-        kind: "facts",
-        rows: [
-          { label: "Directory", value: [[{ text: where }]] },
-          {
-            label: "Arguments",
-            value: [[
-              parsed.ok
-                ? {
-                  text: parsed.args.length === 0
-                    ? "None"
-                    : JSON.stringify(parsed.args),
-                }
-                : { text: parsed.message, tone: "warning" },
-            ]],
-          },
-        ],
-      },
-      ...lineBlocks([
-        { mark: "changes", text: "It owns the terminal until it exits" },
-        {
-          mark: "warning",
-          text: "This script hasn't declared what it changes",
-        },
-      ]),
-    ],
-    disclosures: [{
-      id: "command",
-      label: "Command",
-      key: "c",
-      fieldKey: "ctrl-x",
-      content: [{
-        kind: "text",
-        runs: [{ text: commandEvidence(argv), role: "code" }],
-      }],
-    }],
-    footnote: [{ text: untilChosen("runs", RUN) }],
+    preview: previewBlocks(layer),
+    disclosures: formDisclosures(layer),
+    footnote: [{ text: untilChosen("runs", "Run") }],
     buttons: [
       { id: "safe", label: "Cancel", role: "safe" },
       formConfirm(
         id,
-        RUN,
+        "Run",
+        undefined,
+        "confirm",
         gone(state, step),
-        parsed.ok ? undefined : parsed.message,
+        previewReason(layer),
       ),
     ],
   };
@@ -600,7 +762,7 @@ function scriptForm(
 export function deskForm(
   state: DeskProductState,
   layer: Extract<DeskLayer, { readonly kind: "form" }>,
-  env: DeskSheetEnv & { readonly root: string },
+  env: DeskSheetEnv,
 ): ApplicationForm<DeskIntent> {
   const step = layer.step;
   if (step.kind === "action" && step.action === "rename") {
@@ -609,6 +771,6 @@ export function deskForm(
   if (
     (step.kind === "action" && step.action === "scripts") ||
     (step.kind === "command" && step.command === "main_scripts")
-  ) return scriptForm(state, layer, env.root);
+  ) return scriptForm(state, layer);
   return startForm(state, layer, env);
 }

@@ -29,7 +29,7 @@ Reclaiming requires a fresh, explicit confirmation through `discern worktree pru
 | ------------------------- | --------------------------------------------------------------------------------------------- |
 | The containment predicate | [`src/engine/worktree/containment.ts`](../../../src/engine/worktree/containment.ts)           |
 | Prune offer and reclaim   | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)               |
-| Desk action               | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                                 |
+| Desk action               | [`src/engine/desk/flows/checkout.ts`](../../../src/engine/desk/flows/checkout.ts)             |
 | Behavioral coverage       | [`tests/engine_worktree_contained_test.ts`](../../../tests/engine_worktree_contained_test.ts) |
 
 ## Current state and gotchas

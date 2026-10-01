@@ -2,7 +2,9 @@
  * Terminal owners the Desk hands the screen to: a coding agent, a shell, an
  * editor, the pager, the manual, and Project Scripts, plus the release page
  * the browser opens after its disclosure. Each revalidates its task first,
- * runs with the terminal, and reports what came back.
+ * runs with the terminal, and reports what came back. A Project Script and
+ * the release page are reviewed first; an agent without a prompt option
+ * shows the stored brief before it opens.
  */
 
 import { basename } from "@std/path";
@@ -12,8 +14,7 @@ import { DISCERN_VERSION } from "../../../lib/version.ts";
 import { WorktreeGitError } from "../../worktree/lifecycle.ts";
 import { userShell } from "../../user_shell.ts";
 import type { Out } from "../../output.ts";
-import { agentLaunchArgs, type DeskRow } from "../model.ts";
-import { commandConsequenceLines } from "../commands.ts";
+import { agentLaunchArgs, type DeskRow, deskRowId } from "../model.ts";
 import { executeDeskOperation } from "../execution.ts";
 import { deskSessionEnv } from "../session.ts";
 import { echoDeskCommand } from "../presentation.ts";
@@ -24,23 +25,25 @@ import {
   type DeskChild,
   type DeskFlowStep,
   type DeskOutcome,
-  type DeskPrepared,
   untilChosen,
 } from "../flow_types.ts";
+import { failureSheet, reviewFor } from "../review.ts";
+import { DESK_COMMAND_REGISTRY } from "../commands.ts";
 import {
-  DESK_COMMAND_LABELS,
-  labelName,
-} from "../../../shared/desk_vocabulary.ts";
+  actionTarget,
+  type DeskFlow,
+  type DeskFlowContext,
+  offerFor,
+  rebound,
+  stepRow,
+} from "./context.ts";
+import { scriptInventory } from "./reading.ts";
 
 /** The button that hands the release page to the browser. */
 const OPEN = "Open";
-import {
-  type DeskFlowContext,
-  failedWith,
-  stepRow,
-  verifyTask,
-} from "./context.ts";
-import { scriptInventory } from "./reading.ts";
+
+/** The button that runs a Project Script. */
+const RUN = "Run";
 
 /** The task a child concerns, revalidated, or none for the main checkout. */
 async function childTask(
@@ -55,10 +58,24 @@ async function childTask(
       "The selected task is no longer listed. Nothing opened.",
     );
   }
-  await verifyTask(context, ref.row, action);
+  const refused = await rebound(
+    context,
+    { kind: "action", action, taskId, stage: "review" },
+    {
+      facts: {
+        "worktree-identity": deskRowId(ref.row),
+        path: ref.row.entry.path,
+      },
+    },
+    action,
+  );
+  if (refused !== undefined) {
+    throw new WorktreeGitError(
+      refused.message?.text ?? "The task changed; nothing opened.",
+    );
+  }
   return ref.row;
 }
-
 /** Wait on a failed child so its last words stay readable. */
 async function reportExit(
   context: DeskFlowContext,
@@ -298,54 +315,61 @@ export async function runChild(
 }
 
 /** The agent launch a stored brief must be copied into, reviewed first. */
-export function prepareBrief(
-  context: DeskFlowContext,
-  step: Extract<DeskFlowStep, { readonly kind: "action" }>,
-): DeskPrepared {
-  const row = stepRow(context, step);
-  const launchId = step.values?.launch ?? "";
-  const launch = row.agentLaunches.find((candidate) =>
-    candidate.id === launchId
-  );
-  const provider = launch?.providerLabel ?? "The agent";
-  const open = `Open ${provider}`;
-  return {
-    content: {
-      title: `${open} in ${row.task.name}?`,
-      lines: [
-        {
+const BRIEF_FLOW: DeskFlow = {
+  review: (context, step) => {
+    const row = stepRow(context, step);
+    const launchId = step.values?.launch ?? "";
+    const launch = row.agentLaunches.find((candidate) =>
+      candidate.id === launchId
+    );
+    const provider = launch?.providerLabel ?? "The agent";
+    const open = `Open ${provider}`;
+    return Promise.resolve(
+      reviewFor(actionTarget(context, row, offerFor(row, "agent")), {
+        question: `${open} in ${row.task.name}?`,
+        lead: [{
           mark: "warning",
           text:
             `${provider}'s configured command takes no prompt, so copy this brief into the session:`,
-        },
-        { text: row.entry.task?.brief ?? "" },
-        {
-          mark: "keeps",
-          text: "The agent takes over this window; exit it to come back here",
-        },
-      ],
-      footnote: untilChosen("opens", open),
-      safeLabel: "Back",
-      confirmLabel: open,
-    },
-    confirm: {
-      kind: "apply",
-      handoff: `Opening ${provider} in ${row.task.name} · exit it to come back`,
-      apply: ({ out }) => runAgent(context, out, step.taskId, launchId),
-    },
-  };
-}
+          detail: (row.entry.task?.brief ?? "").split("\n"),
+          source: { kind: "status", field: "task" },
+        }],
+        core: { kind: "brief", launch: launchId },
+        argv: launch === undefined ? ["<agent>"] : [
+          launch.binary,
+          ...launch.args,
+        ],
+        safeLabel: "Back",
+        confirmLabel: open,
+        footnote: untilChosen("opens", open),
+        handoff:
+          `Opening ${provider} in ${row.task.name} · exit it to come back`,
+      }),
+    );
+  },
+  apply: (context, step, expected, { out }) => {
+    const launch = expected.core?.kind === "brief" ? expected.core.launch : "";
+    return runAgent(
+      context,
+      out,
+      step.kind === "action" ? step.taskId : "",
+      launch,
+    );
+  },
+};
 
-/** Run one Project Script with literal arguments, with the terminal. */
-export async function runScript(
+/**
+ * Run one Project Script with its reviewed literal arguments, with the
+ * terminal. A script whose contents changed since its review runs nothing.
+ */
+async function runScript(
   context: DeskFlowContext,
   out: Out,
   owner: DeskScriptOwner,
   name: string,
-  args: string,
+  args: readonly string[],
+  digest: string | undefined,
 ): Promise<DeskOutcome> {
-  const parsed = parseProjectScriptArguments(args);
-  if (!parsed.ok) throw new WorktreeGitError(parsed.message);
   const row = owner.kind === "task"
     ? await childTask(context, owner.taskId, "inspect")
     : undefined;
@@ -359,7 +383,20 @@ export async function runScript(
       script?.reason ?? `${name} is no longer available.`,
     );
   }
-  const command = commandEvidence(["discern", "scripts", name, ...parsed.args]);
+  const command = commandEvidence(["discern", "scripts", name, ...args]);
+  if (
+    script.path !== undefined && digest !== undefined &&
+    await context.runtime.fileDigest(script.path) !== digest
+  ) {
+    return {
+      command,
+      ok: false,
+      message: {
+        tone: "warning",
+        text: `${name} changed since you reviewed it; nothing ran`,
+      },
+    };
+  }
   echoDeskCommand(
     out,
     `${command}  (in ${row?.task.name ?? basename(context.root)})`,
@@ -367,7 +404,7 @@ export async function runScript(
   const code = await context.runtime.runScript(
     directory,
     name,
-    parsed.args,
+    args,
     deskSessionEnv(),
     script.path,
   );
@@ -383,66 +420,176 @@ export async function runScript(
 }
 
 /** Check for updates: the disclosure, then the release page in the browser. */
-export function prepareUpdates(context: DeskFlowContext): DeskPrepared {
-  const facts = {
-    version: DISCERN_VERSION,
-    trunk: context.config.repository.trunk,
-    ...(context.state.data === undefined ? {} : { data: context.state.data }),
-  };
-  const command = commandEvidence(["discern", "releases"]);
-  return {
-    content: {
-      title: `${labelName(DESK_COMMAND_LABELS.updates)}?`,
-      lines: commandConsequenceLines("updates", facts).map((line) => ({
-        mark: line.mark,
-        text: line.text,
-      })),
-      command,
-      footnote: untilChosen("opens", OPEN),
-      safeLabel: "Cancel",
-      confirmLabel: OPEN,
-    },
-    confirm: {
-      kind: "apply",
-      handoff: "Opening the release page in your browser",
-      apply: async (): Promise<DeskOutcome> => {
-        const result = await executeDeskOperation(
-          context.root,
-          { command: "releases" },
-          () =>
-            releasesResult(context.root, {
-              mode: "desk",
-              stdinTty: true,
-              stdoutTty: true,
-              dryRun: false,
-            }, {
-              now: context.runtime.now,
-              open: async (url) => await context.runtime.openBrowser(url),
-            }),
-        );
-        if (!result.ok) {
-          return failedWith(command, "The release page didn't open", {
-            ...result,
-            hints: [],
-          });
-        }
-        if (result.data?.launch_succeeded === true) {
-          return {
-            command,
-            ok: true,
-            message: { tone: "success", text: "Opened the release page" },
-          };
-        }
-        // The browser could not open: the reading carries the page's address.
-        return {
-          ...failedWith(command, "Release information", result, {
-            tone: "warning",
-            text:
-              "Your browser didn't open; the release page's address follows",
-          }),
-          ok: true,
-        };
+const UPDATES_FLOW: DeskFlow = {
+  review: (context) =>
+    Promise.resolve(reviewFor({
+      kind: "command",
+      command: "updates",
+      facts: {
+        version: DISCERN_VERSION,
+        trunk: context.config.repository.trunk,
+        ...(context.state.data === undefined
+          ? {}
+          : { data: context.state.data }),
       },
-    },
-  };
+    }, {
+      bound: { "running-version": DISCERN_VERSION },
+      footnote: untilChosen("opens", OPEN),
+      handoff: "Opening the release page in your browser",
+    })),
+  apply: async (context): Promise<DeskOutcome> => {
+    const command = commandEvidence(
+      DESK_COMMAND_REGISTRY.updates.command().argv,
+    );
+    const result = await executeDeskOperation(
+      context.root,
+      { command: "releases" },
+      () =>
+        releasesResult(context.root, {
+          mode: "desk",
+          stdinTty: true,
+          stdoutTty: true,
+          dryRun: false,
+        }, {
+          now: context.runtime.now,
+          open: async (url) => await context.runtime.openBrowser(url),
+        }),
+    );
+    if (!result.ok) {
+      const title = "The release page didn't open";
+      return {
+        command,
+        ok: false,
+        message: { tone: "danger", text: title },
+        result: failureSheet(title, result.message ?? title, command),
+      };
+    }
+    if (result.data?.launch_succeeded === true) {
+      return {
+        command,
+        ok: true,
+        message: { tone: "success", text: "Opened the release page" },
+      };
+    }
+    // The browser could not open: the sheet carries the page's address.
+    const title = "Your browser didn't open";
+    return {
+      command,
+      ok: true,
+      message: {
+        tone: "warning",
+        text: "Your browser didn't open; the release page's address follows",
+      },
+      result: {
+        title,
+        lines: [
+          {
+            mark: "failure",
+            text: result.data?.launch_message ?? title,
+            source: { kind: "result", field: "data.launch_message" },
+          },
+          {
+            mark: "changes",
+            text: "Open the release page yourself:",
+            ...(result.data === undefined
+              ? {}
+              : { detail: [result.data.urls.html] }),
+            source: { kind: "result", field: "data.urls.html" },
+          },
+        ],
+        command,
+      },
+    };
+  },
+};
+
+/** Where a script runs, as its review names it. */
+function scriptPlace(context: DeskFlowContext, step: DeskFlowStep): {
+  readonly owner: DeskScriptOwner;
+  readonly row?: DeskRow;
+  readonly where: string;
+} {
+  if (step.kind === "action") {
+    const row = stepRow(context, step);
+    return {
+      owner: { kind: "task", taskId: step.taskId },
+      row,
+      where: row.task.name,
+    };
+  }
+  return { owner: { kind: "main" }, where: "the main checkout" };
 }
+
+/**
+ * A Project Script's review: its literal arguments, where it runs, and the
+ * script it runs, bound to that script's path and contents.
+ */
+const SCRIPTS_FLOW: DeskFlow = {
+  review: async (context, step) => {
+    const name = step.values?.script ?? "";
+    const parsed = parseProjectScriptArguments(step.values?.args ?? "");
+    const { owner, row, where } = scriptPlace(context, step);
+    const inventory = row === undefined
+      ? await scriptInventory(context, context.root)
+      : { directory: row.entry.path, scripts: row.scripts };
+    const script = inventory.scripts.find((candidate) =>
+      candidate.name === name
+    );
+    const args = parsed.ok ? parsed.args : [];
+    const argv = ["discern", "scripts", name, ...args];
+    const read = {
+      question: `Run ${name} in ${where}?`,
+      facts: { script: { argv, where } },
+      argv,
+      core: { kind: "script" as const, owner, name, args },
+      bound: {
+        "script-path": script?.path ?? name,
+        "script-digest": script?.path === undefined
+          ? "unknown"
+          : await context.runtime.fileDigest(script.path),
+        argv: commandEvidence(argv),
+        "main-path": context.root,
+      },
+      blockers: [
+        ...(parsed.ok ? [] : [parsed.message]),
+        ...(script === undefined || script.availability === "disabled"
+          ? [script?.reason ?? `${name} is no longer available.`]
+          : []),
+      ],
+      confirmLabel: RUN,
+      footnote: untilChosen("runs", RUN),
+      handoff:
+        `Running ${name} in ${where} · it owns the terminal until it exits`,
+    };
+    return row === undefined
+      ? reviewFor({
+        kind: "command",
+        command: "main_scripts",
+        facts: {
+          version: DISCERN_VERSION,
+          trunk: context.config.repository.trunk,
+        },
+      }, read)
+      : reviewFor(actionTarget(context, row, offerFor(row, "scripts")), read);
+  },
+  apply: async (context, step, expected, { out }) => {
+    if (step.kind === "action") {
+      const changed = await rebound(context, step, expected, "scripts");
+      if (changed !== undefined) return changed;
+    }
+    if (expected.core?.kind !== "script") {
+      throw new TypeError("A script runs only its reviewed arguments.");
+    }
+    const { owner, name, args } = expected.core;
+    const digest = expected.facts["script-digest"];
+    return await runScript(context, out, owner, name, args, digest);
+  },
+};
+
+/** The children family's reviewed flows, by registry action or command. */
+export const CHILDREN_FLOWS = {
+  agent: BRIEF_FLOW,
+  scripts: SCRIPTS_FLOW,
+  main_scripts: SCRIPTS_FLOW,
+  updates: UPDATES_FLOW,
+} as const satisfies Readonly<Record<string, DeskFlow>>;

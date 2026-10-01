@@ -16,7 +16,12 @@ import {
 } from "./menu_view.ts";
 import { deskPalette } from "./palette_view.ts";
 import { deskReader, type DeskReaderEnv } from "./reader_view.ts";
-import { deskForm, type DeskSheetEnv, reviewSheet } from "./sheet_view.ts";
+import {
+  deskForm,
+  type DeskSheetEnv,
+  resultSheetView,
+  reviewSheet,
+} from "./sheet_view.ts";
 
 /** What layers read besides product state. */
 export type DeskLayerEnv = DeskReaderEnv & DeskSheetEnv;
@@ -51,6 +56,8 @@ function layerView(
       return reviewSheet(state, layer);
     case "form":
       return deskForm(state, layer, env);
+    case "result":
+      return resultSheetView(state, layer.sheet);
   }
 }
 

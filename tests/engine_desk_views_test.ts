@@ -29,7 +29,7 @@ import {
   evidenceKey,
   taskEvidenceSubject,
 } from "../src/engine/desk/evidence.ts";
-import type { DeskPrepared } from "../src/engine/desk/flow_types.ts";
+import type { DeskReview } from "../src/engine/desk/flow_types.ts";
 import {
   FLEET_ROW_STATES,
   rowStateLabel,
@@ -44,6 +44,7 @@ import {
   PRODUCT_UI,
   PRODUCT_VIEW_ENV,
   productSurvey,
+  readyReview,
 } from "./fixtures/desk_product.ts";
 
 const ENV = { ...PRODUCT_VIEW_ENV, now: NOW };
@@ -308,31 +309,47 @@ Deno.test("every layer the Desk opens is a view the package renders", () => {
     kind: "action" as const,
     action: "drop" as const,
     taskId: "alpha",
-    stage: "challenge" as const,
+    stage: "review" as const,
   };
-  const prepared: DeskPrepared = {
-    content: {
-      title: "Drop Alpha?",
-      lines: [
-        { mark: "discards", text: "Discards 2 uncommitted files" },
-        { text: "Context line" },
-      ],
+  const prepared: DeskReview = readyReview("Drop Alpha?", {
+    lines: [
+      {
+        mark: "discards",
+        text: "Discards 2 uncommitted changes",
+        source: { kind: "plan", key: "discards" },
+      },
+      {
+        mark: "failure",
+        text: "Conflict",
+        detail: ["src/a.ts"],
+        source: { kind: "result", field: "message" },
+      },
+      {
+        mark: "changes",
+        text: "Lands 2 commits · 1 file",
+        diff: { insertions: 3, deletions: 1 },
+        source: { kind: "plan", key: "lands" },
+      },
+    ],
+    disclosures: {
       plan: { title: "Drop plan", details: ["Branch: agent/alpha"], steps: [] },
       command: "discern worktree drop /worktrees/alpha",
-      challenge: { mustEqual: "agent/alpha" },
-      footnote: "Its last commit is kept for a while.",
-      safeLabel: "Keep",
-      confirmLabel: "Drop",
-      destructive: true,
-      blocked: "Another landing holds the turn",
-      alternatives: [{
-        id: "park",
-        label: "Park instead",
-        key: "p",
-        step: { ...step, action: "park", stage: "review" },
-      }],
+      changes: { taskId: "alpha", files: 1, insertions: 3, deletions: 1 },
+      open: "command",
     },
-  };
+    challenge: { mustEqual: "agent/alpha" },
+    footnote: "Its last commit is kept for a while.",
+    safeLabel: "Keep",
+    confirmLabel: "Drop",
+    destructive: true,
+    blockers: ["Another landing holds the turn"],
+    alternatives: [{
+      id: "park",
+      label: "Park instead",
+      key: "p",
+      intent: { kind: "action", action: "park", id: "alpha" },
+    }],
+  });
   const review = {
     trunk: "main",
     proof: { status: "honored" as const },
@@ -423,10 +440,13 @@ Deno.test("every layer the Desk opens is a view the package renders", () => {
       reader: { kind: "notice", title: "Project Scripts", lines: ["None"] },
     },
     {
-      kind: "reader",
-      reader: {
-        kind: "result",
-        result: { title: "Checks failed", markdown: "**test** failed" },
+      kind: "result",
+      sheet: {
+        title: "Checks failed",
+        lines: prepared.lines,
+        output: "**test** failed",
+        command: "discern done",
+        taskId: "alpha",
       },
     },
     { kind: "review", step, load: { state: "loading" } },
@@ -437,11 +457,21 @@ Deno.test("every layer the Desk opens is a view the package renders", () => {
       step: { ...step, taskId: "gone" },
       load: { state: "ready", value: prepared },
     },
-    {
+    ...([
+      { state: "loading" },
+      { state: "failed", error: "start refused" },
+      {
+        state: "ready",
+        value: readyReview("Create New?", {
+          expected: { facts: { "branch-name": "agent/new" } },
+        }),
+      },
+    ] as const).map((load): DeskLayer => ({
       kind: "form",
       step: { kind: "command", command: "new_task", stage: "review" },
       values: { title: "New", brief: "Line one\nLine two", base: "main" },
-    },
+      load,
+    })),
     {
       kind: "form",
       step: {
@@ -451,6 +481,7 @@ Deno.test("every layer the Desk opens is a view the package renders", () => {
         stage: "review",
       },
       values: {},
+      load: { state: "loading" },
     },
     {
       kind: "form",
@@ -461,6 +492,12 @@ Deno.test("every layer the Desk opens is a view the package renders", () => {
         stage: "review",
       },
       values: { title: "Alpha" },
+      load: {
+        state: "ready",
+        value: readyReview("Rename Alpha?", {
+          blockers: ["Type a different title to rename it."],
+        }),
+      },
     },
     {
       kind: "form",
@@ -472,6 +509,7 @@ Deno.test("every layer the Desk opens is a view the package renders", () => {
         values: { script: "deploy" },
       },
       values: { args: "'unclosed" },
+      load: { state: "failed", error: "Unclosed quote" },
     },
   ];
   for (const layer of layers) {

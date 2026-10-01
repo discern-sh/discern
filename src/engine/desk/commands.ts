@@ -18,14 +18,22 @@ import {
   DESK_COMMANDS,
   type DeskCommand,
 } from "../../shared/desk_vocabulary.ts";
-import type {
-  DeskBindingFact,
-  DeskCommandEvidence,
-  DeskConfirmationPolicy,
-  DeskConsequenceLine,
-  DeskConsequenceMark,
-  DeskEffect,
+import {
+  type DeskBindingFact,
+  type DeskCommandEvidence,
+  type DeskConfirmationPolicy,
+  type DeskConsequenceMark,
+  type DeskEffect,
+  SCRIPT_CONSEQUENCES,
+  START_CONSEQUENCES,
 } from "./model.ts";
+import {
+  consequence,
+  type DeskConsequenceItem,
+  type DeskConsequenceLine,
+  type DeskReviewFacts,
+  resolveConsequences,
+} from "./review_facts.ts";
 
 export { DESK_COMMANDS, type DeskCommand };
 
@@ -68,11 +76,14 @@ export interface DeskCommandFacts {
   readonly sessionOperations?: number;
 }
 
+/** What a command's review lines read: its facts and what it previewed. */
+export interface DeskCommandReviewFacts
+  extends DeskReviewFacts, DeskCommandFacts {}
+
 /** One declared consequence of a command, resolved against its facts. */
-export interface DeskCommandConsequence {
-  readonly mark: DeskConsequenceMark;
-  readonly text: (facts: DeskCommandFacts) => string;
-}
+export type DeskCommandConsequence = DeskConsequenceItem<
+  DeskCommandReviewFacts
+>;
 
 /** One registered command's complete contract. */
 export interface DeskCommandMetadata {
@@ -104,9 +115,9 @@ export interface DeskCommandMetadata {
 /** One consequence of a command, in the registry's line shape. */
 function said(
   mark: DeskConsequenceMark,
-  text: string | ((facts: DeskCommandFacts) => string),
+  text: DeskCommandConsequence["text"],
 ): DeskCommandConsequence {
-  return { mark, text: typeof text === "string" ? (): string => text : text };
+  return consequence(mark, text);
 }
 
 /** A no-default confirmation with its safe and effect buttons. */
@@ -137,7 +148,7 @@ export const DESK_COMMAND_REGISTRY = {
     binding: ["base-commit", "branch-name"],
     summary: "Start a task in its own checkout and branch",
     consequence: [
-      said("changes", "Creates a branch and its own checkout, then runs setup"),
+      ...START_CONSEQUENCES,
       said("keeps", "Landing permission stays a separate decision"),
     ],
     command: (): DeskCommandEvidence => ({
@@ -153,13 +164,7 @@ export const DESK_COMMAND_REGISTRY = {
     confirmation: confirm("Cancel", "Run"),
     binding: ["main-path", "script-path", "script-digest", "argv"],
     summary: "Run one of the project's scripts in the main checkout",
-    consequence: [
-      said(
-        "changes",
-        "Runs the chosen script in the main checkout; it owns the terminal until it exits",
-      ),
-      said("warning", "Scripts don't declare what they change"),
-    ],
+    consequence: SCRIPT_CONSEQUENCES,
     command: (): DeskCommandEvidence => ({
       argv: ["discern", "scripts", "<name>"],
       workingDirectory: "main",
@@ -365,7 +370,7 @@ export const DESK_COMMAND_REGISTRY = {
     binding: ["parked-record", "parked-head"],
     summary: "Give the branch a checkout again, with its title and brief",
     consequence: [
-      said("changes", "Creates a checkout from the branch's last commit"),
+      ...START_CONSEQUENCES,
       said("keeps", "Keeps the branch and its commits"),
     ],
     command: (): DeskCommandEvidence => ({
@@ -413,16 +418,16 @@ export const DESK_COMMAND_REGISTRY = {
   },
 } as const satisfies Readonly<Record<DeskCommand, DeskCommandMetadata>>;
 
-/** Resolve one command's consequences against its observed facts. */
+/** Resolve one command's consequences against its facts and preview. */
 export function commandConsequenceLines(
   command: DeskCommand,
-  facts: DeskCommandFacts,
+  facts: DeskCommandFacts & Partial<Pick<DeskReviewFacts, "plan">>,
 ): DeskConsequenceLine[] {
   const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
-  return metadata.consequence.map((item) => ({
-    mark: item.mark,
-    text: item.text(facts),
-  }));
+  return resolveConsequences(command, metadata.consequence, {
+    ...facts,
+    plan: facts.plan ?? {},
+  });
 }
 
 /**

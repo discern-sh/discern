@@ -31,7 +31,7 @@ export {
 } from "./execution.ts";
 import { readProofNoteAt } from "../gate/proof_notes.ts";
 import { runDocs } from "../../commands/docs.ts";
-import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -89,8 +89,8 @@ import {
 } from "../worktree/lifecycle.ts";
 import { mainRepoPath } from "../worktree/git.ts";
 import { commandExists, runGit } from "../../shared/subprocess.ts";
+import { sha256Hex } from "../../shared/sha256.ts";
 import { makeOut, type Out } from "../output.ts";
-import { withCompletionPublication } from "../operation_lock.ts";
 import { latestOperationRecord } from "../completion/operation_journal.ts";
 import {
   type DeskProjectScript,
@@ -116,17 +116,8 @@ import { DISCERN_VERSION } from "../../lib/version.ts";
 import { terminalContext } from "../../lib/terminal.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
 import { simpleCommandArgv } from "./literal_argv.ts";
-import {
-  clearEffortGrant,
-  clearEffortGrantPlan,
-} from "../worktree/effort_grant_cleanup.ts";
-import {
-  effortGrantPlan,
-  type EffortGrantWrite,
-  grantEffort,
-} from "../worktree/effort_grant_writer.ts";
 import { acceptLandingResult } from "../worktree/accept.ts";
-import type { DropPlan } from "../worktree/plan.ts";
+import type { DropPlan, ParkPlan, ReclaimPlan } from "../worktree/plan.ts";
 import type { DeskEditorCommand } from "./contracts.ts";
 import type {
   DeskIntent,
@@ -139,7 +130,11 @@ import { type DeskFlows, liveDesk } from "./live.ts";
 import { foldedGroups } from "./inbox_view.ts";
 import { DESK_EVIDENCE_TIMEOUT_MS } from "./evidence.ts";
 import type { DeskFlowContext } from "./flows/context.ts";
-import { prepareStep } from "./flows/prepare.ts";
+import { applyStep, reviewStep } from "./flows/registry.ts";
+import {
+  type DeskLandingPermission,
+  LANDING_PERMISSION_RUNTIME,
+} from "./flows/landing.ts";
 import {
   readBranchCommits,
   readCapabilities,
@@ -147,7 +142,7 @@ import {
   readLandedProof,
   scriptInventory,
 } from "./flows/reading.ts";
-import { runChild, runScript } from "./flows/children.ts";
+import { runChild } from "./flows/children.ts";
 import { startLaunches } from "./flows/start.ts";
 
 /** Flags accepted by `desk`. */
@@ -167,7 +162,7 @@ type DeskScriptDiscovery =
  * Production keeps its runtime private; tests replace it with a scripted
  * runtime so every supervisory path is exercised without pretending a pipe is
  * a terminal or touching a real worktree. */
-export interface DeskRuntime {
+export interface DeskRuntime extends DeskLandingPermission {
   docs(): DeskMaybePromise<number>;
   canInteract(): boolean;
   inDeskSession(): boolean;
@@ -180,16 +175,6 @@ export interface DeskRuntime {
     hints?: readonly string[] | undefined;
   }>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
-  grantEffortPlan(
-    path: string,
-    branch: string,
-  ): DeskMaybePromise<EnginePlan>;
-  grantEffort(
-    path: string,
-    branch: string,
-  ): DeskMaybePromise<EffortGrantWrite>;
-  clearEffortGrantPlan(path: string): DeskMaybePromise<EnginePlan>;
-  clearEffortGrant(path: string): DeskMaybePromise<boolean>;
   makeOut(): Out;
   error(message: string): void;
   application(
@@ -246,12 +231,12 @@ export interface DeskRuntime {
   parkPlan(
     ctx: LifecycleContext,
     target: string,
-  ): DeskMaybePromise<EnginePlan>;
+  ): DeskMaybePromise<EnginePlan & { subject?: ParkPlan }>;
   reclaim(ctx: LifecycleContext, target: string): DeskMaybePromise<void>;
   reclaimPlan(
     ctx: LifecycleContext,
     target: string,
-  ): DeskMaybePromise<EnginePlan>;
+  ): DeskMaybePromise<EnginePlan & { subject?: ReclaimPlan }>;
   git(
     args: string[],
     cwd: string,
@@ -316,6 +301,8 @@ export interface DeskRuntime {
     expectedExecutable?: string,
   ): DeskMaybePromise<number>;
   openBrowser(url: string): DeskMaybePromise<BrowserOpenResult>;
+  /** A file's content digest, binding a reviewed script to what runs. */
+  fileDigest(path: string): DeskMaybePromise<string>;
   now(): number;
   /** Timers for the refresh cadence, the selection settle, and running clocks. */
   readonly scheduler: Scheduler;
@@ -364,20 +351,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root, { all: true }),
   mainRepoPath: (root) => mainRepoPath(root),
-  grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
-  grantEffort: (path, branch) =>
-    executeDeskOperation(
-      path,
-      { command: "desk grant" },
-      () => grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
-    ),
-  clearEffortGrantPlan: (path) => clearEffortGrantPlan(path),
-  clearEffortGrant: (path) =>
-    executeDeskOperation(
-      path,
-      { command: "desk revoke" },
-      () => withCompletionPublication(path, () => clearEffortGrant(path)),
-    ),
+  ...LANDING_PERMISSION_RUNTIME,
   makeOut: () => {
     const terminal = terminalContext();
     return makeOut(terminal.color, { terminal });
@@ -576,6 +550,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   runScript: (root, name, args, env, expectedExecutable) =>
     runDeskProjectScript(root, name, args, env, expectedExecutable),
   openBrowser: (url) => openInBrowser(url),
+  fileDigest: async (path) => await sha256Hex(await Deno.readTextFile(path)),
   now: SYSTEM_CLOCK.wallNow,
   scheduler: SYSTEM_SCHEDULER,
   readTipState: (root) => readTipSeenState(root, DISCERN_VERSION),
@@ -602,18 +577,11 @@ function handoffLine(
 ): string {
   switch (effect.kind) {
     case "apply":
-      return effect.prepared.confirm?.kind === "apply"
-        ? effect.prepared.confirm.handoff
+      return effect.review.confirm?.kind === "apply"
+        ? effect.review.confirm.handoff
         : "Running · output continues below";
     case "exit":
       return "Leaving the desk";
-    case "script":
-      return `Running ${effect.name} in ${
-        childPlace(
-          state,
-          effect.owner.kind === "task" ? effect.owner.taskId : undefined,
-        )
-      } · it owns the terminal until it exits`;
     case "child":
       break;
   }
@@ -672,7 +640,7 @@ function deskFlows(
     ...(cliModel === undefined ? {} : { cliModel }),
   });
   return {
-    prepare: (state, step) => prepareStep(context(state), step),
+    review: (state, step) => reviewStep(context(state), step),
     read: async (state, reader) => {
       switch (reader.kind) {
         case "changes":
@@ -719,25 +687,20 @@ function deskFlows(
       const out = runtime.makeOut();
       switch (effect.kind) {
         case "apply":
-          if (effect.prepared.confirm?.kind !== "apply") {
-            throw new TypeError("This review has nothing to apply.");
-          }
-          return await effect.prepared.confirm.apply({
-            out,
-            ...(effect.challenge === undefined
-              ? {}
-              : { challenge: effect.challenge }),
-          });
+          return await applyStep(
+            context(state),
+            effect.step,
+            effect.review.expected,
+            {
+              out,
+              ...(effect.challenge === undefined
+                ? {}
+                : { challenge: effect.challenge }),
+              ...(effect.open === undefined ? {} : { open: effect.open }),
+            },
+          );
         case "child":
           return await runChild(context(state), out, effect.child);
-        case "script":
-          return await runScript(
-            context(state),
-            out,
-            effect.owner,
-            effect.name,
-            effect.args,
-          );
         case "exit":
           throw new TypeError("Leaving the desk runs nothing.");
       }

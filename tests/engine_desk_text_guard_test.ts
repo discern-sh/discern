@@ -19,6 +19,7 @@ import { createCliBlock, renderMarkdownCli } from "discern-design-system/cli";
 import { assertNamedCasesAsync } from "./assert_cases.ts";
 import { scanDeskModules } from "./desk_module_scan.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
+import { readyReview } from "./fixtures/desk_product.ts";
 import { deskLine, deskLiteral } from "../src/engine/desk/text.ts";
 import {
   type DeskIntent,
@@ -191,10 +192,17 @@ Deno.test("Desk text guard", async () => {
           reader: { kind: "notice", title: "Notice", lines: [multiline] },
         },
         {
-          kind: "reader",
-          reader: {
-            kind: "result",
-            result: { title: "It didn't complete", markdown: multiline },
+          kind: "result",
+          sheet: {
+            title: "It didn't complete",
+            lines: [{
+              mark: "failure",
+              text: multiline,
+              detail: [multiline],
+              source: { kind: "result", field: "message" },
+            }],
+            output: multiline,
+            command: multiline,
           },
         },
         {
@@ -202,18 +210,17 @@ Deno.test("Desk text guard", async () => {
           step,
           load: {
             state: "ready",
-            value: {
-              content: {
-                title: "Park Alpha?",
-                lines: [{ text: multiline }, {
-                  mark: "warning",
-                  text: multiline,
-                }],
-                footnote: multiline,
-                safeLabel: "Keep",
-                confirmLabel: "Park",
-              },
-            },
+            value: readyReview("Park Alpha?", {
+              lines: [{
+                mark: "warning",
+                text: multiline,
+                source: { kind: "registry", bucket: "park", index: 0 },
+              }],
+              blockers: [multiline],
+              footnote: multiline,
+              safeLabel: "Keep",
+              confirmLabel: "Park",
+            }),
           },
         },
         { kind: "review", step, load: { state: "failed", error: multiline } },
@@ -221,6 +228,7 @@ Deno.test("Desk text guard", async () => {
           kind: "form",
           step: { ...step, action: "follow_up" },
           values: { brief: multiline },
+          load: { state: "failed", error: multiline },
         },
       ];
       const views: Array<[string, DeskProductState]> = [

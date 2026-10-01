@@ -32,12 +32,14 @@ import type {
 import type { DeskFlowStep } from "./flow_types.ts";
 import {
   closeLayer,
+  formValuesKey,
   layerId,
   open,
   parkedBranches,
   parkedRowId,
   refresh,
   renameTitle,
+  resultAlternatives,
   rowRef,
   toast,
 } from "./desk_transitions.ts";
@@ -104,6 +106,20 @@ function review(state: DeskProductState, step: DeskFlowStep): DeskTransition {
   return open(state, { kind: "review", step, load: { state: "loading" } });
 }
 
+/** Open a form that reads its preview for its starting values. */
+function form(
+  state: DeskProductState,
+  step: DeskFlowStep,
+  values: Readonly<Record<string, string>>,
+): DeskTransition {
+  return open(state, {
+    kind: "form",
+    step,
+    values,
+    load: { state: "loading" },
+  });
+}
+
 /** Run one available action on a task, from any route. */
 function startAction(
   state: DeskProductState,
@@ -164,17 +180,11 @@ function startAction(
           },
         });
     case "rename":
-      return open(state, {
-        kind: "form",
-        step: actionStep("rename", row),
-        values: { title: renameTitle(row) },
+      return form(state, actionStep("rename", row), {
+        title: renameTitle(row),
       });
     case "follow_up":
-      return open(state, {
-        kind: "form",
-        step: actionStep("follow_up", row),
-        values: {},
-      });
+      return form(state, actionStep("follow_up", row), {});
     default:
       return review(state, actionStep(action, row));
   }
@@ -278,17 +288,11 @@ function commandIntent(
   if (reader !== undefined) return open(state, reader);
   switch (command) {
     case "new_task":
-      return open(state, {
-        kind: "form",
-        step: commandStep("new_task"),
-        values: {},
-      });
+      return form(state, commandStep("new_task"), {});
     case "resume":
-      return ref === undefined ? UNCHANGED(state) : open(state, {
-        kind: "form",
-        step: commandStep("resume", ref),
-        values: {},
-      });
+      return ref === undefined
+        ? UNCHANGED(state)
+        : form(state, commandStep("resume", ref), {});
     case "main_scripts":
       return open(state, {
         kind: "scripts",
@@ -464,11 +468,7 @@ function chooseScript(
   }
   const step = scriptStep(state, picker.owner, name);
   if (step === undefined) return UNCHANGED(state);
-  return open(closeLayer(state, "scripts"), {
-    kind: "form",
-    step,
-    values: { args: "" },
-  });
+  return form(closeLayer(state, "scripts"), step, { args: "" });
 }
 
 /** The form step that collects a script's arguments. */
@@ -486,80 +486,73 @@ function scriptStep(
     : undefined;
 }
 
-/** A sheet's or form's confirm button. */
+/**
+ * A sheet's or form's confirm button. A review that asks a further question
+ * opens it; otherwise the effect takes the terminal, bound to the review,
+ * and the sheet or form closes with it. A form applies only the preview of
+ * the values on screen, and only once nothing blocks it.
+ */
 function confirm(
   state: DeskProductState,
   id: string,
   ui: DeskUi,
+  openAgent: string | undefined,
 ): DeskTransition {
   const layer = state.layers.find((candidate) => layerId(candidate) === id);
-  if (layer === undefined) return UNCHANGED(state);
-  if (layer.kind === "review") {
-    if (layer.load.state !== "ready") return UNCHANGED(state);
-    const prepared = layer.load.value;
-    if (prepared.confirm === undefined) return UNCHANGED(state);
-    if (prepared.confirm.kind === "review") {
-      return review(closeLayer(state, id), prepared.confirm.step);
-    }
-    // The effect owns the terminal next; a form that collected its values
-    // closes with it.
-    const remaining = state.layers.filter((candidate) =>
-      candidate.kind !== "form" && layerId(candidate) !== id
-    );
-    const challenge = ui.fields[id]?.challenge;
-    return {
-      state: { ...state, layers: remaining },
-      effects: [{
-        kind: "apply",
-        step: layer.step,
-        prepared,
-        ...(challenge === undefined ? {} : { challenge }),
-      }],
-    };
+  if (layer?.kind !== "review" && layer?.kind !== "form") {
+    return UNCHANGED(state);
   }
-  if (layer.kind !== "form") return UNCHANGED(state);
-  const values = {
-    ...layer.step.values,
-    ...layer.values,
-    ...(ui.fields[id] ?? {}),
-  };
-  const step: DeskFlowStep = { ...layer.step, values };
+  if (layer.load.state !== "ready") return UNCHANGED(state);
   if (
-    (step.kind === "action" && step.action === "scripts") ||
-    (step.kind === "command" && step.command === "main_scripts")
-  ) {
-    const owner: DeskScriptOwner = step.kind === "action"
-      ? { kind: "task", taskId: step.taskId }
-      : { kind: "main" };
-    return {
-      state: closeLayer(state, id),
-      effects: [{
-        kind: "script",
-        owner,
-        name: values.script ?? "",
-        args: values.args ?? "",
-      }],
-    };
+    layer.kind === "form" && layer.readFor !== formValuesKey(layer.values)
+  ) return UNCHANGED(state);
+  const read = layer.load.value;
+  if (read.confirm === undefined || read.blockers.length > 0) {
+    return UNCHANGED(state);
   }
-  return review(state, step);
+  if (read.confirm.kind === "review") {
+    return review(closeLayer(state, id), read.confirm.step);
+  }
+  const challenge = ui.fields[id]?.challenge;
+  return {
+    state: closeLayer(state, id),
+    effects: [{
+      kind: "apply",
+      step: layer.kind === "form"
+        ? { ...layer.step, values: { ...layer.step.values, ...layer.values } }
+        : layer.step,
+      review: read,
+      ...(challenge === undefined ? {} : { challenge }),
+      ...(openAgent === undefined ? {} : { open: openAgent }),
+    }],
+  };
 }
 
-/** A sheet's alternative button switches to another review. */
+/** An alternative button: the sheet closes and its intent runs. */
 function alternative(
   state: DeskProductState,
   id: string,
   button: string,
+  ui: DeskUi,
 ): DeskTransition {
   const layer = state.layers.find((candidate) => layerId(candidate) === id);
-  if (layer?.kind !== "review" || layer.load.state !== "ready") {
-    return UNCHANGED(state);
-  }
-  const choice = layer.load.value.content.alternatives?.find((candidate) =>
-    candidate.id === button
-  );
+  const choices = layer?.kind === "review" && layer.load.state === "ready"
+    ? layer.load.value.alternatives
+    : layer?.kind === "result"
+    ? resultAlternatives(state, layer.sheet)
+    : [];
+  const choice = choices.find((candidate) => candidate.id === button);
   return choice === undefined
     ? UNCHANGED(state)
-    : review(closeLayer(state, id), choice.step);
+    : intentTransition(closeLayer(state, id), choice.intent, ui);
+}
+
+/** Read a review again: the same step, from a fresh preview. */
+function reviewAgain(state: DeskProductState, id: string): DeskTransition {
+  const layer = state.layers.find((candidate) => layerId(candidate) === id);
+  return layer?.kind === "review"
+    ? review(closeLayer(state, id), layer.step)
+    : UNCHANGED(state);
 }
 
 /** Resolve one intent. */
@@ -583,9 +576,11 @@ export function intentTransition(
         effects: [{ kind: "select", id: intent.id }],
       };
     case "confirm":
-      return confirm(state, intent.layer, ui);
+      return confirm(state, intent.layer, ui, intent.open);
+    case "review-again":
+      return reviewAgain(state, intent.layer);
     case "alternative":
-      return alternative(state, intent.layer, intent.id);
+      return alternative(state, intent.layer, intent.id, ui);
     case "launch":
       return launch(state, intent.taskId, intent.launch);
     case "script":

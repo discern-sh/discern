@@ -55,6 +55,7 @@ const BOUNDARIES = {
   scripts: null,
   runScript: "runDeskProjectScript",
   openBrowser: null,
+  fileDigest: null,
   now: null,
   scheduler: null,
   readTipState: null,
@@ -96,9 +97,30 @@ Deno.test("Desk task effects cross shared execution and never acquire direct ope
   const defaults = source.getVariableDeclarationOrThrow("DEFAULT_DESK_RUNTIME")
     .getInitializerOrThrow();
   assert(Node.isObjectLiteralExpression(defaults));
+  // A runtime member spread in from another Desk module, such as the
+  // landing flow's permission seams, is classified where it is written.
+  const literals = [
+    defaults,
+    ...defaults.getProperties().filter(Node.isSpreadAssignment).map(
+      (spread) => {
+        const name = spread.getExpression().getText();
+        const initializer = project.getSourceFiles().flatMap((file) =>
+          file.getVariableDeclarations()
+        ).find((declaration) => declaration.getName() === name)
+          ?.getInitializer();
+        assert(
+          Node.isObjectLiteralExpression(initializer),
+          `${name} must be an object literal in a Desk module`,
+        );
+        return initializer;
+      },
+    ),
+  ];
   for (const [method, executor] of Object.entries(BOUNDARIES)) {
     if (executor === null) continue;
-    const property = defaults.getPropertyOrThrow(method);
+    const property = literals.map((literal) => literal.getProperty(method))
+      .find((candidate) => candidate !== undefined);
+    assert(property !== undefined, `${method} has no default runtime`);
     assert(
       property.getDescendantsOfKind(SyntaxKind.CallExpression).some((call) =>
         call.getExpression().getText() === executor

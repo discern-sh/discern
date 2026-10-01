@@ -50,6 +50,7 @@ import {
   inDeskSession,
   withoutDeskSessionEnv,
 } from "../src/engine/desk/session.ts";
+import type { DropPlan } from "../src/engine/worktree/plan.ts";
 import {
   DropWouldDiscardWork,
   IdentityError,
@@ -152,6 +153,25 @@ async function pick(
     await desk.press("right");
   }
   throw new Error(`${fieldId} never offered ${value}`);
+}
+
+/** A Drop plan's subject for a task, discarding `blockers`. */
+function dropSubject(
+  entry: StatusFleetEntry,
+  blockers: readonly string[],
+): DropPlan {
+  return {
+    targetPath: entry.path,
+    id: entry.id ?? entry.path,
+    branch: entry.branch,
+    deleteBranch: true,
+    preserveHead: true,
+    blockers: [...blockers],
+    entries: [],
+    head: "a".repeat(40),
+    endsGrant: false,
+    leavesQueue: false,
+  };
 }
 
 /** Close the top layer with Escape and wait for it to go. */
@@ -632,7 +652,6 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
         await desk.opened("form-follow_up-review");
         await fill(desk, "title", "Follow-up task");
         await desk.confirm();
-        await review(desk);
       },
     },
     scripts: {
@@ -690,7 +709,6 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
         await desk.opened("form-rename-review");
         await fill(desk, "title", "A clearer task title");
         await desk.confirm();
-        await review(desk);
       },
     },
     grant: {
@@ -995,8 +1013,9 @@ Deno.test("Rename changes only the recorded title, through its form and review",
       "Original title",
     );
     await fill(desk, "title", newTitle);
-    await desk.confirm();
-    await desk.opened("review-rename-review");
+    // The technical plan is the core's own preview of the typed title.
+    await desk.settleForm();
+    await desk.press("ctrl-t");
     await desk.shows(`New title: ${newTitle}`);
     await desk.confirm();
     await desk.until(() => applies.length === 1, "the rename");
@@ -1055,6 +1074,8 @@ Deno.test("Run checks reads its plan, runs the shared core once, and Cancel runs
     assertEquals(doneCalls, 0, "Cancel runs nothing");
     await desk.press("c");
     await desk.opened("review-done-review");
+    await desk.shows("Runs this project's checks here");
+    await desk.press("d");
     await desk.shows("Runs the gate");
     await desk.confirm();
     await desk.until(() => doneCalls === 1, "the checks");
@@ -1064,7 +1085,7 @@ Deno.test("Run checks reads its plan, runs the shared core once, and Cancel runs
   assertEquals(doneCalls, 1);
 });
 
-Deno.test("a failed final check or landing keeps its details in the result reader", async () => {
+Deno.test("a failed final check or landing keeps its details in a result sheet", async () => {
   for (const action of ["done", "accept"] as const) {
     const failure = {
       ok: false as const,
@@ -1094,14 +1115,20 @@ Deno.test("a failed final check or landing keeps its details in the result reade
     }, async (desk) => {
       await runAction(desk, "reading", action);
       await desk.confirm();
-      await desk.opened("reader-result");
+      await desk.opened("result");
       await desk.shows(failure.message);
+      assertEquals(
+        desk.state().layers.result?.focusedControlId,
+        "button:safe",
+        `${action}: the result sheet opens on Close`,
+      );
+      await desk.press("o");
       await desk.shows(failure.hints[0] ?? "");
       await close(desk);
       assertEquals(
         desk.state().lists.inbox?.selectedId,
         "reading",
-        `${action}: the reader returns to the selected task`,
+        `${action}: the sheet returns to the selected task`,
       );
     });
   }
@@ -1177,6 +1204,12 @@ Deno.test("Update, Land and Drop preview, confirm, apply, and contain refusals",
   await withDesk({
     runtime: {
       ...surveys(() => deskSurvey([abandoned])),
+      dropPlan: () => ({
+        title: "Drop plan",
+        details: [],
+        steps: [],
+        subject: dropSubject(abandoned, ["1 commit not on main"]),
+      }),
       drop: (_ctx, _target, options) => {
         dropCalls.push(
           options.force === undefined ? {} : {
@@ -1192,14 +1225,19 @@ Deno.test("Update, Land and Drop preview, confirm, apply, and contain refusals",
     await desk.select("abandoned");
     await desk.press("D");
     await desk.opened("review-drop-review");
+    // The plan predicts lost work, so the branch name is asked up front.
+    await desk.shows("Discards 1 commit not on main");
+    await desk.until(
+      () =>
+        desk.state().layers["review-drop-review"]?.focusedControlId ===
+          "field:challenge",
+      "focus in the challenge",
+    );
+    await desk.type(abandoned.branch);
     await desk.confirm();
-    await desk.opened("review-drop-challenge");
-    await desk.shows("unlanded work would be discarded");
-    await fill(desk, "challenge", abandoned.branch);
-    await desk.confirm();
-    await desk.until(() => dropCalls.length === 2, "the forced drop");
+    await desk.until(() => dropCalls.length === 1, "the forced drop");
   });
-  assertEquals(dropCalls, [{}, { force: true }]);
+  assertEquals(dropCalls, [{ force: true }]);
 
   await withDesk({
     cliModel: TEST_CLI_MODEL,
@@ -1393,13 +1431,13 @@ Deno.test("Drop never turns a generic refusal into destructive force", async () 
       await desk.press("D");
       await desk.confirm();
       await desk.shows(error.message);
-      assert(desk.top() !== "review-drop-challenge");
+      assertEquals(desk.top(), undefined, "no challenge follows a refusal");
     });
     assertEquals(calls, [{}]);
   }
 });
 
-Deno.test("New task creates a named task from its form and review, then selects it", async () => {
+Deno.test("New task creates a named task from its form, then selects it", async () => {
   const started = scriptedStart({
     id: "desk-launchers",
     branch: "agent/desk-launchers",
@@ -1417,9 +1455,8 @@ Deno.test("New task creates a named task from its form and review, then selects 
     await desk.press("n");
     await desk.opened("form-new_task-review");
     await fill(desk, "title", "desk launchers");
-    await desk.confirm();
-    await desk.opened("review-new_task-review");
-    await desk.shows("Create desk launchers from main?");
+    await desk.settleForm();
+    await desk.shows("Create branch agent/desk-launchers from main");
     await desk.confirm();
     await desk.until(() => started.created() !== undefined, "the start");
     await desk.until(
@@ -1427,7 +1464,7 @@ Deno.test("New task creates a named task from its form and review, then selects 
       "the new task selected",
     );
   });
-  assertEquals(started.requests, [{
+  assertEquals(started.requests.slice(-1), [{
     worktreeRoot: "/project.worktrees",
     title: "desk launchers",
   }]);
@@ -1450,8 +1487,6 @@ Deno.test("an empty title starts a generated codename and the command says so", 
   }, async (desk) => {
     await desk.press("n");
     await desk.opened("form-new_task-review");
-    await desk.confirm();
-    await desk.opened("review-new_task-review");
     await desk.confirm();
     await desk.until(() => started.created() !== undefined, "the start");
   });
@@ -1496,8 +1531,7 @@ Deno.test("a new task can start from the trunk, a live task, or an unlanded bran
       await fill(desk, "title", title);
       await pick(desk, "base", testCase.base);
       await fill(desk, "brief", brief);
-      await desk.confirm();
-      await desk.opened("review-new_task-review");
+      await desk.settleForm();
       await desk.shows("Landing permission");
       await desk.confirm();
       await desk.until(
@@ -1505,12 +1539,12 @@ Deno.test("a new task can start from the trunk, a live task, or an unlanded bran
         testCase.name,
       );
     });
-    assertEquals(started.requests, [{
+    assertEquals(started.requests.at(-1), {
       worktreeRoot: "/project.worktrees",
       title,
       brief,
       ...(testCase.from === undefined ? {} : { from: testCase.from }),
-    }], testCase.name);
+    }, testCase.name);
     assertEquals(grants, 0, testCase.name);
   }
 });
@@ -1552,9 +1586,9 @@ Deno.test("New task opens the remembered available agent, and a stale one falls 
       await desk.press("n");
       await desk.opened("form-new_task-review");
       await fill(desk, "title", "Human title");
-      await desk.confirm();
-      await desk.opened("review-new_task-review");
-      await desk.confirm();
+      // The remembered agent's own button creates the task and opens it;
+      // a stale one offers no such button.
+      await desk.confirm(testCase.launches > 0 ? "confirm-open" : "confirm");
       await desk.until(() => started.created() !== undefined, testCase.name);
     });
     assertEquals(opened.length, testCase.launches, testCase.name);
@@ -1589,9 +1623,7 @@ Deno.test("an unavailable preference write leaves creation intact and says so", 
   }, async (desk) => {
     await desk.press("n");
     await desk.opened("form-new_task-review");
-    await desk.confirm();
-    await desk.opened("review-new_task-review");
-    await desk.confirm();
+    await desk.confirm("confirm-open");
     await desk.until(() => started.created() !== undefined, "the start");
   });
   assertStringIncludes(
@@ -1601,7 +1633,7 @@ Deno.test("an unavailable preference write leaves creation intact and says so", 
   assertStringIncludes(joinedTranscript(output), "read-only");
 });
 
-Deno.test("task creation returns safely from its form and from its review", async () => {
+Deno.test("task creation creates nothing until Create, whatever its preview read", async () => {
   let plans = 0;
   let starts = 0;
   let writes = 0;
@@ -1624,18 +1656,16 @@ Deno.test("task creation returns safely from its form and from its review", asyn
     await desk.press("n");
     await desk.opened("form-new_task-review");
     await desk.type("Abandoned");
+    await desk.settleForm();
+    await desk.until(() => plans > 0, "the live preview");
     await close(desk);
-    assertEquals(plans, 0, "Cancel on the form plans nothing");
     await desk.press("n");
     await desk.opened("form-new_task-review");
-    await desk.confirm();
-    await desk.opened("review-new_task-review");
-    await desk.until(() => plans === 1, "the plan");
-    await close(desk);
+    await desk.settleForm();
     await close(desk);
   });
-  assertEquals(plans, 1);
-  assertEquals(starts, 0);
+  assert(plans > 0, "the form previews what Create would do");
+  assertEquals(starts, 0, "Cancel creates nothing");
   assertEquals(writes, 0);
 });
 
@@ -1687,11 +1717,9 @@ Deno.test("a parked branch can be read or resumed by its exact ref", async () =>
     await fill(desk, "title", "Resume orphan work");
     await fill(desk, "brief", "Retain the branch's committed base.");
     await desk.confirm();
-    await desk.opened("review-resume-review");
-    await desk.confirm();
     await desk.until(() => started.created() !== undefined, "the resume");
   });
-  assertEquals(started.requests, [{
+  assertEquals(started.requests.slice(-1), [{
     worktreeRoot: "/project.worktrees",
     title: "Resume orphan work",
     brief: "Retain the branch's committed base.",
@@ -1718,11 +1746,9 @@ Deno.test("Start follow-up starts from the task's exact branch", async () => {
     await fill(desk, "title", "Follow-up: preserve metadata");
     await fill(desk, "brief", "Build on the selected task's committed tip.");
     await desk.confirm();
-    await desk.opened("review-follow_up-review");
-    await desk.confirm();
     await desk.until(() => started.created() !== undefined, "the follow-up");
   });
-  assertEquals(started.requests, [{
+  assertEquals(started.requests.slice(-1), [{
     worktreeRoot: "/project.worktrees",
     title: "Follow-up: preserve metadata",
     brief: "Build on the selected task's committed tip.",
@@ -2001,6 +2027,7 @@ Deno.test("Project Scripts run from the main checkout through the palette once t
     await desk.choose("health");
     await desk.opened("form-main_scripts-review");
     await fill(desk, "args", `'unfinished`);
+    await desk.settleForm();
     await desk.shows("The argument line has an unclosed single quote.");
     await fill(desk, "args", `--mode 'full scan'`);
     await desk.confirm();
@@ -2158,14 +2185,19 @@ Deno.test("Queue for landing asks for a pre-authorization first when the queue n
   }, async (desk) => {
     await runAction(desk, "nightly", "submit");
     await desk.opened("review-submit-review");
+    // The grant question comes first; Allow records it and asks the queue
+    // question next.
+    await desk.shows("Let Nightly land without asking?");
+    await desk.shows("asks this first; Keep queues nothing");
     await desk.confirm();
-    await desk.opened("review-submit-grant");
-    await desk.shows("Then queues this version for landing");
+    await desk.until(() => calls.includes("grant"), "the grant");
+    await desk.opened("review-submit-review");
+    await desk.shows("Queue Nightly for landing?");
     await desk.confirm();
     await desk.until(() => calls.includes("submit"), "the queue entry");
     await desk.shows("Queued Nightly");
   });
-  assertEquals(calls, ["plan", "plan", "plan", "grant", "submit"]);
+  assertEquals(calls, ["plan", "grant", "plan", "submit"]);
 });
 
 Deno.test("a failed run's retained failures reach the inspector, and a toggle is remembered", async () => {

@@ -53,8 +53,10 @@ import {
   type FleetRowStatusKind,
   hasExceptionFacts,
   hasExceptionHandOff,
+  idleDaysOf,
   positiveCount,
   relativeAge,
+  STALE_WORKTREE_DAYS,
 } from "../status/row_facts.ts";
 import { fleetRowGroupRank, type FleetRowTone } from "../status/row_states.ts";
 import type { FleetTaskRowStateId } from "../status/row_sentences.ts";
@@ -137,82 +139,55 @@ export type DeskConsequenceMark =
   | "recoverable"
   | "warning";
 
-/**
- * Observed facts a consequence line can depend on. A line with `when` shows
- * only while its fact holds, so a review never claims an effect the task
- * cannot have.
- */
-export const DESK_CONSEQUENCE_FACTS = {
-  granted: (context: DeskActionContext): boolean => context.effortGranted,
-  "not-granted": (context: DeskActionContext): boolean =>
-    !context.effortGranted,
-  queued: (context: DeskActionContext): boolean => context.queued,
-  "proof-honored": (context: DeskActionContext): boolean =>
-    context.proofHonored,
-  "proof-recorded": (context: DeskActionContext): boolean =>
-    context.proofRecorded,
-  "metadata-recorded": (context: DeskActionContext): boolean =>
-    context.taskMetadataRecorded,
-  uncommitted: (context: DeskActionContext): boolean =>
-    (context.changedFiles ?? 0) > 0,
-  "uncommitted-unknown": (context: DeskActionContext): boolean =>
-    context.changedFiles === undefined,
-  "unlanded-commits": (context: DeskActionContext): boolean =>
-    typeof context.ahead === "number" && context.ahead > 0,
-  "unlanded-unknown": (context: DeskActionContext): boolean =>
-    context.ahead === UNKNOWN_GIT_COUNT,
-  resources: (context: DeskActionContext): boolean =>
-    (context.resources?.length ?? 0) > 0,
-  "resources-unreadable": (context: DeskActionContext): boolean =>
-    context.resources === undefined,
-} as const;
-export type DeskConsequenceFact = keyof typeof DESK_CONSEQUENCE_FACTS;
-
-/** One declared consequence: its mark, its words, and the fact it needs. */
-export interface DeskConsequenceItem {
-  readonly mark: DeskConsequenceMark;
-  readonly text: string | ((context: DeskActionContext) => string);
-  readonly when?: DeskConsequenceFact;
-}
-
-/** One consequence line as a review shows it for the observed task. */
-export interface DeskConsequenceLine {
-  readonly mark: DeskConsequenceMark;
-  readonly text: string;
-}
+export type {
+  DeskConsequenceItem,
+  DeskConsequenceLine,
+} from "./review_facts.ts";
+import {
+  consequence,
+  type DeskActionReviewFacts,
+  type DeskConsequenceItem,
+  type DeskConsequenceLine,
+  type DeskPlanFacts,
+  type DeskReviewFacts,
+  resolveConsequences,
+  shortCommit,
+} from "./review_facts.ts";
 
 /**
  * What a review captures as `expected` and the effect boundary compares
  * before applying: a mismatch refuses the apply and asks for a fresh review.
  */
-export type DeskBindingFact =
-  | "worktree-identity"
-  | "path"
-  | "branch"
-  | "branch-head"
-  | "trunk-head"
-  | "authority"
-  | "queue-walk"
-  | "plan"
-  | "challenge"
-  | "clean"
-  | "dirty-stamp"
-  | "grant-absent"
-  | "grant-record"
-  | "grant-and-queue"
-  | "contained-tip"
-  | "setup-step"
-  | "title"
-  | "script-path"
-  | "script-digest"
-  | "argv"
-  | "main-path"
-  | "base-commit"
-  | "base-head"
-  | "branch-name"
-  | "parked-record"
-  | "parked-head"
-  | "running-version";
+export const DESK_BINDING_FACTS = [
+  "worktree-identity",
+  "path",
+  "branch",
+  "branch-head",
+  "trunk-head",
+  "authority",
+  "queue-walk",
+  "plan",
+  "challenge",
+  "clean",
+  "dirty-stamp",
+  "grant-absent",
+  "grant-record",
+  "grant-and-queue",
+  "contained-tip",
+  "setup-step",
+  "title",
+  "script-path",
+  "script-digest",
+  "argv",
+  "main-path",
+  "base-commit",
+  "base-head",
+  "branch-name",
+  "parked-record",
+  "parked-head",
+  "running-version",
+] as const;
+export type DeskBindingFact = (typeof DESK_BINDING_FACTS)[number];
 
 /** The observed task facts a label, summary, consequence, or command reads. */
 export interface DeskActionContext {
@@ -233,7 +208,18 @@ export interface DeskActionContext {
   readonly behind?: number | "unknown";
   /** Absent when the env files recording the handles cannot be read. */
   readonly resources?: readonly string[];
+  /** The registered checkout's commit. */
+  readonly head?: string;
+  /** The commit the recorded checks ran on. */
+  readonly proofHead?: string;
+  /** How long ago the recorded checks ran: "20m ago". */
+  readonly proofAge?: string;
+  /** How long a stale task has been idle: "11 days". Absent unless stale. */
+  readonly idle?: string;
 }
+
+/** What a task action's review lines and their facts read. */
+type ActionFacts = DeskActionReviewFacts;
 
 /** One registered task action's complete contract. */
 export interface DeskActionMetadata {
@@ -258,7 +244,8 @@ export interface DeskActionMetadata {
   /** The question a review of this action asks. */
   readonly reviewTitle: (context: DeskActionContext) => string;
   readonly command: (context: DeskActionContext) => DeskCommandEvidence;
-  readonly consequence: readonly DeskConsequenceItem[];
+  /** What it does, in review order; lines naming a fact show while it holds. */
+  readonly consequence: readonly DeskConsequenceItem<ActionFacts>[];
   readonly confirmation: DeskConfirmationPolicy;
   /** What a review binds; empty only for actions that read. */
   readonly binding: readonly DeskBindingFact[];
@@ -273,7 +260,6 @@ interface DeskActionOfferBase {
   readonly summary: string;
   readonly reviewTitle: string;
   readonly command: DeskCommandEvidence;
-  readonly consequence: readonly DeskConsequenceLine[];
   readonly confirmation: DeskConfirmationPolicy;
 }
 
@@ -399,6 +385,8 @@ export interface DeskDecision {
   readonly next?: DeskActionOffer;
   /** The state's other keyed steps that are available now, at most three. */
   readonly also: readonly EnabledDeskAction[];
+  /** The observed task facts every label, summary, and review reads. */
+  readonly context: DeskActionContext;
 }
 
 /** The observation facts a decision is built from, beyond its own row. */
@@ -679,14 +667,50 @@ function confirm(noLabel: string, yesLabel: string): DeskConfirmationPolicy {
   return { kind: "confirm", defaultTo: false, noLabel, yesLabel };
 }
 
-/** One consequence line, optionally shown only while a fact holds. */
-function line(
-  mark: DeskConsequenceMark,
-  text: DeskConsequenceItem["text"],
-  when?: DeskConsequenceFact,
-): DeskConsequenceItem {
-  return { mark, text, ...(when === undefined ? {} : { when }) };
-}
+/** One task action's consequence, optionally shown only while a fact holds. */
+const line = consequence<ActionFacts>;
+
+/** What starting a task creates, for every route that starts one. */
+export const START_CONSEQUENCES: readonly DeskConsequenceItem<
+  DeskReviewFacts
+>[] = [
+  consequence(
+    "changes",
+    ({ plan }) =>
+      plan.creates === undefined
+        ? "Create a branch"
+        : `Create branch ${plan.creates.branch} from ${plan.creates.base} at ${
+          shortCommit(plan.creates.commit)
+        }`,
+    "creates",
+  ),
+  consequence(
+    "changes",
+    ({ plan }) =>
+      `Give it its own checkout and run setup${
+        (plan.creates?.resources ?? 0) === 0
+          ? ""
+          : `, creating ${plural(plan.creates?.resources ?? 0, "resource")}`
+      }`,
+    "creates",
+  ),
+];
+
+/** What running a Project Script does, from a task or the main checkout. */
+export const SCRIPT_CONSEQUENCES: readonly DeskConsequenceItem<
+  DeskReviewFacts
+>[] = [
+  consequence(
+    "changes",
+    ({ plan }) =>
+      plan.script === undefined
+        ? "Runs the chosen script"
+        : `Runs ${commandEvidence(plan.script.argv)} in ${plan.script.where}`,
+    "script",
+  ),
+  consequence("changes", "It owns the terminal until it exits"),
+  consequence("warning", "This script hasn't declared what it changes"),
+];
 
 const NO_CONFIRMATION = { kind: "none" } as const;
 
@@ -697,10 +721,10 @@ function actionName(action: DeskAction): string {
 
 const ACCEPT_NAME = actionName("accept");
 
-/** The cleanup lines Park, Reclaim, and Drop share. */
+/** The landing records Park, Reclaim, and Drop end with the checkout. */
 const ENDS_AUTHORITY = [
-  line("removes", "Ends its pre-authorization", "granted"),
-  line("removes", "Leaves the landing queue", "queued"),
+  line("removes", "Ends its pre-authorization", "ends-grant"),
+  line("removes", "Leaves the landing queue", "leaves-queue"),
 ] as const;
 const ENDS_RESOURCES = [
   line("removes", "Destroys its ports and services", "resources"),
@@ -797,7 +821,12 @@ export const DESK_ACTION_REGISTRY = {
       ),
       line(
         "changes",
-        "Fixers may rewrite files; a pass records Proof for this commit",
+        ({ context }) =>
+          `Fixers may rewrite files; a pass records Proof for ${
+            context.head === undefined
+              ? "this commit"
+              : shortCommit(context.head)
+          }`,
       ),
       line("keeps", "Keeps the branch and checkout"),
       line("recoverable", "Review any changed files before committing"),
@@ -825,20 +854,90 @@ export const DESK_ACTION_REGISTRY = {
     }),
     consequence: [
       line(
-        "changes",
-        (context) => `Lands ${commitsOf(context)} on ${context.trunk}`,
+        "warning",
+        ({ context }) => `No activity for ${context.idle ?? "a long while"}`,
+        "stale",
+      ),
+      line(
+        "evidence",
+        ({ context }) =>
+          `Checks passed ${context.proofAge ?? "earlier"} on this exact commit${
+            context.proofHead === undefined
+              ? ""
+              : ` (${shortCommit(context.proofHead)})`
+          }`,
+        "proof-honored",
       ),
       line(
         "changes",
-        (context) =>
-          `If ${context.trunk} moved, landing combines it in a separate copy and reruns every check first; if that fails, nothing lands`,
+        ({ plan }) => landsSentence(plan),
+        "lands",
+        ({ plan }) =>
+          plan.lands === undefined ? undefined : {
+            insertions: plan.lands.insertions,
+            deletions: plan.lands.deletions,
+          },
       ),
-      line("changes", "Then lands other queued work that is pre-authorized"),
-      line("removes", "Removes its checkout and branch"),
-      ...ENDS_RESOURCES,
+      line(
+        "changes",
+        ({ context }) => `${context.trunk} hasn't moved, so it lands directly`,
+        "direct",
+      ),
+      line(
+        "changes",
+        ({ context, plan }) =>
+          `${context.trunk} has ${
+            plan.integrates?.behind === undefined
+              ? "moved"
+              : plural(plan.integrates.behind, "new commit")
+          }. Landing first combines them in a separate copy and reruns every check`,
+        "integrates",
+      ),
+      line(
+        "changes",
+        "If they conflict or a check fails, nothing lands and the task stays as it is",
+        "integrates",
+      ),
+      line("changes", ({ plan }) => authoritySentence(plan), "authority"),
+      line(
+        "changes",
+        ({ plan }) =>
+          (plan.queueWalk ?? []).map((queued) =>
+            `Then ${queued.title} lands too: queued and pre-authorized`
+          ),
+        "queue-walk",
+      ),
+      line(
+        "warning",
+        ({ plan }) =>
+          `Waits for ${
+            plan.landingInProgress?.title ?? "another landing"
+          } to finish landing`,
+        "landing-in-progress",
+      ),
+      line(
+        "warning",
+        ({ plan }) =>
+          (plan.ignoredRoots ?? []).map((root) =>
+            `${root} changed since setup and is removed with the checkout`
+          ),
+        "ignored-roots",
+      ),
+      line(
+        "removes",
+        ({ context }) =>
+          `Removes its checkout, branch${
+            (context.resources?.length ?? 0) > 0 ? ", ports and services" : ""
+          }`,
+      ),
+      line(
+        "warning",
+        "Its recorded ports and services can't be read",
+        "resources-unreadable",
+      ),
       line(
         "keeps",
-        (context) => `Keeps the Proof, recorded on ${context.trunk}`,
+        ({ context }) => `Keeps the Proof, recorded on ${context.trunk}`,
       ),
     ],
     confirmation: confirm("Keep", "Land"),
@@ -867,8 +966,14 @@ export const DESK_ACTION_REGISTRY = {
       workingDirectory: "main",
     }),
     consequence: [
-      line("warning", "Asks you to pre-authorize it first", "not-granted"),
-      line("changes", "Records this version in the landing queue"),
+      line(
+        "changes",
+        ({ plan }) =>
+          `Records this version (${
+            shortCommit(plan.revision ?? "")
+          }) in the landing queue`,
+        "revision",
+      ),
       line(
         "changes",
         `It lands with any landing, or when you choose ${ACCEPT_NAME}; nothing starts now`,
@@ -910,7 +1015,7 @@ export const DESK_ACTION_REGISTRY = {
     consequence: [
       line(
         "changes",
-        (context) =>
+        ({ context }) =>
           typeof context.behind === "number" && context.behind > 0
             ? `Merges ${
               plural(context.behind, "commit")
@@ -924,7 +1029,7 @@ export const DESK_ACTION_REGISTRY = {
       ),
       line(
         "warning",
-        (context) =>
+        ({ context }) =>
           `You don't need this to land: ${ACCEPT_NAME} combines ${context.trunk} itself. Updating makes the current checks outdated`,
         "proof-honored",
       ),
@@ -1017,7 +1122,7 @@ export const DESK_ACTION_REGISTRY = {
       workingDirectory: "main",
     }),
     consequence: [
-      line("changes", "Creates a task from the last commit of this branch"),
+      ...START_CONSEQUENCES,
       line("keeps", "Keeps this task as it is"),
     ],
     confirmation: confirm("Cancel", "Create"),
@@ -1044,13 +1149,7 @@ export const DESK_ACTION_REGISTRY = {
       argv: ["discern", "scripts", "<name>"],
       workingDirectory: "task",
     }),
-    consequence: [
-      line(
-        "changes",
-        "Runs the chosen script in this checkout; it owns the terminal until it exits",
-      ),
-      line("warning", "Scripts don't declare what they change"),
-    ],
+    consequence: SCRIPT_CONSEQUENCES,
     confirmation: confirm("Cancel", "Run"),
     binding: [
       "worktree-identity",
@@ -1274,7 +1373,7 @@ export const DESK_ACTION_REGISTRY = {
     consequence: [
       line(
         "changes",
-        (context) =>
+        ({ context }) =>
           `Its commits are already in ${
             context.containedIn ?? "another task"
           }; removes this checkout`,
@@ -1312,13 +1411,16 @@ export const DESK_ACTION_REGISTRY = {
       line("changes", "Frees the checkout"),
       line(
         "keeps",
-        (context) =>
+        ({ context }) =>
           `Keeps branch ${context.branch}, its commits, title and brief`,
       ),
-      line("removes", "Removes its Proof", "proof-recorded"),
+      line("removes", "Removes its Proof", "removes-proof"),
       ...ENDS_AUTHORITY,
       ...ENDS_RESOURCES,
-      line("recoverable", "Resume it later from its branch"),
+      line(
+        "recoverable",
+        `Resume it from ${labelName(DESK_COMMAND_LABELS.parked)}`,
+      ),
     ],
     confirmation: confirm("Keep", "Park"),
     binding: ["branch-head", "clean", "worktree-identity", "grant-and-queue"],
@@ -1343,29 +1445,20 @@ export const DESK_ACTION_REGISTRY = {
     consequence: [
       line(
         "discards",
-        (context) =>
-          `Discards ${commitsOf(context)} that ${
-            context.ahead === 1 ? "isn't" : "aren't"
-          } on ${context.trunk}`,
-        "unlanded-commits",
+        ({ plan }) => (plan.discards ?? []).map((work) => `Discards ${work}`),
+        "discards",
       ),
       line(
         "warning",
-        (context) => `Can't rule out commits that aren't on ${context.trunk}`,
-        "unlanded-unknown",
+        ({ plan }) =>
+          (plan.uncertain ?? []).map((doubt) =>
+            `Can't rule out lost work: ${doubt}`
+          ),
+        "uncertain",
       ),
-      line(
-        "discards",
-        (context) =>
-          `Deletes ${
-            plural(context.changedFiles ?? 0, "uncommitted file")
-          }; they can't be recovered`,
-        "uncommitted",
-      ),
-      line("warning", "Can't rule out uncommitted work", "uncommitted-unknown"),
       line(
         "removes",
-        (context) => `Removes its checkout and branch ${context.branch}`,
+        ({ context }) => `Removes its checkout and branch ${context.branch}`,
       ),
       ...ENDS_RECORDS,
       ...ENDS_AUTHORITY,
@@ -1374,7 +1467,10 @@ export const DESK_ACTION_REGISTRY = {
         "recoverable",
         "Its last commit is kept for a while; the technical plan shows how to restore it",
       ),
-      line("keeps", (context) => `Keeps ${context.trunk} and every other task`),
+      line(
+        "keeps",
+        ({ context }) => `Keeps ${context.trunk} and every other task`,
+      ),
     ],
     confirmation: {
       kind: "typed-branch",
@@ -1387,21 +1483,46 @@ export const DESK_ACTION_REGISTRY = {
   },
 } as const satisfies Readonly<Record<DeskAction, DeskActionMetadata>>;
 
-/** Resolve one action's declared consequences against the observed task. */
+/** Resolve one action's declared consequences against its review facts. */
 export function consequenceLines(
   action: DeskAction,
-  context: DeskActionContext,
+  facts: ActionFacts,
 ): DeskConsequenceLine[] {
-  const items: readonly DeskConsequenceItem[] =
+  const items: readonly DeskConsequenceItem<ActionFacts>[] =
     DESK_ACTION_REGISTRY[action].consequence;
-  return items.flatMap((item) =>
-    item.when === undefined || DESK_CONSEQUENCE_FACTS[item.when](context)
-      ? [{
-        mark: item.mark,
-        text: typeof item.text === "string" ? item.text : item.text(context),
-      }]
-      : []
-  );
+  return resolveConsequences(action, items, facts);
+}
+
+/** What a landing lands: its commits, files, and line counts beside. */
+function landsSentence(plan: DeskPlanFacts): string {
+  const lands = plan.lands;
+  if (lands === undefined) return "Lands this revision";
+  return `Lands ${
+    lands.commits === undefined
+      ? "this revision"
+      : plural(lands.commits, "commit")
+  } · ${plural(lands.files, "file")}`;
+}
+
+/** Who approves a landing, in the words a review uses. */
+function authoritySentence(plan: DeskPlanFacts): string {
+  const authority = plan.authority;
+  switch (authority?.kind) {
+    case "pre-authorized":
+      return "Covered by your pre-authorization";
+    case "standing":
+      return `Covered by your standing approval${
+        authority.scopes === undefined || authority.scopes.length === 0
+          ? ""
+          : ` (${authority.scopes.join(", ")})`
+      }`;
+    case "partial":
+      return `Your standing approval covers ${
+        plural(authority.covered ?? 0, "path")
+      }; choosing ${ACCEPT_NAME} approves the rest`;
+    default:
+      return `Choosing ${ACCEPT_NAME} approves this landing`;
+  }
 }
 
 /**
@@ -1436,8 +1557,11 @@ function actionContext(
   facts: DeskActionFacts,
   title: string,
   queued: boolean,
+  nowMs: number,
 ): DeskActionContext {
   const entry = facts.entry;
+  const proof = fleetRowProof(entry);
+  const stale = facts.state === "stale" || facts.state === "stale-proven";
   return {
     trunk: facts.trunk,
     title,
@@ -1463,6 +1587,21 @@ function actionContext(
     ...(entry.contained_in === undefined
       ? {}
       : { containedIn: entry.contained_in }),
+    ...(entry.registration === undefined
+      ? {}
+      : { head: entry.registration.head }),
+    ...(proof.head === undefined ? {} : { proofHead: proof.head }),
+    ...(proof.recorded === undefined
+      ? {}
+      : { proofAge: relativeAge(proof.recorded, nowMs) }),
+    ...(stale
+      ? {
+        idle: plural(
+          idleDaysOf(entry.last_activity, nowMs) ?? STALE_WORKTREE_DAYS,
+          "day",
+        ),
+      }
+      : {}),
   };
 }
 
@@ -1481,7 +1620,6 @@ function actionOffers(
       summary: metadata.summary(context),
       reviewTitle: metadata.reviewTitle(context),
       command: metadata.command(context),
-      consequence: consequenceLines(action, context),
       confirmation: metadata.confirmation,
     };
     const reason = runningReason(metadata.availableWhileRunning, facts) ??
@@ -1572,14 +1710,13 @@ export function buildDeskDecision(
       : { integration: presentation.integration }),
     ...(exceptionArgv === undefined ? {} : { exceptionArgv }),
   };
-  const offers = actionOffers(
+  const context = actionContext(
     facts,
-    actionContext(
-      facts,
-      taskLabel(entry).name,
-      presentation.queue !== undefined,
-    ),
+    taskLabel(entry).name,
+    presentation.queue !== undefined,
+    options.nowMs,
   );
+  const offers = actionOffers(facts, context);
   const details: DeskDetail[] = [];
   if (entry.running !== undefined) {
     details.push({ kind: "activity", text: "active now" });
@@ -1654,6 +1791,7 @@ export function buildDeskDecision(
     actions: offers,
     ...(next === undefined ? {} : { next }),
     also,
+    context,
   };
 }
 

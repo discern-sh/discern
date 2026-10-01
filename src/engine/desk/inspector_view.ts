@@ -34,6 +34,7 @@ import {
 import { compactAge, queueHuman, relativeAge } from "../status/row_facts.ts";
 import type { DeskAction } from "../../shared/desk_vocabulary.ts";
 import { type DeskRow, deskRowId } from "./model.ts";
+import { shortCommit } from "./review_facts.ts";
 import { CONSEQUENCE_GLYPHS, DESK_GLYPHS, type DeskGlyph } from "./glyphs.ts";
 import type {
   DeskEvidence,
@@ -146,12 +147,7 @@ function checksFact(
   if (decision.proof.honored && proof !== undefined) {
     lines.push([
       { text: `${plural(proof.files_total, "file")}  ` },
-      { text: `+${proof.insertions}`, tone: "success" },
-      {
-        text: ` −${proof.deletions}`,
-        ascii: ` -${proof.deletions}`,
-        tone: "danger",
-      },
+      ...diffRuns(proof.insertions, proof.deletions),
     ]);
   }
   return lines;
@@ -482,7 +478,7 @@ function artifacts(
             lead: { id: "sha", width: 7 },
             columns: [{ id: "age", width: 4, align: "end", priority: 1 }],
             items: commits.map((commit) => ({
-              lead: [{ text: commit.sha.slice(0, 7), tone: "faint" as const }],
+              lead: [{ text: shortCommit(commit.sha), tone: "faint" as const }],
               text: [{ text: commit.subject }],
               cells: {
                 age: [{
@@ -505,31 +501,39 @@ function artifacts(
           kind: "section",
           title: "Files",
           count: files.length,
-          blocks: [{
-            kind: "rows",
-            lead: { id: "change", width: 1 },
-            columns: [{ id: "lines", width: 12, align: "end", priority: 1 }],
-            items: files.map((file) => ({
-              lead: [changeLetter(file)],
-              text: [{ text: file.path }],
-              cells: {
-                lines: file.added === undefined && file.removed === undefined
-                  ? [{ text: "binary", tone: "faint" as const }]
-                  : [
-                    { text: `+${file.added ?? 0}`, tone: "success" as const },
-                    {
-                      text: ` −${file.removed ?? 0}`,
-                      ascii: ` -${file.removed ?? 0}`,
-                      tone: "danger" as const,
-                    },
-                  ],
-              },
-            })),
-          }],
+          blocks: [fileRows(files)],
         }],
     ),
   );
   return blocks;
+}
+
+/** Changed files, one row each: the change letter, the path, the lines. */
+export function fileRows(
+  files: readonly DeskFileStat[],
+): ApplicationDetailBlock {
+  return {
+    kind: "rows",
+    lead: { id: "change", width: 1 },
+    columns: [{ id: "lines", width: 12, align: "end", priority: 1 }],
+    items: files.map((file) => ({
+      lead: [changeLetter(file)],
+      text: [{ text: file.path }],
+      cells: {
+        lines: file.added === undefined && file.removed === undefined
+          ? [{ text: "binary", tone: "faint" as const }]
+          : diffRuns(file.added ?? 0, file.removed ?? 0),
+      },
+    })),
+  };
+}
+
+/** Added and removed line counts as green and red runs. */
+export function diffRuns(added: number, removed: number): ApplicationRun[] {
+  return [
+    { text: `+${added}`, tone: "success" },
+    { text: ` −${removed}`, ascii: ` -${removed}`, tone: "danger" },
+  ];
 }
 
 /** Setup steps from the journal: what finished, what failed, what never ran. */
@@ -677,7 +681,7 @@ export function taskBlocks(
             label: "From",
             value: [[{
               text: `${entry.task.created_from.ref} at ${
-                entry.task.created_from.commit.slice(0, 7)
+                shortCommit(entry.task.created_from.commit)
               }`,
             }]],
           }]),
@@ -796,7 +800,7 @@ export function parkedBlocks(
             lead: { id: "sha", width: 7 },
             columns: [{ id: "age", width: 4, align: "end", priority: 1 }],
             items: commits.map((commit) => ({
-              lead: [{ text: commit.sha.slice(0, 7), tone: "faint" as const }],
+              lead: [{ text: shortCommit(commit.sha), tone: "faint" as const }],
               text: [{ text: commit.subject }],
               cells: {
                 age: [{

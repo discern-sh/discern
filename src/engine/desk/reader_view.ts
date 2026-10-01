@@ -23,7 +23,7 @@ import { proofHuman, queueHuman, relativeAge } from "../status/row_facts.ts";
 import { DESK_KEYS, type DeskKeyBinding } from "./keys.ts";
 import { deskRowId } from "./model.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
-import type { DeskReview } from "./contracts.ts";
+import type { DeskChangesEvidence } from "./contracts.ts";
 import type {
   DeskIntent,
   DeskLoad,
@@ -32,7 +32,7 @@ import type {
   DeskReaderSubject,
 } from "./desk_state.ts";
 import { branchTitle, rowRef } from "./desk_transitions.ts";
-import { ageText, glyph } from "./inspector_view.ts";
+import { ageText, diffRuns, glyph } from "./inspector_view.ts";
 import { codeRuns } from "./header_view.ts";
 
 /** What a reader reads besides product state. */
@@ -403,7 +403,7 @@ function recoveryBlocks(
 function changesBlocks(
   state: DeskProductState,
   taskId: string,
-  review: DeskReview,
+  review: DeskChangesEvidence,
   env: DeskReaderEnv,
 ): ApplicationDetailBlock[] {
   const ref = rowRef(state, taskId);
@@ -414,12 +414,7 @@ function changesBlocks(
   const complete = review.proof.proof ?? review.proof.proof_data?.markdown;
   const totals: ApplicationRun[] = [
     { text: `${plural(review.files.length, "changed path")}  ` },
-    { text: `+${review.insertions}`, tone: "success" },
-    {
-      text: ` −${review.deletions}`,
-      ascii: ` -${review.deletions}`,
-      tone: "danger",
-    },
+    ...diffRuns(review.insertions, review.deletions),
   ];
   return [
     {
@@ -472,14 +467,7 @@ function changesBlocks(
           cells: {
             lines: file.added === undefined && file.removed === undefined
               ? []
-              : [
-                { text: `+${file.added ?? 0}`, tone: "success" as const },
-                {
-                  text: ` −${file.removed ?? 0}`,
-                  ascii: ` -${file.removed ?? 0}`,
-                  tone: "danger" as const,
-                },
-              ],
+              : diffRuns(file.added ?? 0, file.removed ?? 0),
           },
         })),
       }],
@@ -502,7 +490,7 @@ function changesBlocks(
 /** Keys of the View changes reader. */
 function changesKeys(
   taskId: string,
-  load: DeskLoad<DeskReview>,
+  load: DeskLoad<DeskChangesEvidence>,
 ): ApplicationActionHint<DeskIntent>[] {
   return [
     {
@@ -673,14 +661,6 @@ export function deskReader(
         scope: "global",
         title: reader.title,
         blocks: reader.lines.map((line) => text(line)),
-      };
-    case "result":
-      return {
-        kind: "reader",
-        id,
-        scope: "global",
-        title: reader.result.title,
-        blocks: [markdown(reader.result.markdown)],
       };
   }
 }

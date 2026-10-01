@@ -80,32 +80,6 @@ function showing(text: string): DeskFrameTest {
   return (capture) => capture.text.includes(text);
 }
 
-/**
- * Move from a sheet's or form's safe button to its confirm button and press
- * it: two phases, each waiting for the focus it needs.
- */
-function confirmPhases(
-  size: PtyGeometry,
-  layer: string,
-): DeskTtyInputPhase[] {
-  return [
-    phase(
-      size,
-      undefined,
-      `${layer} on its safe choice`,
-      both(readyLayer(layer), deskFocused(layer, "button:safe")),
-      { keys: ["tab"] },
-    ),
-    phase(
-      size,
-      undefined,
-      `${layer}'s confirm button`,
-      deskFocused(layer, "button:confirm"),
-      { keys: ["enter"] },
-    ),
-  ];
-}
-
 /** Tab on from each focused control in turn, one phase per control. */
 function tabThrough(
   size: PtyGeometry,
@@ -123,21 +97,19 @@ function tabThrough(
   );
 }
 
-/** Press a form's confirm button, then confirm the review it opens. */
+/** Press a form's confirm button once its preview of the typed values reads. */
 function submitForm(
   size: PtyGeometry,
   form: string,
-  review: string,
 ): DeskTtyInputPhase[] {
   return [
     phase(
       size,
       undefined,
       `${form}'s confirm button`,
-      deskFocused(form, "button:confirm"),
+      both(readyLayer(form), deskFocused(form, "button:confirm")),
       { keys: ["enter"] },
     ),
-    ...confirmPhases(size, review),
   ];
 }
 
@@ -357,7 +329,6 @@ realPtyTest({
   fn: async () => {
     const size = { columns: 100, rows: 55 };
     const form = "form-new_task-review";
-    const review = "review-new_task-review";
     const title = "Complete task ingress: Unicode 修复";
     const brief = "Preserve this brief exactly.";
     await withDeskTtyProject(deskFleetFixture(), async (project) => {
@@ -409,7 +380,7 @@ realPtyTest({
             both(deskFocused(form, "field:brief"), showing(brief)),
             { keys: ["shift-tab", "shift-tab", "shift-tab", "shift-tab"] },
           ),
-          ...submitForm(size, form, review),
+          ...submitForm(size, form),
           phase(
             size,
             "created",
@@ -474,15 +445,23 @@ realPtyTest({
               both(deskFocused(form, "field:title"), showing(title)),
               { resize: narrow },
             ),
+            // Enter in the field moves to the safe choice; Right reaches
+            // Rename once the typed title's preview reads.
             phase(
               narrow,
               "resized-form",
               "the edited title after resize",
               both(deskFocused(form, "field:title"), showing(title)),
-              { keys: ["tab"] },
+              { keys: ["enter"] },
             ),
-            ...tabThrough(narrow, form, "button:safe"),
-            ...submitForm(narrow, form, "review-rename-review"),
+            phase(
+              narrow,
+              undefined,
+              "the form on its safe choice",
+              deskFocused(form, "button:safe"),
+              { keys: ["right"] },
+            ),
+            ...submitForm(narrow, form),
             phase(
               narrow,
               undefined,

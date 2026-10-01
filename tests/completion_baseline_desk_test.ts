@@ -126,5 +126,6 @@ Deno.test("an effect that is cancelled, refused, or fails at length says so in o
   });
   const long = failedOutcome(new Error("first\nsecond"), "discern drop");
   assertEquals(long.message?.text, "It didn't complete");
-  assertEquals(long.result?.markdown, "first\nsecond");
+  assertEquals(long.result?.lines[0]?.text, "first");
+  assertEquals(long.result?.output, "first\nsecond");
 });

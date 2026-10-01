@@ -13,7 +13,14 @@ import type {
   DeskProductState,
   DeskTransition,
 } from "./desk_state.ts";
-import type { DeskFlowStep } from "./flow_types.ts";
+import {
+  DESK_FLOW_STAGES,
+  type DeskFlowStep,
+  type DeskResultSheet,
+  type DeskReviewAlternative,
+} from "./flow_types.ts";
+import { DESK_ACTIONS } from "./model.ts";
+import { DESK_COMMANDS } from "./commands.ts";
 import { type DeskRow, deskRowId } from "./model.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { compareTaskTitles } from "../status/fleet_rows.ts";
@@ -63,7 +70,60 @@ export function layerId(layer: DeskLayer): string {
       return `review-${stepName(layer.step)}`;
     case "form":
       return `form-${stepName(layer.step)}`;
+    case "result":
+      return "result";
   }
+}
+
+/**
+ * The id a review sheet shows while it reads its subject. A sheet that
+ * opens loading draws under this id and takes its own id once its review
+ * arrives, so the package starts it afresh: read progress counts only the
+ * real body, and focus starts on the ready sheet's own first control, its
+ * challenge field included.
+ *
+ * TODO(R-6): the package counts an empty loading body as read and keeps
+ * that once the body arrives; drop the reading id when it resets read
+ * progress as a sheet leaves loading.
+ */
+export function readingLayerId(id: string): string {
+  return `${id}${READING_SUFFIX}`;
+}
+
+/** The product layer a view's layer id names, reading or ready. */
+export function productLayerId(id: string): string {
+  return id.endsWith(READING_SUFFIX) ? id.slice(0, -READING_SUFFIX.length) : id;
+}
+
+const READING_SUFFIX = "-reading";
+
+/** Every id a review sheet can take, for keys scoped to review sheets. */
+export function reviewLayerIds(): string[] {
+  const steps: DeskFlowStep[] = DESK_FLOW_STAGES.flatMap((stage) => [
+    ...DESK_ACTIONS.map((action): DeskFlowStep => ({
+      kind: "action",
+      action,
+      taskId: "",
+      stage,
+    })),
+    ...DESK_COMMANDS.map((command): DeskFlowStep => ({
+      kind: "command",
+      command,
+      stage,
+    })),
+  ]);
+  return steps.map((step) =>
+    layerId({ kind: "review", step, load: { state: "loading" } })
+  );
+}
+
+/** A form's values as one key, so a preview read for them can be matched. */
+export function formValuesKey(
+  values: Readonly<Record<string, string>>,
+): string {
+  return JSON.stringify(
+    Object.keys(values).sort().map((key) => [key, values[key]]),
+  );
 }
 
 /** Layers that only route somewhere: whatever they open replaces them. */
@@ -76,6 +136,17 @@ function routes(layer: DeskLayer): boolean {
 function readFor(layer: DeskLayer, id: string): DeskEffect | undefined {
   if (layer.kind === "review" && layer.load.state === "loading") {
     return { kind: "prepare", layerId: id, step: layer.step };
+  }
+  if (layer.kind === "form" && layer.load.state === "loading") {
+    return {
+      kind: "prepare",
+      layerId: id,
+      step: {
+        ...layer.step,
+        values: { ...layer.step.values, ...layer.values },
+      },
+      readFor: formValuesKey(layer.values),
+    };
   }
   if (layer.kind === "scripts" && layer.load.state === "loading") {
     return { kind: "load-scripts", owner: layer.owner };
@@ -304,4 +375,42 @@ export function goneSentence(
     removed: "it is no longer listed",
   }[departure.reason];
   return `${departure.title} is gone: ${reason}`;
+}
+
+/** Alternatives a result sheet offers beside Close. */
+const RESULT_ALTERNATIVES = 2;
+
+/**
+ * A result sheet's alternatives: its task's next step and keyed steps as the
+ * row now stands, available and keyed, at most two.
+ */
+export function resultAlternatives(
+  state: DeskProductState,
+  sheet: DeskResultSheet,
+): DeskReviewAlternative[] {
+  const ref = sheet.taskId === undefined
+    ? undefined
+    : rowRef(state, sheet.taskId);
+  if (ref?.kind !== "task") return [];
+  const { decision } = ref.row;
+  const seen = new Set<string>();
+  return [decision.next, ...decision.also].flatMap(
+    (offer): DeskReviewAlternative[] => {
+      if (
+        offer === undefined || offer.availability !== "enabled" ||
+        offer.key === undefined || seen.has(offer.action)
+      ) return [];
+      seen.add(offer.action);
+      return [{
+        id: offer.action,
+        label: offer.label,
+        key: offer.key,
+        intent: {
+          kind: "action",
+          action: offer.action,
+          id: deskRowId(ref.row),
+        },
+      }];
+    },
+  ).slice(0, RESULT_ALTERNATIVES);
 }

@@ -274,6 +274,7 @@ export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
       gesture("v", "toggle-changes", "Changes"),
       gesture("ctrl-t", "toggle-plan", "Plan"),
       gesture("ctrl-x", "toggle-command", "Command"),
+      gesture("ctrl-g", "toggle-changes", "Changes"),
       gesture("ctrl-o", "edit-text", "Edit"),
       // A sheet's alternatives switch to another registered action.
       runs("p", "park"),

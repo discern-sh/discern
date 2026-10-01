@@ -23,14 +23,14 @@ import {
 } from "./model.ts";
 import type { DeskPreferences } from "./preferences.ts";
 import type { DeskProjectScriptInventory } from "../project_scripts.ts";
-import type { DeskReview } from "./contracts.ts";
+import type { DeskChangesEvidence } from "./contracts.ts";
 import type {
   DeskChild,
   DeskChildReturn,
   DeskFlowStep,
   DeskOutcome,
-  DeskOutcomeResult,
-  DeskPrepared,
+  DeskResultSheet,
+  DeskReview,
 } from "./flow_types.ts";
 import {
   type DeskEvidence,
@@ -43,7 +43,10 @@ import {
   closeLayer,
   departureMessage,
   departures,
+  formValuesKey,
+  layerId,
   open,
+  productLayerId,
   refresh,
   rowTitle,
   toast,
@@ -73,7 +76,7 @@ export interface DeskMarkdownReading {
 
 /** A finished read, tagged with the kind of reader it fills. */
 export type DeskReadResult =
-  | { readonly kind: "changes"; readonly load: DeskLoad<DeskReview> }
+  | { readonly kind: "changes"; readonly load: DeskLoad<DeskChangesEvidence> }
   | {
     readonly kind: "markdown";
     readonly load: DeskLoad<DeskMarkdownReading>;
@@ -90,7 +93,7 @@ export type DeskReaderSubject =
   | {
     readonly kind: "changes";
     readonly taskId: string;
-    readonly load: DeskLoad<DeskReview>;
+    readonly load: DeskLoad<DeskChangesEvidence>;
   }
   | {
     readonly kind: "branch";
@@ -106,8 +109,7 @@ export type DeskReaderSubject =
     readonly kind: "notice";
     readonly title: string;
     readonly lines: readonly string[];
-  }
-  | { readonly kind: "result"; readonly result: DeskOutcomeResult };
+  };
 
 /** Whose Project Scripts a picker lists. */
 export type DeskScriptOwner =
@@ -129,14 +131,20 @@ export type DeskLayer =
   | {
     readonly kind: "review";
     readonly step: DeskFlowStep;
-    readonly load: DeskLoad<DeskPrepared>;
+    readonly load: DeskLoad<DeskReview>;
   }
   | {
     readonly kind: "form";
     readonly step: DeskFlowStep;
     /** The field values the package last reported, by field id. */
     readonly values: Readonly<Record<string, string>>;
-  };
+    /** The review of the values it was read for, which confirm applies. */
+    readonly load: DeskLoad<DeskReview>;
+    /** The values `load` was read for, as `formValuesKey` spells them. */
+    readonly readFor?: string;
+  }
+  /** A failed effect's result sheet. */
+  | { readonly kind: "result"; readonly sheet: DeskResultSheet };
 
 /** One line on the message row. */
 export interface DeskMessage {
@@ -241,8 +249,14 @@ export type DeskIntent =
   }
   /** Go to a row from the palette. */
   | { readonly kind: "select"; readonly id: string }
-  /** A sheet's or form's confirm button. */
-  | { readonly kind: "confirm"; readonly layer: string }
+  /** A sheet's or form's confirm button; `open` also opens an agent. */
+  | {
+    readonly kind: "confirm";
+    readonly layer: string;
+    readonly open?: string;
+  }
+  /** Read a review again after its subject changed. */
+  | { readonly kind: "review-again"; readonly layer: string }
   /** A sheet's alternative button. */
   | {
     readonly kind: "alternative";
@@ -318,7 +332,9 @@ export type DeskEvent =
   | {
     readonly kind: "prepared";
     readonly layerId: string;
-    readonly result: DeskLoad<DeskPrepared>;
+    readonly result: DeskLoad<DeskReview>;
+    /** A form's values the review was read for. */
+    readonly readFor?: string;
   }
   | {
     readonly kind: "read";
@@ -344,6 +360,10 @@ export type DeskEffect =
     readonly kind: "prepare";
     readonly layerId: string;
     readonly step: DeskFlowStep;
+    /** Wait this long for more typing first; a newer prepare replaces it. */
+    readonly debounceMs?: number;
+    /** A form's values, as `formValuesKey` spells them. */
+    readonly readFor?: string;
   }
   | {
     readonly kind: "read";
@@ -354,16 +374,11 @@ export type DeskEffect =
   | {
     readonly kind: "apply";
     readonly step: DeskFlowStep;
-    readonly prepared: DeskPrepared;
+    readonly review: DeskReview;
     readonly challenge?: string;
+    readonly open?: string;
   }
   | { readonly kind: "child"; readonly child: DeskChild }
-  | {
-    readonly kind: "script";
-    readonly owner: DeskScriptOwner;
-    readonly name: string;
-    readonly args: string;
-  }
   | { readonly kind: "select"; readonly id: string }
   | { readonly kind: "persist"; readonly preferences: DeskPreferences }
   | { readonly kind: "exit" };
@@ -371,7 +386,7 @@ export type DeskEffect =
 /** The effects that hand the terminal to someone else or end the session. */
 export type DeskTerminalEffect = Extract<
   DeskEffect,
-  { readonly kind: "apply" | "child" | "script" | "exit" }
+  { readonly kind: "apply" | "child" | "exit" }
 >;
 
 /** Whether an effect must be returned to the package as a command. */
@@ -379,7 +394,7 @@ export function isTerminalEffect(
   effect: DeskEffect,
 ): effect is DeskTerminalEffect {
   return effect.kind === "apply" || effect.kind === "child" ||
-    effect.kind === "script" || effect.kind === "exit";
+    effect.kind === "exit";
 }
 
 /** One transition's result. */
@@ -598,7 +613,10 @@ function dismissed(
     }
     return { state, effects: [] };
   }
-  return { state: closeLayer(state, target.layer), effects: [] };
+  return {
+    state: closeLayer(state, productLayerId(target.layer)),
+    effects: [],
+  };
 }
 
 /** The package moved the selection: say so once, quietly. */
@@ -637,39 +655,60 @@ function groupTitleOf(group: string): string {
   return known === undefined ? group : FLEET_ROW_GROUP_TITLES[known];
 }
 
-/** A form field changed: keep its value for the form's preview and confirm. */
+/** How long a form waits for more typing before it reads its preview. */
+export const DESK_FORM_PREVIEW_MS = 300;
+
+/**
+ * A form field changed: keep its value, and read the form's preview again
+ * once typing pauses. Confirm waits for the preview of these exact values.
+ */
 function fieldChanged(
   state: DeskProductState,
   event: Extract<DeskEvent, { readonly kind: "field" }>,
 ): DeskTransition {
+  const layer = state.layers.find((candidate) =>
+    layerId(candidate) === event.layerId
+  );
+  if (layer?.kind !== "form") return { state, effects: [] };
+  const values = { ...layer.values, [event.fieldId]: event.value };
+  const readFor = formValuesKey(values);
   return {
     state: updateLayer(
       state,
       event.layerId,
-      (layer) =>
-        layer.kind === "form"
-          ? {
-            ...layer,
-            values: { ...layer.values, [event.fieldId]: event.value },
-          }
-          : layer,
+      () => ({ ...layer, values, load: { state: "loading" } }),
     ),
-    effects: [],
+    effects: [{
+      kind: "prepare",
+      layerId: event.layerId,
+      step: { ...layer.step, values: { ...layer.step.values, ...values } },
+      debounceMs: DESK_FORM_PREVIEW_MS,
+      readFor,
+    }],
   };
 }
 
-/** A review's read finished: show what it read, or why it couldn't. */
+/**
+ * A review's read finished: show what it read, or why it couldn't. A form
+ * keeps only the read of its current values.
+ */
 function prepared(
   state: DeskProductState,
   event: Extract<DeskEvent, { readonly kind: "prepared" }>,
 ): DeskTransition {
   return {
-    state: updateLayer(
-      state,
-      event.layerId,
-      (layer) =>
-        layer.kind === "review" ? { ...layer, load: event.result } : layer,
-    ),
+    state: updateLayer(state, event.layerId, (layer) => {
+      if (layer.kind === "review") return { ...layer, load: event.result };
+      if (
+        layer.kind !== "form" ||
+        (event.readFor ?? "") !== formValuesKey(layer.values)
+      ) return layer;
+      return {
+        ...layer,
+        load: event.result,
+        ...(event.readFor === undefined ? {} : { readFor: event.readFor }),
+      };
+    }),
     effects: [],
   };
 }
@@ -757,10 +796,7 @@ function returned(
   }
   const effects: DeskEffect[] = [];
   if (outcome.result !== undefined) {
-    const opened = open(next, {
-      kind: "reader",
-      reader: { kind: "result", result: outcome.result },
-    });
+    const opened = open(next, { kind: "result", sheet: outcome.result });
     next = opened.state;
     effects.push(...opened.effects);
   } else if (outcome.next !== undefined) {

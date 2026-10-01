@@ -13,6 +13,7 @@ import {
   terminalApplicationReservedKeys,
 } from "discern-design-system/cli/interactive";
 import {
+  DESK_FORM_PREVIEW_MS,
   DESK_OFFLINE_FAILURES,
   DESK_REFRESH_MS,
   type DeskEffect,
@@ -27,6 +28,7 @@ import {
 } from "../src/engine/desk/desk_state.ts";
 import {
   DESK_LAYER_DEPTH,
+  formValuesKey,
   open,
   parkedRowId,
 } from "../src/engine/desk/desk_transitions.ts";
@@ -35,7 +37,6 @@ import { deskView, INBOX_MIN_TITLE } from "../src/engine/desk/inbox_view.ts";
 import { PACKAGE_RESERVED_KEYS } from "../src/engine/desk/keys.ts";
 import { DESK_GLYPHS } from "../src/engine/desk/glyphs.ts";
 import { TERMINAL_GLYPHS } from "discern-design-system/cli";
-import type { DeskPrepared } from "../src/engine/desk/flow_types.ts";
 import type { DeskAgentLaunch } from "../src/engine/desk/model.ts";
 import type { DeskPreferences } from "../src/engine/desk/preferences.ts";
 import { FLEET_ROW_DECISIONS } from "../src/shared/fleet_row_vocabulary.ts";
@@ -49,12 +50,14 @@ import {
   deskIntent,
   editingTask,
   failDesk,
+  formRead,
   observedDesk,
   observeDesk,
   PRODUCT_NOW,
   PRODUCT_UI,
   PRODUCT_VIEW_ENV,
   productSurvey,
+  readyReview,
 } from "./fixtures/desk_product.ts";
 
 const NOW = PRODUCT_NOW;
@@ -83,18 +86,6 @@ function run(
 /** The ids of the layers that exist, bottom to top. */
 function layerIds(state: DeskProductState): string[] {
   return state.layers.map((layer) => layerId(layer));
-}
-
-/** A ready review whose confirm applies. */
-function readyApply(title: string): DeskPrepared {
-  return {
-    content: { title, lines: [], safeLabel: "Cancel", confirmLabel: "Go" },
-    confirm: {
-      kind: "apply",
-      handoff: `${title} · output continues below`,
-      apply: () => Promise.resolve({ command: title, ok: true }),
-    },
-  };
 }
 
 /** A deterministic pseudo-random sequence. */
@@ -377,7 +368,7 @@ Deno.test("launcher layers close when their child starts; readers and forms that
   const ready = deskProduct(updates.state, {
     kind: "prepared",
     layerId: "review-updates-review",
-    result: { state: "ready", value: readyApply("Check for updates") },
+    result: { state: "ready", value: readyReview("Check for updates?") },
   });
   const applied = intent(ready.state, {
     kind: "confirm",
@@ -403,22 +394,47 @@ Deno.test("launcher layers close when their child starts; readers and forms that
       },
     },
   ).state;
-  const form = intent(scripts, { kind: "script", name: "deploy" }).state;
-  assertEquals(layerIds(form), ["form-main_scripts-review"]);
-  const ran = intent(form, {
+  const opened = intent(scripts, { kind: "script", name: "deploy" });
+  assertEquals(layerIds(opened.state), ["form-main_scripts-review"]);
+  assertEquals(opened.effects.map((effect) => effect.kind), ["prepare"]);
+  const typed = deskProduct(opened.state, {
+    kind: "field",
+    layerId: "form-main_scripts-review",
+    fieldId: "args",
+    value: "--fast",
+  });
+  assertEquals(typed.effects, [{
+    kind: "prepare",
+    layerId: "form-main_scripts-review",
+    step: {
+      kind: "command",
+      command: "main_scripts",
+      stage: "review",
+      values: { script: "deploy", args: "--fast" },
+    },
+    debounceMs: DESK_FORM_PREVIEW_MS,
+    readFor: formValuesKey({ args: "--fast" }),
+  }]);
+  // Confirm waits for the preview of the values on screen.
+  const early = intent(typed.state, {
     kind: "confirm",
     layer: "form-main_scripts-review",
-  }, {
-    ...UI,
-    fields: { "form-main_scripts-review": { args: "--fast" } },
+  });
+  assertEquals(early.effects, []);
+  const read = formRead(
+    typed.state,
+    "form-main_scripts-review",
+    readyReview("Run deploy in the main checkout?"),
+  ).state;
+  const ran = intent(read, {
+    kind: "confirm",
+    layer: "form-main_scripts-review",
   });
   assertEquals(layerIds(ran.state), []);
-  assertEquals(ran.effects, [{
-    kind: "script",
-    owner: { kind: "main" },
-    name: "deploy",
-    args: "--fast",
-  }]);
+  assertEquals(ran.effects.map((effect) => effect.kind), ["apply"]);
+  const apply = ran.effects[0];
+  assert(apply?.kind === "apply");
+  assertEquals(apply.step.values, { script: "deploy", args: "--fast" });
 });
 
 Deno.test("a returning effect leaves its message, its result, and one refresh", () => {
@@ -449,11 +465,20 @@ Deno.test("a returning effect leaves its message, its result, and one refresh", 
       command: "discern done",
       ok: false,
       message: { tone: "danger", text: "Checks failed" },
-      result: { title: "Checks failed", markdown: "**test** failed" },
+      result: {
+        title: "Checks failed",
+        lines: [{
+          mark: "failure",
+          text: "test failed",
+          source: { kind: "result", field: "message" },
+        }],
+        command: "discern done",
+        output: "**test** failed",
+      },
     },
   });
   assertEquals(failed.state.message?.tone, "danger");
-  assertEquals(layerIds(failed.state), ["reader-result"]);
+  assertEquals(layerIds(failed.state), ["result"]);
 
   const created = deskProduct(listed, {
     kind: "returned",

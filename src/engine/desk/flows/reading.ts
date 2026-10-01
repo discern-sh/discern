@@ -14,7 +14,7 @@ import {
   type DeskCapabilities,
   type DeskRow,
 } from "../model.ts";
-import type { DeskReview, DeskReviewFile } from "../contracts.ts";
+import type { DeskChangesEvidence, DeskReviewFile } from "../contracts.ts";
 import {
   type NumstatMagnitude,
   parseNumstat,
@@ -75,7 +75,7 @@ function reviewFiles(
 export async function readChanges(
   context: DeskFlowContext,
   row: DeskRow,
-): Promise<DeskReview> {
+): Promise<DeskChangesEvidence> {
   const { runtime } = context;
   const trunk = context.config.repository.trunk;
   const cwd = row.entry.path;

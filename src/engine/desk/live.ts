@@ -62,7 +62,8 @@ import {
   readSelectedEvidence,
   taskEvidenceSubject,
 } from "./evidence.ts";
-import type { DeskFlowStep, DeskOutcome, DeskPrepared } from "./flow_types.ts";
+import type { DeskFlowStep, DeskOutcome, DeskReview } from "./flow_types.ts";
+import { failureSheet } from "./review.ts";
 
 /** How long the selection must stay put before the slot reads its evidence. */
 export const DESK_SELECTION_SETTLE_MS = 150;
@@ -72,7 +73,7 @@ const DESK_TICK_MS = 1_000;
 
 /** The reads and effects flows perform for the live Desk. */
 export interface DeskFlows {
-  prepare(state: DeskProductState, step: DeskFlowStep): Promise<DeskPrepared>;
+  review(state: DeskProductState, step: DeskFlowStep): Promise<DeskReview>;
   read(
     state: DeskProductState,
     reader: DeskReaderSubject,
@@ -151,7 +152,7 @@ export function failedOutcome(error: unknown, command: string): DeskOutcome {
       command,
       ok: false,
       message: { tone: "danger", text: "It didn't complete" },
-      result: { title: "It didn't complete", markdown: text },
+      result: failureSheet("It didn't complete", text, command),
     };
 }
 
@@ -180,6 +181,8 @@ export function liveDesk(
   let surveyTimer: TimeoutHandle | undefined;
   let settleTimer: TimeoutHandle | undefined;
   let tickTimer: TimeoutHandle | undefined;
+  /** A form's pending preview read, by layer, while typing settles. */
+  const previewTimers = new Map<string, TimeoutHandle>();
   let tipRequested = false;
   let selected: string | undefined;
   let slotGeneration = 0;
@@ -226,12 +229,63 @@ export function liveDesk(
   };
 
   const cancel = (): void => {
-    for (const handle of [surveyTimer, settleTimer, tickTimer]) {
+    for (
+      const handle of [
+        surveyTimer,
+        settleTimer,
+        tickTimer,
+        ...previewTimers.values(),
+      ]
+    ) {
       if (handle !== undefined) scheduler.cancelTimeout(handle);
     }
     surveyTimer = undefined;
     settleTimer = undefined;
     tickTimer = undefined;
+    previewTimers.clear();
+  };
+
+  /** Read one review for a layer, now or once typing settles. */
+  const prepare = (
+    effect: Extract<DeskEffect, { readonly kind: "prepare" }>,
+  ): void => {
+    const pending = previewTimers.get(effect.layerId);
+    if (pending !== undefined) scheduler.cancelTimeout(pending);
+    previewTimers.delete(effect.layerId);
+    const read = (): void =>
+      own(
+        deps.flows.review(state, effect.step).then(
+          (review) =>
+            dispatch({
+              kind: "prepared",
+              layerId: effect.layerId,
+              result: { state: "ready", value: review },
+              ...(effect.readFor === undefined
+                ? {}
+                : { readFor: effect.readFor }),
+            }),
+          (error) =>
+            dispatch({
+              kind: "prepared",
+              layerId: effect.layerId,
+              result: failure(error),
+              ...(effect.readFor === undefined
+                ? {}
+                : { readFor: effect.readFor }),
+            }),
+        ),
+      );
+    if (effect.debounceMs === undefined) {
+      read();
+      return;
+    }
+    previewTimers.set(
+      effect.layerId,
+      scheduler.scheduleTimeout(() => {
+        previewTimers.delete(effect.layerId);
+        if (alive) read();
+      }, effect.debounceMs),
+    );
   };
 
   /** A failed read, as the event that reports it. */
@@ -266,22 +320,7 @@ export function liveDesk(
           scheduleSurvey(effect.afterMs);
           break;
         case "prepare":
-          own(
-            deps.flows.prepare(state, effect.step).then(
-              (prepared) =>
-                dispatch({
-                  kind: "prepared",
-                  layerId: effect.layerId,
-                  result: { state: "ready", value: prepared },
-                }),
-              (error) =>
-                dispatch({
-                  kind: "prepared",
-                  layerId: effect.layerId,
-                  result: failure(error),
-                }),
-            ),
-          );
+          prepare(effect);
           break;
         case "read":
           own(

@@ -27,7 +27,7 @@ export interface DeskEditorCommand {
 }
 
 /** All observations used by the pure Proof-first review composition. */
-export interface DeskReview {
+export interface DeskChangesEvidence {
   readonly trunk: string;
   readonly proof: GateProofCheckData;
   readonly commits: string;

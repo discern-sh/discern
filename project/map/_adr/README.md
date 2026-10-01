@@ -390,6 +390,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0413 — The Desk offers each task's next decision](0413-the-desk-offers-each-tasks-next-decision.md)
 - [0414 — Status owns the row-state vocabulary](0414-status-owns-the-row-state-vocabulary.md)
 - [0415 — The Desk is an inbox on the application runtime](0415-the-desk-is-an-inbox-on-the-application-runtime.md)
+- [0416 — Desk reviews lead with consequences; the plan is one key away](0416-desk-reviews-lead-with-consequences.md)
 
 <!-- END GENERATED: current ADR records -->
 

@@ -25,7 +25,10 @@ import { runTerminalApplication } from "../../src/lib/terminal_interaction.ts";
 import { type DeskRuntime, runDesk } from "../../src/engine/desk/desk.ts";
 import { statusResult } from "../../src/engine/status/status.ts";
 import type { CliModelProvider } from "../../src/shared/cli_reference_codegen.ts";
-import { DESK_LIST_ID } from "../../src/engine/desk/desk_state.ts";
+import {
+  DESK_FORM_PREVIEW_MS,
+  DESK_LIST_ID,
+} from "../../src/engine/desk/desk_state.ts";
 import { DESK_SELECTION_SETTLE_MS } from "../../src/engine/desk/live.ts";
 import type { Scheduler, TimeoutHandle } from "../../src/shared/scheduler.ts";
 import { makeOut, type Out } from "../../src/engine/output.ts";
@@ -276,6 +279,7 @@ export function scriptedDeskRuntime(
       status: "opened",
       launch: { command: "open", args: [url] },
     }),
+    fileDigest: (path) => `digest:${path}`,
     now: () => DESK_NOW,
     scheduler: {
       scheduleTimeout: () => {
@@ -415,8 +419,11 @@ export interface DeskSession {
   settle(): void;
   /** Select a list item and let the selection settle. */
   select(itemId: string): Promise<void>;
-  /** Move focus to the top layer's confirm button and press it. */
-  confirm(): Promise<void>;
+  /** Let a form's typing pause so its preview reads, and wait for it. */
+  settleForm(): Promise<void>;
+  /** Move focus to one of the top layer's buttons and press it; the
+   * confirm button unless another is named. */
+  confirm(button?: string): Promise<void>;
   /** The top layer's id, if one is open. */
   top(): string | undefined;
   /** Wait for a layer to open on top. */
@@ -508,6 +515,19 @@ export async function deskSession(
     }
   };
   const top = (): string | undefined => state().topLayerId;
+  // A form reads its preview once typing pauses; a sheet reads its subject
+  // as it opens. Either way, wait until the top layer is read.
+  const settleForm = async (): Promise<void> => {
+    const layer = top();
+    assert(layer !== undefined, "no layer is open");
+    clock.advance(DESK_FORM_PREVIEW_MS);
+    await until(
+      () =>
+        state().layers[layer] !== undefined &&
+        !screen().includes("Checking current state"),
+      `${layer} to finish reading`,
+    );
+  };
   const focused = (): string | undefined => {
     const layer = top();
     return layer === undefined
@@ -564,23 +584,19 @@ export async function deskSession(
       );
       clock.advance(DESK_SELECTION_SETTLE_MS);
     },
-    confirm: async () => {
+    settleForm: () => settleForm(),
+    confirm: async (button = "confirm") => {
       const layer = top();
       assert(layer !== undefined, "no layer is open to confirm");
-      await until(
-        () =>
-          state().layers[layer] !== undefined &&
-          !screen().includes("Checking current state"),
-        `${layer} to finish reading`,
-      );
+      await settleForm();
       for (let step = 0; step < 24; step += 1) {
-        if (state().layers[layer]?.focusedControlId === "button:confirm") {
+        if (state().layers[layer]?.focusedControlId === `button:${button}`) {
           await press("enter");
           return;
         }
         await press("tab");
       }
-      throw new Error(`${layer} has no reachable confirm button`);
+      throw new Error(`${layer} has no reachable ${button} button`);
     },
     top,
     opened: (layerId) =>

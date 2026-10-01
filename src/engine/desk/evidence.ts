@@ -107,7 +107,7 @@ export function evidenceKey(subject: DeskEvidenceSubject): string {
 }
 
 /** The trunk's head: the main checkout's registered commit. */
-function trunkHead(data: StatusData | undefined): string | undefined {
+export function trunkHead(data: StatusData | undefined): string | undefined {
   return data?.fleet?.find((entry) => entry.is_main)?.registration?.head;
 }
 

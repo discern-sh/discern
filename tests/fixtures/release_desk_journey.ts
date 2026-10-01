@@ -67,7 +67,7 @@ export async function releaseDeskJourney(
     // asserted.
     const due = geometry.columns < 40 ? "check" : "check due";
     const result = failure
-      ? both(deskLayerOpen("reader-result"), showing("since="))
+      ? both(deskLayerOpen("result"), showing("since="))
       : both(empty, showing("Opened the release page"));
     const leave = failure
       ? { keys: ["escape" as const], allowLoneEscape: true }

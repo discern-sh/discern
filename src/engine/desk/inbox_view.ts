@@ -52,6 +52,7 @@ import {
   landedRowId,
   parkedBranches,
   parkedRowId,
+  reviewLayerIds,
   rowRef,
 } from "./desk_transitions.ts";
 import {
@@ -76,6 +77,7 @@ import {
   taskEvidenceSubject,
 } from "./evidence.ts";
 import { type DeskLayerEnv, deskLayers } from "./layer_view.ts";
+import { REVIEW_AGAIN_KEY } from "./sheet_view.ts";
 import { codeRuns, deskChips } from "./header_view.ts";
 import { inertView } from "./text.ts";
 
@@ -542,7 +544,18 @@ export function deskKeymap(): ApplicationKeyBinding<DeskIntent>[] {
       if (!reserved.includes(binding.key)) keys.add(binding.key);
     }
   }
-  return [...keys].map((key) => ({ key, action: { kind: "key", key } }));
+  return [
+    ...[...keys].map((key): ApplicationKeyBinding<DeskIntent> => ({
+      key,
+      action: { kind: "key", key },
+    })),
+    // A review whose subject changed reads again on its own key.
+    ...reviewLayerIds().map((layer): ApplicationKeyBinding<DeskIntent> => ({
+      key: REVIEW_AGAIN_KEY,
+      action: { kind: "review-again", layer },
+      scope: { layer },
+    })),
+  ];
 }
 
 /** The whole view for one moment. */
