@@ -245,7 +245,8 @@ Deno.test("quitting while a check runs asks first, and Quit anyway stops it", as
   await desk.opened("progress");
   await desk.press("ctrl-c");
   await desk.opened("quit");
-  await desk.shows("Running checks on Beta is still running");
+  await desk.shows("Quit while this runs?");
+  await desk.shows("Running checks on Beta");
   assertEquals(desk.state().layers.quit?.focusedControlId, "button:safe");
   await desk.press("right");
   assertEquals(desk.state().layers.quit?.focusedControlId, "button:quit");

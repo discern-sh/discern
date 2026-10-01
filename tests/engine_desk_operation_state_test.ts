@@ -511,6 +511,43 @@ Deno.test("quitting while an operation runs asks first; Quit anyway leaves", () 
   );
 });
 
+Deno.test("the quit sheet says so when the last operation ends under it", () => {
+  const started = confirmed(landing(), actionStep("accept")).state;
+  const asked = deskIntent(started, { kind: "command", command: "quit" }).state;
+  const sheet = (state: DeskProductState) => {
+    const view = deskView(state, PRODUCT_UI, PRODUCT_VIEW_ENV).layers?.at(-1);
+    assert(view?.kind === "sheet" && view.id === "quit");
+    return view;
+  };
+  const running = sheet(asked);
+  assertEquals(running.title, "Quit while this runs?");
+  assertStringIncludes(JSON.stringify(running.body), "Landing Alpha");
+  assertEquals(
+    running.buttons.map((button) => button.label),
+    ["Keep waiting", "Quit anyway"],
+  );
+  assertEquals(
+    running.requireFullRead,
+    undefined,
+    "Quit anyway waits to be read",
+  );
+  const ended = settle(asked, {
+    command: "discern accept --target agent/alpha --confirmed",
+    ok: true,
+    message: { tone: "success", text: "Landed Alpha on main" },
+  }).state;
+  assertEquals(layers(ended).at(-1), "quit", "only the owner closes it");
+  const idle = sheet(ended);
+  assertEquals(idle.title, "Nothing is running now");
+  assertEquals(
+    idle.buttons.map((button) => [button.label, button.role]),
+    [["Keep working", "safe"], ["Quit", "confirm"]],
+  );
+  assertEquals(deskIntent(ended, { kind: "quit-anyway" }).effects, [{
+    kind: "exit",
+  }]);
+});
+
 Deno.test("Session activity reads each command, how it ended, and its last lines", () => {
   const started = confirmed(landing(), actionStep("accept")).state;
   const done = settle(

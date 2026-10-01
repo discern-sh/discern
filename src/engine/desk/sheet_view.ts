@@ -548,36 +548,67 @@ export function progressSheet(
 
 /**
  * Leaving while operations run: each stops through its journal, which
- * recovery reads, so the sheet says so and keeps waiting by default.
+ * recovery reads, so the sheet says so first and keeps waiting by default;
+ * like every sheet that confirms, Quit anyway waits until the owner has read
+ * it all. When the last one ends while the sheet is open, the sheet says
+ * nothing runs now and offers a plain Quit.
  */
 export function quitSheet(
   state: DeskProductState,
 ): ApplicationSheet<DeskIntent> {
   const running = [...state.operations.values()];
-  const first = running[0];
+  if (running.length === 0) {
+    return {
+      kind: "sheet",
+      id: "quit",
+      scope: "global",
+      title: "Nothing is running now",
+      state: "ready",
+      body: [{
+        kind: "marks",
+        items: [{
+          mark: glyph(DESK_GLYPHS.done, "success"),
+          runs: [{
+            text: "What was running has ended; quitting stops nothing",
+          }],
+        }],
+      }],
+      buttons: [
+        { id: "safe", label: "Keep working", role: "safe" },
+        {
+          id: "quit",
+          label: "Quit",
+          role: "confirm",
+          action: { kind: "quit-anyway" },
+        },
+      ],
+    };
+  }
+  const one = running.length === 1;
   return {
     kind: "sheet",
     id: "quit",
     scope: "global",
-    title: running.length === 1 && first !== undefined
-      ? `${first.title} is still running`
-      : `${plural(running.length, "operation")} are still running`,
+    title: one
+      ? "Quit while this runs?"
+      : `Quit while ${running.length} operations run?`,
     state: "ready",
-    requireFullRead: false,
+    readHint: "to read before choosing Quit anyway",
     body: [{
       kind: "marks",
       items: [
+        {
+          mark: glyph(DESK_GLYPHS.changes, "muted"),
+          runs: [{
+            text: one
+              ? "Quitting stops it; its journal records where it stopped, and recovery picks it up"
+              : "Quitting stops each one; its journal records where it stopped, and recovery picks it up",
+          }],
+        },
         ...running.map((operation): ApplicationDetailMark => ({
           mark: glyph(DESK_GLYPHS.running, "accent"),
           runs: [{ text: operation.title }],
         })),
-        {
-          mark: glyph(DESK_GLYPHS.changes, "muted"),
-          runs: [{
-            text:
-              "Quitting stops it; its journal records where it stopped, and recovery picks it up",
-          }],
-        },
       ],
     }],
     buttons: [
