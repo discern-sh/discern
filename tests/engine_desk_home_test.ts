@@ -24,6 +24,7 @@ import {
   COMMANDS_GROUP_ID,
   commandsGroup,
   DESK_HOME_COMMANDS,
+  DESK_STRIP_COMMANDS,
   homeBlocks,
   homeSections,
   homeStrip,
@@ -795,6 +796,42 @@ Deno.test("on a standard screen the home panel shows Create, Help and the tip, e
       }
     }, { columns: 80, rows: 60 });
   }
+});
+
+Deno.test("the narrow strip names the commands it leads to, each by its short form", async () => {
+  for (const command of DESK_STRIP_COMMANDS) {
+    const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
+    assert(DESK_HOME_COMMANDS.includes(command), `${command} is home`);
+    assert(metadata.short !== undefined, `${command} has a short form`);
+  }
+  const shorts = DESK_STRIP_COMMANDS.map((command) =>
+    (DESK_COMMAND_REGISTRY[command] as DeskCommandMetadata).short ?? ""
+  );
+  for (
+    const state of [observedDesk(fleet()), observedDesk(productSurvey([]))]
+  ) {
+    const strip = homeStrip(state, ENV);
+    const facts = strip.facts.map((fact) =>
+      fact.map((run) => run.text).join("")
+    );
+    for (const short of shorts) {
+      assert(facts.some((fact) => fact.endsWith(short)), `${short}: ${facts}`);
+    }
+    assert(!facts.some((fact) => /\d+ commands?/u.test(fact)), "no count");
+    assert(
+      strip.title.some((run) => run.role === "key" && run.text === "^K"),
+      "the row's strip carries the palette's key",
+    );
+  }
+  await session(() => fleet(), async (desk) => {
+    await desk.until(
+      () => selected(desk) === COMMANDS_ROW_ID,
+      "the Commands row selected",
+    );
+    for (const short of ["Manual", "Updates", "Scripts"]) {
+      assertStringIncludes(desk.screen(), short, "named at 60 columns");
+    }
+  }, { columns: 60, rows: 20 });
 });
 
 Deno.test("the home panel carries the session's tip and the release it came with", () => {

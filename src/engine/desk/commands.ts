@@ -122,9 +122,10 @@ export type DeskCommandConsequence = DeskConsequenceItem<
 
 /** One registered command's complete contract. */
 export interface DeskCommandMetadata {
-  /** A shorter footer form, only where the label cannot fit. The labels
-   * themselves are the vocabulary's (`DESK_COMMAND_LABELS`, and
-   * `DESK_COMMAND_TOGGLED_LABELS` for a used toggle), never a copy here. */
+  /** A shorter form, only where the label cannot fit: the footer, and the
+   * Commands row's strip below the split. The labels themselves are the
+   * vocabulary's (`DESK_COMMAND_LABELS`, and `DESK_COMMAND_TOGGLED_LABELS`
+   * for a used toggle), never a copy here. */
   readonly short?: string;
   /** The key that runs it in its scope's layer. */
   readonly key?: string;
@@ -180,6 +181,7 @@ function branchesWithoutCheckout(data: StatusData | undefined): number {
 /** The single Desk-level command authority. */
 export const DESK_COMMAND_REGISTRY = {
   new_task: {
+    short: "New task",
     key: "n",
     scope: "global",
     section: "create",
@@ -199,6 +201,7 @@ export const DESK_COMMAND_REGISTRY = {
     }),
   },
   main_scripts: {
+    short: "Scripts",
     scope: "global",
     section: "create",
     home: true,
@@ -300,6 +303,7 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Nothing changes; the sheet only reads")],
   },
   manual: {
+    short: "Manual",
     scope: "global",
     section: "help",
     home: true,
@@ -325,6 +329,7 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Nothing changes; the reader only reads")],
   },
   updates: {
+    short: "Updates",
     scope: "global",
     section: "help",
     home: true,

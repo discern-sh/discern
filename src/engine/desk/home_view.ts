@@ -23,7 +23,6 @@ import {
   type DeskCommand,
 } from "../../shared/desk_vocabulary.ts";
 import { DISCERN_NAME } from "../../shared/product_identity.ts";
-import { plural } from "../../shared/result_markdown_values.ts";
 import { displayWidth } from "../../lib/text.ts";
 import { tipKeyLabel } from "../../shared/tips.ts";
 import {
@@ -251,15 +250,27 @@ export function homeBlocks(
 }
 
 /**
- * The Commands row's strip on a narrow screen: New task first while there
- * are none, then how many commands Space shows, the release check, and the
- * palette's key.
+ * The commands the strip names below the split, in the order they matter on
+ * a narrow screen: starting work, then the three a newcomer cannot guess a
+ * key for. Each declares a short form in the command registry.
+ */
+export const DESK_STRIP_COMMANDS = [
+  "new_task",
+  "manual",
+  "updates",
+  "main_scripts",
+] as const satisfies readonly DeskCommand[];
+
+/**
+ * The Commands row's strip on a narrow screen: the row with the palette's
+ * key, then whether there are tasks yet, a due check, the commands it names
+ * by their short forms, and the running discern. The strip keeps whole
+ * facts in order, so a later, shorter one shows where an earlier one cannot.
  */
 export function homeStrip(
   state: DeskProductState,
   env: DeskHomeEnv,
 ): ApplicationDetailStrip {
-  const newTask = metadata("new_task").key;
   return {
     title: [
       {
@@ -268,19 +279,23 @@ export function homeStrip(
         tone: "accent",
       },
       { text: " " },
-      { text: noTasks(state) ? "No tasks yet" : COMMANDS_LABEL, role: "title" },
+      { text: COMMANDS_LABEL, role: "title" },
+      { text: "  " },
+      { ...paletteKey(undefined), role: "key" },
     ],
     facts: [
-      ...(noTasks(state) && newTask !== undefined
-        ? [[{ text: newTask, role: "key" as const }, {
-          text: ` ${DESK_COMMAND_LABELS.new_task}`,
-        }]]
+      ...(noTasks(state) ? [[{ text: "No tasks yet" }]] : []),
+      ...(checkDue(state)
+        ? [[{ text: RELEASE_CHECK_DUE, tone: "warning" as const }]]
         : []),
-      [{ text: plural(DESK_HOME_COMMANDS.length, "command") }],
-      checkDue(state)
-        ? [{ text: RELEASE_CHECK_DUE, tone: "warning" as const }]
-        : [{ text: running(env), tone: "faint" as const }],
-      [paletteKey(undefined), { text: " anywhere", tone: "muted" }],
+      ...DESK_STRIP_COMMANDS.map((command) => {
+        const { key, short } = metadata(command);
+        const name = short ?? DESK_COMMAND_LABELS[command];
+        return key === undefined
+          ? [{ text: name }]
+          : [{ text: key, role: "key" as const }, { text: ` ${name}` }];
+      }),
+      [{ text: running(env), tone: "faint" as const }],
     ],
   };
 }
