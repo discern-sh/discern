@@ -15,7 +15,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
 | [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 940     | —                | —                           |
-| [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 2       | —                | —                           |
+| [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 3       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
 | [`managed-version-states`](#managed-version-states--managed-version-comparison-states)                                | `src/shared/managed_version.ts#MANAGED_VERSION_STATES`                            | 4       | —                | —                           |
@@ -1436,7 +1436,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
 Authored Markdown release notes, family names, and the records enrolled in every release projection.
 
 - Source: `site/releases/records.ts` — `loadReleaseRecords`
-- Members: 2
+- Members: 3
+  - `1.2.0`
   - `1.1.0`
   - `1.0.0`
 - Guards: `tests/releases_test.ts`
