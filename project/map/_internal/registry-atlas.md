@@ -1820,7 +1820,7 @@ Every Git-ignored directory root deno.json's top-level exclude deliberately leav
 - Source: `scripts/repository_files.ts` — `DENO_VISIBLE_IGNORED_ROOTS`
 - Members: 2
   - `deno-skips: node_modules/`
-  - `discoverable: site/pages/assets/design-system/`
+  - `rebuilt: site/pages/assets/design-system/`
 - Guards: `tests/deno_discovery_exclusions_test.ts`
 - Glossary: not enrolled — these are repository-maintenance paths rather than product vocabulary
 - Feature canon: not enrolled — the repository's own Deno discovery scope does not change product behavior

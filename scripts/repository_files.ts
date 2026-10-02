@@ -91,10 +91,12 @@ export interface DenoVisibleIgnoredRoot {
   readonly path: string;
   /**
    * `deno-skips`: Deno's own file discovery never walks it, which the guard
-   * proves. `discoverable`: Deno may walk it; the root must hold no
-   * TypeScript.
+   * proves. `rebuilt`: Deno walks it, including its JavaScript, but the gate's
+   * build stage deletes and regenerates the whole root before lint, check, and
+   * test run, so nothing stray survives into them; the guard holds the root to
+   * the outputs the site build deletes.
    */
-  readonly discovery: "deno-skips" | "discoverable";
+  readonly discovery: "deno-skips" | "rebuilt";
   readonly reason: string;
 }
 
@@ -113,7 +115,7 @@ export const DENO_VISIBLE_IGNORED_ROOTS: readonly DenoVisibleIgnoredRoot[] = [
   },
   {
     path: "site/pages/assets/design-system/",
-    discovery: "discoverable",
+    discovery: "rebuilt",
     reason:
       "the hosted deploy rebuilds and serves these CSS, JavaScript, and font bundles under this deno.json, so the live site's assets never depend on how deploy packaging treats excluded paths",
   },
