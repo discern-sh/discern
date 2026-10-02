@@ -51,7 +51,7 @@ import {
   DESK_PALETTE_SECTIONS,
   type DeskCommandMetadata,
   lastUpdateCheck,
-  RELEASE_CHECK_CUES,
+  RELEASE_CHECK_DUE,
 } from "../src/engine/desk/commands.ts";
 import {
   DESK_KEYS,
@@ -442,10 +442,13 @@ Deno.test("Desk registry guard: labels and bindings", () => {
       () => {
         // discern fetches nothing: status's reminder counts days since this
         // clone last opened the release page.
-        for (const cue of Object.values(RELEASE_CHECK_CUES)) {
-          assert(/\bcheck/iu.test(cue), cue);
-          assert(!/available|new (?:release|version)|upgrade/iu.test(cue), cue);
-        }
+        assert(/\bcheck/iu.test(RELEASE_CHECK_DUE), RELEASE_CHECK_DUE);
+        assert(
+          !/available|new (?:release|version)|upgrade/iu.test(
+            RELEASE_CHECK_DUE,
+          ),
+          RELEASE_CHECK_DUE,
+        );
       },
     "Check for updates discloses the browser and the running version": () => {
       const facts = { version: "9.8.7", data: statusData([]) };

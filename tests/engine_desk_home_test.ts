@@ -18,7 +18,7 @@ import {
   DESK_COMMANDS,
   DESK_PALETTE_SECTIONS,
   type DeskCommandMetadata,
-  RELEASE_CHECK_CUES,
+  RELEASE_CHECK_DUE,
 } from "../src/engine/desk/commands.ts";
 import {
   COMMANDS_GROUP_ID,
@@ -34,6 +34,8 @@ import {
   type DeskProductState,
 } from "../src/engine/desk/desk_state.ts";
 import { COMMANDS_LABEL, DESK_KEYS } from "../src/engine/desk/keys.ts";
+import { deskChips } from "../src/engine/desk/header_view.ts";
+import { deskPalette } from "../src/engine/desk/palette_view.ts";
 import type { StatusData } from "../src/shared/result_schemas.ts";
 import type { ReleaseCheckRead } from "../src/shared/release_check.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
@@ -374,8 +376,8 @@ Deno.test("the Commands row says a release check is due, from status's reminder"
     async (desk) => {
       await desk.shows("Live");
       const row = lineWith(desk, "≡ Commands");
-      assertStringIncludes(row, RELEASE_CHECK_CUES.row);
-      assert(!row.includes("^K"), "the cue stands in for the palette's key");
+      assertStringIncludes(row, RELEASE_CHECK_DUE);
+      assertStringIncludes(row, "^K", "the palette's key keeps its place");
       assertStringIncludes(
         lineWith(desk, DESK_COMMAND_LABELS.updates),
         "3w ago",
@@ -389,7 +391,7 @@ Deno.test("the Commands row says a release check is due, from status's reminder"
     await desk.shows("Live");
     const row = lineWith(desk, "≡ Commands");
     assertStringIncludes(row, "^K");
-    assert(!row.includes(RELEASE_CHECK_CUES.row), "nothing is due");
+    assert(!row.includes(RELEASE_CHECK_DUE), "nothing is due");
   });
 });
 
@@ -591,15 +593,59 @@ Deno.test("the home panel names which discern runs, and when this clone last che
     "3w ago",
     "a due check keeps the history faint; the row says it is due",
   );
-  const strip = homeStrip(due, ENV);
-  assert(
-    strip.facts.some((fact) =>
-      fact.some((run) => run.text === RELEASE_CHECK_CUES.chip)
-    ),
-    "the strip says the check is due",
+});
+
+Deno.test("a due check reads in one phrase everywhere, in warning only on the Commands row", () => {
+  const due = surveyed(
+    productSurvey([], { release_reminder: "It's time to check." }),
+    { state: "checked", at: "2026-06-18T12:00:00.000Z" },
   );
+  /** Every run's text and tone, and every label, a value holds. */
+  const runs = (value: unknown): { text: string; tone?: string }[] =>
+    Array.isArray(value)
+      ? value.flatMap(runs)
+      : typeof value === "object" && value !== null
+      ? "text" in value && typeof value.text === "string"
+        ? [value as { text: string; tone?: string }]
+        : [
+          ...("label" in value && typeof value.label === "string"
+            ? [{ text: value.label }]
+            : []),
+          ...Object.values(value).flatMap(runs),
+        ]
+      : [];
+  const surfaces: ReadonlyArray<readonly [string, unknown, boolean]> = [
+    ["the Commands row", commandsGroup(due).items, true],
+    ["the header chip", deskChips(due.data), false],
+    ["the strip", homeStrip(due, ENV), true],
+    ["the home panel", homeBlocks(due, ENV), false],
+    ["the palette", deskPalette(due, PRODUCT_NOW, true), false],
+  ];
+  for (const [surface, value, says] of surfaces) {
+    const found = runs(value);
+    const cues = found.filter((run) =>
+      /check/iu.test(run.text) &&
+      /due|update/iu.test(run.text) && run.text !== DESK_COMMAND_LABELS.updates
+    );
+    for (const cue of cues) {
+      assertEquals(cue.text, RELEASE_CHECK_DUE, `${surface} says it one way`);
+    }
+    assertEquals(
+      found.some((run) => run.text === RELEASE_CHECK_DUE),
+      says || surface === "the header chip" || surface === "the palette",
+      `${surface} names the due check`,
+    );
+    assertEquals(
+      found.filter((run) => run.tone === "warning").map((run) => run.text),
+      surface === "the Commands row" || surface === "the strip"
+        ? [RELEASE_CHECK_DUE]
+        : [],
+      `${surface}: only the row, or the strip standing in for it, warns`,
+    );
+  }
   const [row] = commandsGroup(due).items;
-  assertEquals(row?.cells?.label?.[0]?.text, RELEASE_CHECK_CUES.row);
+  assertEquals(row?.cells?.label?.[0]?.text, RELEASE_CHECK_DUE);
+  assert(row?.cells?.age !== undefined, "the palette's key keeps its cell");
 });
 
 Deno.test("the home panel lays its commands out as the palette lists them", () => {

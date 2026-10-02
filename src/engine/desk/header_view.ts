@@ -15,7 +15,7 @@ import {
   DESK_COMMAND_TOGGLED_LABELS,
 } from "../../shared/desk_vocabulary.ts";
 import type { DeskIntent, DeskProductState } from "./desk_state.ts";
-import { RELEASE_CHECK_CUES } from "./commands.ts";
+import { RELEASE_CHECK_DUE } from "./commands.ts";
 import { splitTipKeys, tipKeyLabel } from "../../shared/tips.ts";
 
 /** One chip and the command it routes to. */
@@ -81,7 +81,7 @@ export function deskChips(
     );
   }
   if (data.release_reminder !== undefined) {
-    chips.push(chip(RELEASE_CHECK_CUES.chip, "updates", false));
+    chips.push(chip(RELEASE_CHECK_DUE, "updates", false));
   }
   return chips;
 }

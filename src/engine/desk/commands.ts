@@ -74,17 +74,15 @@ export const DESK_PALETTE_SECTION_TITLES = {
 } as const satisfies Record<DeskPaletteSection, string>;
 
 /**
- * How the desk says status's release reminder is due, by the room each
- * surface has. The reminder counts days on this clone's own clock since it
- * last opened the release page; discern fetches nothing, so no cue may say
- * a release exists.
+ * The one phrase the desk says status's release reminder is due in: the
+ * Commands row's label cell, which is as wide as a task's state label, the
+ * header chip and the Needs you entry it routes from, and the narrow
+ * strip. It names what to do, Check for updates, as Enter on the row then
+ * offers it. The reminder counts days on this clone's own clock since it
+ * last opened the release page; discern fetches nothing, so it never says a
+ * release exists.
  */
-export const RELEASE_CHECK_CUES = {
-  /** The header chip that routes to Check for updates. */
-  chip: "Update check due",
-  /** The Commands row's label cell, as wide as a task's state label. */
-  row: "Check updates",
-} as const;
+export const RELEASE_CHECK_DUE = "Check updates";
 
 /** The observed facts a command's meta, summary, or consequences read. */
 export interface DeskCommandFacts {

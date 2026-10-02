@@ -34,7 +34,7 @@ import {
   type DeskCommandFacts,
   type DeskCommandMetadata,
   type DeskPaletteSection,
-  RELEASE_CHECK_CUES,
+  RELEASE_CHECK_DUE,
 } from "./commands.ts";
 import { COMMANDS_LABEL } from "./keys.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
@@ -97,9 +97,9 @@ function paletteKey(tone: ApplicationRun["tone"]): ApplicationRun {
 
 /**
  * The group that leads the inbox: the Commands row alone, with no header.
- * Its trailing cell names the palette's key, or says a release check is due.
- * The row is the desk's own, not a task: the filter passes over it, and
- * zoom numbers only the tasks.
+ * Its trailing cell names the palette's key, and its label cell says when a
+ * release check is due. The row is the desk's own, not a task: the filter
+ * passes over it, and zoom numbers only the tasks.
  */
 export function commandsGroup(
   state: DeskProductState,
@@ -112,9 +112,14 @@ export function commandsGroup(
       ascii: DESK_GLYPHS.commands.ascii,
       tone: "accent",
     },
-    cells: checkDue(state)
-      ? { label: [{ text: RELEASE_CHECK_CUES.row, tone: "warning" }] }
-      : { age: [paletteKey("faint")] },
+    // While a check is due the cue takes the label cell, as a task's state
+    // does, and the palette's key keeps its place beside it.
+    cells: {
+      ...(checkDue(state)
+        ? { label: [{ text: RELEASE_CHECK_DUE, tone: "warning" as const }] }
+        : {}),
+      age: [paletteKey("faint")],
+    },
     primary: { kind: "next", id: COMMANDS_ROW_ID },
   };
   return {
@@ -260,7 +265,7 @@ export function homeStrip(
         : []),
       [{ text: plural(DESK_HOME_COMMANDS.length, "command") }],
       checkDue(state)
-        ? [{ text: RELEASE_CHECK_CUES.chip, tone: "warning" as const }]
+        ? [{ text: RELEASE_CHECK_DUE, tone: "warning" as const }]
         : [{ text: running(env), tone: "faint" as const }],
       [paletteKey(undefined), { text: " anywhere", tone: "muted" }],
     ],
