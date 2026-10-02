@@ -47,8 +47,13 @@ import {
   inlineRuns,
   toggleLabel,
 } from "../src/engine/desk/header_view.ts";
-import { buildAgentLaunches, deskRowId } from "../src/engine/desk/model.ts";
+import {
+  buildAgentLaunches,
+  type DeskAgentLaunch,
+  deskRowId,
+} from "../src/engine/desk/model.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
+import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
 import { DESK_KEYS } from "../src/engine/desk/keys.ts";
 import { actionsMenu } from "../src/engine/desk/menu_view.ts";
 import { taskEvidenceSubject } from "../src/engine/desk/evidence.ts";
@@ -1332,14 +1337,17 @@ Deno.test("zoom's footer walks to the next task and keeps the task's keys", () =
   );
 });
 
-Deno.test("the agent picker says what a launch does and how to come back, never its argv", () => {
+/**
+ * A Desk whose one task offers Claude Code and Codex, with the agents
+ * picker open, finding only the named binaries on PATH.
+ */
+function agentPicker(
+  found: readonly DetectedAgentBinary[],
+): { view: TerminalApplicationView<DeskIntent>; launches: DeskAgentLaunch[] } {
   const config = configSchema.parse({
     project: { name: "demo", slug: "demo", agents: ["claude_code", "codex"] },
   });
-  const launches = buildAgentLaunches(config, [
-    { name: "claude_code", binary: "claude" },
-    { name: "codex", binary: "codex" },
-  ]);
+  const launches = buildAgentLaunches(config, found);
   const listed = desk(statusData([mainFleetEntry(), task({ ahead: 2 })]));
   const state: DeskProductState = {
     ...listed,
@@ -1349,11 +1357,20 @@ Deno.test("the agent picker says what a launch does and how to come back, never 
       agentLaunches: launches,
     })),
   };
-  const menu = deskView(
+  const view = deskView(
     open(state, { kind: "agents", taskId: "task" }).state,
     PRODUCT_UI,
     ENV,
-  ).layers?.[0];
+  );
+  return { view, launches };
+}
+
+Deno.test("the agent picker says what a launch does and how to come back, never its argv", () => {
+  const { view, launches } = agentPicker([
+    { name: "claude_code", binary: "claude" },
+    { name: "codex", binary: "codex" },
+  ]);
+  const menu = view.layers?.[0];
   assert(menu?.kind === "menu");
   const items = menu.sections.flatMap((section) => section.items);
   assert(items.length === 4, said(items));
@@ -1370,26 +1387,7 @@ Deno.test("the agent picker says what a launch does and how to come back, never 
 });
 
 Deno.test("an agent that can't open says why in a few words, and the remedy on Enter", () => {
-  const config = configSchema.parse({
-    project: { name: "demo", slug: "demo", agents: ["claude_code", "codex"] },
-  });
-  const launches = buildAgentLaunches(config, [
-    { name: "claude_code", binary: "claude" },
-  ]);
-  const listed = desk(statusData([mainFleetEntry(), task({ ahead: 2 })]));
-  const state: DeskProductState = {
-    ...listed,
-    rows: listed.rows.map((row) => ({
-      ...row,
-      discovered: true,
-      agentLaunches: launches,
-    })),
-  };
-  const view = deskView(
-    open(state, { kind: "agents", taskId: "task" }).state,
-    PRODUCT_UI,
-    ENV,
-  );
+  const { view } = agentPicker([{ name: "claude_code", binary: "claude" }]);
   const menu = view.layers?.[0];
   assert(menu?.kind === "menu");
   const unavailable = menu.sections.flatMap((section) =>
