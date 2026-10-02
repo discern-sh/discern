@@ -1611,8 +1611,9 @@ export function renderDoctorCheck(
         ? [line]
         : wrapText(line, lineWidth, "", { breakLongWords: true })
     );
+    // Continuations hang under the text beside the two-cell glyph column.
     return {
-      line: lines.join("\n"),
+      line: lines.join("\n").replaceAll(/\n(?=.)/gu, "\n  "),
       status: check.status,
       ...(fix === undefined ? {} : { fix }),
     };
@@ -1744,8 +1745,13 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     },
     {
       id: "doctor-checks",
+      items: [(): void => renderDoctorChecks(log, checks, terminal)],
+    },
+    // Version advice is its own group: at the checks' hanging indent it would
+    // otherwise read as the last check's continuation.
+    {
+      id: "doctor-version-advice",
       items: [
-        (): void => renderDoctorChecks(log, checks, terminal),
         ...(adoptionAdvice === undefined
           ? []
           : [(): void => log.detail(adoptionAdvice)]),

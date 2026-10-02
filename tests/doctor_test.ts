@@ -183,6 +183,12 @@ Deno.test("doctor terminal Components make dynamic facts inert without mutating 
     stripAnsi(okOutput).split("\n").length,
     okCheck.line.split("\n").length,
   );
+  for (const continuation of stripAnsi(okOutput).split("\n").slice(1)) {
+    assert(
+      continuation.startsWith("  "),
+      `a passing check's continuation must hang under its text: ${continuation}`,
+    );
+  }
   assertEquals(okOutput.includes("␊"), false);
 
   for (const output of [header, check.line, check.fix ?? "", okOutput]) {
