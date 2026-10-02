@@ -45,6 +45,13 @@ import { compareTaskTitles } from "../status/fleet_rows.ts";
 export const DESK_LIST_ID = "inbox";
 
 /**
+ * The list identity of the Commands row that leads the inbox. No task can
+ * take it: a task id or branch never holds a colon, and a path starts with
+ * a slash.
+ */
+export const COMMANDS_ROW_ID = "desk:commands";
+
+/**
  * Layers open at once, bottom to top: the package's own limit, which a test
  * holds equal to its exported value.
  */
@@ -459,12 +466,10 @@ export function resurvey(state: DeskProductState): DeskTransition {
 }
 
 /**
- * What a message on the message line is about: the session tip, a return
- * from a child the Desk lent the terminal to, the offline warning, or any
- * other notice.
+ * What a message on the message line is about: a return from a child the
+ * Desk lent the terminal to, the offline warning, or any other notice.
  */
 export const DESK_MESSAGE_TOPICS = [
-  "tip",
   "return",
   "offline",
   "notice",
@@ -494,7 +499,7 @@ export function toast(
   state: DeskProductState,
   tone: DeskMessage["tone"],
   text: string,
-  extra: Pick<DeskMessage, "mark" | "key" | "tasks" | "detail" | "lead"> & {
+  extra: Pick<DeskMessage, "mark" | "key" | "tasks" | "detail"> & {
     readonly topic?: DeskMessageTopic;
   } = {},
 ): DeskProductState {
@@ -545,6 +550,8 @@ export function taskTitleOf(state: DeskProductState, branch: string): string {
 
 /** What a list identity stands for. */
 export type DeskRowRef =
+  /** The Commands row: its Enter opens the palette, its detail is home. */
+  | { readonly kind: "commands" }
   | { readonly kind: "task"; readonly row: DeskRow }
   | { readonly kind: "parked"; readonly branch: string }
   | {
@@ -558,6 +565,7 @@ export function rowRef(
   id: string | undefined,
 ): DeskRowRef | undefined {
   if (id === undefined) return undefined;
+  if (id === COMMANDS_ROW_ID) return { kind: "commands" };
   const row = state.rows.find((candidate) => deskRowId(candidate) === id);
   if (row !== undefined) return { kind: "task", row };
   if (id.startsWith("parked:")) {

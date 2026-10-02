@@ -10,10 +10,10 @@ import { SYSTEM_CLOCK } from "../../src/shared/clock.ts";
 import { DISCERN_VERSION } from "../../src/lib/version.ts";
 import { writeExecutable } from "../engine_helpers.ts";
 import {
-  deskEmpty,
   deskFleetFixture,
   deskFocused,
   type DeskFrameTest,
+  deskHome,
   deskLayerOpen,
   deskLayerReady,
   deskSettledPhase as phase,
@@ -61,7 +61,7 @@ export async function releaseDeskJourney(
     );
     const resized = resize ? { columns: 40, rows: 20 } : geometry;
     const review = "review-updates-review";
-    const empty = deskEmpty();
+    const empty = deskHome();
     const palette = deskLayerOpen("palette");
     // Ready markers come from the settled application's state, never elapsed
     // sleep. Below 40 columns the palette row truncates, so only its start is

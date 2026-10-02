@@ -144,16 +144,16 @@ Deno.test("every message's id names its topic, which a state report reader recov
   }
   assertEquals(deskMessageTopic("operation-3"), undefined);
   assertEquals(deskMessageTopic(undefined), undefined);
+});
+
+Deno.test("the session's tip is kept for the home panel and leaves the message line alone", () => {
+  const tip = { brief: "Press `?` for keys", full: "Press `?` for keys" };
   const tipped = deskProduct(observedDesk(survey([editing("alpha")])), {
     kind: "tip",
-    tip: {
-      lead: "Tip",
-      brief: "Press `?` for keys",
-      full: "Press `?` for keys",
-    },
-  }).state.message;
-  assertEquals(deskMessageTopic(tipped?.id), "tip");
-  assertEquals(tipped?.topic, "tip");
+    tip,
+  }).state;
+  assertEquals(tipped.tip, tip);
+  assertEquals(tipped.message, undefined);
 });
 
 Deno.test("a failed survey retries once before the Desk says it is offline", () => {

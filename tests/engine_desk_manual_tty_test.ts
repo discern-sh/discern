@@ -30,6 +30,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { DESK_COMMAND_LABELS } from "../src/shared/desk_vocabulary.ts";
+import { COMMANDS_ROW_ID } from "../src/engine/desk/desk_transitions.ts";
 
 const MANUAL_PROCESS = join(
   APPLICATION_FIXTURE_ROOT,
@@ -47,12 +48,19 @@ function settled(
   return ptySettledFrame(SIZE, description, test);
 }
 
-/** The Desk's empty inbox, with nothing open over it. */
+/**
+ * The Desk's empty inbox at home once its first survey has read the
+ * project, with nothing open over it. The Commands row is selected from the
+ * first frame; its panel waits on the survey until then, so a settled panel
+ * says the session has started, as the empty body did before it.
+ */
 const INBOX = settled(
   "the Desk's inbox",
   (capture) =>
     capture.state?.topLayerId === undefined &&
-    capture.state?.focusedControlId === "primary",
+    capture.state?.selectedItemId === COMMANDS_ROW_ID &&
+    capture.state.liveness === "idle" &&
+    capture.state.detailPending !== true,
 );
 
 /** The Desk's palette, ready for a query. */

@@ -240,6 +240,7 @@ export function scriptedDeskRuntime(
     loadConfig: () => DESK_CONFIG,
     status: () => ({ ok: true, data }),
     mainRepoPath: () => DESK_ROOT,
+    releaseCheck: () => ({ status: "missing" }),
     grantEffortPlan: () => ({
       title: "Landing pre-authorization plan",
       details: [],

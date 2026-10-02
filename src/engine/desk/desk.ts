@@ -75,6 +75,11 @@ import {
   openInBrowser,
 } from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
+import {
+  inspectReleaseCheck,
+  releaseCheckHistory,
+  type ReleaseCheckRead,
+} from "../../shared/release_check.ts";
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import {
@@ -115,7 +120,7 @@ import {
 import {
   type DeskTip,
   markTipShown,
-  renderTipLine,
+  renderDeskTip,
   selectTip,
   type TipSeenState,
 } from "./tips.ts";
@@ -201,6 +206,8 @@ export interface DeskRuntime extends DeskLandingPermission {
     hints?: readonly string[] | undefined;
   }>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
+  /** The clone's release record, which the home panel's last check reads. */
+  releaseCheck(root: string): DeskMaybePromise<ReleaseCheckRead>;
   makeOut(): Out;
   error(message: string): void;
   application(
@@ -404,6 +411,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root, { all: true }),
   mainRepoPath: (root) => mainRepoPath(root),
+  releaseCheck: (root) => inspectReleaseCheck(root),
   // The only production writers of landing permission: this runtime is
   // private to the Desk's entry, which only the CLI's human surfaces open.
   grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
@@ -820,7 +828,7 @@ async function sessionTip(
     ),
   );
   runtime.recordTipShown(selected.tip.id);
-  return renderTipLine(selected);
+  return renderDeskTip(selected);
 }
 
 /** Remember the groups the owner left folded, once they differ from the
@@ -914,13 +922,20 @@ export async function runDesk(
       now: runtime.now,
       scheduler: runtime.scheduler,
       observe: async () => {
-        const result = await runtime.status(root);
+        const [result, release] = await Promise.all([
+          runtime.status(root),
+          runtime.releaseCheck(root),
+        ]);
         if (!result.ok || result.data === undefined) {
           throw new Error(result.message ?? "The status survey failed.");
         }
         // The owner reads these: agent-directed hints stay on the wire, as
         // on any interactive terminal.
-        return { data: result.data, hints: interactiveHintTexts(result.hints) };
+        return {
+          data: result.data,
+          hints: interactiveHintTexts(result.hints),
+          releaseCheck: releaseCheckHistory(release),
+        };
       },
       tip: (data) => sessionTip(root, config, runtime, data),
       manual: async () =>

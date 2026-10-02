@@ -1,0 +1,477 @@
+/**
+ * The Commands row and its home panel. The Desk opens on the row with and
+ * without tasks, Down reaches the first task and Home returns to it, every
+ * way into the row's choices opens the palette, and the panel lists every
+ * command the registry marks for home beside the release check and the
+ * session's tip. Sessions run on the real package runtime at every pinned
+ * inbox geometry; the panel's contents are read from its pure builder.
+ */
+
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import type {
+  ApplicationDetailBlock,
+  ApplicationRun,
+} from "discern-design-system/cli/interactive";
+import {
+  DESK_COMMAND_LABELS,
+  type DeskCommand,
+} from "../src/shared/desk_vocabulary.ts";
+import {
+  DESK_COMMAND_REGISTRY,
+  DESK_COMMANDS,
+  DESK_PALETTE_SECTIONS,
+  type DeskCommandMetadata,
+  RELEASE_CHECK_CUES,
+} from "../src/engine/desk/commands.ts";
+import {
+  COMMANDS_GROUP_ID,
+  commandsGroup,
+  DESK_HOME_COMMANDS,
+  homeBlocks,
+  homeSections,
+  homeStrip,
+} from "../src/engine/desk/home_view.ts";
+import { COMMANDS_ROW_ID } from "../src/engine/desk/desk_transitions.ts";
+import {
+  DESK_LIST_ID,
+  type DeskProductState,
+} from "../src/engine/desk/desk_state.ts";
+import { DESK_KEYS } from "../src/engine/desk/keys.ts";
+import type { StatusData } from "../src/shared/result_schemas.ts";
+import type { ReleaseCheckRead } from "../src/shared/release_check.ts";
+import { taskFleetEntry } from "./status_fleet.ts";
+import {
+  type DeskSession,
+  deskSurvey,
+  withDeskSession,
+} from "./fixtures/desk_session.ts";
+import {
+  freshDesk,
+  observedDesk,
+  PRODUCT_NOW,
+  productSurvey,
+} from "./fixtures/desk_product.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
+
+/** The inbox geometries the design pins. */
+const INBOX_SIZES = [
+  [120, 30],
+  [80, 24],
+  [60, 20],
+  [40, 20],
+  [80, 13],
+  [32, 10],
+] as const;
+
+/** A task ready for review, then one that needs attention. */
+function fleet(): StatusData {
+  return deskSurvey([
+    taskFleetEntry("ready", {
+      ahead: 2,
+      proof_honored: true,
+      gate_proof: { status: "honored" },
+      last_activity: "2026-07-11T11:00:00Z",
+      task: {
+        id: "ready",
+        branch: "agent/ready",
+        title: "Ready work",
+        title_source: "recorded",
+      },
+    }),
+    taskFleetEntry("stale", {
+      ahead: 1,
+      behind: 12,
+      proof_honored: true,
+      gate_proof: { status: "honored" },
+      last_activity: "2026-07-01T11:00:00Z",
+      task: {
+        id: "stale",
+        branch: "agent/stale",
+        title: "Stale work",
+        title_source: "recorded",
+      },
+    }),
+  ]);
+}
+
+/** The fleets the Desk can open on: tasks, none, and only a parked branch. */
+const FLEETS: ReadonlyArray<readonly [string, () => StatusData]> = [
+  ["a fleet", fleet],
+  ["no tasks", () => deskSurvey()],
+  [
+    "only a parked branch",
+    () => deskSurvey([], { unlanded_branches: ["agent/spike"] }),
+  ],
+];
+
+/** A release record whose last handoff was `at`. */
+function handedOff(at: string): ReleaseCheckRead {
+  return {
+    status: "recorded",
+    value: {
+      schema_version: 1,
+      first_seen_at: "2026-06-01T00:00:00.000Z",
+      last_handoff_at: at,
+      version_when_handed_off: DISCERN_VERSION,
+    },
+  };
+}
+
+/** One session over `data`, at a size. */
+async function session(
+  data: () => StatusData,
+  body: (desk: DeskSession) => Promise<void>,
+  size: { readonly columns?: number; readonly rows?: number } = {},
+  release: ReleaseCheckRead = { status: "missing" },
+): Promise<void> {
+  await withDeskSession(
+    {
+      ...size,
+      runtime: {
+        status: () => ({ ok: true, data: data() }),
+        releaseCheck: () => release,
+      },
+    },
+    body,
+    (error) =>
+      new Error(
+        `${size.columns ?? 120}x${size.rows ?? 40}: ${String(error)}`,
+        { cause: error },
+      ),
+  );
+}
+
+/** The selected list item. */
+function selected(desk: DeskSession): string | undefined {
+  return desk.state().lists[DESK_LIST_ID]?.selectedId;
+}
+
+/** The screen's line that holds `text`. */
+function lineWith(desk: DeskSession, text: string): string {
+  return desk.screen().split("\n").find((line) => line.includes(text)) ?? "";
+}
+
+/** Every run's words in a block, nested blocks included. */
+function words(blocks: readonly ApplicationDetailBlock[]): string {
+  return blocks.map((block): string => {
+    switch (block.kind) {
+      case "heading":
+        return [block.title, ...(block.aside ?? []).map((run) => run.text)]
+          .join(" ");
+      case "text":
+        return block.runs.map((run) => run.text).join("");
+      case "section":
+        return `${block.title} ${block.caption ?? ""} ${words(block.blocks)}`;
+      case "rows":
+        return block.items.map((item) =>
+          [...(item.lead ?? []), ...item.text].map((run) => run.text).join(" ")
+        ).join("\n");
+      case "pending":
+        return block.label;
+      default:
+        return "";
+    }
+  }).join("\n");
+}
+
+/** The home panel's command labels, in the order it lists them. */
+function listedCommands(blocks: readonly ApplicationDetailBlock[]): string[] {
+  return blocks.flatMap((block) =>
+    block.kind === "section"
+      ? block.blocks.flatMap((inner) =>
+        inner.kind === "rows"
+          ? inner.items.map((item) => item.text.map((run) => run.text).join(""))
+          : []
+      )
+      : []
+  );
+}
+
+/** A Desk that has read `data` and the release record's history. */
+function surveyed(
+  data: StatusData,
+  history: DeskProductState["releaseCheck"],
+): DeskProductState {
+  const state = observedDesk(data);
+  return history === undefined ? state : { ...state, releaseCheck: history };
+}
+
+const ENV = { version: "9.8.7", now: PRODUCT_NOW };
+
+Deno.test("the Desk opens on the Commands row, with or without tasks", async () => {
+  for (const [name, data] of FLEETS) {
+    await session(data, async (desk) => {
+      await desk.shows("Live");
+      assertEquals(selected(desk), COMMANDS_ROW_ID, name);
+      assertStringIncludes(desk.screen(), DESK_COMMAND_LABELS.updates, name);
+      assertStringIncludes(desk.screen(), DESK_COMMAND_LABELS.manual, name);
+    });
+  }
+});
+
+Deno.test("Down reaches the first task and Home returns to the Commands row", async () => {
+  await session(fleet, async (desk) => {
+    await desk.shows("Ready work");
+    await desk.press("down");
+    assertEquals(selected(desk), "ready", "the first task that needs you");
+    await desk.press("down");
+    assertEquals(selected(desk), "stale");
+    await desk.press("home");
+    assertEquals(selected(desk), COMMANDS_ROW_ID);
+    await desk.press("enter");
+    await desk.opened("palette");
+  });
+});
+
+Deno.test("every way into the Commands row's choices opens the palette", async () => {
+  for (const key of ["enter", "right", "."]) {
+    await session(fleet, async (desk) => {
+      await desk.shows("Ready work");
+      await desk.press(key);
+      await desk.opened("palette");
+      await desk.escape(() => desk.top() === undefined, "the palette closes");
+      assertEquals(selected(desk), COMMANDS_ROW_ID, key);
+    });
+  }
+  for (
+    const binding of DESK_KEYS.commands.filter((each) =>
+      ["enter", "right", "."].includes(each.key)
+    )
+  ) {
+    assert(
+      binding.meaning.kind === "gesture" &&
+        binding.meaning.gesture === "palette",
+      `${binding.key} on the Commands row opens the palette`,
+    );
+  }
+});
+
+Deno.test("the palette opened from the Commands row takes the home panel's column", async () => {
+  await session(fleet, async (desk) => {
+    await desk.shows("Ready work");
+    const divider = lineWith(desk, "Ready work").indexOf("│");
+    assert(divider > 0, "the wide split shows a divider");
+    await desk.press("enter");
+    await desk.opened("palette");
+    const search = lineWith(desk, "Search tasks and commands");
+    assert(
+      search.indexOf("Search tasks and commands") > divider,
+      `the palette sits in the detail column:\n${desk.screen()}`,
+    );
+    assertStringIncludes(
+      lineWith(desk, "Ready work"),
+      "Ready work",
+      "the list stays beside it",
+    );
+  }, { columns: 120, rows: 30 });
+});
+
+Deno.test("the Commands row says a release check is due, from status's reminder", async () => {
+  const due = () => deskSurvey([], { release_reminder: "It's time to check." });
+  await session(
+    due,
+    async (desk) => {
+      await desk.shows("Live");
+      const row = lineWith(desk, "≡ Commands");
+      assertStringIncludes(row, RELEASE_CHECK_CUES.row);
+      assert(!row.includes("^K"), "the cue stands in for the palette's key");
+      assertStringIncludes(desk.screen(), "last checked");
+    },
+    {},
+    handedOff("2026-06-18T00:00:00.000Z"),
+  );
+  await session(() => deskSurvey(), async (desk) => {
+    await desk.shows("Live");
+    const row = lineWith(desk, "≡ Commands");
+    assertStringIncludes(row, "^K");
+    assert(!row.includes(RELEASE_CHECK_CUES.row), "nothing is due");
+  });
+});
+
+Deno.test("the session's tip shows in the home panel, never on the message line", async () => {
+  await session(fleet, async (desk) => {
+    await desk.shows("Tip");
+    const divider = lineWith(desk, "≡ Commands").indexOf("│");
+    const tip = lineWith(desk, "Tip");
+    assert(
+      tip.indexOf("Tip") > divider,
+      `the tip sits in the panel:\n${desk.screen()}`,
+    );
+    await desk.press("down");
+    assert(!desk.screen().includes("Tip"), "it stays with the home panel");
+  });
+});
+
+Deno.test("the Commands row and its panel paint at every pinned geometry", async () => {
+  for (const [name, data] of FLEETS) {
+    for (const [columns, rows] of INBOX_SIZES) {
+      await session(data, async (desk) => {
+        await desk.until(
+          () => selected(desk) === COMMANDS_ROW_ID,
+          `${name}: the Commands row selected`,
+        );
+        assertStringIncludes(lineWith(desk, "Commands"), "Commands", name);
+        if (columns >= 80 && rows >= 24) {
+          for (const label of ["new_task", "manual", "updates"] as const) {
+            assertStringIncludes(
+              desk.screen(),
+              DESK_COMMAND_LABELS[label],
+              `${name} ${columns}x${rows}: ${label} on the first screen`,
+            );
+          }
+        }
+        if (columns < 80 && rows >= 20) {
+          // The strip names the row; Space reads the whole panel, and
+          // paging reaches its last command.
+          await desk.press(" ");
+          await desk.until(
+            () => desk.state().lists[DESK_LIST_ID]?.zoomed === true,
+            `${name}: the panel zoomed`,
+          );
+          assertStringIncludes(desk.screen(), DESK_COMMAND_LABELS.new_task);
+          for (
+            let page = 0;
+            page < 4 && !desk.screen().includes(DESK_COMMAND_LABELS.updates);
+            page += 1
+          ) await desk.press("page-down");
+          assertStringIncludes(desk.screen(), DESK_COMMAND_LABELS.updates);
+          await desk.escape(
+            () => desk.state().lists[DESK_LIST_ID]?.zoomed !== true,
+            `${name}: zoom closes`,
+          );
+        }
+        await desk.press("enter");
+        await desk.opened("palette");
+        await desk.escape(() => desk.top() === undefined, "the palette");
+      }, { columns, rows });
+    }
+  }
+});
+
+Deno.test("the home panel lists every command marked for home, the manual and the update check always among them", () => {
+  const marked = DESK_COMMANDS.filter((command) =>
+    (DESK_COMMAND_REGISTRY[command] as DeskCommandMetadata).home === true
+  );
+  assertEquals([...DESK_HOME_COMMANDS], marked);
+  for (const always of ["manual", "updates", "new_task"] as const) {
+    assert(DESK_HOME_COMMANDS.includes(always), `${always} is home`);
+  }
+  const order: DeskCommand[] = homeSections().flatMap((section) => [
+    ...section.commands,
+  ]);
+  assertEquals(
+    order.toSorted(),
+    [...DESK_HOME_COMMANDS].toSorted(),
+    "each home command sits in one section the panel shows",
+  );
+  assertEquals(
+    homeSections().map((section) => section.section),
+    DESK_PALETTE_SECTIONS.filter((section) =>
+      DESK_HOME_COMMANDS.some((command) =>
+        (DESK_COMMAND_REGISTRY[command] as DeskCommandMetadata).section ===
+          section
+      )
+    ),
+    "the panel keeps the palette's section order",
+  );
+  for (const command of DESK_HOME_COMMANDS) {
+    const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
+    assertEquals(metadata.scope, "global", `${command} runs from anywhere`);
+    assert(
+      metadata.key === undefined || [...metadata.key].length === 1,
+      `${command}: a home key is one character, shown as typed`,
+    );
+  }
+  for (
+    const state of [
+      freshDesk(),
+      observedDesk(productSurvey([])),
+      observedDesk(fleet()),
+    ]
+  ) {
+    assertEquals(
+      listedCommands(homeBlocks(state, ENV)),
+      order.map((command) => DESK_COMMAND_LABELS[command]),
+    );
+  }
+});
+
+Deno.test("the home panel says which discern runs and when this clone last checked", () => {
+  const checked = { state: "checked", at: "2026-06-18T12:00:00.000Z" } as const;
+  const cases: ReadonlyArray<
+    readonly [DeskProductState["releaseCheck"], string, string | undefined]
+  > = [
+    [checked, "discern 9.8.7 · last checked 3w ago", undefined],
+    [{ state: "never" }, "discern 9.8.7 · never checked", undefined],
+    [{ state: "unknown" }, "discern 9.8.7", undefined],
+    [undefined, "discern 9.8.7", undefined],
+  ];
+  for (const [history, line] of cases) {
+    const [heading] = homeBlocks(surveyed(productSurvey([]), history), ENV);
+    assert(heading?.kind === "heading");
+    assertEquals(
+      (heading.aside ?? []).map((run) => run.text).join(""),
+      line,
+    );
+  }
+  const due = surveyed(
+    productSurvey([], { release_reminder: "due" }),
+    checked,
+  );
+  const [heading] = homeBlocks(due, ENV);
+  assert(heading?.kind === "heading");
+  const tones = (heading.aside ?? []).map((run: ApplicationRun) => run.tone);
+  assertEquals(tones.at(-1), "warning", "a due check reads as a warning");
+  const strip = homeStrip(due, ENV);
+  assert(
+    strip.facts.some((fact) =>
+      fact.some((run) => run.text === RELEASE_CHECK_CUES.chip)
+    ),
+    "the strip says the check is due",
+  );
+  const [row] = commandsGroup(due).items;
+  assertEquals(row?.cells?.label?.[0]?.text, RELEASE_CHECK_CUES.row);
+});
+
+Deno.test("the home panel leads with what a task is while there are none", () => {
+  const loading = words(homeBlocks(freshDesk(), ENV));
+  assertStringIncludes(loading, "Loading tasks…");
+  const empty = homeBlocks(observedDesk(productSurvey([])), ENV);
+  assert(empty[0]?.kind === "heading" && empty[0].title === "No tasks yet");
+  assertStringIncludes(words(empty), "A task is its own checkout and branch");
+  assertEquals(
+    listedCommands(empty)[0],
+    DESK_COMMAND_LABELS.new_task,
+    "New task leads the commands",
+  );
+  const working = homeBlocks(observedDesk(fleet()), ENV);
+  assert(working[0]?.kind === "heading" && working[0].title === "Commands");
+  assert(!words(working).includes("A task is its own"));
+  const group = commandsGroup(observedDesk(fleet()));
+  assertEquals(group.id, COMMANDS_GROUP_ID);
+  assertEquals(group.headless, true);
+  assertEquals(group.items.map((item) => item.id), [COMMANDS_ROW_ID]);
+});
+
+Deno.test("the home panel carries the session's tip and the release it came with", () => {
+  const state = observedDesk(fleet());
+  const tipped = homeBlocks({
+    ...state,
+    tip: { brief: "Press `x`.", full: "Press `x` for x.", newIn: "9.8.0" },
+  }, ENV);
+  const tip = tipped.at(-1);
+  assert(tip?.kind === "section" && tip.title === "Tip");
+  assertEquals(tip.caption, "new in 9.8.0");
+  assertStringIncludes(words([tip]), "x");
+  const plain = homeBlocks({
+    ...state,
+    tip: { brief: "Press `x`.", full: "Press `x` for x." },
+  }, ENV).at(-1);
+  assert(plain?.kind === "section" && plain.caption === undefined);
+  assert(
+    !homeBlocks(state, ENV).some((block) =>
+      block.kind === "section" && block.title === "Tip"
+    ),
+    "no tip until one is chosen",
+  );
+});

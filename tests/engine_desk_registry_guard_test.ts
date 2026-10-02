@@ -55,6 +55,7 @@ import {
 import {
   DESK_KEYS,
   DESK_LAYERS,
+  DESK_ROW_LAYERS,
   EDITOR_RESERVED_CHORDS,
   PACKAGE_RESERVED_KEYS,
   sheetFieldChords,
@@ -172,19 +173,24 @@ Deno.test("Desk registry guard: keys", () => {
       for (const id of DESK_COMMANDS) {
         const metadata = command(id);
         if (metadata.key === undefined) continue;
-        const layer = metadata.scope === "parked-row"
-          ? "branch"
+        // A global command's key works whichever row is selected.
+        const layers = metadata.scope === "parked-row"
+          ? ["branch"] as const
           : metadata.scope === "landed-row"
-          ? "landed"
-          : "inbox";
-        assert(
-          DESK_KEYS[layer].some((binding) =>
-            binding.key === metadata.key &&
-            binding.meaning.kind === "command" &&
-            binding.meaning.command === id
-          ),
-          `${id}: ${metadata.key} in ${layer}`,
-        );
+          ? ["landed"] as const
+          : metadata.scope === "global"
+          ? DESK_ROW_LAYERS
+          : ["inbox"] as const;
+        for (const layer of layers) {
+          assert(
+            DESK_KEYS[layer].some((binding) =>
+              binding.key === metadata.key &&
+              binding.meaning.kind === "command" &&
+              binding.meaning.command === id
+            ),
+            `${id}: ${metadata.key} in ${layer}`,
+          );
+        }
       }
     },
     "a key that runs a control names it, never a typed copy of its label":

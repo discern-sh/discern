@@ -24,6 +24,7 @@ import { completeGateFixture } from "../complete_gate_fixture.ts";
 
 import { SYSTEM_CLOCK } from "../../src/shared/clock.ts";
 import {
+  COMMANDS_ROW_ID,
   type DeskMessageTopic,
   deskMessageTopic,
 } from "../../src/engine/desk/desk_transitions.ts";
@@ -1109,11 +1110,18 @@ export function deskZoomed(): DeskFrameTest {
     capture.state?.zoomed === true && capture.state.detailPending !== true;
 }
 
-/** A project with no tasks: the empty body, its New task hint focused. */
-export function deskEmpty(): DeskFrameTest {
+/**
+ * The Desk at home, as it opens: the Commands row selected once the first
+ * survey has read the tasks, beside the list, with no layer open. A project
+ * with no tasks rests here too, its home panel saying so.
+ */
+export function deskHome(): DeskFrameTest {
   return (capture) =>
     capture.state?.topLayerId === undefined &&
-    capture.state?.focusedControlId === "primary";
+    capture.state?.selectedItemId === COMMANDS_ROW_ID &&
+    capture.state.zoomed !== true &&
+    capture.state.liveness === "idle" &&
+    capture.state.detailPending !== true;
 }
 
 /** A layer on top. */

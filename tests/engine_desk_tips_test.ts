@@ -29,7 +29,7 @@ import {
 import {
   freshTipSeenState,
   markTipShown,
-  renderTipLine,
+  renderDeskTip,
   selectTip,
   type TipContext,
   tipPredicateHolds,
@@ -297,7 +297,7 @@ Deno.test("selectTip follows applicability, arrival, curriculum, and rotation pr
       | {
         id?: string;
         newIn?: string | undefined;
-        rendered?: ReturnType<typeof renderTipLine>;
+        rendered?: ReturnType<typeof renderDeskTip>;
       }
       | undefined;
   }> = [
@@ -346,9 +346,9 @@ Deno.test("selectTip follows applicability, arrival, curriculum, and rotation pr
         id: "arrived",
         newIn: "3.1.0",
         rendered: {
-          lead: "New",
           brief: "Teaches arrived, briefly.",
           full: "New in 3.1.0: Teaches arrived.",
+          newIn: "3.1.0",
         },
       },
     },
@@ -362,7 +362,6 @@ Deno.test("selectTip follows applicability, arrival, curriculum, and rotation pr
         id: "shipped",
         newIn: undefined,
         rendered: {
-          lead: "Tip",
           brief: "Teaches shipped, briefly.",
           full: "Teaches shipped.",
         },
@@ -426,7 +425,7 @@ Deno.test("selectTip follows applicability, arrival, curriculum, and rotation pr
       assertEquals(selected.newIn, row.expected.newIn, row.name);
     }
     if ("rendered" in row.expected) {
-      assertEquals(renderTipLine(selected), row.expected.rendered, row.name);
+      assertEquals(renderDeskTip(selected), row.expected.rendered, row.name);
     }
   });
 });

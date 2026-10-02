@@ -9,6 +9,7 @@ import {
   createTerminalApplicationModel,
   renderTerminalApplication,
   type TerminalApplicationView,
+  transitionTerminalApplication,
   validateTerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import {
@@ -24,6 +25,7 @@ import {
 import { testTerminalCapabilities } from "discern-design-system/cli/interactive/testing";
 import { stripAnsi } from "discern-design-system/cli";
 import {
+  DESK_LIST_ID,
   DESK_OFFLINE_FAILURES,
   type DeskIntent,
   type DeskLayer,
@@ -31,6 +33,7 @@ import {
   type DeskProductState,
 } from "../src/engine/desk/desk_state.ts";
 import {
+  COMMANDS_ROW_ID,
   landedRowId,
   open,
   parkedRowId,
@@ -85,16 +88,27 @@ import { uncommittedListedIn } from "./fixtures/desk_tty_harness.ts";
 
 const ENV = { ...PRODUCT_VIEW_ENV, now: NOW };
 
-/** Render a view the way the package would, at one geometry. */
+/**
+ * Render a view the way the package would, at one geometry: with `selected`
+ * selected, or on the Commands row the package selects as the Desk opens.
+ */
 function render(
   view: TerminalApplicationView<DeskIntent>,
   columns: number,
   rows: number,
+  selected?: string,
 ): string {
-  const model = createTerminalApplicationModel(view, {
+  const created = createTerminalApplicationModel(view, {
     keymap: deskKeymap(),
     viKeys: true,
   }).model;
+  const model = selected === undefined
+    ? created
+    : transitionTerminalApplication(created, {
+      kind: "select",
+      listId: DESK_LIST_ID,
+      itemId: selected,
+    }, 0).model;
   return renderTerminalApplication(
     model,
     { columns, rows },
@@ -121,7 +135,7 @@ function frames(state: DeskProductState, selected?: string): string[] {
     [],
     "a layer the package would refuse",
   );
-  return [render(view, 120, 40), render(view, 60, 20)];
+  return [render(view, 120, 40, selected), render(view, 60, 20, selected)];
 }
 
 /** An emergency landing whose validation is still owed. */
@@ -231,6 +245,7 @@ Deno.test("a frame lists the surveyed uncommitted files only once their re-read 
         deskView(state, { ...PRODUCT_UI, selected: "alpha" }, ENV),
         120,
         40,
+        "alpha",
       ),
     );
   const read = listed(desk(surveyed(2, "2026-07-11T11:00:00Z")), [
@@ -371,7 +386,7 @@ Deno.test("a failure's location and assertion start at its name's column", () =>
     },
   }).state;
   const view = deskView(state, { ...PRODUCT_UI, selected: id }, ENV);
-  const lines = render(view, 120, 40).split("\n");
+  const lines = render(view, 120, 40, id).split("\n");
   const column = (text: string): number => {
     const line = lines.find((candidate) => candidate.includes(text));
     assert(line !== undefined, `${text} in\n${lines.join("\n")}`);
@@ -767,17 +782,21 @@ Deno.test("every row state's inspector and strip render in status's words", () =
   assert(marks > 0, "some inspector lists failures or setup steps");
 });
 
-Deno.test("the empty state says what a task is and how it lands, a line each", () => {
+Deno.test("with no tasks the home panel says what a task is and how it lands", () => {
   const view = deskView(desk(statusData([mainFleetEntry()])), PRODUCT_UI, ENV);
-  assert(view.body.kind === "empty");
-  const lines = render(view, 80, 24).split("\n").map((line) => line.trim());
+  assert(view.body.kind === "master-detail");
+  // The detail column's words, read across its wrapped lines.
+  const frame = render(view, 120, 30).split("\n").map((line) =>
+    line.slice(line.indexOf("│") + 1).trim()
+  ).join(" ").replace(/\s+/gu, " ");
   for (
     const sentence of [
+      "No tasks yet",
       "A task is its own checkout and branch for one change.",
       "Hand it to an agent; land it on main once its checks pass.",
     ]
   ) {
-    assert(lines.includes(sentence), `${sentence} in\n${lines.join("\n")}`);
+    assertStringIncludes(frame, sentence);
   }
 });
 
@@ -805,18 +824,24 @@ Deno.test("branch and landing rows render their own inspectors", () => {
     }],
   });
   const state = desk(data);
-  const view = deskView(state, PRODUCT_UI, ENV);
-  assert(view.body.kind === "empty" && view.body.list !== undefined);
+  const view = deskView(
+    state,
+    { ...PRODUCT_UI, selected: COMMANDS_ROW_ID },
+    ENV,
+  );
+  assert(view.body.kind === "master-detail");
   const parked = parkedRowId("agent/spike");
   const landed = landedRowId("agent/landed", "2026-09-30T11:00:00.000Z");
   const titles = view.body.list.groups.flatMap((group) =>
     group.items.map((item) => item.title)
   );
   assertEquals(titles.includes("Spike cache"), true, said(titles));
-  // Enter's New task leads the footer, Down reaches the kept branches, and
-  // no other hint repeats New task.
+  // On the Commands row with no tasks, Enter opens the commands, New task is
+  // a key away, Down reaches the kept branches, and no other hint repeats
+  // New task.
   assertEquals(view.footer.left.map((hint) => [hint.key, hint.label]), [
-    ["enter", "New task…"],
+    ["enter", "Commands"],
+    ["n", "New task…"],
     ["down", "Parked"],
   ]);
   assertEquals(
@@ -1268,28 +1293,20 @@ Deno.test("only a message's mark carries its tone; its words stay neutral", () =
   }
 });
 
-Deno.test("the tip shows only whole and never takes the footer's row", () => {
+Deno.test("the tip reads whole in the home panel and never takes the message line", () => {
   const brief = "Space zooms the selected task's details to the whole screen.";
   const state = deskProduct(
     desk(statusData([mainFleetEntry(), task({ ahead: 2 })])),
-    { kind: "tip", tip: { lead: "Tip", brief, full: brief } },
+    { kind: "tip", tip: { brief, full: brief } },
   ).state;
   const view = deskView(state, PRODUCT_UI, ENV);
-  assertEquals(view.message?.optional, true);
-  const footer = /\^K Commands/u;
-  const wide = render(view, 80, 24);
-  assertStringIncludes(wide, brief, "80 columns show the brief whole");
-  assert(footer.test(wide), wide);
-  for (const [columns, rows] of [[40, 20], [80, 13]] as const) {
-    const frame = render(view, columns, rows);
-    assert(
-      !frame.includes("Tip "),
-      `${columns}×${rows} leaves it out\n${frame}`,
-    );
-    assert(
-      footer.test(frame.split("\n").at(-1) ?? ""),
-      `${columns}×${rows} keeps the footer\n${frame}`,
-    );
+  assertEquals(view.message, undefined);
+  const wide = render(view, 120, 30);
+  assertStringIncludes(wide, brief, "the wide panel shows the brief whole");
+  const words = brief.split(" ");
+  const standard = render(view, 80, 40);
+  for (const word of words) {
+    assertStringIncludes(standard, word, "80 columns wrap it, whole");
   }
 });
 
@@ -1325,7 +1342,8 @@ Deno.test("a changed review keeps r Review again in its footer as it narrows", (
   }).state;
   const view = deskView(state, { ...PRODUCT_UI, selected: "task" }, ENV);
   for (const [columns, rows] of [[40, 24], [60, 20], [80, 24]] as const) {
-    const footer = render(view, columns, rows).split("\n").at(-1) ?? "";
+    const footer = render(view, columns, rows, "task").split("\n").at(-1) ??
+      "";
     assertStringIncludes(footer, "r Review again", `${columns}×${rows}`);
     assertStringIncludes(footer, "Esc", `${columns}×${rows}`);
   }

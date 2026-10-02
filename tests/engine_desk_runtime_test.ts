@@ -1382,6 +1382,12 @@ Deno.test("a refusal is contained as a message and the next survey shows why", a
       await desk.confirm();
       await desk.shows(testCase.refusal.slice(0, 40));
       desk.settle();
+      await desk.until(
+        () => desk.state().lists.inbox?.selectedId !== testCase.name,
+        "the task leaves the inbox",
+      );
+      // Home leads back to the Commands row, whose panel has no task left.
+      await desk.press("home");
       await desk.shows("No tasks yet");
     });
   }

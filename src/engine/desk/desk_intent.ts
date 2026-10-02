@@ -89,6 +89,8 @@ function shownOperation(state: DeskProductState): DeskOperation | undefined {
 /** The key map layer the selection puts the inbox in. */
 function keyLayer(state: DeskProductState, ui: DeskUi): DeskKeyLayer {
   switch (rowRef(state, ui.selected)?.kind) {
+    case "commands":
+      return "commands";
     case "parked":
       return "branch";
     case "landed":
@@ -289,7 +291,8 @@ function actionIntent(
 
 /**
  * A row's Enter: its next step, or its menu when it has none it can run now,
- * whose Unavailable section says why.
+ * whose Unavailable section says why. The Commands row's Enter opens the
+ * palette over the home panel it leads to.
  */
 function nextIntent(
   state: DeskProductState,
@@ -300,7 +303,9 @@ function nextIntent(
   const ref = rowRef(state, id);
   if (ref === undefined) return UNCHANGED(state);
   let transition: DeskTransition;
-  if (ref.kind === "parked") {
+  if (ref.kind === "commands") {
+    transition = open(state, { kind: "palette" });
+  } else if (ref.kind === "parked") {
     transition = commandIntent(state, "resume", ref.branch);
   } else if (ref.kind === "landed") {
     transition = commandIntent(state, "landed_proof", id);

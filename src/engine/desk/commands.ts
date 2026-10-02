@@ -6,8 +6,8 @@
  * the routes of parked and landed branch rows. Each command declares its
  * key, palette section, effect, confirmation, revision binding, and
  * consequences once, on the action registry's pattern, so every surface that
- * offers a command reads the same facts: today the overview's command list,
- * its disclosure and its confirmation; a palette and keys sheet next.
+ * offers a command reads the same facts: the palette, the home panel beside
+ * the Commands row, the keys reader, and each review and confirmation.
  */
 
 import type { StatusData } from "../../shared/result_schemas.ts";
@@ -48,20 +48,26 @@ export type DeskCommandScope =
   /** A task route that overrides the task's next step. */
   | "task";
 
-/** Palette sections in display order, after the dynamic Needs you section. */
+/**
+ * Command sections in display order: the palette's after its dynamic Needs
+ * you section, and the home panel's. Starting work leads, as an empty desk
+ * does, and help comes next, so the manual and the update check stay on a
+ * standard screen; the palette that opens over the home panel keeps its
+ * order.
+ */
 export const DESK_PALETTE_SECTIONS = [
-  "go",
   "create",
   "help",
+  "go",
   "session",
 ] as const;
 export type DeskPaletteSection = (typeof DESK_PALETTE_SECTIONS)[number];
 
-/** Palette section titles, as the palette shows them. */
+/** Section titles, as the palette and the home panel show them. */
 export const DESK_PALETTE_SECTION_TITLES = {
-  go: "Go to",
   create: "Create",
   help: "Help",
+  go: "Go to",
   session: "Session",
 } as const satisfies Record<DeskPaletteSection, string>;
 
@@ -111,6 +117,12 @@ export interface DeskCommandMetadata {
   readonly scope: DeskCommandScope;
   /** The palette section a global command is listed under. */
   readonly section?: DeskPaletteSection;
+  /**
+   * Listed on the home panel beside the Commands row, under its section,
+   * so a newcomer sees it without knowing the palette's key. Its key, when
+   * it has one, is one character, shown as typed.
+   */
+  readonly home?: true;
   /** Whether it asks for values (a form or arguments) before it runs. */
   readonly parameters: boolean;
   readonly effect: DeskEffect;
@@ -157,6 +169,7 @@ export const DESK_COMMAND_REGISTRY = {
     key: "n",
     scope: "global",
     section: "create",
+    home: true,
     parameters: true,
     effect: "change",
     confirmation: confirm("Cancel", "Create"),
@@ -174,6 +187,7 @@ export const DESK_COMMAND_REGISTRY = {
   main_scripts: {
     scope: "global",
     section: "create",
+    home: true,
     parameters: true,
     effect: "launch",
     confirmation: confirm("Cancel", "Run"),
@@ -188,6 +202,7 @@ export const DESK_COMMAND_REGISTRY = {
   landing: {
     scope: "global",
     section: "go",
+    home: true,
     parameters: false,
     effect: "read",
     confirmation: NO_CONFIRMATION,
@@ -210,6 +225,7 @@ export const DESK_COMMAND_REGISTRY = {
     key: String(FLEET_ROW_DECISIONS.length + 1),
     scope: "global",
     section: "go",
+    home: true,
     parameters: false,
     effect: "read",
     confirmation: NO_CONFIRMATION,
@@ -222,6 +238,7 @@ export const DESK_COMMAND_REGISTRY = {
   main_checkout: {
     scope: "global",
     section: "go",
+    home: true,
     parameters: false,
     effect: "read",
     confirmation: NO_CONFIRMATION,
@@ -243,6 +260,7 @@ export const DESK_COMMAND_REGISTRY = {
   activity: {
     scope: "global",
     section: "go",
+    home: true,
     parameters: false,
     effect: "read",
     confirmation: NO_CONFIRMATION,
@@ -259,6 +277,7 @@ export const DESK_COMMAND_REGISTRY = {
     key: "?",
     scope: "global",
     section: "help",
+    home: true,
     parameters: false,
     effect: "read",
     confirmation: NO_CONFIRMATION,
@@ -269,6 +288,7 @@ export const DESK_COMMAND_REGISTRY = {
   manual: {
     scope: "global",
     section: "help",
+    home: true,
     parameters: false,
     effect: "read",
     confirmation: NO_CONFIRMATION,
@@ -293,6 +313,7 @@ export const DESK_COMMAND_REGISTRY = {
   updates: {
     scope: "global",
     section: "help",
+    home: true,
     parameters: false,
     effect: "open",
     confirmation: confirm("Cancel", "Open"),

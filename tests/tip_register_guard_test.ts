@@ -112,7 +112,7 @@ Deno.test("tip register guard: contracts", () => {
           `tip shape and length budget failures:\n  ${offenders.join("\n  ")}`,
         );
       },
-    "every brief is one sentence that fits the Desk's message line": () => {
+    "every brief is one sentence within the home panel's brief budget": () => {
       const offenders: string[] = [];
       for (const tip of TIPS) {
         const brief = renderTipBriefCli(tip);
@@ -120,7 +120,7 @@ Deno.test("tip register guard: contracts", () => {
         const shown = displayWidth(brief.replaceAll("`", ""));
         if (shown > TIP_BRIEF_CELLS) {
           offenders.push(
-            `${tip.id}: ${shown} cells exceeds the ${TIP_BRIEF_CELLS}-cell message line: ${brief}`,
+            `${tip.id}: ${shown} cells exceeds the ${TIP_BRIEF_CELLS}-cell brief: ${brief}`,
           );
         }
         const sentences = brief.match(/(?<=\S)[.!?](?:\s|$)/g)?.length ?? 0;

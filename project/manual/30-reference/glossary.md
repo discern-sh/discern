@@ -102,7 +102,7 @@ Your agent's recorded answer that a change doesn't satisfy a checkpoint question
 
 ### Desk
 
-The interactive view that opens when you run `discern` in your main checkout. It shows every task in progress and what you can do with each. `discern desk` opens it too, and both need an interactive terminal. Run from a task's worktree, either command points you back to the main checkout instead. From the desk you can see the [fleet](#fleet), start a task, and act on the selected worktree. You can also open any configured coding agent installed on your `PATH`. Actions that can't run yet appear as unavailable, with the reason. The desk is the only place you can pre-authorize a task to land once green, or revoke that grant. See [the desk](../20-guides/coordinate-parallel-tasks.md).
+The interactive view that opens when you run `discern` in your main checkout. It shows every task in progress and what you can do with each, and it opens on a **Commands** row that lists what else it can do, such as reading the manual or checking for updates. `discern desk` opens it too, and both need an interactive terminal. Run from a task's worktree, either command points you back to the main checkout instead. From the desk you can see the [fleet](#fleet), start a task, and act on the selected worktree. You can also open any configured coding agent installed on your `PATH`. Actions that can't run yet appear as unavailable, with the reason. The desk is the only place you can pre-authorize a task to land once green, or revoke that grant. See [the desk](../20-guides/coordinate-parallel-tasks.md).
 
 ### Didn't land
 
@@ -270,7 +270,7 @@ discern's formatter for the Markdown files it manages and for `discern.toml`. `d
 
 ### Tip
 
-A short, practical suggestion that the [desk](#desk) shows on one line above its keys. The line starts with `Tip`, and your first key clears it. The desk picks one tip when it opens and keeps it until you leave; **Tip of the session**, under Ctrl+K, shows it in full. Each tip only teaches, and every action works without it. When recording is on, the desk notes which tip it showed in the [logbook](#logbook). Advice for agents comes in their command results instead. See [desk tips](../20-guides/coordinate-parallel-tasks.md).
+A short, practical suggestion that the [desk](#desk) shows beside the commands it opens on. The desk picks one tip when it opens and keeps it until you leave; **Tip of the session**, under Ctrl+K, shows it in full. Each tip only teaches, and every action works without it. When recording is on, the desk notes which tip it showed in the [logbook](#logbook). Advice for agents comes in their command results instead. See [desk tips](../20-guides/coordinate-parallel-tasks.md).
 
 ### Trunk
 

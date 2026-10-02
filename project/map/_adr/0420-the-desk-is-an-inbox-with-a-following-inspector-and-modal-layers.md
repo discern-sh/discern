@@ -1,5 +1,9 @@
 # ADR 0420: The Desk is an inbox with a following inspector and modal layers
 
+> **Amendments.**
+>
+> - **The Commands row (2026-10-02):** a Commands row leads the inbox, the Desk opens with it selected, and its inspector is the home panel, which lists the desk's own commands with the release check and the session's tip; Enter on it opens the palette in the panel's column. See [the amendment](#amendment-the-commands-row-leads-the-inbox) below.
+
 **Status**: accepted; supersedes the remaining presentation clauses of [ADR 0398](0398-the-desk-is-a-live-human-control-panel.md) and completes the screen [ADR 0415](0415-the-desk-is-an-inbox-on-the-application-runtime.md) moved onto the application runtime; amends [ADR 0399](0399-acceptance-can-queue-without-starting-landing.md) (what queueing asks and says), [ADR 0234](0234-tips-are-the-desks-human-advisory-channel.md) (where the tip appears), [ADR 0151](0151-the-desk-starts-tasks-and-opens-agents.md) and [ADR 0157](0157-the-desk-owns-launched-child-sessions.md) (how a task starts)
 
 ## Context
@@ -50,3 +54,17 @@ The tip appears on the message line of the first frame that has the fleet's surv
 - **Two regions that each take focus, with Tab between them.** Rejected: a second focus owner is a second place for keys to mean something, and it made the inspector a destination instead of a view.
 - **A fixed split, such as half the width each.** Rejected: short titles waste the inspector's room, and long ones lose their columns.
 - **Mouse on by default.** Rejected: pointer reporting takes over the terminal's own text selection, which owners use to copy commands from the Desk.
+
+## Amendment: the Commands row leads the inbox
+
+Recorded 2026-10-02 at the owner's request.
+
+The decision above put every command that isn't a task's own step behind Ctrl+K. That key is easy to learn and impossible to guess, so the commands a newcomer needs most were the hardest to find: **Read the manual**, **Run a script in the main checkout…**, and **Check for updates…**. discern makes no network request, so a release check happens only when someone asks for one; a person who never meets the command may never check. A Desk that opened on its first task showed that task's facts and none of the Desk's own reach.
+
+- **A Commands row leads the inbox.** It sits in the package's headless group above every task group, with a menu mark and the palette's key in its trailing cell. While status's release reminder is due, that cell reads a warning cue to check for updates instead. The reminder is this clone's own count of days since it last opened the release page, so no cue says a release exists.
+- **The Desk opens with the Commands row selected**, with tasks or without. Down reaches the first task and Home returns. With no tasks the inbox keeps the same layout: the row, any branch groups, and a home panel that leads with **No tasks yet** and what a task is.
+- **The row's inspector is the home panel.** It lists every command the command registry marks for home under the palette's sections, each with its key, so the manual and the update check stay in view on a standard screen. It names the running version and when this clone last opened the release page, and it carries the session's tip. One section order serves the panel and the palette, starting work first.
+- **Enter, Right and `.` on the row open the palette.** Beside a wide list the palette takes the home panel's column, so the commands come alive where they were read. Ctrl+K and `:` still open it from anywhere. The row has no Actions, and its footer leads with `↵ Commands`.
+- **The tip moves into the home panel** ([ADR 0234](0234-tips-are-the-desks-human-advisory-channel.md)). It no longer opens the session on the message line, which stays free for what happens.
+
+This adds one keystroke, Down, before the first task. In return every person sees what the desk can do and when an update check is due. The alternatives were weaker. A footer hint for Ctrl+K was already there and hadn't done the job. An automatic update check would break discern's promise of no network requests. Launching on the first task when one needs attention would make the opening screen depend on the fleet. Each command's registry summary stays out of the panel: in the standard 39-cell column a summary would cut its label or itself to a fragment, and the package shows keys with their descriptions only at the wide tier. The palette's search still reads the summaries.

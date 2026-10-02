@@ -33,6 +33,7 @@ import {
   type TerminalApplicationOptions,
 } from "../../lib/terminal_interaction.ts";
 import type { StatusData } from "../../shared/result_schemas.ts";
+import type { ReleaseCheckHistory } from "../../shared/release_check.ts";
 import type { DeskProjectScriptInventory } from "../project_scripts.ts";
 import {
   type DeskAgentLaunch,
@@ -135,6 +136,8 @@ export interface LiveDeskDependencies {
   readonly observe: () => Promise<{
     readonly data: StatusData;
     readonly hints: readonly string[];
+    /** When this clone last opened the release page, read beside status. */
+    readonly releaseCheck?: ReleaseCheckHistory;
   }>;
   readonly tip: (data: StatusData) => Promise<DeskTip | undefined>;
   /** Read the manual, which the session does once as it starts. */
@@ -461,7 +464,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
 
   const survey = (generation: number): void => {
     own(
-      deps.observe().then(async ({ data, hints }) => {
+      deps.observe().then(async ({ data, hints, releaseCheck }) => {
         if (
           data.fleet === undefined ||
           (data.git === null && data.fleet.length === 0)
@@ -470,9 +473,14 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
             "Fleet observation unavailable; Git state is unknown.",
           );
         }
-        return { data, hints, exceptionArgvs: await deskExceptionArgvs(data) };
+        return {
+          data,
+          hints,
+          releaseCheck,
+          exceptionArgvs: await deskExceptionArgvs(data),
+        };
       }).then(
-        ({ data, hints, exceptionArgvs }) => {
+        ({ data, hints, releaseCheck, exceptionArgvs }) => {
           dispatch({
             kind: "observed",
             generation,
@@ -480,6 +488,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
             data,
             hints,
             exceptionArgvs,
+            ...(releaseCheck === undefined ? {} : { releaseCheck }),
           });
           discover();
           settle();

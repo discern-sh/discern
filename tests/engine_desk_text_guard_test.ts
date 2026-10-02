@@ -163,7 +163,7 @@ Deno.test("Desk text guard", async () => {
       const listed: DeskProductState = deskProduct(
         deskProduct(observedDesk(data), {
           kind: "tip",
-          tip: { lead: "Tip", brief: multiline, full: multiline },
+          tip: { brief: multiline, full: multiline, newIn: multiline },
         }).state,
         {
           kind: "returned",

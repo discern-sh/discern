@@ -1,7 +1,8 @@
 /**
  * The command palette: what needs the owner first (each such task's next
  * step and each header chip's route), then every Desk command by section from
- * the command registry, then every task and parked branch to go to. Pure.
+ * the command registry, in the home panel's order, then every task and
+ * parked branch to go to. Pure.
  */
 
 import type {
@@ -146,6 +147,9 @@ export function deskPalette(
     kind: "palette",
     id: "palette",
     scope: "global",
+    // Beside a wide list it takes the inspector's column, so Enter on the
+    // Commands row brings the home panel's commands alive in place.
+    anchor: "detail",
     placeholder: "Search tasks and commands",
     sections,
   };

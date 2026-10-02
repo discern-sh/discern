@@ -7,7 +7,8 @@
  * posture of real control sequences. Behaviour (menus, reviews, readers,
  * the manual) is held below the boundary by the fake-terminal runtime
  * tests. Phases wait on the package's state reports: the open layer, the
- * focused control, and the selected row.
+ * focused control, and the selected row. The Desk opens on its Commands
+ * row, so a journey reaches a task with Down.
  */
 
 import {
@@ -26,12 +27,12 @@ import {
   assertDeskTtyInputPhase,
   deskAtRest,
   deskCollision,
-  deskEmpty,
   deskFailedAction,
   deskFleetEntry,
   deskFleetFixture,
   deskFocused,
   type DeskFrameTest,
+  deskHome,
   type DeskImplicitWrap,
   deskLandingAuthority,
   deskLayerOpen,
@@ -50,6 +51,7 @@ import {
   withDeskTtyProject,
 } from "./fixtures/desk_tty_harness.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { COMMANDS_ROW_ID } from "../src/engine/desk/desk_transitions.ts";
 import { realPtyTest } from "./real_pty.ts";
 import type { PtyGeometry } from "./fixtures/pty_process.ts";
 
@@ -70,7 +72,7 @@ function colours(transcript: string): boolean {
   );
 }
 const NEW_TASK = labelName(DESK_COMMAND_LABELS.new_task);
-const EMPTY = deskEmpty();
+const HOME = deskHome();
 const phase = deskSettledPhase;
 
 /** Both tests hold. */
@@ -260,7 +262,7 @@ realPtyTest({
       const result = await runDeskTty(project, {
         geometry: size,
         colorMode: "no-color-env",
-        input: [phase(size, "root", "the empty Desk", EMPTY, { input: "q" })],
+        input: [phase(size, "root", "the empty Desk", HOME, { input: "q" })],
         env: { LANG: "C", LC_ALL: "C" },
       });
       assertHealthySession(result);
@@ -291,7 +293,7 @@ realPtyTest({
         geometry: size,
         colorMode: "no-color-env",
         input: [
-          phase(size, undefined, "the empty Desk", EMPTY, { input: "n" }),
+          phase(size, undefined, "the empty Desk", HOME, { input: "n" }),
           phase(
             size,
             "creation-form",
@@ -331,10 +333,16 @@ realPtyTest({
             { keys: ["shift-tab", "shift-tab", "shift-tab", "shift-tab"] },
           ),
           ...submitForm(size, form),
-          // The fleet was empty, so the one row selected is the new task.
-          phase(size, "created", "the created task at rest", deskAtRest(), {
-            input: "q",
-          }),
+          // The new task is selected once a survey lists it.
+          phase(
+            size,
+            "created",
+            "the created task at rest",
+            (capture) =>
+              deskAtRest()(capture) &&
+              capture.state?.selectedItemId !== COMMANDS_ROW_ID,
+            { input: "q" },
+          ),
         ],
         env: { LANG: "en_GB.UTF-8", LC_ALL: "en_GB.UTF-8" },
       });
@@ -383,7 +391,9 @@ realPtyTest({
           EDITOR: "",
         },
         input: [
-          phase(size, undefined, "the task at rest", deskAtRest(), {
+          // The Desk opens on its commands; Down reaches the task.
+          phase(size, undefined, "the Desk at home", HOME, { keys: ["down"] }),
+          phase(size, undefined, "the task at rest", deskAtRest(name), {
             input: "v",
           }),
           phase(
@@ -436,21 +446,15 @@ realPtyTest({
         geometry: size,
         colorMode: "no-color-env",
         input: [
-          // A lone Escape at rest closes the tip, then answers; neither
-          // quits. Each waits for the last to land, so the next byte can't
-          // join it as an Alt chord.
+          phase(size, undefined, "the Desk at home", HOME, { keys: ["down"] }),
+          // A lone Escape at rest answers and never quits. Each phase waits
+          // for the last key to land, so the next byte can't join it as an
+          // Alt chord.
           phase(
             size,
             "escape-at-root",
-            "the task at rest with its tip",
-            both(deskAtRest(task), deskMessage("tip")),
-            { keys: ["escape"], allowLoneEscape: true },
-          ),
-          phase(
-            size,
-            undefined,
-            "the tip dismissed",
-            both(deskAtRest(task), (capture) => !deskMessage("tip")(capture)),
+            "the task at rest",
+            deskAtRest(task),
             { keys: ["escape"], allowLoneEscape: true },
           ),
           phase(
@@ -500,13 +504,13 @@ realPtyTest({
         geometry: size,
         colorMode: "color",
         input: [
-          phase(size, "colored", "the empty Desk", EMPTY, { input: "q" }),
+          phase(size, "colored", "the empty Desk", HOME, { input: "q" }),
         ],
       });
       const flag = await runDeskTty(project, {
         geometry: size,
         colorMode: "no-color-flag",
-        input: [phase(size, "flag", "the empty Desk", EMPTY, { input: "q" })],
+        input: [phase(size, "flag", "the empty Desk", HOME, { input: "q" })],
       });
       for (const result of [colored, flag]) {
         assertHealthySession(result);
@@ -548,9 +552,16 @@ realPtyTest({
           geometry: narrow,
           colorMode: "no-color-env",
           input: [
-            phase(narrow, "narrow", "the task at rest", deskAtRest(), {
-              input: ".",
+            phase(narrow, undefined, "the Desk at home", HOME, {
+              keys: ["down"],
             }),
+            phase(
+              narrow,
+              "narrow",
+              "the task at rest",
+              deskAtRest("responsive-task-a1b2c3"),
+              { input: "." },
+            ),
             phase(
               narrow,
               undefined,

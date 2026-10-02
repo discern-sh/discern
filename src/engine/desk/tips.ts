@@ -208,21 +208,24 @@ export function selectTip(
 }
 
 /**
- * The session's tip as the Desk shows it: the brief on the message line
- * after its lead (`Tip`, or `New` for a tip an upgrade brought), and the
- * full text, release-prefixed when new, in Tip of the session. Keys stay
- * tokens for the Desk to draw.
+ * The session's tip as the Desk shows it: the brief in the home panel
+ * beside the Commands row, with the release that brought it when an upgrade
+ * surfaced it, and the full text, release-prefixed when new, in Tip of the
+ * session. Keys stay tokens for the Desk to draw.
  */
 export interface DeskTip {
-  readonly lead: "Tip" | "New";
   readonly brief: string;
   readonly full: string;
+  /** The release whose upgrade surfaced it, for a tip that is new. */
+  readonly newIn?: string;
 }
 
 /** The selected tip as the Desk shows it ({@link DeskTip}). */
-export function renderTipLine(selected: SelectedTip): DeskTip {
+export function renderDeskTip(selected: SelectedTip): DeskTip {
   const { full, brief } = renderTipDesk(selected.tip);
-  return selected.newIn === undefined
-    ? { lead: "Tip", brief, full }
-    : { lead: "New", brief, full: `New in ${selected.newIn}: ${full}` };
+  return selected.newIn === undefined ? { brief, full } : {
+    brief,
+    full: `New in ${selected.newIn}: ${full}`,
+    newIn: selected.newIn,
+  };
 }

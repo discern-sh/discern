@@ -56,7 +56,7 @@ To find out whether a newer discern is out, ask your agent or run:
 discern releases
 ```
 
-`discern releases` points you to the release page, which shows what's changed and whether an upgrade is available. The **desk**, the interactive view that opens when you run `discern` in your main checkout, your original project folder, offers **Check for updates…** under Ctrl+K too. Your agent does only what you ask: a check, or a check and an install. `discern status`, `discern doctor`, and the desk remind you to check every 14 days.
+`discern releases` points you to the release page, which shows what's changed and whether an upgrade is available. The **desk**, the interactive view that opens when you run `discern` in your main checkout, your original project folder, lists **Check for updates…** on the Commands row it opens on, and under Ctrl+K. Your agent does only what you ask: a check, or a check and an install. `discern status`, `discern doctor`, and the desk remind you to check every 14 days.
 
 ## Upgrade the project
 

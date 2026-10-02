@@ -13,6 +13,7 @@
 
 import type { TerminalApplicationDismissTarget } from "discern-design-system/cli/interactive";
 import type { StatusData } from "../../shared/result_schemas.ts";
+import type { ReleaseCheckHistory } from "../../shared/release_check.ts";
 import type { EnginePlan } from "../../shared/result.ts";
 import type { DeskAction, DeskCommand } from "../../shared/desk_vocabulary.ts";
 import {
@@ -206,10 +207,8 @@ export interface DeskMessage {
   /** The tone of the message's mark; its words read in neutral text. */
   readonly tone: "success" | "warning" | "danger" | "muted" | "accent";
   readonly text: string;
-  /** What it found, after the lead and in ink: a return's result. */
+  /** What it found, after the text and in ink: a return's result. */
   readonly detail?: string;
-  /** A faint word before the text, such as the tip's `Tip`. */
-  readonly lead?: string;
   /** A leading glyph such as `!` or `←`. */
   readonly mark?: { readonly unicode: string; readonly ascii: string };
   /** A key hint at the far right, such as `r Retry`. */
@@ -331,7 +330,10 @@ export interface DeskProductState {
   /** The owner closed the offline warning; it returns after a success. */
   readonly offlineDismissed?: boolean;
   readonly preferences: DeskPreferences;
+  /** The session's tip, which the home panel carries once it is chosen. */
   readonly tip?: DeskTip;
+  /** When this clone last opened the release page, read with each survey. */
+  readonly releaseCheck?: ReleaseCheckHistory;
   readonly activity: readonly DeskActivity[];
   readonly departed: ReadonlyMap<string, DeskDeparture>;
   /**
@@ -432,6 +434,8 @@ export type DeskEvent =
     readonly data: StatusData;
     readonly hints: readonly string[];
     readonly exceptionArgvs: ReadonlyMap<string, readonly string[]>;
+    /** The release record as the survey found it, when it was read. */
+    readonly releaseCheck?: ReleaseCheckHistory;
   }
   | {
     readonly kind: "observation-failed";
@@ -688,6 +692,9 @@ function observed(
     hints: event.hints,
     rows,
     exceptionArgvs: event.exceptionArgvs,
+    ...(event.releaseCheck === undefined
+      ? {}
+      : { releaseCheck: event.releaseCheck }),
     departed: departures(state, data, rows),
     survey: {
       ...state.survey,
@@ -1298,13 +1305,7 @@ export function deskProduct(
         effects: [],
       };
     case "tip":
-      return {
-        state: toast({ ...state, tip: event.tip }, "muted", event.tip.brief, {
-          topic: "tip",
-          lead: event.tip.lead,
-        }),
-        effects: [],
-      };
+      return { state: { ...state, tip: event.tip }, effects: [] };
     case "intent":
       return intentTransition(state, event.intent, event.ui, {
         now: event.now,

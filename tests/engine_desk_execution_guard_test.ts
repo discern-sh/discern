@@ -15,6 +15,7 @@ const BOUNDARIES = {
   loadConfig: null,
   status: null,
   mainRepoPath: null,
+  releaseCheck: null,
   grantEffortPlan: null,
   grantEffort: "executeDeskOperation",
   clearEffortGrantPlan: null,
