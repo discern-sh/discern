@@ -1396,6 +1396,38 @@ Deno.test("a result sheet's next step names exactly the buttons it offers", () =
   }
 });
 
+Deno.test("hidden details still show the home panel until there is a task", () => {
+  const hidden = (state: DeskProductState): DeskProductState => ({
+    ...state,
+    preferences: { schema_version: 2, details: "hidden" },
+  });
+  const cases: ReadonlyArray<readonly [string, DeskProductState, string]> = [
+    ["before the first survey", hidden(freshDesk()), "Loading tasks…"],
+    [
+      "after a failed survey",
+      hidden({
+        ...freshDesk(),
+        survey: { ...freshDesk().survey, failures: 1 },
+      }),
+      "Couldn't read tasks",
+    ],
+    ["with no tasks", hidden(desk(productSurvey([]))), "No tasks yet"],
+  ];
+  for (const [name, state, says] of cases) {
+    const view = deskView(state, PRODUCT_UI, ENV);
+    assertEquals(view.body.kind, "master-detail", name);
+    for (const [columns, rows] of [[100, 24], [80, 24]] as const) {
+      assertStringIncludes(render(view, columns, rows), says, name);
+    }
+  }
+  const working = hidden(desk(productSurvey([task()])));
+  assertEquals(
+    deskView(working, PRODUCT_UI, ENV).body.kind,
+    "list",
+    "a task's facts stay hidden",
+  );
+});
+
 Deno.test("zoom's footer walks to the next task and keeps the task's keys", () => {
   const view = deskView(
     desk(statusData([mainFleetEntry(), task({ ahead: 2 })])),

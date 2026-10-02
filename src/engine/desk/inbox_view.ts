@@ -768,14 +768,19 @@ export function deskView(
 /**
  * The body: the list and its inspector, or the list alone while details are
  * hidden. The Commands row leads either way, so a desk with no tasks is the
- * same inbox, its home panel saying what a task is.
+ * same inbox, its home panel saying what a task is. Hiding details hides a
+ * task's facts, so until there is a task the home panel stays: it is where
+ * the desk says it is loading, couldn't read the tasks, or has none yet.
  */
 function body(
   state: DeskProductState,
   env: DeskViewEnv,
   list: ApplicationList<DeskIntent>,
 ): TerminalApplicationView<DeskIntent>["body"] {
-  if (state.preferences.details === "hidden") return { kind: "list", list };
+  if (
+    state.preferences.details === "hidden" && state.data !== undefined &&
+    !noTasks(state)
+  ) return { kind: "list", list };
   const { content, strip } = details(state, env);
   return {
     kind: "master-detail",
