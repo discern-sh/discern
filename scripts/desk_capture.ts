@@ -11,7 +11,7 @@
  * mockups, not for screenshot comparison tests.
  */
 import { assert, assertEquals } from "@std/assert";
-import { join, resolve } from "@std/path";
+import { dirname, join, resolve } from "@std/path";
 import type { TerminalKeyName } from "discern-design-system/cli/interactive";
 import { captureTerminalFrame } from "discern-design-system/cli/interactive/testing";
 import { withRealPtyBoundary } from "../tests/real_pty.ts";
@@ -23,6 +23,7 @@ import {
   deskFocused,
   type DeskFrameTest,
   deskHome,
+  deskHomeWithTip,
   deskLandingAuthority,
   deskLayerOpen as layer,
   deskLayerReady,
@@ -44,8 +45,14 @@ import { stepWords } from "../src/shared/step_labels.ts";
 import { briefFleet } from "./desk_sandbox.ts";
 import { deskSession } from "../tests/fixtures/desk_session.ts";
 import { git } from "../tests/engine_helpers.ts";
-import { directoryExists } from "../src/shared/fs_presence.ts";
+import {
+  directoryExists,
+  readTextIfExists,
+} from "../src/shared/fs_presence.ts";
 import { DESK_COMMAND_LABELS } from "../src/shared/desk_vocabulary.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { markdownBrowserItemId } from "../src/lib/terminal_interaction.ts";
 import {
   freshDeskPreferences,
@@ -235,6 +242,12 @@ const reviewRead = deskLayerReady;
 /** The Desk at home: its Commands row selected, the first survey read. */
 const home = deskHome();
 
+/**
+ * The Desk at home once the session's tip has reached its panel, the steady
+ * state a person reads at the standard size and up.
+ */
+const homeTipped = deskHomeWithTip();
+
 /** From home to the first task ready for review, by its group's number. */
 function toManual(size: PtyGeometry): DeskTtyInputPhase {
   return phase(size, undefined, "the Desk at home", home, text("1"));
@@ -253,7 +266,7 @@ const DROP = "review-drop-review";
  */
 function wideJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
-    phase(size, "home", "the Desk at home", home, keys("enter")),
+    phase(size, "home", "the Desk at home", homeTipped, keys("enter")),
     phase(
       size,
       "home-palette",
@@ -630,7 +643,7 @@ async function agentJourney(
 /** Every task state at the standard width, then the layers. */
 function standardJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
-    phase(size, "home", "the Desk at home", home, text(" ")),
+    phase(size, "home", "the Desk at home", homeTipped, text(" ")),
     phase(size, "home-zoom", "the home panel zoomed", deskZoomed(), text(" ")),
     toManual(size),
     phase(size, "overview", "inbox at rest", atRest(MANUAL), text(" ")),
@@ -669,6 +682,58 @@ function homeZoomJourney(size: PtyGeometry): DeskTtyInputPhase[] {
     phase(size, "overview", "the Desk at home", home, text(" ")),
     phase(size, "home-zoom", "the home panel zoomed", deskZoomed(), text("q")),
   ];
+}
+
+/**
+ * Home while a release check is due: the row's cue, then Enter's palette
+ * on Check for updates…, at the wide size; the standard size stops at home.
+ */
+function releaseDueJourney(size: PtyGeometry): DeskTtyInputPhase[] {
+  return size.columns >= WIDE.columns
+    ? [
+      phase(size, "home-due", "a check due", homeTipped, keys("enter")),
+      phase(
+        size,
+        "home-due-palette",
+        "the palette on Check for updates…",
+        layer("palette"),
+        ESCAPE,
+      ),
+      phase(size, undefined, "back home", home, text("q")),
+    ]
+    : [phase(size, "home-due", "a check due", homeTipped, text("q"))];
+}
+
+/**
+ * Run `body` while this clone's release record says it last checked long
+ * ago, so status's reminder is due, then put the record back as it was.
+ */
+async function withReleaseCheckDue<T>(
+  project: DeskTtyProject,
+  body: () => Promise<T>,
+): Promise<T> {
+  const path = await gitAdminStatePath(project.root, "releaseCheck");
+  assert(path !== undefined, "the fleet's repository has a state directory");
+  const saved = await readTextIfExists(path);
+  const long = "2026-01-01T00:00:00.000Z";
+  await Deno.mkdir(dirname(path), { recursive: true });
+  await Deno.writeTextFile(
+    path,
+    `${
+      JSON.stringify({
+        schema_version: ON_DISK_FORMATS.releaseCheck.version,
+        first_seen_at: long,
+        last_handoff_at: long,
+        version_when_handed_off: DISCERN_VERSION,
+      })
+    }\n`,
+  );
+  try {
+    return await body();
+  } finally {
+    if (saved === undefined) await Deno.remove(path);
+    else await Deno.writeTextFile(path, saved);
+  }
 }
 
 /** The parked group opened, on a light terminal. */
@@ -827,6 +892,15 @@ const FLEET_JOURNEYS: Readonly<Record<string, Journey>> = {
     capture(project, target, STANDARD, offlineJourney(STANDARD, project)),
   return: (project, target) =>
     capture(project, target, STANDARD, returnJourney(STANDARD)),
+  "release-due": (project, target) =>
+    withReleaseCheckDue(project, async () => [
+      ...await capture(project, target, STANDARD, releaseDueJourney(STANDARD)),
+      ...await capture(project, target, WIDE, releaseDueJourney(WIDE)),
+    ]),
+  "home-light": (project, target) =>
+    capture(project, target, WIDE, [
+      phase(WIDE, "home", "the Desk at home", homeTipped, text("q")),
+    ], { light: true }),
   // Opening Parked is remembered for later sessions, so it runs late.
   parked: (project, target) =>
     capture(project, target, WIDE, parkedJourney(WIDE), { light: true }),
@@ -1008,10 +1082,10 @@ async function emptyJourney(target: DeskGalleryTarget): Promise<string[]> {
     deskFleetFixture([], { orphanBranches: briefFleet().orphanBranches }),
     async (project) => [
       ...await capture(project, target, STANDARD, [
-        phase(STANDARD, "empty", "no tasks yet", home, text("q")),
+        phase(STANDARD, "empty", "no tasks yet", homeTipped, text("q")),
       ]),
       ...await capture(project, target, WIDE, [
-        phase(WIDE, "empty", "no tasks yet", home, text("q")),
+        phase(WIDE, "empty", "no tasks yet", homeTipped, text("q")),
       ]),
     ],
   );

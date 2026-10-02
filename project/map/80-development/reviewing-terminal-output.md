@@ -146,6 +146,7 @@ deno task cli:design-system capture .scratch/desk-local
 The [capture script](../../../scripts/desk_capture.ts) captures every frame of the desk design's frame index that the product can render, from the [sandbox fleet](#desk-sandbox) with Claude Code and Codex on its `PATH`:
 
 - the inbox at 120 by 30, 80 by 24, 60 by 20, 80 by 13 and 32 by 10, without color or Unicode at 40 by 20, below the minimum at 30 by 9, empty, offline after two failed surveys, after an agent returns with changed files, zoomed, and with Parked unfolded on a light terminal;
+- home, on the Commands row, once the session's tip has reached its panel (`deskHomeWithTip`) at 120 by 30, 80 by 24, empty, and on a light terminal; zoomed; with the palette its Enter opens; and while a release check is due, at both sizes and with that palette starting on Check for updates…, the `release-due` journey writing an old release record and restoring it afterwards;
 - one frame per row state the brief names: stale, checks failed with the failure its run's journal retained, setup stopped, checks running and queued;
 - the actions menu at both widths, the wide one showing an unavailable action's reason, the palette and the keys reader;
 - every review sheet and form: Land direct and integrating, with its plan open, on a short screen, and with confirm focused on a light terminal; Drop with its challenge half typed at 80 and at 40 columns; New task; Check for updates; and the agent picker;

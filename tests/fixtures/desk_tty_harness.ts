@@ -1130,6 +1130,21 @@ export function deskHome(): DeskFrameTest {
     capture.state.detailPending !== true;
 }
 
+/**
+ * The Desk at home in its steady state: {@linkcode deskHome} once the
+ * session's tip, chosen after the first survey, has reached the home panel.
+ * The state report does not carry the tip, so this reads the panel's Tip
+ * section title; only a panel with room shows it, so it suits the standard
+ * size and up.
+ */
+export function deskHomeWithTip(): DeskFrameTest {
+  return (capture) =>
+    deskHome()(capture) &&
+    capture.text.split("\n").some((line) =>
+      /\sTip(?:\s+new in \S+)?\s*$/u.test(line)
+    );
+}
+
 /** A layer on top. */
 export function deskLayerOpen(id: string): DeskFrameTest {
   return (capture) => capture.state?.topLayerId === id;
