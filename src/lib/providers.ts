@@ -326,6 +326,11 @@ export interface AgentCliAction {
  * known agent also requires an explicit account of how the desk enters it. */
 export interface AgentCliIntegration {
   readonly actions: readonly AgentCliAction[];
+  /**
+   * The command typed in a session to end it and hand the terminal back, as
+   * the provider documents it; absent until documented.
+   */
+  readonly exit?: string;
 }
 
 /** Host platforms whose conventional application locations setup can probe. */
@@ -1662,6 +1667,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
           args: ["--continue"],
         },
       ],
+      exit: "/exit",
     },
     instructionFile: {
       path: instructionPathForNative("claude_code"),

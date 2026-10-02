@@ -11,7 +11,6 @@ import type {
   ApplicationMenuItem,
   ApplicationUnavailableItem,
 } from "discern-design-system/cli/interactive";
-import { commandEvidence } from "../../shared/command_evidence.ts";
 import {
   DESK_ACTION_LABELS,
   DESK_COMMAND_LABELS,
@@ -161,18 +160,26 @@ export function branchMenu(
   };
 }
 
-/** The command a launch runs, as the picker describes it. */
-function launchCommand(launch: DeskAgentLaunch): string {
-  return commandEvidence([launch.binary, ...launch.args]);
-}
-
-/** A launch named by what it does, and the sentence that says more. */
+/**
+ * A launch named by what it does, and the sentence shown beneath the menu
+ * while it is highlighted: what it does, and how to come back when the
+ * provider documents it.
+ */
 function launchWords(
   launch: DeskAgentLaunch,
-): { readonly label: string; readonly detail?: string } {
+): { readonly label: string; readonly description: string } {
+  const back = launch.exit === undefined
+    ? ""
+    : ` ${launch.exit} comes back here.`;
   return launch.kind === "continue"
-    ? { label: "Continue", detail: "picks up the last conversation" }
-    : { label: "New session" };
+    ? {
+      label: "Continue",
+      description: `Picks up the last conversation.${back}`,
+    }
+    : {
+      label: "New session",
+      description: `Starts a new conversation.${back}`,
+    };
 }
 
 /** Why a configured agent can't open, in a few words beside its name. */
@@ -266,10 +273,7 @@ export function agentsMenu(
           id: launch.id,
           label: words.label,
           action: { kind: "launch", taskId, launch: launch.id },
-          ...(words.detail === undefined
-            ? {}
-            : { detail: [{ text: words.detail, tone: "faint" as const }] }),
-          description: [{ text: launchCommand(launch), tone: "faint" }],
+          description: [{ text: words.description, tone: "faint" }],
         };
       }),
       ...(index === available.length - 1 && unavailable.length > 0

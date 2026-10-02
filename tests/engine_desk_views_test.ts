@@ -46,7 +46,8 @@ import {
   inlineRuns,
   toggleLabel,
 } from "../src/engine/desk/header_view.ts";
-import { deskRowId } from "../src/engine/desk/model.ts";
+import { buildAgentLaunches, deskRowId } from "../src/engine/desk/model.ts";
+import { configSchema } from "../src/shared/config_schema.ts";
 import { DESK_KEYS } from "../src/engine/desk/keys.ts";
 import { actionsMenu } from "../src/engine/desk/menu_view.ts";
 import { taskEvidenceSubject } from "../src/engine/desk/evidence.ts";
@@ -1155,4 +1156,41 @@ Deno.test("zoom's footer walks to the next task and keeps the task's keys", () =
     view.footer.left.slice(1),
     "every key of the task's own stays",
   );
+});
+
+Deno.test("the agent picker says what a launch does and how to come back, never its argv", () => {
+  const config = configSchema.parse({
+    project: { name: "demo", slug: "demo", agents: ["claude_code", "codex"] },
+  });
+  const launches = buildAgentLaunches(config, [
+    { name: "claude_code", binary: "claude" },
+    { name: "codex", binary: "codex" },
+  ]);
+  const listed = desk(statusData([mainFleetEntry(), task({ ahead: 2 })]));
+  const state: DeskProductState = {
+    ...listed,
+    rows: listed.rows.map((row) => ({
+      ...row,
+      discovered: true,
+      agentLaunches: launches,
+    })),
+  };
+  const menu = deskView(
+    open(state, { kind: "agents", taskId: "task" }).state,
+    PRODUCT_UI,
+    ENV,
+  ).layers?.[0];
+  assert(menu?.kind === "menu");
+  const items = menu.sections.flatMap((section) => section.items);
+  assert(items.length === 4, said(items));
+  for (const item of items) {
+    assertEquals(item.detail, undefined, `${item.id}: no row detail`);
+    const words = said(item.description);
+    for (const launch of launches) {
+      const argv = [launch.binary, ...launch.args].join(" ");
+      assert(!words.includes(argv), `${item.id}: ${words}`);
+    }
+  }
+  const claude = items.filter((item) => item.id.startsWith("claude_code:"));
+  assert(claude.every((item) => said(item.description).includes("/exit")));
 });

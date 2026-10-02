@@ -299,6 +299,8 @@ export interface DeskAgentLaunch {
   readonly promptArgument?: AgentCliPromptArgument;
   readonly availability?: "enabled" | "disabled";
   readonly reason?: string;
+  /** What ends a session and comes back, when the provider documents it. */
+  readonly exit?: string;
 }
 
 /** Resolve a stored brief through a provider-declared, documented argv option. */
@@ -1950,6 +1952,7 @@ export function buildAgentLaunches(
           : { promptArgument: action.promptArgument }),
         availability: found === undefined ? "disabled" : "enabled",
         ...(reason === undefined ? {} : { reason }),
+        ...(provider.cli.exit === undefined ? {} : { exit: provider.cli.exit }),
       });
     }
   }
