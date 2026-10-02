@@ -669,7 +669,7 @@
     "deno.lock",
   ]
   direction = "up"
-  limit = 92.1
+  limit = 92.5
   margin = 0.5
 
 [standards.module_coverage]
@@ -712,7 +712,7 @@
   scale = 1000
   # Corrected from the mismatched whole-map denominator: 4,863 alerts across
   # 312,085 staged words. Private prose and frontmatter stay outside the rate.
-  limit = 14.05
+  limit = 13.87
   run = "deno task prose \"${map.dir}\""
   inputs = [
     "${map.dir}**",
@@ -733,7 +733,7 @@
 [standards.site_reading_grade]
   direction = "down"
   # Guarded-corpus baseline over the same deduplicated prose blocks.
-  limit = 8.43
+  limit = 6.88
   margin = 0.5
   run = "deno task site:reading-grade"
   inputs = [
@@ -882,7 +882,7 @@
 # not spend the budget. Consolidate a named group, then pin the reduction.
 [standards.duplicated_lines]
   direction = "down"
-  limit = 5083
+  limit = 5055
   run = "deno task duplication-census"
   inputs = [
     "*.ts",
@@ -910,7 +910,7 @@
 # Standard so the legacy tail can only shrink.
 [standards.complexity_hotspots]
   direction = "down"
-  limit = 17
+  limit = 15
   run = "deno task complexity"
   inputs = [
     "*.ts",
@@ -1229,7 +1229,7 @@
 [standards.manual_reading_grade]
   metric = "manual_reading_grade"
   direction = "down"
-  limit = 8.09
+  limit = 7.69
   margin = 0.2
   run = "deno run --allow-read scripts/manual_reading_grade.ts"
   inputs = [
