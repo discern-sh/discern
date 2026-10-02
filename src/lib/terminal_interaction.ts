@@ -278,6 +278,11 @@ export interface MarkdownBrowserRequestOptions<Action> {
   readonly initialState?: MarkdownBrowserResumeState;
   readonly documentMeasure?: number;
   readonly mouse?: boolean;
+  /**
+   * Show each document's path beside its preview and title, and let search
+   * match it: for a corpus its readers know by file.
+   */
+  readonly showPaths?: boolean;
   /** Answers at once: the browser resolves a followed link before it repaints. */
   readonly resolveLink?: (
     input: MarkdownBrowserLinkResolverInput,
@@ -1136,6 +1141,9 @@ function packageMarkdownBrowserOptions<Action>(
       ? {}
       : { documentMeasure: options.documentMeasure }),
     ...(options.mouse === undefined ? {} : { mouse: options.mouse }),
+    ...(options.showPaths === undefined
+      ? {}
+      : { showPaths: options.showPaths }),
     ...(linkResolver === undefined ? {} : {
       resolveLink: (input: PackageMarkdownBrowserLinkResolverInput) =>
         resolveMarkdownBrowserLink(input, entries, linkResolver),

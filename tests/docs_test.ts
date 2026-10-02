@@ -635,6 +635,9 @@ Deno.test("a browser another application opens reads its corpus once, or says wh
       ),
     );
     assertEquals(request.resolveLink, resolveDocsBrowserLink);
+    assertEquals(request.showPaths, true, "a map's pages show their paths");
+    const manual = await readDocsBrowser("docs", { exitLabel: "Back" }, dir);
+    assertEquals(manual.showPaths, undefined, "the manual reads by title");
     const empty = join(dir, "empty");
     await Deno.mkdir(empty);
     await assertRejects(

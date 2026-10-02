@@ -1064,6 +1064,9 @@ function docsBrowserRequest(
       ),
     entries: corpus.entries,
     ...(documentMeasure === undefined ? {} : { documentMeasure }),
+    // A map's readers keep its pages as files; the manual's read it by
+    // title alone.
+    ...(desc.verb === "map" ? { showPaths: true } : {}),
     resolveLink: resolveDocsBrowserLink,
   };
 }
