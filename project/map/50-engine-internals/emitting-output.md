@@ -29,6 +29,8 @@ log.warn("One source is missing; the default applies.");
 
 Dynamic facts are made inert by the authority itself (`terminalLine` runs inside `info`/`ok`/`warn`/`error`/`heading`/`detail` and group labels). `humanLine` and `line` emit verbatim — sanitize what you interpolate.
 
+Every verb that renders prose keeps each line within the presenter's width. The glyph lines wrap inside the package narration verbs. `heading`, `detail`, and group labels re-flow an over-wide line through the [text authority](../../../src/lib/text.ts), hang continuations under their own indent, and style each wrapped line separately. A long advisory paragraph therefore belongs on `detail`, not on a hand-composed `humanLine`. A `humanLine` caller owns its wrapping and composes a width-aware package renderer. [`narration_test.ts`](../../../tests/narration_test.ts) keys its width contracts on the `Narration` interface, so a new verb must declare whether it bounds its prose.
+
 ## A group
 
 ```ts

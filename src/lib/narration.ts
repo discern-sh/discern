@@ -20,7 +20,7 @@ import {
   terminalLine,
   type TerminalMultiline,
 } from "./terminal.ts";
-import { wrapText } from "./text.ts";
+import { displayWidth, wrapText } from "./text.ts";
 
 /** A physical process stream the sink can write to. */
 export type OutputStream = "stdout" | "stderr";
@@ -142,7 +142,12 @@ export interface NarrationStreams {
   readonly alerts: OutputStream;
 }
 
-/** The shared narration surface both `Out` and `Logger` configure. */
+/**
+ * The shared narration surface both `Out` and `Logger` configure. Every verb
+ * that renders prose bounds each emitted line to the terminal width through
+ * the package renderers; only {@link Narration.humanLine} passes a caller's
+ * composition through verbatim.
+ */
 export interface Narration {
   /** Informational step (accent arrow). */
   info(message: string): void;
@@ -156,7 +161,8 @@ export interface Narration {
   heading(text: string): void;
   /** Start a semantic group and optionally give it a visible ruled label. */
   group(id: string, label?: string): void;
-  /** A dimmed, indented detail line under a heading. */
+  /** A dimmed detail paragraph indented under a heading; wrapped lines hang
+   * under the same indent. */
   detail(text: string): void;
   /** A pre-composed narration line emitted verbatim — the caller owns its
    * wrapping, indentation, and any package Token roles. */
@@ -183,6 +189,53 @@ export function makeNarration(
   terminal: TerminalContext,
   streams: NarrationStreams,
 ): Narration {
+  const columns = terminal.presenter.capabilities.columns;
+  /** Bound one inert prose line to the presenter's width behind a styled
+   * `lead`. A line that fits is kept intact; an over-wide one re-flows through
+   * the text authority, continuations hang under the lead, an overlong token
+   * breaks rather than overflow, and `paint` styles each wrapped line on its
+   * own so no styling crosses a line end. */
+  const hanging = (
+    lead: string,
+    text: string,
+    paint: (line: string) => string,
+  ): string => {
+    const indent = displayWidth(lead);
+    const available = columns - indent;
+    const lines = displayWidth(text) <= available
+      ? [text]
+      : wrapText(text, available, "", { breakLongWords: true });
+    return lines.map((line, index) =>
+      `${index === 0 ? lead : " ".repeat(indent)}${paint(line)}`
+    ).join("\n");
+  };
+  const errorBlock = (message: string): void => {
+    if (!message.includes("\n")) {
+      sink.line(
+        terminal.presenter.failure(terminalLine(message)),
+        streams.alerts,
+      );
+      return;
+    }
+    // The glyph column is two cells wide; every wrapped line hangs under it.
+    const width = columns - 2;
+    const lines = message.split("\n").flatMap((raw) => {
+      if (raw.trim() === "") return [""];
+      const leading = raw.match(/^\s*/u)?.[0] ?? "";
+      const content = terminalLine(raw.slice(leading.length));
+      return wrapText(content, width - leading.length, `${leading}  `, {
+        breakLongWords: true,
+      }).map((line, index) => (index === 0 ? `${leading}${line}` : line));
+    });
+    const [first = "", ...continuation] = lines;
+    sink.line(
+      [
+        terminal.presenter.failure(first),
+        ...continuation.map((line) => (line === "" ? "" : `  ${line}`)),
+      ].join("\n"),
+      streams.alerts,
+    );
+  };
   return {
     info: (message: string): void =>
       sink.line(
@@ -207,7 +260,11 @@ export function makeNarration(
     heading: (text: string): void => {
       sink.boundary({ evenAtStart: true, stream: streams.narration });
       sink.line(
-        terminal.presenter.style(terminalLine(text), { role: "strong" }),
+        hanging(
+          "",
+          terminalLine(text),
+          (line) => terminal.presenter.style(line, { role: "strong" }),
+        ),
         streams.narration,
       );
     },
@@ -217,50 +274,29 @@ export function makeNarration(
       sink.boundary();
       if (label !== undefined) {
         sink.line(
-          `  ${terminal.presenter.style("──", { role: "muted" })} ${
-            terminal.presenter.style(terminalLine(label), { role: "strong" })
-          }`,
+          hanging(
+            `  ${terminal.presenter.style("──", { role: "muted" })} `,
+            terminalLine(label),
+            (line) => terminal.presenter.style(line, { role: "strong" }),
+          ),
           sink.lastStream(),
         );
       }
     },
     detail: (text: string): void =>
       sink.line(
-        `  ${terminal.presenter.style(terminalLine(text), { role: "muted" })}`,
+        hanging(
+          "  ",
+          terminalLine(text),
+          (line) => terminal.presenter.style(line, { role: "muted" }),
+        ),
         streams.narration,
       ),
     humanLine: (text: string): void => sink.line(text, streams.narration),
-    terminalSafeMultilineError: (message: TerminalMultiline): void => {
-      const [first = "", ...continuation] = message.split("\n");
-      const failure = terminal.presenter.failure(first);
-      sink.line([failure, ...continuation].join("\n"), streams.alerts);
-    },
-    errorBlock: (message: string): void => {
-      if (!message.includes("\n")) {
-        sink.line(
-          terminal.presenter.failure(terminalLine(message)),
-          streams.alerts,
-        );
-        return;
-      }
-      // The glyph column is two cells wide; every wrapped line hangs under it.
-      const width = Math.max(20, terminal.size.columns) - 2;
-      const lines = message.split("\n").flatMap((raw) => {
-        if (raw.trim() === "") return [""];
-        const leading = raw.match(/^\s*/u)?.[0] ?? "";
-        const content = terminalLine(raw.slice(leading.length));
-        return wrapText(content, width - leading.length, `${leading}  `)
-          .map((line, index) => (index === 0 ? `${leading}${line}` : line));
-      });
-      const [first = "", ...continuation] = lines;
-      sink.line(
-        [
-          terminal.presenter.failure(first),
-          ...continuation.map((line) => (line === "" ? "" : `  ${line}`)),
-        ].join("\n"),
-        streams.alerts,
-      );
-    },
+    // Already-inert multiline text renders as the one authored failure block.
+    terminalSafeMultilineError: (message: TerminalMultiline): void =>
+      errorBlock(message),
+    errorBlock,
   };
 }
 

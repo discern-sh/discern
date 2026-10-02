@@ -217,7 +217,7 @@ Deno.test("Logger pre-composed package frames honor color mode and keep content 
   });
   assertStringIncludes(coloredFrame, "\x1b[");
   assertEquals(plainFrame.includes("\x1b["), false);
-  assertEquals(err, [coloredFrame, plainFrame, "✕ safe\nwrapped"]);
+  assertEquals(err, [coloredFrame, plainFrame, "✕ safe\n  wrapped"]);
   assertEquals(out, ["content\nrow"]);
 });
 

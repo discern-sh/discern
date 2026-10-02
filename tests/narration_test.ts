@@ -4,14 +4,19 @@
  * `Out` and the installer's `Logger`.
  */
 
-import { assertEquals, assertThrows } from "@std/assert";
+import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
   makeNarration,
   makeOutputSink,
+  type Narration,
   reportFailure,
   silentOutputSink,
 } from "../src/lib/narration.ts";
-import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import {
+  resolveTerminalContext,
+  terminalMultiline,
+} from "../src/lib/terminal.ts";
+import { displayWidth, stripAnsi } from "../src/lib/text.ts";
 import { TERMINAL_GLYPHS, TRIANGLES } from "discern-design-system/cli";
 import { fakeEnv, pinnedTerminal } from "./helpers.ts";
 import { assertNamedCases } from "./assert_cases.ts";
@@ -200,6 +205,120 @@ Deno.test("narration: lineCapture cases", () => {
       assertEquals(stderr, ["✕ nothing to land; commit first"]);
     },
   });
+});
+
+/** How one narration verb receives prose: rendered within the terminal width,
+ * or passed through verbatim because its caller composes the layout. */
+type NarrationWidthContract =
+  | { readonly bounded: (narration: Narration, prose: string) => void }
+  | { readonly verbatim: string };
+
+/** Keyed by the narration interface itself, so a new verb cannot compile
+ * without declaring whether it bounds its prose to the terminal width. */
+const NARRATION_WIDTH_CONTRACTS = {
+  info: { bounded: (narration, prose) => narration.info(prose) },
+  ok: { bounded: (narration, prose) => narration.ok(prose) },
+  warn: { bounded: (narration, prose) => narration.warn(prose) },
+  error: { bounded: (narration, prose) => narration.error(prose) },
+  heading: { bounded: (narration, prose) => narration.heading(prose) },
+  group: {
+    bounded: (narration, prose) => narration.group("width-guard", prose),
+  },
+  detail: { bounded: (narration, prose) => narration.detail(prose) },
+  humanLine: {
+    verbatim: "the caller composes package renderers and owns the wrapping",
+  },
+  terminalSafeMultilineError: {
+    bounded: (narration, prose) =>
+      narration.terminalSafeMultilineError(
+        terminalMultiline(`${prose}\n  ${prose}`),
+      ),
+  },
+  errorBlock: {
+    bounded: (narration, prose) => narration.errorBlock(`${prose}\n  ${prose}`),
+  },
+} satisfies Record<keyof Narration, NarrationWidthContract>;
+
+/** Ordinary words plus one token wider than the whole guard terminal. */
+const WIDTH_GUARD_PROSE =
+  "Run `discern upgrade --dry-run` to preview the managed update under /very/long/path/that/cannot/fit/on/one/line before applying it.";
+const WIDTH_GUARD_COLUMNS = 30;
+
+/** Render one verb on a colour terminal of the guard width. */
+function renderAtGuardWidth(
+  write: (narration: Narration) => void,
+): string {
+  const { sink, stdout, stderr } = rawCapture();
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      LANG: "en_GB.UTF-8",
+      TERM: "xterm-256color",
+      FORCE_COLOR: "1",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: WIDTH_GUARD_COLUMNS, rows: 24 }),
+  });
+  assert(terminal.color, "the width guard measures styled output");
+  write(
+    makeNarration(sink, terminal, { narration: "stdout", alerts: "stderr" }),
+  );
+  return [...stdout, ...stderr].join("");
+}
+
+Deno.test("every narration verb that renders prose stays within the terminal width", () => {
+  const verbs = Object.keys(
+    makeNarration(silentOutputSink(), pinnedTerminal(), {
+      narration: "stdout",
+      alerts: "stderr",
+    }),
+  ).sort();
+  assertEquals(verbs, Object.keys(NARRATION_WIDTH_CONTRACTS).sort());
+
+  for (const [verb, contract] of Object.entries(NARRATION_WIDTH_CONTRACTS)) {
+    if ("verbatim" in contract) {
+      assertEquals(
+        renderAtGuardWidth((narration) =>
+          narration.humanLine(WIDTH_GUARD_PROSE)
+        ),
+        `${WIDTH_GUARD_PROSE}\n`,
+        `${verb} is verbatim because ${contract.verbatim}`,
+      );
+      continue;
+    }
+    const output = renderAtGuardWidth((narration) =>
+      contract.bounded(narration, WIDTH_GUARD_PROSE)
+    );
+    const overflow = output.split("\n").filter((line) =>
+      displayWidth(line) > WIDTH_GUARD_COLUMNS
+    );
+    assertEquals(
+      overflow.map(stripAnsi),
+      [],
+      `${verb} must wrap prose to the ${WIDTH_GUARD_COLUMNS}-column terminal`,
+    );
+    assert(
+      stripAnsi(output).replaceAll(/\s+/gu, "").includes(
+        WIDTH_GUARD_PROSE.replaceAll(/\s+/gu, ""),
+      ),
+      `${verb} must keep every character of the prose it wraps`,
+    );
+  }
+});
+
+Deno.test("a wrapped detail hangs under its own indent with styling closed per line", () => {
+  const output = renderAtGuardWidth((narration) =>
+    narration.detail(WIDTH_GUARD_PROSE)
+  );
+  const lines = output.trimEnd().split("\n");
+  assert(lines.length > 1, "the guard prose must wrap");
+  for (const line of lines) {
+    assert(line.startsWith("  \x1b["), `detail line lost its indent: ${line}`);
+    assert(
+      line.endsWith("\x1b[0m"),
+      `detail styling crosses a line end: ${line}`,
+    );
+  }
 });
 
 Deno.test("the silent sink swallows everything and reports nothing written", () => {
