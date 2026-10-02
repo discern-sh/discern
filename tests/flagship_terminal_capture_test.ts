@@ -10,8 +10,11 @@ import {
 } from "./fixtures/flagship_terminal_captures.ts";
 import {
   compileDiscernCaptureBinary,
+  decodeTerminalCapture,
   renderTerminalCaptureHtml,
   serializeTerminalCapture,
+  terminalCaptureOverflows,
+  type TerminalCommandCapture,
 } from "./fixtures/terminal_command_capture.ts";
 import { withTempDir } from "./helpers.ts";
 import { realPtyTest } from "./real_pty.ts";
@@ -27,6 +30,28 @@ function terminalHtmlText(html: string): string {
   }
   return unescapeHtml(content.replaceAll(/<[^>]+>/gu, ""));
 }
+
+/** Name each over-wide line so the failure points at the renderer to fix. */
+function assertWithinCaptureGeometry(capture: TerminalCommandCapture): void {
+  const overflows = terminalCaptureOverflows(capture);
+  assertEquals(
+    overflows,
+    [],
+    `${capture.name} renders ${overflows.length} line(s) wider than its ${capture.geometry.columns}-column capture; route each through a width-aware package renderer (the narration verbs wrap; a humanLine caller owns its wrapping)`,
+  );
+}
+
+Deno.test("every reviewed flagship capture fits its capture geometry", async () => {
+  for (const command of FLAGSHIP_COMMANDS) {
+    const capture = decodeTerminalCapture(
+      await Deno.readTextFile(
+        join(FLAGSHIP_CAPTURE_DIRECTORY, `${command.name}.json`),
+      ),
+    );
+    assertEquals(capture.name, command.name);
+    assertWithinCaptureGeometry(capture);
+  }
+});
 
 Deno.test("flagship normalizers replace facts without hiding visible structure", () => {
   const source = [
@@ -108,6 +133,7 @@ realPtyTest({
         const serialized = serializeTerminalCapture(capture);
         assertEquals(capture.exitCode, 0, capture.screen);
         assertEquals(capture.geometry, { columns: 80, rows: 24 });
+        assertWithinCaptureGeometry(capture);
         assertEquals(
           capture.normalizers,
           FLAGSHIP_CAPTURE_NORMALIZERS.map((normalizer) => normalizer.name),

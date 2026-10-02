@@ -8,6 +8,9 @@ import {
   projectTerminalHtml,
   projectTerminalSpans,
 } from "discern-design-system/cli/projection";
+import { z } from "@zod/zod";
+import { displayWidth } from "../../src/lib/text.ts";
+import { decodeWith } from "../decode_cli_result.ts";
 import {
   acceptedProjection,
   type PtyGeometry,
@@ -324,4 +327,64 @@ export function serializeTerminalCapture(
   capture: TerminalCommandCapture,
 ): string {
   return `${JSON.stringify(capture, null, 2)}\n`;
+}
+
+const TERMINAL_COMMAND_CAPTURE_SCHEMA = z.object({
+  schemaVersion: z.literal(1),
+  name: z.string(),
+  args: z.array(z.string()),
+  geometry: z.object({
+    columns: z.number().int().positive(),
+    rows: z.number().int().positive(),
+  }).strict(),
+  environment: z.object({
+    color: z.enum(["on", "off"]),
+    locale: z.string(),
+    mode: z.enum(["static", "interactive"]),
+    term: z.literal("xterm-256color"),
+  }).strict(),
+  exitCode: z.number().int(),
+  normalizers: z.array(z.string()),
+  screen: z.string(),
+  keyframes: z.record(z.string(), z.string()),
+}).strict();
+
+/** Read one persisted capture back through its validated shape. */
+export function decodeTerminalCapture(text: string): TerminalCommandCapture {
+  return decodeWith(TERMINAL_COMMAND_CAPTURE_SCHEMA, text);
+}
+
+/** One visible line of a captured screen wider than the capture's terminal. */
+export interface TerminalCaptureOverflow {
+  /** `screen` for the final screen, otherwise the keyframe name. */
+  readonly screen: string;
+  /** One-based line number within that screen. */
+  readonly line: number;
+  readonly width: number;
+  readonly text: string;
+}
+
+/**
+ * Every visible line, across the final and named screens, wider than the
+ * capture's geometry columns. A real terminal hard-wraps such a line at its
+ * edge, mid-word and without the line's indentation, so an over-wide line in
+ * evidence is a layout defect rather than a rendering of it. Measured through
+ * the package projection's visible text, so styling never counts.
+ */
+export function terminalCaptureOverflows(
+  capture: TerminalCommandCapture,
+): TerminalCaptureOverflow[] {
+  const screens: [string, string][] = [
+    ["screen", capture.screen],
+    ...Object.entries(capture.keyframes),
+  ];
+  return screens.flatMap(([screen, output]) =>
+    projectTerminalSpans(output).map((span) => span.text).join("")
+      .split("\n").flatMap((text, index) => {
+        const width = displayWidth(text);
+        return width > capture.geometry.columns
+          ? [{ screen, line: index + 1, width, text }]
+          : [];
+      })
+  );
 }
