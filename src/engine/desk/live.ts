@@ -66,7 +66,7 @@ import { DESK_LIST_ID, rowRef, withoutOperation } from "./desk_transitions.ts";
 import {
   DESK_KEYMAP,
   DESK_VI_KEYS,
-  deskTicks,
+  deskTickDelay,
   deskView,
 } from "./inbox_view.ts";
 import {
@@ -83,9 +83,6 @@ import { failureSheet } from "./review.ts";
 
 /** How long the selection must stay put before the slot reads its evidence. */
 export const DESK_SELECTION_SETTLE_MS = 150;
-
-/** Running times count on once a second between surveys. */
-const DESK_TICK_MS = 1_000;
 
 /** The reads and effects flows perform for the live Desk. */
 export interface DeskFlows {
@@ -272,6 +269,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
       : deskUi(context.state);
   const env = () => ({
     now: deps.now(),
+    ...(context === undefined ? {} : { clock: context.now() }),
     root: deps.root,
     version: deps.version,
     launches,
@@ -299,13 +297,13 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
 
   /** Keep running times current while any is visible and surveys succeed. */
   const tick = (): void => {
-    if (!alive || foreground || tickTimer !== undefined || !deskTicks(state)) {
-      return;
-    }
+    if (!alive || foreground || tickTimer !== undefined) return;
+    const delay = deskTickDelay(state, ui(), env());
+    if (delay === undefined) return;
     tickTimer = scheduler.scheduleTimeout(() => {
       tickTimer = undefined;
       publish();
-    }, DESK_TICK_MS);
+    }, delay);
   };
 
   const publish = (): void => {

@@ -20,7 +20,12 @@ import type {
   DeskReview,
 } from "../src/engine/desk/flow_types.ts";
 import { deskEpilogue } from "../src/engine/desk/live.ts";
-import { deskView } from "../src/engine/desk/inbox_view.ts";
+import { deskKeymap, deskView } from "../src/engine/desk/inbox_view.ts";
+import {
+  createTerminalApplicationModel,
+  renderTerminalApplication,
+} from "discern-design-system/cli/interactive";
+import { testTerminalCapabilities } from "discern-design-system/cli/interactive/testing";
 import { progressAfter } from "../src/engine/desk/operations.ts";
 import { BUILT_IN_STEP_LABELS, type EnginePlan } from "../src/shared/result.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
@@ -167,6 +172,35 @@ Deno.test("confirming a change runs it beside the screen and shows its row runni
     { ...PRODUCT_UI, selected: "alpha" },
   );
   assertEquals(layers(reopened.state), ["progress"], "Enter shows it again");
+});
+
+Deno.test("a running task's time in the list and on its progress read the same second", () => {
+  const started = confirmed(landing(), actionStep("accept")).state;
+  // The view is built between the package's paints, its clocks a little
+  // apart; the row still counts from when the progress began.
+  const view = deskView(started, { ...PRODUCT_UI, selected: "alpha" }, {
+    ...PRODUCT_VIEW_ENV,
+    now: PRODUCT_NOW + 6_400,
+    clock: PRODUCT_CLOCK + 6_900,
+  });
+  const cell = view.body.kind === "master-detail"
+    ? view.body.list.groups.flatMap((group) => group.items)
+      .find((item) => item.id === "alpha")?.cells?.age
+    : undefined;
+  assertEquals(cell?.[0]?.clock, { since: PRODUCT_CLOCK });
+  const model = createTerminalApplicationModel(view, {
+    keymap: deskKeymap(),
+    viKeys: true,
+  }).model;
+  const frame = renderTerminalApplication(
+    model,
+    { columns: 120, rows: 30 },
+    testTerminalCapabilities({ columns: 120 }),
+    {},
+    { phase: 0, now: PRODUCT_CLOCK + 7_200 },
+  ).frame;
+  assertEquals(frame.match(/\b0:07\b/gu)?.length, 2, frame);
+  assert(!frame.includes("0:06"), frame);
 });
 
 Deno.test("a task runs one operation at a time; launches still take the terminal", () => {

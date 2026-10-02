@@ -86,7 +86,24 @@ import { inertView } from "./text.ts";
 export interface DeskViewEnv extends DeskLayerEnv {
   /** The main checkout. */
   readonly root: string;
+  /**
+   * The application's clock as the view is built. A running time counts
+   * on from it as a clock the package paints; without it, it shows as
+   * words.
+   */
+  readonly clock?: number;
 }
+
+/**
+ * Where the age column stops showing a running time as a clock. From ten
+ * minutes it reads `12m`, since a clock's `10:00` would outgrow its four
+ * cells; stopping one tick short turns the cell to words before a clock
+ * painted between rebuilds could reach `10:00`.
+ */
+const CLOCK_SHOWN_BELOW_MS = 600_000 - 1_000;
+
+/** How often running times count on while no running task is selected. */
+const DESK_TICK_MS = 1_000;
 
 /** How long a refresh runs before the header says so. */
 const BUSY_AFTER_MS = 1_500;
@@ -158,13 +175,7 @@ function labelCell(
     runs.push({ text: " " }, { text: `↓${behind}`, ascii: "", tone: "faint" });
   }
   const typical = row.entry.running?.typical_duration_ms;
-  const elapsed = runningElapsed(row, {
-    now: env.now,
-    frozen: frozen(state),
-    ...(state.survey.observedAt === undefined
-      ? {}
-      : { observedAt: state.survey.observedAt }),
-  });
+  const elapsed = runningElapsed(row, inspection(state, env));
   if (typical !== undefined && typical > 0 && elapsed !== undefined) {
     // Full only once the usual time has passed; faint once surveys stop
     // and the time it shows is frozen.
@@ -192,23 +203,38 @@ function ageCell(
   state: DeskProductState,
   env: DeskViewEnv,
 ): ApplicationRun[] {
-  const elapsed = runningElapsed(row, {
-    now: env.now,
-    frozen: frozen(state),
-    ...(state.survey.observedAt === undefined
-      ? {}
-      : { observedAt: state.survey.observedAt }),
-  });
+  const elapsed = runningElapsed(row, inspection(state, env));
   if (elapsed !== undefined) {
+    const since = clockSince(row, state, env, elapsed);
     return [{
       text: elapsedLabel(elapsed, frozen(state)),
       tone: frozen(state) ? "faint" : "muted",
+      ...(since === undefined ? {} : { clock: { since } }),
     }];
   }
   return [{
     text: ageText(row.entry.last_activity, env.now),
     tone: "faint",
   }];
+}
+
+/**
+ * When a running time began on the application's clock, so the package
+ * paints it from the same moment as every other clock on screen: this
+ * Desk's own run counts from when its progress began, as its progress
+ * sheet does; another run counts back from the view's clock. Frozen or
+ * long times stay words.
+ */
+function clockSince(
+  row: DeskRow,
+  state: DeskProductState,
+  env: DeskViewEnv,
+  elapsed: number,
+): number | undefined {
+  if (frozen(state) || elapsed >= CLOCK_SHOWN_BELOW_MS) return undefined;
+  const operation = taskOperation(state, deskRowId(row));
+  if (operation !== undefined) return operation.progress.startedAt;
+  return env.clock === undefined ? undefined : env.clock - elapsed;
 }
 
 /** One task row. */
@@ -771,7 +797,23 @@ function body(
   };
 }
 
-/** Whether any visible row's time moves by the clock alone. */
-export function deskTicks(state: DeskProductState): boolean {
-  return !frozen(state) && state.rows.some((row) => isRunning(row));
+/**
+ * How long until the view's running times next move, or `undefined` while
+ * none do. A running task's details count in words, so with one selected
+ * the view is rebuilt as its elapsed time reaches the next whole second,
+ * the moment the list's clock beside it moves too.
+ */
+export function deskTickDelay(
+  state: DeskProductState,
+  ui: DeskUi,
+  env: DeskViewEnv,
+): number | undefined {
+  if (frozen(state) || !state.rows.some((row) => isRunning(row))) {
+    return undefined;
+  }
+  const ref = rowRef(state, ui.selected);
+  const elapsed = ref?.kind === "task"
+    ? runningElapsed(ref.row, inspection(state, env))
+    : undefined;
+  return elapsed === undefined ? DESK_TICK_MS : 1_000 - elapsed % 1_000;
 }

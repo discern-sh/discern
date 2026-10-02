@@ -37,6 +37,7 @@ import {
 } from "../src/engine/desk/desk_transitions.ts";
 import {
   deskKeymap,
+  deskTickDelay,
   deskView,
   messageLine,
   meterCells,
@@ -1133,6 +1134,51 @@ Deno.test("the inbox shows a running task's meter and time and the overlap flag"
     FLEET_ROW_STATES.parked.label.length > 0,
     true,
   );
+});
+
+Deno.test("a running time is a clock the package paints; the view moves with its seconds", () => {
+  const running = (elapsed: number) =>
+    desk(productSurvey([fleetEntry({
+      id: "running",
+      branch: "agent/running",
+      running: {
+        verb: "done",
+        started: "2026-09-30T11:59:00.000Z",
+        elapsed_ms: elapsed,
+      },
+    })]));
+  const env = { ...ENV, now: NOW + 2_400, clock: 50_000 };
+  const age = (state: DeskProductState) => {
+    const view = deskView(state, PRODUCT_UI, env);
+    assert(view.body.kind === "master-detail");
+    return view.body.list.groups.flatMap((group) => group.items)
+      .find((item) => item.id === "running")?.cells?.age?.[0];
+  };
+  // Counted back from the view's clock: 62.4s run as it was built.
+  assertEquals(age(running(60_000))?.clock, { since: 50_000 - 62_400 });
+  assertEquals(
+    age(running(60_000))?.text,
+    "1:02",
+    "words for a frame without a time",
+  );
+  // From ten minutes the column reads minutes, which a clock would outgrow.
+  assertEquals(age(running(598_000))?.clock, undefined);
+  assertEquals(age(running(598_000))?.text, "10m");
+
+  const state = running(60_000);
+  const selected = { ...PRODUCT_UI, selected: "running" };
+  assertEquals(deskTickDelay(state, selected, env), 600, "at its next second");
+  assertEquals(deskTickDelay(state, PRODUCT_UI, env), 1_000);
+  assertEquals(
+    deskTickDelay(desk(productSurvey([])), selected, env),
+    undefined,
+  );
+  const frozen = {
+    ...state,
+    survey: { ...state.survey, failures: DESK_OFFLINE_FAILURES },
+  };
+  assertEquals(deskTickDelay(frozen, selected, env), undefined);
+  assertEquals(age(frozen)?.clock, undefined, "a frozen time stays words");
 });
 
 Deno.test("only a message's mark carries its tone; its words stay neutral", () => {
