@@ -95,6 +95,8 @@ function paletteKey(tone: ApplicationRun["tone"]): ApplicationRun {
 /**
  * The group that leads the inbox: the Commands row alone, with no header.
  * Its trailing cell names the palette's key, or says a release check is due.
+ * The row is the desk's own, not a task: the filter passes over it, and
+ * zoom numbers only the tasks.
  */
 export function commandsGroup(
   state: DeskProductState,
@@ -111,13 +113,12 @@ export function commandsGroup(
       ? { label: [{ text: RELEASE_CHECK_CUES.row, tone: "warning" }] }
       : { age: [paletteKey("faint")] },
     primary: { kind: "next", id: COMMANDS_ROW_ID },
-    keywords: DESK_HOME_COMMANDS.map((command) => DESK_COMMAND_LABELS[command])
-      .join(" "),
   };
   return {
     id: COMMANDS_GROUP_ID,
     title: COMMANDS_LABEL,
     headless: true,
+    counted: false,
     items: [row],
   };
 }

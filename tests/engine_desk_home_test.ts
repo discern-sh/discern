@@ -36,7 +36,7 @@ import {
   DESK_LIST_ID,
   type DeskProductState,
 } from "../src/engine/desk/desk_state.ts";
-import { DESK_KEYS } from "../src/engine/desk/keys.ts";
+import { COMMANDS_LABEL, DESK_KEYS } from "../src/engine/desk/keys.ts";
 import type { StatusData } from "../src/shared/result_schemas.ts";
 import type { ReleaseCheckRead } from "../src/shared/release_check.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
@@ -244,6 +244,54 @@ Deno.test("every way into the Commands row's choices opens the palette", async (
       `${binding.key} on the Commands row opens the palette`,
     );
   }
+});
+
+Deno.test("the filter passes over the Commands row, and zoom numbers only the tasks", async () => {
+  await session(fleet, async (desk) => {
+    await desk.shows("Ready work");
+    const zoomed = () => desk.state().lists[DESK_LIST_ID]?.zoomed === true;
+    // From a task, a word only a home command holds matches nothing.
+    await desk.press("down");
+    for (const word of ["manual", "updates", "script", "shortcuts"]) {
+      await desk.press("/");
+      await desk.type(word);
+      await desk.until(
+        () => desk.screen().includes("0 of 2"),
+        `${word}: no task matches, and the count holds the tasks alone`,
+      );
+      assert(!desk.screen().includes("≡ Commands"), "the row hides");
+      await desk.escape(
+        () => !desk.screen().includes("0 of 2"),
+        `${word}: the filter clears`,
+      );
+      // Typing narrows letter by letter, so the selection may move to a
+      // task an early letter matched, but never onto the Commands row.
+      assert(
+        ["ready", "stale"].includes(selected(desk) ?? ""),
+        `${word}: a task stays selected, not ${selected(desk)}`,
+      );
+    }
+    // From the Commands row, a filter moves to the first task it matches.
+    await desk.press("home");
+    await desk.press("/");
+    await desk.type("work");
+    await desk.until(() => desk.screen().includes("2 of 2"), "both tasks");
+    assertEquals(selected(desk), "ready");
+    await desk.escape(
+      () => desk.screen().includes("≡ Commands"),
+      "the row returns",
+    );
+    assertEquals(selected(desk), "ready", "clearing keeps the task");
+    await desk.press(" ");
+    await desk.until(zoomed, "the task zoomed");
+    assertStringIncludes(lineWith(desk, "Ready work"), "1 of 2");
+    await desk.press("up");
+    await desk.until(() => selected(desk) === COMMANDS_ROW_ID, "walked up");
+    assert(
+      !/\d+ of \d+/u.test(lineWith(desk, COMMANDS_LABEL)),
+      `the Commands row's zoom carries no position:\n${desk.screen()}`,
+    );
+  }, { columns: 80, rows: 24 });
 });
 
 Deno.test("the palette opened from the Commands row takes the home panel's column", async () => {
