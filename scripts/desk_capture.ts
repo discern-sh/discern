@@ -5,7 +5,8 @@
  * Every phase waits for a settled package frame whose state report names the
  * screen (the selected row, the open layer and whether it waits, the focused
  * control, zoom, the message on the message line, the header's liveness), so
- * the journeys survive copy changes. Words are read only for data a journey
+ * the journeys survive copy changes. The Desk opens at home, on its Commands
+ * row; a journey reaches a task with a group's number key or Down. Words are read only for data a journey
  * typed or a fixture holds. The gallery is for visual judgment against the
  * mockups, not for screenshot comparison tests.
  */
@@ -16,12 +17,12 @@ import { captureTerminalFrame } from "discern-design-system/cli/interactive/test
 import { withRealPtyBoundary } from "../tests/real_pty.ts";
 import {
   deskAtRest as atRest,
-  deskEmpty,
   deskFailedAction,
   type DeskFleetFixture,
   deskFleetFixture,
   deskFocused,
   type DeskFrameTest,
+  deskHome,
   deskLandingAuthority,
   deskLayerOpen as layer,
   deskLayerReady,
@@ -231,15 +232,36 @@ const QUEUED = "search-index-a7b8c9";
 /** A review sheet that has read its subject. */
 const reviewRead = deskLayerReady;
 
+/** The Desk at home: its Commands row selected, the first survey read. */
+const home = deskHome();
+
+/** From home to the first task ready for review, by its group's number. */
+function toManual(size: PtyGeometry): DeskTtyInputPhase {
+  return phase(size, undefined, "the Desk at home", home, text("1"));
+}
+
+/** Escape alone, as one chunk. */
+const ESCAPE: DeskTtyInputChunk = { keys: ["escape"], allowLoneEscape: true };
+
 const LAND = "review-accept-review";
 const DROP = "review-drop-review";
 
 /**
- * The wide inbox, its action menu, and the stale task's integrating Land
- * review in the detail column.
+ * The wide Desk at home, the palette its Enter brings alive in the home
+ * panel's column, the inbox, its action menu, and the stale task's
+ * integrating Land review in the detail column.
  */
 function wideJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
+    phase(size, "home", "the Desk at home", home, keys("enter")),
+    phase(
+      size,
+      "home-palette",
+      "the palette over the home panel",
+      layer("palette"),
+      ESCAPE,
+    ),
+    toManual(size),
     phase(size, "overview", "inbox at rest", atRest(MANUAL), keys("right")),
     // An unavailable action's key unfolds Unavailable and says why.
     phase(size, undefined, "action menu", layer("actions"), text("u")),
@@ -269,6 +291,7 @@ function wideJourney(size: PtyGeometry): DeskTtyInputPhase[] {
 function sheetsJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   const form = "form-new_task-review";
   return [
+    toManual(size),
     phase(size, undefined, "inbox at rest", atRest(MANUAL), text("l")),
     phase(size, "review-land", "land review read", reviewRead(LAND), {
       input: "d",
@@ -374,6 +397,7 @@ function manualJourney(size: PtyGeometry): DeskTtyInputPhase[] {
     capture.state?.topLayerId === undefined &&
     String(capture.state?.focusedControlId).startsWith("document:");
   return [
+    toManual(size),
     phase(size, undefined, "inbox at rest", atRest(MANUAL), keys("ctrl-k")),
     phase(
       size,
@@ -432,6 +456,7 @@ function manualJourney(size: PtyGeometry): DeskTtyInputPhase[] {
 /** Land's confirm button focused, on a light terminal. */
 function confirmJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
+    toManual(size),
     phase(size, undefined, "inbox at rest", atRest(MANUAL), text("l")),
     phase(size, undefined, "land review read", reviewRead(LAND), {
       keys: ["page-down", "page-down", "page-down"],
@@ -466,11 +491,14 @@ function sheetJourney(
 ): DeskTtyInputPhase[] {
   const reach = row === STALE
     ? [
-      phase(size, undefined, "inbox at rest", atRest(MANUAL), text("2")),
+      phase(size, undefined, "the Desk at home", home, text("2")),
       phase(size, undefined, "needs attention", atRest(AUTH), keys("down")),
       phase(size, undefined, "the task", atRest(STALE), text(key)),
     ]
-    : [phase(size, undefined, "the task", atRest(row), text(key))];
+    : [
+      toManual(size),
+      phase(size, undefined, "the task", atRest(row), text(key)),
+    ];
   return [
     ...reach,
     phase(size, name, "the review read", reviewRead(id), {
@@ -583,7 +611,7 @@ async function agentJourney(
   );
   try {
     return await capture(project, target, STANDARD, [
-      phase(STANDARD, undefined, "inbox at rest", atRest(MANUAL), text("2")),
+      phase(STANDARD, undefined, "the Desk at home", home, text("2")),
       // `a` runs the remembered launch; the actions menu's Open agent asks.
       phase(STANDARD, undefined, "the failed task", atRest(AUTH), text(".")),
       phase(STANDARD, undefined, "its actions", layer("actions"), text("a")),
@@ -602,6 +630,9 @@ async function agentJourney(
 /** Every task state at the standard width, then the layers. */
 function standardJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
+    phase(size, "home", "the Desk at home", home, text(" ")),
+    phase(size, "home-zoom", "the home panel zoomed", deskZoomed(), text(" ")),
+    toManual(size),
     phase(size, "overview", "inbox at rest", atRest(MANUAL), text(" ")),
     phase(
       size,
@@ -627,15 +658,23 @@ function standardJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   ];
 }
 
-/** The overview alone, at a size that needs no layer. */
+/** The Desk as it opens, at a size that needs no layer. */
 function overviewJourney(size: PtyGeometry): DeskTtyInputPhase[] {
-  return [phase(size, "overview", "inbox at rest", atRest(), text("q"))];
+  return [phase(size, "overview", "the Desk at home", home, text("q"))];
+}
+
+/** The Desk as it opens, then its home panel zoomed to the body. */
+function homeZoomJourney(size: PtyGeometry): DeskTtyInputPhase[] {
+  return [
+    phase(size, "overview", "the Desk at home", home, text(" ")),
+    phase(size, "home-zoom", "the home panel zoomed", deskZoomed(), text("q")),
+  ];
 }
 
 /** The parked group opened, on a light terminal. */
 function parkedJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
-    phase(size, undefined, "inbox at rest", atRest(MANUAL), text("6")),
+    phase(size, undefined, "the Desk at home", home, text("6")),
     phase(
       size,
       undefined,
@@ -662,7 +701,7 @@ function offlineJourney(
   const config = join(project.root, "discern.toml");
   let saved = "";
   return [
-    phase(size, undefined, "inbox at rest", atRest(MANUAL), text("3"), {
+    phase(size, undefined, "the Desk at home", home, text("3"), {
       effect: async () => {
         saved = await Deno.readTextFile(config);
         await Deno.writeTextFile(config, `${saved}\nnot = [valid\n`);
@@ -684,7 +723,7 @@ function offlineJourney(
 /** An agent opened from a task returns with what it changed. */
 function returnJourney(size: PtyGeometry): DeskTtyInputPhase[] {
   return [
-    phase(size, undefined, "inbox at rest", atRest(MANUAL), text("3")),
+    phase(size, undefined, "the Desk at home", home, text("3")),
     // `a` runs the remembered agent's launch at once.
     phase(size, undefined, "editing task", atRest(GLOSSARY), text("a")),
     phase(
@@ -722,7 +761,7 @@ async function sizes(
   }
   const ascii = { columns: 40, rows: 20 };
   artifacts.push(
-    ...await capture(project, target, ascii, overviewJourney(ascii), {
+    ...await capture(project, target, ascii, homeZoomJourney(ascii), {
       plain: true,
     }),
   );
@@ -867,7 +906,7 @@ async function landManual(
       });
       const size = STANDARD;
       return await capture(project, target, size, [
-        phase(size, undefined, "inbox at rest", atRest(), text("4")),
+        phase(size, undefined, "the Desk at home", home, text("4")),
         phase(size, undefined, "approved to land", atRest(MANUAL), text("l")),
         phase(size, undefined, "land review read", reviewRead(LAND), {
           keys: ["page-down", "page-down", "page-down"],
@@ -960,20 +999,21 @@ async function partialLandingJourney(
   ]);
 }
 
-/** The empty fleet: no tasks, three parked branches. */
+/**
+ * The empty fleet at home: no tasks, three parked branches, and the home
+ * panel saying what a task is, at the standard and the wide size.
+ */
 async function emptyJourney(target: DeskGalleryTarget): Promise<string[]> {
   return await withDeskTtyProject(
     deskFleetFixture([], { orphanBranches: briefFleet().orphanBranches }),
-    (project) =>
-      capture(project, target, STANDARD, [
-        phase(
-          STANDARD,
-          "empty",
-          "no tasks yet",
-          deskEmpty(),
-          text("q"),
-        ),
+    async (project) => [
+      ...await capture(project, target, STANDARD, [
+        phase(STANDARD, "empty", "no tasks yet", home, text("q")),
       ]),
+      ...await capture(project, target, WIDE, [
+        phase(WIDE, "empty", "no tasks yet", home, text("q")),
+      ]),
+    ],
   );
 }
 
