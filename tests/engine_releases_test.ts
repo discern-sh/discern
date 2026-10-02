@@ -20,6 +20,7 @@ import {
 import { browserLaunch, openInBrowser } from "../src/lib/open_browser.ts";
 import {
   inspectReleaseCheck,
+  releaseCheckHistory,
   type ReleaseCheckRead,
   releaseReminderDue,
   writeReleaseCheck,
@@ -279,6 +280,38 @@ Deno.test("UTC calendar interval refuses to invent age from unavailable, future,
     }, due),
     false,
   );
+});
+
+Deno.test("the last check reads the recorded handoff and never invents one", () => {
+  assertEquals(releaseCheckHistory(record), { state: "never" });
+  assertEquals(releaseCheckHistory({ status: "missing" }), { state: "never" });
+  assert(record.status === "recorded");
+  const at = new Date(due).toISOString();
+  assertEquals(
+    releaseCheckHistory({
+      status: "recorded",
+      value: {
+        ...record.value,
+        last_handoff_at: at,
+        version_when_handed_off: DISCERN_VERSION,
+      },
+    }),
+    { state: "checked", at },
+  );
+  for (
+    const read of [
+      { status: "malformed" },
+      {
+        status: "newer",
+        reason: "future",
+      },
+      { status: "unavailable", reason: "denied" },
+      {
+        status: "recorded",
+        value: { ...record.value, last_handoff_at: at },
+      },
+    ] as const
+  ) assertEquals(releaseCheckHistory(read), { state: "unknown" });
 });
 
 Deno.test("release evidence shares linked checkouts, preserves future schemas, and tolerates corrupt or unwritable state", async () => {
