@@ -498,8 +498,10 @@ export function reviewSheet(
         ? []
         : [confirmButton(id, confirmLabel, review)]),
     ],
+    // The banner names r as the way on, so its hint outlasts the generic
+    // ones as the footer narrows, as a button's key on screen does.
     ...(status.state === "changed"
-      ? { hints: [{ key: REVIEW_AGAIN_KEY, label: "Review again" }] }
+      ? { hints: [{ key: REVIEW_AGAIN_KEY, label: "Review again", rank: 1 }] }
       : {}),
   };
 }

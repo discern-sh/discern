@@ -1243,6 +1243,30 @@ Deno.test("an action menu's section titles carry no tone; a destructive item is 
   assert(destructive > 0, "some row offers a destructive action");
 });
 
+Deno.test("a changed review keeps r Review again in its footer as it narrows", () => {
+  const state = open(desk(statusData([mainFleetEntry(), task({ ahead: 2 })])), {
+    kind: "review",
+    step: { kind: "action", action: "accept", taskId: "task", stage: "review" },
+    load: {
+      state: "ready",
+      value: readyReview("Land the task?", {
+        confirm: { kind: "apply", running: "Landing the task" },
+        expected: { facts: { "branch-head": "moved since it was read" } },
+        disclosures: {
+          command: "discern accept --target agent/task --confirmed",
+          plan: { title: "Acceptance plan", details: [], steps: [] },
+        },
+      }),
+    },
+  }).state;
+  const view = deskView(state, { ...PRODUCT_UI, selected: "task" }, ENV);
+  for (const [columns, rows] of [[40, 24], [60, 20], [80, 24]] as const) {
+    const footer = render(view, columns, rows).split("\n").at(-1) ?? "";
+    assertStringIncludes(footer, "r Review again", `${columns}×${rows}`);
+    assertStringIncludes(footer, "Esc", `${columns}×${rows}`);
+  }
+});
+
 Deno.test("a result sheet's next step names exactly the buttons it offers", () => {
   const sheet = {
     title: "Alpha landed; Beta didn't",
