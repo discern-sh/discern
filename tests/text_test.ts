@@ -11,10 +11,13 @@ import {
   meter,
   padDisplayEnd,
   renderAlignedRows,
+  SETTLED_WINDOW_LINES,
   sparkline,
+  splitDisplayWord,
   stripAnsi,
   terminalSize,
   terminalWidth,
+  type TokenWrap,
   truncateText,
   wrapText,
 } from "../src/lib/text.ts";
@@ -99,6 +102,51 @@ Deno.test("text: text layout", () => {
           ["界", "界"],
         );
       },
+    "splitting a long token matches one whole-token package wrap": () => {
+      const token = "界é👨‍👩‍👧🇬🇧Xá̂ß".repeat(40);
+      for (const width of [3, 7, 20, 78]) {
+        assertEquals(
+          splitDisplayWord(token, width, width),
+          packageWrapText(token, width),
+          `width ${width}`,
+        );
+      }
+    },
+    "a long token reaches package wrapping only in line-sized windows": () => {
+      const tokens = {
+        unstyled: "X".repeat(20_000),
+        styled: `${ESC}[31m${"界é".repeat(6_000)}${ESC}[0m`,
+      };
+      const [firstWidth, continuationWidth] = [30, 26];
+      const window = SETTLED_WINDOW_LINES * (firstWidth + 1);
+      for (const [label, token] of Object.entries(tokens)) {
+        const seen: number[] = [];
+        const observed: TokenWrap = (text, width) => {
+          seen.push(text.length);
+          return packageWrapText(text, width);
+        };
+        const chunks = splitDisplayWord(
+          token,
+          firstWidth,
+          continuationWidth,
+          observed,
+        );
+        assertEquals(chunks.join(""), token, label);
+        assertEquals(displayWidth(chunks[0] ?? "") <= firstWidth, true, label);
+        assertEquals(
+          chunks.slice(1).filter((chunk) =>
+            displayWidth(chunk) > continuationWidth
+          ),
+          [],
+          label,
+        );
+        assertEquals(
+          seen.filter((length) => length > window),
+          [],
+          `${label}: package wrapping must see a window, never the whole token`,
+        );
+      }
+    },
     "renderAlignedRows sizes the label column by display width under one policy":
       () => {
         const green = `${ESC}[32mgood${ESC}[0m`;

@@ -98,21 +98,50 @@ export function meter(
 
 /** Whether package wrapping keeps one candidate on a single bounded line. */
 function fitsOneLine(text: string, width: number): boolean {
-  const lines = packageWrapText(packageStripAnsi(text), width);
+  const plain = packageStripAnsi(text);
+  // A candidate wider than the line cannot fit, so package wrapping never sees
+  // a whole overlong token here.
+  if (measureText(plain) > width) return false;
+  const lines = packageWrapText(plain, width);
   return lines.length === 1 && measureText(lines[0] ?? "") <= width;
 }
 
-/** Find the raw-string boundary for one offset in its ANSI-stripped value. */
-function rawBoundary(
-  raw: string,
-  plain: string,
-  offset: number,
-): number {
-  if (offset <= 0) return 0;
-  if (offset >= plain.length) return raw.length;
-  const expected = plain.slice(0, offset);
-  for (let index = 1; index < raw.length; index += 1) {
-    if (packageStripAnsi(raw.slice(0, index)) === expected) return index;
+/** One package wrapping pass over a plain text at one width. */
+export type TokenWrap = (text: string, width: number) => readonly string[];
+
+/** How many lines' worth of a long token one package wrapping pass sees. */
+export const SETTLED_WINDOW_LINES = 4;
+
+/**
+ * The leading package-wrapped lines of one whitespace-free token that no later
+ * part of the token can change. Package wrapping cost grows faster than its
+ * input, so it only ever sees a window a few lines wide, and a long token
+ * costs time in proportion to its length. A window edge can cut a grapheme,
+ * which can decide at most the window's last two lines; those are discarded
+ * and re-wrapped from the next window. A window that settles no line doubles.
+ */
+function settledTokenLines(
+  token: string,
+  width: number,
+  wrap: TokenWrap,
+): readonly string[] {
+  const lineUnits = Math.max(1, Math.floor(width)) + 1;
+  for (let window = SETTLED_WINDOW_LINES * lineUnits;; window *= 2) {
+    if (window >= token.length) return wrap(token, width);
+    const lines = wrap(token.slice(0, window), width);
+    if (lines.length > 2) return lines.slice(0, -2);
+  }
+}
+
+/**
+ * The raw offset, at or after the boundary `from`, where the next stripped
+ * span `expected` ends. Searching from the previous boundary keeps a long
+ * styled token linear in its chunks; an unstyled span maps one to one.
+ */
+function rawBoundary(raw: string, from: number, expected: string): number {
+  if (raw.startsWith(expected, from)) return from + expected.length;
+  for (let index = from + 1; index < raw.length; index += 1) {
+    if (packageStripAnsi(raw.slice(from, index)) === expected) return index;
   }
   throw new TypeError("package wrapping produced an unmappable text boundary");
 }
@@ -126,42 +155,56 @@ function restoreStyledChunks(
   if (plain === "") return [raw];
   const result: string[] = [];
   let plainStart = 0;
+  let rawStart = 0;
   for (const [index, chunk] of chunks.entries()) {
     if (!plain.startsWith(chunk, plainStart)) {
       throw new TypeError("package wrapping changed a long token unexpectedly");
     }
-    const plainEnd = plainStart + chunk.length;
-    const rawStart = rawBoundary(raw, plain, plainStart);
     const rawEnd = index === chunks.length - 1
       ? raw.length
-      : rawBoundary(raw, plain, plainEnd);
+      : rawBoundary(raw, rawStart, chunk);
     result.push(raw.slice(rawStart, rawEnd));
-    plainStart = plainEnd;
+    plainStart += chunk.length;
+    rawStart = rawEnd;
   }
   return result;
 }
 
-/** Split one styled token with package wrapping at two continuation widths. */
-function splitDisplayWord(
+/**
+ * Split one styled, whitespace-free token with package wrapping: the first
+ * chunk at `firstWidth`, every later chunk at `continuationWidth`. `wrap`
+ * is the package wrapping pass, replaceable only to observe what it receives.
+ */
+export function splitDisplayWord(
   word: string,
   firstWidth: number,
   continuationWidth: number,
+  wrap: TokenWrap = packageWrapText,
 ): string[] {
   const plain = packageStripAnsi(word);
   if (plain === "") return [word];
   const chunks: string[] = [];
   let remaining = plain;
-  let width = firstWidth;
   while (remaining !== "") {
-    const chunk = packageWrapText(remaining, width)[0] ?? "";
-    if (chunk === "") {
-      throw new TypeError(
-        "package wrapping returned an empty long-token chunk",
-      );
+    const first = chunks.length === 0;
+    const lines = settledTokenLines(
+      remaining,
+      first ? firstWidth : continuationWidth,
+      wrap,
+    );
+    // Only the first chunk takes the first width; later ones re-wrap.
+    const taken = first && firstWidth !== continuationWidth
+      ? lines.slice(0, 1)
+      : lines;
+    for (const chunk of taken) {
+      if (chunk === "") {
+        throw new TypeError(
+          "package wrapping returned an empty long-token chunk",
+        );
+      }
+      chunks.push(chunk);
+      remaining = remaining.slice(chunk.length);
     }
-    chunks.push(chunk);
-    remaining = remaining.slice(chunk.length);
-    width = continuationWidth;
   }
   return restoreStyledChunks(word, chunks);
 }
