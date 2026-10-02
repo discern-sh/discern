@@ -675,10 +675,13 @@ function returnJourney(size: PtyGeometry): DeskTtyInputPhase[] {
     phase(
       size,
       "return",
-      "back from the agent",
+      "back from the agent, with what it changed",
+      // The message names the task once the survey after the agent reads
+      // its checkout.
       (capture) =>
         capture.state?.selectedItemId === GLOSSARY &&
-        deskMessage("return")(capture),
+        deskMessage("return")(capture) &&
+        capture.text.includes("Docs glossary: "),
       text("q"),
     ),
   ];
