@@ -94,7 +94,7 @@ The **desk** is the interactive view that opens when you run `discern` in your m
 discern
 ```
 
-The desk opens on its **Commands** row, at the top of the list. Beside it, the desk lists what it can do besides a task's own steps, with a key where one exists. You can start a task, run one of the project's scripts, read the manual, check for updates, or open the landing queue or the main checkout, among others. The list also says which discern you run and, beside **Check for updates…**, when you last checked. Press Enter there to search every command, starting on **New task…**, or Down to reach your tasks.
+The desk opens on its **Commands** row, at the top of the list. Beside it, the desk lists what it can do besides a task's own steps, with a key where one exists. You can start a task, run one of the project's scripts, read the manual, check for updates, or open the landing queue or the main checkout, among others. The list also says which discern you run and, beside **Check for updates…**, when you last checked. Press Enter there to search every command, starting on **New task…**, or on **Check for updates…** once a check is due; press Down to reach your tasks.
 
 Tasks are grouped by who moves next: **Ready for review**, **Needs attention**, **Working**, **Approved to land**, then **Idle**, with titles in alphabetical order inside each group. Each row shows the task's state, such as `✓ Ready`, `! Stale`, or `✕ Checks failed`, in the same words `discern status` uses, and when it last changed. A row whose files overlap another task's carries `⇄`. A task moves to another group when its state changes, and parked branches wait under **Parked**.
 
