@@ -13,7 +13,10 @@ import type {
   ValidationSubject,
 } from "../completion/protocol.ts";
 import { validationPurpose } from "../completion/protocol.ts";
-import { attemptHoldsClaim } from "../completion/attempt.ts";
+import {
+  attemptHoldsClaim,
+  cancellationReason,
+} from "../completion/attempt.ts";
 import {
   producerRecipeKey,
   requirementKey,
@@ -274,7 +277,9 @@ async function executeProducerGraph(
           };
         }
         if (execution.signal.aborted) {
-          throw new Error("validation was cancelled");
+          throw new Error(
+            cancellationReason(execution.signal, "validation was cancelled"),
+          );
         }
         await runtime.verify(execution);
         return await runtime.produce(producer, execution);

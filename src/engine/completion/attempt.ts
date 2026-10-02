@@ -76,6 +76,26 @@ export type HeldAttempt = CompletionAttempt & {
   readonly state: Exclude<CompletionAttempt["state"], { kind: "finished" }>;
 };
 
+/** The abort reason a run receives once its attempt record proves the claim gone. */
+export class AttemptClaimLost extends Error {
+  constructor() {
+    super(
+      "Another discern run closed this completion attempt after it stopped renewing its claim, so its results were not recorded.",
+    );
+    this.name = "AttemptClaimLost";
+  }
+}
+
+/** Why a run was cancelled, naming the claim loss when that is what stopped it. */
+export function cancellationReason(
+  signal: AbortSignal,
+  fallback: string,
+): string {
+  return signal.reason instanceof AttemptClaimLost
+    ? signal.reason.message
+    : fallback;
+}
+
 /** Why a claim-dependent step refused: the record proves the claim is gone. */
 export const CLAIM_NOT_HELD =
   "the attempt record no longer names this claim: another run retired it or it has already settled";

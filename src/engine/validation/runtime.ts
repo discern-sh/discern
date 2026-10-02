@@ -35,6 +35,7 @@ import { jobEnvironment } from "../jobs/command.ts";
 import {
   attemptHoldsClaim,
   AttemptSchema,
+  cancellationReason,
   sameClaimedAttemptBinding,
 } from "../completion/attempt.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
@@ -356,7 +357,9 @@ function runtime(
   return {
     verify: async (execution, verification): Promise<void> => {
       if (execution.signal.aborted && !verification?.allowCancelled) {
-        throw new Error("validation cancelled");
+        throw new Error(
+          cancellationReason(execution.signal, "validation cancelled"),
+        );
       }
       if (
         await Deno.realPath(options.root) !==

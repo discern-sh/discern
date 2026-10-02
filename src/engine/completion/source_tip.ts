@@ -25,8 +25,8 @@ import {
 import { integrationBranch } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import type { CompletionArtifact } from "./artifacts.ts";
+import { cancellationReason } from "./attempt.ts";
 import {
-  attemptClaimLossReason,
   recoverAbandonedAttempts,
   reserveAttempt,
   withAttemptClaim,
@@ -301,8 +301,10 @@ export async function completeSourceTip<T>(
           if (claimSignal.aborted) {
             return {
               kind: "cancelled" as const,
-              reason: attemptClaimLossReason(claimSignal) ??
+              reason: cancellationReason(
+                claimSignal,
                 "Completion was cancelled before it produced a result.",
+              ),
             };
           }
           return {
@@ -370,8 +372,10 @@ export async function completeSourceTip<T>(
             ...base,
             blockers: [{
               kind: "cancelled" as const,
-              reason: attemptClaimLossReason(claimSignal) ??
+              reason: cancellationReason(
+                claimSignal,
                 "Completion was cancelled; its attempt is closed.",
+              ),
             }],
           };
         }

@@ -20,6 +20,7 @@ import {
 import { withCompletionPublication } from "../operation_lock.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import {
+  AttemptClaimLost,
   attemptHoldsClaim,
   CLAIM_NOT_HELD,
   claimLease,
@@ -201,25 +202,6 @@ export function claimLossIsProven(
   outcome: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
 ): boolean {
   return outcome.kind === "claim-lost";
-}
-
-/** The abort reason a run receives once its attempt record proves the claim gone. */
-export class AttemptClaimLost extends Error {
-  constructor() {
-    super(
-      "Another discern run closed this completion attempt after it stopped renewing its claim, so its results were not recorded. Run the command again.",
-    );
-    this.name = "AttemptClaimLost";
-  }
-}
-
-/** The claim-loss explanation behind a run's cancellation, when that is why it stopped. */
-export function attemptClaimLossReason(
-  signal: AbortSignal,
-): string | undefined {
-  return signal.aborted && signal.reason instanceof AttemptClaimLost
-    ? signal.reason.message
-    : undefined;
 }
 
 /**

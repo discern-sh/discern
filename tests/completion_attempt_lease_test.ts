@@ -7,7 +7,6 @@ import {
 import { dirname } from "@std/path";
 import {
   ATTEMPT_CLAIM_RENEW_INTERVAL_MS,
-  attemptClaimLossReason,
   claimLossIsProven,
   recoverAbandonedAttempts,
   renewAttemptClaim,
@@ -18,6 +17,7 @@ import {
 } from "../src/engine/completion/attempt_lifecycle.ts";
 import {
   ATTEMPT_CLAIM_LEASE_MS,
+  cancellationReason,
   type CompletionAttempt,
 } from "../src/engine/completion/attempt.ts";
 import type { Clock } from "../src/shared/clock.ts";
@@ -620,12 +620,18 @@ Deno.test("the coordinator learns of a retirement during its stall and ends as c
         // The retirement already closed the attempt; settling a cancelled
         // run records nothing and raises nothing.
         await settle("cancelled");
-        return attemptClaimLossReason(signal);
+        return cancellationReason(signal, "an unexplained cancellation");
       },
       { clock: time.clock, scheduler: heartbeat.scheduler },
     );
-    assert(ended !== undefined, "the run names the retirement as its reason");
+    // Every cancellation the run reports names the retirement as its reason.
     assertStringIncludes(ended, "Another discern run closed");
+    const interrupted = new AbortController();
+    interrupted.abort();
+    assertEquals(
+      cancellationReason(interrupted.signal, "an interruption"),
+      "an interruption",
+    );
     assertEquals(await attemptState(root, reserved), {
       kind: "finished",
       outcome: "cancelled",
