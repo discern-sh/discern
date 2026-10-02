@@ -706,6 +706,20 @@ Deno.test("every row state's inspector and strip render in status's words", () =
   assert(marks > 0, "some inspector lists failures or setup steps");
 });
 
+Deno.test("the empty state says what a task is and how it lands, a line each", () => {
+  const view = deskView(desk(statusData([mainFleetEntry()])), PRODUCT_UI, ENV);
+  assert(view.body.kind === "empty");
+  const lines = render(view, 80, 24).split("\n").map((line) => line.trim());
+  for (
+    const sentence of [
+      "A task is its own checkout and branch for one change.",
+      "Hand it to an agent; land it on main once its checks pass.",
+    ]
+  ) {
+    assert(lines.includes(sentence), `${sentence} in\n${lines.join("\n")}`);
+  }
+});
+
 Deno.test("branch and landing rows render their own inspectors", () => {
   const data = productSurvey([], {
     unlanded_branches: ["agent/spike", "agent/plain"],

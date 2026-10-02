@@ -26,7 +26,7 @@ Tasks list in status's decision groups (Ready for review, Needs attention, Worki
 
 Each row is a title, then the [row state's](status.md#row-states) glyph and label in its tone (with the behind count beside a stale or ready label, and a progress meter beside a running one), an overlap flag, and the idle or running time. Green marks only work that can land. A row whose changed files overlap another task's carries `⇄` (`&` without Unicode); an overlap blocks nothing. Duplicate titles carry an identity suffix. A landing's integration worktree belongs to discern and never gets a row.
 
-A project with no tasks shows **No tasks yet**, one sentence about what a task is, **New task…** on Enter, the palette's key, and any parked branches below, folded with what they hold beside them. Its footer leads with `↵ New task…` and `↓ Parked` when parked branches exist.
+A project with no tasks shows **No tasks yet**, what a task is and how it lands (a sentence each, on lines of their own), **New task…** on Enter, the palette's key, and any parked branches below, folded with what they hold beside them. Its footer leads with `↵ New task…` and `↓ Parked` when parked branches exist.
 
 ## Inspect the selected task
 

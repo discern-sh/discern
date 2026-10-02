@@ -726,11 +726,13 @@ function body(
     return {
       kind: "empty",
       title: "No tasks yet",
+      // One sentence per line, so neither breaks mid-phrase.
       body: [
-        {
+        [{ text: "A task is its own checkout and branch for one change." }],
+        [{
           text:
-            `A task is its own checkout and branch for one change. Hand it to an agent; land it on ${state.trunk} once its checks pass.`,
-        },
+            `Hand it to an agent; land it on ${state.trunk} once its checks pass.`,
+        }],
       ],
       primary: {
         key: "enter",
