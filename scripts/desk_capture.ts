@@ -30,6 +30,7 @@ import {
   type DeskTtyInputChunk,
   type DeskTtyInputPhase,
   type DeskTtyProject,
+  deskUncommittedListed,
   deskZoomed,
   recordDeskAction,
   runDeskTty,
@@ -691,11 +692,12 @@ function returnJourney(size: PtyGeometry): DeskTtyInputPhase[] {
       "return",
       "back from the agent, with what it changed",
       // The message names the task once the survey after the agent reads
-      // its checkout.
+      // its checkout, and the inspector lists the files that survey found.
       (capture) =>
         capture.state?.selectedItemId === GLOSSARY &&
         deskMessage("return")(capture) &&
-        capture.text.includes("Docs glossary: "),
+        capture.text.includes("Docs glossary: ") &&
+        deskUncommittedListed()(capture),
       text("q"),
     ),
   ];

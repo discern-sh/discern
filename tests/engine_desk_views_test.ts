@@ -22,6 +22,7 @@ import {
   verbatimStepLabel,
 } from "../src/shared/result.ts";
 import { testTerminalCapabilities } from "discern-design-system/cli/interactive/testing";
+import { stripAnsi } from "discern-design-system/cli";
 import {
   DESK_OFFLINE_FAILURES,
   type DeskIntent,
@@ -80,6 +81,7 @@ import {
   productSurvey,
   readyReview,
 } from "./fixtures/desk_product.ts";
+import { uncommittedListedIn } from "./fixtures/desk_tty_harness.ts";
 
 const ENV = { ...PRODUCT_VIEW_ENV, now: NOW };
 
@@ -193,6 +195,59 @@ Deno.test("a survey that only restamps a checkout's edits keeps its commits on s
   assertStringIncludes(content, "Committed work");
   assertStringIncludes(content, "notes.md");
   assert(!content.includes("Reading…"), "nothing blinks back to Reading…");
+});
+
+Deno.test("a frame lists the surveyed uncommitted files only once their re-read lands", () => {
+  const surveyed = (files: number, at: string): StatusData =>
+    statusData([
+      mainFleetEntry(),
+      fleetEntry({
+        id: "alpha",
+        clean: false,
+        changed_files: files,
+        last_activity: at,
+      }),
+    ]);
+  const listed = (
+    state: DeskProductState,
+    paths: readonly string[],
+  ): DeskProductState => {
+    const [row] = state.rows;
+    assert(row !== undefined);
+    return deskProduct(state, {
+      kind: "evidence",
+      subject: taskEvidenceSubject(row, state.data, "main"),
+      read: {
+        uncommitted: {
+          state: "ready",
+          value: paths.map((path) => ({ path, status: "updated" as const })),
+        },
+      },
+    }).state;
+  };
+  const text = (state: DeskProductState): string =>
+    stripAnsi(
+      render(
+        deskView(state, { ...PRODUCT_UI, selected: "alpha" }, ENV),
+        120,
+        40,
+      ),
+    );
+  const read = listed(desk(surveyed(2, "2026-07-11T11:00:00Z")), [
+    "a.md",
+    "b.md",
+  ]);
+  assert(uncommittedListedIn(text(read)), text(read));
+  // An agent edits a third file: the new survey counts it while the
+  // inspector keeps the two-file list until the re-read lands.
+  const rereading = observeDesk(
+    read,
+    surveyed(3, "2026-07-11T11:00:05Z"),
+    NOW,
+  ).state;
+  assert(!uncommittedListedIn(text(rereading)), text(rereading));
+  const reread = listed(rereading, ["a.md", "b.md", "c.md"]);
+  assert(uncommittedListedIn(text(reread)), text(reread));
 });
 
 Deno.test("a stored Proof line reads as styled words, without its CLI pointer", () => {

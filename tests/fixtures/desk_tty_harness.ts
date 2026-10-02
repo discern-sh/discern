@@ -1084,6 +1084,25 @@ export function deskAtRest(id?: string): DeskFrameTest {
     capture.state.detailPending !== true;
 }
 
+/**
+ * The inspector lists the uncommitted files of the survey on screen: its
+ * Uncommitted section counts as many files as its Changes fact. While a new
+ * read runs, the inspector keeps the checkout's previous list and the
+ * package reports nothing pending, so a frame taken right after a survey
+ * that found new edits pairs the new count with the old list. Both must
+ * show, so a change to either's words fails the wait instead of passing it.
+ */
+export function deskUncommittedListed(): DeskFrameTest {
+  return (capture) => uncommittedListedIn(capture.text);
+}
+
+/** {@linkcode deskUncommittedListed} over a frame's text. */
+export function uncommittedListedIn(text: string): boolean {
+  const surveyed = /Changes +(\d+) uncommitted files?\b/u.exec(text);
+  const listed = /Uncommitted +(\d+)/u.exec(text);
+  return surveyed !== null && listed !== null && surveyed[1] === listed[1];
+}
+
 /** The selected item's details zoomed to fill the body, its evidence read. */
 export function deskZoomed(): DeskFrameTest {
   return (capture) =>
