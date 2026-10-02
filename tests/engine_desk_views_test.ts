@@ -133,6 +133,16 @@ function said(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/** Every marks block a value holds, however deeply it nests. */
+function marksBlocks(value: unknown): object[] {
+  if (Array.isArray(value)) return value.flatMap(marksBlocks);
+  if (typeof value !== "object" || value === null) return [];
+  const nested = Object.values(value).flatMap(marksBlocks);
+  return "kind" in value && value.kind === "marks"
+    ? [value, ...nested]
+    : nested;
+}
+
 /** A desk that adopted `data` at the table's clock. */
 function desk(data: StatusData): DeskProductState {
   return observeDesk(freshDesk(), data, NOW).state;
@@ -270,6 +280,45 @@ Deno.test("a stopped setup reads Error only for a recorded failure", () => {
   assert(!unrecorded.includes('"Setup"'), unrecorded);
   assert(!unrecorded.includes("step that failed"), unrecorded);
   assertStringIncludes(unrecorded, "Retrying runs setup again.");
+});
+
+Deno.test("a failure's location and assertion start at its name's column", () => {
+  const failed = TABLE_ROWS.find((row) => row.state === "checks-failed");
+  assert(failed !== undefined);
+  const data = statusData([mainFleetEntry(), failed.entry]);
+  let state = desk(data);
+  const [row] = state.rows;
+  assert(row !== undefined);
+  const id = deskRowId(row);
+  state = deskProduct(state, {
+    kind: "evidence",
+    subject: taskEvidenceSubject(row, data, "main"),
+    read: {
+      committed: {
+        commits: { state: "ready", value: [] },
+        files: { state: "ready", value: [] },
+      },
+      failure: {
+        state: "ready",
+        value: [{
+          name: "adds a widget",
+          message: "Expected 3, got 2",
+          file: "tests/widget_test.ts",
+          line: 42,
+        }],
+      },
+    },
+  }).state;
+  const view = deskView(state, { ...PRODUCT_UI, selected: id }, ENV);
+  const lines = render(view, 120, 40).split("\n");
+  const column = (text: string): number => {
+    const line = lines.find((candidate) => candidate.includes(text));
+    assert(line !== undefined, `${text} in\n${lines.join("\n")}`);
+    return line.indexOf(text);
+  };
+  const name = column("✕ adds a widget") + 2;
+  assertEquals(column("tests/widget_test.ts:42"), name);
+  assertEquals(column("Expected 3, got 2"), name);
 });
 
 Deno.test("a running row's meter fills only once its usual time has passed, and dims when frozen", () => {
@@ -579,6 +628,7 @@ Deno.test("an open layer leaves the inspector beneath it whole", () => {
 });
 
 Deno.test("every row state's inspector and strip render in status's words", () => {
+  let marks = 0;
   for (const row of TABLE_ROWS) {
     const integration = row.context?.integration;
     const data = statusData([
@@ -627,6 +677,11 @@ Deno.test("every row state's inspector and strip render in status's words", () =
     }).state;
     const view = deskView(state, { ...PRODUCT_UI, selected: id }, ENV);
     assert(view.body.kind === "master-detail", `row ${row.row}`);
+    // A marks list in the narrow column is evidence, drawn compact.
+    for (const block of marksBlocks(view.body.detail.content[id])) {
+      assert("compact" in block && block.compact === true, `row ${row.row}`);
+      marks += 1;
+    }
     const content = said(view.body.detail.content[id]);
     const label = rowStateLabel(row.state, row.context?.queueRow);
     assertStringIncludes(content, label, `row ${row.row}`);
@@ -648,6 +703,7 @@ Deno.test("every row state's inspector and strip render in status's words", () =
       );
     }
   }
+  assert(marks > 0, "some inspector lists failures or setup steps");
 });
 
 Deno.test("branch and landing rows render their own inspectors", () => {

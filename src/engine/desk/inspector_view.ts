@@ -456,10 +456,11 @@ function artifacts(
             kind: "section",
             title: "Failure",
             caption: "from the last run",
-            // The package draws marks with a sheet's gap and indent;
-            // TODO(R-22): a compact marks block lines details up with names.
+            // Compact: each location and assertion starts at its name's
+            // column, as an evidence list in a narrow column reads.
             blocks: [{
               kind: "marks",
+              compact: true,
               items: failures.slice(0, 3).map((failure) => ({
                 mark: glyph(CONSEQUENCE_GLYPHS.failure, "danger"),
                 runs: [{ text: failure.name }],
@@ -594,6 +595,7 @@ function setupSteps(row: DeskRow): ApplicationDetailBlock[] {
     title: "Setup steps",
     blocks: [{
       kind: "marks",
+      compact: true,
       items: steps.map((step) => ({
         // A step still "running" in a stopped setup is the one that failed.
         mark: step.state === "completed"
