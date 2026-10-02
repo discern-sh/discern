@@ -3229,6 +3229,7 @@ Deno.test("tip adoption preserves declaration, surface, and setup evidence", () 
           followThrough: syntheticRule,
           example: undefined,
           template: (): string => "Synthetic evaluator control.",
+          brief: (): string => "Synthetic evaluator control.",
         });
         const second = defineTip({
           id: "synthetic-patterns-tip",
@@ -3241,6 +3242,7 @@ Deno.test("tip adoption preserves declaration, surface, and setup evidence", () 
           },
           example: undefined,
           template: (): string => "Synthetic threshold control.",
+          brief: (): string => "Synthetic threshold control.",
         });
         const registry = [...TIPS, synthetic, second];
         assertEquals(

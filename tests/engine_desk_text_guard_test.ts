@@ -161,7 +161,10 @@ Deno.test("Desk text guard", async () => {
         }],
       });
       const listed: DeskProductState = deskProduct(
-        deskProduct(observedDesk(data), { kind: "tip", tip: multiline }).state,
+        deskProduct(observedDesk(data), {
+          kind: "tip",
+          tip: { lead: "Tip", brief: multiline, full: multiline },
+        }).state,
         {
           kind: "returned",
           now: PRODUCT_VIEW_ENV.now,

@@ -20,7 +20,11 @@ The guard omits a reading-grade ceiling because command names and placeholders d
 
 Rendered line:
 
-> Tasks are grouped by what they need next: Enter runs the selected task's next step, . lists its actions, and Ctrl+K finds any command.
+> Tasks are grouped by what they need next: ↵ runs the selected task's next step, . lists its actions, and ^K finds any command.
+
+Message line (the Desk's first frame):
+
+> ↵ runs the selected task's next step; . lists its actions.
 
 ## `status-orients-anywhere`
 
@@ -34,6 +38,10 @@ Rendered line:
 
 > `discern status` is a quick, read-only check of where you are, what changed, which checks would run, and every task in flight from the main copy.
 
+Message line (the Desk's first frame):
+
+> `discern status` shows where you are and every task, read-only.
+
 ## `start-isolates-a-task`
 
 - Relevance: Evergreen — the final basics lesson.
@@ -44,7 +52,11 @@ Rendered line:
 
 Rendered line:
 
-> `discern start --name "<task>"` gives one task an isolated workspace (a Git worktree) and branch, separate from other tasks and the main copy.
+> `discern start` gives one task its own checkout and branch, so its changes stay apart from other tasks and the main checkout until it lands.
+
+Message line (the Desk's first frame):
+
+> `discern start` gives one task its own checkout and branch.
 
 ## `enter-preserves-place`
 
@@ -56,7 +68,11 @@ Rendered line:
 
 Rendered line:
 
-> `discern enter` opens another working copy at the same project-relative folder in a child shell. Exit it to return.
+> `discern enter` opens a shell in another task's checkout, in the folder you are in now. Exit that shell to come back.
+
+Message line (the Desk's first frame):
+
+> `discern enter` opens a shell in another task, in the same folder.
 
 ## `desk-actions-menu`
 
@@ -68,7 +84,11 @@ Rendered line:
 
 Rendered line:
 
-> Press . (or Right) on a task to list every action with its key, including the ones that can't run yet and why.
+> . or → on a task lists every action with its key, including the ones that can't run yet and why.
+
+Message line (the Desk's first frame):
+
+> . lists a task's actions with their keys, and why any can't run.
 
 ## `desk-command-palette`
 
@@ -80,7 +100,11 @@ Rendered line:
 
 Rendered line:
 
-> Ctrl+K searches every desk command, task, and parked branch, with the tasks that need you listed first.
+> ^K searches every desk command, task, and parked branch, with the tasks that need you listed first.
+
+Message line (the Desk's first frame):
+
+> ^K searches every command and task; what needs you comes first.
 
 ## `desk-zoom-details`
 
@@ -92,7 +116,11 @@ Rendered line:
 
 Rendered line:
 
-> Space shows the selected task's details full screen; Up and Down move between tasks there, and Escape returns.
+> Space shows the selected task's details full screen; ↑↓ move between tasks there, and Esc returns.
+
+Message line (the Desk's first frame):
+
+> Space zooms a task's details; ↑↓ walk tasks, Esc returns.
 
 ## `desk-parked-branches`
 
@@ -104,7 +132,11 @@ Rendered line:
 
 Rendered line:
 
-> "Parked branches" in Ctrl+K lists branches kept without a checkout. "Resume…" gives one a checkout again, with its title and brief.
+> "Parked branches" in ^K lists branches kept without a checkout. "Resume…" gives one a checkout again, with its title and brief.
+
+Message line (the Desk's first frame):
+
+> "Parked branches" in ^K lists branches kept without a checkout.
 
 ## `desk-mouse-opt-in`
 
@@ -116,7 +148,11 @@ Rendered line:
 
 Rendered line:
 
-> "Turn mouse on" in Ctrl+K lets clicks and the wheel move through the desk. Shift-drag still selects text.
+> "Turn mouse on" in ^K lets clicks and the wheel move through the desk. Shift-drag still selects text.
+
+Message line (the Desk's first frame):
+
+> "Turn mouse on" in ^K lets clicks and the wheel move the desk.
 
 ## `prepare-fast-feedback`
 
@@ -130,6 +166,10 @@ Rendered line:
 
 > Use `discern prepare` while editing a change. It runs fixers and read-only checks; builds and tests stay for later.
 
+Message line (the Desk's first frame):
+
+> Use `discern prepare` while editing; it runs fixers and fast checks.
+
 ## `test-runs-alone`
 
 - Relevance: Evergreen — a daily loop lesson.
@@ -141,6 +181,10 @@ Rendered line:
 Rendered line:
 
 > `discern test` runs the project's configured tests and quick readiness check, separate from the final quality check.
+
+Message line (the Desk's first frame):
+
+> `discern test` runs the project's tests apart from the final check.
 
 ## `tidy-discern-files`
 
@@ -154,6 +198,10 @@ Rendered line:
 
 > `discern tidy` formats discern's Markdown sources and `discern.toml`; add `--dry-run` to list changes without writing.
 
+Message line (the Desk's first frame):
+
+> `discern tidy` formats discern's Markdown sources and `discern.toml`.
+
 ## `inspect-before-accepting`
 
 - Relevance: A task has passing Proof ready for review.
@@ -165,6 +213,10 @@ Rendered line:
 Rendered line:
 
 > Before you choose "Land…", choose "View changes" to see saved and unsaved work and the Proof for the checked commit.
+
+Message line (the Desk's first frame):
+
+> Choose "View changes" before "Land…" to see the work and its Proof.
 
 ## `grant-once-green`
 
@@ -178,6 +230,10 @@ Rendered line:
 
 > "Pre-authorize…" lets a task land without asking you once its checks pass. "Queue for landing…" records a proven version; "Land…" lands it now.
 
+Message line (the Desk's first frame):
+
+> "Pre-authorize…" lets a task land without asking once checks pass.
+
 ## `drop-protects-work`
 
 - Relevance: At least one task is in flight.
@@ -189,6 +245,10 @@ Rendered line:
 Rendered line:
 
 > `discern worktree drop <worktree>` keeps a local recovery ref for committed work before removing a branch. Force can still destroy every unsaved byte.
+
+Message line (the Desk's first frame):
+
+> `discern worktree drop <worktree>` keeps committed work recoverable.
 
 ## `reclaim-keeps-recovery`
 
@@ -202,6 +262,10 @@ Rendered line:
 
 > `discern worktree prune --contained` removes a working copy whose saved work already lives inside another task. Its branch stays for recovery.
 
+Message line (the Desk's first frame):
+
+> `discern worktree prune --contained` removes redundant working copies.
+
 ## `update-before-review`
 
 - Relevance: A task is behind the main shared version.
@@ -213,6 +277,10 @@ Rendered line:
 Rendered line:
 
 > `discern update` brings the main shared version into a task and names files both sides changed, so you know what to recheck before review.
+
+Message line (the Desk's first frame):
+
+> `discern update` brings the main version in and names files to recheck.
 
 ## `dry-run-previews-writes`
 
@@ -226,6 +294,10 @@ Rendered line:
 
 > Commands such as `discern done --dry-run` show their plan without changing the project. Look for `--dry-run` before an unfamiliar write.
 
+Message line (the Desk's first frame):
+
+> `discern done --dry-run` shows its plan without changing anything.
+
 ## `patterns-practice-report`
 
 - Relevance: Evergreen — the practice-health opener.
@@ -237,6 +309,10 @@ Rendered line:
 Rendered line:
 
 > `discern patterns` reads the project's local activity record for repeated habits, slow checks, and tasks that stall. It suggests one next step.
+
+Message line (the Desk's first frame):
+
+> `discern patterns` reads local activity for habits and slow checks.
 
 ## `patterns-practice-stats`
 
@@ -250,6 +326,10 @@ Rendered line:
 
 > `discern patterns --stats` counts finished changes, passing streaks, time from start to landing, and quality gains from the same local record.
 
+Message line (the Desk's first frame):
+
+> `discern patterns --stats` counts finished changes and passing streaks.
+
 ## `improvement-next-action`
 
 - Relevance: Evergreen — the third practice-health lesson.
@@ -261,6 +341,10 @@ Rendered line:
 Rendered line:
 
 > `discern improvement` ranks one next improvement across checks, setup, guides, task copies, quality rules, and reusable playbooks.
+
+Message line (the Desk's first frame):
+
+> `discern improvement` ranks one next improvement for this project.
 
 ## `doctor-first-diagnostic`
 
@@ -274,6 +358,10 @@ Rendered line:
 
 > `discern doctor` checks whether the install is wired correctly and names the fix for each problem. Start there when a discern command behaves oddly.
 
+Message line (the Desk's first frame):
+
+> `discern doctor` checks the install and names the fix for each problem.
+
 ## `done-records-proof`
 
 - Relevance: Evergreen — the quality opener.
@@ -285,6 +373,10 @@ Rendered line:
 Rendered line:
 
 > `discern done` runs the project's final quality check. On clean saved work, a pass records Proof for the exact version and declared results.
+
+Message line (the Desk's first frame):
+
+> `discern done` runs the final check and records Proof when it passes.
 
 ## `checkpoints-read-surface`
 
@@ -298,6 +390,10 @@ Rendered line:
 
 > `discern checkpoints` shows which judgment stops govern this task, each recorded answer, and what the change in hand would set off. Read-only.
 
+Message line (the Desk's first frame):
+
+> `discern checkpoints` shows the judgment stops this change sets off.
+
 ## `standards-first-rule`
 
 - Relevance: No quality rules are configured.
@@ -309,6 +405,10 @@ Rendered line:
 Rendered line:
 
 > A standard is a quality measure that can only improve. `discern-set-the-standard` helps a coding agent set its floor or ceiling.
+
+Message line (the Desk's first frame):
+
+> `discern-set-the-standard` helps a coding agent set a quality floor.
 
 ## `standards-complete-evidence`
 
@@ -322,6 +422,10 @@ Rendered line:
 
 > Completion requires every standard. Share a producer with complete declared inputs to reuse valid evidence; `discern standards` runs standalone measurements.
 
+Message line (the Desk's first frame):
+
+> Completion needs every standard; `discern standards` measures them.
+
 ## `standards-pin-gain`
 
 - Relevance: At least one quality rule is configured.
@@ -333,6 +437,10 @@ Rendered line:
 Rendered line:
 
 > `discern standards --pin` saves a measured gain by tightening the limit. A `margin` leaves room for small future changes.
+
+Message line (the Desk's first frame):
+
+> `discern standards --pin` saves a measured gain by tightening a limit.
 
 ## `config-validates-edits`
 
@@ -346,6 +454,10 @@ Rendered line:
 
 > `discern config set <key> <value>` edits `discern.toml` without losing comments and validates the full file before writing.
 
+Message line (the Desk's first frame):
+
+> `discern config set <key> <value>` edits `discern.toml` and validates it.
+
 ## `refresh-publishes-instructions`
 
 - Relevance: Evergreen — a project-upkeep lesson.
@@ -357,6 +469,10 @@ Rendered line:
 Rendered line:
 
 > `discern refresh` compiles shared instructions into every configured coding agent's instruction file and republishes reusable guides from their sources.
+
+Message line (the Desk's first frame):
+
+> `discern refresh` rebuilds each coding agent's instruction file.
 
 ## `upgrade-check-only`
 
@@ -370,6 +486,10 @@ Rendered line:
 
 > `discern upgrade --check` reports whether this project has pending settings updates. It changes nothing.
 
+Message line (the Desk's first frame):
+
+> `discern upgrade --check` says whether settings need updating.
+
 ## `one-file-settings`
 
 - Relevance: Evergreen — a project-structure lesson.
@@ -381,6 +501,10 @@ Rendered line:
 Rendered line:
 
 > `discern.toml` holds all project-specific discern settings. Everything else is bundled, placed through those settings, or generated from text you can review.
+
+Message line (the Desk's first frame):
+
+> `discern.toml` holds every project-specific discern setting.
 
 ## `no-model-any-language`
 
@@ -394,6 +518,10 @@ Rendered line:
 
 > discern contains no language model and requires no model-service credentials. It runs the commands your project declares, in any language.
 
+Message line (the Desk's first frame):
+
+> discern has no language model inside and works in any language.
+
 ## `coupling-missing-partners`
 
 - Relevance: Evergreen — a power-tool lesson.
@@ -405,6 +533,10 @@ Rendered line:
 Rendered line:
 
 > `discern coupling <file>` spots files that usually change with the named file but are missing from the current work. It reads only this project's history.
+
+Message line (the Desk's first frame):
+
+> `discern coupling <file>` finds files that usually change with it.
 
 ## `impact-extra-checks`
 
@@ -418,6 +550,10 @@ Rendered line:
 
 > `discern impact` shows which named project areas and extra checks the current change activates.
 
+Message line (the Desk's first frame):
+
+> `discern impact` shows which areas and extra checks a change sets off.
+
 ## `await-other-work`
 
 - Relevance: Evergreen — a power-tool lesson.
@@ -429,6 +565,10 @@ Rendered line:
 Rendered line:
 
 > `discern await --green <worktree>` waits for another task's passing Proof and returns the right next step, so a coding agent does not need to keep checking.
+
+Message line (the Desk's first frame):
+
+> `discern await --green <worktree>` waits for another task's Proof.
 
 ## `map-and-docs-search`
 
@@ -442,6 +582,10 @@ Rendered line:
 
 > Use `discern map --search <query>` to search this project's guide. Use `discern docs --search <query>` for discern's own manual.
 
+Message line (the Desk's first frame):
+
+> `discern map --search <query>` searches this project's guide.
+
 ## `skills-effective-set`
 
 - Relevance: Evergreen — a power-tool lesson.
@@ -453,6 +597,10 @@ Rendered line:
 Rendered line:
 
 > `discern skills list` shows the reusable guides available to coding agents, including project replacements and hidden guides.
+
+Message line (the Desk's first frame):
+
+> `discern skills list` shows the guides available to coding agents.
 
 ## `cure-the-bug-class`
 
@@ -466,6 +614,10 @@ Rendered line:
 
 > `discern-cure-a-bug` guides a coding agent to prove the cause, fix every occurrence, and add a check that catches the defect if it returns.
 
+Message line (the Desk's first frame):
+
+> `discern-cure-a-bug` guides a coding agent to fix a bug for good.
+
 ## `clear-agent-leftovers`
 
 - Relevance: Evergreen — a reusable guide lesson.
@@ -477,6 +629,10 @@ Rendered line:
 Rendered line:
 
 > `discern-clear-the-decks` guides a coding agent to remove unused code, repeated helpers, and leftovers from abandoned approaches in small safe commits.
+
+Message line (the Desk's first frame):
+
+> `discern-clear-the-decks` guides a coding agent to clear out dead code.
 
 ## `write-a-fact-once`
 
@@ -490,6 +646,10 @@ Rendered line:
 
 > `discern-write-it-once` helps a coding agent store each fact once, include future additions automatically, and preview changes before running them.
 
+Message line (the Desk's first frame):
+
+> `discern-write-it-once` helps a coding agent store each fact once.
+
 ## `document-from-the-code`
 
 - Relevance: Evergreen — a reusable guide lesson.
@@ -501,6 +661,10 @@ Rendered line:
 Rendered line:
 
 > Ask your coding agent to update the affected page of the project guide from the code and tests. The project guide connects each explanation to its evidence.
+
+Message line (the Desk's first frame):
+
+> Ask your coding agent to update the project guide from the code.
 
 ## `teach-the-next-agent`
 
@@ -514,6 +678,10 @@ Rendered line:
 
 > `discern-teach-the-project` records a durable lesson in project instructions, a reusable guide, a script, documentation, or a decision record.
 
+Message line (the Desk's first frame):
+
+> `discern-teach-the-project` records a lesson for future coding agents.
+
 ## `record-a-decision`
 
 - Relevance: Evergreen — a reusable guide lesson.
@@ -525,6 +693,10 @@ Rendered line:
 Rendered line:
 
 > `discern-write-adr` records a significant choice, its reasons, and its trade-offs where future coding agents can find it.
+
+Message line (the Desk's first frame):
+
+> `discern-write-adr` records a significant choice and its reasons.
 
 ## `delegate-with-a-complete-brief`
 
@@ -538,6 +710,10 @@ Rendered line:
 
 > `discern-delegate-work` turns a discussed task into a complete brief for a fresh coding agent, then reviews the resulting change.
 
+Message line (the Desk's first frame):
+
+> `discern-delegate-work` turns a discussion into a coding agent's brief.
+
 ## `await-with-one-call`
 
 - Relevance: Evergreen — a reusable guide lesson.
@@ -549,6 +725,10 @@ Rendered line:
 Rendered line:
 
 > `discern-await-the-fleet` guides a coding agent to wait for another task with one bounded call, then build on what arrives.
+
+Message line (the Desk's first frame):
+
+> `discern-await-the-fleet` waits for another task with one call.
 
 ## `place-a-checkpoint`
 
@@ -562,6 +742,10 @@ Rendered line:
 
 > `discern-place-a-checkpoint` turns a point a reviewer keeps raising into a change-triggered judgment the final quality check serves and records.
 
+Message line (the Desk's first frame):
+
+> `discern-place-a-checkpoint` turns a repeated review point into a check.
+
 ## `identity-stable-values`
 
 - Relevance: Evergreen — a power-tool lesson.
@@ -573,6 +757,10 @@ Rendered line:
 Rendered line:
 
 > `discern identity --port` prints the stable network number used by that task's preview server. Other choices show its branch and service names.
+
+Message line (the Desk's first frame):
+
+> `discern identity --port` prints a task's stable network number.
 
 ## `resources-follow-the-copy`
 
@@ -586,6 +774,10 @@ Rendered line:
 
 > A project can give every worktree its own information store, emulator, or container. discern provisions and removes them with the worktree.
 
+Message line (the Desk's first frame):
+
+> A worktree can have its own services, set up and removed with it.
+
 ## `scripts-from-desk`
 
 - Relevance: Evergreen — the curriculum closer.
@@ -597,6 +789,10 @@ Rendered line:
 Rendered line:
 
 > When a task has a project-owned tool, the desk offers "Run a script…". `discern scripts` lists the same tools from a shell.
+
+Message line (the Desk's first frame):
+
+> "Run a script…" runs a project's own tools in a task.
 
 ## Coverage absences
 

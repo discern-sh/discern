@@ -65,6 +65,7 @@ import {
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
 import { compactDuration } from "../output.ts";
 import { DESK_GLYPHS, MESSAGE_MARKS } from "./glyphs.ts";
+import type { DeskTip } from "./tips.ts";
 import {
   FLEET_OWNER_GROUPS,
   FLEET_ROW_GROUPS,
@@ -207,6 +208,8 @@ export interface DeskMessage {
   readonly text: string;
   /** What it found, after the lead and in ink: a return's result. */
   readonly detail?: string;
+  /** A faint word before the text, such as the tip's `Tip`. */
+  readonly lead?: string;
   /** A leading glyph such as `!` or `←`. */
   readonly mark?: { readonly unicode: string; readonly ascii: string };
   /** A key hint at the far right, such as `r Retry`. */
@@ -328,7 +331,7 @@ export interface DeskProductState {
   /** The owner closed the offline warning; it returns after a success. */
   readonly offlineDismissed?: boolean;
   readonly preferences: DeskPreferences;
-  readonly tip?: string;
+  readonly tip?: DeskTip;
   readonly activity: readonly DeskActivity[];
   readonly departed: ReadonlyMap<string, DeskDeparture>;
   /**
@@ -449,7 +452,7 @@ export type DeskEvent =
     /** The parts it read; the rest it found kept. */
     readonly read: DeskEvidenceRead;
   }
-  | { readonly kind: "tip"; readonly tip: string }
+  | { readonly kind: "tip"; readonly tip: DeskTip }
   | {
     readonly kind: "intent";
     readonly intent: DeskIntent;
@@ -1296,8 +1299,9 @@ export function deskProduct(
       };
     case "tip":
       return {
-        state: toast({ ...state, tip: event.tip }, "muted", event.tip, {
+        state: toast({ ...state, tip: event.tip }, "muted", event.tip.brief, {
           topic: "tip",
+          lead: event.tip.lead,
         }),
         effects: [],
       };

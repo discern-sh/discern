@@ -15,6 +15,7 @@ import {
   DESK_COMMAND_TOGGLED_LABELS,
 } from "../../shared/desk_vocabulary.ts";
 import type { DeskIntent, DeskProductState } from "./desk_state.ts";
+import { splitTipKeys, tipKeyLabel } from "../../shared/tips.ts";
 
 /** One chip and the command it routes to. */
 function chip(
@@ -101,11 +102,25 @@ export function toggleLabel(
 
 /**
  * One line of inline Markdown as runs, as tips, hints and stored Proof lines
- * write it: a quote's marker dropped, `**strong**` as a title run and code
- * spans (of any backtick count) as code runs, so no marker reaches the
- * screen. Anything else reads as written.
+ * write it: a quote's marker dropped, `**strong**` as a title run, code
+ * spans (of any backtick count) as code runs, and a tip's keys as key runs
+ * spelled as the footer spells them, so no marker reaches the screen.
+ * Anything else reads as written.
  */
 export function inlineRuns(text: string): ApplicationRun[] {
+  return splitTipKeys(text).flatMap((part): ApplicationRun[] =>
+    "keys" in part
+      ? [{
+        text: tipKeyLabel(part.keys, "unicode"),
+        ascii: tipKeyLabel(part.keys, "ascii"),
+        role: "key",
+      }]
+      : markdownRuns(part.text)
+  );
+}
+
+/** Inline Markdown without keys as runs ({@link inlineRuns}). */
+function markdownRuns(text: string): ApplicationRun[] {
   const source = text.replace(/^>\s?/u, "");
   const runs: ApplicationRun[] = [];
   let plain = "";

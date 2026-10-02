@@ -612,7 +612,7 @@ function readerLayer(
           kind: "text",
           runs: state.tip === undefined
             ? [{ text: "This session has no tip yet." }]
-            : inlineRuns(state.tip),
+            : inlineRuns(state.tip.full),
         }],
         keys: [{
           key: "m",

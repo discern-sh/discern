@@ -19,11 +19,15 @@ import {
   stripCodeSpans,
 } from "../scripts/feature_registry.ts";
 import {
+  authoredTipBrief,
   authoredTipText,
+  renderTipBriefCli,
   renderTipCli,
+  TIP_BRIEF_CELLS,
   TIP_RENDERED_LENGTH_LIMIT,
   TIPS,
 } from "../src/shared/tips.ts";
+import { displayWidth } from "../src/lib/text.ts";
 import { extractCommandRefs } from "../src/shared/command_reference.ts";
 import { assertNamedCases } from "./assert_cases.ts";
 
@@ -93,7 +97,9 @@ Deno.test("tip register guard: contracts", () => {
                 `${TIP_RENDERED_LENGTH_LIMIT}-character, two-to-three-line budget`,
             );
           }
-          const sentences = rendered.match(/[.!?](?:\s|$)/g)?.length ?? 0;
+          // A key such as `.` stands alone; only a word's last mark ends one.
+          const sentences = rendered.match(/(?<=\S)[.!?](?:\s|$)/g)?.length ??
+            0;
           if (sentences < 1 || sentences > 2) {
             offenders.push(
               `${tip.id}: ${sentences} sentences; each tip needs one or two`,
@@ -106,10 +112,41 @@ Deno.test("tip register guard: contracts", () => {
           `tip shape and length budget failures:\n  ${offenders.join("\n  ")}`,
         );
       },
-    "no unquoted policed jargon appears in a rendered tip": () => {
+    "every brief is one sentence that fits the Desk's message line": () => {
+      const offenders: string[] = [];
+      for (const tip of TIPS) {
+        const brief = renderTipBriefCli(tip);
+        // The Desk draws code spans without their backticks.
+        const shown = displayWidth(brief.replaceAll("`", ""));
+        if (shown > TIP_BRIEF_CELLS) {
+          offenders.push(
+            `${tip.id}: ${shown} cells exceeds the ${TIP_BRIEF_CELLS}-cell message line: ${brief}`,
+          );
+        }
+        const sentences = brief.match(/(?<=\S)[.!?](?:\s|$)/g)?.length ?? 0;
+        if (brief.includes("\n") || sentences !== 1) {
+          offenders.push(`${tip.id}: a brief is one sentence on one line`);
+        }
+      }
+      assertEquals(offenders, [], offenders.join("\n"));
+    },
+    "a tip names keys through the key map, never by typing them": () => {
+      // `deskKey` spells a key as the footer on the same screen does; a
+      // typed name ("Ctrl+K", "Escape", "Up and Down") never matches it.
+      const typed = /\bCtrl\+|\bEscape\b|\bEnter\b|\b(?:Up|Down|Left|Right)\b/u;
       const offenders = TIPS.flatMap((tip) =>
-        registerHits(tip.id, renderTipCli(tip))
+        [authoredTipText(tip), authoredTipBrief(tip)].flatMap((text) => {
+          const hit = typed.exec(stripCodeSpans(text));
+          return hit === null ? [] : [`${tip.id}: types "${hit[0]}"`];
+        })
       );
+      assertEquals(offenders, [], offenders.join("\n"));
+    },
+    "no unquoted policed jargon appears in a rendered tip": () => {
+      const offenders = TIPS.flatMap((tip) => [
+        ...registerHits(tip.id, renderTipCli(tip)),
+        ...registerHits(`${tip.id} (brief)`, renderTipBriefCli(tip)),
+      ]);
       assertEquals(
         offenders,
         [],

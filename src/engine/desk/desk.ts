@@ -113,6 +113,7 @@ import {
   writeDeskPreferences,
 } from "./preferences.ts";
 import {
+  type DeskTip,
   markTipShown,
   renderTipLine,
   selectTip,
@@ -806,7 +807,7 @@ async function sessionTip(
   config: DiscernConfig,
   runtime: DeskRuntime,
   data: StatusData,
-): Promise<string | undefined> {
+): Promise<DeskTip | undefined> {
   const state = await runtime.readTipState(root);
   const selected = selectTip(TIPS, { data, config }, state);
   if (selected === undefined) return undefined;

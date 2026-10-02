@@ -15,7 +15,7 @@ import type {
 } from "../../shared/result_schemas.ts";
 import {
   type RegisteredTip,
-  renderTipCli,
+  renderTipDesk,
   type TipPredicate,
 } from "../../shared/tips.ts";
 import { isPositiveGitCount } from "../../shared/git_count.ts";
@@ -207,10 +207,22 @@ export function selectTip(
   return rotated === undefined ? undefined : { tip: rotated };
 }
 
-/** The selected tip's full line: the rendered text, release-prefixed when new. */
-export function renderTipLine(selected: SelectedTip): string {
-  const text = renderTipCli(selected.tip);
+/**
+ * The session's tip as the Desk shows it: the brief on the message line
+ * after its lead (`Tip`, or `New` for a tip an upgrade brought), and the
+ * full text, release-prefixed when new, in Tip of the session. Keys stay
+ * tokens for the Desk to draw.
+ */
+export interface DeskTip {
+  readonly lead: "Tip" | "New";
+  readonly brief: string;
+  readonly full: string;
+}
+
+/** The selected tip as the Desk shows it ({@link DeskTip}). */
+export function renderTipLine(selected: SelectedTip): DeskTip {
+  const { full, brief } = renderTipDesk(selected.tip);
   return selected.newIn === undefined
-    ? text
-    : `New in ${selected.newIn}: ${text}`;
+    ? { lead: "Tip", brief, full }
+    : { lead: "New", brief, full: `New in ${selected.newIn}: ${full}` };
 }

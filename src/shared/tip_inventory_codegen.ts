@@ -10,6 +10,7 @@
 
 import {
   type RegisteredTip,
+  renderTipBriefCli,
   renderTipCli,
   TIP_COVERAGE_DELIBERATELY_ABSENT,
   TIP_RENDERED_LENGTH_LIMIT,
@@ -50,6 +51,10 @@ function renderEntry(tip: RegisteredTip): string {
     "Rendered line:",
     "",
     markdownBlockquote(line),
+    "",
+    "Message line (the Desk's first frame):",
+    "",
+    markdownBlockquote(renderTipBriefCli(tip)),
   ].join("\n");
 }
 

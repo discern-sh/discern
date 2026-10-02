@@ -26,6 +26,7 @@ import type {
 } from "discern-design-system/cli/interactive";
 import { stripAnsi } from "../../shared/color_env.ts";
 import type { DeskEffectSession } from "./execution.ts";
+import type { DeskTip } from "./tips.ts";
 import { progressActivity, progressAfter } from "./operations.ts";
 import {
   isInteractionCancelled,
@@ -138,7 +139,7 @@ export interface LiveDeskDependencies {
     readonly data: StatusData;
     readonly hints: readonly string[];
   }>;
-  readonly tip: (data: StatusData) => Promise<string | undefined>;
+  readonly tip: (data: StatusData) => Promise<DeskTip | undefined>;
   /** Read the manual, which the session does once as it starts. */
   readonly manual: () => Promise<DeskManual>;
   readonly evidence: DeskEvidenceReader;

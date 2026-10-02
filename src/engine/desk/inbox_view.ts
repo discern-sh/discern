@@ -439,7 +439,7 @@ function liveness(
 function messageWords(message: DeskMessage): ApplicationRun[] {
   if (message.topic === "tip") {
     return [
-      { text: "Tip", tone: "faint" },
+      { text: message.lead ?? "Tip", tone: "faint" },
       { text: "   " },
       ...inlineRuns(message.text),
     ];

@@ -494,7 +494,7 @@ export function toast(
   state: DeskProductState,
   tone: DeskMessage["tone"],
   text: string,
-  extra: Pick<DeskMessage, "mark" | "key" | "tasks" | "detail"> & {
+  extra: Pick<DeskMessage, "mark" | "key" | "tasks" | "detail" | "lead"> & {
     readonly topic?: DeskMessageTopic;
   } = {},
 ): DeskProductState {

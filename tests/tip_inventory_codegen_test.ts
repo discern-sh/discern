@@ -7,6 +7,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
 import { markdownBlockquote } from "../src/shared/markdown_blockquote.ts";
 import {
+  renderTipBriefCli,
   renderTipCli,
   TIP_COVERAGE_DELIBERATELY_ABSENT,
   TIP_RENDERED_LENGTH_LIMIT,
@@ -67,6 +68,7 @@ Deno.test("the tip inventory is total over TIPS, in curriculum order", () => {
       assertStringIncludes(section, `\`${feature}\``);
     }
     assertStringIncludes(section, markdownBlockquote(renderTipCli(tip)));
+    assertStringIncludes(section, markdownBlockquote(renderTipBriefCli(tip)));
     assert(
       !section.includes("```text"),
       `${tip.id}: rendered copy must remain visible to the Map prose scan`,

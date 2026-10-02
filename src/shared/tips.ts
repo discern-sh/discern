@@ -34,12 +34,100 @@ function quoted(label: string): string {
   return `"${label}"`;
 }
 
+/**
+ * How the Desk's footer shows each key a tip may name, with and without
+ * Unicode. A tip names a key through {@link deskKey}, never by typing it, so
+ * the tip and the footer on the same screen spell it alike; a guard holds
+ * this table to the design system's own key formatting.
+ */
+export const TIP_KEY_LABELS = {
+  enter: { unicode: "↵", ascii: "Enter" },
+  ".": { unicode: ".", ascii: "." },
+  right: { unicode: "→", ascii: "Right" },
+  up: { unicode: "↑", ascii: "Up" },
+  down: { unicode: "↓", ascii: "Down" },
+  space: { unicode: "Space", ascii: "Space" },
+  escape: { unicode: "Esc", ascii: "Esc" },
+  "ctrl-k": { unicode: "^K", ascii: "^K" },
+} as const satisfies Readonly<
+  Record<string, { readonly unicode: string; readonly ascii: string }>
+>;
+
+/** A key a tip may name. */
+export type TipKey = keyof typeof TIP_KEY_LABELS;
+
+const KEY_TOKEN_OPEN = "⟦discern-key:";
+const KEY_TOKEN_PATTERN = /⟦discern-key:([^⟦⟧]*)⟧/gu;
+
+/** One or more keys shown as one, as a tip names them: `deskKey("up", "down")`. */
+export function deskKey(...keys: readonly TipKey[]): string {
+  return `${KEY_TOKEN_OPEN}${keys.join(",")}⟧`;
+}
+
+/** The keys one token names. */
+function tokenKeys(payload: string): TipKey[] {
+  return payload.split(",").filter((key): key is TipKey =>
+    Object.hasOwn(TIP_KEY_LABELS, key)
+  );
+}
+
+/**
+ * Keys as the footer shows them together: an Up and Down pair touches, any
+ * other keys stand a space apart; without Unicode, names join with a slash.
+ */
+export function tipKeyLabel(
+  keys: readonly TipKey[],
+  form: "unicode" | "ascii",
+): string {
+  const parts = keys.map((key) => TIP_KEY_LABELS[key][form]);
+  if (form === "ascii") {
+    return parts.every((part) => part.length === 1)
+      ? parts.join(" ")
+      : parts.join("/");
+  }
+  return keys.join(",") === "up,down" ? parts.join("") : parts.join(" ");
+}
+
+/** Every key token in `text`, as the keys it names. */
+export function tipKeyTokens(text: string): TipKey[][] {
+  return [...text.matchAll(KEY_TOKEN_PATTERN)].map((match) =>
+    tokenKeys(match[1] ?? "")
+  );
+}
+
+/**
+ * Split `text` into plain text and key tokens, in order, so a surface can
+ * draw each key as its own kind of run.
+ */
+export function splitTipKeys(
+  text: string,
+): ({ readonly text: string } | { readonly keys: TipKey[] })[] {
+  const parts: ({ readonly text: string } | { readonly keys: TipKey[] })[] = [];
+  let at = 0;
+  for (const match of text.matchAll(KEY_TOKEN_PATTERN)) {
+    const index = match.index;
+    if (index > at) parts.push({ text: text.slice(at, index) });
+    parts.push({ keys: tokenKeys(match[1] ?? "") });
+    at = index + match[0].length;
+  }
+  if (at < text.length) parts.push({ text: text.slice(at) });
+  return parts;
+}
+
+/** `text` with each key token as the footer shows it with Unicode. */
+function renderTipKeysUnicode(text: string): string {
+  return text.replaceAll(
+    KEY_TOKEN_PATTERN,
+    (_match, payload: string) => tipKeyLabel(tokenKeys(payload), "unicode"),
+  );
+}
+
 /** Shared references for the commands tips cite. Each is one token rendered
  * per surface at delivery; a template interpolates it instead of spelling the
  * command as prose. */
 const CMD = {
   status: discernCommand("status"),
-  startNamed: discernCommand("start", flag("name", '"<task>"')),
+  start: discernCommand("start"),
   enter: discernCommand("enter"),
   prepare: discernCommand("prepare"),
   test: discernCommand("test"),
@@ -144,6 +232,12 @@ export interface TipDef<P = undefined> {
   readonly example: P;
   /** Renders the tip from named, compiler-checked parameters. */
   readonly template: (params: P) => string;
+  /**
+   * The same lesson in one short sentence for the Desk's message line,
+   * within {@link TIP_BRIEF_CELLS} as shown; the full template stays one
+   * key away in the palette's Tip of the session.
+   */
+  readonly brief: (params: P) => string;
 }
 
 /**
@@ -151,6 +245,12 @@ export interface TipDef<P = undefined> {
  * exposes the whole tip in a reading region; longer lessons belong in the Map.
  */
 export const TIP_RENDERED_LENGTH_LIMIT = 160;
+
+/**
+ * The cells a brief may take as shown: what the Desk's message line leaves
+ * after its margins and the `Tip` label at 80 columns.
+ */
+export const TIP_BRIEF_CELLS = 70;
 
 /**
  * One registered tip with its parameter type erased — the registry's storage
@@ -167,6 +267,7 @@ export interface RegisteredTip {
   readonly followThrough?: TipFollowThroughRule;
   readonly example: unknown;
   readonly template: (params: never) => string;
+  readonly brief: (params: never) => string;
 }
 
 /** Identity helper so an entry's parameter type is inferred at the definition. */
@@ -183,6 +284,11 @@ export function authoredTipText(tip: RegisteredTip): string {
   return (tip.template as (params: unknown) => string)(tip.example);
 }
 
+/** A tip's authored brief, reference tokens intact. */
+export function authoredTipBrief(tip: RegisteredTip): string {
+  return (tip.brief as (params: unknown) => string)(tip.example);
+}
+
 /**
  * A tip's delivered text: the template rendered with its registered example
  * parameters, command references resolved to their CLI spelling. One render
@@ -192,7 +298,25 @@ export function authoredTipText(tip: RegisteredTip): string {
  * the example parameters are the only rendering.
  */
 export function renderTipCli(tip: RegisteredTip): string {
-  return renderCommandRefsCli(authoredTipText(tip));
+  return renderTipKeysUnicode(renderCommandRefsCli(authoredTipText(tip)));
+}
+
+/** A tip's brief as read: commands in their CLI spelling, keys as shown. */
+export function renderTipBriefCli(tip: RegisteredTip): string {
+  return renderTipKeysUnicode(renderCommandRefsCli(authoredTipBrief(tip)));
+}
+
+/**
+ * A tip's full text and brief for the Desk: commands in their CLI spelling
+ * and keys left as tokens, which the Desk draws as keys with an ASCII form.
+ */
+export function renderTipDesk(
+  tip: RegisteredTip,
+): { readonly full: string; readonly brief: string } {
+  return {
+    full: renderCommandRefsCli(authoredTipText(tip)),
+    brief: renderCommandRefsCli(authoredTipBrief(tip)),
+  };
 }
 
 /**
@@ -215,8 +339,15 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      "Tasks are grouped by what they need next: Enter runs the selected " +
-      "task's next step, . lists its actions, and Ctrl+K finds any command.",
+      `Tasks are grouped by what they need next: ${
+        deskKey("enter")
+      } runs the selected task's next step, ${
+        deskKey(".")
+      } lists its actions, and ${deskKey("ctrl-k")} finds any command.`,
+    brief: (): string =>
+      `${deskKey("enter")} runs the selected task's next step; ${
+        deskKey(".")
+      } lists its actions.`,
   }),
 
   defineTip({
@@ -233,6 +364,8 @@ export const TIPS: readonly RegisteredTip[] = [
       `${CMD.status} is a quick, read-only check of where you are, what ` +
       "changed, which checks would run, and every task in flight from the " +
       "main copy.",
+    brief: (): string =>
+      `${CMD.status} shows where you are and every task, read-only.`,
   }),
 
   defineTip({
@@ -246,8 +379,11 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.startNamed} gives one task an isolated workspace (a Git ` +
-      "worktree) and branch, separate from other tasks and the main copy.",
+      `${CMD.start} gives one task its own checkout and branch, so its ` +
+      "changes stay apart from other tasks and the main checkout until it " +
+      "lands.",
+    brief: (): string =>
+      `${CMD.start} gives one task its own checkout and branch.`,
   }),
 
   defineTip({
@@ -262,8 +398,10 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.enter} opens another working copy at the same ` +
-      "project-relative folder in a child shell. Exit it to return.",
+      `${CMD.enter} opens a shell in another task's checkout, in the folder ` +
+      "you are in now. Exit that shell to come back.",
+    brief: (): string =>
+      `${CMD.enter} opens a shell in another task, in the same folder.`,
   }),
 
   // ── The desk: every control is a key away from the task list. ──────────
@@ -275,8 +413,14 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["desk"],
     example: undefined,
     template: (): string =>
-      "Press . (or Right) on a task to list every action with its key, " +
-      "including the ones that can't run yet and why.",
+      `${deskKey(".")} or ${
+        deskKey("right")
+      } on a task lists every action with its key, including the ones ` +
+      "that can't run yet and why.",
+    brief: (): string =>
+      `${
+        deskKey(".")
+      } lists a task's actions with their keys, and why any can't run.`,
   }),
 
   defineTip({
@@ -285,8 +429,14 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["desk"],
     example: undefined,
     template: (): string =>
-      "Ctrl+K searches every desk command, task, and parked branch, with " +
+      `${
+        deskKey("ctrl-k")
+      } searches every desk command, task, and parked branch, with ` +
       "the tasks that need you listed first.",
+    brief: (): string =>
+      `${
+        deskKey("ctrl-k")
+      } searches every command and task; what needs you comes first.`,
   }),
 
   defineTip({
@@ -296,8 +446,13 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["desk"],
     example: undefined,
     template: (): string =>
-      "Space shows the selected task's details full screen; " +
-      "Up and Down move between tasks there, and Escape returns.",
+      `${deskKey("space")} shows the selected task's details full screen; ${
+        deskKey("up", "down")
+      } move between tasks there, and ${deskKey("escape")} returns.`,
+    brief: (): string =>
+      `${deskKey("space")} zooms a task's details; ${
+        deskKey("up", "down")
+      } walk tasks, ${deskKey("escape")} returns.`,
   }),
 
   defineTip({
@@ -307,10 +462,16 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["desk", "worktrees"],
     example: undefined,
     template: (): string =>
-      `${quoted(DESK_COMMAND_LABELS.parked)} in Ctrl+K lists branches kept ` +
+      `${quoted(DESK_COMMAND_LABELS.parked)} in ${
+        deskKey("ctrl-k")
+      } lists branches kept ` +
       `without a checkout. ${
         quoted(DESK_COMMAND_LABELS.resume)
       } gives one a checkout again, with its title and brief.`,
+    brief: (): string =>
+      `${quoted(DESK_COMMAND_LABELS.parked)} in ${
+        deskKey("ctrl-k")
+      } lists branches kept without a checkout.`,
   }),
 
   defineTip({
@@ -319,10 +480,14 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["desk"],
     example: undefined,
     template: (): string =>
-      `${
-        quoted(DESK_COMMAND_LABELS.mouse)
-      } in Ctrl+K lets clicks and the wheel move through the desk. ` +
+      `${quoted(DESK_COMMAND_LABELS.mouse)} in ${
+        deskKey("ctrl-k")
+      } lets clicks and the wheel move through the desk. ` +
       "Shift-drag still selects text.",
+    brief: (): string =>
+      `${quoted(DESK_COMMAND_LABELS.mouse)} in ${
+        deskKey("ctrl-k")
+      } lets clicks and the wheel move the desk.`,
   }),
 
   // ── Daily loop: get fast feedback before the final Proof. ───────────────
@@ -340,6 +505,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `Use ${CMD.prepare} while editing a change. It runs fixers and ` +
       "read-only checks; builds and tests stay for later.",
+    brief: (): string =>
+      `Use ${CMD.prepare} while editing; it runs fixers and fast checks.`,
   }),
 
   defineTip({
@@ -355,6 +522,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.test} runs the project's configured tests and quick readiness ` +
       "check, separate from the final quality check.",
+    brief: (): string =>
+      `${CMD.test} runs the project's tests apart from the final check.`,
   }),
 
   defineTip({
@@ -370,6 +539,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.tidy} formats discern's Markdown sources and ` +
       "`discern.toml`; add `--dry-run` to list changes without writing.",
+    brief: (): string =>
+      `${CMD.tidy} formats discern's Markdown sources and \`discern.toml\`.`,
   }),
 
   // ── Supervision: inspect, authorize, clean up, and update. ───────────────
@@ -384,6 +555,10 @@ export const TIPS: readonly RegisteredTip[] = [
       `Before you choose ${quoted(DESK_ACTION_LABELS.accept)}, choose ${
         quoted(DESK_ACTION_LABELS.inspect)
       } to see saved and unsaved work and the Proof for the checked commit.`,
+    brief: (): string =>
+      `Choose ${quoted(DESK_ACTION_LABELS.inspect)} before ${
+        quoted(DESK_ACTION_LABELS.accept)
+      } to see the work and its Proof.`,
   }),
 
   defineTip({
@@ -400,6 +575,10 @@ export const TIPS: readonly RegisteredTip[] = [
       } records a proven version; ${
         quoted(DESK_ACTION_LABELS.accept)
       } lands it now.`,
+    brief: (): string =>
+      `${
+        quoted(DESK_ACTION_LABELS.grant)
+      } lets a task land without asking once checks pass.`,
   }),
 
   defineTip({
@@ -416,6 +595,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.worktreeDrop} keeps a local recovery ref for committed work ` +
       "before removing a branch. Force can still destroy every unsaved byte.",
+    brief: (): string =>
+      `${CMD.worktreeDrop} keeps committed work recoverable.`,
   }),
 
   defineTip({
@@ -432,6 +613,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.worktreePruneContained} removes a working copy whose saved ` +
       "work already lives inside another task. Its branch stays for recovery.",
+    brief: (): string =>
+      `${CMD.worktreePruneContained} removes redundant working copies.`,
   }),
 
   defineTip({
@@ -448,6 +631,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.update} brings the main shared version into a task and names ` +
       "files both sides changed, so you know what to recheck before review.",
+    brief: (): string =>
+      `${CMD.update} brings the main version in and names files to recheck.`,
   }),
 
   defineTip({
@@ -463,6 +648,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `Commands such as ${CMD.doneDryRun} show their plan without changing ` +
       "the project. Look for `--dry-run` before an unfamiliar write.",
+    brief: (): string =>
+      `${CMD.doneDryRun} shows its plan without changing anything.`,
   }),
 
   // ── Practice health: read the record, then choose the next improvement. ──
@@ -481,6 +668,8 @@ export const TIPS: readonly RegisteredTip[] = [
       `${CMD.patterns} reads the project's local activity record for ` +
       "repeated habits, slow checks, and tasks that stall. It suggests one " +
       "next step.",
+    brief: (): string =>
+      `${CMD.patterns} reads local activity for habits and slow checks.`,
   }),
 
   defineTip({
@@ -496,6 +685,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.patternsStats} counts finished changes, passing streaks, time ` +
       "from start to landing, and quality gains from the same local record.",
+    brief: (): string =>
+      `${CMD.patternsStats} counts finished changes and passing streaks.`,
   }),
 
   defineTip({
@@ -511,6 +702,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.improvement} ranks one next improvement across checks, setup, ` +
       "guides, task copies, quality rules, and reusable playbooks.",
+    brief: (): string =>
+      `${CMD.improvement} ranks one next improvement for this project.`,
   }),
 
   defineTip({
@@ -527,6 +720,8 @@ export const TIPS: readonly RegisteredTip[] = [
       `${CMD.doctor} checks whether the install is wired correctly and ` +
       "names the fix for each problem. Start there when a discern command " +
       "behaves oddly.",
+    brief: (): string =>
+      `${CMD.doctor} checks the install and names the fix for each problem.`,
   }),
 
   // ── Quality: prove the work, then learn the rules that hold gains. ───────
@@ -544,6 +739,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.done} runs the project's final quality check. On clean saved ` +
       "work, a pass records Proof for the exact version and declared results.",
+    brief: (): string =>
+      `${CMD.done} runs the final check and records Proof when it passes.`,
   }),
 
   defineTip({
@@ -559,6 +756,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.checkpoints} shows which judgment stops govern this task, each ` +
       "recorded answer, and what the change in hand would set off. Read-only.",
+    brief: (): string =>
+      `${CMD.checkpoints} shows the judgment stops this change sets off.`,
   }),
 
   defineTip({
@@ -570,6 +769,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       "A standard is a quality measure that can only improve. " +
       "`discern-set-the-standard` helps a coding agent set its floor or ceiling.",
+    brief: (): string =>
+      "`discern-set-the-standard` helps a coding agent set a quality floor.",
   }),
 
   defineTip({
@@ -585,6 +786,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       "Completion requires every standard. Share a producer with complete declared inputs to reuse valid evidence; " +
       `${CMD.standards} runs standalone measurements.`,
+    brief: (): string =>
+      `Completion needs every standard; ${CMD.standards} measures them.`,
   }),
 
   defineTip({
@@ -601,6 +804,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.standardsPin} saves a measured gain by tightening the limit. ` +
       "A `margin` leaves room for small future changes.",
+    brief: (): string =>
+      `${CMD.standardsPin} saves a measured gain by tightening a limit.`,
   }),
 
   // ── Project upkeep: edit settings, rebuild outputs, and leave safely. ────
@@ -619,6 +824,8 @@ export const TIPS: readonly RegisteredTip[] = [
       `${CMD.configSet} edits ` +
       "`discern.toml` without losing comments and validates the full file " +
       "before writing.",
+    brief: (): string =>
+      `${CMD.configSet} edits \`discern.toml\` and validates it.`,
   }),
 
   defineTip({
@@ -639,6 +846,8 @@ export const TIPS: readonly RegisteredTip[] = [
       `${CMD.refresh} compiles shared instructions into every configured coding ` +
       "agent's instruction file and republishes reusable guides from their " +
       "sources.",
+    brief: (): string =>
+      `${CMD.refresh} rebuilds each coding agent's instruction file.`,
   }),
 
   defineTip({
@@ -654,6 +863,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.upgradeCheck} reports whether this project has pending settings ` +
       "updates. It changes nothing.",
+    brief: (): string =>
+      `${CMD.upgradeCheck} says whether settings need updating.`,
   }),
 
   defineTip({
@@ -665,6 +876,8 @@ export const TIPS: readonly RegisteredTip[] = [
       "`discern.toml` holds all project-specific discern settings. Everything " +
       "else is bundled, placed through those settings, or generated from " +
       "text you can review.",
+    brief: (): string =>
+      "`discern.toml` holds every project-specific discern setting.",
   }),
 
   defineTip({
@@ -675,6 +888,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       "discern contains no language model and requires no model-service " +
       "credentials. It runs the commands your project declares, in any language.",
+    brief: (): string =>
+      "discern has no language model inside and works in any language.",
   }),
 
   // ── Power tools: explore wider surfaces after the core loop is familiar. ─
@@ -693,6 +908,8 @@ export const TIPS: readonly RegisteredTip[] = [
       `${CMD.couplingFile} spots files that usually change with the named ` +
       "file but are missing from the current work. It reads only this " +
       "project's history.",
+    brief: (): string =>
+      `${CMD.couplingFile} finds files that usually change with it.`,
   }),
 
   defineTip({
@@ -708,6 +925,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.impact} shows which named project areas and extra checks the ` +
       "current change activates.",
+    brief: (): string =>
+      `${CMD.impact} shows which areas and extra checks a change sets off.`,
   }),
 
   defineTip({
@@ -723,6 +942,7 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.awaitGreen} waits for another task's passing Proof and returns ` +
       "the right next step, so a coding agent does not need to keep checking.",
+    brief: (): string => `${CMD.awaitGreen} waits for another task's Proof.`,
   }),
 
   defineTip({
@@ -738,6 +958,7 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `Use ${CMD.mapSearch} to search this project's guide. Use ` +
       `${CMD.docsSearch} for discern's own manual.`,
+    brief: (): string => `${CMD.mapSearch} searches this project's guide.`,
   }),
 
   defineTip({
@@ -753,6 +974,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.skillsList} shows the reusable guides available to coding ` +
       "agents, including project replacements and hidden guides.",
+    brief: (): string =>
+      `${CMD.skillsList} shows the guides available to coding agents.`,
   }),
 
   // ── Reusable guides: give specialized work its full procedure. ─────────
@@ -766,6 +989,8 @@ export const TIPS: readonly RegisteredTip[] = [
       "`discern-cure-a-bug` guides a coding agent to prove the cause, fix " +
       "every occurrence, and add a check that catches the defect if it " +
       "returns.",
+    brief: (): string =>
+      "`discern-cure-a-bug` guides a coding agent to fix a bug for good.",
   }),
 
   defineTip({
@@ -777,6 +1002,8 @@ export const TIPS: readonly RegisteredTip[] = [
       "`discern-clear-the-decks` guides a coding agent to remove unused code, " +
       "repeated helpers, and leftovers from abandoned approaches in small " +
       "safe commits.",
+    brief: (): string =>
+      "`discern-clear-the-decks` guides a coding agent to clear out dead code.",
   }),
 
   defineTip({
@@ -788,6 +1015,8 @@ export const TIPS: readonly RegisteredTip[] = [
       "`discern-write-it-once` helps a coding agent store each fact once, " +
       "include future additions automatically, and preview changes before " +
       "running them.",
+    brief: (): string =>
+      "`discern-write-it-once` helps a coding agent store each fact once.",
   }),
 
   defineTip({
@@ -798,6 +1027,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       "Ask your coding agent to update the affected page of the project guide from the code and " +
       "tests. The project guide connects each explanation to its evidence.",
+    brief: (): string =>
+      "Ask your coding agent to update the project guide from the code.",
   }),
 
   defineTip({
@@ -809,6 +1040,8 @@ export const TIPS: readonly RegisteredTip[] = [
       "`discern-teach-the-project` records a durable lesson in project " +
       "instructions, a reusable guide, a script, documentation, or a decision " +
       "record.",
+    brief: (): string =>
+      "`discern-teach-the-project` records a lesson for future coding agents.",
   }),
 
   defineTip({
@@ -819,6 +1052,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       "`discern-write-adr` records a significant choice, its reasons, and its " +
       "trade-offs where future coding agents can find it.",
+    brief: (): string =>
+      "`discern-write-adr` records a significant choice and its reasons.",
   }),
 
   defineTip({
@@ -829,6 +1064,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       "`discern-delegate-work` turns a discussed task into a complete brief " +
       "for a fresh coding agent, then reviews the resulting change.",
+    brief: (): string =>
+      "`discern-delegate-work` turns a discussion into a coding agent's brief.",
   }),
 
   defineTip({
@@ -839,6 +1076,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       "`discern-await-the-fleet` guides a coding agent to wait for another " +
       "task with one bounded call, then build on what arrives.",
+    brief: (): string =>
+      "`discern-await-the-fleet` waits for another task with one call.",
   }),
 
   defineTip({
@@ -850,6 +1089,8 @@ export const TIPS: readonly RegisteredTip[] = [
       "`discern-place-a-checkpoint` turns a point a reviewer keeps raising " +
       "into a change-triggered judgment the final quality check serves " +
       "and records.",
+    brief: (): string =>
+      "`discern-place-a-checkpoint` turns a repeated review point into a check.",
   }),
 
   defineTip({
@@ -865,6 +1106,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.identityPort} prints the stable network number used by that ` +
       "task's preview server. Other choices show its branch and service names.",
+    brief: (): string =>
+      `${CMD.identityPort} prints a task's stable network number.`,
   }),
 
   defineTip({
@@ -875,6 +1118,8 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       "A project can give every worktree its own information store, emulator, or " +
       "container. discern provisions and removes them with the worktree.",
+    brief: (): string =>
+      "A worktree can have its own services, set up and removed with it.",
   }),
 
   defineTip({
@@ -891,6 +1136,10 @@ export const TIPS: readonly RegisteredTip[] = [
       `When a task has a project-owned tool, the desk offers ${
         quoted(DESK_ACTION_LABELS.scripts)
       }. ${CMD.scripts} lists the same tools from a shell.`,
+    brief: (): string =>
+      `${
+        quoted(DESK_ACTION_LABELS.scripts)
+      } runs a project's own tools in a task.`,
   }),
 ];
 

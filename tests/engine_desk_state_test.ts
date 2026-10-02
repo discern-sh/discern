@@ -146,7 +146,11 @@ Deno.test("every message's id names its topic, which a state report reader recov
   assertEquals(deskMessageTopic(undefined), undefined);
   const tipped = deskProduct(observedDesk(survey([editing("alpha")])), {
     kind: "tip",
-    tip: "Press `?` for keys",
+    tip: {
+      lead: "Tip",
+      brief: "Press `?` for keys",
+      full: "Press `?` for keys",
+    },
   }).state.message;
   assertEquals(deskMessageTopic(tipped?.id), "tip");
   assertEquals(tipped?.topic, "tip");

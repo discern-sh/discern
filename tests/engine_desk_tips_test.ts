@@ -15,9 +15,16 @@ import { configSchema } from "../src/shared/config_schema.ts";
 import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
 import { fleetEntry, mainFleetEntry, statusData } from "./status_fleet.ts";
 import {
+  authoredTipBrief,
+  authoredTipText,
   defineTip,
   type RegisteredTip,
+  TIP_KEY_LABELS,
   type TipDef,
+  type TipKey,
+  tipKeyLabel,
+  tipKeyTokens,
+  TIPS,
 } from "../src/shared/tips.ts";
 import {
   freshTipSeenState,
@@ -35,6 +42,8 @@ import {
   writeTipSeenState,
 } from "../src/engine/desk/tip_state.ts";
 import { writeNewerOnDiskJsonFixture } from "./on_disk_format_fixtures.ts";
+import { formatKeyChord } from "discern-design-system/cli";
+import { DESK_KEYS } from "../src/engine/desk/keys.ts";
 
 const CONFIG = configSchema.parse({
   project: { slug: "demo" },
@@ -71,6 +80,7 @@ function tipOf(
     features: ["desk"],
     example: undefined,
     template: (): string => `Teaches ${id}.`,
+    brief: (): string => `Teaches ${id}, briefly.`,
     ...patch,
   });
 }
@@ -284,7 +294,11 @@ Deno.test("selectTip follows applicability, arrival, curriculum, and rotation pr
     context: TipContext;
     state: TipSeenState;
     expected:
-      | { id?: string; newIn?: string | undefined; rendered?: string }
+      | {
+        id?: string;
+        newIn?: string | undefined;
+        rendered?: ReturnType<typeof renderTipLine>;
+      }
       | undefined;
   }> = [
     {
@@ -331,7 +345,11 @@ Deno.test("selectTip follows applicability, arrival, curriculum, and rotation pr
       expected: {
         id: "arrived",
         newIn: "3.1.0",
-        rendered: "New in 3.1.0: Teaches arrived.",
+        rendered: {
+          lead: "New",
+          brief: "Teaches arrived, briefly.",
+          full: "New in 3.1.0: Teaches arrived.",
+        },
       },
     },
     {
@@ -343,7 +361,11 @@ Deno.test("selectTip follows applicability, arrival, curriculum, and rotation pr
       expected: {
         id: "shipped",
         newIn: undefined,
-        rendered: "Teaches shipped.",
+        rendered: {
+          lead: "Tip",
+          brief: "Teaches shipped, briefly.",
+          full: "Teaches shipped.",
+        },
       },
     },
     {
@@ -545,4 +567,31 @@ Deno.test("tip seen-state: outside a repository, reads reset and writes are sile
     );
     await writeTipSeenState(dir, freshTipSeenState("3.0.0"));
   });
+});
+
+Deno.test("a tip's keys read as the footer shows them, and each is bound", () => {
+  const bound = new Set(DESK_KEYS.inbox.map((binding) => binding.key));
+  const tokens = TIPS.flatMap((tip) =>
+    tipKeyTokens(`${authoredTipText(tip)} ${authoredTipBrief(tip)}`)
+  );
+  assert(tokens.length > 0, "some tip names a key");
+  for (const keys of tokens) {
+    for (const key of keys) assert(bound.has(key), `${key} does nothing`);
+    for (const unicode of [true, false]) {
+      assertEquals(
+        tipKeyLabel(keys, unicode ? "unicode" : "ascii"),
+        formatKeyChord(keys, { unicode }),
+        `${keys.join("+")}, ${unicode ? "Unicode" : "ASCII"}`,
+      );
+    }
+  }
+  // Every key the table holds is one the footer formats the same way.
+  for (const key of Object.keys(TIP_KEY_LABELS) as TipKey[]) {
+    assertEquals(
+      tipKeyLabel([key], "unicode"),
+      formatKeyChord(key, {
+        unicode: true,
+      }),
+    );
+  }
 });

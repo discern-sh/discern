@@ -23,7 +23,7 @@ import {
   labelName,
   withTrunk,
 } from "../src/shared/desk_vocabulary.ts";
-import { renderTipCli, TIPS } from "../src/shared/tips.ts";
+import { renderTipBriefCli, renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 
 /** The one module that holds every label. */
@@ -167,7 +167,10 @@ Deno.test("Desk label guard", async () => {
       },
     "every control a tip quotes is a registered label": () => {
       const quoted = TIPS.flatMap((tip) =>
-        [...stripCodeSpans(renderTipCli(tip)).matchAll(/"([^"]+)"/gu)].map((
+        [
+          ...stripCodeSpans(`${renderTipCli(tip)} ${renderTipBriefCli(tip)}`)
+            .matchAll(/"([^"]+)"/gu),
+        ].map((
           match,
         ) => [tip.id, match[1] ?? ""] as const)
       );
