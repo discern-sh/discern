@@ -469,6 +469,29 @@ Deno.test("status and doctor reminders are read-only and advisory with logbook d
   });
 });
 
+Deno.test("status reads the reminder from a release record its caller already read", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root, { agents: [] });
+    await gitInit(root);
+    // No record on disk: only the given read can make the check due.
+    const read = {
+      status: "recorded",
+      value: {
+        schema_version: 1,
+        first_seen_at: new Date(first).toISOString(),
+      },
+    } as const;
+    const given = await statusResult(root, {
+      all: true,
+      nowMs: due,
+      releaseCheck: read,
+    });
+    assert(given.data?.release_reminder, "the given read is due");
+    const own = await statusResult(root, { all: true, nowMs: due });
+    assertEquals(own.data?.release_reminder, undefined, "the disk's is not");
+  });
+});
+
 Deno.test("release CLI works outside projects, prints each projection, and dry-run preserves missing state", async () => {
   await withTempDir(async (root) => {
     for (

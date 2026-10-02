@@ -288,6 +288,32 @@ Deno.test("the Commands row says a release check is due, from status's reminder"
   });
 });
 
+Deno.test("each survey reads the release record once and hands status that read", async () => {
+  const reads: ReleaseCheckRead[] = [];
+  const given: ReleaseCheckRead[] = [];
+  await withDeskSession({
+    runtime: {
+      releaseCheck: () => {
+        const read = handedOff("2026-06-18T00:00:00.000Z");
+        reads.push(read);
+        return read;
+      },
+      status: (_root, release) => {
+        if (release !== undefined) given.push(release);
+        return { ok: true, data: fleet() };
+      },
+    },
+  }, async (desk) => {
+    await desk.shows("Ready work");
+    await desk.press("r");
+    await desk.until(() => reads.length >= 2, "a second survey");
+  });
+  assertEquals(given.length, reads.length, "one read per survey");
+  for (const [index, read] of reads.entries()) {
+    assert(given[index] === read, `survey ${index} reads status from it`);
+  }
+});
+
 Deno.test("the session's tip shows in the home panel, never on the message line", async () => {
   await session(fleet, async (desk) => {
     await desk.shows("Tip");

@@ -199,14 +199,19 @@ export interface DeskRuntime extends DeskLandingPermission {
   inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
   loadConfig(root: string): DeskMaybePromise<DiscernConfig>;
-  status(root: string): DeskMaybePromise<{
+  /**
+   * The status survey. The inbox's survey passes the release record it
+   * already read, so the reminder and the last check the Desk shows come
+   * from one read.
+   */
+  status(root: string, releaseCheck?: ReleaseCheckRead): DeskMaybePromise<{
     ok: boolean;
     data?: StatusData | undefined;
     message?: string | undefined;
     hints?: readonly string[] | undefined;
   }>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
-  /** The clone's release record, which the home panel's last check reads. */
+  /** The clone's release record, read once per survey. */
   releaseCheck(root: string): DeskMaybePromise<ReleaseCheckRead>;
   makeOut(): Out;
   error(message: string): void;
@@ -409,7 +414,11 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
   loadConfig: (root) => loadConfig(root),
-  status: (root) => statusResult(root, { all: true }),
+  status: (root, releaseCheck) =>
+    statusResult(root, {
+      all: true,
+      ...(releaseCheck === undefined ? {} : { releaseCheck }),
+    }),
   mainRepoPath: (root) => mainRepoPath(root),
   releaseCheck: (root) => inspectReleaseCheck(root),
   // The only production writers of landing permission: this runtime is
@@ -922,10 +931,8 @@ export async function runDesk(
       now: runtime.now,
       scheduler: runtime.scheduler,
       observe: async () => {
-        const [result, release] = await Promise.all([
-          runtime.status(root),
-          runtime.releaseCheck(root),
-        ]);
+        const release = await runtime.releaseCheck(root);
+        const result = await runtime.status(root, release);
         if (!result.ok || result.data === undefined) {
           throw new Error(result.message ?? "The status survey failed.");
         }

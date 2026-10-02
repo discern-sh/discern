@@ -551,15 +551,20 @@ export async function deskSession(
   const scripted = options.production === true
     ? undefined
     : scriptedDeskRuntime(output);
-  const status = options.runtime?.status ?? scripted?.status ??
-    ((root: string) => statusResult(root, { all: true }));
+  const status: DeskRuntime["status"] = options.runtime?.status ??
+    scripted?.status ??
+    ((root, releaseCheck) =>
+      statusResult(root, {
+        all: true,
+        ...(releaseCheck === undefined ? {} : { releaseCheck }),
+      }));
   const runtime: Partial<DeskRuntime> = {
     ...scripted,
     ...(scripted === undefined ? {} : { now: () => DESK_NOW + clock.now() }),
     scheduler: clockScheduler(clock),
     ...options.runtime,
-    status: async (root) => {
-      const result = await status(root);
+    status: async (root, releaseCheck) => {
+      const result = await status(root, releaseCheck);
       surveys += 1;
       return result;
     },
