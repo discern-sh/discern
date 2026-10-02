@@ -36,13 +36,20 @@ import {
 import { tone } from "./inspector_view.ts";
 import { deskChips, toggleLabel } from "./header_view.ts";
 
-/** The facts command meta reads. */
-function commandFacts(state: DeskProductState): DeskCommandFacts {
+/** The facts command meta reads, which the palette and the home panel share. */
+export function commandFacts(
+  state: DeskProductState,
+  now: number,
+): DeskCommandFacts {
   return {
     ...(state.data === undefined ? {} : { data: state.data }),
     version: DISCERN_VERSION,
     trunk: state.trunk,
     sessionOperations: state.activity.length,
+    ...(state.releaseCheck === undefined
+      ? {}
+      : { releaseCheck: state.releaseCheck }),
+    now,
   };
 }
 
@@ -57,9 +64,10 @@ function commandLabel(state: DeskProductState, command: DeskCommand): string {
 function commandItem(
   state: DeskProductState,
   command: DeskCommand,
+  now: number,
 ): ApplicationPaletteItem<DeskIntent> {
   const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
-  const meta = metadata.meta?.(commandFacts(state));
+  const meta = metadata.meta?.(commandFacts(state, now));
   return {
     id: command,
     label: commandLabel(state, command),
@@ -114,6 +122,7 @@ export function homePaletteCommand(state: DeskProductState): DeskCommand {
 /** The palette layer; `home` when it opened over the home panel. */
 export function deskPalette(
   state: DeskProductState,
+  now: number,
   home = false,
 ): ApplicationPalette<DeskIntent> {
   const sections: ApplicationPaletteSection<DeskIntent>[] = [];
@@ -126,7 +135,7 @@ export function deskPalette(
     const items = DESK_COMMANDS.filter((command) => {
       const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
       return metadata.scope === "global" && metadata.section === section;
-    }).map((command) => commandItem(state, command));
+    }).map((command) => commandItem(state, command, now));
     sections.push({ title: DESK_PALETTE_SECTION_TITLES[section], items });
   }
   if (home) sections.push(...needs);

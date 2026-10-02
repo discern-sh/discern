@@ -3,9 +3,10 @@
  *
  * The row leads the inbox in a group with no header, so the Desk opens with
  * it selected and a newcomer meets the desk's own commands before any task.
- * The panel beside it lists every command the command registry marks for
- * home, under the palette's sections, each with its key; says which discern
- * runs and when this clone last opened the release page; and carries the
+ * The panel beside it names the running discern and lists every command the
+ * command registry marks for home, under the palette's sections and laid out
+ * as the palette lists them: the label, the faint value the palette shows
+ * beside it, and its key, where it has one, at the end. It also carries the
  * session's tip. With no tasks it leads with what a task is. Enter on the
  * row opens the palette over the panel. Pure.
  */
@@ -23,13 +24,14 @@ import {
 } from "../../shared/desk_vocabulary.ts";
 import { DISCERN_NAME } from "../../shared/product_identity.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
+import { displayWidth } from "../../lib/text.ts";
 import { tipKeyLabel } from "../../shared/tips.ts";
-import { relativeAge } from "../status/row_facts.ts";
 import {
   DESK_COMMAND_REGISTRY,
   DESK_COMMANDS,
   DESK_PALETTE_SECTION_TITLES,
   DESK_PALETTE_SECTIONS,
+  type DeskCommandFacts,
   type DeskCommandMetadata,
   type DeskPaletteSection,
   RELEASE_CHECK_CUES,
@@ -39,6 +41,7 @@ import { DESK_GLYPHS } from "./glyphs.ts";
 import { COMMANDS_ROW_ID } from "./desk_transitions.ts";
 import type { DeskIntent, DeskProductState } from "./desk_state.ts";
 import { inlineRuns } from "./header_view.ts";
+import { commandFacts } from "./palette_view.ts";
 
 /** What the home panel reads besides product state. */
 export interface DeskHomeEnv {
@@ -123,50 +126,55 @@ export function commandsGroup(
   };
 }
 
-/**
- * Which discern runs, and when this clone last opened the release page: in
- * warning while status says a check is due.
- */
-function releaseRuns(
-  state: DeskProductState,
-  env: DeskHomeEnv,
-): ApplicationRun[] {
-  const history = state.releaseCheck;
-  const checked = history?.state === "checked"
-    ? `last checked ${relativeAge(history.at, env.now)}`
-    : history?.state === "never"
-    ? "never checked"
-    : undefined;
-  return [
-    { text: `${DISCERN_NAME} ${env.version}`, tone: "faint" },
-    ...(checked === undefined ? [] : [
-      { text: " · ", ascii: " - ", tone: "faint" as const },
-      {
-        text: checked,
-        tone: checkDue(state) ? "warning" as const : "faint" as const,
-      },
-    ]),
-  ];
+/** Which discern runs, as the panel's heading and the strip name it. */
+function running(env: DeskHomeEnv): string {
+  return `${DISCERN_NAME} ${env.version}`;
 }
 
 /**
- * One section's commands, each label whole after its key. A label is the
- * whole promise in the desk's words; the longest just fits the narrowest
- * standard column beside its key, so none is ever cut.
+ * One section's commands as the palette lists them: each label, then the
+ * faint value the palette shows beside it, then its key at the end, so a
+ * key never reads as a count. A label is the whole promise in the desk's
+ * words, so the block keeps its longest whole: the value gives way first,
+ * and a label with nothing beside it runs on into the empty cells.
  */
 function commandRows(
   commands: readonly DeskCommand[],
+  facts: DeskCommandFacts,
 ): ApplicationDetailBlock {
+  const rows = commands.map((command) => ({
+    label: DESK_COMMAND_LABELS[command],
+    meta: metadata(command).meta?.(facts),
+    key: metadata(command).key,
+  }));
+  const metaWidth = Math.max(
+    0,
+    ...rows.map((row) => row.meta === undefined ? 0 : displayWidth(row.meta)),
+  );
+  const keyed = rows.some((row) => row.key !== undefined);
   return {
     kind: "rows",
-    lead: { id: "key", width: 1 },
-    items: commands.map((command) => {
-      const key = metadata(command).key;
-      return {
-        ...(key === undefined ? {} : { lead: [{ text: key, role: "key" }] }),
-        text: [{ text: DESK_COMMAND_LABELS[command] }],
-      };
-    }),
+    columns: [
+      ...(metaWidth === 0 ? [] : [{
+        id: "meta",
+        width: metaWidth,
+        align: "end" as const,
+        priority: 1,
+      }]),
+      ...(keyed ? [{ id: "key", width: 1 }] : []),
+    ],
+    minText: Math.max(...rows.map((row) => displayWidth(row.label))),
+    items: rows.map((row) => ({
+      text: [{ text: row.label }],
+      cells: {
+        ...(row.meta === undefined
+          ? {}
+          : { meta: [{ text: row.meta, tone: "faint" as const }] }),
+        ...(row.key === undefined
+          ? {}
+          : { key: [{ text: row.key, role: "key" as const }] }),
+      },
+    })),
   };
 }
 
@@ -188,12 +196,18 @@ export function homeBlocks(
 ): ApplicationDetailBlock[] {
   const empty = noTasks(state);
   const tip = state.tip;
+  const facts = commandFacts(state, env.now);
+
+  // The row and the zoom's breadcrumb already say Commands, so the panel
+  // names what runs instead, beside what a task is while there are none.
   return [
-    {
-      kind: "heading",
-      title: empty ? "No tasks yet" : COMMANDS_LABEL,
-      aside: releaseRuns(state, env),
-    },
+    empty
+      ? {
+        kind: "heading",
+        title: "No tasks yet",
+        aside: [{ text: running(env), tone: "faint" }],
+      }
+      : { kind: "heading", title: running(env) },
     ...(empty
       ? [{
         kind: "text" as const,
@@ -207,7 +221,7 @@ export function homeBlocks(
     ...homeSections().map(({ section, commands }): ApplicationDetailBlock => ({
       kind: "section",
       title: DESK_PALETTE_SECTION_TITLES[section],
-      blocks: [commandRows(commands)],
+      blocks: [commandRows(commands, facts)],
     })),
     ...(tip === undefined ? [] : [{
       kind: "section" as const,
@@ -247,7 +261,7 @@ export function homeStrip(
       [{ text: plural(DESK_HOME_COMMANDS.length, "command") }],
       checkDue(state)
         ? [{ text: RELEASE_CHECK_CUES.chip, tone: "warning" as const }]
-        : releaseRuns(state, env),
+        : [{ text: running(env), tone: "faint" as const }],
       [paletteKey(undefined), { text: " anywhere", tone: "muted" }],
     ],
   };

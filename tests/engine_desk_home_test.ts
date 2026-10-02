@@ -8,10 +8,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import type {
-  ApplicationDetailBlock,
-  ApplicationRun,
-} from "discern-design-system/cli/interactive";
+import type { ApplicationDetailBlock } from "discern-design-system/cli/interactive";
 import {
   DESK_COMMAND_LABELS,
   type DeskCommand,
@@ -52,6 +49,7 @@ import {
   productSurvey,
 } from "./fixtures/desk_product.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { measureText } from "discern-design-system/cli";
 
 /** The inbox geometries the design pins. */
 const INBOX_SIZES = [
@@ -164,7 +162,10 @@ function words(blocks: readonly ApplicationDetailBlock[]): string {
         return `${block.title} ${block.caption ?? ""} ${words(block.blocks)}`;
       case "rows":
         return block.items.map((item) =>
-          [...(item.lead ?? []), ...item.text].map((run) => run.text).join(" ")
+          [
+            ...item.text,
+            ...Object.values(item.cells ?? {}).flat(),
+          ].map((run) => run.text).join(" ")
         ).join("\n");
       case "pending":
         return block.label;
@@ -375,7 +376,11 @@ Deno.test("the Commands row says a release check is due, from status's reminder"
       const row = lineWith(desk, "≡ Commands");
       assertStringIncludes(row, RELEASE_CHECK_CUES.row);
       assert(!row.includes("^K"), "the cue stands in for the palette's key");
-      assertStringIncludes(desk.screen(), "last checked");
+      assertStringIncludes(
+        lineWith(desk, DESK_COMMAND_LABELS.updates),
+        "3w ago",
+        "the last check sits beside Check for updates",
+      );
     },
     {},
     handedOff("2026-06-18T00:00:00.000Z"),
@@ -408,7 +413,11 @@ Deno.test("each survey reads the release record once and hands status that read"
     await desk.press("r");
     await desk.until(() => reads.length >= 2, "a second survey");
   });
-  assertEquals(given.length, reads.length, "one read per survey");
+  // A survey still reading as the session quits may not reach status.
+  assert(
+    given.length === reads.length || given.length === reads.length - 1,
+    `one read per survey: ${reads.length} reads, ${given.length} surveys`,
+  );
   for (const [index, read] of reads.entries()) {
     assert(given[index] === read, `survey ${index} reads status from it`);
   }
@@ -522,32 +531,66 @@ Deno.test("the home panel lists every command marked for home, the manual and th
   }
 });
 
-Deno.test("the home panel says which discern runs and when this clone last checked", () => {
+/** The faint value beside one command in the home panel, if any. */
+function besideCommand(
+  blocks: readonly ApplicationDetailBlock[],
+  label: string,
+): string | undefined {
+  for (const block of blocks) {
+    if (block.kind !== "section") continue;
+    for (const inner of block.blocks) {
+      if (inner.kind !== "rows") continue;
+      const row = inner.items.find((item) =>
+        item.text.map((run) => run.text).join("") === label
+      );
+      if (row !== undefined) {
+        return row.cells?.meta?.map((run) => run.text).join("");
+      }
+    }
+  }
+  return undefined;
+}
+
+Deno.test("the home panel names which discern runs, and when this clone last checked beside Check for updates", () => {
   const checked = { state: "checked", at: "2026-06-18T12:00:00.000Z" } as const;
   const cases: ReadonlyArray<
-    readonly [DeskProductState["releaseCheck"], string, string | undefined]
+    readonly [DeskProductState["releaseCheck"], string | undefined]
   > = [
-    [checked, "discern 9.8.7 · last checked 3w ago", undefined],
-    [{ state: "never" }, "discern 9.8.7 · never checked", undefined],
-    [{ state: "unknown" }, "discern 9.8.7", undefined],
-    [undefined, "discern 9.8.7", undefined],
+    [checked, "3w ago"],
+    [{ state: "never" }, "never checked"],
+    [{ state: "unknown" }, undefined],
+    [undefined, undefined],
   ];
-  for (const [history, line] of cases) {
-    const [heading] = homeBlocks(surveyed(productSurvey([]), history), ENV);
-    assert(heading?.kind === "heading");
-    assertEquals(
-      (heading.aside ?? []).map((run) => run.text).join(""),
-      line,
-    );
+  for (const [history, beside] of cases) {
+    for (const data of [productSurvey([]), fleet()]) {
+      const blocks = homeBlocks(surveyed(data, history), ENV);
+      assertEquals(
+        besideCommand(blocks, DESK_COMMAND_LABELS.updates),
+        beside,
+        JSON.stringify(history),
+      );
+      const [heading] = blocks;
+      assert(heading?.kind === "heading");
+      assertEquals(
+        [heading.title, ...(heading.aside ?? []).map((run) => run.text)]
+          .includes("discern 9.8.7"),
+        true,
+        "the heading names the running discern",
+      );
+    }
   }
+  const working = homeBlocks(surveyed(fleet(), checked), ENV);
+  assert(working[0]?.kind === "heading");
+  assertEquals(working[0].title, "discern 9.8.7", "not Commands again");
   const due = surveyed(
     productSurvey([], { release_reminder: "due" }),
     checked,
   );
-  const [heading] = homeBlocks(due, ENV);
-  assert(heading?.kind === "heading");
-  const tones = (heading.aside ?? []).map((run: ApplicationRun) => run.tone);
-  assertEquals(tones.at(-1), "warning", "a due check reads as a warning");
+  assertEquals(
+    besideCommand(homeBlocks(due, ENV), DESK_COMMAND_LABELS.updates),
+    "3w ago",
+    "a due check keeps the history faint; the row says it is due",
+  );
   const strip = homeStrip(due, ENV);
   assert(
     strip.facts.some((fact) =>
@@ -557,6 +600,42 @@ Deno.test("the home panel says which discern runs and when this clone last check
   );
   const [row] = commandsGroup(due).items;
   assertEquals(row?.cells?.label?.[0]?.text, RELEASE_CHECK_CUES.row);
+});
+
+Deno.test("the home panel lays its commands out as the palette lists them", () => {
+  const blocks = homeBlocks(
+    observedDesk(fleet({ unlanded_branches: ["agent/one", "agent/two"] })),
+    ENV,
+  );
+  const rows = blocks.flatMap((block) =>
+    block.kind === "section"
+      ? block.blocks.flatMap((inner) => inner.kind === "rows" ? [inner] : [])
+      : []
+  );
+  assert(rows.length > 0);
+  for (const block of rows) {
+    assertEquals(block.lead, undefined, "no key leads a label");
+    const ids = (block.columns ?? []).map((column) => column.id);
+    assertEquals(
+      ids.at(-1) === "key",
+      block.items.some((item) => item.cells?.key !== undefined),
+      "the key, where a command has one, ends its row",
+    );
+    assertEquals(
+      block.minText,
+      Math.max(
+        ...block.items.map((item) =>
+          measureText(item.text.map((run) => run.text).join(""))
+        ),
+      ),
+      "the longest label is kept whole before a value drops",
+    );
+  }
+  assertEquals(
+    besideCommand(blocks, DESK_COMMAND_LABELS.parked),
+    "2 branches",
+    "Go to entries carry the palette's values",
+  );
 });
 
 Deno.test("the home panel leads with what a task is while there are none", () => {
@@ -571,7 +650,9 @@ Deno.test("the home panel leads with what a task is while there are none", () =>
     "New task leads the commands",
   );
   const working = homeBlocks(observedDesk(fleet()), ENV);
-  assert(working[0]?.kind === "heading" && working[0].title === "Commands");
+  assert(
+    working[0]?.kind === "heading" && working[0].title === "discern 9.8.7",
+  );
   assert(!words(working).includes("A task is its own"));
   const group = commandsGroup(observedDesk(fleet()));
   assertEquals(group.id, COMMANDS_GROUP_ID);

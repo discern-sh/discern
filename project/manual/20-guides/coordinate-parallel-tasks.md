@@ -94,7 +94,7 @@ The **desk** is the interactive view that opens when you run `discern` in your m
 discern
 ```
 
-The desk opens on its **Commands** row, at the top of the list. Beside it, the desk lists what it can do besides a task's own steps, each with its key: start a task, run one of the project's scripts, read the manual, check for updates, and open the landing queue or the main checkout. It also says which discern you run and when you last checked for updates. Press Enter there to search every command, or Down to reach your tasks.
+The desk opens on its **Commands** row, at the top of the list. Beside it, the desk lists what it can do besides a task's own steps, with a key where one exists. You can start a task, run one of the project's scripts, read the manual, check for updates, or open the landing queue or the main checkout, among others. The list also says which discern you run and, beside **Check for updates…**, when you last checked. Press Enter there to search every command, starting on **New task…**, or Down to reach your tasks.
 
 Tasks are grouped by who moves next: **Ready for review**, **Needs attention**, **Working**, **Approved to land**, then **Idle**, with titles in alphabetical order inside each group. Each row shows the task's state, such as `✓ Ready`, `! Stale`, or `✕ Checks failed`, in the same words `discern status` uses, and when it last changed. A row whose files overlap another task's carries `⇄`. A task moves to another group when its state changes, and parked branches wait under **Parked**.
 
@@ -112,7 +112,7 @@ The selected task's details follow it on the right, or under the list on a narro
 
 ## Find every action on the desk
 
-Press `.` to see every action for the selected task, with its key, including those that can't run yet and why; the [desk actions reference](../30-reference/worktrees-and-status.md#desk-actions) lists them all. Ctrl+K opens every desk command from any row, such as **New task…**, with the tasks that need you first; Home takes you back to the Commands row. Space shows the selected task's details full screen, `?` lists every key, and Escape closes whatever is open without quitting.
+Press `.` to see every action for the selected task, with its key, including those that can't run yet and why; the [desk actions reference](../30-reference/worktrees-and-status.md#desk-actions) lists them all. Ctrl+K opens every desk command from any row, such as **New task…**; beside a task, the tasks that need you come first; Home takes you back to the Commands row. Space shows the selected task's details full screen, `?` lists every key, and Escape closes whatever is open without quitting.
 
 A label that ends in `…` asks you to confirm before anything changes, and the question opens on the choice that changes nothing. Before anything changes, the desk shows what will happen, and discern checks the task again when you confirm. Landings and checks run while the desk stays open.
 

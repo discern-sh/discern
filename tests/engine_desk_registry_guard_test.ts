@@ -50,6 +50,7 @@ import {
   DESK_PALETTE_SECTION_TITLES,
   DESK_PALETTE_SECTIONS,
   type DeskCommandMetadata,
+  lastUpdateCheck,
   RELEASE_CHECK_CUES,
 } from "../src/engine/desk/commands.ts";
 import {
@@ -356,6 +357,11 @@ Deno.test("Desk registry guard: labels and bindings", () => {
           version: "9.8.7",
           trunk: "main",
           sessionOperations: 2,
+          releaseCheck: {
+            state: "checked" as const,
+            at: "2026-01-01T00:00:00.000Z",
+          },
+          now: Date.parse("2026-01-22T00:00:00.000Z"),
           data: statusData([], {
             git: {
               branch: "main",
@@ -412,8 +418,24 @@ Deno.test("Desk registry guard: labels and bindings", () => {
             "2 branches",
             "has changes",
             "2 this session",
-            RELEASE_CHECK_CUES.meta,
+            "3w ago",
           ],
+        );
+        assertEquals(
+          lastUpdateCheck({
+            version: "9.8.7",
+            releaseCheck: { state: "never" },
+          }),
+          "never checked",
+        );
+        assertEquals(
+          lastUpdateCheck({
+            version: "9.8.7",
+            releaseCheck: { state: "unknown" },
+            now: 0,
+          }),
+          undefined,
+          "an unreadable record says nothing",
         );
       },
     "a release check cue says a check is due, never that a release exists":
@@ -432,7 +454,7 @@ Deno.test("Desk registry guard: labels and bindings", () => {
       assertStringIncludes(disclosure, "discern.sh");
       assertStringIncludes(disclosure, "9.8.7");
       assertStringIncludes(disclosure, "Nothing is installed");
-      const updates = deskPalette(observedDesk(productSurvey([]))).sections
+      const updates = deskPalette(observedDesk(productSurvey([])), 0).sections
         .flatMap((section) => section.items)
         .find((item) => item.id === "updates");
       assert(updates !== undefined, "the palette offers Check for updates");

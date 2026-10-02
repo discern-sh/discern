@@ -13,6 +13,8 @@
 import type { StatusData } from "../../shared/result_schemas.ts";
 import { DISCERN_URL } from "../../shared/product_identity.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
+import type { ReleaseCheckHistory } from "../../shared/release_check.ts";
+import { relativeAge } from "../status/row_facts.ts";
 import { FLEET_ROW_DECISIONS } from "../../shared/fleet_row_vocabulary.ts";
 import {
   DESK_COMMANDS,
@@ -82,8 +84,6 @@ export const RELEASE_CHECK_CUES = {
   chip: "Update check due",
   /** The Commands row's label cell, as wide as a task's state label. */
   row: "Check updates",
-  /** Faint text beside Check for updates in the palette. */
-  meta: "check due",
 } as const;
 
 /** The observed facts a command's meta, summary, or consequences read. */
@@ -95,6 +95,22 @@ export interface DeskCommandFacts {
   readonly trunk?: string;
   /** Operations this Desk session has run, for Session activity. */
   readonly sessionOperations?: number;
+  /** When this clone last opened the release page, for Check for updates. */
+  readonly releaseCheck?: ReleaseCheckHistory;
+  /** Wall time, for how long ago that was. */
+  readonly now?: number;
+}
+
+/**
+ * When this clone last checked for updates, beside Check for updates: how
+ * long ago it last opened the release page, or that it never has. It reads
+ * the clone's own record, never a fetch, so it says nothing of a release.
+ */
+export function lastUpdateCheck(facts: DeskCommandFacts): string | undefined {
+  const history = facts.releaseCheck;
+  if (history?.state === "never") return "never checked";
+  if (history?.state !== "checked" || facts.now === undefined) return undefined;
+  return relativeAge(history.at, facts.now);
 }
 
 /** What a command's review lines read: its facts and what it previewed. */
@@ -319,11 +335,7 @@ export const DESK_COMMAND_REGISTRY = {
     confirmation: confirm("Cancel", "Open"),
     binding: ["running-version"],
     summary: "See what's new and whether an upgrade is available",
-    // The reminder says a check is due, never that a release exists.
-    meta: (facts: DeskCommandFacts): string | undefined =>
-      facts.data?.release_reminder === undefined
-        ? undefined
-        : RELEASE_CHECK_CUES.meta,
+    meta: lastUpdateCheck,
     consequence: [
       said(
         "changes",
