@@ -162,8 +162,8 @@ export function branchMenu(
 
 /**
  * A launch named by what it does, and the sentence shown beneath the menu
- * while it is highlighted: what it does, and how to come back when the
- * provider documents it.
+ * while it is highlighted: what it does and, where the provider documents
+ * one, the command that returns to the Desk.
  */
 function launchWords(
   launch: DeskAgentLaunch,
