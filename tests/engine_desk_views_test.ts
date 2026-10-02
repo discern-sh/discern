@@ -1298,3 +1298,39 @@ Deno.test("the agent picker says what a launch does and how to come back, never 
   const claude = items.filter((item) => item.id.startsWith("claude_code:"));
   assert(claude.every((item) => said(item.description).includes("/exit")));
 });
+
+Deno.test("an agent that can't open says why in a few words, and the remedy on Enter", () => {
+  const config = configSchema.parse({
+    project: { name: "demo", slug: "demo", agents: ["claude_code", "codex"] },
+  });
+  const launches = buildAgentLaunches(config, [
+    { name: "claude_code", binary: "claude" },
+  ]);
+  const listed = desk(statusData([mainFleetEntry(), task({ ahead: 2 })]));
+  const state: DeskProductState = {
+    ...listed,
+    rows: listed.rows.map((row) => ({
+      ...row,
+      discovered: true,
+      agentLaunches: launches,
+    })),
+  };
+  const view = deskView(
+    open(state, { kind: "agents", taskId: "task" }).state,
+    PRODUCT_UI,
+    ENV,
+  );
+  const menu = view.layers?.[0];
+  assert(menu?.kind === "menu");
+  const unavailable = menu.sections.flatMap((section) =>
+    section.unavailable ?? []
+  );
+  assertEquals(unavailable.map((item) => item.reason), ["not on your PATH"]);
+  const [codex] = unavailable;
+  assert(codex !== undefined);
+  assertStringIncludes(codex.sentence, "[project].agents in discern.toml");
+  assertStringIncludes(
+    render(view, 80, 24),
+    `${codex.label}  not on your PATH`,
+  );
+});

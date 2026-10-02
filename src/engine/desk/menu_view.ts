@@ -251,7 +251,7 @@ export function agentsMenu(
       id: `unavailable:${provider}`,
       label: provider,
       sentence: launch.reason ?? unavailableWords(launch),
-      words: unavailableWords(launch),
+      reason: unavailableWords(launch),
     }];
   });
   // Continue first: it is what returning to a task usually wants.
@@ -276,29 +276,13 @@ export function agentsMenu(
           description: [{ text: words.description, tone: "faint" }],
         };
       }),
+      // Inline, a row says why in a few words; Enter shows the remedy.
       ...(index === available.length - 1 && unavailable.length > 0
-        ? {
-          unavailable: unavailable.map((item) => ({
-            id: item.id,
-            label: item.label,
-            sentence: item.words === "unavailable"
-              ? item.sentence
-              : `${item.words}: install it, or remove it from [project].agents in discern.toml`,
-          })),
-        }
+        ? { unavailable }
         : {}),
     })),
     ...(available.length === 0 && unavailable.length > 0
-      ? {
-        unavailable: {
-          title: "Unavailable",
-          items: unavailable.map((item) => ({
-            id: item.id,
-            label: item.label,
-            sentence: item.sentence,
-          })),
-        },
-      }
+      ? { unavailable: { title: "Unavailable", items: unavailable } }
       : {}),
     footnote: [{ text: agentFootnote(state, ref.row) }],
   };
