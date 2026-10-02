@@ -8,8 +8,15 @@ const directory = Deno.args[0];
 Deno.exit(
   await runDesk({}, {
     ...(directory === undefined ? {} : {
-      manual: () =>
-        readDocsBrowser("map", { dir: directory, exitLabel: DESK_MANUAL_EXIT }),
+      manual: async () => {
+        // The corpus stands in for the bundled manual, which reads by title
+        // alone, without the map's paths.
+        const { showPaths: _paths, ...manual } = await readDocsBrowser("map", {
+          dir: directory,
+          exitLabel: DESK_MANUAL_EXIT,
+        });
+        return manual;
+      },
     }),
   }),
 );
