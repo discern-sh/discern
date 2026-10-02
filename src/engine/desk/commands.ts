@@ -181,7 +181,6 @@ function branchesWithoutCheckout(data: StatusData | undefined): number {
 /** The single Desk-level command authority. */
 export const DESK_COMMAND_REGISTRY = {
   new_task: {
-    short: "New task",
     key: "n",
     scope: "global",
     section: "create",

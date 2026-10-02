@@ -37,6 +37,7 @@ import {
 import { COMMANDS_LABEL, DESK_KEYS } from "../src/engine/desk/keys.ts";
 import { deskChips } from "../src/engine/desk/header_view.ts";
 import { deskPalette } from "../src/engine/desk/palette_view.ts";
+import { EMPTY_LIST_MIN_TITLE } from "../src/engine/desk/inbox_view.ts";
 import type { StatusData } from "../src/shared/result_schemas.ts";
 import type { ReleaseCheckRead } from "../src/shared/release_check.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
@@ -729,13 +730,9 @@ Deno.test("the home panel lays its commands out as the palette lists them", () =
       "the key, where a command has one, ends its row",
     );
     assertEquals(
-      block.minText,
-      Math.max(
-        ...block.items.map((item) =>
-          measureText(item.text.map((run) => run.text).join(""))
-        ),
-      ),
-      "the longest label is kept whole before a value drops",
+      block.fit,
+      true,
+      "the package keeps the longest label whole before a value drops",
     );
   }
   assertEquals(
@@ -801,12 +798,11 @@ Deno.test("on a standard screen the home panel shows Create, Help and the tip, e
 
 Deno.test("the narrow strip names the commands it leads to, each by its short form", async () => {
   for (const command of DESK_STRIP_COMMANDS) {
-    const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
     assert(DESK_HOME_COMMANDS.includes(command), `${command} is home`);
-    assert(metadata.short !== undefined, `${command} has a short form`);
   }
   const shorts = DESK_STRIP_COMMANDS.map((command) =>
-    (DESK_COMMAND_REGISTRY[command] as DeskCommandMetadata).short ?? ""
+    (DESK_COMMAND_REGISTRY[command] as DeskCommandMetadata).short ??
+      DESK_COMMAND_LABELS[command]
   );
   for (
     const state of [observedDesk(fleet()), observedDesk(productSurvey([]))]
@@ -836,6 +832,11 @@ Deno.test("the narrow strip names the commands it leads to, each by its short fo
 });
 
 Deno.test("with no tasks the list keeps the Commands row's room and the panel takes the rest", async () => {
+  assertEquals(
+    EMPTY_LIST_MIN_TITLE,
+    measureText(COMMANDS_LABEL),
+    "the empty list keeps exactly the Commands row's title",
+  );
   const divider = (desk: DeskSession) =>
     lineWith(desk, "≡ Commands").indexOf("│");
   for (const [columns, rows] of [[80, 24], [120, 30]] as const) {

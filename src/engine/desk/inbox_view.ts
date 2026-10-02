@@ -11,18 +11,16 @@
  * an immutable view.
  */
 
-import {
-  type ApplicationDetailBlock,
-  type ApplicationDetailStrip,
-  type ApplicationKeyBinding,
-  type ApplicationList,
-  type ApplicationListGroup,
-  type ApplicationListItem,
-  type ApplicationMessage,
-  type ApplicationRun,
-  type ApplicationSplitRules,
-  DEFAULT_APPLICATION_SPLIT_RULES,
-  type TerminalApplicationView,
+import type {
+  ApplicationDetailBlock,
+  ApplicationDetailStrip,
+  ApplicationKeyBinding,
+  ApplicationList,
+  ApplicationListGroup,
+  ApplicationListItem,
+  ApplicationMessage,
+  ApplicationRun,
+  TerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import type { KeyHint } from "discern-design-system/cli";
 import type { StatusData } from "../../shared/result_schemas.ts";
@@ -99,7 +97,6 @@ import {
   noTasks,
 } from "./home_view.ts";
 import { inertView } from "./text.ts";
-import { displayWidth } from "../../lib/text.ts";
 
 /** What the view reads besides product and package state. */
 export interface DeskViewEnv extends DeskLayerEnv {
@@ -133,15 +130,12 @@ const BUSY_AFTER_MS = 1_500;
 const TITLE_GROUP = { id: "tasks", title: "Tasks" } as const;
 
 /**
- * While there are no tasks the list holds only the Commands row and any
- * branch folds, so it keeps just the room the row needs and gives the rest
- * to the home panel, where the desk explains what a task is.
+ * The title cells the list keeps while there are no tasks: the Commands
+ * row's title, all it then holds besides branch folds, so the list takes no
+ * more than the package's least and the home panel, where the desk explains
+ * what a task is, takes the rest. A home test holds it to the title.
  */
-const EMPTY_LIST_MIN_TITLE = displayWidth(COMMANDS_LABEL);
-const EMPTY_SPLIT: ApplicationSplitRules = {
-  ...DEFAULT_APPLICATION_SPLIT_RULES,
-  list: { sizing: "content", min: 24, maxTitle: EMPTY_LIST_MIN_TITLE },
-};
+export const EMPTY_LIST_MIN_TITLE = 8;
 
 /**
  * What a branch group holds, said beside its fold while there are no tasks,
@@ -804,7 +798,6 @@ function body(
     kind: "master-detail",
     list,
     detail: { follows: DESK_LIST_ID, content, strip, pending: "Reading…" },
-    ...(noTasks(state) ? { split: EMPTY_SPLIT } : {}),
   };
 }
 

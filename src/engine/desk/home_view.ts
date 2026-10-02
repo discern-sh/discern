@@ -23,7 +23,6 @@ import {
   type DeskCommand,
 } from "../../shared/desk_vocabulary.ts";
 import { DISCERN_NAME } from "../../shared/product_identity.ts";
-import { displayWidth } from "../../lib/text.ts";
 import { tipKeyLabel } from "../../shared/tips.ts";
 import {
   DESK_COMMAND_REGISTRY,
@@ -136,49 +135,45 @@ function running(env: DeskHomeEnv): string {
 }
 
 /**
+ * The widest faint value beside a home command, such as `12 queued · 3
+ * landed`; the package fits the column to the values a section holds.
+ */
+const HOME_META_CELLS = 24;
+
+/**
  * One section's commands as the palette lists them: each label, then the
  * faint value the palette shows beside it, then its key at the end, so a
  * key never reads as a count. A label is the whole promise in the desk's
- * words, so the block keeps its longest whole: the value gives way first,
- * and a label with nothing beside it runs on into the empty cells.
+ * words, so the block fits its content and keeps its longest label whole:
+ * the value gives way first, and a label with nothing beside it runs on
+ * into the empty cells.
  */
 function commandRows(
   commands: readonly DeskCommand[],
   facts: DeskCommandFacts,
 ): ApplicationDetailBlock {
-  const rows = commands.map((command) => ({
-    label: DESK_COMMAND_LABELS[command],
-    meta: metadata(command).meta?.(facts),
-    key: metadata(command).key,
-  }));
-  const metaWidth = Math.max(
-    0,
-    ...rows.map((row) => row.meta === undefined ? 0 : displayWidth(row.meta)),
-  );
-  const keyed = rows.some((row) => row.key !== undefined);
   return {
     kind: "rows",
+    fit: true,
     columns: [
-      ...(metaWidth === 0 ? [] : [{
-        id: "meta",
-        width: metaWidth,
-        align: "end" as const,
-        priority: 1,
-      }]),
-      ...(keyed ? [{ id: "key", width: 1 }] : []),
+      { id: "meta", width: HOME_META_CELLS, align: "end", priority: 1 },
+      { id: "key", width: 1 },
     ],
-    minText: Math.max(...rows.map((row) => displayWidth(row.label))),
-    items: rows.map((row) => ({
-      text: [{ text: row.label }],
-      cells: {
-        ...(row.meta === undefined
-          ? {}
-          : { meta: [{ text: row.meta, tone: "faint" as const }] }),
-        ...(row.key === undefined
-          ? {}
-          : { key: [{ text: row.key, role: "key" as const }] }),
-      },
-    })),
+    items: commands.map((command) => {
+      const meta = metadata(command).meta?.(facts);
+      const key = metadata(command).key;
+      return {
+        text: [{ text: DESK_COMMAND_LABELS[command] }],
+        cells: {
+          ...(meta === undefined
+            ? {}
+            : { meta: [{ text: meta, tone: "faint" as const }] }),
+          ...(key === undefined
+            ? {}
+            : { key: [{ text: key, role: "key" as const }] }),
+        },
+      };
+    }),
   };
 }
 
@@ -252,7 +247,8 @@ export function homeBlocks(
 /**
  * The commands the strip names below the split, in the order they matter on
  * a narrow screen: starting work, then the three a newcomer cannot guess a
- * key for. Each declares a short form in the command registry.
+ * key for. Each reads as its registry short form, or its label where it
+ * declares none.
  */
 export const DESK_STRIP_COMMANDS = [
   "new_task",
