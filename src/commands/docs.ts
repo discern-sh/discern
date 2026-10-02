@@ -803,10 +803,12 @@ function docsDocumentCount(count: number): string {
 function docsHeaderFact(
   verb: string,
   count: number,
-  directory: string,
+  directory?: string,
 ): string {
   return terminalLine(
-    `discern ${verb} — ${docsDocumentCount(count)} in ${directory}`,
+    `discern ${verb} · ${docsDocumentCount(count)}${
+      directory === undefined ? "" : ` in ${directory}`
+    }`,
   );
 }
 
@@ -823,7 +825,7 @@ export function renderDocsCorpusHeader(
   const safeDirectory = terminalLine(directory);
   return terminal.presenter.present(renderDocsHeaderCli, {
     brand: terminalLine(`discern ${verb}`),
-    middle: terminalLine(`— ${docsDocumentCount(count)} in ${safeDirectory}`),
+    middle: terminalLine(`· ${docsDocumentCount(count)} in ${safeDirectory}`),
     register: "brand",
     maxWidth: width,
   });
@@ -903,20 +905,24 @@ export async function docsBrowseProjection(
       items: promoted.map((entry) => ({
         id: `promoted:${entry.pageId ?? entry.relToDocs}`,
         name: entry.title,
-        description: view.desc("docs", entry.manualKind, entry.description),
+        description: manualSummary(entry),
         value: { kind: "promoted-document" as const, path: entry.path },
       })),
     }]),
     ...docBrowseGroups(tree.entries).map((group) => ({
       id: `documents:${group.id}`,
       label: group.label,
-      ...(group.description === undefined
+      // The manual's readers don't navigate by folder or file: each page
+      // says what it is and what it covers; the map keeps its paths.
+      ...(group.description === undefined || verb === "docs"
         ? {}
         : { description: group.description }),
       items: group.items.map((item) => ({
         id: `document:${item.entry.path}`,
         name: item.label,
-        description: view.desc(verb, item.entry.manualKind, item.description),
+        description: verb === "docs"
+          ? manualSummary(item.entry)
+          : view.desc(verb, item.entry.manualKind, item.description),
         value: documentChoice(item.entry.path),
       })),
     })),
@@ -931,6 +937,15 @@ export async function docsBrowseProjection(
     entriesByPath: new Map(tree.entries.map((entry) => [entry.path, entry])),
     documentChoice,
   };
+}
+
+/** A manual page as its entry describes it: its kind, then its summary. */
+function manualSummary(entry: DocEntry): string {
+  return view.desc(
+    "docs",
+    entry.manualKind,
+    entry.description === "" ? entry.title : entry.description,
+  );
 }
 
 /** Stable package path for a document already admitted by discovery. */
@@ -1041,9 +1056,7 @@ function docsBrowserRequest(
     // The bundled manual's install location says nothing to its reader, and
     // beside an open document it would crowd out the document's title.
     message: desc.verb === "docs"
-      ? terminalLine(
-        `discern ${desc.verb} — ${docsDocumentCount(tree.entries.length)}`,
-      )
+      ? docsHeaderFact(desc.verb, tree.entries.length)
       : docsHeaderFact(
         desc.verb,
         tree.entries.length,
@@ -1327,7 +1340,7 @@ function printMapOverview(
 ): void {
   const directory = terminalLine(display(tree.docsDir, cwd));
   const summary = terminalLine(
-    `discern map — ${regions.length} region${
+    `discern map · ${regions.length} region${
       regions.length === 1 ? "" : "s"
     } in ${directory}`,
   );

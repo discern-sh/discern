@@ -886,7 +886,7 @@ Deno.test("bare map renders README descriptions and Git freshness facts per regi
 
     const human = await runCli(["map"], dir);
     assertEquals(human.code, 0);
-    assertTerminalTextIncludes(human.stdout, "discern map — 1 region in docs");
+    assertTerminalTextIncludes(human.stdout, "discern map · 1 region in docs");
     assertTerminalTextIncludes(
       human.stdout,
       "00-intro  The short orientation to this project.",

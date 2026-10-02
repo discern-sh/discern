@@ -242,7 +242,7 @@ Deno.test("docs: resolveTerminalContext cases", () => {
         assertStringIncludes(rendered, DISCERN_MARK);
         assertEquals(
           rendered.split("\n").slice(1).join("").replaceAll(/\s+/gu, ""),
-          `— 17 documents in ${directory}`.replaceAll(/\s+/gu, ""),
+          `· 17 documents in ${directory}`.replaceAll(/\s+/gu, ""),
         );
       }
     },
@@ -255,7 +255,7 @@ Deno.test("docs: resolveTerminalContext cases", () => {
       });
       assertEquals(
         renderDocsCorpusHeader("docs", 17, "manual", 24, terminal),
-        "discern docs — 17 documents in manual",
+        "discern docs · 17 documents in manual",
       );
     },
     "docs headers make hostile directory facts inert before rendering": () => {
@@ -562,7 +562,7 @@ realPtyTest({
       const screen = (name: string): string =>
         captureTerminalFrame(process.keyframes[name] ?? "", geometry).text;
       const initial = screen("initial");
-      assertStringIncludes(initial, "discern docs — 8 documents");
+      assertStringIncludes(initial, "discern docs · 8 documents");
       assert(!initial.includes("manual-fixture"), "the install path stays out");
       // The selected action's preview carries its description.
       assertStringIncludes(initial, "ask your coding agent");
@@ -623,7 +623,7 @@ Deno.test("a browser another application opens reads its corpus once, or says wh
       { dir: docs, exitLabel: "Back to the host" },
       dir,
     );
-    assertStringIncludes(request.message, "discern map — ");
+    assertStringIncludes(request.message, "discern map · ");
     assert(
       request.entries.some((entry) =>
         entry.kind === "exit" && entry.name === "Back to the host"
@@ -674,10 +674,19 @@ Deno.test("promoted and complete manual entries keep distinct picker values", as
         group.items.some((item) => item.description?.startsWith("Tutorial ·"))
       ),
     );
+    // The manual's entries say what each page covers, never its folder or
+    // file; the map keeps its paths for the people who maintain it.
+    for (const group of projection.groups) {
+      assert(!/\/$/u.test(group.description ?? ""), group.label);
+      for (const item of group.items) {
+        assert(!/\.md\b/u.test(item.description ?? ""), item.name);
+      }
+    }
     const mapProjection = await docsBrowseProjection("map", discovered);
     assert(
       !JSON.stringify(mapProjection.groups).includes(DOCS_AGENT_CONTEXT_HINT),
     );
+    assert(JSON.stringify(mapProjection.groups).includes(".md"));
     const items = projection.groups.flatMap((group) => group.items);
     const selectable = items.map((item) => JSON.stringify(item.value));
     assertEquals(new Set(selectable).size, selectable.length);
