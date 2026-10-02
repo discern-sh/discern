@@ -497,7 +497,7 @@ Deno.test("the keys reader groups each meaning's keys into one readable row", ()
   const frame = render(deskView(state, PRODUCT_UI, ENV), 80, 60);
   // Arrow pairs touch, other one-cell keys stand a space apart, and a run
   // of digits reads as a range, Parked's key with the groups'. The package
-  // still joins keys wider than a cell with a slash (TODO(R-21)).
+  // still joins keys wider than a cell with a slash (TODO(R-38)).
   for (
     const row of [
       /↑↓ k j\s+Move\b/u,

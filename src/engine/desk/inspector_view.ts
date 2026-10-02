@@ -456,6 +456,8 @@ function artifacts(
             kind: "section",
             title: "Failure",
             caption: "from the last run",
+            // The package draws marks with a sheet's gap and indent;
+            // TODO(R-22): a compact marks block lines details up with names.
             blocks: [{
               kind: "marks",
               items: failures.slice(0, 3).map((failure) => ({

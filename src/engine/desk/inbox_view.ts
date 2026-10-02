@@ -437,6 +437,8 @@ function liveness(
  * what was found reads in ink after the lead.
  */
 function messageWords(message: DeskMessage): ApplicationRun[] {
+  // A tip's brief fits 80 columns whole; TODO(R-20): mark it optional so
+  // narrower or shorter terminals leave it out instead of cutting it.
   if (message.topic === "tip") {
     return [
       { text: message.lead ?? "Tip", tone: "faint" },
