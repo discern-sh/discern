@@ -50,6 +50,7 @@ import {
   DESK_PALETTE_SECTION_TITLES,
   DESK_PALETTE_SECTIONS,
   type DeskCommandMetadata,
+  RELEASE_CHECK_CUES,
 } from "../src/engine/desk/commands.ts";
 import {
   DESK_KEYS,
@@ -405,9 +406,18 @@ Deno.test("Desk registry guard: labels and bindings", () => {
             "2 branches",
             "has changes",
             "2 this session",
-            "check due",
+            RELEASE_CHECK_CUES.meta,
           ],
         );
+      },
+    "a release check cue says a check is due, never that a release exists":
+      () => {
+        // discern fetches nothing: status's reminder counts days since this
+        // clone last opened the release page.
+        for (const cue of Object.values(RELEASE_CHECK_CUES)) {
+          assert(/\bcheck/iu.test(cue), cue);
+          assert(!/available|new (?:release|version)|upgrade/iu.test(cue), cue);
+        }
       },
     "Check for updates discloses the browser and the running version": () => {
       const facts = { version: "9.8.7", data: statusData([]) };

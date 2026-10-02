@@ -65,6 +65,21 @@ export const DESK_PALETTE_SECTION_TITLES = {
   session: "Session",
 } as const satisfies Record<DeskPaletteSection, string>;
 
+/**
+ * How the desk says status's release reminder is due, by the room each
+ * surface has. The reminder counts days on this clone's own clock since it
+ * last opened the release page; discern fetches nothing, so no cue may say
+ * a release exists.
+ */
+export const RELEASE_CHECK_CUES = {
+  /** The header chip that routes to Check for updates. */
+  chip: "Update check due",
+  /** The Commands row's label cell, as wide as a task's state label. */
+  row: "Check updates",
+  /** Faint text beside Check for updates in the palette. */
+  meta: "check due",
+} as const;
+
 /** The observed facts a command's meta, summary, or consequences read. */
 export interface DeskCommandFacts {
   readonly data?: StatusData;
@@ -285,7 +300,9 @@ export const DESK_COMMAND_REGISTRY = {
     summary: "See what's new and whether an upgrade is available",
     // The reminder says a check is due, never that a release exists.
     meta: (facts: DeskCommandFacts): string | undefined =>
-      facts.data?.release_reminder === undefined ? undefined : "check due",
+      facts.data?.release_reminder === undefined
+        ? undefined
+        : RELEASE_CHECK_CUES.meta,
     consequence: [
       said(
         "changes",

@@ -885,7 +885,7 @@ Deno.test("header chips route fleet facts to where they live", () => {
       "! main needs a refresh",
       "! 2 emergency exceptions",
       "! 1 ADR number clash",
-      "Update available",
+      "Update check due",
     ],
   );
   const state = desk(productSurvey([]));
