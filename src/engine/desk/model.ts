@@ -1711,20 +1711,49 @@ function proofFact(
   };
 }
 
+/** Status's presentation of one entry under the Desk's observation. */
+function presentEntry(
+  entry: StatusFleetEntry,
+  observation: DeskObservationContext,
+): FleetRowPresentation {
+  return presentFleetRow(entry, {
+    trunk: observation.trunk,
+    nowMs: observation.nowMs,
+    ...(observation.fleetCollisions === undefined
+      ? {}
+      : { collisions: observation.fleetCollisions }),
+    ...(observation.queue === undefined ? {} : { queue: observation.queue }),
+    ...(observation.fleet === undefined ? {} : { fleet: observation.fleet }),
+  });
+}
+
+/**
+ * A row's explanation as it reads `elapsedMs` into its run. Status words a
+ * running row's explanation from the elapsed time it observed, so a view
+ * built between surveys counts it on in whole seconds, as the row's clock
+ * reads them.
+ */
+export function explanationAt(
+  row: DeskRow,
+  elapsedMs: number | undefined,
+): string {
+  const running = row.entry.running;
+  if (running === undefined || elapsedMs === undefined) {
+    return row.decision.explanation;
+  }
+  const shown = Math.floor(elapsedMs / 1_000) * 1_000;
+  return presentEntry(
+    { ...row.entry, running: { ...running, elapsed_ms: shown } },
+    row.observation,
+  ).explanation;
+}
+
 /** Build one complete decision from the status survey and desk capabilities. */
 export function buildDeskDecision(
   entry: StatusFleetEntry,
   options: DeskDecisionOptions,
 ): DeskDecision {
-  const presentation = presentFleetRow(entry, {
-    trunk: options.trunk,
-    nowMs: options.nowMs,
-    ...(options.fleetCollisions === undefined
-      ? {}
-      : { collisions: options.fleetCollisions }),
-    ...(options.queue === undefined ? {} : { queue: options.queue }),
-    ...(options.fleet === undefined ? {} : { fleet: options.fleet }),
-  });
+  const presentation = presentEntry(entry, options);
   const proof = proofFact(entry, presentation);
   const authority = authorityFact(entry, presentation.authority);
   const collisions: DeskCollision[] = [

@@ -35,7 +35,7 @@ import {
 } from "../status/row_states.ts";
 import { compactAge, queueHuman, relativeAge } from "../status/row_facts.ts";
 import type { DeskAction } from "../../shared/desk_vocabulary.ts";
-import { type DeskRow, deskRowId } from "./model.ts";
+import { type DeskRow, deskRowId, explanationAt } from "./model.ts";
 import { shortCommit } from "./review_facts.ts";
 import { CONSEQUENCE_GLYPHS, DESK_GLYPHS, type DeskGlyph } from "./glyphs.ts";
 import type {
@@ -703,7 +703,10 @@ export function taskBlocks(
         : { qualifier: decision.qualifier }),
     },
     ...meter(row, inspection),
-    { kind: "text", runs: [{ text: decision.explanation }] },
+    {
+      kind: "text",
+      runs: [{ text: explanationAt(row, runningElapsed(row, inspection)) }],
+    },
     {
       kind: "facts",
       rows: taskFacts(row, inspection).map(({ label, value }) => ({

@@ -1172,6 +1172,10 @@ Deno.test("a running time is a clock the package paints; the view moves with its
 
   const state = running(60_000);
   const selected = { ...PRODUCT_UI, selected: "running" };
+  // The inspector's words count on with the clock, in whole seconds.
+  const view = deskView(state, selected, env);
+  assert(view.body.kind === "master-detail");
+  assertStringIncludes(said(view.body.detail.content.running), "1m 2s ago");
   assertEquals(deskTickDelay(state, selected, env), 600, "at its next second");
   assertEquals(deskTickDelay(state, PRODUCT_UI, env), 1_000);
   assertEquals(
