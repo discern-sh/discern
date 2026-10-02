@@ -22,6 +22,7 @@ import {
   type DeskCommandFacts,
   type DeskCommandMetadata,
 } from "./commands.ts";
+import { waitsForOwner } from "../../shared/fleet_row_vocabulary.ts";
 import { deskRowId } from "./model.ts";
 import type { DeskIntent, DeskProductState } from "./desk_state.ts";
 import {
@@ -73,7 +74,7 @@ function needsYou(
   const tasks = state.rows.flatMap((row) => {
     const next = row.decision.next;
     if (
-      (row.decision.group !== "review" && row.decision.group !== "attention") ||
+      !waitsForOwner(row.decision.group) ||
       next?.availability !== "enabled"
     ) return [];
     const id = deskRowId(row);

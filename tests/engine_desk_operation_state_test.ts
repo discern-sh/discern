@@ -691,3 +691,51 @@ Deno.test("the exit log names each command in full with how it ended", () => {
   ]);
   assertEquals(line[1]?.role, "code", "the command stays one line to copy");
 });
+
+Deno.test("a landing lists what it landed under Landed and hands the selection to what needs the owner", () => {
+  const started = confirmed(
+    reviewed(
+      observedDesk(
+        productSurvey([
+          editingTask("alpha"),
+          editingTask("beta"),
+          taskFleetEntry("gamma", { broken: true }),
+        ]),
+      ),
+      actionStep("accept"),
+    ),
+    actionStep("accept"),
+  ).state;
+  const outcome: DeskOutcome = {
+    command: "discern accept --target agent/alpha --confirmed",
+    ok: true,
+    message: { tone: "success", text: "Landed Alpha on main" },
+    left: [{ taskId: "alpha", title: "Alpha", reason: "landed" }],
+  };
+  const settledWith = (selected: string) =>
+    deskProduct(started, {
+      kind: "operation-settled",
+      operationId: onlyOperation(started),
+      ended: "ran",
+      outcome,
+      output: "",
+      now: PRODUCT_NOW + 60_000,
+      selected,
+    });
+  const landed = settledWith("alpha");
+  assertEquals(
+    landed.state.data?.recent_completed_tasks?.map((task) => task.branch),
+    ["agent/alpha"],
+    "Landed lists it before the next survey reads the landing",
+  );
+  assertEquals(
+    landed.effects.filter((effect) => effect.kind === "select"),
+    [{ kind: "select", id: "gamma" }],
+    "the first task that needs the owner, not the next row",
+  );
+  assertEquals(
+    settledWith("beta").effects.filter((effect) => effect.kind === "select"),
+    [],
+    "a selection the landing didn't take out stays",
+  );
+});

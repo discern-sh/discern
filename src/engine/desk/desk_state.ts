@@ -59,12 +59,16 @@ import {
   taskOperation,
   toast,
   updateLayer,
+  withLanded,
   withRows,
 } from "./desk_transitions.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
 import { compactDuration } from "../output.ts";
 import { DESK_GLYPHS, MESSAGE_MARKS } from "./glyphs.ts";
-import { FLEET_ROW_GROUPS } from "../../shared/fleet_row_vocabulary.ts";
+import {
+  FLEET_OWNER_GROUPS,
+  FLEET_ROW_GROUPS,
+} from "../../shared/fleet_row_vocabulary.ts";
 
 /**
  * Survey cadence: one at a time, this long after the last finished. An
@@ -518,6 +522,8 @@ export type DeskEvent =
     readonly outcome: DeskOutcome;
     readonly output: string;
     readonly now: number;
+    /** The list item selected as it ended. */
+    readonly selected?: string;
   }
   | { readonly kind: "preferences-failed"; readonly reason: string }
   /** A page opened beside the screen, and what it left for its reader. */
@@ -1173,7 +1179,23 @@ function operationSettled(
   const about = tasks.length === 0 ? {} : { tasks: [...new Set(tasks)] };
   // What it took out of the inbox leaves the list at once, so no offer
   // stays on a landed task and the selection moves once.
-  next = leaving(next, left);
+  next = leaving(next, left, event.now);
+  // A landing that took the selected task out hands the selection to the
+  // first task that needs the owner, not to whichever row followed it.
+  if (
+    left.some((task) =>
+      task.reason === "landed" && task.taskId === event.selected
+    )
+  ) {
+    const first = FLEET_OWNER_GROUPS.flatMap((group) =>
+      next.rows.filter((row) =>
+        row.decision.group === group
+      )
+    )[0];
+    if (first !== undefined) {
+      effects.push({ kind: "select", id: deskRowId(first) });
+    }
+  }
   if (ended === "stopped") {
     next = toast(
       next,
@@ -1227,6 +1249,7 @@ function operationSettled(
 function leaving(
   state: DeskProductState,
   left: readonly DeskLeftTask[],
+  now: number,
 ): DeskProductState {
   if (left.length === 0) return state;
   const departed = new Map(state.departed);
@@ -1239,7 +1262,14 @@ function leaving(
     });
     gone.add(task.taskId);
   }
-  return withRows({ ...state, departed, gone });
+  return withRows({
+    ...state,
+    departed,
+    gone,
+    ...(state.data === undefined
+      ? {}
+      : { data: withLanded(state.data, state.rows, left, now) }),
+  });
 }
 
 /** Advance the product state by one event. */

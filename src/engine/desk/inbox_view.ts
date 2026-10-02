@@ -28,6 +28,7 @@ import {
   FLEET_BRANCH_GROUPS,
   FLEET_ROW_DECISIONS,
   type FleetRowGroup,
+  waitsForOwner,
 } from "../../shared/fleet_row_vocabulary.ts";
 import {
   FLEET_ROW_GROUP_TITLES,
@@ -131,9 +132,7 @@ function inspection(
 
 /** Rows that need the owner: Ready for review and Needs attention. */
 export function needYouCount(state: DeskProductState): number {
-  return state.rows.filter((row) =>
-    row.decision.group === "review" || row.decision.group === "attention"
-  ).length;
+  return state.rows.filter((row) => waitsForOwner(row.decision.group)).length;
 }
 
 /** Cells a four-cell meter fills for `elapsed` of a `typical` run. */

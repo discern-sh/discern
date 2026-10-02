@@ -20,6 +20,7 @@ import type {
 import {
   DESK_FLOW_STAGES,
   type DeskFlowStep,
+  type DeskLeftTask,
   type DeskResultNext,
   type DeskResultSheet,
   type DeskReviewAlternative,
@@ -332,6 +333,31 @@ export function heldForOperations(
     ...(unlanded.length === 0 ? {} : { unlanded_branches: unlanded }),
     ...(landed.length === 0 ? {} : { recent_completed_tasks: landed }),
   };
+}
+
+/**
+ * The observation with tasks an operation just landed listed under Landed
+ * at once, as of `now`, until the next survey reads the landing itself.
+ */
+export function withLanded(
+  data: StatusData,
+  rows: readonly DeskRow[],
+  left: readonly DeskLeftTask[],
+  now: number,
+): StatusData {
+  const recent = data.recent_completed_tasks ?? [];
+  const landed = left.flatMap((task) => {
+    if (task.reason !== "landed") return [];
+    const branch = rows.find((row) => deskRowId(row) === task.taskId)?.entry
+      .branch;
+    return branch === undefined || branch === "" ||
+        recent.some((entry) => entry.branch === branch)
+      ? []
+      : [{ branch, completed_at: new Date(now).toISOString() }];
+  });
+  return landed.length === 0
+    ? data
+    : { ...data, recent_completed_tasks: [...landed, ...recent] };
 }
 
 /** Rows for one observation, with the capabilities read so far. */

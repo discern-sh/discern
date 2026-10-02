@@ -53,6 +53,19 @@ export const FLEET_ROW_DECISIONS = [
   "idle",
 ] as const;
 
+/**
+ * The decision groups whose tasks wait for the owner, in display order: the
+ * header's need-you count, the palette's Needs you, and where the selection
+ * goes once a landing takes the selected task out.
+ */
+export const FLEET_OWNER_GROUPS:
+  readonly (typeof FLEET_ROW_DECISIONS)[number][] = ["review", "attention"];
+
+/** Whether a group's tasks wait for the owner. */
+export function waitsForOwner(group: string): boolean {
+  return FLEET_OWNER_GROUPS.some((owner) => owner === group);
+}
+
 /** Branches without a checkout and recent landings, after the live groups. */
 export const FLEET_BRANCH_GROUPS = ["parked", "landed"] as const;
 

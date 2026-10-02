@@ -658,6 +658,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
         : left ?? { command, ok: false },
       output,
       now: deps.now(),
+      ...(ui().selected === undefined ? {} : { selected: ui().selected }),
     });
   };
 
