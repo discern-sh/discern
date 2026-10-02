@@ -1076,11 +1076,17 @@ interface ChildTerminalEvidence {
 /** What a settled frame must show before a phase's input goes in. */
 export type DeskFrameTest = (capture: TerminalFrameCapture) => boolean;
 
-/** The inbox at rest: a row selected, its evidence read, no layer open. */
+/**
+ * The inbox at rest on a task or branch row: that row, or any such row,
+ * selected, its evidence read, no layer open. The Commands row the Desk
+ * opens on never satisfies it, so a wait that should find a task cannot
+ * pass on a selection reset to home; {@linkcode deskHome} waits for home.
+ */
 export function deskAtRest(id?: string): DeskFrameTest {
   return (capture) =>
     capture.state?.topLayerId === undefined &&
     capture.state?.selectedItemId !== undefined &&
+    capture.state.selectedItemId !== COMMANDS_ROW_ID &&
     (id === undefined || capture.state.selectedItemId === id) &&
     capture.state.detailPending !== true;
 }

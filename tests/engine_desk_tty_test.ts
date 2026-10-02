@@ -51,7 +51,6 @@ import {
   withDeskTtyProject,
 } from "./fixtures/desk_tty_harness.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
-import { COMMANDS_ROW_ID } from "../src/engine/desk/desk_transitions.ts";
 import { realPtyTest } from "./real_pty.ts";
 import type { PtyGeometry } from "./fixtures/pty_process.ts";
 
@@ -338,9 +337,7 @@ realPtyTest({
             size,
             "created",
             "the created task at rest",
-            (capture) =>
-              deskAtRest()(capture) &&
-              capture.state?.selectedItemId !== COMMANDS_ROW_ID,
+            deskAtRest(),
             { input: "q" },
           ),
         ],
@@ -410,7 +407,7 @@ realPtyTest({
             both(deskLayerOpen("reader-changes"), deskMessage("return")),
             { keys: ["escape"], allowLoneEscape: true },
           ),
-          phase(size, undefined, "back at rest", deskAtRest(), {
+          phase(size, undefined, "back at rest", deskAtRest(name), {
             input: "q",
           }),
         ],

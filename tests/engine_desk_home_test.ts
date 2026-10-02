@@ -52,6 +52,7 @@ import {
   productSurvey,
 } from "./fixtures/desk_product.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { deskAtRest, type DeskFrameTest } from "./fixtures/desk_tty_harness.ts";
 import { measureText } from "discern-design-system/cli";
 
 /** The inbox geometries the design pins. */
@@ -862,6 +863,18 @@ Deno.test("with no tasks the list keeps the Commands row's room and the panel ta
       assert(!fold.includes("…"), `the gloss reads whole: ${fold}`);
     }, { columns, rows });
   }
+});
+
+Deno.test("a wait for a task at rest never passes on the Commands row", () => {
+  // Only the state report matters to the predicate.
+  const at = (selectedItemId: string): Parameters<DeskFrameTest>[0] =>
+    ({ state: { selectedItemId, detailPending: false } }) as Parameters<
+      DeskFrameTest
+    >[0];
+  assert(!deskAtRest()(at(COMMANDS_ROW_ID)), "home is not a task at rest");
+  assert(deskAtRest()(at("ready")));
+  assert(deskAtRest("ready")(at("ready")));
+  assert(!deskAtRest("ready")(at("stale")));
 });
 
 Deno.test("the home panel carries the session's tip and the release it came with", () => {
