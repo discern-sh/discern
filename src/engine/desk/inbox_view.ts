@@ -11,16 +11,18 @@
  * an immutable view.
  */
 
-import type {
-  ApplicationDetailBlock,
-  ApplicationDetailStrip,
-  ApplicationKeyBinding,
-  ApplicationList,
-  ApplicationListGroup,
-  ApplicationListItem,
-  ApplicationMessage,
-  ApplicationRun,
-  TerminalApplicationView,
+import {
+  type ApplicationDetailBlock,
+  type ApplicationDetailStrip,
+  type ApplicationKeyBinding,
+  type ApplicationList,
+  type ApplicationListGroup,
+  type ApplicationListItem,
+  type ApplicationMessage,
+  type ApplicationRun,
+  type ApplicationSplitRules,
+  DEFAULT_APPLICATION_SPLIT_RULES,
+  type TerminalApplicationView,
 } from "discern-design-system/cli/interactive";
 import type { KeyHint } from "discern-design-system/cli";
 import type { StatusData } from "../../shared/result_schemas.ts";
@@ -97,6 +99,7 @@ import {
   noTasks,
 } from "./home_view.ts";
 import { inertView } from "./text.ts";
+import { displayWidth } from "../../lib/text.ts";
 
 /** What the view reads besides product and package state. */
 export interface DeskViewEnv extends DeskLayerEnv {
@@ -129,9 +132,23 @@ const BUSY_AFTER_MS = 1_500;
 /** The group shown in title order when the owner sorts by title. */
 const TITLE_GROUP = { id: "tasks", title: "Tasks" } as const;
 
-/** What a branch group holds, said beside its fold while there are no tasks. */
+/**
+ * While there are no tasks the list holds only the Commands row and any
+ * branch folds, so it keeps just the room the row needs and gives the rest
+ * to the home panel, where the desk explains what a task is.
+ */
+const EMPTY_LIST_MIN_TITLE = displayWidth(COMMANDS_LABEL);
+const EMPTY_SPLIT: ApplicationSplitRules = {
+  ...DEFAULT_APPLICATION_SPLIT_RULES,
+  list: { sizing: "content", min: 24, maxTitle: EMPTY_LIST_MIN_TITLE },
+};
+
+/**
+ * What a branch group holds, said beside its fold while there are no tasks,
+ * short enough to read whole beside the fold in the narrowed list.
+ */
 const BRANCH_GROUP_GLOSS: Readonly<Record<string, string>> = {
-  parked: "branches without a checkout",
+  parked: "without a checkout",
   landed: "landed recently",
 };
 
@@ -424,6 +441,7 @@ function inboxList(
   return {
     id: DESK_LIST_ID,
     groups,
+    ...(noTasks(state) ? { minTitle: EMPTY_LIST_MIN_TITLE } : {}),
     columns: [
       { id: "flag", width: 1, priority: 1 },
       { id: "label", width: 13, align: "end" },
@@ -786,6 +804,7 @@ function body(
     kind: "master-detail",
     list,
     detail: { follows: DESK_LIST_ID, content, strip, pending: "Reading…" },
+    ...(noTasks(state) ? { split: EMPTY_SPLIT } : {}),
   };
 }
 

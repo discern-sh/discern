@@ -834,6 +834,36 @@ Deno.test("the narrow strip names the commands it leads to, each by its short fo
   }, { columns: 60, rows: 20 });
 });
 
+Deno.test("with no tasks the list keeps the Commands row's room and the panel takes the rest", async () => {
+  const divider = (desk: DeskSession) =>
+    lineWith(desk, "≡ Commands").indexOf("│");
+  for (const [columns, rows] of [[80, 24], [120, 30]] as const) {
+    let working = 0;
+    await session(() => fleet(), async (desk) => {
+      await desk.shows("Ready work");
+      working = divider(desk);
+    }, { columns, rows });
+    await session(() =>
+      deskSurvey([], {
+        unlanded_branches: ["agent/spike", "agent/old", "agent/try"],
+      }), async (desk) => {
+      await desk.shows("No tasks yet");
+      const empty = divider(desk);
+      assert(
+        empty > 0 && empty < working,
+        `${columns}x${rows}: the panel widens (${empty} < ${working})`,
+      );
+      assertStringIncludes(lineWith(desk, "≡ Commands"), "^K");
+      const fold = lineWith(desk, "Parked 3");
+      assert(
+        fold.slice(0, empty).trimEnd().length < empty - 1,
+        `the fold's gloss keeps a gutter before the panel:\n${fold}`,
+      );
+      assert(!fold.includes("…"), `the gloss reads whole: ${fold}`);
+    }, { columns, rows });
+  }
+});
+
 Deno.test("the home panel carries the session's tip and the release it came with", () => {
   const state = observedDesk(fleet());
   const tipped = homeBlocks({

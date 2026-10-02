@@ -853,7 +853,7 @@ Deno.test("branch and landing rows render their own inspectors", () => {
   );
   assertEquals(
     view.body.list.groups.find((group) => group.id === "parked")?.aside,
-    [{ text: "branches without a checkout", tone: "faint" }],
+    [{ text: "without a checkout", tone: "faint" }],
   );
   assertEquals(
     validateTerminalApplicationView(view, {

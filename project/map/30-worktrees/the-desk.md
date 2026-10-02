@@ -26,7 +26,7 @@ A **Commands** row leads the list, above every group, and the desk opens with it
 
 Each row is a title, then the [row state's](status.md#row-states) glyph and label in its tone (with the behind count beside a stale or ready label, and a progress meter beside a running one), an overlap flag, and the idle or running time. A running time under ten minutes is a clock the design system paints from the same moment as a progress sheet's, so a row and its sheet never disagree by a second; the desk rebuilds its view as the selected task's time reaches each whole second, so the inspector's words move with it. Green marks only work that can land. A row whose changed files overlap another task's carries `⇄` (`&` without Unicode); an overlap blocks nothing. Duplicate titles carry an identity suffix. A landing's integration worktree belongs to discern and never gets a row.
 
-A project with no tasks keeps the same layout: the Commands row, then any parked or landed branches, folded with what they hold beside them. The home panel leads with **No tasks yet** and what a task is and how it lands, and the footer offers `n New task…` and `↓ Parked` when parked branches exist.
+A project with no tasks keeps the same layout: the Commands row, then any parked or landed branches, folded with what they hold beside them (`without a checkout`, `landed recently`). The list keeps only the room the Commands row needs, so the home panel takes the rest of the width; it leads with **No tasks yet** and what a task is and how it lands, and the footer offers `n New task…` and `↓ Parked` when parked branches exist. Enter opens the palette on **New task…**, so Enter twice starts one.
 
 ## Start from the Commands row
 
