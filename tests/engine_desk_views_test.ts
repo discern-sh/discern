@@ -495,24 +495,23 @@ Deno.test("the keys reader groups each meaning's keys into one readable row", ()
     { kind: "reader", reader: { kind: "keys" } },
   ).state;
   const frame = render(deskView(state, PRODUCT_UI, ENV), 80, 60);
-  // Arrow pairs touch, other one-cell keys stand a space apart, and a run
-  // of digits reads as a range, Parked's key with the groups'. The package
-  // still joins keys wider than a cell with a slash (TODO(R-38)).
+  // Arrow pairs touch, every other key stands a space apart, and a run of
+  // digits reads as a range, Parked's key with the groups'.
   for (
     const row of [
       /↑↓ k j\s+Move\b/u,
-      /Tab[ /]⇧Tab\s+Next or previous group\b/u,
+      /Tab ⇧Tab\s+Next or previous group\b/u,
       /1–6\s+Jump to a group\b/u,
-      /Home[ /]End\s+First or last row\b/u,
+      /Home End\s+First or last row\b/u,
       /Space\s+Zoom details\b/u,
-      /PgUp[ /]PgDn\s+Scroll details\b/u,
+      /PgUp PgDn\s+Scroll details\b/u,
       /→ \.\s+Actions\b/u,
-      /\^K[ /]:\s+Commands\b/u,
+      /\^K :\s+Commands\b/u,
       / q\s+Quit\b/u,
       /Esc\s+Clear filter, leave zoom\b/u,
       /←→\s+Move between buttons\b/u,
       /Esc\s+The safe choice\b/u,
-      /d[ /]\^T\s+Technical plan\b/u,
+      /d \^T\s+Technical plan\b/u,
       /Esc Close\b/u,
     ]
   ) {

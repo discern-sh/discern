@@ -585,13 +585,20 @@ Deno.test("a tip's keys read as the footer shows them, and each is bound", () =>
       );
     }
   }
-  // Every key the table holds is one the footer formats the same way.
-  for (const key of Object.keys(TIP_KEY_LABELS) as TipKey[]) {
-    assertEquals(
-      tipKeyLabel([key], "unicode"),
-      formatKeyChord(key, {
-        unicode: true,
-      }),
-    );
+  // Every key the table holds, alone or beside any other, is one the footer
+  // formats the same way, so a tip that pairs keys anew needs no new rule.
+  const table = Object.keys(TIP_KEY_LABELS) as TipKey[];
+  const combinations = [
+    ...table.map((key) => [key]),
+    ...table.flatMap((first) => table.map((second) => [first, second])),
+  ];
+  for (const keys of combinations) {
+    for (const unicode of [true, false]) {
+      assertEquals(
+        tipKeyLabel(keys, unicode ? "unicode" : "ascii"),
+        formatKeyChord(keys, { unicode }),
+        `${keys.join("+")}, ${unicode ? "Unicode" : "ASCII"}`,
+      );
+    }
   }
 });

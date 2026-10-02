@@ -71,21 +71,25 @@ function tokenKeys(payload: string): TipKey[] {
   );
 }
 
+/** The keys whose Unicode form is one arrow glyph. */
+const ARROW_KEYS: ReadonlySet<TipKey> = new Set(["up", "down", "right"]);
+
 /**
- * Keys as the footer shows them together: an Up and Down pair touches, any
- * other keys stand a space apart; without Unicode, names join with a slash.
+ * Keys as the footer shows them together: with Unicode, an arrow beside an
+ * arrow touches it; every other key stands a space apart.
  */
 export function tipKeyLabel(
   keys: readonly TipKey[],
   form: "unicode" | "ascii",
 ): string {
-  const parts = keys.map((key) => TIP_KEY_LABELS[key][form]);
-  if (form === "ascii") {
-    return parts.every((part) => part.length === 1)
-      ? parts.join(" ")
-      : parts.join("/");
-  }
-  return keys.join(",") === "up,down" ? parts.join("") : parts.join(" ");
+  return keys.map((key, index) => {
+    const label = TIP_KEY_LABELS[key][form];
+    const previous = keys[index - 1];
+    if (previous === undefined) return label;
+    const touching = form === "unicode" && ARROW_KEYS.has(key) &&
+      ARROW_KEYS.has(previous);
+    return touching ? label : ` ${label}`;
+  }).join("");
 }
 
 /** Every key token in `text`, as the keys it names. */
