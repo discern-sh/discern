@@ -42,6 +42,7 @@ import {
 } from "./operations.ts";
 import {
   closeLayer,
+  type DeskRowRef,
   formValuesKey,
   layerId,
   open,
@@ -290,6 +291,16 @@ function actionIntent(
 }
 
 /**
+ * The palette as it opens from a row: over the home panel, beside the
+ * Commands row, it lists the panel's commands first, where they were read.
+ */
+function paletteFrom(ref: DeskRowRef | undefined): DeskLayer {
+  return ref?.kind === "commands"
+    ? { kind: "palette", home: true }
+    : { kind: "palette" };
+}
+
+/**
  * A row's Enter: its next step, or its menu when it has none it can run now,
  * whose Unavailable section says why. The Commands row's Enter opens the
  * palette over the home panel it leads to.
@@ -304,7 +315,7 @@ function nextIntent(
   if (ref === undefined) return UNCHANGED(state);
   let transition: DeskTransition;
   if (ref.kind === "commands") {
-    transition = open(state, { kind: "palette" });
+    transition = open(state, paletteFrom(ref));
   } else if (ref.kind === "parked") {
     transition = commandIntent(state, "resume", ref.branch);
   } else if (ref.kind === "landed") {
@@ -473,7 +484,7 @@ function keyIntent(
             ? open(state, { kind: "actions", rowId: ui.selected ?? "" })
             : UNCHANGED(state);
         case "palette":
-          return open(state, { kind: "palette" });
+          return open(state, paletteFrom(ref));
         case "jump-group": {
           const group = meaning.group ?? "review";
           const first = firstOfGroup(state, group);

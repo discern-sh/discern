@@ -64,7 +64,7 @@ const INBOX_SIZES = [
 ] as const;
 
 /** A task ready for review, then one that needs attention. */
-function fleet(): StatusData {
+function fleet(extra: Partial<StatusData> = {}): StatusData {
   return deskSurvey([
     taskFleetEntry("ready", {
       ahead: 2,
@@ -91,12 +91,12 @@ function fleet(): StatusData {
         title_source: "recorded",
       },
     }),
-  ]);
+  ], extra);
 }
 
 /** The fleets the Desk can open on: tasks, none, and only a parked branch. */
 const FLEETS: ReadonlyArray<readonly [string, () => StatusData]> = [
-  ["a fleet", fleet],
+  ["a fleet", () => fleet()],
   ["no tasks", () => deskSurvey()],
   [
     "only a parked branch",
@@ -292,6 +292,58 @@ Deno.test("the filter passes over the Commands row, and zoom numbers only the ta
       `the Commands row's zoom carries no position:\n${desk.screen()}`,
     );
   }, { columns: 80, rows: 24 });
+});
+
+Deno.test("the palette opened from the Commands row lists the home panel's commands first, on the one the row names", async () => {
+  const highlighted = (desk: DeskSession) =>
+    desk.state().layers.palette?.highlightedId;
+  const cases: ReadonlyArray<
+    readonly [string, () => StatusData, string, string]
+  > = [
+    ["nothing due", () => fleet(), "new_task", "form-new_task"],
+    [
+      "a check due",
+      () => fleet({ release_reminder: "It's time to check." }),
+      "updates",
+      "review-updates",
+    ],
+    ["no tasks", () => deskSurvey(), "new_task", "form-new_task"],
+  ];
+  for (const [name, data, item, opens] of cases) {
+    for (const key of ["enter", "ctrl-k"]) {
+      await session(data, async (desk) => {
+        await desk.until(
+          () =>
+            selected(desk) === COMMANDS_ROW_ID &&
+            desk.screen().includes("Live"),
+          `${name}: at home`,
+        );
+        await desk.press(key);
+        await desk.opened("palette");
+        assertEquals(highlighted(desk), item, `${name} ${key}`);
+        const screen = desk.screen();
+        const create = screen.indexOf(DESK_COMMAND_LABELS.new_task);
+        assert(
+          !screen.includes("Needs you") ||
+            screen.indexOf("Needs you") > create,
+          `${name}: the commands lead:\n${screen}`,
+        );
+        await desk.press("enter");
+        await desk.until(
+          () => desk.top()?.startsWith(opens) === true,
+          `${name} ${key}: Enter twice opens ${opens}, not ${desk.top()}`,
+        );
+      }, { columns: 120, rows: 30 });
+    }
+  }
+  // From a task, the palette leads with what needs the owner.
+  await session(() => fleet(), async (desk) => {
+    await desk.shows("Ready work");
+    await desk.press("down");
+    await desk.press("ctrl-k");
+    await desk.opened("palette");
+    assertEquals(highlighted(desk), "next:ready");
+  }, { columns: 120, rows: 30 });
 });
 
 Deno.test("the palette opened from the Commands row takes the home panel's column", async () => {

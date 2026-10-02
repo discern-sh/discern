@@ -47,7 +47,7 @@ function layerView(
         : goneMenu(state, "actions", layer.rowId);
     }
     case "palette":
-      return deskPalette(state);
+      return deskPalette(state, layer.home === true);
     case "agents":
       return agentsMenu(state, layer.taskId);
     case "scripts":

@@ -157,7 +157,11 @@ export type DeskScriptOwner =
 export type DeskLayer =
   /** Every action for a task row or a parked branch row. */
   | { readonly kind: "actions"; readonly rowId: string }
-  | { readonly kind: "palette" }
+  /**
+   * The palette; `home` when it opened over the home panel, from the
+   * Commands row, so it lists the panel's commands first.
+   */
+  | { readonly kind: "palette"; readonly home?: true }
   | { readonly kind: "agents"; readonly taskId: string }
   | {
     readonly kind: "scripts";

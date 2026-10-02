@@ -2,7 +2,9 @@
  * The command palette: what needs the owner first (each such task's next
  * step and each header chip's route), then every Desk command by section from
  * the command registry, in the home panel's order, then every task and
- * parked branch to go to. Pure.
+ * parked branch to go to. Opened over the home panel, it lists the commands
+ * first, where the panel showed them, with the highlight on the command the
+ * Commands row promised. Pure.
  */
 
 import type {
@@ -101,13 +103,25 @@ function needsYou(
   return [...tasks, ...chips];
 }
 
-/** The palette layer. */
+/**
+ * The command the Commands row promises: Check for updates while status
+ * says a check is due, which the row's cue names, and otherwise the first.
+ */
+export function homePaletteCommand(state: DeskProductState): DeskCommand {
+  return state.data?.release_reminder === undefined ? "new_task" : "updates";
+}
+
+/** The palette layer; `home` when it opened over the home panel. */
 export function deskPalette(
   state: DeskProductState,
+  home = false,
 ): ApplicationPalette<DeskIntent> {
   const sections: ApplicationPaletteSection<DeskIntent>[] = [];
   const urgent = needsYou(state);
-  if (urgent.length > 0) sections.push({ title: "Needs you", items: urgent });
+  const needs = urgent.length === 0
+    ? []
+    : [{ title: "Needs you", items: urgent }];
+  if (!home) sections.push(...needs);
   for (const section of DESK_PALETTE_SECTIONS) {
     const items = DESK_COMMANDS.filter((command) => {
       const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
@@ -115,6 +129,7 @@ export function deskPalette(
     }).map((command) => commandItem(state, command));
     sections.push({ title: DESK_PALETTE_SECTION_TITLES[section], items });
   }
+  if (home) sections.push(...needs);
   if (state.rows.length > 0) {
     sections.push({
       title: "Tasks",
@@ -152,5 +167,6 @@ export function deskPalette(
     anchor: "detail",
     placeholder: "Search tasks and commands",
     sections,
+    ...(home ? { initialItemId: homePaletteCommand(state) } : {}),
   };
 }
