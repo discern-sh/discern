@@ -33,8 +33,8 @@ import type { EnvReader } from "../../shared/env.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import { jobEnvironment } from "../jobs/command.ts";
 import {
+  attemptHoldsClaim,
   AttemptSchema,
-  effectiveClaimExpiry,
   sameClaimedAttemptBinding,
 } from "../completion/attempt.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
@@ -403,10 +403,8 @@ function runtime(
       const boundAttempt = AttemptSchema.parse(execution.attempt);
       if (
         attempt.kind !== "recorded" || attempt.record.kind !== "attempt" ||
+        !attemptHoldsClaim(attempt.record.data, execution.fence.token) ||
         attempt.record.data.state.kind !== "claimed" ||
-        attempt.record.data.state.claim.token !== execution.fence.token ||
-        effectiveClaimExpiry(attempt.record.data.state.claim) <=
-          clock.wallNow() ||
         !sameClaimedAttemptBinding(attempt.record.data, boundAttempt) ||
         candidate.kind !== "recorded" ||
         candidate.record.kind !== "candidate" ||

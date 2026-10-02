@@ -22,7 +22,6 @@ import { withTempDir } from "./helpers.ts";
 import { git } from "./engine_helpers.ts";
 import {
   COMPLETION_CLAIM,
-  COMPLETION_CLOCK,
   completionFixtures,
   completionId,
 } from "./completion_fixtures.ts";
@@ -45,7 +44,6 @@ async function writeFixture(
     record,
     null,
     fence,
-    COMPLETION_CLOCK,
   );
   assert(result.kind === "written", JSON.stringify(result));
   return result.stamp;
@@ -95,7 +93,6 @@ Deno.test("completion reads are effect-free and every family preserves newer and
             fixture,
             null,
             fence,
-            COMPLETION_CLOCK,
           )).kind,
           kind,
         );
@@ -117,8 +114,6 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
       root,
       fixtures.attempt,
       null,
-      undefined,
-      COMPLETION_CLOCK,
     );
     assert(attempt.kind === "written", JSON.stringify(attempt));
     for (const record of Object.values(fixtures)) {
@@ -138,7 +133,6 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
           { ...record, revision: 2 },
           null,
           fence,
-          COMPLETION_CLOCK,
         )).kind,
         "conflict",
       );
@@ -149,7 +143,6 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
             { ...record, revision: 2 },
             stamp,
             fence,
-            COMPLETION_CLOCK,
           )).kind,
           "transition-refused",
         );
@@ -164,8 +157,6 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
         root,
         fresh,
         null,
-        undefined,
-        COMPLETION_CLOCK,
       )).kind,
       "claim-lost",
     );
@@ -173,15 +164,19 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
       (await writeCompletionRecord(root, fresh, null, {
         ...fence,
         token: completionId(99),
-      }, COMPLETION_CLOCK)).kind,
-      "claim-lost",
-    );
-    assertEquals(
-      (await writeCompletionRecord(root, fresh, null, fence, {
-        ...COMPLETION_CLOCK,
-        wallNow: () => 200,
       })).kind,
       "claim-lost",
+    );
+    // The store reads no clock: the fixture claim's lease lapsed long ago,
+    // yet the record still names it, so its owner still publishes.
+    assertEquals(
+      (await writeCompletionRecord(
+        root,
+        { ...fresh, id: completionId(33) },
+        null,
+        fence,
+      )).kind,
+      "written",
     );
     const differentSubject = CompletionRecordSchema.parse({
       ...fresh,
@@ -193,7 +188,6 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
         differentSubject,
         null,
         fence,
-        COMPLETION_CLOCK,
       )).kind,
       "claim-lost",
     );
@@ -213,11 +207,10 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
       settled,
       attempt.stamp,
       fence,
-      COMPLETION_CLOCK,
     );
     assert(stopped.kind === "written", JSON.stringify(stopped));
     assertEquals(
-      (await writeCompletionRecord(root, fresh, null, fence, COMPLETION_CLOCK))
+      (await writeCompletionRecord(root, fresh, null, fence))
         .kind,
       "claim-lost",
     );
@@ -226,8 +219,6 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
         root,
         { ...settled, revision: 3 },
         attempt.stamp,
-        undefined,
-        COMPLETION_CLOCK,
       )).kind,
       "conflict",
     );
@@ -261,8 +252,6 @@ Deno.test("completion records survive linked checkout removal and are observed t
       linked,
       fixture,
       null,
-      undefined,
-      COMPLETION_CLOCK,
     );
     assert(written.kind === "written", JSON.stringify(written));
     assertEquals(
@@ -316,8 +305,6 @@ Deno.test("one claimed attempt publishes every planned producer while preserving
         data: { ...attempt.data, subjects },
       },
       null,
-      undefined,
-      COMPLETION_CLOCK,
     );
     assert(claimed.kind === "written", JSON.stringify(claimed));
     for (const evidence of [first, second]) await writeFixture(root, evidence);
@@ -346,7 +333,6 @@ Deno.test("one claimed attempt publishes every planned producer while preserving
           substituted,
           null,
           fence,
-          COMPLETION_CLOCK,
         )).kind,
         "claim-lost",
       );
@@ -361,7 +347,6 @@ Deno.test("one claimed attempt publishes every planned producer while preserving
         },
         null,
         fence,
-        COMPLETION_CLOCK,
       )).kind,
       "claim-lost",
     );
@@ -376,8 +361,6 @@ Deno.test("completion revisions retain history and refuse a newer historical doc
       root,
       initial,
       null,
-      undefined,
-      COMPLETION_CLOCK,
     );
     assert(first.kind === "written");
     const second = { ...initial, revision: 2 };
@@ -386,8 +369,6 @@ Deno.test("completion revisions retain history and refuse a newer historical doc
         root,
         second,
         first.stamp,
-        undefined,
-        COMPLETION_CLOCK,
       )).kind,
       "written",
     );
@@ -409,8 +390,6 @@ Deno.test("completion revisions retain history and refuse a newer historical doc
         root,
         { ...initial, revision: 3 },
         current.stamp,
-        undefined,
-        COMPLETION_CLOCK,
       )).kind,
       "transition-refused",
     );
@@ -439,10 +418,8 @@ Deno.test("completion aliases share the publication lock before any family is cr
         repository,
         fixture,
         null,
-        undefined,
-        COMPLETION_CLOCK,
       ),
-      writeCompletionRecord(alias, fixture, null, undefined, COMPLETION_CLOCK),
+      writeCompletionRecord(alias, fixture, null),
     ]);
     assertEquals(
       writes.filter((result) => result.kind === "written").length,
@@ -496,7 +473,7 @@ Deno.test("completion revision history adds no administration discovery to publi
     await initializeRepository(root);
     const fixture = completionFixtures().exception;
     const initial = await countedAdminQueries(() =>
-      writeCompletionRecord(root, fixture, null, undefined, COMPLETION_CLOCK)
+      writeCompletionRecord(root, fixture, null)
     );
     const published = initial.value;
     assert(published.kind === "written");
@@ -505,8 +482,6 @@ Deno.test("completion revision history adds no administration discovery to publi
         root,
         { ...fixture, revision: 2 },
         published.stamp,
-        undefined,
-        COMPLETION_CLOCK,
       )
     );
     assertEquals(revised.value.kind, "written");

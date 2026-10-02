@@ -1,5 +1,9 @@
 # ADR 0406: Completion claims use renewable bounded leases
 
+> **Amendments.**
+>
+> - **[ADR 0421](0421-a-lapsed-lease-permits-a-takeover-but-does-not-end-a-claim.md) — Ownership:** a lapsed lease permits recovery and nothing more. The owner keeps its claim until a retirement lands on the attempt record, so a stalled owner that nobody retired renews and settles; only a record that no longer names the claim aborts its remaining work.
+
 **Status**: accepted on 2026-09-16.
 
 ## Context

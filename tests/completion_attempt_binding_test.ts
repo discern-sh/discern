@@ -7,7 +7,6 @@ import {
 import { writeCompletionRecord } from "../src/engine/completion/store.ts";
 import {
   COMPLETION_CLAIM,
-  COMPLETION_CLOCK,
   completionFixtures,
   completionId,
 } from "./completion_fixtures.ts";
@@ -109,8 +108,6 @@ Deno.test("planning claims cannot publish evidence or Proof", async () => {
       root,
       planning,
       null,
-      undefined,
-      COMPLETION_CLOCK,
     );
     assert(written.kind === "written");
     const fence = { attempt_id: planning.id, token: COMPLETION_CLAIM.token };
@@ -120,7 +117,6 @@ Deno.test("planning claims cannot publish evidence or Proof", async () => {
         fixtures[kind],
         null,
         fence,
-        COMPLETION_CLOCK,
       );
       assertEquals(
         result.kind,

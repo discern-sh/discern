@@ -6,15 +6,21 @@ import {
 } from "@std/assert";
 import { dirname } from "@std/path";
 import {
-  ATTEMPT_CLAIM_LEASE_MS,
   ATTEMPT_CLAIM_RENEW_INTERVAL_MS,
+  attemptClaimLossReason,
   claimLossIsProven,
   recoverAbandonedAttempts,
   renewAttemptClaim,
   reserveAttempt,
+  type ReservedAttempt,
   settleAttempt,
   withAttemptClaim,
 } from "../src/engine/completion/attempt_lifecycle.ts";
+import {
+  ATTEMPT_CLAIM_LEASE_MS,
+  type CompletionAttempt,
+} from "../src/engine/completion/attempt.ts";
+import type { Clock } from "../src/shared/clock.ts";
 import {
   completionRecordPath,
   type CompletionWriteOutcome,
@@ -69,8 +75,6 @@ Deno.test("an expired completion claim is cancelled atomically and its old fence
       root,
       attempt,
       null,
-      undefined,
-      COMPLETION_CLOCK,
     );
     assert(written.kind === "written", JSON.stringify(written));
 
@@ -99,7 +103,6 @@ Deno.test("an expired completion claim is cancelled atomically and its old fence
             ? attempt.data.state.claim.token
             : "unreachable",
         },
-        COMPLETION_CLOCK,
       )).kind,
       "claim-lost",
     );
@@ -365,22 +368,34 @@ Deno.test("only the attempt record itself proves a lost claim", () => {
   }
 });
 
-Deno.test("a renewal that cannot complete costs one interval, not the run", async () => {
-  await withTempDir(async (root) => {
-    await initializeRepository(root);
-    let now = 1_000;
-    // Each renewal reads the wall clock, so its own reading is the signal that
-    // the attempt completed — no elapsed time becomes evidence.
-    let readings = 0;
-    const clock = {
-      wallNow: (): number => {
-        readings++;
-        return now;
-      },
-      monotonicNow: (): number => now,
-    };
-    let heartbeat: (() => void) | undefined;
-    const scheduler: Scheduler = {
+/** A wall clock only the test moves. */
+function handClock(start: number): {
+  readonly clock: Clock;
+  readonly now: () => number;
+  readonly advance: (ms: number) => void;
+} {
+  let now = start;
+  return {
+    clock: { wallNow: (): number => now, monotonicNow: (): number => now },
+    now: (): number => now,
+    advance: (ms: number): void => {
+      now += ms;
+    },
+  };
+}
+
+/**
+ * The coordinator's heartbeat, fired only by the test. A stalled event loop
+ * fires an overdue interval once it resumes; firing it after advancing the
+ * clock past the lease is that stall, without spending real time.
+ */
+function handHeartbeat(): {
+  readonly scheduler: Scheduler;
+  readonly fire: () => void;
+} {
+  let heartbeat: (() => void) | undefined;
+  return {
+    scheduler: {
       scheduleInterval(callback): IntervalHandle {
         heartbeat = callback;
         return 1;
@@ -390,32 +405,268 @@ Deno.test("a renewal that cannot complete costs one interval, not the run", asyn
         throw new Error("unexpected timeout");
       },
       cancelTimeout(): void {},
-    };
-    const beat = async (): Promise<void> => {
-      assert(heartbeat !== undefined);
-      const before = readings;
+    },
+    fire: (): void => {
+      assert(heartbeat !== undefined, "the coordinator schedules renewal");
       heartbeat();
-      await waitUntil(
-        () => readings > before,
-        "the renewal attempt to complete",
-        { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
-      );
-    };
-    const reserved = await reserveAttempt(
-      root,
-      {
-        candidate_id: completionId(80),
-        executor: {
-          operation_id: completionId(81),
-          originating_effort: "effort-a",
-          started_at: now,
-        },
-        rerun_of: null,
-        mode: "strict",
+    },
+  };
+}
+
+/** Reserve one attempt whose identifiers start at `seed`. */
+async function reserveAt(
+  root: string,
+  seed: number,
+  clock: Clock,
+): Promise<ReservedAttempt> {
+  return await reserveAttempt(
+    root,
+    {
+      candidate_id: completionId(seed),
+      executor: {
+        operation_id: completionId(seed + 1),
+        originating_effort: "effort-a",
+        started_at: clock.wallNow(),
       },
-      clock,
-      fakeSecureEntropy({ uuids: [completionId(82), completionId(83)] }),
+      rerun_of: null,
+      mode: "strict",
+    },
+    clock,
+    fakeSecureEntropy({
+      uuids: [completionId(seed + 2), completionId(seed + 3)],
+    }),
+  );
+}
+
+/** The attempt's candidate, published under its own fence. */
+async function publishCandidate(
+  root: string,
+  reserved: ReservedAttempt,
+): Promise<CompletionWriteOutcome> {
+  const fixture = completionFixtures().candidate;
+  assert(fixture.kind === "candidate");
+  return await writeCompletionRecord(
+    root,
+    {
+      ...fixture,
+      id: reserved.attempt.identity.candidate_id,
+      data: { ...fixture.data, attempt_id: reserved.attempt.identity.id },
+    },
+    null,
+    reserved.fence,
+  );
+}
+
+/** The attempt record as it stands now. */
+async function attemptState(
+  root: string,
+  reserved: ReservedAttempt,
+): Promise<CompletionAttempt["state"]> {
+  const current = await readCompletionRecord(root, {
+    kind: "attempt",
+    id: reserved.attempt.identity.id,
+  });
+  assert(current.kind === "recorded" && current.record.kind === "attempt");
+  return current.record.data.state;
+}
+
+/** Longer than the lease, as when a terminal stops reading for minutes. */
+const STALL_MS = 150_000;
+
+Deno.test("an owner whose lease lapsed while nobody retired it still renews, publishes, and settles", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const time = handClock(1_000);
+    const reserved = await reserveAt(root, 100, time.clock);
+    time.advance(STALL_MS);
+
+    const renewed = await renewAttemptClaim(root, reserved.fence, time.clock);
+    assertEquals(renewed.kind, "written");
+    const state = await attemptState(root, reserved);
+    assert(state.kind === "planning");
+    assertEquals(state.claim.renewed_at, time.now());
+    assertEquals(state.claim.expires_at, time.now() + ATTEMPT_CLAIM_LEASE_MS);
+
+    time.advance(STALL_MS);
+    assertEquals((await publishCandidate(root, reserved)).kind, "written");
+    assertEquals(
+      (await settleAttempt(root, reserved.fence, "passed", time.clock)).kind,
+      "written",
     );
+    assertEquals(await attemptState(root, reserved), {
+      kind: "finished",
+      outcome: "passed",
+      finished_at: time.now(),
+    });
+  });
+});
+
+Deno.test("a retirement during the stall is refused at every claim-dependent step", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const time = handClock(1_000);
+    const reserved = await reserveAt(root, 110, time.clock);
+    time.advance(STALL_MS);
+    // The lapsed lease permits the retirement even of an owner that looks
+    // alive; the retirement, not the lapse, ends the claim.
+    assertEquals(
+      await recoverAbandonedAttempts(root, {
+        clock: time.clock,
+        ownerState: () => Promise.resolve("running"),
+      }),
+      [reserved.attempt.identity.id],
+    );
+    const retired = await attemptState(root, reserved);
+
+    for (
+      const step of [
+        () => renewAttemptClaim(root, reserved.fence, time.clock),
+        () => publishCandidate(root, reserved),
+        () => settleAttempt(root, reserved.fence, "cancelled", time.clock),
+      ]
+    ) assertEquals((await step()).kind, "claim-lost");
+    assertEquals(await attemptState(root, reserved), retired);
+  });
+});
+
+Deno.test("a renewal landing before a retirement is written keeps the claim", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const time = handClock(1_000);
+    const reserved = await reserveAt(root, 120, time.clock);
+    time.advance(STALL_MS);
+    // Recovery observed the lapsed lease; the resumed owner renews before
+    // recovery re-reads the record for its compare-and-swap.
+    assertEquals(
+      await recoverAbandonedAttempts(root, {
+        clock: time.clock,
+        ownerState: async () => {
+          assertEquals(
+            (await renewAttemptClaim(root, reserved.fence, time.clock)).kind,
+            "written",
+          );
+          return "unknown";
+        },
+      }),
+      [],
+    );
+    assertEquals((await attemptState(root, reserved)).kind, "planning");
+  });
+});
+
+Deno.test("the coordinator resumes after a stall and settles when nobody retired it", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const time = handClock(1_000);
+    const heartbeat = handHeartbeat();
+    const reserved = await reserveAt(root, 130, time.clock);
+
+    const aborted = await withAttemptClaim(
+      root,
+      reserved.fence,
+      new AbortController().signal,
+      async (signal, settle) => {
+        time.advance(STALL_MS);
+        heartbeat.fire();
+        // Settlement drains the overdue renewal before it writes.
+        await settle("passed");
+        return signal.aborted;
+      },
+      { clock: time.clock, scheduler: heartbeat.scheduler },
+    );
+    assertEquals(aborted, false);
+    const renewed = await readCompletionRecord(
+      root,
+      { kind: "attempt", id: reserved.attempt.identity.id },
+      2,
+    );
+    assert(renewed.kind === "recorded" && renewed.record.kind === "attempt");
+    assert(renewed.record.data.state.kind === "planning");
+    assertEquals(renewed.record.data.state.claim.renewed_at, time.now());
+    assertEquals(await attemptState(root, reserved), {
+      kind: "finished",
+      outcome: "passed",
+      finished_at: time.now(),
+    });
+  });
+});
+
+Deno.test("the coordinator learns of a retirement during its stall and ends as cancelled", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const time = handClock(1_000);
+    const heartbeat = handHeartbeat();
+    const reserved = await reserveAt(root, 140, time.clock);
+
+    const ended = await withAttemptClaim(
+      root,
+      reserved.fence,
+      new AbortController().signal,
+      async (signal, settle) => {
+        time.advance(STALL_MS);
+        assertEquals(
+          await recoverAbandonedAttempts(root, {
+            clock: time.clock,
+            ownerState: () => Promise.resolve("unknown"),
+          }),
+          [reserved.attempt.identity.id],
+        );
+        heartbeat.fire();
+        await waitUntil(
+          () => signal.aborted,
+          "the resumed renewal to read the retirement",
+          { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
+        );
+        // The retirement already closed the attempt; settling a cancelled
+        // run records nothing and raises nothing.
+        await settle("cancelled");
+        return attemptClaimLossReason(signal);
+      },
+      { clock: time.clock, scheduler: heartbeat.scheduler },
+    );
+    assert(ended !== undefined, "the run names the retirement as its reason");
+    assertStringIncludes(ended, "Another discern run closed");
+    assertEquals(await attemptState(root, reserved), {
+      kind: "finished",
+      outcome: "cancelled",
+      finished_at: time.now(),
+    });
+  });
+});
+
+Deno.test("a pass cannot settle on an attempt another run retired", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const time = handClock(1_000);
+    const reserved = await reserveAt(root, 150, time.clock);
+    await assertRejects(
+      () =>
+        withAttemptClaim(
+          root,
+          reserved.fence,
+          new AbortController().signal,
+          async (_signal, settle) => {
+            time.advance(STALL_MS);
+            await recoverAbandonedAttempts(root, {
+              clock: time.clock,
+              ownerState: () => Promise.resolve("unknown"),
+            });
+            await settle("passed");
+          },
+          { clock: time.clock, scheduler: handHeartbeat().scheduler },
+        ),
+      Error,
+      "Completion attempt settlement claim-lost",
+    );
+  });
+});
+
+Deno.test("a renewal that cannot reach its record never ends the run", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const time = handClock(1_000);
+    const heartbeat = handHeartbeat();
+    const reserved = await reserveAt(root, 80, time.clock);
     // An unreadable record is a condition that can clear, not proof of loss.
     const record = await completionRecordPath(root, {
       kind: "attempt",
@@ -423,54 +674,46 @@ Deno.test("a renewal that cannot complete costs one interval, not the run", asyn
     });
     assert(record !== undefined);
     await Deno.remove(record);
+    assertEquals((await publishCandidate(root, reserved)).kind, "unavailable");
 
     const observed: boolean[] = [];
-    await assertRejects(() =>
-      withAttemptClaim(
-        root,
-        reserved.fence,
-        new AbortController().signal,
-        async (signal) => {
-          now += ATTEMPT_CLAIM_RENEW_INTERVAL_MS;
-          await beat();
-          observed.push(signal.aborted);
-          now += ATTEMPT_CLAIM_LEASE_MS;
-          await beat();
-          await waitUntil(
-            () => signal.aborted,
-            "the exhausted lease to end the run",
-            { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
-          );
-          observed.push(signal.aborted);
-          return undefined;
-        },
-        { clock, scheduler },
-      )
+    await assertRejects(
+      () =>
+        withAttemptClaim(
+          root,
+          reserved.fence,
+          new AbortController().signal,
+          async (signal, settle) => {
+            for (
+              const interval of [ATTEMPT_CLAIM_RENEW_INTERVAL_MS, STALL_MS]
+            ) {
+              time.advance(interval);
+              heartbeat.fire();
+            }
+            // Settlement drains every pending renewal before it writes.
+            await assertRejects(() => settle("passed"));
+            observed.push(signal.aborted);
+          },
+          { clock: time.clock, scheduler: heartbeat.scheduler },
+        ),
+      Error,
+      "Completion attempt settlement unavailable",
     );
-    assertEquals(observed, [false, true]);
+    assertEquals(observed, [false]);
   });
 });
 
 Deno.test("a failed settlement never replaces the reason the run ended", async () => {
   await withTempDir(async (root) => {
     await initializeRepository(root);
-    const reserved = await reserveAttempt(
-      root,
-      {
-        candidate_id: completionId(90),
-        executor: {
-          operation_id: completionId(91),
-          originating_effort: "effort-a",
-          started_at: COMPLETION_CLOCK.wallNow(),
-        },
-        rerun_of: null,
-        mode: "strict",
-      },
-      COMPLETION_CLOCK,
-      fakeSecureEntropy({ uuids: [completionId(92), completionId(93)] }),
-    );
-    // A finished attempt has no live claim, so the closing settlement fails.
-    await settleAttempt(root, reserved.fence, "cancelled", COMPLETION_CLOCK);
+    const reserved = await reserveAt(root, 90, COMPLETION_CLOCK);
+    // An unreadable attempt record fails the closing settlement.
+    const record = await completionRecordPath(root, {
+      kind: "attempt",
+      id: reserved.attempt.identity.id,
+    });
+    assert(record !== undefined);
+    await Deno.remove(record);
     const failure = new Error("fixture failure");
     const raised = await assertRejects(() =>
       withAttemptClaim(
@@ -488,6 +731,22 @@ Deno.test("a failed settlement never replaces the reason the run ended", async (
     // settlement failure it must never be replaced by.
     assertEquals(raised.errors[0], failure);
     assertEquals(raised.errors.length, 2);
+
+    // A run that ended on its own failed settlement has one failure.
+    const once = await assertRejects(() =>
+      withAttemptClaim(
+        root,
+        reserved.fence,
+        new AbortController().signal,
+        (_signal, settle) => settle("failed"),
+        { clock: COMPLETION_CLOCK },
+      )
+    );
+    assert(!(once instanceof AggregateError));
+    assertStringIncludes(
+      String(once),
+      "Completion attempt settlement unavailable",
+    );
   });
 });
 
@@ -501,8 +760,6 @@ Deno.test("recovery leaves a claim it cannot retire instead of throwing past the
         root,
         attempt,
         null,
-        undefined,
-        COMPLETION_CLOCK,
       ))
         .kind === "written",
     );

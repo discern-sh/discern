@@ -13,6 +13,7 @@ import type {
   ValidationSubject,
 } from "../completion/protocol.ts";
 import { validationPurpose } from "../completion/protocol.ts";
+import { attemptHoldsClaim } from "../completion/attempt.ts";
 import {
   producerRecipeKey,
   requirementKey,
@@ -70,7 +71,6 @@ export function verifyValidationClaim(
   snapshot: ValidationSnapshot,
   plan: ValidationPlan,
   execution: ClaimedExecution,
-  clock: Clock,
 ): void {
   const attempt = execution.attempt;
   if (
@@ -83,9 +83,8 @@ export function verifyValidationClaim(
     attempt.mode !== plan.demand.mode ||
     attempt.purpose !==
       validationPurpose(plan.demand) ||
-    attempt.state.kind !== "claimed" ||
-    attempt.state.claim.token !== execution.fence.token ||
-    attempt.state.claim.expires_at <= clock.wallNow()
+    !attemptHoldsClaim(attempt, execution.fence.token) ||
+    attempt.state.kind !== "claimed"
   ) throw new Error("validation plan does not match a live candidate claim");
   verifyValidationBinding(snapshot, plan, execution);
 }
@@ -193,7 +192,7 @@ export async function executeValidation(
   runtime: ValidationRuntime,
   clock: Clock = SYSTEM_CLOCK,
 ): Promise<ValidationExecution> {
-  verifyValidationClaim(snapshot, plan, execution, clock);
+  verifyValidationClaim(snapshot, plan, execution);
   return await executeProducerGraph(snapshot, plan, execution, runtime, clock);
 }
 
