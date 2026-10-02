@@ -86,7 +86,7 @@ A serial brief can retain its predecessor's exact watch selector as a matching w
 
 [`project_control_integrity_test.ts`](../../../tests/project_control_integrity_test.ts) plants each failure class in isolated trees. Its valid fixtures include the absent-overlay case and a declared future output before creation; negative fixtures cover missing and stale members in both directions. Run `discern scripts project-control` for the same quiet repository check without the rest of the gate.
 
-The site tests read the built site, which the gate's build stage produces through `deno task site:build`. On a fresh checkout that has never run the gate, run `deno task site:build` before the full suite. The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
+The site tests read the built site, which the gate's build stage produces through `deno task site:build`. On a fresh checkout that has never run the gate, run `deno task site:build` before the full suite. The top-level `exclude` in `deno.json` keeps Git-ignored trees such as distribution files and scratch out of discovery, and `test.exclude` adds templates and fixtures ([discovery scope](code-conventions.md#keep-ignored-trees-out-of-deno-discovery)).
 
 Tests work at these layers:
 

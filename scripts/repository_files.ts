@@ -86,6 +86,39 @@ export const EDITOR_PATH_POLICIES: readonly EditorPathPolicy[] = [
   },
 ] as const;
 
+export interface DenoVisibleIgnoredRoot {
+  /** The root as `.gitignore` names it, without the leading slash. */
+  readonly path: string;
+  /**
+   * `deno-skips`: Deno's own file discovery never walks it, which the guard
+   * proves. `discoverable`: Deno may walk it; the root must hold no
+   * TypeScript.
+   */
+  readonly discovery: "deno-skips" | "discoverable";
+  readonly reason: string;
+}
+
+/**
+ * Git-ignored directory roots deliberately left out of `deno.json`'s
+ * top-level `exclude`. Every other ignored directory root is excluded there,
+ * because `deno check` and `deno test` ignore `.gitignore` and would otherwise
+ * type-check ignored scratch and build output.
+ */
+export const DENO_VISIBLE_IGNORED_ROOTS: readonly DenoVisibleIgnoredRoot[] = [
+  {
+    path: "node_modules/",
+    discovery: "deno-skips",
+    reason:
+      "npm resolution under nodeModulesDir reads it, and Deno's discovery already skips it",
+  },
+  {
+    path: "site/pages/assets/design-system/",
+    discovery: "discoverable",
+    reason:
+      "the hosted deploy rebuilds and serves these CSS, JavaScript, and font bundles under this deno.json, so the live site's assets never depend on how deploy packaging treats excluded paths",
+  },
+] as const;
+
 export interface CommunityFilePolicy {
   readonly path: string;
   readonly state: "tracked" | "intentionally-absent";

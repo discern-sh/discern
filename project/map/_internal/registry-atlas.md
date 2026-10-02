@@ -28,6 +28,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
 | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 18      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
+| [`deno-visible-ignored-roots`](#deno-visible-ignored-roots--git-ignored-roots-outside-deno-exclusion)                 | `scripts/repository_files.ts#DENO_VISIBLE_IGNORED_ROOTS`                          | 2       | —                | —                           |
 | [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 28      | —                | —                           |
 | [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
 | [`contributor-intake-surfaces`](#contributor-intake-surfaces--contributor-intake-surfaces)                            | `scripts/repository_files.ts#CONTRIBUTOR_INTAKE_SURFACES`                         | 8       | —                | —                           |
@@ -149,9 +150,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 16      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 4       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 138     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 139     | —                | node `canonical-sets`       |
 
-138 sets · 199 guard tests · 75 committed artifacts.
+139 sets · 200 guard tests · 75 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -214,6 +215,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/contributor_governance_test.ts`             | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/cross_agent_reference_codegen_test.ts`      | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/demand_canon_test.ts`                       | [`demand-canon`](#demand-canon--demand-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/deno_discovery_exclusions_test.ts`          | [`deno-visible-ignored-roots`](#deno-visible-ignored-roots--git-ignored-roots-outside-deno-exclusion)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/dev_vocab_guard_test.ts`                    | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/diagnostic_formats_enrolment_test.ts`       | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/discern_commit_enrolment_test.ts`           | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -1810,6 +1812,18 @@ Every absent generated output shared editor configuration may exclude, plus priv
 - Guards: `tests/repository_hygiene_test.ts`
 - Glossary: not enrolled — these are repository-maintenance paths rather than product vocabulary
 - Feature canon: not enrolled — editor presentation and local state do not change product behavior
+
+## `deno-visible-ignored-roots` — Git-ignored roots outside Deno exclusion
+
+Every Git-ignored directory root deno.json's top-level exclude deliberately leaves visible, with its reason; every other ignored root is excluded so Deno's check and test discovery never reach ignored scratch or build output.
+
+- Source: `scripts/repository_files.ts` — `DENO_VISIBLE_IGNORED_ROOTS`
+- Members: 2
+  - `deno-skips: node_modules/`
+  - `discoverable: site/pages/assets/design-system/`
+- Guards: `tests/deno_discovery_exclusions_test.ts`
+- Glossary: not enrolled — these are repository-maintenance paths rather than product vocabulary
+- Feature canon: not enrolled — the repository's own Deno discovery scope does not change product behavior
 
 ## `repository-community-files` — Repository community files
 
@@ -5877,7 +5891,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 138
+- Members: 139
   - `site-marketing-pages`
   - `site-endpoints`
   - `public-site-routes`
@@ -5894,6 +5908,7 @@ This meta-registry: the closed set of closed sets.
   - `build-targets`
   - `repository-literal-policies`
   - `editor-path-policies`
+  - `deno-visible-ignored-roots`
   - `repository-community-files`
   - `map-tier-publication-postures`
   - `contributor-intake-surfaces`

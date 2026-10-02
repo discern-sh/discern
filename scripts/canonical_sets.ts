@@ -574,6 +574,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "deno-visible-ignored-roots",
+    title: "Git-ignored roots outside Deno exclusion",
+    what:
+      "Every Git-ignored directory root deno.json's top-level exclude deliberately leaves visible, with its reason; every other ignored root is excluded so Deno's check and test discovery never reach ignored scratch or build output.",
+    source: {
+      kind: "module",
+      module: "scripts/repository_files.ts",
+      exportName: "DENO_VISIBLE_IGNORED_ROOTS",
+    },
+    guards: ["tests/deno_discovery_exclusions_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "these are repository-maintenance paths rather than product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the repository's own Deno discovery scope does not change product behavior",
+      },
+    },
+    members: async () =>
+      (await import("./repository_files.ts")).DENO_VISIBLE_IGNORED_ROOTS.map(
+        (root) => `${root.discovery}: ${root.path}`,
+      ),
+  },
+  {
     id: "repository-community-files",
     title: "Repository community files",
     what:
