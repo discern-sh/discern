@@ -228,6 +228,15 @@ const PLAN_STEP = new RegExp(
 /** A rendered plan detail: `Label: value`. */
 const PLAN_DETAIL = /^([^:]{1,40}):\s+(.+)$/u;
 
+/** A detail that names the list indented under it: `Landing queue:`. */
+const PLAN_LIST = /^[^:]{1,40}:$/u;
+
+/** One label and value row of a laid-out plan. */
+interface PlanRow {
+  readonly label: string;
+  readonly value: ApplicationRun[][];
+}
+
 /**
  * The exact shared rendering of a plan as sheet text, word for word: its
  * title, then each group (Context, Steps, …) with its details and steps as
@@ -241,7 +250,7 @@ export function planBlocks(plan: EnginePlan): ApplicationDetailBlock[] {
     runs: [{ text: title.trim(), role: "title" }],
   }];
   let section: { title: string; blocks: ApplicationDetailBlock[] } | undefined;
-  let rows: { label: string; value: ApplicationRun[][] }[] = [];
+  let rows: PlanRow[] = [];
   const flush = (): void => {
     if (rows.length > 0) section?.blocks.push({ kind: "facts", rows });
     rows = [];
@@ -253,22 +262,39 @@ export function planBlocks(plan: EnginePlan): ApplicationDetailBlock[] {
     }
     section = undefined;
   };
+  // A detail that names a list ("Landing queue:") and the lines indented
+  // under it read as one row: the label, then each line as a value line.
+  let list: { label: string; indent: number; row?: PlanRow } | undefined;
   // The shared renderer opens each group with its label after a blank line.
   let opening = true;
   for (const line of rest) {
     const text = line.trim();
     if (text === "") {
       opening = true;
+      list = undefined;
       continue;
     }
     if (opening || section === undefined) {
       close();
       section = { title: text, blocks: [] };
       opening = false;
+      list = undefined;
       continue;
     }
+    const indent = line.length - line.trimStart().length;
+    if (list !== undefined && indent > list.indent) {
+      if (list.row === undefined) {
+        list.row = { label: list.label, value: [] };
+        rows.push(list.row);
+      }
+      list.row.value.push([{ text }]);
+      continue;
+    }
+    list = undefined;
     const fact = PLAN_STEP.exec(text) ?? PLAN_DETAIL.exec(text);
-    if (fact === null) {
+    if (fact === null && PLAN_LIST.test(text)) {
+      list = { label: text.slice(0, -1), indent };
+    } else if (fact === null) {
       flush();
       section.blocks.push({ kind: "text", runs: [{ text }] });
     } else {

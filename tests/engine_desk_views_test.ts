@@ -312,6 +312,9 @@ Deno.test("a technical plan reads as sheet text, every word of the shared render
       "From worktree: /tmp/project.worktrees/manual",
       "Into trunk:    /tmp/project (fast-forward main, delete agent/manual)",
       "No pre-authorization is recorded",
+      "Landing queue:",
+      "  1. agent/manual at 3f9c2e100000 — pre-authorized",
+      "  2. agent/index at 9e2d77100000 — awaiting the owner",
     ],
     steps: [
       {
@@ -364,6 +367,12 @@ Deno.test("a technical plan reads as sheet text, every word of the shared render
     context.blocks.some((block) => block.kind === "text"),
     "a detail that isn't a label and value stays a line of its own",
   );
+  // A detail naming the list under it reads as one row, never as a heading
+  // that a page could end on.
+  const queue = context.blocks.flatMap((block) =>
+    block.kind === "facts" ? block.rows : []
+  ).find((row) => row.label === "Landing queue");
+  assertEquals(queue?.value.length, 2, said(context.blocks));
 });
 
 Deno.test("a checkout's path reads short in the inspector and whole in View changes", () => {
