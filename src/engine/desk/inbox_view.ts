@@ -437,8 +437,6 @@ function liveness(
  * what was found reads in ink after the lead.
  */
 function messageWords(message: DeskMessage): ApplicationRun[] {
-  // A tip's brief fits 80 columns whole; TODO(R-20): mark it optional so
-  // narrower or shorter terminals leave it out instead of cutting it.
   if (message.topic === "tip") {
     return [
       { text: message.lead ?? "Tip", tone: "faint" },
@@ -459,6 +457,8 @@ function messageWords(message: DeskMessage): ApplicationRun[] {
 /**
  * The message row: a toast, the tip, or a persistent warning. Only the
  * leading mark carries the message's tone; the line itself stays muted.
+ * The tip reads only whole, so it is optional: a terminal too narrow for
+ * its brief, or too short to spare the footer's row, leaves it out.
  */
 export function messageLine(
   message: DeskMessage | undefined,
@@ -476,6 +476,7 @@ export function messageLine(
     id: message.id,
     tone: "muted",
     runs,
+    ...(message.topic === "tip" ? { optional: true } : {}),
     ...(message.key === undefined ? {} : {
       trailing: [
         { text: message.key.key, role: "key" as const },

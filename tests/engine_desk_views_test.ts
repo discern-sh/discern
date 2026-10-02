@@ -1084,6 +1084,32 @@ Deno.test("only a message's mark carries its tone; its words stay neutral", () =
       run.tone !== undefined && !["ink", "muted", "faint"].includes(run.tone)
     );
     assertEquals(toned, [], `${tone}: its words carry no tone`);
+    assertEquals(line.optional, undefined, `${tone}: a toast always shows`);
+  }
+});
+
+Deno.test("the tip shows only whole and never takes the footer's row", () => {
+  const brief = "Space zooms the selected task's details to the whole screen.";
+  const state = deskProduct(
+    desk(statusData([mainFleetEntry(), task({ ahead: 2 })])),
+    { kind: "tip", tip: { lead: "Tip", brief, full: brief } },
+  ).state;
+  const view = deskView(state, PRODUCT_UI, ENV);
+  assertEquals(view.message?.optional, true);
+  const footer = /\^K Commands/u;
+  const wide = render(view, 80, 24);
+  assertStringIncludes(wide, brief, "80 columns show the brief whole");
+  assert(footer.test(wide), wide);
+  for (const [columns, rows] of [[40, 20], [80, 13]] as const) {
+    const frame = render(view, columns, rows);
+    assert(
+      !frame.includes("Tip "),
+      `${columns}×${rows} leaves it out\n${frame}`,
+    );
+    assert(
+      footer.test(frame.split("\n").at(-1) ?? ""),
+      `${columns}×${rows} keeps the footer\n${frame}`,
+    );
   }
 });
 

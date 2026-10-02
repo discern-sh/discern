@@ -252,7 +252,8 @@ export const TIP_RENDERED_LENGTH_LIMIT = 160;
 
 /**
  * The cells a brief may take as shown: what the Desk's message line leaves
- * after its margins and the `Tip` label at 80 columns.
+ * after its margins and the `Tip` label at 80 columns. The line shows a tip
+ * only whole, so a brief within this shows from 80 columns up.
  */
 export const TIP_BRIEF_CELLS = 70;
 

@@ -11,7 +11,7 @@ aliases:
 
 _Each desk session reserves one quiet teaching line._
 
-The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md), [ADR 0420](../_adr/0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md)). It shows on the message line once the first survey lands and clears with the first key: each tip carries a one-sentence brief for that line, which fits it whole at 80 columns, after `Tip` (or `New` for a tip an upgrade brought). **Tip of the session** in the command palette's Help section opens its full text. Narrow fitting and redraws do not select or record another tip.
+The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md), [ADR 0420](../_adr/0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md)). It shows on the message line once the first survey lands and clears with the first key: each tip carries a one-sentence brief for that line, which fits it whole at 80 columns, after `Tip` (or `New` for a tip an upgrade brought). The line is optional: a narrower terminal, or one too short to spare the footer's row, leaves the tip out rather than cutting it. **Tip of the session** in the command palette's Help section opens its full text. Narrow fitting and redraws do not select or record another tip.
 
 ## How the tip is chosen
 
