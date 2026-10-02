@@ -17,6 +17,7 @@ import {
   type DenoInfoGraph,
 } from "../src/shared/deno_graph.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { decodeDenoExclusions, sectionExclusions } from "./deno_exclusions.ts";
 import { listTestModules } from "./test_modules.ts";
 
 export interface TestPriority {
@@ -29,22 +30,25 @@ export interface TestPriority {
 }
 
 const SelectionConfigSchema = z.object({
-  test: z.object({
-    exclude: z.array(z.string()).optional(),
-    include: z.unknown().optional(),
-  }).passthrough().optional(),
+  test: z.object({ include: z.unknown().optional() }).passthrough()
+    .optional(),
   workspace: z.unknown().optional(),
-  exclude: z.unknown().optional(),
 }).passthrough();
 
-/** Preserve the native config exclusions when the CLI supplies an ignore list. */
+/**
+ * Preserve the native config exclusions when the CLI supplies an ignore list.
+ * Native `--ignore` replaces the top-level and the test exclusions alike, so
+ * the carried list holds both.
+ */
 export function priorityExclusions(config: unknown): string[] | undefined {
   const parsed = SelectionConfigSchema.safeParse(config);
+  const exclusions = decodeDenoExclusions(config);
   if (
-    !parsed.success || parsed.data.test?.include !== undefined ||
-    parsed.data.workspace !== undefined || parsed.data.exclude !== undefined
+    !parsed.success || exclusions === undefined ||
+    parsed.data.test?.include !== undefined ||
+    parsed.data.workspace !== undefined
   ) return undefined;
-  const excluded = parsed.data.test?.exclude ?? [];
+  const excluded = sectionExclusions(exclusions, "test");
   return excluded.some((path) => path.includes(",")) ? undefined : excluded;
 }
 

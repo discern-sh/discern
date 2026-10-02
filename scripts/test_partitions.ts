@@ -406,7 +406,7 @@ export function partitionSelections(
     selections.push([
       `--shard=${index + 1}/${remaining}`,
       "--permit-no-files",
-      // Native --ignore replaces test.exclude; carry its complete configured list.
+      // Native --ignore replaces the configured exclusions; carry them all.
       `--ignore=${[...priority.excluded, ...files].join(",")}`,
     ]);
   }

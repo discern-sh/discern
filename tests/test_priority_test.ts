@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import {
   affectedTestFiles,
   discoverTestPriority,
@@ -7,7 +8,9 @@ import {
   priorityFile,
 } from "../scripts/test_priority.ts";
 import { decodeDenoInfoGraph } from "../src/shared/deno_graph.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import { gitInit } from "./engine_helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { withTempDir } from "./temp_dir.ts";
 
 Deno.test("resolved affected tests follow transitive code, type, alias and cyclic edges", () => {
@@ -59,6 +62,14 @@ Deno.test("priority fallback preserves unsupported native selections and literal
     }),
     ["tests/fixtures/", "generated/*.ts"],
   );
+  // Native --ignore replaces the top-level list too, so it travels first.
+  assertEquals(
+    priorityExclusions({
+      exclude: [".scratch/"],
+      test: { exclude: ["tests/fixtures/"] },
+    }),
+    [".scratch/", "tests/fixtures/"],
+  );
   for (
     const value of [
       null,
@@ -67,7 +78,8 @@ Deno.test("priority fallback preserves unsupported native selections and literal
       { test: { exclude: ["comma,name"] } },
       { test: { include: [] } },
       { workspace: [] },
-      { exclude: [] },
+      { exclude: "wrong" },
+      { exclude: ["comma,name"] },
     ]
   ) {
     assertEquals(priorityExclusions(value), undefined);
@@ -94,6 +106,19 @@ Deno.test("priority fallback preserves unsupported native selections and literal
       "tests/a_test.ts.map",
     ]
   ) assertEquals(priorityFile(path), false, path);
+});
+
+Deno.test("the repository's own deno.json keeps priority admission available", async () => {
+  const config = decodeWith(
+    z.record(z.string(), z.unknown()),
+    await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
+  );
+  assert(
+    priorityExclusions(config) !== undefined,
+    "deno.json selects tests in a shape the priority partitions cannot " +
+      "carry through native --ignore, so every gate run would fall back to " +
+      "ordinary seeded admission; teach scripts/test_priority.ts the shape",
+  );
 });
 
 Deno.test("priority discovery uses the repository diff and resolved graph with safe fallback", async () => {

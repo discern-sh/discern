@@ -9,6 +9,7 @@
  */
 
 import { globToRegExp, join } from "@std/path";
+import { parseDenoExclusions, sectionExclusions } from "./deno_exclusions.ts";
 import { extractSourceComments } from "./source_comments.ts";
 
 export type DenoLintSuppressionDirective =
@@ -95,26 +96,12 @@ function exclusionMatches(pattern: string, file: string): boolean {
   }).test(file);
 }
 
-/** Decode the configured lint exclusions, refusing malformed census input. */
+/**
+ * Decode every exclusion `deno lint` applies — the top-level list and the
+ * lint section's own — refusing malformed census input.
+ */
 function configuredLintExclusions(configText: string): string[] {
-  const parsed: unknown = JSON.parse(configText);
-  if (typeof parsed !== "object" || parsed === null) {
-    throw new Error("deno.json must contain an object");
-  }
-  const lint = Reflect.get(parsed, "lint");
-  if (lint === undefined) return [];
-  if (typeof lint !== "object" || lint === null) {
-    throw new Error("deno.json lint must contain an object");
-  }
-  const exclude = Reflect.get(lint, "exclude");
-  if (exclude === undefined) return [];
-  if (
-    !Array.isArray(exclude) ||
-    !exclude.every((entry): entry is string => typeof entry === "string")
-  ) {
-    throw new Error("deno.json lint.exclude must be an array of strings");
-  }
-  return exclude;
+  return sectionExclusions(parseDenoExclusions(configText), "lint");
 }
 
 /**

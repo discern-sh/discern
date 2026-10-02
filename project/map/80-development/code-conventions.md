@@ -32,7 +32,7 @@ The engine has no `selfcheck` or shell-recipe matrix because it has no second co
 
 Deno recognizes `deno-lint-ignore` for one line and `deno-lint-ignore-file` for a file. Both forms are forbidden in authored source in this repository. Fix the named rule instead of adding either directive. If a rule is wrong for the repository, change the shared lint configuration and explain that policy change in review.
 
-`deno task lint-suppressions` emits two censuses. `lint_suppressions` covers directives; `lint_exclusions` covers effective `deno.json` patterns over the Git-derived authored-source universe. The command names each pattern and removed source. Ignored products and inert fixtures do not count. The suppression count is held at zero. Effective exclusions may only shrink; pin `lint_exclusions` after an improvement.
+`deno task lint-suppressions` emits two censuses. `lint_suppressions` covers directives; `lint_exclusions` covers effective `deno.json` patterns, top-level and lint-only alike, over the Git-derived authored-source universe. The command names each pattern and removed source. Ignored products and inert fixtures do not count. The suppression count is held at zero. Effective exclusions may only shrink; pin `lint_exclusions` after an improvement.
 
 `tests/lint_suppressions_test.ts` runs the detector as a zero-count guard in the normal test suite. It scans the complete authored-source universe, including files excluded from lint. A fixture proves that tracked and untracked files in a new source root join the guard. The zero ceiling remains in `discern.toml`, where its producer also measures `lint_exclusions`.
 
