@@ -14,7 +14,7 @@ import { project } from "./completion_public_fixture.ts";
 import { git, gitOut } from "./engine_helpers.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 
-Deno.test("Drop refuses stale content, revision and branch reviews, then applies only the refreshed exact plan", async () => {
+Deno.test("Drop refuses stale content, revision, branch and grant reviews, then applies only the refreshed exact plan", async () => {
   await withTempDir(async (root) => {
     const path = await project(root);
     const ctx = await lifecycleContext(
@@ -22,6 +22,11 @@ Deno.test("Drop refuses stale content, revision and branch reviews, then applies
       new Logger({ json: true, noColor: true }),
     );
     const initial = await worktreeDropPlan(ctx, path);
+    assertEquals(
+      [initial.subject.endsGrant, initial.subject.leavesQueue],
+      [false, false],
+      "the plan names no landing record it would end",
+    );
     await assertRejects(
       () => worktreeDrop(ctx, path, { expected: initial.subject }),
       DropWouldDiscardWork,
@@ -56,6 +61,15 @@ Deno.test("Drop refuses stale content, revision and branch reviews, then applies
             "different untracked work\n",
           );
         },
+        // A grant recorded after the review is a landing record the reviewed
+        // plan did not say it would end.
+        async () => {
+          await grantEffort(
+            path,
+            await gitOut(path, "branch", "--show-current"),
+            "2026-09-12T10:00:00.000Z",
+          );
+        },
       ]
     ) {
       const before = await worktreeDropPlan(ctx, path);
@@ -69,6 +83,8 @@ Deno.test("Drop refuses stale content, revision and branch reviews, then applies
       assert(await targetExists(path));
     }
     const fresh = await worktreeDropPlan(ctx, path);
+    assertEquals(fresh.subject.endsGrant, true);
+    assert(fresh.details.includes("Landing grant:  removed"));
     await worktreeDrop(ctx, path, { force: true, expected: fresh.subject });
     assertEquals(await targetExists(path), false);
     // Disappearance cannot redirect the same confirmation to another checkout.
@@ -76,35 +92,5 @@ Deno.test("Drop refuses stale content, revision and branch reviews, then applies
       () => worktreeDrop(ctx, path, { force: true, expected: fresh.subject }),
       WorktreeGitError,
     );
-  });
-});
-
-Deno.test("Drop's plan names the landing records it ends, and a grant recorded after review refuses the apply", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(root);
-    const ctx = await lifecycleContext(
-      root,
-      new Logger({ json: true, noColor: true }),
-    );
-    const reviewed = await worktreeDropPlan(ctx, path);
-    assertEquals(
-      [reviewed.subject.endsGrant, reviewed.subject.leavesQueue],
-      [false, false],
-    );
-    await grantEffort(
-      path,
-      await gitOut(path, "branch", "--show-current"),
-      "2026-09-12T10:00:00.000Z",
-    );
-    const granted = await worktreeDropPlan(ctx, path);
-    assertEquals(granted.subject.endsGrant, true);
-    assert(granted.details.includes("Landing grant:  removed"));
-    await assertRejects(
-      () =>
-        worktreeDrop(ctx, path, { force: true, expected: reviewed.subject }),
-      WorktreeGitError,
-      "reviewed Drop target or its work changed",
-    );
-    assert(await targetExists(path));
   });
 });

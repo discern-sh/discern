@@ -72,6 +72,16 @@ function quiet(cwd: string): {
   return { cwd, stream: false, failFast: false, color: false, quiet: true };
 }
 
+/** A task checkout whose setup finished, as one a lifecycle verb accepts. */
+async function setUpWorktree(root: string, name: string): Promise<string> {
+  const worktree = await addWorktree(root, name);
+  const marker = await readySentinelPath(worktree);
+  assert(marker !== undefined);
+  await Deno.mkdir(dirname(marker), { recursive: true });
+  await Deno.writeTextFile(marker, "");
+  return worktree;
+}
+
 Deno.test("plan steps: a step keeps when it started and settles in place", () => {
   const started = foldStep([], { label: "merge", state: "started", at: 10 });
   const other = foldStep(started, {
@@ -160,114 +170,115 @@ Deno.test("plan steps: the job runner reports each job it starts and its verdict
   });
 });
 
-Deno.test("plan steps: ensure commands report as the steps a plan names them", async () => {
-  await withTempDir(async (root) => {
-    await scaffoldEngine(root);
-    await gitInit(root);
-    const ctx = await lifecycleContext(
-      root,
-      new Logger({ json: true, noColor: true }),
-    );
-    const { value, steps } = await stepsOf(() =>
-      runEnsureCommands(ctx, ["true", "exit 4"], {
-        fatal: false,
-        cwd: root,
-        scope: "repository",
-      })
-    );
-    assertEquals(value.outcomes, ["ok", "failed"]);
-    assertEquals(transitions(steps), [
-      "true:started",
-      "true:finished",
-      "exit 4:started",
-      "exit 4:failed",
-    ]);
-  });
-});
-
-Deno.test("plan steps: every step Park records reached its observers as it settled", async () => {
-  await withTempDir(async (root) => {
-    await scaffoldEngine(root);
-    await gitInit(root);
-    const worktree = await addWorktree(root, "parked-task");
-    const marker = await readySentinelPath(worktree);
-    assert(marker !== undefined);
-    await Deno.mkdir(dirname(marker), { recursive: true });
-    await Deno.writeTextFile(marker, "");
-    const ctx = await lifecycleContext(
-      root,
-      new Logger({ json: true, noColor: true }),
-    );
-    const { value, steps } = await stepsOf(() =>
-      worktreeParkResult(ctx, worktree, false)
-    );
-    assert(value.ok, value.message);
-    const settled = steps.filter((step) => step.state !== "started");
-    assertEquals(
-      settled.map((step) => `${step.label}:${step.state}`),
-      (value.steps ?? []).map((result) =>
-        `${result.step.label}:${PLAN_STEP_STATE_BY_OUTCOME[result.outcome]}`
-      ),
-      "the facts follow the result's own steps, in order",
-    );
-    assert(
-      steps.some((step) =>
-        step.label === BUILT_IN_STEP_LABELS.removeWorktree &&
-        step.state === "started"
-      ),
-      "the removal reports when it begins",
-    );
-  });
-});
-
-Deno.test("plan steps: every step a direct landing plans reaches its observers", async () => {
+Deno.test("plan steps: lifecycle executors report each step as it settles", async (t) => {
   await withTempDir(async (directory) => {
+    // One project serves every executor: each step works on its own
+    // checkout, so none consumes what another needs.
     const root = await Deno.realPath(directory);
     await scaffoldEngine(root);
     await gitInit(root);
-    const worktree = await addWorktree(root, "landing-task");
-    const marker = await readySentinelPath(worktree);
-    assert(marker !== undefined);
-    await Deno.mkdir(dirname(marker), { recursive: true });
-    await Deno.writeTextFile(marker, "");
-    await Deno.writeTextFile(join(worktree, "landed.txt"), "landed\n");
-    await git(worktree, "add", "-A");
-    await git(worktree, "commit", "-q", "-m", "Land a file", "--no-gpg-sign");
-    const proven = await finishResult(worktree, {
-      surface: { kind: "quiet" },
-      cliModel: TEST_CLI_MODEL,
-    });
-    assert(proven.ok, proven.message);
     const ctx = await lifecycleContext(
-      worktree,
+      root,
       new Logger({ json: true, noColor: true }),
     );
-    const request = {
-      target: worktree,
-      confirmed: true,
-      variance: [],
-      approveStandard: [],
-      met: [],
-      cliModel: TEST_CLI_MODEL,
-    };
-    const preview = await acceptLandingResult(ctx, {
-      ...request,
-      dryRun: true,
-    });
-    assert(preview.ok && preview.plan !== undefined, preview.message);
-    const { value, steps } = await stepsOf(() =>
-      acceptLandingResult(ctx, { ...request, dryRun: false })
+
+    await t.step(
+      "ensure commands report as the steps a plan names them",
+      async () => {
+        const { value, steps } = await stepsOf(() =>
+          runEnsureCommands(ctx, ["true", "exit 4"], {
+            fatal: false,
+            cwd: root,
+            scope: "repository",
+          })
+        );
+        assertEquals(value.outcomes, ["ok", "failed"]);
+        assertEquals(transitions(steps), [
+          "true:started",
+          "true:finished",
+          "exit 4:started",
+          "exit 4:failed",
+        ]);
+      },
     );
-    assert(value.ok, value.message);
-    const unreported = preview.plan.steps.filter((planned) =>
-      !steps.some((step) =>
-        step.label === planned.label && step.state !== "started"
-      )
-    ).map((planned) => planned.label);
-    assertEquals(
-      unreported,
-      [],
-      "the progress shows every planned step as it settles, none inferred",
+
+    await t.step(
+      "every step Park records reached its observers as it settled",
+      async () => {
+        const worktree = await setUpWorktree(root, "parked-task");
+        const { value, steps } = await stepsOf(() =>
+          worktreeParkResult(ctx, worktree, false)
+        );
+        assert(value.ok, value.message);
+        const settled = steps.filter((step) => step.state !== "started");
+        assertEquals(
+          settled.map((step) => `${step.label}:${step.state}`),
+          (value.steps ?? []).map((result) =>
+            `${result.step.label}:${PLAN_STEP_STATE_BY_OUTCOME[result.outcome]}`
+          ),
+          "the facts follow the result's own steps, in order",
+        );
+        assert(
+          steps.some((step) =>
+            step.label === BUILT_IN_STEP_LABELS.removeWorktree &&
+            step.state === "started"
+          ),
+          "the removal reports when it begins",
+        );
+      },
+    );
+
+    await t.step(
+      "every step a direct landing plans reaches its observers",
+      async () => {
+        const worktree = await setUpWorktree(root, "landing-task");
+        await Deno.writeTextFile(join(worktree, "landed.txt"), "landed\n");
+        await git(worktree, "add", "-A");
+        await git(
+          worktree,
+          "commit",
+          "-q",
+          "-m",
+          "Land a file",
+          "--no-gpg-sign",
+        );
+        const proven = await finishResult(worktree, {
+          surface: { kind: "quiet" },
+          cliModel: TEST_CLI_MODEL,
+        });
+        assert(proven.ok, proven.message);
+        const landingCtx = await lifecycleContext(
+          worktree,
+          new Logger({ json: true, noColor: true }),
+        );
+        const request = {
+          target: worktree,
+          confirmed: true,
+          variance: [],
+          approveStandard: [],
+          met: [],
+          cliModel: TEST_CLI_MODEL,
+        };
+        const preview = await acceptLandingResult(landingCtx, {
+          ...request,
+          dryRun: true,
+        });
+        assert(preview.ok && preview.plan !== undefined, preview.message);
+        const { value, steps } = await stepsOf(() =>
+          acceptLandingResult(landingCtx, { ...request, dryRun: false })
+        );
+        assert(value.ok, value.message);
+        const unreported = preview.plan.steps.filter((planned) =>
+          !steps.some((step) =>
+            step.label === planned.label && step.state !== "started"
+          )
+        ).map((planned) => planned.label);
+        assertEquals(
+          unreported,
+          [],
+          "the progress shows every planned step as it settles, none inferred",
+        );
+      },
     );
   });
 });

@@ -92,7 +92,7 @@ async function preview(
   return { facts, plan: result.plan };
 }
 
-Deno.test("a direct landing preview names what lands, its authority, and the queue walk after it", async () => {
+Deno.test("a landing preview names what lands, its authority, the queue walk after it, and how far the trunk moved", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -134,29 +134,21 @@ Deno.test("a direct landing preview names what lands, its authority, and the que
       true,
     ]);
     assertEquals(own.facts.queue_walk, []);
-  });
-});
 
-Deno.test("a landing preview after the trunk moved says it composes first, by how much, and onto which commit", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, CONFIG);
-    await gitInit(dir);
-    const alpha = await effortWithWork(dir, "alpha");
-    assertEquals((await runAgent(alpha, ["done", "--json"])).code, 0);
+    // Once the trunk moves past alpha's base, its preview composes first and
+    // says by how much; the proven revision and what it lands are unchanged.
     for (const name of ["one", "two"]) {
       await Deno.writeTextFile(join(dir, `${name}.txt`), `${name}\n`);
       await git(dir, "add", "-A");
       await git(dir, "commit", "-q", "-m", `main: ${name}`, "--no-gpg-sign");
     }
-
-    const { facts, plan } = await preview(alpha);
-    assertEquals(facts.integrates, { behind: 2 });
-    assertEquals(facts.lands.commits, 1);
-    const fastForward = plan?.steps.find((step) =>
+    const moved = await preview(alpha);
+    assertEquals(moved.facts.integrates, { behind: 2 });
+    assertEquals(moved.facts.lands.commits, 1);
+    const combined = moved.plan?.steps.find((step) =>
       step.label === BUILT_IN_STEP_LABELS.fastForwardTrunk
     );
-    assertStringIncludes(fastForward?.note ?? "", "the combined commit");
+    assertStringIncludes(combined?.note ?? "", "the combined commit");
   });
 });
 
