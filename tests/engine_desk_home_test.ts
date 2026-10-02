@@ -386,6 +386,28 @@ Deno.test("the palette opened from the Commands row lists the home panel's comma
   }, { columns: 120, rows: 30 });
 });
 
+Deno.test("the Commands row's footer names Commands once", async () => {
+  for (const [columns, rows] of INBOX_SIZES) {
+    await session(() => fleet(), async (desk) => {
+      await desk.until(
+        () => selected(desk) === COMMANDS_ROW_ID,
+        "the Commands row selected",
+      );
+      const footer = () => desk.screen().split("\n").at(-1) ?? "";
+      assertEquals(
+        footer().split(COMMANDS_LABEL).length - 1,
+        1,
+        `${columns}x${rows}: Enter's hint alone names it: ${footer()}`,
+      );
+      if (columns >= 80) {
+        await desk.press("down");
+        await desk.until(() => selected(desk) === "ready", "a task");
+        assertStringIncludes(footer(), "^K", "a task's footer keeps ^K");
+      }
+    }, { columns, rows });
+  }
+});
+
 Deno.test("the palette opened from the Commands row takes the home panel's column", async () => {
   await session(fleet, async (desk) => {
     await desk.shows("Ready work");

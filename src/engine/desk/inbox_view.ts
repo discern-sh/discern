@@ -624,11 +624,14 @@ function footer(
   const creates = left.some((hint) =>
     hint.label === DESK_COMMAND_LABELS.new_task
   );
+  // Nor Ctrl+K while Enter already opens Commands, the Commands row's own
+  // cell showing its key.
+  const commands = left[0]?.label === COMMANDS_LABEL;
   return {
     left,
     right: [
       ...(actions ? [{ key: ".", label: gestureLabel(".") }] : []),
-      { key: "ctrl-k", label: gestureLabel("ctrl-k") },
+      ...(commands ? [] : [{ key: "ctrl-k", label: gestureLabel("ctrl-k") }]),
     ],
     extra: [
       { key: "?", label: DESK_COMMAND_REGISTRY.keys.short },
