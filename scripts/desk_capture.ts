@@ -44,6 +44,7 @@ import { deskSession } from "../tests/fixtures/desk_session.ts";
 import { git } from "../tests/engine_helpers.ts";
 import { directoryExists } from "../src/shared/fs_presence.ts";
 import { DESK_COMMAND_LABELS } from "../src/shared/desk_vocabulary.ts";
+import { markdownBrowserItemId } from "../src/lib/terminal_interaction.ts";
 import {
   freshDeskPreferences,
   writeDeskPreferences,
@@ -348,12 +349,25 @@ function manualContents(text: string): DeskFrameTest {
 }
 
 /**
+ * The manual's contents with one entry selected, by its corpus id: the
+ * manual shows no file paths, so the selection names the previewed page.
+ */
+function manualSelected(id: string): DeskFrameTest {
+  const selected = markdownBrowserItemId(id);
+  return (capture) =>
+    capture.state?.listId === "contents" &&
+    capture.state.focusedControlId === "contents" &&
+    capture.state.selectedItemId === selected;
+}
+
+/**
  * The manual inside the Desk, as `discern docs` shows it: its contents with
  * a guide previewed, the guide open, and search, then back to the inbox
  * with the same task selected.
  */
 function manualJourney(size: PtyGeometry): DeskTtyInputPhase[] {
-  const guide = "20-guides/delegate-work.md";
+  // The Start here group promotes the guide ahead of its own section.
+  const guide = "promoted:guide-delegate-work";
   // The previewed guide is the document that opens.
   const reading: DeskFrameTest = (capture) =>
     capture.state?.topLayerId === undefined &&
@@ -383,7 +397,7 @@ function manualJourney(size: PtyGeometry): DeskTtyInputPhase[] {
       manualContents("Read the docs online"),
       keys("down", "down"),
     ),
-    phase(size, "manual", "a guide previewed", manualContents(guide), {
+    phase(size, "manual", "a guide previewed", manualSelected(guide), {
       keys: ["enter"],
     }),
     phase(size, "manual-document", "the guide open", reading, text("/")),
