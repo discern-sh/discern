@@ -79,12 +79,14 @@ effectful
 else
 enum
 env
+Esc
 escapable
 eval
 exec'd
 fail_fast
 favicons?
 fd
+footer('s|s)?
 footgun
 formatter('s|s)?
 frontmatter

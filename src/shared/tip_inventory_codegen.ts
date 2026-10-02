@@ -52,7 +52,7 @@ function renderEntry(tip: RegisteredTip): string {
     "",
     markdownBlockquote(line),
     "",
-    "Message line (the Desk's first frame):",
+    "Message line (the desk's first frame):",
     "",
     markdownBlockquote(renderTipBriefCli(tip)),
   ].join("\n");
