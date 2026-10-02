@@ -194,6 +194,13 @@ function surveyBlocks(state: DeskProductState): ApplicationDetailBlock[] {
     : [{ kind: "pending", label: "Loading tasks…" }];
 }
 
+/**
+ * The section the session's tip follows: it teaches the desk as Help does,
+ * and above Go to it stays on a standard 80 by 24 screen, where Go to's
+ * places are a key or a Page Down away.
+ */
+const TIP_FOLLOWS: DeskPaletteSection = "help";
+
 /** The home panel: what the desk does, and the session's tip. */
 export function homeBlocks(
   state: DeskProductState,
@@ -223,17 +230,23 @@ export function homeBlocks(
       }]
       : []),
     ...surveyBlocks(state),
-    ...homeSections().map(({ section, commands }): ApplicationDetailBlock => ({
-      kind: "section",
-      title: DESK_PALETTE_SECTION_TITLES[section],
-      blocks: [commandRows(commands, facts)],
-    })),
-    ...(tip === undefined ? [] : [{
-      kind: "section" as const,
-      title: "Tip",
-      ...(tip.newIn === undefined ? {} : { caption: `new in ${tip.newIn}` }),
-      blocks: [{ kind: "text" as const, runs: inlineRuns(tip.brief) }],
-    }]),
+    ...homeSections().flatMap(({ section, commands }) => [
+      {
+        kind: "section" as const,
+        title: DESK_PALETTE_SECTION_TITLES[section],
+        blocks: [commandRows(commands, facts)],
+      },
+      ...(section === TIP_FOLLOWS && tip !== undefined
+        ? [{
+          kind: "section" as const,
+          title: "Tip",
+          ...(tip.newIn === undefined
+            ? {}
+            : { caption: `new in ${tip.newIn}` }),
+          blocks: [{ kind: "text" as const, runs: inlineRuns(tip.brief) }],
+        }]
+        : []),
+    ]),
   ];
 }
 

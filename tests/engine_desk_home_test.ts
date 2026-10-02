@@ -94,6 +94,43 @@ function fleet(extra: Partial<StatusData> = {}): StatusData {
   ], extra);
 }
 
+/**
+ * A full standard fleet: eight tasks across the decision groups, with
+ * titles long enough to hold the list at its widest, so the home panel
+ * gets the narrowest standard column, and three parked branches.
+ */
+function fullFleet(): StatusData {
+  const titles = [
+    "Manual concision and the reading grade",
+    "Auth refactor across the session store",
+    "Homepage session prototype for review",
+    "Release notes for the next minor",
+    "Docs glossary of every product term",
+    "Fix the flaky upload retry path",
+    "Search index rebuilt from the map",
+    "Tidy the project scripts directory",
+  ];
+  return deskSurvey(
+    titles.map((title, index) =>
+      taskFleetEntry(`task-${index}`, {
+        ahead: index + 1,
+        behind: index % 3 === 1 ? 12 : 0,
+        clean: index % 2 === 0,
+        changed_files: index % 2 === 0 ? 0 : 2,
+        proof_honored: index < 3,
+        gate_proof: { status: index < 3 ? "honored" : "missing" },
+        task: {
+          id: `task-${index}`,
+          branch: `agent/task-${index}`,
+          title,
+          title_source: "recorded",
+        },
+      })
+    ),
+    { unlanded_branches: ["agent/spike", "agent/old", "agent/try"] },
+  );
+}
+
 /** The fleets the Desk can open on: tasks, none, and only a parked branch. */
 const FLEETS: ReadonlyArray<readonly [string, () => StatusData]> = [
   ["a fleet", () => fleet()],
@@ -706,20 +743,62 @@ Deno.test("the home panel leads with what a task is while there are none", () =>
   assertEquals(group.items.map((item) => item.id), [COMMANDS_ROW_ID]);
 });
 
+Deno.test("on a standard screen the home panel shows Create, Help and the tip, every label whole", async () => {
+  const labels = (sections: readonly string[]) =>
+    homeSections().filter((section) => sections.includes(section.section))
+      .flatMap((section) => section.commands)
+      .map((command) => DESK_COMMAND_LABELS[command]);
+  for (
+    const [name, data] of [["a full fleet", fullFleet], ...FLEETS] as const
+  ) {
+    await session(data, async (desk) => {
+      await desk.until(
+        () =>
+          selected(desk) === COMMANDS_ROW_ID && desk.screen().includes("Tip"),
+        `${name}: the tip on the first screen at 80x24:\n${desk.screen()}`,
+      );
+      for (const label of labels(["create", "help"])) {
+        assertStringIncludes(desk.screen(), label, `${name}: ${label} whole`);
+      }
+    }, { columns: 80, rows: 24 });
+    // Tall enough for the whole panel at the narrowest standard column:
+    // every home label shows whole, beside its value and key.
+    await session(data, async (desk) => {
+      await desk.until(
+        () => desk.screen().includes("Tip"),
+        `${name}: the whole panel`,
+      );
+      for (const label of labels([...DESK_PALETTE_SECTIONS])) {
+        assertStringIncludes(desk.screen(), label, `${name}: ${label} whole`);
+      }
+    }, { columns: 80, rows: 60 });
+  }
+});
+
 Deno.test("the home panel carries the session's tip and the release it came with", () => {
   const state = observedDesk(fleet());
   const tipped = homeBlocks({
     ...state,
     tip: { brief: "Press `x`.", full: "Press `x` for x.", newIn: "9.8.0" },
   }, ENV);
-  const tip = tipped.at(-1);
-  assert(tip?.kind === "section" && tip.title === "Tip");
+  const titles = tipped.flatMap((block) =>
+    block.kind === "section" ? [block.title] : []
+  );
+  assertEquals(
+    titles,
+    ["Create", "Help", "Tip", "Go to"],
+    "the tip follows Help, above Go to",
+  );
+  const tip = tipped.find((block) =>
+    block.kind === "section" && block.title === "Tip"
+  );
+  assert(tip?.kind === "section");
   assertEquals(tip.caption, "new in 9.8.0");
   assertStringIncludes(words([tip]), "x");
   const plain = homeBlocks({
     ...state,
     tip: { brief: "Press `x`.", full: "Press `x` for x." },
-  }, ENV).at(-1);
+  }, ENV).find((block) => block.kind === "section" && block.title === "Tip");
   assert(plain?.kind === "section" && plain.caption === undefined);
   assert(
     !homeBlocks(state, ENV).some((block) =>
