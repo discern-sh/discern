@@ -11,7 +11,7 @@
  * output artifact, keeps every line whole.
  */
 
-import { stripAnsi } from "../shared/color_env.ts";
+import { stripAnsi } from "./text.ts";
 
 /** A committed line, or the line still being written. */
 export type LiveTailKind = "line" | "partial";
@@ -26,10 +26,13 @@ export function liveTailLimit(columns: number, tailRows: number): number {
 }
 
 /**
- * The part of one streamed line a view can show. A committed line shows its
- * last wrapped rows, so it keeps its end; an in-progress line shows the start
- * of its last carriage-return segment, so it keeps that start. Each cut is
- * marked with the ellipsis and never splits a surrogate pair.
+ * The part of one streamed line a view can show: at most `limit` code units,
+ * the ellipsis that marks a cut included. A committed line shows its last
+ * wrapped rows, so it keeps its end; an in-progress line shows the start of
+ * its last carriage-return segment, so it keeps that start. A line is
+ * measured without the escape sequences no view shows, so styling neither
+ * spends the limit nor leaves a fragment at a cut, and a cut falls only
+ * between graphemes.
  */
 export function liveTailText(
   kind: LiveTailKind,
@@ -38,25 +41,70 @@ export function liveTailText(
   ellipsis: string,
 ): string {
   if (text.length <= limit) return text;
+  const shown = plainText(text);
+  if (shown.length <= limit) return shown;
+  const room = Math.max(0, limit - ellipsis.length);
   if (kind === "line") {
-    const start = text.length - limit;
-    return `${ellipsis}${
-      text.slice(isLowSurrogate(text, start) ? start + 1 : start)
-    }`;
+    return `${ellipsis}${shown.slice(graphemeEnd(shown, shown.length - room))}`;
   }
-  const end = text.endsWith("\r") ? text.length - 1 : text.length;
-  const start = text.lastIndexOf("\r", end - 1) + 1;
-  if (end - start <= limit) return text.slice(start, end);
-  const stop = start + limit;
-  return `${
-    text.slice(start, isLowSurrogate(text, stop) ? stop - 1 : stop)
-  }${ellipsis}`;
+  const end = shown.endsWith("\r") ? shown.length - 1 : shown.length;
+  const start = shown.lastIndexOf("\r", end - 1) + 1;
+  if (end - start <= limit) return shown.slice(start, end);
+  return `${shown.slice(start, graphemeStart(shown, start + room))}${ellipsis}`;
 }
 
-/** Whether the code unit at `index` continues a surrogate pair. */
-function isLowSurrogate(text: string, index: number): boolean {
-  const unit = text.charCodeAt(index);
-  return unit >= 0xdc00 && unit <= 0xdfff;
+const ESCAPE = "\u001b";
+
+/**
+ * The escapes the package's streamed-text display drops besides control
+ * sequences and operating system commands: a character set designation and
+ * a single-character escape.
+ */
+const SHORT_ESCAPE = new RegExp(`${ESCAPE}(?:[()][ -~]|[ -~]?)`, "gu");
+
+/** Text without the escape sequences no view shows. */
+function plainText(text: string): string {
+  return text.includes(ESCAPE)
+    ? stripAnsi(text).replaceAll(SHORT_ESCAPE, "")
+    : text;
+}
+
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/** Whether a code unit is a printable ASCII character. */
+function printableAscii(unit: number): boolean {
+  return unit >= 0x20 && unit <= 0x7e;
+}
+
+/**
+ * The grapheme that `index` falls inside, or `undefined` when one starts
+ * there. Two printable ASCII characters always have a boundary between them,
+ * so only text beside anything else asks the segmenter.
+ */
+function straddled(
+  text: string,
+  index: number,
+): { readonly start: number; readonly end: number } | undefined {
+  if (
+    index <= 0 || index >= text.length ||
+    (printableAscii(text.charCodeAt(index - 1)) &&
+      printableAscii(text.charCodeAt(index)))
+  ) return undefined;
+  const grapheme = GRAPHEMES.segment(text).containing(index);
+  return grapheme === undefined || grapheme.index === index ? undefined : {
+    start: grapheme.index,
+    end: grapheme.index + grapheme.segment.length,
+  };
+}
+
+/** `index`, or the start of the grapheme it falls inside. */
+function graphemeStart(text: string, index: number): number {
+  return straddled(text, index)?.start ?? index;
+}
+
+/** `index`, or the end of the grapheme it falls inside. */
+function graphemeEnd(text: string, index: number): number {
+  return straddled(text, index)?.end ?? index;
 }
 
 const TEXT: unique symbol = Symbol("streamed output text");
@@ -87,7 +135,7 @@ export function appendStreamedOutput(
   more: StreamedOutput,
   lines: number,
 ): StreamedOutput {
-  const text = `${output[TEXT]}${stripAnsi(more[TEXT])}`;
+  const text = `${output[TEXT]}${plainText(more[TEXT])}`;
   const kept = text.split("\n");
   return streamedOutput(
     kept.length <= lines ? text : kept.slice(-lines).join("\n"),

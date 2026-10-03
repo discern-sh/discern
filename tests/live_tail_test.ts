@@ -4,7 +4,7 @@
  */
 
 import { assertCases } from "./assert_cases.ts";
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   appendStreamedOutput,
   liveTailOutput,
@@ -18,6 +18,9 @@ import {
 
 Deno.test("the live tail keeps what the frame can show of a streamed line", () => {
   const smile = "\u{1F600}";
+  const flag = "\u{1F1EC}\u{1F1E7}";
+  const accented = "e\u0301";
+  const red = (text: string): string => `\x1b[38;5;196m${text}\x1b[0m`;
   assertCases(
     [
       {
@@ -39,28 +42,28 @@ Deno.test("the live tail keeps what the frame can show of a streamed line", () =
         kind: "line",
         text: `${"a".repeat(30)}END`,
         limit: 8,
-        expected: "…aaaaaEND",
+        expected: "…aaaaEND",
       },
       {
         name: "a long line keeps a final overwrite segment the package shows",
         kind: "line",
         text: `${"a".repeat(30)}\rtail`,
         limit: 8,
-        expected: "…aaa\rtail",
+        expected: "…aa\rtail",
       },
       {
         name: "a long partial keeps its start, the row the tail shows",
         kind: "partial",
         text: `START${"a".repeat(30)}`,
         limit: 8,
-        expected: "STARTaaa…",
+        expected: "STARTaa…",
       },
       {
         name: "a long partial keeps only its final overwrite segment",
         kind: "partial",
         text: `${"old".repeat(10)}\rNEWEST${"b".repeat(30)}`,
         limit: 8,
-        expected: "NEWESTbb…",
+        expected: "NEWESTb…",
       },
       {
         name: "a final overwrite segment within the limit is kept whole",
@@ -77,30 +80,87 @@ Deno.test("the live tail keeps what the frame can show of a streamed line", () =
         expected: "newest",
       },
       {
+        name: "styling does not spend the limit",
+        kind: "line",
+        text: red("styled"),
+        limit: 8,
+        expected: "styled",
+      },
+      {
+        name: "a line's cut never starts inside an escape sequence",
+        kind: "line",
+        text: `${red("X").repeat(20)}END`,
+        limit: 8,
+        expected: "…XXXXEND",
+      },
+      {
+        name: "a partial's cut never ends inside an escape sequence",
+        kind: "partial",
+        text: `START${red("X").repeat(20)}`,
+        limit: 8,
+        expected: "STARTXX…",
+      },
+      {
+        name: "a hyperlink keeps its label, and charset escapes take no room",
+        kind: "partial",
+        text: `\x1b]8;;https://example.com\x07link\x1b]8;;\x07\x1b(B${
+          "y".repeat(20)
+        }\x1bc`,
+        limit: 8,
+        expected: "linkyyy…",
+      },
+      {
         name: "a line's cut never starts inside a surrogate pair",
         kind: "line",
         text: smile.repeat(20),
-        limit: 7,
+        limit: 8,
         expected: `…${smile.repeat(3)}`,
       },
       {
         name: "a partial's cut never ends inside a surrogate pair",
         kind: "partial",
         text: smile.repeat(20),
-        limit: 7,
+        limit: 8,
         expected: `${smile.repeat(3)}…`,
+      },
+      {
+        name: "a line's cut never splits a regional-indicator pair",
+        kind: "line",
+        text: flag.repeat(10),
+        limit: 7,
+        expected: `…${flag}`,
+      },
+      {
+        name: "a partial's cut never splits a regional-indicator pair",
+        kind: "partial",
+        text: flag.repeat(10),
+        limit: 7,
+        expected: `${flag}…`,
+      },
+      {
+        name: "a line's cut never separates a combining mark from its letter",
+        kind: "line",
+        text: accented.repeat(10),
+        limit: 8,
+        expected: `…${accented.repeat(3)}`,
+      },
+      {
+        name: "a partial's cut never separates a combining mark from its letter",
+        kind: "partial",
+        text: accented.repeat(10),
+        limit: 8,
+        expected: `${accented.repeat(3)}…`,
       },
     ] as const,
     (row) => row.name,
     (row) => {
-      assertEquals(
-        liveTailText(row.kind, row.text, row.limit, "…"),
-        row.expected,
-      );
+      const kept = liveTailText(row.kind, row.text, row.limit, "…");
+      assertEquals(kept, row.expected);
+      assert(kept.length <= row.limit, `${kept.length} > ${row.limit}`);
     },
   );
   assertEquals(
-    liveTailText("line", "abcdefghij", 4, "..."),
+    liveTailText("line", "abcdefghij", 7, "..."),
     "...ghij",
     "an ASCII terminal marks the cut in ASCII",
   );
@@ -109,9 +169,9 @@ Deno.test("the live tail keeps what the frame can show of a streamed line", () =
 Deno.test("streamed output keeps its last lines plain and whole", () => {
   const long = "x".repeat(20_000);
   const appended = [
-    "\x1b[31mfirst\x1b[0m\n",
-    `${long}\nsecond\n`,
-    "third",
+    "first\n",
+    `${long}\nsec\x1b[31mond\x1b[0m\n`,
+    "\x1b]8;;https://example.com\x07third\x1b]8;;\x07\x1b(B",
   ].reduce(
     (output, chunk) => appendStreamedOutput(output, streamedOutput(chunk), 3),
     NO_STREAMED_OUTPUT,
@@ -150,17 +210,17 @@ Deno.test("a view reads streamed output only through the live tail", () => {
       {
         name: "every line is bounded as a committed line",
         read: () => liveTailOutput(output, 8, "…").split("\n"),
-        expected: ["one", "…aaaaaEND", "  ", "two  ", "", "three", ""],
+        expected: ["one", "…aaaaEND", "  ", "two  ", "", "three", ""],
       },
       {
         name: "the last lines that carry text, trailing space removed",
         read: () => liveTailOutputLines(output, 3, 8, "…"),
-        expected: ["…aaaaaEND", "two", "three"],
+        expected: ["…aaaaEND", "two", "three"],
       },
       {
         name: "fewer lines than asked when the output holds fewer",
         read: () => liveTailOutputLines(output, 9, 8, "…"),
-        expected: ["one", "…aaaaaEND", "two", "three"],
+        expected: ["one", "…aaaaEND", "two", "three"],
       },
       {
         name: "nothing from output that wrote nothing",
