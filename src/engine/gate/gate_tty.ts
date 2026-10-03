@@ -17,6 +17,7 @@ import type {
 import { terminalLine } from "../../lib/terminal.ts";
 import { createTerminalIO } from "../../lib/terminal_painter.ts";
 import { bestEffortSync } from "../../shared/best_effort.ts";
+import { SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { GateStandard } from "../../shared/result_schemas.ts";
 import type { JobRunObserver } from "../jobs/runner.ts";
@@ -75,6 +76,121 @@ export interface GateTtyProgressOptions extends GateTtyOptions {
   tailRows?: number;
   /** Gate and standalone test share mechanics without sharing product nouns. */
   kind?: GateLiveDashboardKind;
+  /** The package bracket, so a test can observe what the live frame receives. */
+  activityLog?: typeof withActivityLog;
+}
+
+/** Rows of streamed child output the live frame shows under its stable lines. */
+export const GATE_LIVE_TAIL_ROWS = 6;
+
+/**
+ * Code units of one streamed line the live tail keeps: one row more than the
+ * tail shows at the viewport's width, at two code units per cell so wide and
+ * astral characters still fill it.
+ */
+export function liveTailLimit(columns: number, tailRows: number): number {
+  return columns * (tailRows + 1) * 2;
+}
+
+/**
+ * The part of one streamed child line the live tail can show. The package
+ * repaints every tail line on each spinner tick, so a line handed over whole
+ * costs every frame its full length. A committed line shows its last wrapped
+ * rows, so it keeps its end; an in-progress line shows the start of its last
+ * carriage-return segment, so it keeps that start. Each cut is marked with the
+ * ellipsis and never splits a surrogate pair. The job's output artifact keeps
+ * every byte.
+ */
+export function liveTailText(
+  kind: JobOutputEvent["kind"],
+  text: string,
+  limit: number,
+  ellipsis: string,
+): string {
+  if (text.length <= limit) return text;
+  if (kind === "line") {
+    const start = text.length - limit;
+    return `${ellipsis}${
+      text.slice(isLowSurrogate(text, start) ? start + 1 : start)
+    }`;
+  }
+  const end = text.endsWith("\r") ? text.length - 1 : text.length;
+  const start = text.lastIndexOf("\r", end - 1) + 1;
+  if (end - start <= limit) return text.slice(start, end);
+  const stop = start + limit;
+  return `${
+    text.slice(start, isLowSurrogate(text, stop) ? stop - 1 : stop)
+  }${ellipsis}`;
+}
+
+/** Whether the code unit at `index` continues a surrogate pair. */
+function isLowSurrogate(text: string, index: number): boolean {
+  const unit = text.charCodeAt(index);
+  return unit >= 0xdc00 && unit <= 0xdfff;
+}
+
+/**
+ * The package controller as Gate producers receive it. Streamed text enters
+ * only through `line` and `partial`, which bound it while the package repaints
+ * and before joining its prefix, so no producer can hand the repainting tail a
+ * line whole.
+ */
+interface LiveTailLog {
+  /** Commit one streamed line under its prefix. */
+  line(prefix: string, text: string): void;
+  /** Replace the in-progress line; empty text clears it. */
+  partial(prefix: string, text: string): void;
+  pin: ActivityLogController["pin"];
+  finish: ActivityLogController["finish"];
+}
+
+/** The package's spinner ticks on the shared system scheduler. */
+const SYSTEM_SPINNER: SpinnerScheduler = {
+  repeat(callback, intervalMs): () => void {
+    const handle = SYSTEM_SCHEDULER.scheduleInterval(callback, intervalMs);
+    return (): void => SYSTEM_SCHEDULER.cancelInterval(handle);
+  },
+};
+
+/**
+ * Report whether the package is repainting. Its ticks run while the frame is
+ * live and stop when it finishes or falls back to append-only output, which
+ * writes each line once, whole.
+ */
+function observedTicks(
+  scheduler: SpinnerScheduler,
+  repainting: (active: boolean) => void,
+): SpinnerScheduler {
+  return {
+    repeat(callback, intervalMs): () => void {
+      repainting(true);
+      const stop = scheduler.repeat(callback, intervalMs);
+      return (): void => {
+        repainting(false);
+        stop();
+      };
+    },
+  };
+}
+
+/** Bound every streamed line the package keeps for repainting. */
+function liveTailLog(
+  log: ActivityLogController,
+  limit: () => number,
+  ellipsis: string,
+): LiveTailLog {
+  return {
+    line: (prefix, text): void =>
+      log.append(`${prefix}${liveTailText("line", text, limit(), ellipsis)}`),
+    partial: (prefix, text): void =>
+      log.updatePartial(
+        text === ""
+          ? ""
+          : `${prefix}${liveTailText("partial", text, limit(), ellipsis)}`,
+      ),
+    pin: (text, tone): void => log.pin(text, tone),
+    finish: (completion): void => log.finish(completion),
+  };
 }
 
 interface DeferredLifetime {
@@ -148,7 +264,7 @@ function settledJobFact(result: JobResult): {
 
 /** Adapt scheduler facts and child text to one package producer. */
 function gateActivityProducer(
-  log: ActivityLogController,
+  log: LiveTailLog,
   initialGroups: readonly JobGroup[],
   options: GateTtyProgressOptions,
   lifetime: DeferredLifetime,
@@ -213,7 +329,7 @@ function gateActivityProducer(
       );
     },
     transient: (text): void => {
-      produce(() => log.updatePartial(terminalLine(text)));
+      produce(() => log.partial("", terminalLine(text)));
     },
     started: (job: Job): void => {
       if (!visible.has(job.label)) return;
@@ -226,16 +342,8 @@ function gateActivityProducer(
     },
     output: (event: JobOutputEvent): void => {
       if (!visible.has(event.label)) return;
-      const prefix = `${terminalLine(event.label)} ${rail}`;
-      produce(() => {
-        if (event.kind === "line") {
-          log.append(`${prefix} ${event.text}`);
-        } else {
-          log.updatePartial(
-            event.text === "" ? "" : `${prefix} ${event.text}`,
-          );
-        }
-      });
+      const prefix = `${terminalLine(event.label)} ${rail} `;
+      produce(() => log[event.kind](prefix, event.text));
     },
     complete: async (_steps): Promise<void> => {
       produce(() => log.finish({ mode: "summary" }));
@@ -289,7 +397,9 @@ export async function createGateTtyProgress(
     resolveReady = resolve;
     rejectReady = reject;
   });
-  const bracket = withActivityLog({
+  const tailRows = options.tailRows ?? GATE_LIVE_TAIL_ROWS;
+  let repainting = false;
+  const bracket = (options.activityLog ?? withActivityLog)({
     label: options.kind === "test" ? "Test" : "Gate",
     io,
     onInterrupt: (): void => {
@@ -299,17 +409,24 @@ export async function createGateTtyProgress(
       interrupted = true;
       interruptFrame();
     },
-    ...(options.scheduler === undefined
-      ? {}
-      : { scheduler: options.scheduler }),
+    scheduler: observedTicks(options.scheduler ?? SYSTEM_SPINNER, (active) => {
+      repainting = active;
+    }),
     ...(options.intervalMs === undefined
       ? {}
       : { intervalMs: options.intervalMs }),
-    ...(options.tailRows === undefined ? {} : { tailRows: options.tailRows }),
+    tailRows,
   }, async (log) => {
     resolveReady?.(
       gateActivityProducer(
-        log,
+        liveTailLog(
+          log,
+          () =>
+            repainting
+              ? liveTailLimit(viewport.size().columns, tailRows)
+              : Number.POSITIVE_INFINITY,
+          options.terminal.capabilities.unicode ? "…" : "...",
+        ),
         groups,
         options,
         lifetime,

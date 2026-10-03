@@ -33,6 +33,8 @@ On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite 
 
 The package fits full, then compact, then append-only output. Resizes retain the same producer feed; interrupts restore the cursor. Success leaves stable facts without replaying the tail. Failure follows them with diagnostics and the full-output-artifact route.
 
+The package wraps every tail line again on each spinner tick, and its wrapping takes more than linear time in a line's length. While those ticks run, [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) hands it only the part of each streamed line the tail can show (`liveTailText`). A committed line keeps its end, and an in-progress line keeps the start of its last carriage-return segment. An ellipsis marks each cut. Append-only output writes each line once, whole, and the full-output artifact keeps every byte. Producers reach the package only through that bound, and the [terminal boundary guard](../../../tests/terminal_boundary_guard_test.ts) lets no other module open its activity log.
+
 CI, pipes, `--plain`, and terminals without cursor control remain static: `stream_output = false` groups complete per-job output; `true` streams prefixed lines. JSON, Markdown, and MCP omit human job output.
 
 [`execute.ts`](../../../src/engine/gate/execute.ts) resolves presentation separately from capture. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) feeds the package; [`command.ts`](../../../src/engine/jobs/command.ts) retains raw evidence. For result contracts, see [MCP tools & results](../70-reference/mcp-and-results.md).

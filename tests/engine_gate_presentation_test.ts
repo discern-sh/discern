@@ -3,10 +3,13 @@
 import { assertCases, assertCasesAsync } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { stripAnsi } from "discern-design-system/cli";
+import { withActivityLog } from "discern-design-system/cli/interactive";
 import { withOutputCapture } from "../src/shared/output_capture.ts";
 import {
   createGateTtyProgress,
   type GateTtyProgress,
+  liveTailLimit,
+  liveTailText,
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "../src/engine/gate/gate_tty.ts";
@@ -161,6 +164,7 @@ const GROUP: JobGroup = {
 async function controlledGateActivity(
   initial: { readonly columns: number; readonly rows: number },
   tailRows: number,
+  activityLog: typeof withActivityLog = withActivityLog,
 ): Promise<{
   readonly progress: GateTtyProgress;
   readonly writes: string[];
@@ -180,6 +184,7 @@ async function controlledGateActivity(
       width: initial.columns,
       terminal: viewport.terminal,
       tailRows,
+      activityLog,
       scheduler: {
         repeat(next, intervalMs): () => void {
           assertEquals(intervalMs, 80);
@@ -327,6 +332,178 @@ Deno.test("Gate output policy separates live presentation from static transcript
   });
   assertEquals(quiet.output.kind, "quiet-result");
   assertEquals(quiet.capture, "buffered-capped");
+});
+
+Deno.test("the live tail keeps what the frame can show of a streamed line", () => {
+  const smile = "\u{1F600}";
+  assertCases(
+    [
+      {
+        name: "a line within the limit is unchanged",
+        kind: "line",
+        text: "short\rline",
+        limit: 20,
+        expected: "short\rline",
+      },
+      {
+        name: "a partial within the limit is unchanged",
+        kind: "partial",
+        text: "short\rpartial",
+        limit: 20,
+        expected: "short\rpartial",
+      },
+      {
+        name: "a long line keeps its end, the rows the tail shows",
+        kind: "line",
+        text: `${"a".repeat(30)}END`,
+        limit: 8,
+        expected: "…aaaaaEND",
+      },
+      {
+        name: "a long line keeps a final overwrite segment the package shows",
+        kind: "line",
+        text: `${"a".repeat(30)}\rtail`,
+        limit: 8,
+        expected: "…aaa\rtail",
+      },
+      {
+        name: "a long partial keeps its start, the row the tail shows",
+        kind: "partial",
+        text: `START${"a".repeat(30)}`,
+        limit: 8,
+        expected: "STARTaaa…",
+      },
+      {
+        name: "a long partial keeps only its final overwrite segment",
+        kind: "partial",
+        text: `${"old".repeat(10)}\rNEWEST${"b".repeat(30)}`,
+        limit: 8,
+        expected: "NEWESTbb…",
+      },
+      {
+        name: "a final overwrite segment within the limit is kept whole",
+        kind: "partial",
+        text: `${"old".repeat(10)}\rnewest`,
+        limit: 8,
+        expected: "newest",
+      },
+      {
+        name: "a trailing carriage return keeps the segment before it",
+        kind: "partial",
+        text: `${"old".repeat(10)}\rnewest\r`,
+        limit: 8,
+        expected: "newest",
+      },
+      {
+        name: "a line's cut never starts inside a surrogate pair",
+        kind: "line",
+        text: smile.repeat(20),
+        limit: 7,
+        expected: `…${smile.repeat(3)}`,
+      },
+      {
+        name: "a partial's cut never ends inside a surrogate pair",
+        kind: "partial",
+        text: smile.repeat(20),
+        limit: 7,
+        expected: `${smile.repeat(3)}…`,
+      },
+    ] as const,
+    (row) => row.name,
+    (row) => {
+      assertEquals(
+        liveTailText(row.kind, row.text, row.limit, "…"),
+        row.expected,
+      );
+    },
+  );
+  assertEquals(
+    liveTailText("line", "abcdefghij", 4, "..."),
+    "...ghij",
+    "an ASCII terminal marks the cut in ASCII",
+  );
+});
+
+/** The real package bracket, recording every streamed line it receives. */
+function recordedActivityLog(received: string[]): typeof withActivityLog {
+  return (options, operation) =>
+    withActivityLog(options, (log) =>
+      operation({
+        get label(): string {
+          return log.label;
+        },
+        append: (line): void => {
+          received.push(line);
+          log.append(line);
+        },
+        updatePartial: (line): void => {
+          received.push(line);
+          log.updatePartial(line);
+        },
+        pin: (text, tone): void => log.pin(text, tone),
+        relabel: (label): void => log.relabel(label),
+        finish: (completion): void => log.finish(completion),
+      }));
+}
+
+const LONG_STREAMED_LINE = `FIRST-WORDS ${"word ".repeat(4_000)}FINAL-WORDS`;
+
+Deno.test("Gate activity writes a long line whole once the package stops repainting", async () => {
+  const received: string[] = [];
+  const { progress, writes, viewport, lint, tick } =
+    await controlledGateActivity(
+      { columns: 64, rows: 12 },
+      4,
+      recordedActivityLog(received),
+    );
+  progress.started(lint);
+  viewport.set({ columns: 64, rows: 3 });
+  tick();
+  await Promise.resolve();
+  const appendOnly = writes.length;
+  progress.output({ kind: "line", label: "lint", text: LONG_STREAMED_LINE });
+  await progress.complete(PROOF_STEPS);
+
+  assertEquals(received, [`lint │ ${LONG_STREAMED_LINE}`]);
+  assertStringIncludes(
+    stripAnsi(writes.slice(appendOnly).join("")),
+    LONG_STREAMED_LINE,
+    "append-only output writes each line once and keeps all of it",
+  );
+});
+
+Deno.test("Gate activity hands the package only the live tail of a long line", async () => {
+  const received: string[] = [];
+  const [columns, tailRows] = [48, 2];
+  const { progress, writes, lint, tick } = await controlledGateActivity(
+    { columns, rows: 20 },
+    tailRows,
+    recordedActivityLog(received),
+  );
+  const long = LONG_STREAMED_LINE;
+
+  progress.started(lint);
+  progress.output({ kind: "partial", label: "lint", text: long });
+  tick();
+  await Promise.resolve();
+  assertStringIncludes(stripAnsi(writes.at(-1) ?? ""), "lint │ FIRST-WORDS");
+  progress.output({ kind: "line", label: "lint", text: long });
+  tick();
+  await Promise.resolve();
+  assertStringIncludes(stripAnsi(writes.at(-1) ?? ""), "FINAL-WORDS");
+  progress.transient(long);
+  tick();
+  await Promise.resolve();
+  await progress.complete(PROOF_STEPS);
+
+  const bound = "lint │ ".length + liveTailLimit(columns, tailRows) +
+    "…".length;
+  assertEquals(received.length, 3);
+  assertEquals(
+    received.filter((text) => text.length > bound).map((text) => text.length),
+    [],
+    "the package repaints a streamed line on every tick, so it must receive only the tail it can show",
+  );
 });
 
 Deno.test("Gate output stays static while its output is captured", async () => {
