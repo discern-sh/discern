@@ -172,7 +172,7 @@ export const TEST_SHELL_WAIT_BOUNDARIES = [
     count: 1,
     classification: "condition-poll",
     reason:
-      "The slot owner polls the release file; the parent first observes the queued gate output.",
+      "The slot owner polls the release file; the parent releases it after the gate's wait line, which follows the instant the retained history describes.",
   },
   {
     path: "tests/engine_worktree_probe_test.ts",

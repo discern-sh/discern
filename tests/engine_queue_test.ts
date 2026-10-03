@@ -551,6 +551,9 @@ Deno.test("a queued gate shows capacity now and retains other operation activity
         gate.stdoutSoFar(),
         "1 of 1 concurrent run",
       );
+      // The history describes the fleet when the gate entered its wait, an
+      // instant before this line. The holder's completion, stamped after the
+      // release, therefore cannot erase it, however late the gate reads.
       await Deno.writeTextFile(release, "go");
       const [holderResult, gateResult] = await Promise.all([
         holder.result,
