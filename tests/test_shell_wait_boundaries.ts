@@ -3,6 +3,15 @@ import type { ShellWaitBoundary } from "./test_shell_wait_guard.ts";
 
 export const TEST_SHELL_WAIT_BOUNDARIES = [
   {
+    path: "tests/shell_hold.ts",
+    enclosing: "shellAwaitFile",
+    argument: "0.05",
+    count: 1,
+    classification: "condition-poll",
+    reason:
+      "Every file hold paces one existence check of its owner-written signal file; the same poll ends the hold once that file's directory or its owning process is gone.",
+  },
+  {
     path: "tests/engine_desk_operation_test.ts",
     enclosing:
       "paused production Desk script exposes its actual lease, cancels durably, and releases the next action",
