@@ -46,7 +46,7 @@ import {
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { waitForPendingCondition } from "./waiting.ts";
-import { shellAwaitFile } from "./shell_hold.ts";
+import { shellAwaitFile, whileHeld } from "./shell_hold.ts";
 import {
   assertResultDataKey,
   decodeCliResult,
@@ -1260,14 +1260,10 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
     };
 
     const first = runAgent(worktree, ["accept", "--json"], { env });
-    let failure: unknown;
-    let journalBefore = "";
-    let claimPath = "";
-    let claimBefore = "";
-    try {
+    const landed = await whileHeld(first, release, async () => {
       await waitForPath(paused, first);
       // The journal-bound transaction is the durable mid-flight evidence.
-      journalBefore = await Deno.readTextFile(journalPath);
+      const journalBefore = await Deno.readTextFile(journalPath);
       const transaction = decodeWith(
         z.looseObject({
           id: z.string(),
@@ -1284,8 +1280,8 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
       assertEquals(transaction.expected_trunk, expected);
       assertEquals(transaction.effort_claim, true);
       assertEquals(transaction.consent.source, "effort-grant");
-      claimPath = join(claims, transaction.id);
-      claimBefore = await Deno.readTextFile(claimPath);
+      const claimPath = join(claims, transaction.id);
+      const claimBefore = await Deno.readTextFile(claimPath);
       assertEquals(await targetExists(grant), false);
       assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
       assertEquals(
@@ -1346,16 +1342,7 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
         await readAcceptanceTransactionMarker(worktree, transaction.id),
         { kind: "missing" },
       );
-    } catch (error) {
-      failure = error;
-    } finally {
-      await Deno.writeTextFile(release, "continue\n");
-    }
-
-    const landed = await first;
-    if (failure !== undefined) {
-      throw failure;
-    }
+    });
     assertEquals(landed.code, 0, landed.output);
     assertEquals(
       await gitOut(dir, "show", "main:feature.txt"),

@@ -25,7 +25,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import { shellAwaitFile } from "./shell_hold.ts";
+import { shellAwaitFile, whileHeld } from "./shell_hold.ts";
 
 Deno.test("Desk Project Script retains its own successful and failed operation results", async () => {
   await withTempDir(async (root) => {
@@ -236,7 +236,7 @@ Deno.test("an open desk shell never keeps the gate from running on its checkout"
         {},
         "desk shell",
       );
-      try {
+      const closed = await whileHeld(shell, release, async () => {
         await waitForPendingCondition(
           shell,
           async () => await targetExists(ready),
@@ -245,10 +245,8 @@ Deno.test("an open desk shell never keeps the gate from running on its checkout"
         // The operator is looking around in a shell; the agent runs its gate.
         const gate = await runAgent(root, ["done"]);
         assertEquals(gate.code, 0, gate.output);
-      } finally {
-        await Deno.writeTextFile(release, "");
-      }
-      assertEquals(await shell, 0);
+      });
+      assertEquals(closed, 0);
     });
   });
 });
@@ -267,7 +265,7 @@ Deno.test("a running gate never refuses a desk shell on its checkout", async () 
       );
       await gitInit(root);
       const gate = runAgent(root, ["done"]);
-      try {
+      const finished = await whileHeld(gate, release, async () => {
         await waitForPendingCondition(
           gate,
           async () => await targetExists(ready),
@@ -284,10 +282,7 @@ Deno.test("a running gate never refuses a desk shell on its checkout", async () 
           ),
           0,
         );
-      } finally {
-        await Deno.writeTextFile(release, "");
-      }
-      const finished = await gate;
+      });
       assertEquals(finished.code, 0, finished.output);
     });
   });

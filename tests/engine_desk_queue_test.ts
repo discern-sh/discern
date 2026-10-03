@@ -21,7 +21,7 @@ import {
 } from "./fixtures/desk_session.ts";
 import { project } from "./completion_public_fixture.ts";
 import { withTempDir } from "./helpers.ts";
-import { shellAwaitFile } from "./shell_hold.ts";
+import { shellAwaitFile, whileHeld } from "./shell_hold.ts";
 import {
   addWorktree,
   git,
@@ -265,7 +265,7 @@ Deno.test("Desk replaces a submission while another effort's acceptance checks a
     await git(root, "commit", "-m", "Move the shared branch");
     await Deno.writeTextFile(pause, "");
     const walking = action(root, first, "accept");
-    try {
+    await whileHeld(walking, release, async () => {
       await waitForPendingCondition(
         walking,
         () => targetExists(ready),
@@ -291,10 +291,7 @@ Deno.test("Desk replaces a submission while another effort's acceptance checks a
         true,
         "queueing does not complete the active landing",
       );
-    } finally {
-      await Deno.writeTextFile(release, "");
-      await walking;
-    }
+    });
     const after = await statusResult(root, { all: true });
     assertEquals(after.data?.queue ?? [], []);
     assertEquals(

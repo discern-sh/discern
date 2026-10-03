@@ -23,7 +23,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import { shellAwaitFile } from "./shell_hold.ts";
+import { shellAwaitFile, whileHeld } from "./shell_hold.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { verbatimStepLabel } from "../src/shared/result.ts";
@@ -146,7 +146,7 @@ Deno.test("a Desk effect is attributed to its task through the recorder the CLI 
           {},
           "desk shell",
         );
-        try {
+        const status = await whileHeld(session, release, async () => {
           await waitForPendingCondition(
             session,
             () => targetExists(started),
@@ -165,10 +165,8 @@ Deno.test("a Desk effect is attributed to its task through the recorder the CLI 
             undefined,
             "an open shell is not a verb anyone waits for",
           );
-        } finally {
-          await Deno.writeTextFile(release, "");
-        }
-        assertEquals(await session, 3);
+        });
+        assertEquals(status, 3);
         const ended = (await readLogbookEvents(root)).find((event) =>
           event.kind === "verb" && event.verb === "desk shell"
         );

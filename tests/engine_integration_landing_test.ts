@@ -33,7 +33,7 @@ import { decodeCliResult } from "./decode_cli_result.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { withOperationLock } from "../src/engine/operation_lock.ts";
 import { waitForPendingCondition } from "./waiting.ts";
-import { shellAwaitFile } from "./shell_hold.ts";
+import { shellAwaitFile, whileHeld } from "./shell_hold.ts";
 import { withPristineInstalls } from "./engine_surface_fixture.ts";
 
 const CONFIG = [
@@ -853,24 +853,29 @@ Deno.test("a sibling completion publishes while an integration gate runs", async
       );
 
       const landing = runAgent(beta, ["accept", "--confirmed", "--json"]);
-      await waitForPendingCondition(
+      const landed = await whileHeld(
         landing,
-        () => targetExists(join(scratch, "started")),
-        "the integration gate reached its paused check",
-        {
-          settledError: (value) =>
-            new Error(`the landing settled before pausing: ${value.output}`),
+        join(scratch, "release"),
+        async () => {
+          await waitForPendingCondition(
+            landing,
+            () => targetExists(join(scratch, "started")),
+            "the integration gate reached its paused check",
+            {
+              settledError: (value) =>
+                new Error(
+                  `the landing settled before pausing: ${value.output}`,
+                ),
+            },
+          );
+
+          // A third effort completes while the landing's check is running:
+          // its publication must not starve behind the landing.
+          const gamma = await effortWithWork(dir, "gamma", "gamma.txt");
+          const sibling = await runAgent(gamma, ["done", "--json"]);
+          assertEquals(sibling.code, 0, sibling.output);
         },
       );
-
-      // A third effort completes while the landing's check is running: its
-      // publication must not starve behind the landing.
-      const gamma = await effortWithWork(dir, "gamma", "gamma.txt");
-      const sibling = await runAgent(gamma, ["done", "--json"]);
-      assertEquals(sibling.code, 0, sibling.output);
-
-      await Deno.writeTextFile(join(scratch, "release"), "go\n");
-      const landed = await landing;
       assertEquals(landed.code, 0, landed.output);
       await assertNoIntegrationRemains(dir);
     });
@@ -932,30 +937,33 @@ Deno.test("a sibling completes while an integration landing's resource teardown 
       );
 
       const landing = runAgent(beta, ["accept", "--confirmed", "--json"]);
-      await waitForPendingCondition(
+      const landed = await whileHeld(
         landing,
-        () => targetExists(join(scratch, "started")),
-        "the landing reached its paused resource teardown",
-        {
-          settledError: (value) =>
-            new Error(`the landing settled before pausing: ${value.output}`),
+        join(scratch, "release"),
+        async () => {
+          await waitForPendingCondition(
+            landing,
+            () => targetExists(join(scratch, "started")),
+            "the landing reached its paused resource teardown",
+            {
+              settledError: (value) =>
+                new Error(
+                  `the landing settled before pausing: ${value.output}`,
+                ),
+            },
+          );
+
+          // Sibling completion stays independent, but the main checkout is
+          // still owned by the landing until its convergence and cleanup have
+          // settled.
+          const gamma = await effortWithWork(dir, "gamma", "gamma.txt");
+          const sibling = await runAgent(gamma, ["done", "--json"]);
+          assertEquals(sibling.code, 0, sibling.output);
+          const mainWriter = await runAgent(dir, ["refresh", "--json"]);
+          assertEquals(mainWriter.code, 1, mainWriter.output);
+          assertTerminalTextIncludes(mainWriter.output, "Holder: accept");
         },
       );
-
-      try {
-        // Sibling completion stays independent, but the main checkout is still
-        // owned by the landing until its convergence and cleanup have settled.
-        const gamma = await effortWithWork(dir, "gamma", "gamma.txt");
-        const sibling = await runAgent(gamma, ["done", "--json"]);
-        assertEquals(sibling.code, 0, sibling.output);
-        const mainWriter = await runAgent(dir, ["refresh", "--json"]);
-        assertEquals(mainWriter.code, 1, mainWriter.output);
-        assertTerminalTextIncludes(mainWriter.output, "Holder: accept");
-      } finally {
-        await Deno.writeTextFile(join(scratch, "release"), "go\n");
-        await landing;
-      }
-      const landed = await landing;
       assertEquals(landed.code, 0, landed.output);
       await assertNoIntegrationRemains(dir);
     });

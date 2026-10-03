@@ -55,7 +55,7 @@ import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { withTempDir } from "./helpers.ts";
-import { shellAwaitFile } from "./shell_hold.ts";
+import { shellAwaitFile, whileHeld } from "./shell_hold.ts";
 import { withPristineInstalls } from "./engine_surface_fixture.ts";
 
 const CONFIG = [
@@ -679,25 +679,32 @@ Deno.test("a running done in the author checkout is never deadlocked by acceptan
       // completion publication.
       await Deno.writeTextFile(join(scratch, "pause"), "on\n");
       const rerun = runAgent(beta, ["done", "--rerun", "--json"]);
-      await waitForPendingCondition(
+      const finished = await whileHeld(
         rerun,
-        () => targetExists(join(scratch, "started")),
-        "the rerun reached its paused check",
-        {
-          settledError: (value) =>
-            new Error(`the rerun settled before pausing: ${value.output}`),
+        join(scratch, "release"),
+        async () => {
+          await waitForPendingCondition(
+            rerun,
+            () => targetExists(join(scratch, "started")),
+            "the rerun reached its paused check",
+            {
+              settledError: (value) =>
+                new Error(`the rerun settled before pausing: ${value.output}`),
+            },
+          );
+
+          const refused = await runAgent(beta, [
+            "accept",
+            "--confirmed",
+            "--json",
+          ]);
+          assertEquals(refused.code, 1, refused.output);
+          const result = decodeCliResult(refused.stdout, "accept");
+          assertStringIncludes(result.message ?? "", "checkout boundary");
+          assertStringIncludes(result.message ?? "", "Retry");
+          assertEquals(await gitOut(dir, "rev-parse", "main"), tip);
         },
       );
-
-      const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
-      assertEquals(refused.code, 1, refused.output);
-      const result = decodeCliResult(refused.stdout, "accept");
-      assertStringIncludes(result.message ?? "", "checkout boundary");
-      assertStringIncludes(result.message ?? "", "Retry");
-      assertEquals(await gitOut(dir, "rev-parse", "main"), tip);
-
-      await Deno.writeTextFile(join(scratch, "release"), "go\n");
-      const finished = await rerun;
       assertEquals(finished.code, 0, finished.output);
 
       const landed = await runAgent(beta, ["accept", "--confirmed", "--json"]);
