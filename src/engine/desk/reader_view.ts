@@ -38,7 +38,12 @@ import {
   type DeskMarkdownReading,
   type DeskProductState,
   type DeskReaderSubject,
+  shownOutput,
 } from "./desk_state.ts";
+import {
+  type StreamedOutput,
+  streamedOutputIsBlank,
+} from "../../lib/live_tail.ts";
 import { branchTitle, rowRef } from "./desk_transitions.ts";
 import { ageText, diffRuns, glyph, proofLineBlock } from "./inspector_view.ts";
 import { inlineRuns } from "./header_view.ts";
@@ -772,15 +777,15 @@ function readerLayer(
 
 /** What an operation wrote, after the command it runs. */
 export function outputBlocks(
-  output: string,
+  output: StreamedOutput,
   command: string,
 ): ApplicationDetailBlock[] {
   return [
     { kind: "text", runs: [{ text: command, role: "code" }] },
-    output.trim() === "" ? text("Nothing written yet.") : {
+    streamedOutputIsBlank(output) ? text("Nothing written yet.") : {
       kind: "block",
       content: createCliBlock(renderCodeBlockCli, {
-        code: output.trimEnd(),
+        code: shownOutput(output).trimEnd(),
       }),
     },
   ];

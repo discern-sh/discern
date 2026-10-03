@@ -120,10 +120,8 @@ export interface DeskReviewDisclosures {
     readonly insertions: number;
     readonly deletions: number;
   };
-  /** A finished effect's complete output, as Markdown. */
-  readonly output?: string;
-  /** A disclosure that opens with the sheet, such as an exception's command. */
-  readonly open?: "command" | "output";
+  /** A disclosure that opens with the sheet: an exception's command. */
+  readonly open?: "command";
 }
 
 /** A button beside a review's confirm that does something else instead. */
@@ -207,7 +205,10 @@ export interface DeskResultSheet {
   /** How bad it is: nothing it set out to do happened, or only part. */
   readonly tone: "danger" | "warning";
   readonly lines: readonly DeskReviewLine[];
-  /** The complete output, as Markdown. */
+  /**
+   * What Full output reads, as Markdown: what the effect wrote, each line as
+   * the output reader keeps it, then its result.
+   */
   readonly output?: string;
   readonly command: string;
   /** The task it concerns, whose next steps the sheet offers. */
