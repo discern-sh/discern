@@ -484,4 +484,9 @@ export const SIGNAL_LISTENER_CONTRACTS = {
     reason:
       "SIGTERM and SIGHUP end the Desk's session, which stops every operation running beside it through its own signal before the process ends",
   },
+  "src/engine/desk/desk.ts#hearInterrupts": {
+    serves: "session",
+    reason:
+      "while the Desk waits for its manual with the terminal handed over and no child of its own, SIGINT reaches the session as a Ctrl+C on its screen, which quits or asks first while operations run; the listener ends nothing itself",
+  },
 } as const satisfies Readonly<Record<string, SignalListenerContract>>;
