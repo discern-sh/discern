@@ -300,13 +300,18 @@ function awaitSurvey(
   );
 }
 
-/** Whether a command waits for the survey before it can run. */
+/**
+ * Whether a command waits for the survey before it can run: one the survey
+ * decides, which reads it and has no review of its own to open at once and
+ * fill in.
+ */
 function waitsForSurvey(
   state: DeskProductState,
   command: DeskCommand,
 ): boolean {
   const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
   return metadata.reads.includes("survey") &&
+    metadata.confirmation.kind === "none" &&
     sessionRead(state, "survey") !== "ready";
 }
 
@@ -433,8 +438,8 @@ function commandIntent(
   command: DeskCommand,
   ref?: string,
 ): DeskTransition {
-  // A reader opens at once and fills in as its reads arrive; anything else
-  // the survey decides waits for it.
+  // A reader or a review opens at once and fills in as its reads arrive;
+  // anything else the survey decides waits for it.
   const reader = commandReader(command);
   if (reader !== undefined) return open(state, reader);
   if (waitsForSurvey(state, command)) {

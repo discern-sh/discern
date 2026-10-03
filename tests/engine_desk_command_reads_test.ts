@@ -5,10 +5,12 @@
  * it opens at once in a visible loading state that fills in, or runs as soon
  * as the read arrives, never asking for a retry, and that it then reaches
  * what choosing it on a ready desk reaches; until then, its faint value
- * stays blank. A command that declares nothing must do the same on a desk
- * still loading everything, so an undeclared read fails here too. The number keys that jump to a decision group follow the
- * same rule. Pure: the live controller's own wait for the manual is held by
- * the runtime tests.
+ * stays blank. Every command's faint value on a desk still loading each
+ * session read it doesn't declare matches a ready desk's, and a command that
+ * declares nothing runs on a desk still loading everything as on a ready
+ * one, so an undeclared read fails here too. The number keys that jump to a
+ * decision group follow the same rule. Pure: the live controller's own wait
+ * for the manual is held by the runtime tests.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -111,6 +113,12 @@ function fleet(): StatusData {
   );
 }
 
+/** When the survey says this clone last checked for updates. */
+const RELEASE_CHECK = {
+  state: "checked",
+  at: "2026-06-20T12:00:00.000Z",
+} as const;
+
 /** A tip, as the session chooses one. */
 const TIP = { brief: "Press `?` for keys.", full: "Press `?` for every key." };
 
@@ -121,7 +129,7 @@ function deliver(
 ): DeskTransition {
   switch (read) {
     case "survey":
-      return observeDesk(state, fleet());
+      return observeDesk(state, fleet(), PRODUCT_NOW, RELEASE_CHECK);
     case "manual":
       return deskProduct(state, {
         kind: "manual-read",
@@ -267,12 +275,13 @@ for (const command of DESK_COMMANDS) {
     } still loading`;
   Deno.test(name, () => {
     const ready = readyReach(command);
+    const undeclared = SESSION_READS.filter((read) => !reads.includes(read));
+    assertEquals(
+      commandValue(deskLoading(undeclared), command, PRODUCT_NOW),
+      commandValue(deskLoading([]), command, PRODUCT_NOW),
+      "an undeclared read changed its value",
+    );
     if (reads.length === 0) {
-      assertEquals(
-        commandValue(deskLoading(SESSION_READS), command, PRODUCT_NOW),
-        commandValue(deskLoading([]), command, PRODUCT_NOW),
-        "an undeclared read changed its value",
-      );
       const early = choose(deskLoading(SESSION_READS), command);
       assert(!refuses(early.state), early.state.message?.text);
       assertEquals(reached(early), ready, "an undeclared read changed it");
@@ -301,9 +310,12 @@ for (const command of DESK_COMMANDS) {
       const arrived = then(early, (state) => deliver(state, read));
       assertEquals(sessionRead(arrived.state, read), "ready");
       assertEquals(reached(arrived), ready, `${read}: once it arrived`);
+      // A command's own read still loads in its layer, as it does once it
+      // opens on a ready desk.
       const filled = topLayer(arrived.state);
       assert(
-        filled === undefined || !showsLoading(filled),
+        filled === undefined || reads.includes("own") ||
+          !showsLoading(filled),
         `${read}: it filled in`,
       );
     }

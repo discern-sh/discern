@@ -367,7 +367,8 @@ export const DESK_COMMAND_REGISTRY = {
     section: "help",
     home: true,
     parameters: false,
-    reads: ["own"],
+    // The survey reads the release record its faint value reports.
+    reads: ["survey", "own"],
     effect: "open",
     confirmation: confirm("Cancel", "Open"),
     binding: ["running-version"],
