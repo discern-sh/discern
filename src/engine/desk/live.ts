@@ -101,7 +101,7 @@ const INTERRUPTED = Symbol("interrupted");
 const DESK_INTERRUPT: DeskIntent = (() => {
   const binding = DESK_KEYMAP.find((candidate) => candidate.key === "ctrl-c");
   if (binding === undefined) {
-    throw new TypeError("The Desk's key map binds no Ctrl+C.");
+    throw new TypeError("The desk's key map binds no Ctrl+C.");
   }
   return binding.action;
 })();
