@@ -8,7 +8,12 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { runParallel, runSerial } from "../src/engine/jobs/runner.ts";
+import {
+  type RunOptions,
+  runParallel,
+  runSerial,
+} from "../src/engine/jobs/runner.ts";
+import type { StageRunResult } from "../src/engine/jobs/types.ts";
 import {
   finalCode,
   JOB_CAPTURE_CAP_BYTES,
@@ -442,18 +447,22 @@ Deno.test("stream-mode failed jobs retain a capped head and tail for diagnostics
   );
 });
 
-Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () => {
-  const s = makeSink();
+/**
+ * Run `jobs` fail-fast and time their cancellation from the moment the job
+ * labelled `boom` settles.
+ */
+async function failFastFromBoom(
+  jobs: Job[],
+  cwd: string,
+  write: NonNullable<RunOptions["write"]>,
+): Promise<{ readonly r: StageRunResult; readonly elapsed: number }> {
   let cancellationStarted: number | undefined;
-  const r = await runParallel([
-    { label: "boom", command: "exit 3" },
-    { label: "victim", command: "echo partial; tail -f /dev/null" },
-  ], {
-    cwd: CWD,
+  const r = await runParallel(jobs, {
+    cwd,
     stream: false,
     failFast: true,
     color: false,
-    write: s.write,
+    write,
     observer: {
       started: (): void => {},
       settled: (job): void => {
@@ -464,7 +473,19 @@ Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () =
     },
   });
   assert(cancellationStarted !== undefined);
-  const elapsed = SYSTEM_CLOCK.monotonicNow() - cancellationStarted;
+  return { r, elapsed: SYSTEM_CLOCK.monotonicNow() - cancellationStarted };
+}
+
+Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () => {
+  const s = makeSink();
+  const { r, elapsed } = await failFastFromBoom(
+    [
+      { label: "boom", command: "exit 3" },
+      { label: "victim", command: "echo partial; tail -f /dev/null" },
+    ],
+    CWD,
+    s.write,
+  );
   assertEquals(r.ok, false);
   assertEquals(r.results.find((x) => x.label === "boom")?.code, 3);
   assert(elapsed < 10_000, `expected interaction cancel, took ${elapsed}ms`);
@@ -507,33 +528,20 @@ Deno.test("a sibling that TRAPS SIGTERM and exits non-zero is still cancelled, n
 
 Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async () => {
   await withTempDir(async (dir) => {
-    let cancellationStarted: number | undefined;
-    const r = await runParallel([
-      {
-        label: "boom",
-        command: `${shellAwaitFile("stubborn.ready")}; exit 2`,
-      },
-      {
-        label: "stubborn",
-        command: 'trap "" TERM; : > stubborn.ready; tail -f /dev/null',
-      },
-    ], {
-      cwd: dir,
-      stream: false,
-      failFast: true,
-      color: false,
-      write: () => {},
-      observer: {
-        started: (): void => {},
-        settled: (job): void => {
-          if (job.label === "boom") {
-            cancellationStarted = SYSTEM_CLOCK.monotonicNow();
-          }
+    const { r, elapsed } = await failFastFromBoom(
+      [
+        {
+          label: "boom",
+          command: `${shellAwaitFile("stubborn.ready")}; exit 2`,
         },
-      },
-    });
-    assert(cancellationStarted !== undefined);
-    const elapsed = SYSTEM_CLOCK.monotonicNow() - cancellationStarted;
+        {
+          label: "stubborn",
+          command: 'trap "" TERM; : > stubborn.ready; tail -f /dev/null',
+        },
+      ],
+      dir,
+      () => {},
+    );
 
     const stubborn = r.results.find((x) => x.label === "stubborn");
     assertEquals(r.ok, false);
