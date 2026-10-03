@@ -63,6 +63,10 @@ import {
   withRows,
 } from "./desk_transitions.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
+import {
+  isProjectOnlyPolicy,
+  operationEffectPolicy,
+} from "../../shared/operation_effects.ts";
 import { compactDuration } from "../output.ts";
 import { DESK_GLYPHS, MESSAGE_MARKS } from "./glyphs.ts";
 import type { DeskTip } from "./tips.ts";
@@ -72,10 +76,18 @@ import {
 } from "../../shared/fleet_row_vocabulary.ts";
 
 /**
- * Survey cadence: one at a time, this long after the last finished. An
+ * Refresh cadence: one read at a time, this long after the last finished. An
  * operation's end starts a superseding survey at once instead.
  */
 export const DESK_REFRESH_MS = 5_000;
+
+/**
+ * The oldest a survey may be before the cadence surveys again although the
+ * fleet's fingerprint has not moved. A survey derives some facts from the
+ * clock, such as a task turning stale after days idle, which no fingerprint
+ * sees.
+ */
+export const DESK_SURVEY_CEILING_MS = 60_000;
 
 /** Consecutive failed surveys before the Desk says it is offline. */
 export const DESK_OFFLINE_FAILURES = 2;
@@ -298,14 +310,24 @@ export interface DeskDeparture {
   readonly announced?: boolean;
 }
 
-/** The survey's progress: one at a time, with a single queued follow-up. */
+/**
+ * The survey's progress: one read at a time, with a single queued follow-up.
+ * A cadence read is a check of the fleet's fingerprint first, and a survey
+ * only when the fingerprint moved.
+ */
 export interface DeskSurvey {
   readonly generation: number;
   readonly inFlight: boolean;
+  /** The read in flight is a check, which the header does not show. */
+  readonly checking: boolean;
   readonly followUp: boolean;
   readonly failures: number;
-  /** When the adopted observation was read. */
+  /** When the adopted observation was last confirmed current. */
   readonly observedAt?: number;
+  /** When the adopted observation's survey finished. */
+  readonly surveyedAt?: number;
+  /** The fleet's fingerprint, taken just before that survey read it. */
+  readonly fingerprint?: string;
   readonly error?: string;
 }
 
@@ -424,7 +446,20 @@ export type DeskSelectionMove =
 
 /** One input to the state machine. */
 export type DeskEvent =
+  /** Someone asked for a survey: the owner, or a change the Desk made. */
   | { readonly kind: "refresh" }
+  /** The refresh cadence came round. */
+  | { readonly kind: "cadence"; readonly now: number }
+  /**
+   * A check read the fleet's fingerprint; absent when it could not, which
+   * a survey then answers.
+   */
+  | {
+    readonly kind: "checked";
+    readonly generation: number;
+    readonly now: number;
+    readonly fingerprint?: string;
+  }
   | {
     readonly kind: "observed";
     readonly generation: number;
@@ -432,6 +467,8 @@ export type DeskEvent =
     readonly data: StatusData;
     readonly hints: readonly string[];
     readonly exceptionArgvs: ReadonlyMap<string, readonly string[]>;
+    /** The fleet's fingerprint just before the survey read it. */
+    readonly fingerprint?: string;
   }
   | {
     readonly kind: "observation-failed";
@@ -544,7 +581,17 @@ export type DeskEvent =
 
 /** Work the live controller performs for a transition. */
 export type DeskEffect =
-  | { readonly kind: "survey"; readonly generation: number }
+  /**
+   * Survey the fleet. A check that found the fleet moved passes on the
+   * fingerprint it read; otherwise the survey takes one before it reads.
+   */
+  | {
+    readonly kind: "survey";
+    readonly generation: number;
+    readonly fingerprint?: string;
+  }
+  /** Read the fleet's fingerprint, and survey only if it moved. */
+  | { readonly kind: "check"; readonly generation: number }
   | { readonly kind: "schedule-survey"; readonly afterMs: number }
   | {
     readonly kind: "prepare";
@@ -630,7 +677,13 @@ export function initialDeskProduct(options: {
 }): DeskProductState {
   return {
     trunk: options.trunk,
-    survey: { generation: 0, inFlight: false, followUp: false, failures: 0 },
+    survey: {
+      generation: 0,
+      inFlight: false,
+      checking: false,
+      followUp: false,
+      failures: 0,
+    },
     hints: [],
     rows: [],
     exceptionArgvs: new Map(),
@@ -647,12 +700,12 @@ export function initialDeskProduct(options: {
   };
 }
 
-/** The next survey after one finishes: the queued follow-up, or the cadence. */
+/** The next read after one finishes: the queued follow-up, or the cadence. */
 function afterSurvey(transition: DeskTransition): DeskTransition {
   if (transition.state.survey.followUp) {
     const next = refresh({
       ...transition.state,
-      survey: { ...transition.state.survey, inFlight: false },
+      survey: { ...transition.state.survey, inFlight: false, checking: false },
     });
     return {
       state: next.state,
@@ -668,6 +721,114 @@ function afterSurvey(transition: DeskTransition): DeskTransition {
   };
 }
 
+/** A survey's progress without the facts of the survey it adopted. */
+function withoutSurveyed(survey: DeskSurvey): DeskSurvey {
+  const { fingerprint: _fingerprint, surveyedAt: _surveyedAt, ...rest } =
+    survey;
+  return rest;
+}
+
+/**
+ * Whether a running verb changes discern's own state. One that only reads,
+ * or only runs project code, such as a Desk session or an agent, moves the
+ * fingerprint through what it changes and through the logbook as it ends.
+ */
+function changesDiscernState(verb: string): boolean {
+  const policy = operationEffectPolicy(verb);
+  return policy === undefined || !isProjectOnlyPolicy(policy);
+}
+
+/**
+ * Whether something in the adopted observation moves with the clock or with
+ * a process no fingerprint sees: an operation this Desk runs, a run of a
+ * verb that changes discern's state, a landing under way, or the calling
+ * checkout's own operation.
+ */
+function inMotion(state: DeskProductState): boolean {
+  const data = state.data;
+  return state.operations.size > 0 || data?.operation !== undefined ||
+    (data?.fleet ?? []).some((entry) =>
+      entry.integration !== undefined ||
+      (entry.running !== undefined && changesDiscernState(entry.running.verb))
+    );
+}
+
+/**
+ * Whether the cadence must survey rather than check: nothing is adopted yet,
+ * the last read failed, the adopted survey has no fingerprint or has reached
+ * its ceiling, a child's or a new task's outcome waits for one, or something
+ * is in motion.
+ */
+function surveyDue(state: DeskProductState, now: number): boolean {
+  const survey = state.survey;
+  return state.data === undefined || survey.failures > 0 ||
+    survey.fingerprint === undefined || survey.surveyedAt === undefined ||
+    now - survey.surveyedAt >= DESK_SURVEY_CEILING_MS ||
+    state.pendingReturn !== undefined || state.pendingSelect !== undefined ||
+    inMotion(state);
+}
+
+/** The cadence came round: survey when one is due, otherwise check. */
+function cadence(
+  state: DeskProductState,
+  event: Extract<DeskEvent, { readonly kind: "cadence" }>,
+): DeskTransition {
+  if (state.survey.inFlight) return { state, effects: [] };
+  if (surveyDue(state, event.now)) return refresh(state);
+  const generation = state.survey.generation + 1;
+  return {
+    state: {
+      ...state,
+      survey: {
+        ...state.survey,
+        generation,
+        inFlight: true,
+        checking: true,
+        followUp: false,
+      },
+    },
+    effects: [{ kind: "check", generation }],
+  };
+}
+
+/**
+ * A check finished. An unmoved fingerprint confirms the adopted survey as of
+ * now, so the Desk adopts it again, deriving what it shows from the clock
+ * afresh; a moved or unread one surveys.
+ */
+function checked(
+  state: DeskProductState,
+  event: Extract<DeskEvent, { readonly kind: "checked" }>,
+): DeskTransition {
+  const survey = state.survey;
+  if (event.generation !== survey.generation || !survey.checking) {
+    return { state, effects: [] };
+  }
+  const data = state.data;
+  if (
+    data !== undefined && event.fingerprint !== undefined &&
+    event.fingerprint === survey.fingerprint
+  ) {
+    return adopt(state, {
+      generation: event.generation,
+      now: event.now,
+      data,
+      hints: state.hints,
+      exceptionArgvs: state.exceptionArgvs,
+    }, { fingerprint: event.fingerprint, surveyedAt: survey.surveyedAt });
+  }
+  return {
+    state: { ...state, survey: { ...survey, checking: false } },
+    effects: [{
+      kind: "survey",
+      generation: survey.generation,
+      ...(event.fingerprint === undefined
+        ? {}
+        : { fingerprint: event.fingerprint }),
+    }],
+  };
+}
+
 /** Adopt one completed survey. */
 function observed(
   state: DeskProductState,
@@ -676,6 +837,24 @@ function observed(
   if (event.generation !== state.survey.generation) {
     return { state, effects: [] };
   }
+  return adopt(state, event, {
+    fingerprint: event.fingerprint,
+    surveyedAt: event.now,
+  });
+}
+
+/**
+ * Adopt an observation: a survey's, or the one a check confirmed. Its
+ * fingerprint and survey time are the survey's own.
+ */
+function adopt(
+  state: DeskProductState,
+  event: Omit<Extract<DeskEvent, { readonly kind: "observed" }>, "kind">,
+  surveyed: {
+    readonly fingerprint: string | undefined;
+    readonly surveyedAt: number | undefined;
+  },
+): DeskTransition {
   const data = heldForOperations(state, event.data);
   // The survey reads the fleet as finished operations left it.
   const fresh = { ...state, gone: new Set<string>() };
@@ -690,10 +869,17 @@ function observed(
     exceptionArgvs: event.exceptionArgvs,
     departed: departures(state, data, rows),
     survey: {
-      ...state.survey,
+      ...withoutSurveyed(state.survey),
       inFlight: false,
+      checking: false,
       failures: 0,
       observedAt: event.now,
+      ...(surveyed.fingerprint === undefined
+        ? {}
+        : { fingerprint: surveyed.fingerprint }),
+      ...(surveyed.surveyedAt === undefined
+        ? {}
+        : { surveyedAt: surveyed.surveyedAt }),
     },
   };
   const { warning: _cleared, offlineDismissed: _reset, ...withoutWarning } =
@@ -764,6 +950,7 @@ function observationFailed(
     survey: {
       ...state.survey,
       inFlight: false,
+      checking: false,
       failures,
       error: event.error,
     },
@@ -1283,6 +1470,10 @@ export function deskProduct(
   switch (event.kind) {
     case "refresh":
       return refresh(state);
+    case "cadence":
+      return cadence(state, event);
+    case "checked":
+      return checked(state, event);
     case "observed":
       return observed(state, event);
     case "observation-failed":

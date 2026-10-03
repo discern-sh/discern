@@ -136,6 +136,11 @@ export interface LiveDeskDependencies {
     readonly data: StatusData;
     readonly hints: readonly string[];
   }>;
+  /**
+   * The fleet's fingerprint, which moves whenever a survey would read
+   * something different; `undefined` when the fleet cannot be fingerprinted.
+   */
+  readonly probe: () => Promise<string | undefined>;
   readonly tip: (data: StatusData) => Promise<DeskTip | undefined>;
   /** Read the manual, which the session does once as it starts. */
   readonly manual: () => Promise<DeskManual>;
@@ -400,7 +405,10 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
       }
       switch (effect.kind) {
         case "survey":
-          survey(effect.generation);
+          survey(effect.generation, effect.fingerprint);
+          break;
+        case "check":
+          check(effect.generation);
           break;
         case "schedule-survey":
           scheduleSurvey(effect.afterMs);
@@ -455,49 +463,88 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
     surveyTimer = scheduler.scheduleTimeout(() => {
       surveyTimer = undefined;
       if (foreground) scheduleSurvey(afterMs);
-      else dispatch({ kind: "refresh" });
+      else dispatch({ kind: "cadence", now: deps.now() });
     }, afterMs);
   };
 
-  const survey = (generation: number): void => {
+  /**
+   * Read the fleet's fingerprint. When it has not moved, the check adopts
+   * the last survey again and reads the settled selection as a survey would.
+   */
+  const check = (generation: number): void => {
     own(
-      deps.observe().then(async ({ data, hints }) => {
-        if (
-          data.fleet === undefined ||
-          (data.git === null && data.fleet.length === 0)
-        ) {
-          throw new Error(
-            "Fleet observation unavailable; Git state is unknown.",
-          );
-        }
-        return { data, hints, exceptionArgvs: await deskExceptionArgvs(data) };
-      }).then(
-        ({ data, hints, exceptionArgvs }) => {
+      deps.probe().then(
+        (fingerprint) => {
           dispatch({
-            kind: "observed",
+            kind: "checked",
             generation,
             now: deps.now(),
-            data,
-            hints,
-            exceptionArgvs,
+            ...(fingerprint === undefined ? {} : { fingerprint }),
           });
-          discover();
-          settle();
-          if (!tipRequested) {
-            tipRequested = true;
-            own(presentTip(data));
-          }
+          if (!state.survey.inFlight) settle();
         },
-        (error) =>
-          dispatch({
-            kind: "observation-failed",
-            generation,
-            now: deps.now(),
-            error: error instanceof Error ? error.message : String(error),
-          }),
+        // A probe that cannot read the fleet leaves the question to a survey.
+        () => dispatch({ kind: "checked", generation, now: deps.now() }),
       ),
     );
   };
+
+  /**
+   * Survey the fleet, fingerprinting it first unless the check that found it
+   * moved already did: a change made while the survey reads moves the next
+   * fingerprint, so no check can confirm a survey that missed it.
+   */
+  const survey = (generation: number, known?: string): void => {
+    own(
+      (known === undefined ? deps.probe() : Promise.resolve(known)).then(
+        (fingerprint) => observeFleet(generation, fingerprint),
+        // Without a fingerprint, the next cadence surveys again.
+        () => observeFleet(generation, undefined),
+      ),
+    );
+  };
+
+  const observeFleet = (
+    generation: number,
+    fingerprint: string | undefined,
+  ): Promise<void> =>
+    deps.observe().then(async ({ data, hints }) => {
+      if (
+        data.fleet === undefined ||
+        (data.git === null && data.fleet.length === 0)
+      ) {
+        throw new Error(
+          "Fleet observation unavailable; Git state is unknown.",
+        );
+      }
+      return { data, hints, exceptionArgvs: await deskExceptionArgvs(data) };
+    }).then(
+      ({ data, hints, exceptionArgvs }) => {
+        dispatch({
+          kind: "observed",
+          generation,
+          now: deps.now(),
+          data,
+          hints,
+          exceptionArgvs,
+          ...(fingerprint === undefined ? {} : { fingerprint }),
+        });
+        discover();
+        settle();
+        if (!tipRequested) {
+          tipRequested = true;
+          own(presentTip(data));
+        }
+      },
+      (error) => {
+        dispatch({
+          kind: "observation-failed",
+          generation,
+          now: deps.now(),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      },
+    );
 
   /** The session's tip is presentation only: it never keeps the Desk closed. */
   const presentTip = async (data: StatusData): Promise<void> => {

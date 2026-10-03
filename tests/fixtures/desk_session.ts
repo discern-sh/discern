@@ -239,6 +239,9 @@ export function scriptedDeskRuntime(
     findRoot: () => DESK_ROOT,
     loadConfig: () => DESK_CONFIG,
     status: () => ({ ok: true, data }),
+    // A scripted fleet has no fingerprint, so every cadence surveys it: a
+    // test that changes its survey sees the change one cadence later.
+    probe: () => undefined,
     mainRepoPath: () => DESK_ROOT,
     grantEffortPlan: () => ({
       title: "Landing pre-authorization plan",
@@ -442,6 +445,8 @@ export interface DeskSessionOptions {
   readonly colorDepth?: TerminalColorDepth;
   /** Runtime seams; the rest come from {@linkcode scriptedDeskRuntime}. */
   readonly runtime?: Partial<DeskRuntime>;
+  /** The session's manual clock, when the test schedules against it too. */
+  readonly clock?: ManualTerminalClock;
   readonly output?: DeskTranscript;
   /** Leave the first survey unanswered; the session starts painting only. */
   readonly loading?: boolean;
@@ -543,7 +548,7 @@ export async function deskSession(
       ? {}
       : { colorDepth: options.colorDepth }),
   });
-  const clock = new ManualTerminalClock();
+  const clock = options.clock ?? new ManualTerminalClock();
   const output = options.output ?? deskTranscript();
   let live: TerminalApplicationContext<unknown> | undefined;
   let surveys = 0;

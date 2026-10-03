@@ -75,6 +75,7 @@ import {
   openInBrowser,
 } from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
+import { fleetFingerprint } from "../status/fleet_fingerprint.ts";
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import {
@@ -200,6 +201,11 @@ export interface DeskRuntime extends DeskLandingPermission {
     message?: string | undefined;
     hints?: readonly string[] | undefined;
   }>;
+  /**
+   * The fleet's fingerprint, which moves whenever `status` would read
+   * something different; `undefined` when it cannot be read.
+   */
+  probe(root: string): DeskMaybePromise<string | undefined>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
   makeOut(): Out;
   error(message: string): void;
@@ -403,6 +409,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   findRoot: () => findRoot(),
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root, { all: true }),
+  probe: (root) => fleetFingerprint(root),
   mainRepoPath: (root) => mainRepoPath(root),
   // The only production writers of landing permission: this runtime is
   // private to the Desk's entry, which only the CLI's human surfaces open.
@@ -922,6 +929,7 @@ export async function runDesk(
         // on any interactive terminal.
         return { data: result.data, hints: interactiveHintTexts(result.hints) };
       },
+      probe: async () => await runtime.probe(root),
       tip: (data) => sessionTip(root, config, runtime, data),
       manual: async () =>
         deskManual(
