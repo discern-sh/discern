@@ -17,7 +17,11 @@ import {
   terminalMultiline,
 } from "../src/lib/terminal.ts";
 import { displayWidth, stripAnsi } from "../src/lib/text.ts";
-import { TERMINAL_GLYPHS, TRIANGLES } from "discern-design-system/cli";
+import {
+  type CliPresenter,
+  TERMINAL_GLYPHS,
+  TRIANGLES,
+} from "discern-design-system/cli";
 import { fakeEnv, pinnedTerminal } from "./helpers.ts";
 import { assertNamedCases } from "./assert_cases.ts";
 
@@ -249,10 +253,37 @@ const WIDTH_GUARD_PROSE =
   "Run `discern upgrade --dry-run` to preview the managed update under /very/long/path/that/cannot/fit/on/one/line before applying it.";
 const WIDTH_GUARD_COLUMNS = 30;
 
-/** Render one verb on a colour terminal of the guard width. */
-function renderAtGuardWidth(
+/** What one narration call wrote, and every text the package presenter
+ * received while rendering it. */
+interface GuardRender {
+  readonly output: string;
+  readonly presented: readonly string[];
+}
+
+/** Forward every presenter call unchanged, recording its text arguments. */
+function recordingPresenter(
+  presenter: CliPresenter,
+  presented: string[],
+): CliPresenter {
+  return new Proxy(presenter, {
+    get(target, key, receiver): unknown {
+      const value: unknown = Reflect.get(target, key, receiver);
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]): unknown => {
+        presented.push(
+          ...args.filter((arg): arg is string => typeof arg === "string"),
+        );
+        return Reflect.apply(value, target, args);
+      };
+    },
+  });
+}
+
+/** Render narration on a colour terminal of the given width. */
+function renderAtWidth(
+  columns: number,
   write: (narration: Narration) => void,
-): string {
+): GuardRender {
   const { sink, stdout, stderr } = rawCapture();
   const terminal = resolveTerminalContext({
     noColor: false,
@@ -262,13 +293,26 @@ function renderAtGuardWidth(
       FORCE_COLOR: "1",
     }),
     isTerminal: () => true,
-    consoleSize: () => ({ columns: WIDTH_GUARD_COLUMNS, rows: 24 }),
+    consoleSize: () => ({ columns, rows: 24 }),
   });
   assert(terminal.color, "the width guard measures styled output");
+  const presented: string[] = [];
   write(
-    makeNarration(sink, terminal, { narration: "stdout", alerts: "stderr" }),
+    makeNarration(
+      sink,
+      {
+        ...terminal,
+        presenter: recordingPresenter(terminal.presenter, presented),
+      },
+      { narration: "stdout", alerts: "stderr" },
+    ),
   );
-  return [...stdout, ...stderr].join("");
+  return { output: [...stdout, ...stderr].join(""), presented };
+}
+
+/** Render one verb on a colour terminal of the guard width. */
+function renderAtGuardWidth(write: (narration: Narration) => void): string {
+  return renderAtWidth(WIDTH_GUARD_COLUMNS, write).output;
 }
 
 Deno.test("every narration verb that renders prose stays within the terminal width", () => {
@@ -291,8 +335,9 @@ Deno.test("every narration verb that renders prose stays within the terminal wid
       );
       continue;
     }
-    const output = renderAtGuardWidth((narration) =>
-      contract.bounded(narration, WIDTH_GUARD_PROSE)
+    const { output, presented } = renderAtWidth(
+      WIDTH_GUARD_COLUMNS,
+      (narration) => contract.bounded(narration, WIDTH_GUARD_PROSE),
     );
     const overflow = output.split("\n").filter((line) =>
       displayWidth(line) > WIDTH_GUARD_COLUMNS
@@ -307,6 +352,15 @@ Deno.test("every narration verb that renders prose stays within the terminal wid
         WIDTH_GUARD_PROSE.replaceAll(/\s+/gu, ""),
       ),
       `${verb} must keep every character of the prose it wraps`,
+    );
+    // Package wrapping costs more than linear time in the length of a word it
+    // must split, so an overlong token reaches it already broken.
+    assertEquals(
+      presented.flatMap((text) => stripAnsi(text).split(/\s+/u)).filter(
+        (token) => displayWidth(token) > WIDTH_GUARD_COLUMNS,
+      ),
+      [],
+      `${verb} must break an overlong token before the package presenter wraps it`,
     );
   }
 });

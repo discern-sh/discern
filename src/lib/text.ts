@@ -209,6 +209,23 @@ export function splitDisplayWord(
   return restoreStyledChunks(word, chunks);
 }
 
+/**
+ * Break every whitespace-free token wider than `width` into line-wide pieces
+ * at package-owned break points, separated by single spaces; every other
+ * character stays in place. A package renderer that wraps the result at the
+ * same width places each piece on its own line, as it would have split the
+ * token, while its wrapping only ever measures words that fit one line.
+ */
+export function breakLongTokens(text: string, width: number): string {
+  return text.replaceAll(
+    /\S+/gu,
+    (token) =>
+      measureText(token) > width
+        ? splitDisplayWord(token, width, width).join(" ")
+        : token,
+  );
+}
+
 /** Greedy hanging-indent adaptation for an explicit hard-wrap policy. */
 function wrapBreakingLongWords(
   words: readonly string[],

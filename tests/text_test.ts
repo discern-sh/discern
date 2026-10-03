@@ -7,6 +7,7 @@ import {
   wrapText as packageWrapText,
 } from "discern-design-system/cli";
 import {
+  breakLongTokens,
   displayWidth,
   meter,
   padDisplayEnd,
@@ -110,6 +111,30 @@ Deno.test("text: text layout", () => {
           packageWrapText(token, width),
           `width ${width}`,
         );
+      }
+    },
+    "pre-breaking long tokens leaves the package's wrap unchanged": () => {
+      const texts = [
+        "Run `discern upgrade` under /very/long/path/that/cannot/fit/on/one/line now.",
+        `see ${"界é👨‍👩‍👧🇬🇧Xá̂ß".repeat(20)} and more words`,
+        `a /x/${"b".repeat(50)}/cc/dd tail words`,
+        "pre-fix-long-hyphenated-token-that-goes-on-and-on end",
+        "short words only",
+      ];
+      for (const text of texts) {
+        for (const width of [5, 13, 28, 78]) {
+          const broken = breakLongTokens(text, width);
+          assertEquals(
+            packageWrapText(broken, width),
+            packageWrapText(text, width),
+            `width ${width}: ${text}`,
+          );
+          assertEquals(
+            broken.split(/\s+/u).filter((token) => displayWidth(token) > width),
+            [],
+            `width ${width}: ${text}`,
+          );
+        }
       }
     },
     "a long token reaches package wrapping only in line-sized windows": () => {

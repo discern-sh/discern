@@ -20,7 +20,7 @@ import {
   terminalLine,
   type TerminalMultiline,
 } from "./terminal.ts";
-import { displayWidth, wrapText } from "./text.ts";
+import { breakLongTokens, displayWidth, wrapText } from "./text.ts";
 
 /** A physical process stream the sink can write to. */
 export type OutputStream = "stdout" | "stderr";
@@ -190,6 +190,23 @@ export function makeNarration(
   streams: NarrationStreams,
 ): Narration {
   const columns = terminal.presenter.capabilities.columns;
+  const failureLine = (text: string): string =>
+    terminal.presenter.failure(text);
+  /** Cells a package narration renderer spends on its glyph and gap: its
+   * rendering of one cell, less that cell. */
+  const glyphColumn = (render: (text: string) => string): number =>
+    displayWidth(render("x")) - 1;
+  /** Render one inert line through a package narration renderer. Each token
+   * wider than the renderer's text column is broken first through the text
+   * authority, so package wrapping only ever measures words that fit a line
+   * and a long token costs time in proportion to its length. */
+  const glyphLine = (
+    render: (text: string) => string,
+    message: string,
+  ): string =>
+    render(
+      breakLongTokens(terminalLine(message), columns - glyphColumn(render)),
+    );
   /** Bound one inert prose line to the presenter's width behind a styled
    * `lead`. A line that fits is kept intact; an over-wide one re-flows through
    * the text authority, continuations hang under the lead, an overlong token
@@ -211,14 +228,12 @@ export function makeNarration(
   };
   const errorBlock = (message: string): void => {
     if (!message.includes("\n")) {
-      sink.line(
-        terminal.presenter.failure(terminalLine(message)),
-        streams.alerts,
-      );
+      sink.line(glyphLine(failureLine, message), streams.alerts);
       return;
     }
-    // The glyph column is two cells wide; every wrapped line hangs under it.
-    const width = columns - 2;
+    // Every wrapped line hangs under the glyph column.
+    const glyph = glyphColumn(failureLine);
+    const width = columns - glyph;
     const lines = message.split("\n").flatMap((raw) => {
       if (raw.trim() === "") return [""];
       const leading = raw.match(/^\s*/u)?.[0] ?? "";
@@ -230,8 +245,10 @@ export function makeNarration(
     const [first = "", ...continuation] = lines;
     sink.line(
       [
-        terminal.presenter.failure(first),
-        ...continuation.map((line) => (line === "" ? "" : `  ${line}`)),
+        failureLine(first),
+        ...continuation.map((line) =>
+          line === "" ? "" : `${" ".repeat(glyph)}${line}`
+        ),
       ].join("\n"),
       streams.alerts,
     );
@@ -239,24 +256,21 @@ export function makeNarration(
   return {
     info: (message: string): void =>
       sink.line(
-        terminal.presenter.note(terminalLine(message)),
+        glyphLine((text) => terminal.presenter.note(text), message),
         streams.narration,
       ),
     ok: (message: string): void =>
       sink.line(
-        terminal.presenter.success(terminalLine(message)),
+        glyphLine((text) => terminal.presenter.success(text), message),
         streams.narration,
       ),
     warn: (message: string): void =>
       sink.line(
-        terminal.presenter.warning(terminalLine(message)),
+        glyphLine((text) => terminal.presenter.warning(text), message),
         streams.alerts,
       ),
     error: (message: string): void =>
-      sink.line(
-        terminal.presenter.failure(terminalLine(message)),
-        streams.alerts,
-      ),
+      sink.line(glyphLine(failureLine, message), streams.alerts),
     heading: (text: string): void => {
       sink.boundary({ evenAtStart: true, stream: streams.narration });
       sink.line(
