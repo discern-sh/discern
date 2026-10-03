@@ -6,9 +6,10 @@
  * gives a session: the fingerprint and the survey are the real ones, the
  * probe's Git processes are counted through its runner, which the
  * fingerprint's own test proves sees every one, and paints are counted from
- * what the terminal received. Over a minute in which nothing changes, every
- * cadence but the ceiling's is a check, and nothing is repainted. A commit in
- * a task then shows on the next cadence.
+ * what the terminal received. Over a minute in which nothing changes, a
+ * cadence surveys only once the last survey meets its ceiling and checks
+ * otherwise, and nothing is repainted. A commit in a task then shows on the
+ * next cadence.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -44,18 +45,25 @@ import { withTempDir } from "./temp_dir.ts";
 import { join } from "@std/path";
 
 const DAY = 86_400_000;
+const MINUTE = 60_000;
 
-/** One idle minute: every cadence, the last of which meets the ceiling. */
-const IDLE_CADENCES = DESK_SURVEY_CEILING_MS / DESK_REFRESH_MS;
+/** One idle minute: every cadence that comes round in it. */
+const IDLE_CADENCES = Math.floor(MINUTE / DESK_REFRESH_MS);
+
+/** Cadences from one survey to the next: the first to meet the ceiling. */
+const CADENCES_PER_SURVEY = Math.ceil(DESK_SURVEY_CEILING_MS / DESK_REFRESH_MS);
+
+/** Surveys in an idle minute that starts at a survey: one per ceiling. */
+const IDLE_SURVEYS = Math.floor(IDLE_CADENCES / CADENCES_PER_SURVEY);
 
 /**
- * The idle budget per minute: a check each cadence until the ceiling, one
- * survey at it, and nothing written to the terminal, since nothing the Desk
- * shows has changed.
+ * The idle budget per minute: a survey on each cadence that meets the
+ * ceiling, a check on every other, and nothing written to the terminal,
+ * since nothing the Desk shows has changed.
  */
 const IDLE_BUDGET = {
-  checks: IDLE_CADENCES - 1,
-  surveys: 1,
+  checks: IDLE_CADENCES - IDLE_SURVEYS,
+  surveys: IDLE_SURVEYS,
   writes: 0,
 } as const;
 
