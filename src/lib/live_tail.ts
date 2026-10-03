@@ -12,6 +12,7 @@
  * output artifact, keeps every line whole.
  */
 
+import { segmentGraphemes } from "discern-design-system/cli/interactive";
 import { stripAnsi } from "./text.ts";
 
 /**
@@ -69,9 +70,9 @@ export const APPEND_ONLY_LIMIT = Number.POSITIVE_INFINITY as LiveTailLimit;
 /**
  * The part of one streamed line a view can show, as its kind keeps it: at
  * most `limit` code units, the ellipsis that marks a cut included. A line is
- * measured without the escape sequences no view shows, so styling neither
- * spends the limit nor leaves a fragment at a cut, and a cut falls only
- * between graphemes.
+ * measured without the control sequences and hyperlinks no view shows, so
+ * styling neither spends the limit nor leaves a fragment at a cut, and a cut
+ * falls only between graphemes.
  */
 export function liveTailText(
   kind: LiveTailKind,
@@ -80,7 +81,7 @@ export function liveTailText(
   ellipsis: string,
 ): string {
   if (text.length <= limit) return text;
-  const shown = plainText(text);
+  const shown = stripAnsi(text);
   if (shown.length <= limit) return shown;
   const room = Math.max(0, limit - ellipsis.length);
   if (kind === "line") {
@@ -98,33 +99,23 @@ export function liveTailText(
   return `${shown.slice(start, graphemeStart(shown, start + room))}${ellipsis}`;
 }
 
-const ESCAPE = "\u001b";
-
-/**
- * The escapes the package's streamed-text display drops besides control
- * sequences and operating system commands: a character set designation and
- * a single-character escape.
- */
-const SHORT_ESCAPE = new RegExp(`${ESCAPE}(?:[()][ -~]|[ -~]?)`, "gu");
-
-/** Text without the escape sequences no view shows. */
-function plainText(text: string): string {
-  return text.includes(ESCAPE)
-    ? stripAnsi(text).replaceAll(SHORT_ESCAPE, "")
-    : text;
-}
-
-const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
 /** Whether a code unit is a printable ASCII character. */
 function printableAscii(unit: number): boolean {
   return unit >= 0x20 && unit <= 0x7e;
 }
 
+/** Code units a cut's grapheme window reaches past the cut. */
+const GRAPHEME_REACH = 64;
+
+/** Code units a cut's grapheme window looks back for a place to start. */
+const GRAPHEME_START_REACH = 1_024;
+
 /**
  * The grapheme that `index` falls inside, or `undefined` when one starts
  * there. Two printable ASCII characters always have a boundary between them,
- * so only text beside anything else asks the segmenter.
+ * so only a cut beside anything else segments the text around it. That
+ * window starts at a printable ASCII character, where a grapheme always
+ * begins, so a run of regional indicators pairs as it does in the whole line.
  */
 function straddled(
   text: string,
@@ -135,11 +126,20 @@ function straddled(
     (printableAscii(text.charCodeAt(index - 1)) &&
       printableAscii(text.charCodeAt(index)))
   ) return undefined;
-  const grapheme = GRAPHEMES.segment(text).containing(index);
-  return grapheme === undefined || grapheme.index === index ? undefined : {
-    start: grapheme.index,
-    end: grapheme.index + grapheme.segment.length,
-  };
+  const floor = Math.max(0, index - GRAPHEME_START_REACH);
+  let at = index - 1;
+  while (at > floor && !printableAscii(text.charCodeAt(at))) at -= 1;
+  for (
+    const grapheme of segmentGraphemes(
+      text.slice(at, index + GRAPHEME_REACH),
+    )
+  ) {
+    const end = at + grapheme.length;
+    if (at === index) return undefined;
+    if (end > index) return { start: at, end };
+    at = end;
+  }
+  return undefined;
 }
 
 /** `index`, or the start of the grapheme it falls inside. */
@@ -180,7 +180,7 @@ export function appendStreamedOutput(
   more: StreamedOutput,
   lines: number,
 ): StreamedOutput {
-  const text = `${output[TEXT]}${plainText(more[TEXT])}`;
+  const text = `${output[TEXT]}${stripAnsi(more[TEXT])}`;
   const kept = text.split("\n");
   return streamedOutput(
     kept.length <= lines ? text : kept.slice(-lines).join("\n"),

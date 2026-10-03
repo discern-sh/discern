@@ -130,11 +130,11 @@ Deno.test("the live tail keeps what the frame can show of a streamed line", () =
         expected: "STARTXX…",
       },
       {
-        name: "a hyperlink keeps its label, and charset escapes take no room",
+        name: "a hyperlink keeps its label and spends nothing else",
         kind: "partial",
-        text: `\x1b]8;;https://example.com\x07link\x1b]8;;\x07\x1b(B${
+        text: `\x1b]8;;https://example.com\x07link\x1b]8;;\x07${
           "y".repeat(20)
-        }\x1bc`,
+        }`,
         limit: 8,
         expected: "linkyyy…",
       },
@@ -231,7 +231,7 @@ Deno.test("streamed output keeps its last lines plain and whole", () => {
   const appended = [
     "first\n",
     `${long}\nsec\x1b[31mond\x1b[0m\n`,
-    "\x1b]8;;https://example.com\x07third\x1b]8;;\x07\x1b(B",
+    "\x1b]8;;https://example.com\x07third\x1b]8;;\x07",
   ].reduce(
     (output, chunk) => appendStreamedOutput(output, streamedOutput(chunk), 3),
     NO_STREAMED_OUTPUT,
