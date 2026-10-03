@@ -2269,6 +2269,18 @@ async function manualBack(desk: DeskSession, shown: string): Promise<void> {
   await desk.escape(() => desk.screen().includes(shown), shown);
 }
 
+/** Choose Read the manual from the palette and wait for its contents. */
+async function openManual(desk: DeskSession): Promise<void> {
+  await desk.palette("Read the manual", "manual");
+  await desk.shows("Manual fixture");
+}
+
+/** Wait for the manual to give way to the inbox, its selection as left. */
+async function backFromManual(desk: DeskSession, why: string): Promise<void> {
+  await desk.until(() => !desk.screen().includes("Manual fixture"), why);
+  assertEquals(desk.state().lists[DESK_LIST_ID]?.selectedId, "second");
+}
+
 Deno.test("Read the manual opens in place of the inbox and Escape returns to it as it was", async () => {
   let pauses = 0;
   await withDeskSession({
@@ -2283,8 +2295,7 @@ Deno.test("Read the manual opens in place of the inbox and Escape returns to it 
     },
   }, async (desk) => {
     await desk.select("second");
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("Manual fixture");
+    await openManual(desk);
     await desk.shows("Back to the desk");
     // The contents open the first page; its first link opens the guide.
     await desk.press("enter");
@@ -2303,14 +2314,9 @@ Deno.test("Read the manual opens in place of the inbox and Escape returns to it 
     assertEquals(desk.top(), undefined);
     assertEquals(desk.state().lists[DESK_LIST_ID]?.selectedId, "second");
     // The next opening resumes where its reader left it.
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("Manual fixture");
+    await openManual(desk);
     await desk.press("q");
-    await desk.until(
-      () => !desk.screen().includes("Manual fixture"),
-      "the inbox after q",
-    );
-    assertEquals(desk.state().lists[DESK_LIST_ID]?.selectedId, "second");
+    await backFromManual(desk, "the inbox after q");
   });
   assertEquals(pauses, 0);
 });
@@ -2327,8 +2333,7 @@ Deno.test("the manual opens its pages while the screen stays and says when one c
       },
     },
   }, async (desk) => {
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("Manual fixture");
+    await openManual(desk);
     await desk.press("enter", "tab", "tab", "enter");
     await desk.until(
       () => opened.includes("https://example.com/docs"),
@@ -2390,12 +2395,7 @@ for (const outcome of ["read", "failed"] as const) {
         await desk.shows("Read the guide");
         await desk.press("q");
       } else await desk.shows(settled);
-      await desk.until(
-        () =>
-          desk.state().lists[DESK_LIST_ID]?.selectedId === "second" &&
-          !desk.screen().includes("Manual fixture"),
-        "the inbox as it was left",
-      );
+      await backFromManual(desk, "the inbox as it was left");
       await desk.palette("Read the manual", "manual");
       await desk.shows(settled);
     });
