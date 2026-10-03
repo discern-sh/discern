@@ -381,6 +381,35 @@ Deno.test("Gate activity writes a long line whole once the package stops repaint
   );
 });
 
+Deno.test("Gate activity writes a pending partial whole once the package stops repainting", async () => {
+  const received: string[] = [];
+  const { progress, writes, viewport, lint, tick } =
+    await controlledGateActivity(
+      { columns: 64, rows: 20 },
+      4,
+      recordedActivityLog(received),
+    );
+  progress.started(lint);
+  progress.output({ kind: "partial", label: "lint", text: LONG_STREAMED_LINE });
+  tick();
+  await Promise.resolve();
+  viewport.set({ columns: 64, rows: 3 });
+  tick();
+  await Promise.resolve();
+  const appendOnly = writes.length;
+  await progress.complete(PROOF_STEPS);
+
+  assert(
+    (received[0]?.length ?? 0) < LONG_STREAMED_LINE.length,
+    "the live frame receives the partial bounded",
+  );
+  assertStringIncludes(
+    stripAnsi(writes.slice(appendOnly).join("")),
+    LONG_STREAMED_LINE,
+    "append-only output writes a partial still pending at finish whole",
+  );
+});
+
 Deno.test("Gate activity hands the package only the live tail of a long line", async () => {
   const received: string[] = [];
   const [columns, tailRows] = [48, 2];

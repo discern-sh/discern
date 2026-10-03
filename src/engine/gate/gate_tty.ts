@@ -128,23 +128,38 @@ function observedTicks(
   };
 }
 
-/** Bound every streamed line the package keeps for repainting. */
+/**
+ * Bound every streamed line the package keeps for repainting. The package
+ * holds an in-progress line until a later line replaces it, and its
+ * append-only output writes one still pending when the log finishes. So
+ * finishing hands the pending line over again under the bound that holds
+ * then, which keeps it whole once the package has stopped repainting.
+ */
 function liveTailLog(
   log: ActivityLogController,
   limit: () => number,
   ellipsis: string,
 ): LiveTailLog {
+  let pending: { readonly prefix: string; readonly text: string } | undefined;
+  const partial = (prefix: string, text: string): void => {
+    pending = text === "" ? undefined : { prefix, text };
+    log.updatePartial(
+      text === ""
+        ? ""
+        : `${prefix}${liveTailText("partial", text, limit(), ellipsis)}`,
+    );
+  };
   return {
-    line: (prefix, text): void =>
-      log.append(`${prefix}${liveTailText("line", text, limit(), ellipsis)}`),
-    partial: (prefix, text): void =>
-      log.updatePartial(
-        text === ""
-          ? ""
-          : `${prefix}${liveTailText("partial", text, limit(), ellipsis)}`,
-      ),
+    line: (prefix, text): void => {
+      pending = undefined;
+      log.append(`${prefix}${liveTailText("line", text, limit(), ellipsis)}`);
+    },
+    partial,
     pin: (text, tone): void => log.pin(text, tone),
-    finish: (completion): void => log.finish(completion),
+    finish: (completion): void => {
+      if (pending !== undefined) partial(pending.prefix, pending.text);
+      log.finish(completion);
+    },
   };
 }
 
