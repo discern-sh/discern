@@ -40,6 +40,13 @@ const CEREMONIAL_COMPONENT_RENDERERS = new Set([
   "renderProcedureCli",
 ]);
 
+/** Interactive package exports each owned by one named adapter. */
+const OWNED_INTERACTIVE_IMPORTS: ReadonlyMap<string, string> = new Map([
+  ["InlineFramePainter", "package-inline-painter-import"],
+  ["withActivityLog", "package-activity-log-import"],
+  ["TerminalIO", "package-terminal-io-import"],
+]);
+
 /** Raw foundations are presenter-owned except inside the package-motif adapter. */
 const PRESENTER_FOUNDATION_RENDERERS = new Set([
   "renderBox",
@@ -1146,15 +1153,8 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   ) {
                     add(`package-request-import:${imported}`, node);
                   }
-                  if (imported === "InlineFramePainter") {
-                    add("package-inline-painter-import", node);
-                  }
-                  if (imported === "withActivityLog") {
-                    add("package-activity-log-import", node);
-                  }
-                  if (imported === "TerminalIO") {
-                    add("package-terminal-io-import", node);
-                  }
+                  const owned = OWNED_INTERACTIVE_IMPORTS.get(imported);
+                  if (owned !== undefined) add(owned, node);
                   if (imported === "DenoTerminalIO") {
                     terminalIoConstructors.add(entry.local.name);
                   }
