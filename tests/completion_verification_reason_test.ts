@@ -15,6 +15,7 @@ import {
 } from "../src/engine/completion/attempt.ts";
 import { CompletionRecordSchema } from "../src/engine/completion/records.ts";
 import {
+  type CompletionWriteOutcome,
   openCompletionRecordStore,
   readCompletionRecord,
   writeCompletionRecord,
@@ -28,6 +29,7 @@ import {
   type InvalidationReason,
   InvalidationReasonSchema,
 } from "../src/engine/completion/outcomes.ts";
+import { publicationRefusal } from "../src/engine/completion/source_tip.ts";
 import {
   executeValidation,
   type ProducerCapture,
@@ -505,4 +507,39 @@ Deno.test("a run whose claim another run retired reports the retirement, not cha
       rendered([claimLossBlocker()]),
     );
   });
+});
+
+Deno.test("a refused publication reports the refusal it received", () => {
+  // Every refusal a write can return, with the pending kind it leaves. A new
+  // member of the union fails `deno check` here until it is placed.
+  const expected = {
+    "claim-lost": "cancelled",
+    "conflict": "unavailable",
+    "transition-refused": "unavailable",
+    "busy": "unavailable",
+    "newer": "record-incompatible",
+    "older": "record-incompatible",
+    "invalid": "record-corrupt",
+    "unavailable": "unavailable",
+  } satisfies Record<
+    Exclude<CompletionWriteOutcome["kind"], "written">,
+    CompletionBlocker["kind"]
+  >;
+  const evidenceId = completionId(700);
+  for (const [kind, pending] of Object.entries(expected)) {
+    const refusal = (kind === "newer" || kind === "older"
+      ? { kind, version: 99 }
+      : { kind, reason: `refused as ${kind}` }) as Exclude<
+        CompletionWriteOutcome,
+        { kind: "written" }
+      >;
+    const blocker = publicationRefusal(evidenceId, refusal);
+    assertEquals(blocker.kind, pending, kind);
+    assertEquals(
+      blocker.kind === "cancelled" &&
+        blocker.reason === claimLossBlocker().reason,
+      kind === "claim-lost",
+      kind,
+    );
+  }
 });

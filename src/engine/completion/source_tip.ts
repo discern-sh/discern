@@ -25,14 +25,17 @@ import {
 import { integrationBranch } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import type { CompletionArtifact } from "./artifacts.ts";
-import { cancellationReason } from "./attempt.ts";
+import { cancellationReason, claimLossBlocker } from "./attempt.ts";
 import {
   recoverAbandonedAttempts,
   reserveAttempt,
   withAttemptClaim,
 } from "./attempt_lifecycle.ts";
 import type { Candidate } from "./candidate.ts";
-import { completionRecordBlocker } from "./compatibility.ts";
+import {
+  completionRecordBlocker,
+  unusableRecordBlocker,
+} from "./compatibility.ts";
 import { emitCompletionEvent, emitComponentUse } from "./events.ts";
 import type { Executor, SourceRevision } from "./identity.ts";
 import { currentOperationHandle } from "./operation_journal.ts";
@@ -48,7 +51,7 @@ import {
   recordedCandidate,
   retainCandidate,
 } from "./source.ts";
-import { writeCompletionRecord } from "./store.ts";
+import { type CompletionWriteOutcome, writeCompletionRecord } from "./store.ts";
 import type { CompletionRecord } from "./records.ts";
 
 /** What the gate receives once the run holds its attempt. */
@@ -84,6 +87,36 @@ export async function requirementsAt(
       entry,
     ) => entry.requirement),
   );
+}
+
+/**
+ * What a refused evidence publication leaves pending, taken from the refusal
+ * itself. Only a fence that proves the claim gone reports the retirement; a
+ * busy lock or a refused write proves nothing about the claim or the source.
+ */
+export function publicationRefusal(
+  evidenceId: string,
+  refusal: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
+): CompletionBlocker {
+  switch (refusal.kind) {
+    case "claim-lost":
+      return claimLossBlocker();
+    case "conflict":
+    case "transition-refused":
+    case "busy":
+      return {
+        kind: "unavailable",
+        reason: `Evidence ${evidenceId} was not published: ${refusal.reason}`,
+      };
+    case "newer":
+    case "older":
+    case "invalid":
+    case "unavailable":
+      return unusableRecordBlocker(
+        { kind: "evidence", id: evidenceId },
+        refusal,
+      );
+  }
 }
 
 /** Project recorded readings onto validated envelopes. */
@@ -333,20 +366,7 @@ export async function completeSourceTip<T>(
             reserved.fence,
           );
           if (written.kind !== "written") {
-            publicationFailure = written.kind === "newer" ||
-                written.kind === "older" || written.kind === "invalid" ||
-                written.kind === "unavailable"
-              ? completionRecordBlocker({
-                records: [{
-                  selector: { kind: "evidence", id: evidenceId },
-                  reading: written,
-                }],
-              })
-              : {
-                kind: "stale-evidence",
-                evidence_ids: [],
-                reason: "claim-lost",
-              };
+            publicationFailure = publicationRefusal(evidenceId, written);
             break;
           }
           emitComponentUse(
