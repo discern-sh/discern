@@ -25,7 +25,13 @@ import {
 } from "../../shared/desk_vocabulary.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
 import { proofHuman, queueHuman, relativeAge } from "../status/row_facts.ts";
-import { DESK_KEYS, type DeskKeyBinding, JUMP_GROUP_READS } from "./keys.ts";
+import {
+  COMMANDS_LABEL,
+  DESK_KEYS,
+  type DeskKeyBinding,
+  type DeskRowLayer,
+  JUMP_GROUP_READS,
+} from "./keys.ts";
 import { deskRowId } from "./model.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
 import type { DeskChangesEvidence } from "./contracts.ts";
@@ -141,7 +147,45 @@ function keyItems(
   return items;
 }
 
-/** The keys reader: every key the inbox and a review answer to. */
+/**
+ * Where each row other than a task's gives keys a meaning of its own, as the
+ * keys reader's section titles say it.
+ */
+const ROW_PLACES = {
+  commands: `On the ${COMMANDS_LABEL} row`,
+  branch: "On a parked branch",
+  landed: "On a landed task",
+} as const satisfies Record<Exclude<DeskRowLayer, "inbox">, string>;
+
+/**
+ * The keys each row other than a task's gives a meaning the inbox's map
+ * does not, by the place that means them: Enter on the Commands row opens
+ * Commands rather than a next step. A place whose keys all mean what they
+ * mean on a task has none.
+ */
+function rowOwnKeys(
+  meaning: (binding: DeskKeyBinding) => string | undefined,
+): { title: string; items: { key: string[]; label: string }[] }[] {
+  return (Object.keys(ROW_PLACES) as (keyof typeof ROW_PLACES)[]).flatMap(
+    (layer) => {
+      const items = keyItems(DESK_KEYS[layer], (binding) => {
+        const inbox = DESK_KEYS.inbox.find((candidate) =>
+          candidate.key === binding.key
+        );
+        return inbox !== undefined &&
+            JSON.stringify(inbox.meaning) === JSON.stringify(binding.meaning)
+          ? undefined
+          : meaning(binding);
+      });
+      return items.length === 0 ? [] : [{ title: ROW_PLACES[layer], items }];
+    },
+  );
+}
+
+/**
+ * The keys reader: every key the inbox and a review answer to, and the
+ * meanings other rows give keys.
+ */
 function keysReader(state: DeskProductState): ApplicationReader<DeskIntent> {
   const gesture = (names: readonly string[]) => (binding: DeskKeyBinding) =>
     binding.meaning.kind === "gesture" &&
@@ -215,6 +259,13 @@ function keysReader(state: DeskProductState): ApplicationReader<DeskIntent> {
               : undefined,
         ),
       ),
+      ...rowOwnKeys(either(
+        gesture(["palette", "next-step", "actions"]),
+        (binding) =>
+          binding.meaning.kind === "command"
+            ? DESK_COMMAND_LABELS[binding.meaning.command]
+            : undefined,
+      )).map(({ title, items }) => section(title, items)),
       section(
         "In a review",
         keyItems(

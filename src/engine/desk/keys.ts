@@ -260,6 +260,7 @@ export const DESK_ROW_LAYERS = [
   "branch",
   "landed",
 ] as const satisfies readonly DeskLayer[];
+export type DeskRowLayer = (typeof DESK_ROW_LAYERS)[number];
 
 /** The one key map, per layer. */
 export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =

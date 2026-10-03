@@ -59,7 +59,7 @@ import {
 } from "../src/engine/desk/model.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
-import { DESK_KEYS } from "../src/engine/desk/keys.ts";
+import { DESK_KEYS, DESK_ROW_LAYERS } from "../src/engine/desk/keys.ts";
 import { actionsMenu } from "../src/engine/desk/menu_view.ts";
 import { taskEvidenceSubject } from "../src/engine/desk/evidence.ts";
 import type { DeskReview } from "../src/engine/desk/flow_types.ts";
@@ -632,6 +632,10 @@ Deno.test("the keys reader groups each meaning's keys into one readable row", ()
       /Space\s+Zoom details\b/u,
       /PgUp PgDn\s+Scroll details\b/u,
       /→ \.\s+Actions\b/u,
+      /On the Commands row/u,
+      /↵ → \.\s+Commands\b/u,
+      /On a parked branch/u,
+      /v\s+View commits\b/u,
       /\^K :\s+Commands\b/u,
       / q\s+Quit\b/u,
       /Esc\s+Clear filter, leave zoom\b/u,
@@ -677,6 +681,31 @@ Deno.test("the keys reader lists every key the inbox and a review answer to", ()
     binding.listed !== false && !listed.has(binding.key)
   ).map((binding) => binding.key);
   assertEquals(missing, [], "every inbox key the reader doesn't list");
+  // Each key another row means differently is listed under where it does.
+  const places = reader.blocks.flatMap((block) =>
+    block.kind === "section" && block.title.startsWith("On ")
+      ? block.blocks.flatMap((inner) =>
+        inner.kind === "hints"
+          ? inner.items.flatMap((item) => [item.key].flat())
+          : []
+      )
+      : []
+  );
+  for (const layer of DESK_ROW_LAYERS) {
+    for (const binding of DESK_KEYS[layer]) {
+      const inbox = DESK_KEYS.inbox.find((candidate) =>
+        candidate.key === binding.key
+      );
+      if (
+        binding.listed === false ||
+        JSON.stringify(inbox?.meaning) === JSON.stringify(binding.meaning)
+      ) continue;
+      assert(
+        places.includes(binding.key),
+        `${layer}'s ${binding.key} is listed where it applies`,
+      );
+    }
+  }
 });
 
 Deno.test("an open layer leaves the inspector beneath it whole", () => {
