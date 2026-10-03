@@ -152,13 +152,14 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
       fixtures.evidence,
     );
     const fresh = { ...evidence, id: completionId(32) };
+    // A publication without a fence proves nothing about any claim.
     assertEquals(
       (await writeCompletionRecord(
         root,
         fresh,
         null,
       )).kind,
-      "claim-lost",
+      "transition-refused",
     );
     assertEquals(
       (await writeCompletionRecord(root, fresh, null, {
@@ -189,7 +190,7 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
         null,
         fence,
       )).kind,
-      "claim-lost",
+      "transition-refused",
     );
     const recordedAttempt = COMPLETION_FAMILIES.attempt.schema.parse(
       fixtures.attempt,
@@ -334,7 +335,7 @@ Deno.test("one claimed attempt publishes every planned producer while preserving
           null,
           fence,
         )).kind,
-        "claim-lost",
+        "transition-refused",
       );
     }
     const proof = COMPLETION_FAMILIES.proof.schema.parse(fixtures.proof);
@@ -348,7 +349,7 @@ Deno.test("one claimed attempt publishes every planned producer while preserving
         null,
         fence,
       )).kind,
-      "claim-lost",
+      "transition-refused",
     );
   });
 });

@@ -194,6 +194,11 @@ export type CompletionWriteOutcome =
     readonly reason: string;
   }
   | Exclude<CompletionRecordReading, { readonly kind: "recorded" | "missing" }>;
+/** Every outcome of a write that did not land. */
+export type CompletionWriteRefusal = Exclude<
+  CompletionWriteOutcome,
+  { readonly kind: "written" }
+>;
 
 /** Retain the exact previous document before replacing its current snapshot. */
 async function preserveRevision(
@@ -218,16 +223,64 @@ async function preserveRevision(
   return undefined;
 }
 
-/** Why a fenced write was refused: its claim, or the record that proves it. */
-type FenceRefusal = {
-  readonly kind: "claim-lost" | "unavailable";
+/** Why a fenced write was refused. */
+export type FenceRefusal = {
+  readonly kind: "claim-lost" | "transition-refused" | "unavailable";
   readonly reason: string;
 };
 
 /**
+ * Every refusal a fence can give besides an unreadable attempt record. Only an
+ * attempt record that is finished or names another token reports
+ * `claim-lost`. A publication
+ * that does not match its attempt's binding is a refused transition: it says
+ * nothing about who holds the claim, and its reason is kept.
+ */
+export const FENCE_REFUSALS = {
+  "claim-not-held": { kind: "claim-lost", reason: CLAIM_NOT_HELD },
+  "unfenced": {
+    kind: "transition-refused",
+    reason: "publication requires the producing attempt's claim",
+  },
+  "unbound": {
+    kind: "transition-refused",
+    reason: "the attempt has not bound its demand yet",
+  },
+  "another-attempt": {
+    kind: "transition-refused",
+    reason: "the record names another producing attempt",
+  },
+  "another-candidate": {
+    kind: "transition-refused",
+    reason: "the record and its attempt name different candidates",
+  },
+  "another-sequence": {
+    kind: "transition-refused",
+    reason: "the evidence sequence does not match its attempt",
+  },
+  "another-subject": {
+    kind: "transition-refused",
+    reason:
+      "the evidence applicability, mode, or purpose does not match its attempt",
+  },
+  "another-mode": {
+    kind: "transition-refused",
+    reason: "Proof requires a completion attempt with the same mode",
+  },
+} as const satisfies Record<string, FenceRefusal>;
+
+/** An attempt record that cannot be read proves nothing either way; it is named. */
+export function unreadableAttempt(attemptId: string): FenceRefusal {
+  return {
+    kind: "unavailable",
+    reason: `the attempt record attempt/${attemptId} is missing or unreadable`,
+  };
+}
+
+/**
  * Evidence publication must belong to the live attempt, including its
  * candidate. Ownership is re-read here, under the publication lock, from the
- * attempt record alone; an unreadable record proves nothing either way.
+ * attempt record alone.
  */
 async function checkFence(
   store: CompletionRecordStore,
@@ -236,71 +289,49 @@ async function checkFence(
 ): Promise<FenceRefusal | undefined> {
   const publishes = record.kind === "candidate" || record.kind === "evidence" ||
     record.kind === "proof";
-  const lost = (reason: string): FenceRefusal => ({
-    kind: "claim-lost",
-    reason,
-  });
   if (fence === undefined) {
-    return publishes
-      ? lost(
-        "candidate and evidence publication require a current attempt claim",
-      )
-      : undefined;
+    return publishes ? FENCE_REFUSALS.unfenced : undefined;
   }
   const reading = await store.read({
     kind: "attempt",
     id: fence.attempt_id,
   });
   if (reading.kind !== "recorded" || reading.record.kind !== "attempt") {
-    return {
-      kind: "unavailable",
-      reason: "the attempt record is missing or unreadable",
-    };
+    return unreadableAttempt(fence.attempt_id);
   }
   const attempt = reading.record.data;
-  if (!attemptHoldsClaim(attempt, fence.token)) return lost(CLAIM_NOT_HELD);
+  if (!attemptHoldsClaim(attempt, fence.token)) {
+    return FENCE_REFUSALS["claim-not-held"];
+  }
   if (
     (record.kind === "proof" || record.kind === "evidence") &&
     attempt.state.kind !== "claimed"
-  ) {
-    return lost(
-      "Evidence and Proof publication wait until the attempt's demand is bound.",
-    );
+  ) return FENCE_REFUSALS.unbound;
+  if (!publishes) return undefined;
+  if (record.data.attempt_id !== fence.attempt_id) {
+    return FENCE_REFUSALS["another-attempt"];
   }
-  if (publishes) {
-    if (record.data.attempt_id !== fence.attempt_id) {
-      return lost("publisher does not own the producing attempt");
-    }
-    const candidateId = record.kind === "candidate"
-      ? record.id
-      : record.data.candidate_id;
-    if (candidateId !== attempt.identity.candidate_id) {
-      return lost("publisher names another candidate");
+  const candidateId = record.kind === "candidate"
+    ? record.id
+    : record.data.candidate_id;
+  if (candidateId !== attempt.identity.candidate_id) {
+    return FENCE_REFUSALS["another-candidate"];
+  }
+  if (record.kind === "evidence") {
+    if (record.data.sequence !== attempt.identity.sequence) {
+      return FENCE_REFUSALS["another-sequence"];
     }
     if (
-      record.kind === "evidence" &&
-      record.data.sequence !== attempt.identity.sequence
-    ) return lost("evidence sequence does not match its attempt");
-    if (
-      record.kind === "evidence" &&
-      (!attempt.subjects.includes(
+      !attempt.subjects.includes(
         await applicabilitySubject(record.data.applicability),
       ) || record.data.mode !== attempt.mode ||
-        record.data.purpose !== attempt.purpose)
-    ) {
-      return lost(
-        "evidence applicability, mode, or purpose does not match its attempt",
-      );
-    }
-    if (
-      record.kind === "proof" &&
-      (record.data.mode !== attempt.mode || attempt.purpose !== "completion")
-    ) {
-      return lost(
-        "Proof publication requires a completion attempt with the same mode",
-      );
-    }
+      record.data.purpose !== attempt.purpose
+    ) return FENCE_REFUSALS["another-subject"];
   }
+  if (
+    record.kind === "proof" &&
+    (record.data.mode !== attempt.mode || attempt.purpose !== "completion")
+  ) return FENCE_REFUSALS["another-mode"];
   return undefined;
 }
 

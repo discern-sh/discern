@@ -5,7 +5,7 @@
  * every finding a closing verification can return, and the rendered pending
  * causes must name exactly the computed reason.
  */
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { candidateAuthor } from "../src/engine/completion/candidate.ts";
@@ -13,11 +13,17 @@ import {
   AttemptClaimLost,
   claimLossBlocker,
 } from "../src/engine/completion/attempt.ts";
-import { CompletionRecordSchema } from "../src/engine/completion/records.ts";
 import {
-  type CompletionWriteOutcome,
+  type CompletionRecord,
+  CompletionRecordSchema,
+} from "../src/engine/completion/records.ts";
+import {
+  type CompletionWriteRefusal,
+  FENCE_REFUSALS,
   openCompletionRecordStore,
+  type PublicationFence,
   readCompletionRecord,
+  unreadableAttempt,
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
 import type {
@@ -29,7 +35,7 @@ import {
   type InvalidationReason,
   InvalidationReasonSchema,
 } from "../src/engine/completion/outcomes.ts";
-import { publicationRefusal } from "../src/engine/completion/source_tip.ts";
+import { publicationRefusal } from "../src/engine/completion/compatibility.ts";
 import {
   executeValidation,
   type ProducerCapture,
@@ -64,6 +70,8 @@ import {
   PRODUCER_RECIPE,
   snapshot,
 } from "./completion_producers_fixtures.ts";
+import { COMPLETION_CLAIM, completionFixtures } from "./completion_fixtures.ts";
+import { withTempDir } from "./helpers.ts";
 
 /** What one verification established: a named change, nothing, or no answer. */
 type Finding = InvalidationReason | "unchanged" | "unverifiable";
@@ -563,19 +571,16 @@ Deno.test("a refused publication reports the refusal it received", () => {
     "older": "record-incompatible",
     "invalid": "record-corrupt",
     "unavailable": "unavailable",
-  } satisfies Record<
-    Exclude<CompletionWriteOutcome["kind"], "written">,
-    CompletionBlocker["kind"]
-  >;
+  } satisfies Record<CompletionWriteRefusal["kind"], CompletionBlocker["kind"]>;
   const evidenceId = completionId(700);
   for (const [kind, pending] of Object.entries(expected)) {
     const refusal = (kind === "newer" || kind === "older"
       ? { kind, version: 99 }
-      : { kind, reason: `refused as ${kind}` }) as Exclude<
-        CompletionWriteOutcome,
-        { kind: "written" }
-      >;
-    const blocker = publicationRefusal(evidenceId, refusal);
+      : { kind, reason: `refused as ${kind}` }) as CompletionWriteRefusal;
+    const blocker = publicationRefusal(
+      { kind: "evidence", id: evidenceId },
+      refusal,
+    );
     assertEquals(blocker.kind, pending, kind);
     assertEquals(
       blocker.kind === "cancelled" &&
@@ -584,4 +589,132 @@ Deno.test("a refused publication reports the refusal it received", () => {
       kind,
     );
   }
+});
+
+/** One fence refusal staged in a real store: what differs from a live claim. */
+interface FenceRow {
+  /** The stored attempt, when it differs from the claimed fixture. */
+  readonly attempt?: (data: Record<string, unknown>) => Record<string, unknown>;
+  /** The fence the write presents, when it differs from the attempt's own. */
+  readonly fence?: (fence: PublicationFence) => PublicationFence | undefined;
+  /** Fields of the published evidence that differ from the fixture. */
+  readonly evidence?: Record<string, unknown>;
+  /** Fields of a published Proof, published instead of evidence. */
+  readonly proof?: Record<string, unknown>;
+}
+
+/** Every refusal a fence gives, as one write that provokes it. */
+const FENCE_ROWS = {
+  "claim-not-held": {
+    fence: (fence) => ({ ...fence, token: completionId(99) }),
+  },
+  "unfenced": { fence: () => undefined },
+  "unbound": {
+    attempt: (data) => ({
+      ...data,
+      subjects: [],
+      state: { kind: "planning", claim: COMPLETION_CLAIM },
+    }),
+  },
+  "another-attempt": {
+    evidence: { attempt_id: completionId(98), artifacts: [] },
+  },
+  "another-candidate": {
+    evidence: { candidate_id: completionId(97), artifacts: [] },
+  },
+  "another-sequence": { evidence: { sequence: 2 } },
+  "another-subject": { evidence: { mode: "report" } },
+  "another-mode": { proof: { mode: "report" } },
+} satisfies Record<keyof typeof FENCE_REFUSALS, FenceRow>;
+
+/** A publication against a real store holding the row's attempt, if any. */
+async function fencedPublication(
+  root: string,
+  row: FenceRow | "no attempt",
+): Promise<{
+  readonly published: CompletionRecord;
+  readonly fence: PublicationFence;
+  readonly lines: string[];
+}> {
+  await git(root, "init", "-b", "main");
+  const fixtures = completionFixtures();
+  const attempt = fixtures.attempt;
+  assert(attempt.kind === "attempt" && attempt.data.state.kind === "claimed");
+  const fence = {
+    attempt_id: attempt.id,
+    token: attempt.data.state.claim.token,
+  };
+  const staged = row === "no attempt" ? {} : row;
+  if (row !== "no attempt") {
+    const stored = CompletionRecordSchema.parse({
+      ...attempt,
+      data: staged.attempt?.(attempt.data) ?? attempt.data,
+    });
+    assertEquals(
+      (await writeCompletionRecord(root, stored, null)).kind,
+      "written",
+    );
+  }
+  const base = staged.proof === undefined ? fixtures.evidence : fixtures.proof;
+  const published = CompletionRecordSchema.parse({
+    ...base,
+    data: { ...base.data, ...(staged.proof ?? staged.evidence ?? {}) },
+  });
+  assert(published.kind === "evidence" || published.kind === "proof");
+  const outcome = await writeCompletionRecord(
+    root,
+    published,
+    null,
+    staged.fence === undefined ? fence : staged.fence(fence),
+  );
+  assert(outcome.kind !== "written", "the fence refuses the publication");
+  return {
+    published,
+    fence,
+    lines: rendered([
+      publicationRefusal({ kind: published.kind, id: published.id }, outcome),
+    ]),
+  };
+}
+
+Deno.test("every fence refusal reaches the owner as the refusal it is", async (t) => {
+  // Only an attempt that is finished or names another token reads as the
+  // retirement.
+  // Every other refusal keeps its own reason, and blames only the record it
+  // actually read.
+  const claimLoss = rendered([claimLossBlocker()]);
+  const rows = new Map<string, FenceRow>(Object.entries(FENCE_ROWS));
+  for (const [name, refusal] of Object.entries(FENCE_REFUSALS)) {
+    const row = rows.get(name);
+    assert(row !== undefined, `${name} is staged`);
+    await t.step(name, () =>
+      withTempDir(async (root) => {
+        const { published, lines } = await fencedPublication(root, row);
+        if (refusal.kind === "claim-lost") {
+          assertEquals(lines, claimLoss);
+          return;
+        }
+        assertEquals(lines.length, 1);
+        assertStringIncludes(
+          lines[0] ?? "",
+          `${published.id} was not published: ${refusal.reason}`,
+        );
+        assert(!lines.some((line) => claimLoss.includes(line)));
+      }));
+  }
+  await t.step(
+    "the attempt record is missing",
+    () =>
+      withTempDir(async (root) => {
+        const { published, fence, lines } = await fencedPublication(
+          root,
+          "no attempt",
+        );
+        assertStringIncludes(
+          lines[0] ?? "",
+          unreadableAttempt(fence.attempt_id).reason,
+        );
+        assert(!(lines[0] ?? "").includes(`${published.kind}/${published.id}`));
+      }),
+  );
 });

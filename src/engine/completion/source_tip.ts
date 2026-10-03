@@ -25,7 +25,7 @@ import {
 import { integrationBranch } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import type { CompletionArtifact } from "./artifacts.ts";
-import { cancellationReason, claimLossBlocker } from "./attempt.ts";
+import { cancellationReason } from "./attempt.ts";
 import {
   recoverAbandonedAttempts,
   reserveAttempt,
@@ -34,7 +34,7 @@ import {
 import type { Candidate } from "./candidate.ts";
 import {
   completionRecordBlocker,
-  unusableRecordBlocker,
+  publicationRefusal,
 } from "./compatibility.ts";
 import { emitCompletionEvent, emitComponentUse } from "./events.ts";
 import type { Executor, SourceRevision } from "./identity.ts";
@@ -51,7 +51,7 @@ import {
   recordedCandidate,
   retainCandidate,
 } from "./source.ts";
-import { type CompletionWriteOutcome, writeCompletionRecord } from "./store.ts";
+import { writeCompletionRecord } from "./store.ts";
 import type { CompletionRecord } from "./records.ts";
 
 /** What the gate receives once the run holds its attempt. */
@@ -87,36 +87,6 @@ export async function requirementsAt(
       entry,
     ) => entry.requirement),
   );
-}
-
-/**
- * What a refused evidence publication leaves pending, taken from the refusal
- * itself. Only a fence that proves the claim gone reports the retirement; a
- * busy lock or a refused write proves nothing about the claim or the source.
- */
-export function publicationRefusal(
-  evidenceId: string,
-  refusal: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
-): CompletionBlocker {
-  switch (refusal.kind) {
-    case "claim-lost":
-      return claimLossBlocker();
-    case "conflict":
-    case "transition-refused":
-    case "busy":
-      return {
-        kind: "unavailable",
-        reason: `Evidence ${evidenceId} was not published: ${refusal.reason}`,
-      };
-    case "newer":
-    case "older":
-    case "invalid":
-    case "unavailable":
-      return unusableRecordBlocker(
-        { kind: "evidence", id: evidenceId },
-        refusal,
-      );
-  }
 }
 
 /** Project recorded readings onto validated envelopes. */
@@ -366,7 +336,10 @@ export async function completeSourceTip<T>(
             reserved.fence,
           );
           if (written.kind !== "written") {
-            publicationFailure = publicationRefusal(evidenceId, written);
+            publicationFailure = publicationRefusal(
+              { kind: "evidence", id: evidenceId },
+              written,
+            );
             break;
           }
           emitComponentUse(

@@ -1,11 +1,15 @@
 /** Preserve unreadable state and distinguish compatibility from damaged bytes. */
 import { newerOnDiskFormatMessage } from "../../shared/on_disk_formats.ts";
+import { claimLossBlocker } from "./attempt.ts";
 import type { CompletionBlocker, CompletionObservation } from "./protocol.ts";
 import type { RecordSelector } from "./records.ts";
-import type { CompletionRecordReading } from "./store.ts";
+import type {
+  CompletionRecordReading,
+  CompletionWriteRefusal,
+} from "./store.ts";
 
 /** A reading that holds no usable record and is not simply absent. */
-export type UnusableRecordReading = Exclude<
+type UnusableRecordReading = Exclude<
   CompletionRecordReading,
   { readonly kind: "recorded" | "missing" }
 >;
@@ -22,7 +26,7 @@ export function completionRecordBlocker(
 }
 
 /** What one unusable record leaves pending, preserving its bytes for recovery. */
-export function unusableRecordBlocker(
+function unusableRecordBlocker(
   selector: RecordSelector,
   reading: UnusableRecordReading,
 ): CompletionBlocker {
@@ -41,4 +45,35 @@ export function unusableRecordBlocker(
   return reading.kind === "invalid"
     ? { kind: "record-corrupt", record_id, reason }
     : { kind: "unavailable", reason };
+}
+
+/**
+ * What a refused publication leaves pending, taken from the refusal itself.
+ * Only an attempt record that is finished or names another token reports the
+ * retirement; a busy
+ * lock or a refused write proves nothing about the claim or the source, and
+ * keeps its reason.
+ */
+export function publicationRefusal(
+  published: RecordSelector & { readonly kind: "evidence" | "proof" },
+  refusal: CompletionWriteRefusal,
+): CompletionBlocker {
+  switch (refusal.kind) {
+    case "claim-lost":
+      return claimLossBlocker();
+    case "conflict":
+    case "transition-refused":
+    case "busy":
+    case "unavailable":
+      return {
+        kind: "unavailable",
+        reason: `${
+          published.kind === "proof" ? "Proof" : "Evidence"
+        } ${published.id} was not published: ${refusal.reason}`,
+      };
+    case "newer":
+    case "older":
+    case "invalid":
+      return unusableRecordBlocker(published, refusal);
+  }
 }

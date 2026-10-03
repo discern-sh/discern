@@ -120,7 +120,7 @@ Deno.test("planning claims cannot publish evidence or Proof", async () => {
       );
       assertEquals(
         result.kind,
-        kind === "candidate" ? "written" : "claim-lost",
+        kind === "candidate" ? "written" : "transition-refused",
       );
     }
   });
