@@ -1,6 +1,7 @@
 /**
- * Every elapsed shell wait requires a reviewed semantic purpose, and every
- * file hold comes from the renderer that bounds it by its owner.
+ * Every elapsed shell wait requires a reviewed semantic purpose, every file
+ * hold comes from the renderer that bounds it by its owner, and every content
+ * poll limits its attempts.
  */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
@@ -109,7 +110,7 @@ Deno.test("elapsed shell waits belong to the reviewed full-universe census", asy
   );
 });
 
-Deno.test("a hand-written file hold fails wherever tests or repository tools write one", async () => {
+Deno.test("a hand-written file poll fails wherever tests or repository tools write one", async () => {
   await withTempDir(async (root) => {
     await new Deno.Command("git", { args: ["init", "-q"], cwd: root }).output();
     // Assembled at runtime, so this module's own text stays outside the census.
@@ -120,30 +121,57 @@ Deno.test("a hand-written file hold fails wherever tests or repository tools wri
       [
         "tests/future_test.ts",
         `const hold = 'printf ready > "$1"; ${loop} [ ! -e "$2" ]; do ${pause} 0.05; done';`,
+        "existence",
       ],
       [
         "tests/new-rig/pause.sh",
         `#!/bin/sh\n${until} [ -f "$1/release" ]; do ${pause} 0.1; done\n`,
+        "existence",
       ],
       [
         "tests/hook_test.ts",
         `const hook = ["${loop} ! test -f \\"$PWD/ready\\"; do", "  ${pause} 0.01", "done"];`,
+        "existence",
+      ],
+      [
+        "tests/lines_test.ts",
+        `Deno.test("held", () => { run(["${loop} :; do", '  [ -e "$f" ] && break', "  ${pause} 0.05", "done"]); });`,
+        "existence",
       ],
       [
         "components/orbit.test.ts",
         `const job = "${loop} :; do [ -s ready ] && break; ${pause} 1; done";`,
+        "existence",
       ],
       [
         "scripts/capture.ts",
         `const step = '${until} [ -e "$SIGNALS/built" ]; do :; done';`,
+        "existence",
       ],
       [
         "site/scripts/preview.ts",
         `const step = '${loop} [ ! -e built ]; do ${pause} 1; done';`,
+        "existence",
       ],
       [
         "tests/pasted_test.ts",
         `const hold = ${JSON.stringify(shellAwaitFile('"$2"'))};`,
+        "existence",
+      ],
+      [
+        "tests/content_test.ts",
+        `const job = '${until} grep -q go "$f"; do ${pause} 0.05; done';`,
+        "content",
+      ],
+      [
+        "tests/substituted_test.ts",
+        `const job = '${until} [ "$(cat "$f")" = go ]; do :; done';`,
+        "content",
+      ],
+      [
+        "scripts/tools/await_log.ts",
+        `function awaitLog() { return ["${loop} :; do", 'grep -q ready "$log" && break', "${pause} 0.1", "done"]; }`,
+        "content",
       ],
     ] as const;
     const exempt = [
@@ -152,20 +180,38 @@ Deno.test("a hand-written file hold fails wherever tests or repository tools wri
         "src/engine/shipped.ts",
         `const step = '${loop} [ ! -e "$1" ]; do ${pause} 1; done';`,
       ],
+      [
+        "tests/handshake_test.ts",
+        `const job = 'i=0; ${loop} ! grep -q go "$f"; do i=$((i+1)); [ "$i" -gt 200 ] && exit 1; ${pause} 0.1; done';`,
+      ],
+      [
+        "tests/unrelated_test.ts",
+        `Deno.test("reads", () => { run('grep -q ok "$log"'); run("${pause} 1"); });`,
+      ],
     ] as const;
     for (const [path, source] of [...planted, ...exempt]) {
       await Deno.mkdir(join(root, path, ".."), { recursive: true });
       await Deno.writeTextFile(join(root, path), source);
     }
-    const findings = shellFileHoldFindings(await shellHoldSources(root));
+    const sources = await shellHoldSources(root);
+    assertEquals(
+      shellFileHoldSites(sources).map(({ path, polls }) => [path, polls])
+        .sort(),
+      planted.map(([path, , polls]) => [path, polls]).sort(),
+    );
+    const findings = shellFileHoldFindings(sources);
     assertEquals(
       findings.map((finding) => finding.slice(0, finding.indexOf(":"))),
       planted.map(([path]) => path).sort(),
     );
-    for (const finding of findings) {
-      assertStringIncludes(finding, "hand-written shell loop");
-      assertStringIncludes(finding, SHELL_FILE_HOLD_RENDERER.enclosing);
-      assertStringIncludes(finding, SHELL_FILE_HOLD_RENDERER.path);
+    for (const [path, , polls] of planted) {
+      const finding = findings.find((line) => line.startsWith(`${path}:`));
+      assertStringIncludes(
+        finding ?? "",
+        polls === "content" ? "no attempt limit" : "hand-written shell loop",
+      );
+      assertStringIncludes(finding ?? "", SHELL_FILE_HOLD_RENDERER.enclosing);
+      assertStringIncludes(finding ?? "", SHELL_FILE_HOLD_RENDERER.path);
     }
   });
 });

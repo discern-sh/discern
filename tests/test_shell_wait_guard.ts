@@ -140,17 +140,81 @@ export function shellWaitSites(
 
 /** A `[`/`test` unary file predicate such as `-e`, `-f`, or `-s`. */
 const FILE_TEST = String.raw`(?:\[|test)\s+(?:!\s+)?-[bcdefghLprSsuwx]\s`;
+/** A command that reads a file, as a content poll's condition does. */
+const FILE_READ = String.raw`(?:grep|cat|head|tail|wc|cmp|diff)\s`;
+/** A `[`/`test` condition on a file read's output: `[ "$(cat f)" = go ]`. */
+const READ_TEST = String.raw`(?:\[|test)\s+(?:!\s+)?"?\$\(` + FILE_READ;
+/** Where a shell word starts inside decoded text. */
+const WORD_START = "(?:^|[\\s;|&'\"`(}])";
+const LOOP_START = String.raw`${WORD_START}(?:while|until)\s+(?:!\s+)?`;
 /** A loop whose condition is a file predicate, wherever its body is written. */
-const FILE_LOOP = new RegExp(
-  "(?:^|[\\s;|&'\"`(}])(?:while|until)\\s+(?:!\\s+)?" + FILE_TEST,
+const EXISTENCE_LOOP = new RegExp(LOOP_START + FILE_TEST, "u");
+/** A loop whose condition reads a file, wherever its body is written. */
+const CONTENT_LOOP = new RegExp(
+  `${LOOP_START}(?:${FILE_READ}|${READ_TEST})`,
   "u",
 );
+const LOOP = new RegExp(String.raw`${WORD_START}(?:while|until)\s`, "u");
 const FILE_PREDICATE = new RegExp(FILE_TEST, "u");
+const FILE_CONTENT = new RegExp(WORD_START + FILE_READ, "u");
+const PACED = new RegExp(SHELL_SLEEP.source, "u");
+/** A per-attempt counter: `i=$((i+1))`, `i=$(($i + 1))`, or `: $((i+=1))`. */
+const ATTEMPT_COUNTER =
+  /(?:(\w+)=\$\(\(\s*\$?\1\s*\+\s*1\s*\)\)|\$\(\(\s*(\w+)\s*\+=\s*1\s*\)\))/gu;
+
+/** One test or helper's decoded texts, read together as one shell program. */
+interface ShellScope {
+  readonly path: string;
+  readonly enclosing: string;
+  readonly texts: readonly ShellText[];
+}
 
 /**
- * The one renderer allowed to poll a file. Its holds also end once their
- * directory or owning process is gone, so an abandoned fixture cannot poll
- * forever.
+ * Group decoded texts by their enclosing test or helper, so a loop written as
+ * an array of lines, or assembled from separate literals, reads as one program.
+ */
+function shellScopes(sources: readonly WaitingSource[]): ShellScope[] {
+  const scopes = new Map<string, ShellText[]>();
+  for (const text of shellTexts(sources)) {
+    const key = JSON.stringify([text.path, text.enclosing]);
+    const texts = scopes.get(key) ?? [];
+    texts.push({ ...text, value: text.value.trim() });
+    scopes.set(key, texts);
+  }
+  return [...scopes.values()].flatMap((texts) =>
+    texts[0] === undefined
+      ? []
+      : [{ path: texts[0].path, enclosing: texts[0].enclosing, texts }]
+  );
+}
+
+/** Whether a scope counts its attempts and compares that count to a limit. */
+function attemptBounded(texts: readonly ShellText[]): boolean {
+  const program = texts.map((text) => text.value).join("\n");
+  return [...program.matchAll(ATTEMPT_COUNTER)].some((match) => {
+    const counter = match[1] ?? match[2];
+    return counter !== undefined && new RegExp(
+      String.raw`\$\{?${counter}\}?"?\s+-(?:gt|ge|lt|le|eq)\s+"?\d`,
+      "u",
+    ).test(program);
+  });
+}
+
+/** What a shell file poll waits for, which decides what may bound it. */
+export type ShellFilePoll = "existence" | "content";
+
+/** One test or helper whose shell polls a file, at the poll's first text. */
+export interface ShellFileHoldSite {
+  readonly path: string;
+  readonly enclosing: string;
+  readonly line: number;
+  readonly polls: ShellFilePoll;
+}
+
+/**
+ * The one renderer allowed to poll a file's existence. Its holds also end
+ * once their directory or owning process is gone, so an abandoned fixture
+ * cannot poll forever.
  */
 export const SHELL_FILE_HOLD_RENDERER = {
   path: "tests/shell_hold.ts",
@@ -158,17 +222,35 @@ export const SHELL_FILE_HOLD_RENDERER = {
 } as const;
 
 /**
- * Shell text that polls a file: a loop whose condition is a file predicate,
- * or a file predicate beside a timed wait in the same text.
+ * Tests and helpers whose shell polls a file, read one scope at a time. A
+ * scope polls a file's existence when a loop's condition is a file predicate,
+ * or when a file predicate and a timed wait share it. It polls a file's
+ * content when a loop's condition reads the file, or when a loop, a file read
+ * and a timed wait share it, unless it counts and limits its attempts: a read
+ * of a removed file never succeeds, so only that limit ends the poll.
  */
 export function shellFileHoldSites(
   sources: readonly WaitingSource[],
-): Omit<ShellText, "value">[] {
-  return shellTexts(sources).filter((text) => {
-    const value = text.value.trim();
-    return FILE_LOOP.test(value) ||
-      (FILE_PREDICATE.test(value) && value.match(SHELL_SLEEP) !== null);
-  }).map(({ path, enclosing, line }) => ({ path, enclosing, line }));
+): ShellFileHoldSite[] {
+  return shellScopes(sources).flatMap((scope) => {
+    const marked = (pattern: RegExp): ShellText | undefined =>
+      scope.texts.find((text) => pattern.test(text.value));
+    const site = (
+      text: ShellText,
+      polls: ShellFilePoll,
+    ): ShellFileHoldSite[] => [
+      { path: scope.path, enclosing: scope.enclosing, line: text.line, polls },
+    ];
+    const paced = marked(PACED) !== undefined;
+    const existence = marked(EXISTENCE_LOOP) ??
+      (paced ? marked(FILE_PREDICATE) : undefined);
+    if (existence !== undefined) return site(existence, "existence");
+    const content = marked(CONTENT_LOOP) ??
+      (paced && marked(LOOP) !== undefined ? marked(FILE_CONTENT) : undefined);
+    return content === undefined || attemptBounded(scope.texts)
+      ? []
+      : site(content, "content");
+  });
 }
 
 /** Tests and repository tools, whose holds poll directories they own. */
@@ -194,18 +276,30 @@ export async function shellHoldSources(
   return await readScopedSources(root, files);
 }
 
-/** Every file hold must come from the renderer that bounds it by its owner. */
+/**
+ * Every existence poll must come from the renderer that bounds it by its
+ * owner, and every content poll must limit its attempts.
+ */
 export function shellFileHoldFindings(
   sources: readonly WaitingSource[],
 ): string[] {
-  return shellFileHoldSites(sources).filter((site) =>
-    site.path !== SHELL_FILE_HOLD_RENDERER.path ||
-    site.enclosing !== SHELL_FILE_HOLD_RENDERER.enclosing
-  ).map((site) =>
-    `${site.path}:${site.line} polls a file in a hand-written shell loop in ${
-      JSON.stringify(site.enclosing)
-    }; render the hold with ${SHELL_FILE_HOLD_RENDERER.enclosing} from ${SHELL_FILE_HOLD_RENDERER.path}, which also ends it once its directory or owning process is gone`
-  ).sort();
+  const renderer =
+    `${SHELL_FILE_HOLD_RENDERER.enclosing} from ${SHELL_FILE_HOLD_RENDERER.path}`;
+  return shellFileHoldSites(sources).flatMap((site) => {
+    const at = `${site.path}:${site.line}`;
+    const scope = JSON.stringify(site.enclosing);
+    if (site.polls === "content") {
+      return [
+        `${at} polls a file's content in a shell loop with no attempt limit in ${scope}; count and limit its attempts, so a removed file or an abandoned fixture cannot keep it polling, or wait for any content with the nonEmpty option of ${renderer}`,
+      ];
+    }
+    return site.path === SHELL_FILE_HOLD_RENDERER.path &&
+        site.enclosing === SHELL_FILE_HOLD_RENDERER.enclosing
+      ? []
+      : [
+        `${at} polls a file in a hand-written shell loop in ${scope}; render the hold with ${renderer}, which also ends it once its directory or owning process is gone`,
+      ];
+  }).sort();
 }
 
 export interface ShellWaitBoundary {
