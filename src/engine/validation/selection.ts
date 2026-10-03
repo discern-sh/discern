@@ -1,6 +1,9 @@
 /** Current component selection and complete machine assembly; no landing authority. */
 import type { Candidate } from "../completion/candidate.ts";
-import { effectiveClaimExpiry } from "../completion/attempt.ts";
+import {
+  attemptHoldsClaim,
+  effectiveClaimExpiry,
+} from "../completion/attempt.ts";
 import {
   CandidateProofSchema,
   type ComponentEvidence,
@@ -332,9 +335,8 @@ export function assembleCandidate(
   if (
     owner === undefined || owner.data.identity.candidate_id !== candidateId ||
     owner.data.purpose !== "completion" || owner.data.mode !== mode ||
-    owner.data.state.kind !== "claimed" ||
-    owner.data.state.claim.token !== assembler.token ||
-    owner.data.state.claim.expires_at <= clock.wallNow()
+    !attemptHoldsClaim(owner.data, assembler.token) ||
+    owner.data.state.kind !== "claimed"
   ) {
     return { kind: "incomplete", blockers: [missing] };
   }

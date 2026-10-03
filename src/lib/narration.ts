@@ -20,7 +20,17 @@ import {
   terminalLine,
   type TerminalMultiline,
 } from "./terminal.ts";
-import { wrapText } from "./text.ts";
+import {
+  type AlignedRow,
+  breakLongTokens,
+  displayWidth,
+  renderAlignedRows,
+  wrapText,
+} from "./text.ts";
+
+/** Cells a wrapped item's continuation hangs past its first line, so the
+ * continuation never reads as the start of the next item. */
+const ITEM_HANG = 2;
 
 /** A physical process stream the sink can write to. */
 export type OutputStream = "stdout" | "stderr";
@@ -142,7 +152,12 @@ export interface NarrationStreams {
   readonly alerts: OutputStream;
 }
 
-/** The shared narration surface both `Out` and `Logger` configure. */
+/**
+ * The shared narration surface both `Out` and `Logger` configure. Every verb
+ * that renders prose bounds each emitted line to the terminal width through
+ * the package renderers; only {@link Narration.humanLine} passes a caller's
+ * composition through verbatim.
+ */
 export interface Narration {
   /** Informational step (accent arrow). */
   info(message: string): void;
@@ -156,8 +171,17 @@ export interface Narration {
   heading(text: string): void;
   /** Start a semantic group and optionally give it a visible ruled label. */
   group(id: string, label?: string): void;
-  /** A dimmed, indented detail line under a heading. */
+  /** A dimmed detail item indented under a heading. The text's own leading
+   * spaces deepen its indent; a wrapped item's continuation lines hang two
+   * cells past its first line. */
   detail(text: string): void;
+  /** An undimmed item indented under a group — a recovery step, a listed
+   * path — laid out exactly as {@link Narration.detail}. */
+  item(text: string): void;
+  /** Dimmed label + body detail rows aligned through the one column policy;
+   * a body too wide for the terminal wraps under the body column. `indent`
+   * leads every row, the detail indent by default. */
+  detailRows(rows: readonly AlignedRow[], indent?: string): void;
   /** A pre-composed narration line emitted verbatim — the caller owns its
    * wrapping, indentation, and any package Token roles. */
   humanLine(text: string): void;
@@ -175,6 +199,14 @@ export interface Narration {
    * separator is visible.
    */
   errorBlock(message: string): void;
+  /**
+   * The one human failure form: a danger block stating the condition, then
+   * one recovery group carrying each next step as an {@link Narration.item}.
+   * A failure whose message already names its next step passes no recovery
+   * and stays the danger block alone; a distinct actionable step — a command
+   * to run, a canonical suggestion — gets the recovery group.
+   */
+  failure(condition: string, recovery?: readonly string[]): void;
 }
 
 /** Build the one narration implementation over a sink and stream policy. */
@@ -183,102 +215,155 @@ export function makeNarration(
   terminal: TerminalContext,
   streams: NarrationStreams,
 ): Narration {
+  const columns = terminal.presenter.capabilities.columns;
+  const muted = (line: string): string =>
+    terminal.presenter.style(line, { role: "muted" });
+  const strong = (line: string): string =>
+    terminal.presenter.style(line, { role: "strong" });
+  const failureLine = (text: string): string =>
+    terminal.presenter.failure(text);
+  /** Cells a package narration renderer spends on its glyph and gap: its
+   * rendering of one cell, less that cell. */
+  const glyphColumn = (render: (text: string) => string): number =>
+    displayWidth(render("x")) - 1;
+  /** Render one inert line through a package narration renderer. Each token
+   * wider than the renderer's text column is broken first through the text
+   * authority, so package wrapping only ever measures words that fit a line
+   * and a long token costs time in proportion to its length. */
+  const glyphLine = (
+    render: (text: string) => string,
+    message: string,
+  ): string =>
+    render(
+      breakLongTokens(terminalLine(message), columns - glyphColumn(render)),
+    );
+  /** Bound one inert prose line to the presenter's width behind a styled
+   * `lead`. The line's own leading spaces deepen the indent, so an indented
+   * line keeps its indent whether it fits or wraps. A line that fits is kept
+   * intact, interior spacing included; an over-wide one re-flows through the
+   * text authority with each continuation `hang` cells deeper, an overlong
+   * token breaks rather than overflow, and `paint` styles each wrapped line on
+   * its own so no styling crosses a line end. */
+  const hanging = (
+    lead: string,
+    text: string,
+    paint: (line: string) => string,
+    hang = 0,
+  ): string => {
+    const leadWidth = displayWidth(lead);
+    const room = Math.max(1, columns - leadWidth);
+    // However deep the caller indents, at least one content cell remains.
+    const leading = (text.match(/^ */u)?.[0] ?? "").slice(0, room - 1);
+    const content = text.slice(leading.length);
+    const width = room - leading.length;
+    const continuation = " ".repeat(Math.min(hang, width - 1));
+    const lines = displayWidth(content) <= width
+      ? [content]
+      : wrapText(content, width, continuation, { breakLongWords: true })
+        .map((line, index) =>
+          index === 0 ? line : line.slice(continuation.length)
+        );
+    return lines.map((line, index) =>
+      `${index === 0 ? lead : " ".repeat(leadWidth)}${leading}${
+        index === 0 ? "" : continuation
+      }${paint(line)}`
+    ).join("\n");
+  };
+  const errorBlock = (message: string): void => {
+    if (!message.includes("\n")) {
+      sink.line(glyphLine(failureLine, message), streams.alerts);
+      return;
+    }
+    // Every wrapped line hangs under the glyph column.
+    const glyph = glyphColumn(failureLine);
+    const width = columns - glyph;
+    const lines = message.split("\n").flatMap((raw) => {
+      if (raw.trim() === "") return [""];
+      const leading = raw.match(/^\s*/u)?.[0] ?? "";
+      const content = terminalLine(raw.slice(leading.length));
+      return wrapText(
+        content,
+        width - leading.length,
+        `${leading}${" ".repeat(ITEM_HANG)}`,
+        { breakLongWords: true },
+      ).map((line, index) => (index === 0 ? `${leading}${line}` : line));
+    });
+    const [first = "", ...continuation] = lines;
+    sink.line(
+      [
+        failureLine(first),
+        ...continuation.map((line) =>
+          line === "" ? "" : `${" ".repeat(glyph)}${line}`
+        ),
+      ].join("\n"),
+      streams.alerts,
+    );
+  };
+  /** One indented item on the narration stream; `detail` and `item` differ
+   * only in `paint`. */
+  const indented = (text: string, paint: (line: string) => string): void =>
+    sink.line(
+      hanging("  ", terminalLine(text), paint, ITEM_HANG),
+      streams.narration,
+    );
+  const item = (text: string): void => indented(text, (line) => line);
+  const group = (id: string, label?: string): void => {
+    assertHumanOutputGroupId(id);
+    if (label !== undefined) assertHumanOutputGroupLabel(id, label);
+    sink.boundary();
+    if (label !== undefined) {
+      sink.line(
+        hanging(`  ${muted("──")} `, terminalLine(label), strong),
+        sink.lastStream(),
+      );
+    }
+  };
   return {
     info: (message: string): void =>
       sink.line(
-        terminal.presenter.note(terminalLine(message)),
+        glyphLine((text) => terminal.presenter.note(text), message),
         streams.narration,
       ),
     ok: (message: string): void =>
       sink.line(
-        terminal.presenter.success(terminalLine(message)),
+        glyphLine((text) => terminal.presenter.success(text), message),
         streams.narration,
       ),
     warn: (message: string): void =>
       sink.line(
-        terminal.presenter.warning(terminalLine(message)),
+        glyphLine((text) => terminal.presenter.warning(text), message),
         streams.alerts,
       ),
     error: (message: string): void =>
-      sink.line(
-        terminal.presenter.failure(terminalLine(message)),
-        streams.alerts,
-      ),
+      sink.line(glyphLine(failureLine, message), streams.alerts),
     heading: (text: string): void => {
       sink.boundary({ evenAtStart: true, stream: streams.narration });
-      sink.line(
-        terminal.presenter.style(terminalLine(text), { role: "strong" }),
-        streams.narration,
-      );
+      sink.line(hanging("", terminalLine(text), strong), streams.narration);
     },
-    group: (id: string, label?: string): void => {
-      assertHumanOutputGroupId(id);
-      if (label !== undefined) assertHumanOutputGroupLabel(id, label);
-      sink.boundary();
-      if (label !== undefined) {
-        sink.line(
-          `  ${terminal.presenter.style("──", { role: "muted" })} ${
-            terminal.presenter.style(terminalLine(label), { role: "strong" })
-          }`,
-          sink.lastStream(),
-        );
-      }
+    group,
+    detail: (text: string): void => indented(text, muted),
+    item,
+    detailRows: (rows: readonly AlignedRow[], indent = "  "): void => {
+      for (
+        const line of renderAlignedRows(
+          rows.map((row) => ({
+            label: terminalLine(row.label),
+            body: terminalLine(row.body),
+          })),
+          { indent, width: columns, styleLabel: muted, styleBody: muted },
+        )
+      ) sink.line(line, streams.narration);
     },
-    detail: (text: string): void =>
-      sink.line(
-        `  ${terminal.presenter.style(terminalLine(text), { role: "muted" })}`,
-        streams.narration,
-      ),
     humanLine: (text: string): void => sink.line(text, streams.narration),
-    terminalSafeMultilineError: (message: TerminalMultiline): void => {
-      const [first = "", ...continuation] = message.split("\n");
-      const failure = terminal.presenter.failure(first);
-      sink.line([failure, ...continuation].join("\n"), streams.alerts);
-    },
-    errorBlock: (message: string): void => {
-      if (!message.includes("\n")) {
-        sink.line(
-          terminal.presenter.failure(terminalLine(message)),
-          streams.alerts,
-        );
-        return;
-      }
-      // The glyph column is two cells wide; every wrapped line hangs under it.
-      const width = Math.max(20, terminal.size.columns) - 2;
-      const lines = message.split("\n").flatMap((raw) => {
-        if (raw.trim() === "") return [""];
-        const leading = raw.match(/^\s*/u)?.[0] ?? "";
-        const content = terminalLine(raw.slice(leading.length));
-        return wrapText(content, width - leading.length, `${leading}  `)
-          .map((line, index) => (index === 0 ? `${leading}${line}` : line));
-      });
-      const [first = "", ...continuation] = lines;
-      sink.line(
-        [
-          terminal.presenter.failure(first),
-          ...continuation.map((line) => (line === "" ? "" : `  ${line}`)),
-        ].join("\n"),
-        streams.alerts,
-      );
+    // Already-inert multiline text renders as the one authored failure block.
+    terminalSafeMultilineError: (message: TerminalMultiline): void =>
+      errorBlock(message),
+    errorBlock,
+    failure: (condition: string, recovery: readonly string[] = []): void => {
+      errorBlock(condition);
+      if (recovery.length === 0) return;
+      group("failure-recovery");
+      for (const step of recovery) item(step);
     },
   };
-}
-
-/**
- * The one human failure form: a danger line stating the condition, then one
- * recovery group carrying the next step. A failure whose message already names
- * its next step stays a single `error` line; a distinct actionable step —
- * a command to run, a canonical suggestion — gets the recovery group.
- */
-export function reportFailure(
-  narration: Pick<Narration, "errorBlock" | "group" | "humanLine">,
-  condition: string,
-  recovery: readonly string[] = [],
-): void {
-  narration.errorBlock(condition);
-  if (recovery.length === 0) return;
-  narration.group("failure-recovery");
-  for (const step of recovery) {
-    narration.humanLine(`  ${terminalLine(step)}`);
-  }
 }

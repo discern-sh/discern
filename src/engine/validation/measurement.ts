@@ -25,6 +25,8 @@ import type {
   CompletionBlocker,
 } from "../completion/protocol.ts";
 import { writeCompletionRecord } from "../completion/store.ts";
+import { claimLossBlocker } from "../completion/attempt.ts";
+import { publicationRefusal } from "../completion/compatibility.ts";
 import {
   recoverAbandonedAttempts,
   reserveAttempt,
@@ -135,11 +137,14 @@ export async function measureDeclaredStandards(
       rerun_of: null,
       mode: "strict",
     });
-    return await withAttemptClaim(
+    const claimed = await withAttemptClaim(
       root,
       reserved.fence,
       signal,
-      async (claimSignal, settle) => {
+      async (
+        claimSignal,
+        settle,
+      ): Promise<PublicValidationRun | CompletionBlocker> => {
         const candidate: Candidate = prior?.data ?? {
           attempt_id: reserved.attempt.identity.id,
           sources: [source],
@@ -161,8 +166,9 @@ export async function measureDeclaredStandards(
           candidate,
           signal: claimSignal,
         };
+        let validation: PublicValidationRun;
         try {
-          const validation = await executePublicValidation({
+          validation = await executePublicValidation({
             root,
             config,
             scopes: [],
@@ -179,40 +185,6 @@ export async function measureDeclaredStandards(
               ).map((entry) => entry.requirement),
             },
           });
-          for (const component of validation.outcome.evidence) {
-            const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
-            const written = await writeCompletionRecord(
-              root,
-              {
-                version: ON_DISK_FORMATS.completionRecord.version,
-                kind: "evidence",
-                id: evidenceId,
-                revision: 1,
-                data: component,
-              },
-              null,
-              reserved.fence,
-            );
-            if (written.kind !== "written") {
-              throw new Error(
-                `Measurement receipt publication ${written.kind}.`,
-              );
-            }
-            emitComponentUse(
-              execution,
-              component,
-              evidenceId,
-              "executed",
-              (validation.results.get(
-                producerLabel(component.applicability.producer),
-              )?.durationS ?? 0) * 1000,
-              component.finished_at,
-            );
-          }
-          await settle(
-            validation.outcome.blockers.length === 0 ? "passed" : "failed",
-          );
-          return validation;
         } catch (error) {
           await settle(claimSignal.aborted ? "cancelled" : "failed");
           return {
@@ -222,7 +194,44 @@ export async function measureDeclaredStandards(
             reason: errorReason(error),
           };
         }
+        for (const component of validation.outcome.evidence) {
+          const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
+          const written = await writeCompletionRecord(
+            root,
+            {
+              version: ON_DISK_FORMATS.completionRecord.version,
+              kind: "evidence",
+              id: evidenceId,
+              revision: 1,
+              data: component,
+            },
+            null,
+            reserved.fence,
+          );
+          if (written.kind !== "written") {
+            await settle("failed");
+            return publicationRefusal(
+              { kind: "evidence", id: evidenceId },
+              written,
+            );
+          }
+          emitComponentUse(
+            execution,
+            component,
+            evidenceId,
+            "executed",
+            (validation.results.get(
+              producerLabel(component.applicability.producer),
+            )?.durationS ?? 0) * 1000,
+            component.finished_at,
+          );
+        }
+        await settle(
+          validation.outcome.blockers.length === 0 ? "passed" : "failed",
+        );
+        return validation;
       },
     );
+    return claimed.kind === "settled" ? claimed.value : claimLossBlocker();
   }, externalSignal);
 }

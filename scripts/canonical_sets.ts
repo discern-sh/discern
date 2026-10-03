@@ -4347,7 +4347,7 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
   "tests/browser_axe_settling_guard_test.ts":
     "keeps every real-page accessibility audit on the helper that settles transitions first rather than guarding a closed member set",
   "tests/completion_attempt_lease_guard_test.ts":
-    "applies renewable ownership to every production completion-attempt reservation call site rather than guarding a project-defined member set",
+    "applies renewable ownership to every production completion-attempt reservation call site and keeps every lease read inside the claim model, rather than guarding a project-defined member set",
   "tests/file_lock_guard_test.ts":
     "requires every authored production use of native file-lock primitives to share explicit release ownership rather than guarding a project-defined member set",
   "tests/engine_desk_terminal_guard_test.ts":
@@ -4370,6 +4370,8 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set",
   "tests/terminal_boundary_guard_test.ts":
     "applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set",
+  "tests/terminal_live_tail_guard_test.ts":
+    "applies the live-tail bound to every runtime call site that hands streamed output to a repainting package view rather than guarding a closed member set",
   "tests/logger_ambient_guard_test.ts":
     "applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment",
   "tests/lifecycle_trunk_resolution_guard_test.ts":

@@ -11,7 +11,7 @@ import type {
   Requirement,
 } from "./evidence.ts";
 import type { SourceRevision } from "./identity.ts";
-import type { InvalidationReason } from "./outcomes.ts";
+import type { InvalidationReason, StaleEvidenceReason } from "./outcomes.ts";
 import type { CompletionRecord, RecordSelector } from "./records.ts";
 import type { CompletionRecordReading, PublicationFence } from "./store.ts";
 
@@ -30,7 +30,7 @@ export type CompletionBlocker =
   | {
     readonly kind: "stale-evidence";
     readonly evidence_ids: readonly string[];
-    readonly reason: InvalidationReason;
+    readonly reason: StaleEvidenceReason;
   }
   | {
     readonly kind: "validation-failed";

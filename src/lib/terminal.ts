@@ -38,8 +38,10 @@ import {
 import type { EnvReader } from "../shared/env.ts";
 import { DISCERN_ACCENT_HUE } from "../shared/brand.ts";
 
-const DEFAULT_TERMINAL_COLUMNS = 80;
-const DEFAULT_TERMINAL_ROWS = 24;
+/** The width discern assumes for a terminal whose size it cannot read. */
+export const DEFAULT_TERMINAL_COLUMNS = 80;
+/** The height discern assumes for a terminal whose size it cannot read. */
+export const DEFAULT_TERMINAL_ROWS = 24;
 /** Maximum startup delay when an interactive terminal does not answer OSC 11. */
 export const TERMINAL_BACKGROUND_TIMEOUT_MS = 100;
 /** Root-level terminal theme modes, ordered with the default first. */

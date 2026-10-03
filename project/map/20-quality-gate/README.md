@@ -33,6 +33,10 @@ On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite 
 
 The package fits full, then compact, then append-only output. Resizes retain the same producer feed; interrupts restore the cursor. Success leaves stable facts without replaying the tail. Failure follows them with diagnostics and the full-output-artifact route.
 
+The package wraps every tail line again on each spinner tick, and its wrapping takes more than linear time in a line's length. While those ticks run, [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) hands it only the part of each streamed line the tail can show. That bound, `liveTailText`, lives in [`live_tail.ts`](../../../src/lib/live_tail.ts), and the desk's output views share it. A committed line keeps its end. An in-progress line keeps the start of its last carriage-return segment. An ellipsis marks each cut and counts toward the bound. The bound ignores the control sequences and hyperlinks the package drops, so styling spends none of it, and a cut falls only between graphemes.
+
+Append-only output writes each line once, whole. That includes an in-progress line still pending when the frame falls back to it. The full-output artifact keeps every byte. Producers reach the package only through the bound, and the [terminal boundary guard](../../../tests/terminal_boundary_guard_test.ts) lets no other module open its activity log. The [live tail guard](../../../tests/terminal_live_tail_guard_test.ts) checks every line the controller hands the activity log: only the job's prefix may join the bounded text.
+
 CI, pipes, `--plain`, and terminals without cursor control remain static: `stream_output = false` groups complete per-job output; `true` streams prefixed lines. JSON, Markdown, and MCP omit human job output.
 
 [`execute.ts`](../../../src/engine/gate/execute.ts) resolves presentation separately from capture. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) feeds the package; [`command.ts`](../../../src/engine/jobs/command.ts) retains raw evidence. For result contracts, see [MCP tools & results](../70-reference/mcp-and-results.md).
