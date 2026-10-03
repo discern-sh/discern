@@ -28,6 +28,7 @@ import {
   homeBlocks,
   homeSections,
   homeStrip,
+  noTasks,
 } from "../src/engine/desk/home_view.ts";
 import { COMMANDS_ROW_ID } from "../src/engine/desk/desk_transitions.ts";
 import {
@@ -829,14 +830,18 @@ Deno.test("on a standard screen the home panel shows Create, Help and the tip, e
   ) {
     // A check months ago is wider than `never checked`: Check for updates
     // moves it right over the key cell it leaves empty, so Help keeps both
-    // it and `?`.
+    // it and `?`. The fake terminal draws the panel's divider rather than
+    // its colour, a column narrower: with tasks the tip stays whole on the
+    // first screen, and with none, where what a task is takes its room, it
+    // moves whole below the fold rather than stopping mid-sentence.
     await session(
       data,
       async (desk) => {
         await desk.until(
           () =>
-            selected(desk) === COMMANDS_ROW_ID && desk.screen().includes("Tip"),
-          `${name}: the tip on the first screen at 80x24:\n${desk.screen()}`,
+            selected(desk) === COMMANDS_ROW_ID &&
+            /checked \d+mo ago/u.test(desk.screen()),
+          `${name}: the last check on the first screen at 80x24`,
         );
         const screen = desk.screen();
         for (const label of labels(["create", "help"])) {
@@ -851,6 +856,11 @@ Deno.test("on a standard screen the home panel shows Create, Help and the tip, e
           check.index + check[0].length <= keys.lastIndexOf("?") + 1,
           `${name}: the check ends by the key column:\n${screen}`,
         );
+        const tip = tipShown(screen);
+        assert(tip !== "cut", `${name}: the tip stops mid-way:\n${screen}`);
+        if (!noTasks(observedDesk(data()))) {
+          assertEquals(tip, "whole", `${name}: the tip on the first screen`);
+        }
       },
       { columns: 80, rows: 24 },
       handedOff("2025-10-01T00:00:00.000Z"),
@@ -882,6 +892,24 @@ Deno.test("on a standard screen the home panel shows Create, Help and the tip, e
     );
   }
 });
+
+/**
+ * How the home panel shows the session's tip on one screen: its brief whole
+ * (its last line ends a sentence before a blank row or the fold), cut at
+ * the fold, or not at all.
+ */
+function tipShown(screen: string): "whole" | "cut" | "absent" {
+  const lines = screen.split("\n");
+  const title = lines.findIndex((line) => / Tip\s*$/u.test(line));
+  if (title < 0) return "absent";
+  const column = lines[title]?.lastIndexOf("Tip") ?? 0;
+  const below = lines.slice(title + 1).map((line) =>
+    line.slice(column).trimEnd()
+  );
+  const end = below.findIndex((line) => line === "" || line.includes("↓"));
+  const brief = below.slice(0, end < 0 ? below.length : end);
+  return /[.)`!?]$/u.test(brief.at(-1) ?? "") ? "whole" : "cut";
+}
 
 Deno.test("the narrow strip names the commands it leads to, each by its short form", async () => {
   for (const command of DESK_STRIP_COMMANDS) {

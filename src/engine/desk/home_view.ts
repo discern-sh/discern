@@ -187,7 +187,9 @@ function commandRows(
 /**
  * The section the session's tip follows: it teaches the desk as Help does,
  * and above Go to it stays on a standard 80 by 24 screen, where Go to's
- * places are a key or a Page Down away.
+ * places are a key or a Page Down away. Its brief keeps its lines together,
+ * so where the panel runs out of room first, as with no tasks and no panel
+ * colour, the tip moves whole below the fold instead of stopping mid-way.
  */
 const TIP_FOLLOWS: DeskPaletteSection = "help";
 
@@ -233,7 +235,11 @@ export function homeBlocks(
           ...(tip.newIn === undefined
             ? {}
             : { caption: `new in ${tip.newIn}` }),
-          blocks: [{ kind: "text" as const, runs: inlineRuns(tip.brief) }],
+          blocks: [{
+            kind: "text" as const,
+            runs: inlineRuns(tip.brief),
+            whole: true,
+          }],
         }]
         : []),
     ]),
