@@ -35,7 +35,12 @@ import {
 } from "../status/row_states.ts";
 import { compactAge, queueHuman, relativeAge } from "../status/row_facts.ts";
 import type { DeskAction } from "../../shared/desk_vocabulary.ts";
-import { type DeskRow, deskRowId, explanationAt } from "./model.ts";
+import {
+  type DeskRow,
+  deskRowId,
+  elapsedSince,
+  explanationAt,
+} from "./model.ts";
 import { shortCommit } from "./review_facts.ts";
 import { CONSEQUENCE_GLYPHS, DESK_GLYPHS, type DeskGlyph } from "./glyphs.ts";
 import type {
@@ -52,7 +57,10 @@ export interface DeskInspection {
   readonly data?: StatusData;
   readonly trunk: string;
   readonly now: number;
-  /** When the adopted survey was read; running times count on from it. */
+  /**
+   * When the adopted observation was last confirmed current; running times
+   * count on from it.
+   */
   readonly observedAt?: number;
   /** Surveys are failing: running rows stop counting. */
   readonly frozen: boolean;
@@ -106,10 +114,9 @@ export function runningElapsed(
 ): number | undefined {
   const running = row.entry.running;
   if (running === undefined) return undefined;
-  const since = inspection.frozen || inspection.observedAt === undefined
-    ? 0
-    : Math.max(0, inspection.now - inspection.observedAt);
-  return running.elapsed_ms + since;
+  return inspection.frozen || inspection.observedAt === undefined
+    ? running.elapsed_ms
+    : elapsedSince(running.elapsed_ms, inspection.observedAt, inspection.now);
 }
 
 /** Elapsed time in the age column's four cells. */

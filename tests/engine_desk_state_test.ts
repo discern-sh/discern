@@ -139,30 +139,33 @@ Deno.test("one survey runs at a time and a refresh during one queues exactly one
   assertEquals(settled.state.survey.followUp, false);
 });
 
+/** The fingerprint of a fleet at rest. */
+const FINGERPRINT = "fleet-at-rest";
+
+/** A Desk that adopted `data`, surveyed with `fingerprint` at `now`. */
+function surveyed(
+  data: StatusData,
+  fingerprint: string | undefined,
+  now = NOW,
+): DeskProductState {
+  const asked = deskProduct(
+    initialDeskProduct({ trunk: "main", preferences: { schema_version: 2 } }),
+    { kind: "refresh" },
+  ).state;
+  return deskProduct(asked, {
+    kind: "observed",
+    generation: asked.survey.generation,
+    now,
+    data,
+    hints: [],
+    exceptionArgvs: new Map(),
+    ...(fingerprint === undefined ? {} : { fingerprint }),
+  }).state;
+}
+
 Deno.test("the cadence checks the fleet's fingerprint and surveys only when it moved, is due, or something moves", () => {
-  const FINGERPRINT = "fleet-at-rest";
   const liveness = (state: DeskProductState): string | undefined =>
     deskView(state, UI, ENV).header.liveness?.state;
-  /** A Desk that adopted `data`, surveyed with `fingerprint` at `now`. */
-  const surveyed = (
-    data: StatusData,
-    fingerprint: string | undefined,
-    now = NOW,
-  ): DeskProductState => {
-    const asked = deskProduct(
-      initialDeskProduct({ trunk: "main", preferences: { schema_version: 2 } }),
-      { kind: "refresh" },
-    ).state;
-    return deskProduct(asked, {
-      kind: "observed",
-      generation: asked.survey.generation,
-      now,
-      data,
-      hints: [],
-      exceptionArgvs: new Map(),
-      ...(fingerprint === undefined ? {} : { fingerprint }),
-    }).state;
-  };
   const rest = surveyed(survey([editing("alpha")]), FINGERPRINT);
 
   const tick = deskProduct(rest, {
@@ -283,6 +286,49 @@ Deno.test("the cadence checks the fleet's fingerprint and surveys only when it m
     surveyNext(failing),
     "a failed read retries with a survey",
   );
+});
+
+Deno.test("a check that finds the fleet unmoved changes nothing the Desk shows", () => {
+  // A run of a verb that changes no discern state leaves the cadence
+  // checking, so its clock counts on across every check.
+  const rest = surveyed(
+    survey([
+      editing("alpha"),
+      taskFleetEntry("beta", {
+        running: {
+          verb: "await",
+          started: "2026-07-11T11:59:30Z",
+          elapsed_ms: 30_000,
+          typical_duration_ms: 120_000,
+        },
+      }),
+    ]),
+    FINGERPRINT,
+  );
+  const generation = rest.survey.generation + 1;
+  const tick = deskProduct(rest, {
+    kind: "cadence",
+    now: NOW + DESK_REFRESH_MS,
+  });
+  assertEquals(tick.effects, [{ kind: "check", generation }]);
+  const runningRow = rest.rows.find((row) => row.entry.running !== undefined);
+  assert(runningRow !== undefined, "the fleet has a running row");
+  const ui = { ...UI, selected: deskRowId(runningRow) };
+
+  const confirmedAt = NOW + DESK_REFRESH_MS + 400;
+  const confirmed = deskProduct(tick.state, {
+    kind: "checked",
+    generation,
+    now: confirmedAt,
+    fingerprint: FINGERPRINT,
+  }).state;
+  for (const at of [confirmedAt, confirmedAt + 2 * DESK_REFRESH_MS]) {
+    assertEquals(
+      deskView(confirmed, ui, { ...ENV, now: at }),
+      deskView(tick.state, ui, { ...ENV, now: at }),
+      `the Desk ${at - NOW} ms after its survey`,
+    );
+  }
 });
 
 Deno.test("every message's id names its topic, which a state report reader recovers", () => {

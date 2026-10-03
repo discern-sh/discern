@@ -19,6 +19,7 @@ import {
   type DeskCapabilities,
   type DeskRow,
   deskRowId,
+  elapsedSince,
   withDeskCapabilities,
 } from "./model.ts";
 import type { DeskPreferences } from "./preferences.ts";
@@ -322,7 +323,10 @@ export interface DeskSurvey {
   readonly checking: boolean;
   readonly followUp: boolean;
   readonly failures: number;
-  /** When the adopted observation was last confirmed current. */
+  /**
+   * When the adopted observation was last confirmed current: the time its
+   * running clocks were read at, and the age Offline names.
+   */
   readonly observedAt?: number;
   /** When the adopted observation's survey finished. */
   readonly surveyedAt?: number;
@@ -792,9 +796,33 @@ function cadence(
 }
 
 /**
+ * The adopted observation as a survey at `now` would read the same fleet:
+ * each running verb's elapsed time counted on from when it was read.
+ */
+function observationAt(
+  data: StatusData,
+  observedAt: number | undefined,
+  now: number,
+): StatusData {
+  if (observedAt === undefined || data.fleet === undefined) return data;
+  return {
+    ...data,
+    fleet: data.fleet.map((entry) =>
+      entry.running === undefined ? entry : {
+        ...entry,
+        running: {
+          ...entry.running,
+          elapsed_ms: elapsedSince(entry.running.elapsed_ms, observedAt, now),
+        },
+      }
+    ),
+  };
+}
+
+/**
  * A check finished. An unmoved fingerprint confirms the adopted survey as of
- * now, so the Desk adopts it again, deriving what it shows from the clock
- * afresh; a moved or unread one surveys.
+ * now, so the Desk adopts it again as of now, deriving what it shows from the
+ * clock afresh; a moved or unread one surveys.
  */
 function checked(
   state: DeskProductState,
@@ -812,7 +840,7 @@ function checked(
     return adopt(state, {
       generation: event.generation,
       now: event.now,
-      data,
+      data: observationAt(data, survey.observedAt, event.now),
       hints: state.hints,
       exceptionArgvs: state.exceptionArgvs,
     }, { fingerprint: event.fingerprint, surveyedAt: survey.surveyedAt });
