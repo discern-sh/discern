@@ -13,6 +13,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
 import {
+  DESK_MANUAL_FIXTURE,
   DESK_ROOT,
   type DeskSession,
   deskSession,
@@ -25,6 +26,8 @@ import {
   startedTask,
   withDeskSession,
 } from "./fixtures/desk_session.ts";
+import { DESK_MANUAL_READING } from "../src/engine/desk/manual.ts";
+import type { DocsBrowserRequest } from "../src/commands/docs.ts";
 import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import type {
@@ -2337,27 +2340,121 @@ Deno.test("the manual opens its pages while the screen stays and says when one c
   assertEquals(opened, ["https://example.com/docs", DISCERN_DOCS_URL]);
 });
 
-Deno.test("Read the manual says when the manual is still loading or could not be read", async () => {
-  let release: (() => void) | undefined;
-  let refused = false;
-  const reading = new Promise<void>((resolve) => {
-    release = resolve;
+/**
+ * Choose Read the manual before the manual is read. The Desk hands the
+ * terminal over, so it reads no key until the manual opens: Enter goes in
+ * without waiting for the Desk to read it, and the handoff line is printed
+ * on the released screen, outside any frame the Desk paints.
+ */
+async function chooseManualEarly(desk: DeskSession): Promise<void> {
+  await desk.press("ctrl-k");
+  await desk.opened("palette");
+  await desk.type("Read the manual");
+  await desk.until(
+    () => desk.state().layers.palette?.highlightedId === "manual",
+    "the palette on Read the manual",
+  );
+  desk.io.enqueueKeys("enter");
+  await desk.until(
+    () => desk.io.output().includes(DESK_MANUAL_READING),
+    "the Desk to hand the terminal over",
+  );
+}
+
+/** A manual read the test finishes, with or without a manual to show. */
+function heldManual(): {
+  readonly read: () => Promise<DocsBrowserRequest>;
+  readonly finish: (outcome: "read" | "failed") => void;
+} {
+  let finish: ((outcome: "read" | "failed") => void) | undefined;
+  const done = new Promise<"read" | "failed">((resolve) => {
+    finish = resolve;
   });
+  return {
+    read: async () => {
+      if (await done === "failed") {
+        throw new Error("this binary has no bundled manual");
+      }
+      return DESK_MANUAL_FIXTURE;
+    },
+    finish: (outcome) => finish?.(outcome),
+  };
+}
+
+Deno.test("Read the manual chosen before the manual is read opens it as soon as it is", async () => {
+  const manual = heldManual();
   await withDeskSession({
     runtime: {
-      manual: async () => {
-        await reading;
-        refused = true;
-        throw new Error("this binary has no bundled manual");
+      ...surveys(() => deskSurvey(MANUAL_FLEET)),
+      manual: manual.read,
+    },
+  }, async (desk) => {
+    await desk.select("second");
+    // The Desk hands the terminal over at once and says why.
+    await chooseManualEarly(desk);
+    assert(!desk.screen().includes("try again"));
+    manual.finish("read");
+    await desk.shows("Manual fixture");
+    await desk.press("q");
+    await desk.until(
+      () => desk.state().lists[DESK_LIST_ID]?.selectedId === "second",
+      "the inbox as it was left",
+    );
+    assert(!desk.screen().includes("Manual fixture"));
+    // Once read, it opens on the Desk's own screen.
+    await desk.palette("Read the manual", "manual");
+    await desk.shows("Manual fixture");
+  });
+});
+
+Deno.test("Read the manual chosen before a read that fails says why back on the Desk", async () => {
+  const manual = heldManual();
+  await withDeskSession({ runtime: { manual: manual.read } }, async (desk) => {
+    await chooseManualEarly(desk);
+    manual.finish("failed");
+    await desk.shows("manual could not open");
+    await desk.palette("Read the manual", "manual");
+    await desk.shows("manual could not open");
+  });
+});
+
+Deno.test("a reader chosen before the first survey opens at once and fills in once the tasks are read", async () => {
+  let release: (() => void) | undefined;
+  const surveyed = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = deskSurvey(MANUAL_FLEET, {
+    queue: [{
+      effort: "second",
+      branch: "agent/second",
+      path: "/worktrees/second",
+      head: "a".repeat(40),
+      submitted_at: "2026-07-11T11:30:00.000Z",
+      authority: "pre-authorized",
+      position: 1,
+      readiness: "ready",
+    }],
+  });
+  await withDeskSession({
+    loading: true,
+    runtime: {
+      status: async () => {
+        await surveyed;
+        return { ok: true, data: queued };
       },
     },
   }, async (desk) => {
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("The manual is still loading");
+    await desk.palette("Landing", "landing");
+    await desk.opened("reader-landing");
+    await desk.shows("Loading tasks…");
+    assert(!desk.screen().includes("Nothing is queued"), "nothing is claimed");
     release?.();
-    await desk.until(() => refused, "the read to end");
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("manual could not open");
+    await desk.until(
+      () => !desk.screen().includes("Loading tasks…"),
+      "the reader to fill in",
+    );
+    await desk.shows("#1");
+    assertEquals(desk.top(), "reader-landing", "it stayed open");
   });
 });
 

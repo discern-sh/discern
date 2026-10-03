@@ -65,6 +65,16 @@ export const DESK_PALETTE_SECTIONS = [
 ] as const;
 export type DeskPaletteSection = (typeof DESK_PALETTE_SECTIONS)[number];
 
+/**
+ * What a command reads that may still be loading when it is chosen:
+ * `survey` the session's status survey, `manual` its one read of the
+ * manual, `tip` the choice of its tip, and `own` a read the command starts
+ * itself as it opens (a review's plan, a form's preview, the script
+ * inventory, a reader's reading).
+ */
+export const DESK_COMMAND_READS = ["survey", "manual", "tip", "own"] as const;
+export type DeskCommandRead = (typeof DESK_COMMAND_READS)[number];
+
 /** Section titles, as the palette and the home panel show them. */
 export const DESK_PALETTE_SECTION_TITLES = {
   create: "Create",
@@ -147,6 +157,14 @@ export interface DeskCommandMetadata {
   readonly home?: true;
   /** Whether it asks for values (a form or arguments) before it runs. */
   readonly parameters: boolean;
+  /**
+   * What it reads that may still be loading when it is chosen; empty when
+   * it reads nothing that loads. Chosen early, a command never refuses: a
+   * reader or sheet opens at once and fills in as its read arrives, a
+   * selection runs once the survey has read the tasks, and the manual opens
+   * as soon as it has been read.
+   */
+  readonly reads: readonly DeskCommandRead[];
   readonly effect: DeskEffect;
   readonly confirmation: DeskConfirmationPolicy;
   /** What a review binds; empty only for commands that read. */
@@ -193,6 +211,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "create",
     home: true,
     parameters: true,
+    reads: ["own"],
     effect: "change",
     confirmation: confirm("Cancel", "Create"),
     binding: ["base-commit", "branch-name"],
@@ -212,6 +231,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "create",
     home: true,
     parameters: true,
+    reads: ["own"],
     effect: "launch",
     confirmation: confirm("Cancel", "Run"),
     binding: ["main-path", "script-path", "script-digest", "argv"],
@@ -227,6 +247,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "go",
     home: true,
     parameters: false,
+    reads: ["survey"],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -250,6 +271,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "go",
     home: true,
     parameters: false,
+    reads: ["survey"],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -263,6 +285,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "go",
     home: true,
     parameters: false,
+    reads: ["survey"],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -285,6 +308,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "go",
     home: true,
     parameters: false,
+    reads: [],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -302,6 +326,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "help",
     home: true,
     parameters: false,
+    reads: [],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -314,6 +339,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "help",
     home: true,
     parameters: false,
+    reads: ["manual"],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -328,6 +354,7 @@ export const DESK_COMMAND_REGISTRY = {
     scope: "global",
     section: "help",
     parameters: false,
+    reads: ["tip"],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -340,6 +367,7 @@ export const DESK_COMMAND_REGISTRY = {
     section: "help",
     home: true,
     parameters: false,
+    reads: ["own"],
     effect: "open",
     confirmation: confirm("Cancel", "Open"),
     binding: ["running-version"],
@@ -367,6 +395,7 @@ export const DESK_COMMAND_REGISTRY = {
     scope: "global",
     section: "session",
     parameters: false,
+    reads: [],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -381,6 +410,7 @@ export const DESK_COMMAND_REGISTRY = {
     scope: "global",
     section: "session",
     parameters: false,
+    reads: [],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -391,6 +421,7 @@ export const DESK_COMMAND_REGISTRY = {
     scope: "global",
     section: "session",
     parameters: false,
+    reads: [],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -401,6 +432,7 @@ export const DESK_COMMAND_REGISTRY = {
     scope: "global",
     section: "session",
     parameters: false,
+    reads: [],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -415,6 +447,7 @@ export const DESK_COMMAND_REGISTRY = {
     scope: "global",
     section: "session",
     parameters: false,
+    reads: [],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -424,6 +457,7 @@ export const DESK_COMMAND_REGISTRY = {
   resume: {
     scope: "parked-row",
     parameters: true,
+    reads: ["own"],
     effect: "change",
     confirmation: confirm("Cancel", "Create"),
     binding: ["parked-record", "parked-head"],
@@ -441,6 +475,7 @@ export const DESK_COMMAND_REGISTRY = {
     key: "v",
     scope: "parked-row",
     parameters: false,
+    reads: ["own"],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -460,6 +495,7 @@ export const DESK_COMMAND_REGISTRY = {
   landed_proof: {
     scope: "landed-row",
     parameters: false,
+    reads: ["own"],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -469,6 +505,7 @@ export const DESK_COMMAND_REGISTRY = {
   progress: {
     scope: "task",
     parameters: false,
+    reads: [],
     effect: "read",
     confirmation: NO_CONFIRMATION,
     binding: [],
@@ -476,6 +513,40 @@ export const DESK_COMMAND_REGISTRY = {
     consequence: [said("keeps", "Nothing changes; it shows the running work")],
   },
 } as const satisfies Readonly<Record<DeskCommand, DeskCommandMetadata>>;
+
+/**
+ * The commands that open a reader over what the desk already holds, by the
+ * reader each opens. The reader paints from the session's reads, so it
+ * shows any its command declares still loading and fills in as they arrive.
+ */
+export const DESK_COMMAND_READERS = {
+  landing: "landing",
+  main_checkout: "main",
+  activity: "activity",
+  keys: "keys",
+  tip: "tip",
+} as const satisfies Partial<Record<DeskCommand, string>>;
+
+/** A reader one of those commands opens. */
+export type DeskCommandReader =
+  (typeof DESK_COMMAND_READERS)[keyof typeof DESK_COMMAND_READERS];
+
+/** The reader a command opens, when it opens one over what the desk holds. */
+export function commandReaderKind(
+  command: DeskCommand,
+): DeskCommandReader | undefined {
+  const readers: Partial<Record<DeskCommand, DeskCommandReader>> =
+    DESK_COMMAND_READERS;
+  return readers[command];
+}
+
+/** The reads a reader shows while they load: its command's declared reads. */
+export function readerReads(kind: string): readonly DeskCommandRead[] {
+  const command = DESK_COMMANDS.find((candidate) =>
+    commandReaderKind(candidate) === kind
+  );
+  return command === undefined ? [] : DESK_COMMAND_REGISTRY[command].reads;
+}
 
 /** Resolve one command's consequences against its facts and preview. */
 export function commandConsequenceLines(

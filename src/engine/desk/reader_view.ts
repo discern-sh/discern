@@ -39,7 +39,8 @@ import {
   type DeskProductState,
   type DeskReaderSubject,
 } from "./desk_state.ts";
-import { branchTitle, rowRef } from "./desk_transitions.ts";
+import { branchTitle, rowRef, sessionRead } from "./desk_transitions.ts";
+import { type DeskCommandRead, readerReads } from "./commands.ts";
 import { ageText, diffRuns, glyph, proofLineBlock } from "./inspector_view.ts";
 import { inlineRuns } from "./header_view.ts";
 
@@ -65,6 +66,37 @@ function markdown(source: string): ApplicationDetailBlock {
     kind: "block",
     content: createCliBlock(renderMarkdownCli, { source }),
   };
+}
+
+/**
+ * What a view over the session's own reads shows while one of `reads` is
+ * not ready: the tasks still loading or unreadable, or the session's tip
+ * still being chosen. Undefined once every one is ready, so the view's own
+ * blocks fill in.
+ */
+export function awaitedBlocks(
+  state: DeskProductState,
+  reads: readonly DeskCommandRead[],
+): ApplicationDetailBlock[] | undefined {
+  for (const read of reads) {
+    const status = sessionRead(state, read);
+    if (status === "ready") continue;
+    switch (read) {
+      case "survey":
+        return status === "failed"
+          ? [{
+            kind: "text",
+            runs: [{ text: "Couldn't read tasks", tone: "warning" }],
+          }]
+          : [{ kind: "pending", label: "Loading tasks…" }];
+      case "tip":
+        return [{ kind: "pending", label: "Choosing this session's tip…" }];
+      default:
+        // The manual opens in place of the desk, never in a reader.
+        continue;
+    }
+  }
+  return undefined;
 }
 
 /** A read that has not finished, failed, or produced its blocks. */
@@ -592,8 +624,24 @@ export function deskReader(
   return { ...readerLayer(state, reader, env), escapeLabel: READER_ESCAPE };
 }
 
-/** One reader layer's contents. */
+/**
+ * One reader layer: its contents, or, while a read its command declares is
+ * still loading, that read's pending line in their place.
+ */
 function readerLayer(
+  state: DeskProductState,
+  reader: DeskReaderSubject,
+  env: DeskReaderEnv,
+): ApplicationReader<DeskIntent> {
+  const layer = readerContents(state, reader, env);
+  const waiting = awaitedBlocks(state, readerReads(reader.kind));
+  if (waiting === undefined) return layer;
+  const { rows: _rows, footnote: _footnote, ...rest } = layer;
+  return { ...rest, blocks: waiting };
+}
+
+/** One reader layer's contents. */
+function readerContents(
   state: DeskProductState,
   reader: DeskReaderSubject,
   env: DeskReaderEnv,
@@ -611,7 +659,7 @@ function readerLayer(
         blocks: [{
           kind: "text",
           runs: state.tip === undefined
-            ? [{ text: "This session has no tip yet." }]
+            ? [{ text: "This session has no tip." }]
             : inlineRuns(state.tip.full),
         }],
         keys: [{

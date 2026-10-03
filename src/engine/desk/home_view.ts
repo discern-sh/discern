@@ -29,7 +29,6 @@ import {
   DESK_COMMANDS,
   DESK_PALETTE_SECTION_TITLES,
   DESK_PALETTE_SECTIONS,
-  type DeskCommandFacts,
   type DeskCommandMetadata,
   type DeskPaletteSection,
   RELEASE_CHECK_CUES,
@@ -39,7 +38,8 @@ import { DESK_GLYPHS } from "./glyphs.ts";
 import { COMMANDS_ROW_ID } from "./desk_transitions.ts";
 import type { DeskIntent, DeskProductState } from "./desk_state.ts";
 import { inlineRuns } from "./header_view.ts";
-import { commandFacts } from "./palette_view.ts";
+import { commandValue } from "./palette_view.ts";
+import { awaitedBlocks } from "./reader_view.ts";
 
 /** What the home panel reads besides product state. */
 export interface DeskHomeEnv {
@@ -151,8 +151,9 @@ const HOME_META_CELLS = 24;
  * into the empty cells.
  */
 function commandRows(
+  state: DeskProductState,
   commands: readonly DeskCommand[],
-  facts: DeskCommandFacts,
+  now: number,
 ): ApplicationDetailBlock {
   return {
     kind: "rows",
@@ -162,7 +163,7 @@ function commandRows(
       { id: "key", width: 1 },
     ],
     items: commands.map((command) => {
-      const meta = metadata(command).meta?.(facts);
+      const meta = commandValue(state, command, now);
       const key = metadata(command).key;
       return {
         text: [{ text: DESK_COMMAND_LABELS[command] }],
@@ -179,17 +180,6 @@ function commandRows(
   };
 }
 
-/** How the first survey stands, until it has read the tasks. */
-function surveyBlocks(state: DeskProductState): ApplicationDetailBlock[] {
-  if (state.data !== undefined) return [];
-  return state.survey.failures > 0
-    ? [{
-      kind: "text",
-      runs: [{ text: "Couldn't read tasks", tone: "warning" }],
-    }]
-    : [{ kind: "pending", label: "Loading tasks…" }];
-}
-
 /**
  * The section the session's tip follows: it teaches the desk as Help does,
  * and above Go to it stays on a standard 80 by 24 screen, where Go to's
@@ -204,7 +194,6 @@ export function homeBlocks(
 ): ApplicationDetailBlock[] {
   const empty = noTasks(state);
   const tip = state.tip;
-  const facts = commandFacts(state, env.now);
 
   // The row and the zoom's breadcrumb already say Commands, so the panel
   // names what runs instead, beside what a task is while there are none.
@@ -225,12 +214,13 @@ export function homeBlocks(
         }],
       }]
       : []),
-    ...surveyBlocks(state),
+    // How the first survey stands, until it has read the tasks.
+    ...(awaitedBlocks(state, ["survey"]) ?? []),
     ...homeSections().flatMap(({ section, commands }) => [
       {
         kind: "section" as const,
         title: DESK_PALETTE_SECTION_TITLES[section],
-        blocks: [commandRows(commands, facts)],
+        blocks: [commandRows(state, commands, env.now)],
       },
       ...(section === TIP_FOLLOWS && tip !== undefined
         ? [{
@@ -270,7 +260,6 @@ export function homeStrip(
   state: DeskProductState,
   env: DeskHomeEnv,
 ): ApplicationDetailStrip {
-  const facts = commandFacts(state, env.now);
   return {
     title: [
       {
@@ -289,9 +278,9 @@ export function homeStrip(
         ? [[{ text: RELEASE_CHECK_CUES.due, tone: "warning" as const }]]
         : []),
       ...DESK_STRIP_COMMANDS.map((command): ApplicationRun[] => {
-        const { key, short, meta } = metadata(command);
+        const { key, short } = metadata(command);
         const name = short ?? DESK_COMMAND_LABELS[command];
-        const value = meta?.(facts);
+        const value = commandValue(state, command, env.now);
         return [
           ...(key === undefined ? [] : [{ text: key, role: "key" as const }]),
           { text: key === undefined ? name : ` ${name}` },

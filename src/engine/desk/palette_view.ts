@@ -32,6 +32,7 @@ import {
   branchTitle,
   parkedBranches,
   parkedRowId,
+  sessionRead,
 } from "./desk_transitions.ts";
 import { tone } from "./inspector_view.ts";
 import { deskChips, toggleLabel } from "./header_view.ts";
@@ -53,6 +54,23 @@ export function commandFacts(
   };
 }
 
+/**
+ * The faint value beside a command, the same wherever a tier lists it: the
+ * palette, the home panel and its zoom, and the strip. A command whose
+ * declared read is still loading shows none, so no value claims what the
+ * desk hasn't read yet, such as `0 queued` before the first survey.
+ */
+export function commandValue(
+  state: DeskProductState,
+  command: DeskCommand,
+  now: number,
+): string | undefined {
+  const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
+  return metadata.reads.some((read) => sessionRead(state, read) !== "ready")
+    ? undefined
+    : metadata.meta?.(commandFacts(state, now));
+}
+
 /** A command's label as it reads now: toggles say what they will do. */
 function commandLabel(state: DeskProductState, command: DeskCommand): string {
   return command === "sort" || command === "details" || command === "mouse"
@@ -67,7 +85,7 @@ function commandItem(
   now: number,
 ): ApplicationPaletteItem<DeskIntent> {
   const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
-  const meta = metadata.meta?.(commandFacts(state, now));
+  const meta = commandValue(state, command, now);
   return {
     id: command,
     label: commandLabel(state, command),

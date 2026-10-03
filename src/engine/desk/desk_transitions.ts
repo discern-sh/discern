@@ -26,7 +26,7 @@ import {
   type DeskReviewAlternative,
   type DeskReviewLine,
 } from "./flow_types.ts";
-import { DESK_COMMANDS } from "./commands.ts";
+import { DESK_COMMANDS, type DeskCommandRead } from "./commands.ts";
 import { MESSAGE_MARKS } from "./glyphs.ts";
 import {
   buildDeskRows,
@@ -467,11 +467,13 @@ export function resurvey(state: DeskProductState): DeskTransition {
 
 /**
  * What a message on the message line is about: a return from a child the
- * Desk lent the terminal to, the offline warning, or any other notice.
+ * Desk lent the terminal to, the offline warning, a request waiting for the
+ * survey (cleared once it runs), or any other notice.
  */
 export const DESK_MESSAGE_TOPICS = [
   "return",
   "offline",
+  "awaiting",
   "notice",
 ] as const;
 
@@ -752,4 +754,31 @@ export function resultNextLine(
     text: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}`,
     source: next.source,
   };
+}
+
+/**
+ * How one read a command declares stands now. The session's survey,
+ * manual and tip are loading until they first settle; a command's own read
+ * is the opened layer's to show, so it never holds the command back.
+ */
+export function sessionRead(
+  state: DeskProductState,
+  read: DeskCommandRead,
+): "loading" | "ready" | "failed" {
+  switch (read) {
+    case "survey":
+      return state.data !== undefined
+        ? "ready"
+        : state.survey.failures > 0
+        ? "failed"
+        : "loading";
+    case "manual":
+      return state.manual.state;
+    case "tip":
+      return state.tip !== undefined || state.tipChosen === true
+        ? "ready"
+        : "loading";
+    case "own":
+      return "ready";
+  }
 }

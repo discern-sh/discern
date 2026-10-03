@@ -651,13 +651,14 @@ Deno.test("a returning effect leaves its message, its result, and one refresh", 
   );
 });
 
-Deno.test("Read the manual opens it once read and otherwise says why nothing opened", () => {
+Deno.test("Read the manual opens it while it is read or once read, and says why when it can't be", () => {
   const read = open(observedDesk(survey([])), { kind: "palette" });
   const manual: DeskIntent = { kind: "command", command: "manual" };
+  // Still reading: the controller opens it as soon as the read finishes.
   const loading = intent(read.state, manual);
-  assertEquals(loading.effects, []);
+  assertEquals(loading.effects, [{ kind: "manual" }]);
   assertEquals(loading.state.layers, []);
-  assertStringIncludes(loading.state.message?.text ?? "", "still loading");
+  assertEquals(loading.state.message, undefined);
   const ready = run(read.state, {
     kind: "manual-read",
     result: { state: "ready" },

@@ -63,7 +63,12 @@ import {
   isTerminalEffect,
   outputTail,
 } from "./desk_state.ts";
-import { DESK_LIST_ID, rowRef, withoutOperation } from "./desk_transitions.ts";
+import {
+  DESK_LIST_ID,
+  rowRef,
+  sessionRead,
+  withoutOperation,
+} from "./desk_transitions.ts";
 import {
   DESK_KEYMAP,
   DESK_VI_KEYS,
@@ -79,7 +84,7 @@ import {
   taskEvidenceSubject,
 } from "./evidence.ts";
 import type { DeskFlowStep, DeskOutcome, DeskReview } from "./flow_types.ts";
-import type { DeskManual } from "./manual.ts";
+import { DESK_MANUAL_READING, type DeskManual } from "./manual.ts";
 import { failureSheet } from "./review.ts";
 
 /** How long the selection must stay put before the slot reads its evidence. */
@@ -238,6 +243,8 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
   let alive = true;
   /** A child or the manual has the screen: surveys, ticks and reads wait. */
   let foreground = false;
+  /** The session's one read of the manual, and the manual once it is read. */
+  let reading: Promise<DeskManual> | undefined;
   let manual: DeskManual | undefined;
   let launches: readonly DeskAgentLaunch[] = [];
   let surveyTimer: TimeoutHandle | undefined;
@@ -512,7 +519,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
   const presentTip = async (data: StatusData): Promise<void> => {
     await bestEffort("desk-tip-presentation", async () => {
       const tip = await deps.tip(data);
-      if (tip !== undefined) dispatch({ kind: "tip", tip });
+      dispatch(tip === undefined ? { kind: "tip" } : { kind: "tip", tip });
     });
   };
 
@@ -674,17 +681,52 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
    * The manual in place of the inbox. The inbox keeps its selection, layers
    * and scroll underneath; while the manual is open the Desk's surveys,
    * ticks and evidence reads wait, and it picks them up once it closes.
+   * Before the session's read of it has finished, the Desk hands over the
+   * terminal at once, saying so, and the manual opens on its own screen as
+   * soon as it is read; a read that fails says so back on the Desk.
    */
   const openManual = (): TerminalApplicationCommand => {
-    if (manual === undefined) {
-      throw new TypeError("The manual opens only once it has been read.");
+    const mouse = state.preferences.mouse === true;
+    if (manual !== undefined) {
+      foreground = true;
+      return manual.open(mouse, () => {
+        foreground = false;
+        publish();
+        settle();
+      });
     }
-    foreground = true;
-    return manual.open(state.preferences.mouse === true, () => {
-      foreground = false;
-      publish();
-      settle();
-    });
+    const read = reading;
+    if (read === undefined) {
+      throw new TypeError("The manual opens only once its read has started.");
+    }
+    return {
+      kind: "foreground",
+      handoff: [{ text: DESK_MANUAL_READING }],
+      run: async () => {
+        foreground = true;
+        try {
+          await (await read).browse(mouse);
+        } catch (error) {
+          // The session's own read reports why the manual can't open.
+          if (sessionRead(state, "manual") !== "failed") throw error;
+        } finally {
+          foreground = false;
+        }
+        // Back on the Desk, a manual that couldn't be read says why, as
+        // choosing it now would.
+        if (sessionRead(state, "manual") === "failed") {
+          dispatch({
+            kind: "intent",
+            intent: { kind: "command", command: "manual" },
+            ui: ui(),
+            now: deps.now(),
+            clock: context?.now() ?? 0,
+          });
+        }
+        publish();
+        settle();
+      },
+    };
   };
 
   /**
@@ -766,8 +808,9 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
           publish();
         }),
       );
+      reading = deps.manual();
       own(
-        deps.manual().then(
+        reading.then(
           (read) => {
             manual = read;
             dispatch({ kind: "manual-read", result: { state: "ready" } });

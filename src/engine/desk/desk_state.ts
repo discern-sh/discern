@@ -16,6 +16,7 @@ import type { StatusData } from "../../shared/result_schemas.ts";
 import type { ReleaseCheckHistory } from "../../shared/release_check.ts";
 import type { EnginePlan } from "../../shared/result.ts";
 import type { DeskAction, DeskCommand } from "../../shared/desk_vocabulary.ts";
+import type { FleetRowGroup } from "../../shared/fleet_row_vocabulary.ts";
 import {
   type DeskCapabilities,
   type DeskRow,
@@ -42,7 +43,7 @@ import {
   emptyEvidenceCache,
   rememberEvidence,
 } from "./evidence.ts";
-import { intentTransition } from "./desk_intent.ts";
+import { intentTransition, runAwaited } from "./desk_intent.ts";
 import {
   closeLayer,
   departureMessage,
@@ -315,6 +316,18 @@ export interface DeskSurvey {
 /** A child that returned, waiting for the next observation to say what it changed. */
 export type DeskPendingReturn = DeskChildReturn;
 
+/**
+ * A request only the survey can decide, such as going to a group or to the
+ * parked branches: what the owner chose, kept until the tasks are read.
+ */
+export type DeskAwaited =
+  | { readonly kind: "group"; readonly group: FleetRowGroup }
+  | {
+    readonly kind: "command";
+    readonly command: DeskCommand;
+    readonly ref?: string;
+  };
+
 /** Everything the Desk itself knows. */
 export interface DeskProductState {
   readonly trunk: string;
@@ -336,6 +349,8 @@ export interface DeskProductState {
   readonly preferences: DeskPreferences;
   /** The session's tip, which the home panel carries once it is chosen. */
   readonly tip?: DeskTip;
+  /** The session has chosen its tip, or found none to show. */
+  readonly tipChosen?: true;
   /** When this clone last opened the release page, read with each survey. */
   readonly releaseCheck?: ReleaseCheckHistory;
   readonly activity: readonly DeskActivity[];
@@ -348,6 +363,11 @@ export interface DeskProductState {
   readonly pendingReturn?: DeskPendingReturn;
   /** A checkout an effect created, selected once a survey lists it. */
   readonly pendingSelect?: string;
+  /**
+   * A selection the owner asked for before the first survey read the
+   * tasks, run as soon as one has; a later request replaces it.
+   */
+  readonly awaiting?: DeskAwaited;
   /** Effects running beside the screen, by id. */
   readonly operations: ReadonlyMap<string, DeskOperation>;
   readonly manual: DeskManualStatus;
@@ -460,7 +480,8 @@ export type DeskEvent =
     /** The parts it read; the rest it found kept. */
     readonly read: DeskEvidenceRead;
   }
-  | { readonly kind: "tip"; readonly tip: DeskTip }
+  /** The session's tip was chosen, or none was due. */
+  | { readonly kind: "tip"; readonly tip?: DeskTip }
   | {
     readonly kind: "intent";
     readonly intent: DeskIntent;
@@ -722,6 +743,12 @@ function observed(
   if (state.pendingReturn !== undefined) {
     const { pendingReturn: _done, ...rest } = next;
     next = returnMessage(rest, state.pendingReturn);
+  }
+  if (state.awaiting !== undefined) {
+    const { awaiting: _ran, ...rest } = next;
+    const ran = runAwaited(rest, state.awaiting);
+    next = ran.state;
+    effects.push(...ran.effects);
   }
   return afterSurvey({ state: next, effects });
 }
@@ -1309,7 +1336,14 @@ export function deskProduct(
         effects: [],
       };
     case "tip":
-      return { state: { ...state, tip: event.tip }, effects: [] };
+      return {
+        state: {
+          ...state,
+          ...(event.tip === undefined ? {} : { tip: event.tip }),
+          tipChosen: true,
+        },
+        effects: [],
+      };
     case "intent":
       return intentTransition(state, event.intent, event.ui, {
         now: event.now,

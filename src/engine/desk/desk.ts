@@ -38,7 +38,11 @@ import {
   type DocsBrowserRequest,
   readDocsBrowser,
 } from "../../commands/docs.ts";
-import { DESK_MANUAL_EXIT, deskManual } from "./manual.ts";
+import {
+  DESK_MANUAL_EXIT,
+  deskManual,
+  type DeskManualBrowser,
+} from "./manual.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
@@ -65,6 +69,7 @@ import {
   canInteract,
   isInteractionCancelled,
   requestCompactAcknowledgement,
+  requestMarkdownBrowser,
   runTerminalApplication,
   type TerminalApplicationOptions,
 } from "../../lib/terminal_interaction.ts";
@@ -195,6 +200,11 @@ export interface DeskTermination {
 export interface DeskRuntime extends DeskLandingPermission {
   /** Read the manual the Desk opens in place of its inbox. */
   manual(): DeskMaybePromise<DocsBrowserRequest>;
+  /**
+   * Browse the manual on a screen of its own, as `discern docs` does, while
+   * the Desk has handed over the terminal before the manual was read.
+   */
+  browseManual: DeskManualBrowser;
   canInteract(): boolean;
   inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
@@ -410,6 +420,8 @@ function configuredEditorCommand(
  * same functions with the same options. */
 const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   manual: () => readDocsBrowser("docs", { exitLabel: DESK_MANUAL_EXIT }),
+  browseManual: (request, handlers) =>
+    requestMarkdownBrowser(request, {}, handlers),
   canInteract: () => canInteract(false),
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
@@ -949,6 +961,7 @@ export async function runDesk(
         deskManual(
           await runtime.manual(),
           async (url) => await runtime.openBrowser(url),
+          runtime.browseManual,
         ),
       evidence: {
         git: async (args, cwd, signal) =>

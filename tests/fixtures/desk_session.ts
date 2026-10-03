@@ -22,7 +22,10 @@ import {
   ManualTerminalClock,
   TERMINAL_KEY_SEQUENCES,
 } from "discern-design-system/cli/interactive/testing";
-import { runTerminalApplication } from "../../src/lib/terminal_interaction.ts";
+import {
+  requestMarkdownBrowser,
+  runTerminalApplication,
+} from "../../src/lib/terminal_interaction.ts";
 import type { TerminalColorDepth } from "discern-design-system/cli";
 import {
   type DeskRuntime,
@@ -260,6 +263,9 @@ export function scriptedDeskRuntime(
     error: (message) => output.stderr.push(`console:${message}`),
     application: () => {
       throw new Error("A scripted Desk runs inside deskSession.");
+    },
+    browseManual: () => {
+      throw new Error("A scripted Desk browses its manual inside deskSession.");
     },
     terminations: () => scriptedTermination(),
     raise: () => {},
@@ -568,6 +574,14 @@ export async function deskSession(
       surveys += 1;
       return result;
     },
+    // Handed the terminal before its read finished, the manual browses on
+    // the same fake terminal, as `discern docs` would on the real one.
+    browseManual: (request, handlers) =>
+      requestMarkdownBrowser(
+        request,
+        { io, interactive: () => true },
+        handlers,
+      ),
     application: (application, termination) =>
       runTerminalApplication({
         ...application,
