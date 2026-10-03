@@ -45,6 +45,7 @@ import { stepWords } from "../src/shared/step_labels.ts";
 import { briefFleet } from "./desk_sandbox.ts";
 import { deskSession } from "../tests/fixtures/desk_session.ts";
 import { git } from "../tests/engine_helpers.ts";
+import { shellAwaitFile } from "../tests/shell_hold.ts";
 import {
   directoryExists,
   readTextIfExists,
@@ -951,7 +952,7 @@ const BUILD_SITE_SCRIPT = [
   "#!/bin/sh",
   '[ -n "$DESK_GALLERY_SIGNALS" ] || exit 0',
   'echo "Building the site"',
-  'while [ ! -e "$DESK_GALLERY_SIGNALS/built" ]; do sleep 0.05; done',
+  shellAwaitFile('"$DESK_GALLERY_SIGNALS/built"'),
   'echo "Built the site"',
   "",
 ].join("\n");

@@ -21,6 +21,7 @@ import {
 } from "./fixtures/desk_session.ts";
 import { project } from "./completion_public_fixture.ts";
 import { withTempDir } from "./helpers.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 import {
   addWorktree,
   git,
@@ -221,7 +222,9 @@ Deno.test("Desk replaces a submission while another effort's acceptance checks a
     const ready = join(directory, "ready");
     const release = join(directory, "release");
     const lint =
-      `printf t >> executions; if [ -e '${pause}' ]; then touch '${ready}'; while [ ! -e '${release}' ]; do sleep 0.01; done; fi`;
+      `printf t >> executions; if [ -e '${pause}' ]; then touch '${ready}'; ${
+        shellAwaitFile(`'${release}'`)
+      }; fi`;
     await scaffoldEngine(root, { agents: [] });
     await writeConfig(
       root,

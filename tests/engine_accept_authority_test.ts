@@ -46,6 +46,7 @@ import {
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { waitForPendingCondition } from "./waiting.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 import {
   assertResultDataKey,
   decodeCliResult,
@@ -1241,9 +1242,11 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
         "done",
         'if [ "$saw_update_ref" = 1 ] && [ "$saw_stdin" = 1 ]; then',
         `  : > "$${DISCERN_ENVIRONMENT_VARIABLES.testAcceptPaused}"`,
-        `  while [ ! -e "$${DISCERN_ENVIRONMENT_VARIABLES.testAcceptRelease}" ]; do`,
-        "    sleep 0.01",
-        "  done",
+        `  ${
+          shellAwaitFile(
+            `"$${DISCERN_ENVIRONMENT_VARIABLES.testAcceptRelease}"`,
+          )
+        }`,
         "fi",
         'exec git "$@"',
         "",

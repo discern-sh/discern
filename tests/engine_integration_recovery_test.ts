@@ -55,6 +55,7 @@ import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { withTempDir } from "./helpers.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 import { withPristineInstalls } from "./engine_surface_fixture.ts";
 
 const CONFIG = [
@@ -649,7 +650,7 @@ Deno.test("a running done in the author checkout is never deadlocked by acceptan
           "    *integration*) ;;",
           "    *)",
           `      touch "${scratch}/started"`,
-          `      until [ -f "${scratch}/release" ]; do sleep 0.1; done ;;`,
+          `      ${shellAwaitFile(`"${scratch}/release"`)} ;;`,
           "  esac",
           "fi",
           "exit 0",

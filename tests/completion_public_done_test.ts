@@ -27,6 +27,7 @@ import { gitOut } from "./engine_helpers.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { ATTEMPT_CLAIM_LEASE_MS } from "../src/engine/completion/attempt.ts";
 import { completionId } from "./completion_fixtures.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 
 /** Project recorded readings onto validated envelopes. */
 async function observedRecords(root: string): Promise<CompletionRecord[]> {
@@ -165,7 +166,7 @@ Deno.test("E09 public done releases an extractor while an unrelated check waits 
       `extract = 'touch extracted; cat'
 [jobs.unrelated]
 stage = 'check'
-run = 'while ! test -f extracted; do sleep 0.02; done'
+run = '${shellAwaitFile("extracted")}'
 timeout = 8
 `,
     );

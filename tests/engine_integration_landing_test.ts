@@ -33,6 +33,7 @@ import { decodeCliResult } from "./decode_cli_result.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { withOperationLock } from "../src/engine/operation_lock.ts";
 import { waitForPendingCondition } from "./waiting.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 import { withPristineInstalls } from "./engine_surface_fixture.ts";
 
 const CONFIG = [
@@ -821,7 +822,7 @@ Deno.test("a sibling completion publishes while an integration gate runs", async
           'case "$(pwd)" in',
           "  *integration*)",
           `    touch "${scratch}/started"`,
-          `    until [ -f "${scratch}/release" ]; do sleep 0.1; done ;;`,
+          `    ${shellAwaitFile(`"${scratch}/release"`)} ;;`,
           "esac",
           "exit 0",
           "",
@@ -891,7 +892,7 @@ Deno.test("a sibling completes while an integration landing's resource teardown 
           'case "$1" in',
           "  *integration*)",
           `    touch "${scratch}/started"`,
-          `    until [ -f "${scratch}/release" ]; do sleep 0.1; done ;;`,
+          `    ${shellAwaitFile(`"${scratch}/release"`)} ;;`,
           "esac",
           "exit 0",
           "",

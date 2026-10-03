@@ -28,6 +28,7 @@ import {
 import { logbookEventSchema } from "../src/engine/logbook/schema.ts";
 import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
 import { TEST_PROCESS_TIMEOUT_MS, waitUntil } from "./waiting.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 
 const QUEUED_TEXT = "shared test capacity";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
@@ -397,7 +398,7 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
       "sh",
       "-c",
       `printf "%s" "$${TEST_RUN_SLOT_ENV}" > "$1"; : > "$2"; ` +
-      'while [ ! -f "$3" ]; do sleep 0.05; done',
+      shellAwaitFile('"$3"'),
       "queue-nested",
       observed,
       ready,
@@ -523,7 +524,7 @@ Deno.test("a queued gate shows capacity now and retains other operation activity
       "--",
       "sh",
       "-c",
-      ': > "$1"; while [ ! -f "$2" ]; do sleep 0.05; done',
+      `: > "$1"; ${shellAwaitFile('"$2"')}`,
       "queue-holder",
       ready,
       release,

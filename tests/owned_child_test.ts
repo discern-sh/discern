@@ -11,6 +11,7 @@ import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
 import { realDelay, waitForPendingCondition } from "./waiting.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 
 const DRIVER = fromFileUrl(
   new URL("fixtures/owned_child_driver.ts", import.meta.url),
@@ -91,7 +92,11 @@ Deno.test({
       const ready = join(dir, "ready");
       const release = join(dir, "release");
       const code = await runShellRouted(
-        '(touch "$READY_TARGET"; while [ ! -f "$RELEASE_TARGET" ]; do sleep 0.01; done; mkdir -p "$LATE_TARGET") >/dev/null 2>&1 & while [ ! -f "$READY_TARGET" ]; do sleep 0.01; done',
+        `(touch "$READY_TARGET"; ${
+          shellAwaitFile('"$RELEASE_TARGET"')
+        }; mkdir -p "$LATE_TARGET") >/dev/null 2>&1 & ${
+          shellAwaitFile('"$READY_TARGET"')
+        }`,
         {
           cwd: dir,
           env: {

@@ -20,6 +20,7 @@ import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { realDelay } from "./waiting.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
@@ -323,8 +324,10 @@ Deno.test({
         hook,
         [
           "#!/bin/sh",
-          '(touch "$PWD/hook-ready"; while [ ! -f "$PWD/commit-returned" ]; do sleep 0.01; done; mkdir -p "$PWD/hook-late") >/dev/null 2>&1 &',
-          'while [ ! -f "$PWD/hook-ready" ]; do sleep 0.01; done',
+          `(touch "$PWD/hook-ready"; ${
+            shellAwaitFile('"$PWD/commit-returned"')
+          }; mkdir -p "$PWD/hook-late") >/dev/null 2>&1 &`,
+          shellAwaitFile('"$PWD/hook-ready"'),
           "",
         ].join("\n"),
       );

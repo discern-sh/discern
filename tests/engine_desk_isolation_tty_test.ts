@@ -38,6 +38,7 @@ import {
   withDeskTtyProject,
 } from "./fixtures/desk_tty_harness.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const phase = deskSettledPhase;
@@ -67,7 +68,7 @@ const ENSURE_SCRIPT = [
   "#!/bin/sh",
   `[ -n "$${SIGNALS}" ] || exit 0`,
   `echo $$ > "$${SIGNALS}/ensure.pid"`,
-  `while [ ! -e "$${SIGNALS}/landing-release" ]; do sleep 0.05; done`,
+  shellAwaitFile(`"$${SIGNALS}/landing-release"`),
   "",
 ].join("\n");
 

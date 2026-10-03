@@ -138,7 +138,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 23      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 20      | —                | —                           |
-| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 28      | —                | —                           |
+| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 8       | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
 | [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 46      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
@@ -5482,34 +5482,14 @@ Every genuine JavaScript timer interval in executable tests, with its exact modu
 Every elapsed shell wait in executable test source, with its exact enclosing scope, argument, occurrence count, and reviewed polling or timing contract.
 
 - Source: `tests/test_shell_wait_boundaries.ts` — `TEST_SHELL_WAIT_BOUNDARIES`
-- Members: 28
+- Members: 8
+  - `["tests/shell_hold.ts","shellAwaitFile","0.05"]`
   - `["tests/engine_desk_operation_test.ts","paused production Desk script exposes its actual lease, cancels durably, and releases the next action","60"]`
-  - `["tests/engine_desk_operation_test.ts","holdOpen","0.05"]`
-  - `["tests/engine_desk_operation_test.ts","a running gate never refuses a desk shell on its checkout","0.05"]`
-  - `["tests/engine_desk_queue_test.ts","Desk replaces a submission while another effort's acceptance checks are running","0.01"]`
-  - `["tests/engine_integration_landing_test.ts","a sibling completes while an integration landing's resource teardown runs","0.1"]`
-  - `["tests/engine_integration_landing_test.ts","a sibling completion publishes while an integration gate runs","0.1"]`
-  - `["tests/engine_integration_recovery_test.ts","a running done in the author checkout is never deadlocked by acceptance","0.1"]`
-  - `["tests/completion_public_done_test.ts","E09 public done releases an extractor while an unrelated check waits for it","0.02"]`
-  - `["tests/discern_commit_enrolment_test.ts","the attributed commit boundary quiesces backgrounded hook descendants","0.01"]`
-  - `["tests/engine_accept_authority_test.ts","concurrent accept refuses without recovering the active transaction","0.01"]`
-  - `["tests/engine_gate_ergonomics_test.ts","failFastConfig","0.01"]`
   - `["tests/engine_gate_slots_test.ts","writeMarkerJob","${sleepS}"]`
   - `["tests/engine_gate_slots_test.ts","gate slots: cap=2 lets two test runs overlap","0.1"]`
   - `["tests/engine_gate_timeout_test.ts","timeout override: a job's own budget bounds only that job — siblings keep the run-level budget","2"]`
   - `["tests/engine_gate_timeout_test.ts","timeout override: 0 disables the bound for that job alone","2"]`
   - `["tests/engine_queue_test.ts","queue serializes two wrapped commands at cap 1 and narrates only on stderr","0.4"]`
-  - `["tests/engine_queue_test.ts","queue nesting takes one slot total at cap 1","0.05"]`
-  - `["tests/engine_queue_test.ts","a queued gate shows capacity now and retains other operation activity as history","0.05"]`
-  - `["tests/engine_worktree_probe_test.ts","probeWorktreeViability: a command-owned late writer cannot follow a successful teardown","0.01"]`
-  - `["tests/engine_worktree_probe_test.ts","probeWorktreeViability: a backgrounded Git hook is quiesced before teardown","0.01"]`
-  - `["tests/jobs_runner_test.ts","runParallel: observer sees starts up front and settlements in real completion order","0.01"]`
-  - `["tests/jobs_runner_test.ts","buffered capture feeds complete and partial text to a separate live observer","0.01"]`
-  - `["tests/jobs_runner_test.ts","spawnJob quiesces background descendants before a clean result returns","0.01"]`
-  - `["tests/jobs_runner_test.ts","fail-fast escalates to SIGKILL when a sibling ignores SIGTERM","0.05"]`
-  - `["tests/owned_child_test.ts","a routed setup command quiesces background descendants before returning","0.01"]`
-  - `["tests/engine_desk_attribution_test.ts","an open shell is activity, not a running verb, and ends as ended","0.02"]`
-  - `["tests/engine_desk_isolation_tty_test.ts","<module>","0.05"]`
   - `["tests/engine_desk_isolation_tty_test.ts","<module>","1"]`
 - Guards: `tests/test_shell_wait_guard_test.ts`
 - Glossary: not enrolled — shell waiting enrollment is repository test infrastructure rather than product vocabulary

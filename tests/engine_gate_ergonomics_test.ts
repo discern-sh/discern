@@ -12,6 +12,7 @@ import { targetExists } from "../src/shared/fs_presence.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 import {
   gitInit,
   runAgent,
@@ -40,7 +41,7 @@ function failFastConfig(
       JSON.stringify(
         opts.ready === undefined
           ? "exit 1"
-          : `while [ ! -s '${opts.ready}' ]; do sleep 0.01; done; exit 1`,
+          : `${shellAwaitFile(`'${opts.ready}'`, { nonEmpty: true })}; exit 1`,
       )
     }`,
     "[jobs.sibling]",

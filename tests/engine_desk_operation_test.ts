@@ -25,6 +25,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 
 Deno.test("Desk Project Script retains its own successful and failed operation results", async () => {
   await withTempDir(async (root) => {
@@ -212,7 +213,7 @@ function gateConfig(testJob = "true"): string {
 function holdOpen(ready: string, release: string): readonly string[] {
   return [
     "-c",
-    'printf ready > "$1"; while [ ! -e "$2" ]; do sleep 0.05; done',
+    `printf ready > "$1"; ${shellAwaitFile('"$2"')}`,
     "sh",
     ready,
     release,
@@ -261,7 +262,7 @@ Deno.test("a running gate never refuses a desk shell on its checkout", async () 
       await writeConfig(
         root,
         gateConfig(
-          `printf ready > '${ready}'; while [ ! -e '${release}' ]; do sleep 0.05; done`,
+          `printf ready > '${ready}'; ${shellAwaitFile(`'${release}'`)}`,
         ),
       );
       await gitInit(root);

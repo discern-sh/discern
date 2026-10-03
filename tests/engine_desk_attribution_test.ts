@@ -23,6 +23,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { verbatimStepLabel } from "../src/shared/result.ts";
@@ -139,7 +140,7 @@ Deno.test("a Desk effect is attributed to its task through the recorder the CLI 
           "sh",
           [
             "-c",
-            `touch '${started}'; while [ ! -e '${release}' ]; do sleep 0.02; done; exit 3`,
+            `touch '${started}'; ${shellAwaitFile(`'${release}'`)}; exit 3`,
           ],
           task,
           {},

@@ -34,6 +34,7 @@ import {
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { spawnJob } from "../src/engine/jobs/command.ts";
 import { realDelay, waitForPendingCondition } from "./waiting.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 
 /** A quiet lifecycle context rooted at the main checkout `dir`. */
 async function ctxAt(dir: string): Promise<LifecycleContext> {
@@ -116,8 +117,11 @@ Deno.test({
           const spawned = await spawnJob(
             {
               label: "late-writer",
-              command:
-                '(touch "$READY_TARGET"; while [ ! -f "$RELEASE_TARGET" ]; do sleep 0.01; done; mkdir -p "$LATE_TARGET/observer-state/nested") >/dev/null 2>&1 & while [ ! -f "$READY_TARGET" ]; do sleep 0.01; done',
+              command: `(touch "$READY_TARGET"; ${
+                shellAwaitFile('"$RELEASE_TARGET"')
+              }; mkdir -p "$LATE_TARGET/observer-state/nested") >/dev/null 2>&1 & ${
+                shellAwaitFile('"$READY_TARGET"')
+              }`,
             },
             {
               cwd: createdDir,
@@ -164,8 +168,10 @@ Deno.test({
         [
           "#!/bin/sh",
           "common_dir=$(git rev-parse --path-format=absolute --git-common-dir)",
-          '(touch "$common_dir/probe-hook-ready"; while [ ! -f "$common_dir/probe-torn-down" ]; do sleep 0.01; done; mkdir -p "$PWD/hook-late/nested") >/dev/null 2>&1 &',
-          'while [ ! -f "$common_dir/probe-hook-ready" ]; do sleep 0.01; done',
+          `(touch "$common_dir/probe-hook-ready"; ${
+            shellAwaitFile('"$common_dir/probe-torn-down"')
+          }; mkdir -p "$PWD/hook-late/nested") >/dev/null 2>&1 &`,
+          shellAwaitFile('"$common_dir/probe-hook-ready"'),
           "",
         ].join("\n"),
       );

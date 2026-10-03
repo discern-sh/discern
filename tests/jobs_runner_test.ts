@@ -28,6 +28,7 @@ import {
 import { lstatIfExists, targetExists } from "../src/shared/fs_presence.ts";
 import { realDelay, waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { readPidIfReady } from "./process_id.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
 
 const CWD = Deno.cwd();
 
@@ -76,7 +77,7 @@ Deno.test("runParallel: observer sees starts up front and settlements in real co
     const result = await runParallel([
       {
         label: "slow",
-        command: "while [ ! -f fast-settled ]; do sleep 0.01; done",
+        command: shellAwaitFile("fast-settled"),
       },
       { label: "fast", command: ":" },
     ], {
@@ -114,8 +115,9 @@ Deno.test("buffered capture feeds complete and partial text to a separate live o
     const events: string[] = [];
     const result = await runParallel([{
       label: "chatty",
-      command:
-        "printf 'first\\npar'; while [ ! -f release ]; do sleep 0.01; done; printf 'tial\\n'; exit 1",
+      command: `printf 'first\\npar'; ${
+        shellAwaitFile("release")
+      }; printf 'tial\\n'; exit 1`,
     }], {
       cwd: dir,
       stream: false,
@@ -256,8 +258,11 @@ Deno.test({
       const result = await runParallel([
         {
           label: "background",
-          command:
-            '(touch "$READY_TARGET"; while [ ! -f "$RELEASE_TARGET" ]; do sleep 0.01; done; mkdir -p "$LATE_TARGET") >/dev/null 2>&1 & while [ ! -f "$READY_TARGET" ]; do sleep 0.01; done',
+          command: `(touch "$READY_TARGET"; ${
+            shellAwaitFile('"$RELEASE_TARGET"')
+          }; mkdir -p "$LATE_TARGET") >/dev/null 2>&1 & ${
+            shellAwaitFile('"$READY_TARGET"')
+          }`,
         },
       ], {
         cwd: dir,
@@ -506,7 +511,7 @@ Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async
     const r = await runParallel([
       {
         label: "boom",
-        command: "while [ ! -f stubborn.ready ]; do sleep 0.05; done; exit 2",
+        command: `${shellAwaitFile("stubborn.ready")}; exit 2`,
       },
       {
         label: "stubborn",
