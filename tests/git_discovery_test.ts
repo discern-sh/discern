@@ -25,7 +25,7 @@ import {
   withCompletionPublication,
   withOperationLock,
 } from "../src/engine/operation_lock.ts";
-import { countedAdminQueries } from "./git_admin_observer.ts";
+import { countedAdminQueries, countedGitSpawns } from "./git_admin_observer.ts";
 import { addWorktree, git, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./temp_dir.ts";
 
@@ -53,26 +53,6 @@ function recording(): { calls: string[][]; run: GitDiscoveryRunner } {
       return await runGit(args, { cwd });
     },
   };
-}
-
-/** Count every git process the engine constructs during `operation`. */
-async function countedGitSpawns<T>(
-  operation: () => Promise<T>,
-): Promise<{ readonly value: T; readonly spawns: number }> {
-  const Command = Deno.Command;
-  let spawns = 0;
-  Deno.Command = class extends Command {
-    /** Count the spawn while retaining the native command. */
-    constructor(command: string | URL, options?: Deno.CommandOptions) {
-      super(command, options);
-      spawns += 1;
-    }
-  };
-  try {
-    return { value: await operation(), spawns };
-  } finally {
-    Deno.Command = Command;
-  }
 }
 
 /** A committed repository with one seed file. */

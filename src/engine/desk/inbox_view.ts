@@ -495,13 +495,16 @@ function details(
   return { content, strip };
 }
 
-/** The header's liveness: Live, Refreshing, Retrying, or Offline. */
+/**
+ * The header's liveness: Live, Refreshing, Retrying, or Offline. A check of
+ * the fleet's fingerprint is part of being Live; only a survey refreshes.
+ */
 function liveness(
   state: DeskProductState,
 ): "idle" | "busy" | "retrying" | "stale" {
   if (state.survey.failures >= DESK_OFFLINE_FAILURES) return "stale";
   if (state.survey.failures > 0) return "retrying";
-  return state.survey.inFlight ? "busy" : "idle";
+  return state.survey.inFlight && !state.survey.checking ? "busy" : "idle";
 }
 
 /**

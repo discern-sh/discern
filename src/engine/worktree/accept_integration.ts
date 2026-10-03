@@ -595,23 +595,25 @@ export async function executeIntegrationLanding(
         return { kind: "consent-missing", authorityNow };
       }
       log.heading("Acceptance plan");
-      log.detail(`Branch:        ${effort.branch}`);
-      log.detail(`Submission:    ${short(frozen.head)} (frozen)`);
-      log.detail(
-        `Into trunk:    ${mainRepo} (advance ${trunk} to composed ${
-          short(composed.head)
-        })`,
-      );
-      log.detail(
-        `Authority:     ${
-          landingAuthorityDetail(
+      log.detailRows([
+        { label: "Branch:", body: effort.branch },
+        { label: "Submission:", body: `${short(frozen.head)} (frozen)` },
+        {
+          label: "Into trunk:",
+          body: `${mainRepo} (advance ${trunk} to composed ${
+            short(composed.head)
+          })`,
+        },
+        {
+          label: "Authority:",
+          body: landingAuthorityDetail(
             authorityNow.kind === "authorized"
               ? authorityNow
               : decision.authority,
             consent.source === "conversation",
-          )
-        }`,
-      );
+          ),
+        },
+      ]);
       for (const warning of authorityNow.warnings) log.warn(warning);
 
       emitCompletionProgress({

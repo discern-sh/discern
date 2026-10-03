@@ -667,10 +667,11 @@ Deno.test("done: the producer boundary fails closed when a fixer corrupts the in
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "check/test");
     assertEquals(stepFor(obj, "format").outcome, "ok");
-    assertEquals(
-      obj.data.completion?.pending?.[0]?.kind,
-      "stale-evidence",
-    );
+    // Git cannot read the checkout, so no comparison ran: the run reports
+    // that refusal rather than naming a change it never observed.
+    const pending = obj.data.completion?.pending?.[0];
+    assertEquals(pending?.kind, "unavailable");
+    assertStringIncludes(pending?.reason ?? "", "Cannot verify the candidate");
     assertEquals(obj.data.gate_proof?.status, "pending");
     assertEquals(await Deno.readTextFile(join(dir, ".git/index")), "garbage");
   });

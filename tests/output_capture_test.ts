@@ -20,6 +20,7 @@ import { Logger } from "../src/lib/log.ts";
 import { emitResult } from "../src/shared/emit.ts";
 import { canInteract } from "../src/lib/terminal_interaction.ts";
 import { pinnedTerminal } from "./helpers.ts";
+import { wholeStreamedOutput } from "../src/lib/live_tail.ts";
 
 /** What reached the real streams while `work` ran. */
 async function streams(
@@ -76,7 +77,8 @@ Deno.test("inside a capture every boundary writes to it and none to the terminal
   let interactive: boolean | undefined;
   const { process } = await streams(() =>
     withOutputCapture({
-      write: (stream, text) => captured.push([stream, text]),
+      write: (stream, text) =>
+        captured.push([stream, wholeStreamedOutput(text)]),
     }, () => {
       writeEverywhere();
       interactive = canInteract(false);

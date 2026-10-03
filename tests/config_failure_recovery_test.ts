@@ -50,12 +50,12 @@ function assertUnknownRootRecovery(
   section = TYPO_SECTION,
 ): void {
   const lower = text.toLowerCase();
-  assertStringIncludes(text, "running discern process");
+  assertTerminalTextIncludes(text, "running discern process");
   assertStringIncludes(text, `[${section}]`);
   assertStringIncludes(lower, "restart");
   assertStringIncludes(lower, "reload");
   assertStringIncludes(lower, "binary");
-  assertStringIncludes(lower, "section typo");
+  assertTerminalTextIncludes(lower, "section typo");
   assertStringIncludes(text, "config-reference");
   assertStringIncludes(text, "doctor");
 }
@@ -110,7 +110,7 @@ Deno.test("unknown root section keeps strict CLI failure and recovery on human, 
 
     const human = await runAgent(dir, ["status"]);
     assertEquals(human.code, 1, human.output);
-    assertStringIncludes(human.stderr, expectedRecovery);
+    assertTerminalTextIncludes(human.stderr, expectedRecovery);
     assertUnknownRootRecovery(human.stderr);
 
     const markdown = await runAgent(dir, ["status", "--markdown"]);

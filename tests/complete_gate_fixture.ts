@@ -9,7 +9,7 @@ import { writeCompletionRecord } from "../src/engine/completion/store.ts";
 import { saveCompletionArtifact } from "../src/engine/completion/artifacts.ts";
 import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
 import { readCompleteProof } from "../src/engine/gate/completion_proof.ts";
-import { COMPLETION_CLOCK, completionFixtures } from "./completion_fixtures.ts";
+import { completionFixtures } from "./completion_fixtures.ts";
 import { completeNoteProof } from "./completion_note_fixtures.ts";
 import { gitOut } from "./engine_helpers.ts";
 
@@ -60,8 +60,6 @@ export async function completeGateFixture(
     root,
     claimed,
     null,
-    undefined,
-    COMPLETION_CLOCK,
   );
   assert(written.kind === "written", JSON.stringify(written));
   const candidateRecord = {
@@ -133,7 +131,6 @@ export async function completeGateFixture(
       record,
       null,
       fence,
-      COMPLETION_CLOCK,
     );
     assert(published.kind === "written", JSON.stringify(published));
   }
@@ -153,7 +150,6 @@ export async function completeGateFixture(
     },
     written.stamp,
     fence,
-    COMPLETION_CLOCK,
   );
   assert(settled.kind === "written", JSON.stringify(settled));
   const pointer = { candidate_id: candidateId, proof_id: proofId };

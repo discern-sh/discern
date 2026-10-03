@@ -19,7 +19,6 @@ import {
   projectScriptProcessEnv,
 } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
-import { reportFailure } from "../lib/narration.ts";
 import { resolveScriptsDir } from "../lib/paths.ts";
 import { renderAlignedRows } from "../lib/text.ts";
 import { terminalLine } from "../lib/terminal.ts";
@@ -244,8 +243,7 @@ function reportProjectScriptRefusal(
     });
     return;
   }
-  reportFailure(
-    new Logger({ json: false, noColor: false }),
+  new Logger({ json: false, noColor: false }).failure(
     message,
     [recovery],
   );

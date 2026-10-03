@@ -103,7 +103,11 @@ export {
   type GitSnapshotInspection,
   inspectGitSnapshot,
 } from "./git_snapshot.ts";
-import { discoverGit, discoverGitDirs } from "../../shared/git_discovery.ts";
+import {
+  discoverGit,
+  discoverGitDirs,
+  type GitDiscoveryRunner,
+} from "../../shared/git_discovery.ts";
 import {
   firstWorktreePath,
   git,
@@ -1941,16 +1945,18 @@ async function gitlinksInto(
  * a RELATIVE `.git` from the main checkout, so the writer (a worktree) and the GC
  * (the main checkout) MUST normalise through this one helper or they would target
  * different `<common>/discern/` directories and the ledger would be invisible to
- * GC. Returns undefined outside a git repository.
+ * GC. Returns undefined outside a git repository. A caller that accounts for
+ * its own Git processes passes the runner a fresh query goes through.
  */
 export async function resolveCommonGitDir(
   cwd: string = Deno.cwd(),
+  run: GitDiscoveryRunner = discoveryGit,
 ): Promise<string | undefined> {
-  const run = await discoverGit(cwd, { kind: "common-dir" }, discoveryGit);
-  if (!run.success) {
+  const found = await discoverGit(cwd, { kind: "common-dir" }, run);
+  if (!found.success) {
     return undefined;
   }
-  let raw = run.stdout.trim();
+  let raw = found.stdout.trim();
   if (raw === "") {
     return undefined;
   }

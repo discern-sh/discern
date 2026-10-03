@@ -40,6 +40,13 @@ const CEREMONIAL_COMPONENT_RENDERERS = new Set([
   "renderProcedureCli",
 ]);
 
+/** Interactive package exports each owned by one named adapter. */
+const OWNED_INTERACTIVE_IMPORTS: ReadonlyMap<string, string> = new Map([
+  ["InlineFramePainter", "package-inline-painter-import"],
+  ["withActivityLog", "package-activity-log-import"],
+  ["TerminalIO", "package-terminal-io-import"],
+]);
+
 /** Raw foundations are presenter-owned except inside the package-motif adapter. */
 const PRESENTER_FOUNDATION_RENDERERS = new Set([
   "renderBox",
@@ -1146,12 +1153,8 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   ) {
                     add(`package-request-import:${imported}`, node);
                   }
-                  if (imported === "InlineFramePainter") {
-                    add("package-inline-painter-import", node);
-                  }
-                  if (imported === "TerminalIO") {
-                    add("package-terminal-io-import", node);
-                  }
+                  const owned = OWNED_INTERACTIVE_IMPORTS.get(imported);
+                  if (owned !== undefined) add(owned, node);
                   if (imported === "DenoTerminalIO") {
                     terminalIoConstructors.add(entry.local.name);
                   }
@@ -1792,6 +1795,14 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     reason:
       "All Discern painters cross this one package construction boundary.",
   },
+  {
+    file: LIVE_VIEWPORT_CONTROLLER,
+    rule: "package-activity-log-import",
+    authority: "<module>",
+    count: 1,
+    reason:
+      "The package repaints every streamed line on each tick; the Gate controller hands its producers only the bounded live tail.",
+  },
 ];
 
 /** Apply exact, named exceptions; stale, moved, or increased populations fail. */
@@ -2236,7 +2247,7 @@ Deno.test("the 84-use legacy palette census reached permanent zero", async () =>
 Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and safe-text bypasses", () => {
   const source = [
     'import { Table } from "@cliffy/table";',
-    `import { DenoTerminalIO as GroundChannel, InlineFramePainter, type TerminalIO, requestFuture as ask, senseTerminalBackground as detectGround } from "${INTERACTIVE_MODULE}";`,
+    `import { DenoTerminalIO as GroundChannel, InlineFramePainter, type TerminalIO, requestFuture as ask, senseTerminalBackground as detectGround, withActivityLog as openFeed } from "${INTERACTIVE_MODULE}";`,
     'import { renderBox as frame, renderMotifSectionRule as section, renderMotifSpinnerFrame as spinner, renderMotifWorkflowStepper as workflow, renderOrbitCli as future, renderResultSummaryCli as draw } from "discern-design-system/cli";',
     'import { terminalLine as safe } from "../../lib/terminal.ts";',
     'const dynamic = import("@cliffy/prompt");',
@@ -2288,6 +2299,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "retired-cliffy-import:@cliffy/table",
       "retired-cliffy-import:@cliffy/prompt",
       "package-inline-painter-import",
+      "package-activity-log-import",
       "package-terminal-io-import",
       "package-request-import:requestFuture",
       "package-background-sensor-import",

@@ -25,13 +25,17 @@ import {
 import { integrationBranch } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import type { CompletionArtifact } from "./artifacts.ts";
+import { claimLossBlocker } from "./attempt.ts";
 import {
   recoverAbandonedAttempts,
   reserveAttempt,
   withAttemptClaim,
 } from "./attempt_lifecycle.ts";
 import type { Candidate } from "./candidate.ts";
-import { completionRecordBlocker } from "./compatibility.ts";
+import {
+  completionRecordBlocker,
+  publicationRefusal,
+} from "./compatibility.ts";
 import { emitCompletionEvent, emitComponentUse } from "./events.ts";
 import type { Executor, SourceRevision } from "./identity.ts";
 import { currentOperationHandle } from "./operation_journal.ts";
@@ -83,6 +87,23 @@ export async function requirementsAt(
       entry,
     ) => entry.requirement),
   );
+}
+
+/**
+ * A retired run's outcome. Another run closed its attempt, so whatever the
+ * run chose to report, the retirement is its one pending cause.
+ */
+function retiredCompletion<T>(
+  value: CompletedCandidate<T> | CompletionBlocker | undefined,
+): CompletedCandidate<T> | CompletionBlocker {
+  if (value?.kind !== "completed") return claimLossBlocker();
+  return {
+    kind: "completed",
+    value: value.value,
+    candidate_id: value.candidate_id,
+    candidate: value.candidate,
+    blockers: [claimLossBlocker()],
+  };
 }
 
 /** Project recorded readings onto validated envelopes. */
@@ -257,7 +278,7 @@ export async function completeSourceTip<T>(
       candidate_id: candidateId,
       attempt_id: reserved.attempt.identity.id,
     };
-    return await withAttemptClaim(
+    const claimed = await withAttemptClaim(
       root,
       reserved.fence,
       signal,
@@ -329,20 +350,10 @@ export async function completeSourceTip<T>(
             reserved.fence,
           );
           if (written.kind !== "written") {
-            publicationFailure = written.kind === "newer" ||
-                written.kind === "older" || written.kind === "invalid" ||
-                written.kind === "unavailable"
-              ? completionRecordBlocker({
-                records: [{
-                  selector: { kind: "evidence", id: evidenceId },
-                  reading: written,
-                }],
-              })
-              : {
-                kind: "stale-evidence",
-                evidence_ids: [],
-                reason: "claim-lost",
-              };
+            publicationFailure = publicationRefusal(
+              { kind: "evidence", id: evidenceId },
+              written,
+            );
             break;
           }
           emitComponentUse(
@@ -408,34 +419,27 @@ export async function completeSourceTip<T>(
           await settle("failed");
           return { ...base, blockers: assembly.blockers };
         }
+        // The Proof is published in the transition that settles the attempt
+        // passed, so a retirement lands before both or not at all.
         const proofId = reserved.fence.attempt_id;
-        const proof = await writeCompletionRecord(
-          root,
-          {
-            version: ON_DISK_FORMATS.completionRecord.version,
-            kind: "proof",
-            id: proofId,
-            revision: 1,
-            data: {
-              ...assembly.proof,
-              ...(result.review === undefined ? {} : { review: result.review }),
-            },
+        const refused = await settle("passed", {
+          version: ON_DISK_FORMATS.completionRecord.version,
+          kind: "proof",
+          id: proofId,
+          revision: 1,
+          data: {
+            ...assembly.proof,
+            ...(result.review === undefined ? {} : { review: result.review }),
           },
-          null,
-          reserved.fence,
-        );
-        if (proof.kind !== "written") {
-          await settle("failed");
+        });
+        if (refused !== undefined) {
           return {
             ...base,
-            blockers: [{
-              kind: "unavailable" as const,
-              reason:
-                `Proof publication ${proof.kind}; observe the records and run discern done again.`,
-            }],
+            blockers: [
+              publicationRefusal({ kind: "proof", id: proofId }, refused),
+            ],
           };
         }
-        await settle("passed");
         emitCompletionEvent({
           id: `${proofId}:proven`,
           at: SYSTEM_CLOCK.wallNow(),
@@ -454,6 +458,9 @@ export async function completeSourceTip<T>(
         return { ...base, proof_id: proofId, blockers: [] };
       },
     );
+    return claimed.kind === "settled"
+      ? claimed.value
+      : retiredCompletion(claimed.value);
   }, options.signal);
   if (attribution !== undefined) {
     const finishedAt = SYSTEM_CLOCK.wallNow();

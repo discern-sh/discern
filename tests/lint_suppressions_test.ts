@@ -6,7 +6,7 @@
  * that enrolls new JavaScript and TypeScript files automatically.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import {
   effectiveLintExclusions,
   type FileLintSuppression,
@@ -109,6 +109,33 @@ Deno.test("lint suppressions: effectiveLintExclusions cases", () => {
           },
         ],
       );
+    },
+    "lint exclusion census counts the top-level exclude deno lint also applies":
+      () => {
+        assertEquals(
+          effectiveLintExclusions(
+            JSON.stringify({
+              exclude: [".scratch/", "shared-root/"],
+              lint: { exclude: ["lint-root/"] },
+            }),
+            ["shared-root/tool.ts", "lint-root/tool.ts", "src/main.ts"],
+          ),
+          [
+            { pattern: "shared-root/", files: ["shared-root/tool.ts"] },
+            { pattern: "lint-root/", files: ["lint-root/tool.ts"] },
+          ],
+        );
+      },
+    "lint exclusion census refuses a malformed exclusion list": () => {
+      for (
+        const config of [
+          [],
+          { exclude: "shared-root/" },
+          { lint: { exclude: [1] } },
+        ]
+      ) {
+        assertThrows(() => effectiveLintExclusions(JSON.stringify(config), []));
+      }
     },
   });
 });

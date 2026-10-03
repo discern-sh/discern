@@ -53,6 +53,7 @@ import {
   createValidationRuntime,
   observeCompletionRecords,
   observeValidationInputs,
+  verifyValidationInputs,
 } from "./runtime.ts";
 import { bindAttemptDemand } from "../completion/attempt_lifecycle.ts";
 import {
@@ -341,14 +342,8 @@ export async function executePublicValidation(input: {
       timeouts: configured.timeouts,
       jobLabel: producerLabel,
       presentation,
-      verifyConditions: async () => {
-        if (
-          JSON.stringify(
-            await observeValidationInputs(root, toolchain, selection),
-          ) !==
-            JSON.stringify(inputs)
-        ) throw new Error("Candidate inputs changed during validation.");
-      },
+      verifyConditions: () =>
+        verifyValidationInputs(root, inputs, toolchain, selection),
       onStart: (selector) => {
         if (!selector.startsWith("extract:")) {
           counts[selector] = (counts[selector] ?? 0) + 1;

@@ -433,20 +433,14 @@ export function taskOperation(
 
 /** Start a survey now, or queue exactly one follow-up while one runs. */
 export function refresh(state: DeskProductState): DeskTransition {
-  if (state.survey.inFlight) {
+  if (state.survey.inFlight && !state.survey.checking) {
     return {
       state: { ...state, survey: { ...state.survey, followUp: true } },
       effects: [],
     };
   }
-  const generation = state.survey.generation + 1;
-  return {
-    state: {
-      ...state,
-      survey: { ...state.survey, generation, inFlight: true, followUp: false },
-    },
-    effects: [{ kind: "survey", generation }],
-  };
+  // A check in flight gives way: what was asked for is a survey.
+  return resurvey(state);
 }
 
 /**
@@ -459,7 +453,13 @@ export function resurvey(state: DeskProductState): DeskTransition {
   return {
     state: {
       ...state,
-      survey: { ...state.survey, generation, inFlight: true, followUp: false },
+      survey: {
+        ...state.survey,
+        generation,
+        inFlight: true,
+        checking: false,
+        followUp: false,
+      },
     },
     effects: [{ kind: "survey", generation }],
   };

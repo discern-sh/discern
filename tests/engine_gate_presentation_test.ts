@@ -3,7 +3,9 @@
 import { assertCases, assertCasesAsync } from "./assert_cases.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { stripAnsi } from "discern-design-system/cli";
+import { withActivityLog } from "discern-design-system/cli/interactive";
 import { withOutputCapture } from "../src/shared/output_capture.ts";
+import { liveTailLimit } from "../src/lib/live_tail.ts";
 import {
   createGateTtyProgress,
   type GateTtyProgress,
@@ -39,6 +41,7 @@ import {
   renderProofMarkdown,
 } from "../src/engine/gate/proof_render.ts";
 import type { JobGroup } from "../src/engine/gate/plan.ts";
+import type { JobOutputEvent } from "../src/engine/jobs/types.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   resolveTerminalContext,
@@ -161,6 +164,7 @@ const GROUP: JobGroup = {
 async function controlledGateActivity(
   initial: { readonly columns: number; readonly rows: number },
   tailRows: number,
+  activityLog: typeof withActivityLog = withActivityLog,
 ): Promise<{
   readonly progress: GateTtyProgress;
   readonly writes: string[];
@@ -180,6 +184,7 @@ async function controlledGateActivity(
       width: initial.columns,
       terminal: viewport.terminal,
       tailRows,
+      activityLog,
       scheduler: {
         repeat(next, intervalMs): () => void {
           assertEquals(intervalMs, 80);
@@ -327,6 +332,117 @@ Deno.test("Gate output policy separates live presentation from static transcript
   });
   assertEquals(quiet.output.kind, "quiet-result");
   assertEquals(quiet.capture, "buffered-capped");
+});
+
+/** The real package bracket, recording every streamed line it receives. */
+function recordedActivityLog(received: string[]): typeof withActivityLog {
+  return (options, operation) =>
+    withActivityLog(options, (log) =>
+      operation({
+        get label(): string {
+          return log.label;
+        },
+        append: (line): void => {
+          received.push(line);
+          log.append(line);
+        },
+        updatePartial: (line): void => {
+          received.push(line);
+          log.updatePartial(line);
+        },
+        pin: (text, tone): void => log.pin(text, tone),
+        relabel: (label): void => log.relabel(label),
+        finish: (completion): void => log.finish(completion),
+      }));
+}
+
+const LONG_STREAMED_LINE = `FIRST-WORDS ${"word ".repeat(4_000)}FINAL-WORDS`;
+
+Deno.test("Gate activity writes a long line whole once the package stops repainting", async () => {
+  const line: JobOutputEvent = {
+    kind: "line",
+    label: "lint",
+    text: LONG_STREAMED_LINE,
+  };
+  const partial: JobOutputEvent = { ...line, kind: "partial" };
+  await assertCasesAsync(
+    [
+      {
+        name: "a line written after the frame falls back",
+        live: [],
+        after: [line],
+      },
+      {
+        name: "a partial still pending when the frame falls back",
+        live: [partial],
+        after: [],
+      },
+    ] as const,
+    (row) => row.name,
+    async (row) => {
+      const received: string[] = [];
+      const { progress, writes, viewport, lint, tick } =
+        await controlledGateActivity(
+          { columns: 64, rows: 20 },
+          4,
+          recordedActivityLog(received),
+        );
+      progress.started(lint);
+      for (const event of row.live) progress.output(event);
+      tick();
+      await Promise.resolve();
+      viewport.set({ columns: 64, rows: 3 });
+      tick();
+      await Promise.resolve();
+      const appendOnly = writes.length;
+      for (const event of row.after) progress.output(event);
+      await progress.complete(PROOF_STEPS);
+
+      assertEquals(received.at(-1), `lint │ ${LONG_STREAMED_LINE}`);
+      assertStringIncludes(
+        stripAnsi(writes.slice(appendOnly).join("")),
+        LONG_STREAMED_LINE,
+        "append-only output writes each line once and keeps all of it",
+      );
+    },
+  );
+});
+
+Deno.test("Gate activity hands the package only the live tail of a long line", async () => {
+  const received: string[] = [];
+  const [columns, tailRows] = [48, 2];
+  const { progress, writes, lint, tick } = await controlledGateActivity(
+    { columns, rows: 20 },
+    tailRows,
+    recordedActivityLog(received),
+  );
+  const long = LONG_STREAMED_LINE;
+
+  progress.started(lint);
+  progress.output({ kind: "partial", label: "lint", text: long });
+  tick();
+  await Promise.resolve();
+  assertStringIncludes(stripAnsi(writes.at(-1) ?? ""), "lint │ FIRST-WORDS");
+  progress.output({ kind: "line", label: "lint", text: long });
+  tick();
+  await Promise.resolve();
+  assertStringIncludes(stripAnsi(writes.at(-1) ?? ""), "FINAL-WORDS");
+  progress.transient(long);
+  tick();
+  await Promise.resolve();
+  await progress.complete(PROOF_STEPS);
+
+  const bound = "lint │ ".length + liveTailLimit("fill", columns, tailRows);
+  assertEquals(
+    received.length,
+    4,
+    "a partial, a line, a transient, and the transient handed over again at finish",
+  );
+  assertEquals(
+    received.filter((text) => text.length > bound).map((text) => text.length),
+    [],
+    "the package repaints a streamed line on every tick, so it must receive only the tail it can show",
+  );
 });
 
 Deno.test("Gate output stays static while its output is captured", async () => {

@@ -574,6 +574,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "deno-visible-ignore-patterns",
+    title: "Git-ignore patterns outside Deno exclusion",
+    what:
+      "Every pattern a tracked .gitignore ignores that deno.json's top-level exclude deliberately leaves visible, with the reason it is safe; every other ignored pattern is excluded so Deno's check and test discovery never reach ignored scratch or build output.",
+    source: {
+      kind: "module",
+      module: "scripts/repository_files.ts",
+      exportName: "DENO_VISIBLE_IGNORE_PATTERNS",
+    },
+    guards: ["tests/deno_discovery_exclusions_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "these are repository-maintenance paths rather than product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the repository's own Deno discovery scope does not change product behavior",
+      },
+    },
+    members: async () =>
+      (await import("./repository_files.ts")).DENO_VISIBLE_IGNORE_PATTERNS.map(
+        (entry) => `${entry.discovery}: ${entry.pattern}`,
+      ),
+  },
+  {
     id: "repository-community-files",
     title: "Repository community files",
     what:
@@ -970,7 +997,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "git-admin-state",
     title: "Git-admin state",
     what:
-      "Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.",
+      "Every discern-owned Git-admin artifact carries its path, lifetime, shape, validation-write policy, and how the fleet change probe watches it. Registry-driven guards enroll each new member in placement, lifecycle, and change-probe checks.",
     source: {
       kind: "module",
       module: "src/shared/git_admin_state.ts",
@@ -982,6 +1009,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/engine_logbook_lifecycle_test.ts",
       "tests/engine_write_preflight_test.ts",
       "tests/engine_effort_grant_test.ts",
+      "tests/engine_fleet_fingerprint_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -4320,7 +4348,7 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
   "tests/browser_axe_settling_guard_test.ts":
     "keeps every real-page accessibility audit on the helper that settles transitions first rather than guarding a closed member set",
   "tests/completion_attempt_lease_guard_test.ts":
-    "applies renewable ownership to every production completion-attempt reservation call site rather than guarding a project-defined member set",
+    "applies renewable ownership to every production completion-attempt reservation call site and keeps every lease read inside the claim model, rather than guarding a project-defined member set",
   "tests/file_lock_guard_test.ts":
     "requires every authored production use of native file-lock primitives to share explicit release ownership rather than guarding a project-defined member set",
   "tests/engine_desk_terminal_guard_test.ts":
@@ -4343,6 +4371,8 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set",
   "tests/terminal_boundary_guard_test.ts":
     "applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set",
+  "tests/terminal_live_tail_guard_test.ts":
+    "applies the live-tail bound to every runtime call site that hands streamed output to a repainting package view rather than guarding a closed member set",
   "tests/logger_ambient_guard_test.ts":
     "applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment",
   "tests/lifecycle_trunk_resolution_guard_test.ts":

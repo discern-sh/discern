@@ -1728,6 +1728,19 @@ function presentEntry(
 }
 
 /**
+ * How long a run has gone at `now`, when an observation read at `observedAt`
+ * reported `elapsedMs`: status reports a run's elapsed time as of its read,
+ * and every later reading counts on from it by the clock.
+ */
+export function elapsedSince(
+  elapsedMs: number,
+  observedAt: number,
+  now: number,
+): number {
+  return elapsedMs + Math.max(0, now - observedAt);
+}
+
+/**
  * A row's explanation as it reads `elapsedMs` into its run. Status words a
  * running row's explanation from the elapsed time it observed, so a view
  * built between surveys counts it on in whole seconds, as the row's clock

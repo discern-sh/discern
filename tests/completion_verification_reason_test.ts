@@ -1,0 +1,728 @@
+/**
+ * Every reason a run reports for evidence that no longer applies comes from
+ * the comparison that found it. The runtime's comparisons run against a real
+ * checkout and its completion records; every run outcome is then crossed with
+ * every finding a closing verification can return, and the rendered pending
+ * causes must name exactly the computed reason.
+ */
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { candidateAuthor } from "../src/engine/completion/candidate.ts";
+import {
+  AttemptClaimLost,
+  claimLossBlocker,
+} from "../src/engine/completion/attempt.ts";
+import {
+  type CompletionRecord,
+  CompletionRecordSchema,
+} from "../src/engine/completion/records.ts";
+import {
+  type CompletionWriteRefusal,
+  FENCE_REFUSALS,
+  openCompletionRecordStore,
+  type PublicationFence,
+  readCompletionRecord,
+  unreadableAttempt,
+  writeCompletionRecord,
+} from "../src/engine/completion/store.ts";
+import type {
+  ClaimedExecution,
+  CompletionBlocker,
+} from "../src/engine/completion/protocol.ts";
+import { completionBlockerAccount } from "../src/engine/completion/progress_prose.ts";
+import {
+  type InvalidationReason,
+  InvalidationReasonSchema,
+} from "../src/engine/completion/outcomes.ts";
+import { publicationRefusal } from "../src/engine/completion/compatibility.ts";
+import {
+  executeValidation,
+  type ProducerCapture,
+  type ValidationRuntime,
+  ValidationSubjectChanged,
+} from "../src/engine/validation/execute.ts";
+import { planValidation } from "../src/engine/validation/plan.ts";
+import {
+  createValidationRuntime,
+  observeValidationInputs,
+  verifyValidationInputs,
+} from "../src/engine/validation/runtime.ts";
+import type {
+  ValidationInputs,
+  ValidationSnapshot,
+} from "../src/engine/validation/catalog.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+import {
+  type PooledInstallCase,
+  withPristineInstalls,
+} from "./engine_surface_fixture.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
+import {
+  captured,
+  claimed,
+  COMPLETION_CLOCK,
+  completionId,
+  CONDITIONS,
+  countedRuntime,
+  observation,
+  PRODUCER_RECIPE,
+  snapshot,
+} from "./completion_producers_fixtures.ts";
+import { COMPLETION_CLAIM, completionFixtures } from "./completion_fixtures.ts";
+import { withTempDir } from "./helpers.ts";
+
+/** What one verification established: a named change, nothing, or no answer. */
+type Finding = InvalidationReason | "unchanged" | "unverifiable";
+
+/** A committed checkout whose live attempt and candidate are recorded. */
+interface RecordedCheckout {
+  readonly root: string;
+  readonly snap: ValidationSnapshot;
+  readonly execution: ClaimedExecution;
+  /** The production runtime, planned on `environment` and the checkout's inputs. */
+  readonly runtime: (environment?: Record<string, string>) => ValidationRuntime;
+}
+
+/** What a seeded checkout planned, independent of where a copy of it lives. */
+interface RecordedSeed {
+  readonly snap: ValidationSnapshot;
+  readonly execution: ClaimedExecution;
+  readonly inputs: ValidationInputs;
+}
+
+/** Commit a checkout and record its live attempt and candidate. */
+async function seedRecordedCheckout(root: string): Promise<RecordedSeed> {
+  // The toolchain file is ignored, so a change to it reaches only the
+  // planned-input comparison and never the checkout status.
+  await Deno.writeTextFile(join(root, ".gitignore"), "tool.lock\n");
+  await Deno.writeTextFile(join(root, "tool.lock"), "toolchain v1\n");
+  await gitInit(root);
+  const baseline = await snapshot();
+  const head = await gitOut(root, "rev-parse", "HEAD");
+  const tree = await gitOut(root, "rev-parse", "HEAD^{tree}");
+  const inputs = await observeValidationInputs(root, PRODUCER_RECIPE.toolchain);
+  const snap = await snapshot({
+    candidate: {
+      ...baseline.candidate,
+      attempt_id: completionId(101),
+      head,
+      tree,
+      sources: [{ ...candidateAuthor(baseline.candidate), head, tree }],
+    },
+    inputs,
+  });
+  const plan = planValidation(snap, observation(), {
+    kind: "done",
+    mode: "strict",
+    requirements: snap.requirements,
+  });
+  const execution = claimed(snap, plan);
+  for (
+    const [record, fence] of [
+      [{
+        kind: "attempt",
+        id: execution.attempt.identity.id,
+        data: execution.attempt,
+      }, undefined],
+      [
+        { kind: "candidate", id: snap.candidate_id, data: snap.candidate },
+        execution.fence,
+      ],
+    ] as const
+  ) {
+    assertEquals(
+      (await writeCompletionRecord(
+        root,
+        CompletionRecordSchema.parse({
+          version: ON_DISK_FORMATS.completionRecord.version,
+          revision: 1,
+          ...record,
+        }),
+        null,
+        fence,
+      )).kind,
+      "written",
+    );
+  }
+  return { snap, execution, inputs };
+}
+
+/** The seeded checkout as a copy at `root` holds it; records travel in its Git directory. */
+function recordedCheckout(seed: RecordedSeed, root: string): RecordedCheckout {
+  const conditions = CONDITIONS[0];
+  assert(conditions !== undefined);
+  return {
+    root,
+    snap: seed.snap,
+    execution: { ...seed.execution, path: root },
+    runtime: (environment = { MODE: "test" }) =>
+      createValidationRuntime({
+        root,
+        conditions,
+        environment,
+        inheritedEnvironment: { get: () => undefined },
+        timeout: 30,
+        verifyConditions: () =>
+          verifyValidationInputs(root, seed.inputs, PRODUCER_RECIPE.toolchain),
+        clock: COMPLETION_CLOCK,
+      }),
+  };
+}
+
+/** Another run closes the attempt, as recovery does after a lapsed lease. */
+async function retire(
+  root: string,
+  execution: ClaimedExecution,
+): Promise<void> {
+  const current = await readCompletionRecord(root, {
+    kind: "attempt",
+    id: execution.attempt.identity.id,
+  });
+  assert(current.kind === "recorded" && current.record.kind === "attempt");
+  assertEquals(
+    (await writeCompletionRecord(
+      root,
+      CompletionRecordSchema.parse({
+        ...current.record,
+        revision: current.record.revision + 1,
+        data: {
+          ...current.record.data,
+          state: { kind: "finished", outcome: "cancelled", finished_at: 150 },
+        },
+      }),
+      current.stamp,
+    )).kind,
+    "written",
+  );
+}
+
+/** Replace a record's bytes in place, outside the store's transition rules. */
+async function overwrite(
+  root: string,
+  selector: { readonly kind: "attempt" | "candidate"; readonly id: string },
+  text: (current: string) => string,
+): Promise<void> {
+  const store = await openCompletionRecordStore(root);
+  assert(store !== undefined);
+  const path = store.path(selector);
+  await Deno.writeTextFile(path, text(await Deno.readTextFile(path)));
+}
+
+/** What the closing verification established for this checkout, and said. */
+async function finding(
+  runtime: ValidationRuntime,
+  execution: ClaimedExecution,
+): Promise<{ readonly found: Finding; readonly message?: string }> {
+  try {
+    await runtime.verify(execution, { allowCancelled: true });
+    return { found: "unchanged" };
+  } catch (error) {
+    assert(error instanceof Error);
+    return {
+      found: error instanceof ValidationSubjectChanged
+        ? error.reason
+        : "unverifiable",
+      message: error.message,
+    };
+  }
+}
+
+/** One state the checkout can reach during a run, and what verification must find. */
+interface CheckoutChange {
+  readonly name: string;
+  readonly found: Finding;
+  readonly change: (
+    checkout: RecordedCheckout,
+  ) => Promise<
+    { runtime?: ValidationRuntime; execution?: ClaimedExecution } | void
+  >;
+}
+
+const CHECKOUT_CHANGES: readonly CheckoutChange[] = [
+  { name: "nothing changed", found: "unchanged", change: async () => {} },
+  {
+    name: "another run retired the attempt",
+    found: "claim-lost",
+    change: ({ root, execution }) => retire(root, execution),
+  },
+  {
+    name: "the recorded candidate names another source",
+    found: "source-replaced",
+    change: ({ root, snap }) =>
+      overwrite(
+        root,
+        { kind: "candidate", id: snap.candidate_id },
+        (text) => text.replace(snap.candidate.tree, "f".repeat(40)),
+      ),
+  },
+  {
+    name: "a commit moved HEAD",
+    found: "source-replaced",
+    change: ({ root }) =>
+      git(root, "commit", "-q", "--allow-empty", "-m", "moved"),
+  },
+  {
+    name: "a file appeared in the checkout",
+    found: "inputs-changed",
+    change: ({ root }) => Deno.writeTextFile(join(root, "new.txt"), "new\n"),
+  },
+  {
+    name: "an ignored toolchain file changed",
+    found: "inputs-changed",
+    change: ({ root }) =>
+      Deno.writeTextFile(join(root, "tool.lock"), "toolchain v2\n"),
+  },
+  {
+    name: "a declared environment variable changed",
+    found: "environment-changed",
+    change: (checkout) =>
+      Promise.resolve({ runtime: checkout.runtime({ MODE: "other" }) }),
+  },
+  {
+    name: "the checkout seed changed",
+    found: "seed-changed",
+    change: ({ execution }) =>
+      Promise.resolve({ execution: { ...execution, seed: 7 } }),
+  },
+  {
+    name: "the attempt record is unreadable",
+    found: "unverifiable",
+    change: ({ root, execution }) =>
+      overwrite(
+        root,
+        { kind: "attempt", id: execution.attempt.identity.id },
+        () => "{",
+      ),
+  },
+  {
+    name: "the candidate record is unreadable",
+    found: "unverifiable",
+    change: ({ root, snap }) =>
+      overwrite(root, { kind: "candidate", id: snap.candidate_id }, () => "{"),
+  },
+  {
+    name: "Git cannot read the checkout's index",
+    found: "unverifiable",
+    change: ({ root }) =>
+      Deno.writeTextFile(join(root, ".git", "index"), "garbage"),
+  },
+];
+
+/** The rendered pending causes a run reports, as narration prints them. */
+function rendered(blockers: readonly CompletionBlocker[]): string[] {
+  return blockers.map((blocker) => {
+    const account = completionBlockerAccount(blocker);
+    return `${account.reason} ${account.next}`;
+  });
+}
+
+Deno.test("a verification against a real checkout reports what its comparison found", async (t) => {
+  // Every case mutates its own copy of one seeded checkout.
+  let seed: RecordedSeed | undefined;
+  const at = (root: string): RecordedCheckout => {
+    assert(seed !== undefined, "the checkout is seeded before any case");
+    return recordedCheckout(seed, root);
+  };
+  await withPristineInstalls(
+    t,
+    async (root) => {
+      seed = await seedRecordedCheckout(root);
+    },
+    [
+      ...CHECKOUT_CHANGES.map((scenario): PooledInstallCase => [
+        scenario.name,
+        async (root) => {
+          const checkout = at(root);
+          const changed = await scenario.change(checkout) ?? {};
+          const verified = await finding(
+            changed.runtime ?? checkout.runtime(),
+            changed.execution ?? checkout.execution,
+          );
+          assertEquals(verified.found, scenario.found);
+          if (verified.found === "claim-lost") {
+            // Whichever step finds the retirement, it is told in one sentence.
+            assertEquals(verified.message, new AttemptClaimLost().message);
+          }
+        },
+      ]),
+      [
+        "a run retired mid-validation reports the retirement, not changed inputs",
+        async (root) => {
+          const checkout = at(root);
+          const controller = new AbortController();
+          const execution = {
+            ...checkout.execution,
+            signal: controller.signal,
+          };
+          const plan = planValidation(checkout.snap, observation(), {
+            kind: "done",
+            mode: "strict",
+            requirements: checkout.snap.requirements,
+          });
+          const result = await executeValidation(
+            checkout.snap,
+            plan,
+            execution,
+            {
+              ...checkout.runtime(),
+              produce: async () => {
+                await retire(root, execution);
+                controller.abort(new AttemptClaimLost());
+                return {
+                  outcome: "cancelled",
+                  complete: false,
+                  output: new Uint8Array(),
+                  artifacts: [],
+                  reason: "command failed (1)",
+                };
+              },
+            },
+            COMPLETION_CLOCK,
+          );
+          assertEquals(
+            [...new Set(rendered(result.blockers))],
+            rendered([claimLossBlocker()]),
+          );
+        },
+      ],
+    ],
+  );
+});
+
+Deno.test("every change a production comparison can report is exercised against a real checkout", async () => {
+  // A comparison that raises a new reason, or computes its reason, must
+  // arrive with a row above that drives it from a real checkout.
+  const files = await structuralGuardScope({
+    guard: "tests/completion_verification_reason_test.ts#raised-reasons",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Verification comparisons are production engine code; tests raise findings only to drive the mapping.",
+      include: (path) => path.startsWith("src/"),
+    },
+  });
+  const raised = new Set<string>();
+  for (const path of files) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, path));
+    for (
+      const match of source.matchAll(
+        /\bnew ValidationSubjectChanged\(\s*([^,]*),/gu,
+      )
+    ) {
+      const literal = /^"([a-z-]+)"$/u.exec(match[1]?.trim() ?? "");
+      assert(
+        literal?.[1] !== undefined,
+        `${path}: ValidationSubjectChanged names its reason as a literal, so its comparison is enumerable`,
+      );
+      raised.add(literal[1]);
+    }
+  }
+  assert(raised.size > 0, "the guard must observe the production comparisons");
+  assertEquals(
+    [...raised].sort(),
+    [
+      ...new Set(
+        CHECKOUT_CHANGES.flatMap((scenario) =>
+          scenario.found === "unchanged" || scenario.found === "unverifiable"
+            ? []
+            : [scenario.found]
+        ),
+      ),
+    ].sort(),
+  );
+});
+
+/** How the run's producers ended before the closing verification. */
+const RUN_OUTCOMES = ["passed", "failed", "interrupted", "retired"] as const;
+
+/**
+ * Where the change surfaces: only at the closing verification, or already at
+ * a producer's pre-check, before the coordinator has delivered any abort.
+ */
+const RAISED_AT = ["closing", "pre-check"] as const;
+
+/** Every finding a verification can return. */
+const FINDINGS: readonly Finding[] = [
+  "unchanged",
+  ...InvalidationReasonSchema.options,
+  "unverifiable",
+];
+
+Deno.test("a run reports a stale reason only when its verification computed it", async () => {
+  const snap = await snapshot();
+  const plan = planValidation(snap, observation(), {
+    kind: "done",
+    mode: "strict",
+    requirements: snap.requirements,
+  });
+  const claimLoss = new AttemptClaimLost().message;
+  const unverifiable = "Cannot verify the candidate checkout.";
+  for (const raised of RAISED_AT) {
+    for (const outcome of RUN_OUTCOMES) {
+      for (const found of FINDINGS) {
+        const controller = new AbortController();
+        const execution = { ...claimed(snap, plan), signal: controller.signal };
+        const produced = (): ProducerCapture => {
+          if (outcome === "passed") return captured();
+          if (outcome === "interrupted") controller.abort();
+          if (outcome === "retired") controller.abort(new AttemptClaimLost());
+          return {
+            outcome: outcome === "failed" ? "failed" : "cancelled",
+            complete: false,
+            output: new Uint8Array(),
+            artifacts: [],
+            reason: `producer ${outcome}`,
+          };
+        };
+        // The run's opening verification always holds; the change lands after.
+        let verifications = 0;
+        const { runtime } = countedRuntime({
+          produce: () => Promise.resolve(produced()),
+          verify: (_execution, options) => {
+            verifications++;
+            const refuses = found !== "unchanged" &&
+              (raised === "closing"
+                ? options?.allowCancelled === true
+                : verifications > 1);
+            if (!refuses) return Promise.resolve();
+            return Promise.reject(
+              found === "unverifiable"
+                ? new Error(unverifiable)
+                : new ValidationSubjectChanged(
+                  found,
+                  found === "claim-lost" ? claimLoss : `found ${found}`,
+                ),
+            );
+          },
+        });
+        const result = await executeValidation(
+          snap,
+          plan,
+          execution,
+          runtime,
+          COMPLETION_CLOCK,
+        );
+        const label = `${raised} × ${outcome} × ${found}`;
+        const computed = found === "unchanged" || found === "unverifiable" ||
+            found === "claim-lost"
+          ? undefined
+          : found;
+        assertEquals(
+          result.blockers.flatMap((blocker) =>
+            blocker.kind === "stale-evidence" ? [blocker.reason] : []
+          ),
+          computed === undefined ? [] : [computed],
+          label,
+        );
+        const lines = rendered(result.blockers);
+        for (const reason of InvalidationReasonSchema.options) {
+          assertEquals(
+            lines.some((line) => line.includes(reason)),
+            reason === computed,
+            `${label}: ${reason} in ${JSON.stringify(lines)}`,
+          );
+        }
+        assertEquals(
+          lines.some((line) => line.includes(claimLoss)),
+          found === "claim-lost" ||
+            controller.signal.reason instanceof AttemptClaimLost,
+          `${label}: ${JSON.stringify(lines)}`,
+        );
+        assertEquals(
+          result.blockers.some((blocker) =>
+            blocker.kind === "unavailable" && blocker.reason === unverifiable
+          ),
+          found === "unverifiable",
+          label,
+        );
+        if (found === "claim-lost" && raised === "pre-check") {
+          assertEquals(
+            result.blockers.filter((blocker) =>
+              blocker.kind === "validation-failed"
+            ),
+            [],
+            `${label}: a retired run was cancelled, not failed`,
+          );
+        }
+        if (found !== "unchanged") {
+          assert(
+            result.evidence.every((component) =>
+              component.outcome.kind !== "passed"
+            ),
+            `${label}: a refused verification leaves no passing evidence`,
+          );
+        }
+        if (found === "claim-lost") {
+          assert(
+            result.evidence.every((component) =>
+              component.outcome.kind !== "stale"
+            ),
+            `${label}: a retirement cancels the run's work and stales none of it`,
+          );
+        }
+      }
+    }
+  }
+});
+
+Deno.test("a refused publication reports the refusal it received", () => {
+  // Every refusal a write can return, with the pending kind it leaves. A new
+  // member of the union fails `deno check` here until it is placed.
+  const expected = {
+    "claim-lost": "cancelled",
+    "conflict": "unavailable",
+    "transition-refused": "unavailable",
+    "busy": "unavailable",
+    "newer": "record-incompatible",
+    "older": "record-incompatible",
+    "invalid": "record-corrupt",
+    "unavailable": "unavailable",
+  } satisfies Record<CompletionWriteRefusal["kind"], CompletionBlocker["kind"]>;
+  const evidenceId = completionId(700);
+  for (const [kind, pending] of Object.entries(expected)) {
+    const refusal = (kind === "newer" || kind === "older"
+      ? { kind, version: 99 }
+      : { kind, reason: `refused as ${kind}` }) as CompletionWriteRefusal;
+    const blocker = publicationRefusal(
+      { kind: "evidence", id: evidenceId },
+      refusal,
+    );
+    assertEquals(blocker.kind, pending, kind);
+    assertEquals(
+      blocker.kind === "cancelled" &&
+        blocker.reason === claimLossBlocker().reason,
+      kind === "claim-lost",
+      kind,
+    );
+  }
+});
+
+/** One fence refusal staged in a real store: what differs from a live claim. */
+interface FenceRow {
+  /** The stored attempt, when it differs from the claimed fixture. */
+  readonly attempt?: (data: Record<string, unknown>) => Record<string, unknown>;
+  /** The fence the write presents, when it differs from the attempt's own. */
+  readonly fence?: (fence: PublicationFence) => PublicationFence | undefined;
+  /** Fields of the published evidence that differ from the fixture. */
+  readonly evidence?: Record<string, unknown>;
+  /** Fields of a published Proof, published instead of evidence. */
+  readonly proof?: Record<string, unknown>;
+}
+
+/** Every refusal a fence gives, as one write that provokes it. */
+const FENCE_ROWS = {
+  "claim-not-held": {
+    fence: (fence) => ({ ...fence, token: completionId(99) }),
+  },
+  "unfenced": { fence: () => undefined },
+  "unbound": {
+    attempt: (data) => ({
+      ...data,
+      subjects: [],
+      state: { kind: "planning", claim: COMPLETION_CLAIM },
+    }),
+  },
+  "another-attempt": {
+    evidence: { attempt_id: completionId(98), artifacts: [] },
+  },
+  "another-candidate": {
+    evidence: { candidate_id: completionId(97), artifacts: [] },
+  },
+  "another-sequence": { evidence: { sequence: 2 } },
+  "another-subject": { evidence: { mode: "report" } },
+  "another-mode": { proof: { mode: "report" } },
+} satisfies Record<keyof typeof FENCE_REFUSALS, FenceRow>;
+
+/** A publication against a real store holding the row's attempt, if any. */
+async function fencedPublication(
+  root: string,
+  row: FenceRow | "no attempt",
+): Promise<{
+  readonly published: CompletionRecord;
+  readonly fence: PublicationFence;
+  readonly lines: string[];
+}> {
+  await git(root, "init", "-b", "main");
+  const fixtures = completionFixtures();
+  const attempt = fixtures.attempt;
+  assert(attempt.kind === "attempt" && attempt.data.state.kind === "claimed");
+  const fence = {
+    attempt_id: attempt.id,
+    token: attempt.data.state.claim.token,
+  };
+  const staged = row === "no attempt" ? {} : row;
+  if (row !== "no attempt") {
+    const stored = CompletionRecordSchema.parse({
+      ...attempt,
+      data: staged.attempt?.(attempt.data) ?? attempt.data,
+    });
+    assertEquals(
+      (await writeCompletionRecord(root, stored, null)).kind,
+      "written",
+    );
+  }
+  const base = staged.proof === undefined ? fixtures.evidence : fixtures.proof;
+  const published = CompletionRecordSchema.parse({
+    ...base,
+    data: { ...base.data, ...(staged.proof ?? staged.evidence ?? {}) },
+  });
+  assert(published.kind === "evidence" || published.kind === "proof");
+  const outcome = await writeCompletionRecord(
+    root,
+    published,
+    null,
+    staged.fence === undefined ? fence : staged.fence(fence),
+  );
+  assert(outcome.kind !== "written", "the fence refuses the publication");
+  return {
+    published,
+    fence,
+    lines: rendered([
+      publicationRefusal({ kind: published.kind, id: published.id }, outcome),
+    ]),
+  };
+}
+
+Deno.test("every fence refusal reaches the owner as the refusal it is", async (t) => {
+  // Only an attempt that is finished or names another token reads as the
+  // retirement.
+  // Every other refusal keeps its own reason, and blames only the record it
+  // actually read.
+  const claimLoss = rendered([claimLossBlocker()]);
+  const rows = new Map<string, FenceRow>(Object.entries(FENCE_ROWS));
+  for (const [name, refusal] of Object.entries(FENCE_REFUSALS)) {
+    const row = rows.get(name);
+    assert(row !== undefined, `${name} is staged`);
+    await t.step(name, () =>
+      withTempDir(async (root) => {
+        const { published, lines } = await fencedPublication(root, row);
+        if (refusal.kind === "claim-lost") {
+          assertEquals(lines, claimLoss);
+          return;
+        }
+        assertEquals(lines.length, 1);
+        assertStringIncludes(
+          lines[0] ?? "",
+          `${published.id} was not published: ${refusal.reason}`,
+        );
+        assert(!lines.some((line) => claimLoss.includes(line)));
+      }));
+  }
+  await t.step(
+    "the attempt record is missing",
+    () =>
+      withTempDir(async (root) => {
+        const { published, fence, lines } = await fencedPublication(
+          root,
+          "no attempt",
+        );
+        assertStringIncludes(
+          lines[0] ?? "",
+          unreadableAttempt(fence.attempt_id).reason,
+        );
+        assert(!(lines[0] ?? "").includes(`${published.kind}/${published.id}`));
+      }),
+  );
+});

@@ -14,6 +14,7 @@ const BOUNDARIES = {
   findRoot: null,
   loadConfig: null,
   status: null,
+  probe: null,
   mainRepoPath: null,
   releaseCheck: null,
   grantEffortPlan: null,

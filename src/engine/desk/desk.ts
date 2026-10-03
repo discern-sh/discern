@@ -75,6 +75,7 @@ import {
   openInBrowser,
 } from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
+import { fleetFingerprint } from "../status/fleet_fingerprint.ts";
 import {
   inspectReleaseCheck,
   releaseCheckHistory,
@@ -216,8 +217,17 @@ export interface DeskRuntime extends DeskLandingPermission {
     message?: string | undefined;
     hints?: readonly string[] | undefined;
   }>;
+  /**
+   * The fleet's fingerprint, which moves whenever `status` would read
+   * something different; `undefined` when it cannot be read.
+   */
+  probe(root: string): DeskMaybePromise<string | undefined>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
-  /** The clone's release record, read once per survey. */
+  /**
+   * The clone's release record, read once per survey. A check reads none:
+   * the fleet's fingerprint watches the record, so a check that confirms
+   * the last survey confirms its record too.
+   */
   releaseCheck(root: string): DeskMaybePromise<ReleaseCheckRead>;
   makeOut(): Out;
   error(message: string): void;
@@ -435,6 +445,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       all: true,
       ...(releaseCheck === undefined ? {} : { releaseCheck }),
     }),
+  probe: (root) => fleetFingerprint(root),
   mainRepoPath: (root) => mainRepoPath(root),
   releaseCheck: (root) => inspectReleaseCheck(root),
   // The only production writers of landing permission: this runtime is
@@ -960,6 +971,7 @@ export async function runDesk(
           releaseCheck: releaseCheckHistory(release),
         };
       },
+      probe: async () => await runtime.probe(root),
       tip: (data) => sessionTip(root, config, runtime, data),
       manual: async () =>
         deskManual(

@@ -184,15 +184,20 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   return gate;
 }
 
-/** Keep distinct pending states attached to their next valid operation. */
+/**
+ * Keep distinct pending states attached to their next valid operation. The
+ * switch names every blocker kind, so a new kind cannot inherit another's.
+ */
 function completionNextAction(blocker: CompletionBlocker): string {
   switch (blocker.kind) {
     case "stale-evidence":
-      return "The source or the trunk changed. Run discern update when the branch is behind the trunk, then run discern done to establish complete current evidence.";
+      return "Run discern update when the branch is behind the trunk, then run discern done to establish complete current evidence.";
     case "missing-judgment":
       return "Resolve the served checkpoint judgment, then run discern done again.";
     case "unavailable":
       return "Resolve the reported condition, then run discern done again.";
+    case "cancelled":
+      return "Run discern done again.";
     case "waiting-for-operation":
       return blocker.operation_handle === undefined
         ? "Wait for the running operation on this checkout to finish, then retry the requested command."
@@ -208,7 +213,9 @@ function completionNextAction(blocker: CompletionBlocker): string {
       return "Run discern done without --ci before acceptance.";
     case "validation-failed":
       return "Resolve the failed validation; use discern done --rerun for a deliberate retry of the unchanged subject.";
-    default:
+    case "missing-evidence":
+    case "record-incompatible":
+    case "record-corrupt":
       return "Supply the missing or stale evidence, then run discern done again.";
   }
 }

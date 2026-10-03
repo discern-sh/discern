@@ -24,7 +24,11 @@ import type {
   TerminalApplicationState,
   TerminalApplicationViewIssue,
 } from "discern-design-system/cli/interactive";
-import { stripAnsi } from "../../shared/color_env.ts";
+import {
+  appendStreamedOutput,
+  NO_STREAMED_OUTPUT,
+  type StreamedOutput,
+} from "../../lib/live_tail.ts";
 import type { DeskEffectSession } from "./execution.ts";
 import type { DeskTip } from "./tips.ts";
 import { progressActivity, progressAfter } from "./operations.ts";
@@ -48,6 +52,7 @@ import type {
 } from "./preferences.ts";
 import {
   activityEnding,
+  DESK_OUTPUT_LINES,
   type DeskEffect,
   type DeskEvent,
   type DeskIntent,
@@ -61,7 +66,6 @@ import {
   type DeskUi,
   initialDeskProduct,
   isTerminalEffect,
-  outputTail,
 } from "./desk_state.ts";
 import {
   DESK_LIST_ID,
@@ -159,6 +163,11 @@ export interface LiveDeskDependencies {
     /** When this clone last opened the release page, read beside status. */
     readonly releaseCheck?: ReleaseCheckHistory;
   }>;
+  /**
+   * The fleet's fingerprint, which moves whenever a survey would read
+   * something different; `undefined` when the fleet cannot be fingerprinted.
+   */
+  readonly probe: () => Promise<string | undefined>;
   readonly tip: (data: StatusData) => Promise<DeskTip | undefined>;
   /** Read the manual, which the session does once as it starts. */
   readonly manual: () => Promise<DeskManual>;
@@ -279,7 +288,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
    */
   const running = new Map<
     string,
-    { progress: DeskOperation["progress"]; output: string }
+    { progress: DeskOperation["progress"]; output: StreamedOutput }
   >();
   const finished = new Map<string, DeskOutcome>();
   /**
@@ -430,7 +439,10 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
       }
       switch (effect.kind) {
         case "survey":
-          survey(effect.generation);
+          survey(effect.generation, effect.fingerprint);
+          break;
+        case "check":
+          check(effect.generation);
           break;
         case "schedule-survey":
           scheduleSurvey(effect.afterMs);
@@ -485,55 +497,94 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
     surveyTimer = scheduler.scheduleTimeout(() => {
       surveyTimer = undefined;
       if (foreground) scheduleSurvey(afterMs);
-      else dispatch({ kind: "refresh" });
+      else dispatch({ kind: "cadence", now: deps.now() });
     }, afterMs);
   };
 
-  const survey = (generation: number): void => {
+  /**
+   * Read the fleet's fingerprint. When it has not moved, the check adopts
+   * the last survey again and reads the settled selection as a survey would.
+   */
+  const check = (generation: number): void => {
     own(
-      deps.observe().then(async ({ data, hints, releaseCheck }) => {
-        if (
-          data.fleet === undefined ||
-          (data.git === null && data.fleet.length === 0)
-        ) {
-          throw new Error(
-            "Fleet observation unavailable; Git state is unknown.",
-          );
-        }
-        return {
-          data,
-          hints,
-          releaseCheck,
-          exceptionArgvs: await deskExceptionArgvs(data),
-        };
-      }).then(
-        ({ data, hints, releaseCheck, exceptionArgvs }) => {
+      deps.probe().then(
+        (fingerprint) => {
           dispatch({
-            kind: "observed",
+            kind: "checked",
             generation,
             now: deps.now(),
-            data,
-            hints,
-            exceptionArgvs,
-            ...(releaseCheck === undefined ? {} : { releaseCheck }),
+            ...(fingerprint === undefined ? {} : { fingerprint }),
           });
-          discover();
-          settle();
-          if (!tipRequested) {
-            tipRequested = true;
-            own(presentTip(data));
-          }
+          if (!state.survey.inFlight) settle();
         },
-        (error) =>
-          dispatch({
-            kind: "observation-failed",
-            generation,
-            now: deps.now(),
-            error: error instanceof Error ? error.message : String(error),
-          }),
+        // A probe that cannot read the fleet leaves the question to a survey.
+        () => dispatch({ kind: "checked", generation, now: deps.now() }),
       ),
     );
   };
+
+  /**
+   * Survey the fleet, fingerprinting it first unless the check that found it
+   * moved already did: a change made while the survey reads moves the next
+   * fingerprint, so no check can confirm a survey that missed it.
+   */
+  const survey = (generation: number, known?: string): void => {
+    own(
+      (known === undefined ? deps.probe() : Promise.resolve(known)).then(
+        (fingerprint) => observeFleet(generation, fingerprint),
+        // Without a fingerprint, the next cadence surveys again.
+        () => observeFleet(generation, undefined),
+      ),
+    );
+  };
+
+  const observeFleet = (
+    generation: number,
+    fingerprint: string | undefined,
+  ): Promise<void> =>
+    deps.observe().then(async ({ data, hints, releaseCheck }) => {
+      if (
+        data.fleet === undefined ||
+        (data.git === null && data.fleet.length === 0)
+      ) {
+        throw new Error(
+          "Fleet observation unavailable; Git state is unknown.",
+        );
+      }
+      return {
+        data,
+        hints,
+        releaseCheck,
+        exceptionArgvs: await deskExceptionArgvs(data),
+      };
+    }).then(
+      ({ data, hints, releaseCheck, exceptionArgvs }) => {
+        dispatch({
+          kind: "observed",
+          generation,
+          now: deps.now(),
+          data,
+          hints,
+          exceptionArgvs,
+          ...(releaseCheck === undefined ? {} : { releaseCheck }),
+          ...(fingerprint === undefined ? {} : { fingerprint }),
+        });
+        discover();
+        settle();
+        if (!tipRequested) {
+          tipRequested = true;
+          own(presentTip(data));
+        }
+      },
+      (error) => {
+        dispatch({
+          kind: "observation-failed",
+          generation,
+          now: deps.now(),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      },
+    );
 
   /**
    * The session's tip is presentation only: it never keeps the Desk closed,
@@ -649,7 +700,10 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
       id: operationId,
       run: async (report, signal) => {
         if (operation === undefined) return;
-        const live = { progress: operation.progress, output: "" };
+        const live = {
+          progress: operation.progress,
+          output: NO_STREAMED_OUTPUT,
+        };
         running.set(operationId, live);
         const now = (): number => context?.now() ?? 0;
         const reported = (): void => report(progressActivity(live.progress));
@@ -658,7 +712,11 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
           outcome = await deps.flows.operate(snapshot, operation, {
             signal,
             output: (_stream, text) => {
-              live.output = outputTail(`${live.output}${stripAnsi(text)}`);
+              live.output = appendStreamedOutput(
+                live.output,
+                text,
+                DESK_OUTPUT_LINES,
+              );
               reported();
             },
             observe: (fact) => {
@@ -680,7 +738,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
     outcome: TerminalApplicationCommandOutcome,
   ): void => {
     const operation = state.operations.get(operationId);
-    const output = running.get(operationId)?.output ?? "";
+    const output = running.get(operationId)?.output ?? NO_STREAMED_OUTPUT;
     const left = finished.get(operationId);
     running.delete(operationId);
     finished.delete(operationId);

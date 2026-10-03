@@ -8,6 +8,7 @@
  * and opens nothing. Pure: the effects say what the controller should do.
  */
 
+import { NO_STREAMED_OUTPUT } from "../../lib/live_tail.ts";
 import {
   DESK_KEYS,
   type DeskKeyBinding,
@@ -687,7 +688,7 @@ function operate(
       time.clock,
       read.follows ?? [],
     ),
-    output: "",
+    output: NO_STREAMED_OUTPUT,
   };
   const operations = new Map(state.operations);
   operations.set(operation.id, operation);

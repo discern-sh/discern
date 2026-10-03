@@ -6,6 +6,7 @@ import {
 } from "../completion/evidence.ts";
 import type {
   ClaimedExecution,
+  CompletionBlocker,
   DiagnosticExecution,
   ProducerDemand,
   ValidationExecution,
@@ -13,6 +14,12 @@ import type {
   ValidationSubject,
 } from "../completion/protocol.ts";
 import { validationPurpose } from "../completion/protocol.ts";
+import {
+  attemptHoldsClaim,
+  cancellationReason,
+  claimLossBlocker,
+} from "../completion/attempt.ts";
+import type { InvalidationReason } from "../completion/outcomes.ts";
 import {
   producerRecipeKey,
   requirementKey,
@@ -38,8 +45,23 @@ export interface ProducerBoundary {
   after(producer: ProducerDemand, capture: ProducerCapture): Promise<void>;
 }
 
+/**
+ * A verification comparison found the validated subject changed, and names
+ * what that comparison found. Any other refusal from `verify` means the
+ * subject could not be verified at all, which proves no change.
+ */
+export class ValidationSubjectChanged extends Error {
+  readonly reason: InvalidationReason;
+  constructor(reason: InvalidationReason, message: string) {
+    super(message);
+    this.name = "ValidationSubjectChanged";
+    this.reason = reason;
+  }
+}
+
 /** Host effects are supplied separately from the pure demand/evidence decisions. */
 export interface ValidationRuntime {
+  /** Refuses with `ValidationSubjectChanged` only when a comparison found a change. */
   verify(
     execution: ValidationSubject,
     options?: { readonly allowCancelled?: boolean },
@@ -65,12 +87,31 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Whether a refused verification found the attempt retired by another run. */
+function foundRetirement(error: unknown): boolean {
+  return error instanceof ValidationSubjectChanged &&
+    error.reason === "claim-lost";
+}
+
+/**
+ * What a refused closing verification leaves pending, taken from the refusal
+ * itself: a retired claim cancelled the run, another proven change stales its
+ * evidence, and a verification that could not run reports why.
+ */
+function verificationBlocker(error: unknown): CompletionBlocker {
+  if (!(error instanceof ValidationSubjectChanged)) {
+    return { kind: "unavailable", reason: errorText(error) };
+  }
+  return error.reason === "claim-lost"
+    ? claimLossBlocker()
+    : { kind: "stale-evidence", evidence_ids: [], reason: error.reason };
+}
+
 /** Reject caller drift, substituted plans and incomplete claims before any process starts. */
 export function verifyValidationClaim(
   snapshot: ValidationSnapshot,
   plan: ValidationPlan,
   execution: ClaimedExecution,
-  clock: Clock,
 ): void {
   const attempt = execution.attempt;
   if (
@@ -83,9 +124,8 @@ export function verifyValidationClaim(
     attempt.mode !== plan.demand.mode ||
     attempt.purpose !==
       validationPurpose(plan.demand) ||
-    attempt.state.kind !== "claimed" ||
-    attempt.state.claim.token !== execution.fence.token ||
-    attempt.state.claim.expires_at <= clock.wallNow()
+    !attemptHoldsClaim(attempt, execution.fence.token) ||
+    attempt.state.kind !== "claimed"
   ) throw new Error("validation plan does not match a live candidate claim");
   verifyValidationBinding(snapshot, plan, execution);
 }
@@ -193,7 +233,7 @@ export async function executeValidation(
   runtime: ValidationRuntime,
   clock: Clock = SYSTEM_CLOCK,
 ): Promise<ValidationExecution> {
-  verifyValidationClaim(snapshot, plan, execution, clock);
+  verifyValidationClaim(snapshot, plan, execution);
   return await executeProducerGraph(snapshot, plan, execution, runtime, clock);
 }
 
@@ -226,8 +266,12 @@ async function executeProducerGraph(
   await runtime.verify(execution);
   const physical = new Map<string, Promise<ProducerCapture>>();
   const captures = new Map<string, Promise<ProducerCapture>>();
+  // A pre-check that finds the claim retired is the cancellation the
+  // coordinator has not delivered yet, not a producer failure.
   const failure = (error: unknown): ProducerCapture => ({
-    outcome: execution.signal.aborted ? "cancelled" : "failed",
+    outcome: execution.signal.aborted || foundRetirement(error)
+      ? "cancelled"
+      : "failed",
     complete: false,
     output: new Uint8Array(),
     artifacts: [],
@@ -275,7 +319,9 @@ async function executeProducerGraph(
           };
         }
         if (execution.signal.aborted) {
-          throw new Error("validation was cancelled");
+          throw new Error(
+            cancellationReason(execution.signal, "validation was cancelled"),
+          );
         }
         await runtime.verify(execution);
         return await runtime.produce(producer, execution);
@@ -363,7 +409,10 @@ async function executeProducerGraph(
       }));
       blockers.push(
         capture.outcome === "cancelled"
-          ? { kind: "cancelled", reason: errorText(error) }
+          ? {
+            kind: "cancelled",
+            reason: cancellationReason(execution.signal, errorText(error)),
+          }
           : capture.outcome === "unrun"
           ? { kind: "missing-evidence", requirements: [obligation.requirement] }
           : { kind: "validation-failed", evidence_ids: [] },
@@ -385,7 +434,10 @@ async function executeProducerGraph(
     if (capture.outcome === "cancelled") {
       blockers.push({
         kind: "cancelled",
-        reason: capture.reason ?? "Validation was cancelled.",
+        reason: cancellationReason(
+          execution.signal,
+          capture.reason ?? "Validation was cancelled.",
+        ),
       });
     } else if (
       capture.outcome === "failed" ||
@@ -397,18 +449,20 @@ async function executeProducerGraph(
   try {
     await runtime.verify(execution, { allowCancelled: true });
   } catch (error) {
+    // A retirement cancelled the passing work; any other refusal leaves it
+    // stale against the subject it verified.
+    const refused = {
+      kind: foundRetirement(error) ? "cancelled" : "stale",
+      reason: errorText(error),
+    } as const;
     return {
       evidence: evidence.map((component) =>
         component.outcome.kind !== "passed" ? component : ({
           ...component,
-          outcome: { kind: "stale", reason: errorText(error) },
+          outcome: refused,
         })
       ),
-      blockers: [...blockers, {
-        kind: "stale-evidence",
-        evidence_ids: [],
-        reason: "inputs-changed",
-      }],
+      blockers: [...blockers, verificationBlocker(error)],
     };
   }
   return { evidence, blockers };
