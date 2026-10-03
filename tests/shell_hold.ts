@@ -11,6 +11,12 @@
  * shell-wait guard rejects a hand-written one.
  */
 
+import {
+  settlePending,
+  TEST_PROCESS_TIMEOUT_MS,
+  type WaitUntilOptions,
+} from "./waiting.ts";
+
 export interface ShellAwaitFileOptions {
   /**
    * Wait for content rather than existence, for a writer that creates the
@@ -58,14 +64,19 @@ export function shellAwaitFile(
 
 /**
  * Run `during` while `held` waits on `release`, then always write `release`
- * and settle `held`, so a failing assertion can never skip the reap. The
- * hold's own exit bounds the wait. A failure in `during` outranks the held
- * operation's outcome; otherwise the held operation's value is returned.
+ * and settle `held`, so a failing assertion can never skip the reap. The reap
+ * spends at most the per-process allowance: an operation that never reached
+ * its hold — wedged on a lock before it, say — ignores the release and would
+ * otherwise stall the suite. A failure in `during` outranks the held
+ * operation's outcome, and still leads when the reap also expires, with that
+ * expiry as its cause; otherwise the held operation's value is returned.
+ * `timing` replaces the reap's clock and scheduler for a test of that bound.
  */
 export async function whileHeld<T>(
   held: Promise<T>,
   release: string,
   during: () => Promise<void>,
+  timing: Pick<WaitUntilOptions, "clock" | "scheduler"> = {},
 ): Promise<T> {
   // Observe the held operation first, so an early rejection is never unhandled.
   const settled = held.then(
@@ -79,7 +90,24 @@ export async function whileHeld<T>(
     failure = { error };
   }
   await Deno.writeTextFile(release, "released\n");
-  const outcome = await settled;
+  let outcome: Awaited<typeof settled>;
+  try {
+    outcome = await settlePending(
+      settled,
+      "the held operation to settle after its release",
+      { ...timing, timeoutMs: TEST_PROCESS_TIMEOUT_MS },
+    );
+  } catch (expired) {
+    if (failure === undefined) throw expired;
+    const observed = failure.error instanceof Error
+      ? failure.error.message
+      : String(failure.error);
+    throw new AggregateError(
+      [failure.error],
+      `${observed} (the held operation then never settled after its release)`,
+      { cause: expired },
+    );
+  }
   if (failure !== undefined) throw failure.error;
   if (!outcome.ok) throw outcome.error;
   return outcome.value;

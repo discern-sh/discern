@@ -1,5 +1,10 @@
 /** A shell file hold ends with its file, its directory, or its owner. */
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { shellAwaitFile, whileHeld } from "./shell_hold.ts";
@@ -219,6 +224,38 @@ Deno.test("whileHeld returns the held outcome, and a failure in during outranks 
         ),
       Error,
       "during failed",
+    );
+  });
+});
+
+Deno.test("whileHeld bounds the reap of an operation that never reached its hold", async () => {
+  await withTempDir(async (dir) => {
+    const release = join(dir, "release");
+    // Every observation sees the whole allowance spent, so no real time passes.
+    let now = 0;
+    const timing = {
+      clock: {
+        wallNow: () => now,
+        monotonicNow: () => (now += TEST_PROCESS_TIMEOUT_MS),
+      },
+    };
+    const wedged = new Promise<never>(() => {});
+    const missed = new Error("the operation never reached its pause");
+    const error = await assertRejects(
+      () => whileHeld(wedged, release, () => Promise.reject(missed), timing),
+      AggregateError,
+      "the operation never reached its pause",
+    );
+    assertEquals(error.errors, [missed], "the observation's failure leads");
+    assertStringIncludes(
+      String(error.cause),
+      "timed out waiting for 'the held operation to settle after its release'",
+    );
+    assertEquals(await targetExists(release), true);
+    await assertRejects(
+      () => whileHeld(wedged, release, () => Promise.resolve(), timing),
+      Error,
+      "timed out waiting for 'the held operation to settle after its release'",
     );
   });
 });
