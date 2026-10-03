@@ -15,6 +15,7 @@ import type {
   TerminalViewportObservation,
 } from "../../lib/terminal.ts";
 import { terminalLine } from "../../lib/terminal.ts";
+import { liveTailLimit, liveTailText } from "../../lib/live_tail.ts";
 import { createTerminalIO } from "../../lib/terminal_painter.ts";
 import { bestEffortSync } from "../../shared/best_effort.ts";
 import { SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
@@ -82,52 +83,6 @@ export interface GateTtyProgressOptions extends GateTtyOptions {
 
 /** Rows of streamed child output the live frame shows under its stable lines. */
 export const GATE_LIVE_TAIL_ROWS = 6;
-
-/**
- * Code units of one streamed line the live tail keeps: one row more than the
- * tail shows at the viewport's width, at two code units per cell so wide and
- * astral characters still fill it.
- */
-export function liveTailLimit(columns: number, tailRows: number): number {
-  return columns * (tailRows + 1) * 2;
-}
-
-/**
- * The part of one streamed child line the live tail can show. The package
- * repaints every tail line on each spinner tick, so a line handed over whole
- * costs every frame its full length. A committed line shows its last wrapped
- * rows, so it keeps its end; an in-progress line shows the start of its last
- * carriage-return segment, so it keeps that start. Each cut is marked with the
- * ellipsis and never splits a surrogate pair. The job's output artifact keeps
- * every byte.
- */
-export function liveTailText(
-  kind: JobOutputEvent["kind"],
-  text: string,
-  limit: number,
-  ellipsis: string,
-): string {
-  if (text.length <= limit) return text;
-  if (kind === "line") {
-    const start = text.length - limit;
-    return `${ellipsis}${
-      text.slice(isLowSurrogate(text, start) ? start + 1 : start)
-    }`;
-  }
-  const end = text.endsWith("\r") ? text.length - 1 : text.length;
-  const start = text.lastIndexOf("\r", end - 1) + 1;
-  if (end - start <= limit) return text.slice(start, end);
-  const stop = start + limit;
-  return `${
-    text.slice(start, isLowSurrogate(text, stop) ? stop - 1 : stop)
-  }${ellipsis}`;
-}
-
-/** Whether the code unit at `index` continues a surrogate pair. */
-function isLowSurrogate(text: string, index: number): boolean {
-  const unit = text.charCodeAt(index);
-  return unit >= 0xdc00 && unit <= 0xdfff;
-}
 
 /**
  * The package controller as Gate producers receive it. Streamed text enters
