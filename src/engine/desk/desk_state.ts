@@ -86,9 +86,10 @@ export const DESK_REFRESH_MS = 5_000;
  * The oldest a survey may be before the cadence surveys again although the
  * fleet's fingerprint has not moved. A survey derives some facts from the
  * clock, such as a task turning stale after days idle, which no fingerprint
- * sees.
+ * sees; such a fact shows on the first cadence this long after the last
+ * survey.
  */
-export const DESK_SURVEY_CEILING_MS = 60_000;
+export const DESK_SURVEY_CEILING_MS = 30_000;
 
 /** Consecutive failed surveys before the Desk says it is offline. */
 export const DESK_OFFLINE_FAILURES = 2;

@@ -22,9 +22,9 @@ Most of that work re-read facts that hadn't moved. A survey's inputs are few in 
 - the owner asks with `r`;
 - an operation the Desk runs ends, or still runs;
 - a run of a verb that changes discern's state, a landing, or the calling checkout's own operation is under way;
-- the adopted survey is a minute old.
+- the adopted survey is 30 seconds old.
 
-The minute ceiling covers what the clock alone changes: a task turning stale after days idle, a quiet period ending, a release check falling due. A running Desk session itself, an agent, or a project command changes discern's state only through files the fingerprint watches, so it doesn't count as a run under way.
+The 30-second ceiling covers what the clock alone changes: a task turning stale after days idle, a quiet period ending, a release check falling due. The owner chose 30 seconds so clock-only facts show within about half a minute, accepting twice the idle surveys of a minute's ceiling. A running Desk session itself, an agent, or a project command changes discern's state only through files the fingerprint watches, so it doesn't count as a run under way.
 
 **A check is part of being Live.** The header says Refreshing only while a survey reads.
 
@@ -32,13 +32,14 @@ The minute ceiling covers what the clock alone changes: a task turning stale aft
 
 ## Consequences
 
-- Idle over the same 15-task fleet, the Desk now spends a check about every five seconds and one survey a minute. That comes to about 430 Git processes and 2.8 seconds of CPU a minute, against 2,060 and 14 before. A Desk test holds the idle minute to 11 checks, 1 survey and no terminal writes, and shows a commit on the next cadence.
+- Idle over the same 15-task fleet, the Desk now spends a check about every five seconds and a survey every 30 seconds. That comes to about 650 Git processes and 4.3 seconds of CPU a minute, against 2,060 and 14 before. A Desk test holds the idle minute to 10 checks, 2 surveys and no terminal writes, a budget it derives from the cadence and the ceiling, and shows a commit on the next cadence.
 - The ceiling's survey is now most of the idle cost. Raising it trades CPU against how late a clock-driven fact appears.
 - A new status input outside the watched set fails the guard until the fingerprint watches it, once the fixture holds a state that reads it. A new kind of state therefore needs a fixture member too. A record store written in place under an `entries` declaration would escape the guard; such stores write by rename, and their declaration says so.
-- Clock-driven facts, such as staleness, can appear up to a minute late, where they appeared within one cadence before.
+- Clock-driven facts, such as staleness, can appear up to about 30 seconds late, where they appeared within one cadence before.
 
 ## Alternatives considered
 
 - **Filesystem events.** Watching the checkouts and the Git directory would make an idle Desk free. Recursive watches on large trees exhaust Linux's limits, a survey's own index refresh would wake it, and a deterministic test would need a fake watcher anyway. Polling a fingerprint costs a little and behaves the same everywhere.
 - **A cheaper survey on the same cadence.** Deduplicating Git reads inside a survey and caching results keyed by commit IDs would cut a survey by perhaps a third. That still repeats the whole survey eight times a minute when nothing changed.
 - **A longer cadence.** Rejected: a real change would take longer to appear.
+- **A minute's ceiling.** One survey a minute would hold the idle cost to about 430 Git processes and 2.8 seconds of CPU a minute. Rejected by the owner: a clock-driven fact could then appear up to a minute late.
