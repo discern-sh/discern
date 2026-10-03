@@ -6046,6 +6046,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 - `tests/module_loading_guard_test.ts` — applies invocation-context isolation to every runtime lazy import and context owner rather than guarding a closed member set
 - `tests/fs_presence_enrolment_test.ts` — applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set
 - `tests/terminal_boundary_guard_test.ts` — applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set
+- `tests/terminal_live_tail_guard_test.ts` — applies the live-tail bound to every runtime call site that hands streamed output to a repainting package view rather than guarding a closed member set
 - `tests/logger_ambient_guard_test.ts` — applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment
 - `tests/lifecycle_trunk_resolution_guard_test.ts` — applies one-shot trunk resolution across lifecycle call sites rather than guarding a closed member set
 - `tests/narration_wrap_guard_test.ts` — applies a layout-independence rule across test sources: multi-word phrases asserted on rendered output must compare wrap-insensitively, because narration wraps by content width and platform path lengths shift the break points
