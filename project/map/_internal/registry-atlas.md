@@ -128,7 +128,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `scripts/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                       | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 31      | —                | node `interruption-safety`  |
-| [`signal-listeners`](#signal-listeners--process-signal-listeners)                                                     | `tests/spawn_surfaces.ts#SIGNAL_LISTENER_CONTRACTS`                               | 4       | —                | node `interruption-safety`  |
+| [`signal-listeners`](#signal-listeners--process-signal-listeners)                                                     | `tests/spawn_surfaces.ts#SIGNAL_LISTENER_CONTRACTS`                               | 5       | —                | node `interruption-safety`  |
 | [`checkout-mutation-surfaces`](#checkout-mutation-surfaces--checkout-mutation-boundaries)                             | `tests/checkout_mutation_surfaces.ts#CHECKOUT_MUTATION_BOUNDARIES`                | 17      | —                | node `worktrees`            |
 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries)                                  | `src/shared/process_boundaries.ts#PROCESS_OUTPUT_BOUNDARIES`                      | 6       | —                | —                           |
 | [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                        | `src/shared/process_boundaries.ts#PROCESS_EXIT_BOUNDARIES`                        | 5       | —                | —                           |
@@ -5274,11 +5274,12 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
 Every process-signal listener in the shipped product, keyed by path and enclosing function, with whom it serves: the process, a standalone command, or a session's own termination.
 
 - Source: `tests/spawn_surfaces.ts` — `SIGNAL_LISTENER_CONTRACTS`
-- Members: 4
+- Members: 5
   - `src/engine/owned_child.ts#superviseSpawn`
   - `src/engine/jobs/interrupt.ts#install`
   - `src/lib/terminal_animation.ts#runTerminalPlayback`
   - `src/engine/desk/desk.ts#deskTerminations`
+  - `src/engine/desk/desk.ts#hearInterrupts`
 - Guards: `tests/in_session_isolation_guard_test.ts`
 - Glossary: not enrolled — signal listeners are an internal interrupt boundary rather than user-facing vocabulary
 - Feature canon: described by the `interruption-safety` node
