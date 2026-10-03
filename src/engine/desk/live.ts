@@ -535,12 +535,16 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
     );
   };
 
-  /** The session's tip is presentation only: it never keeps the Desk closed. */
+  /**
+   * The session's tip is presentation only: it never keeps the Desk closed,
+   * and one that can't be chosen leaves the session with none.
+   */
   const presentTip = async (data: StatusData): Promise<void> => {
+    let tip: DeskTip | undefined;
     await bestEffort("desk-tip-presentation", async () => {
-      const tip = await deps.tip(data);
-      dispatch(tip === undefined ? { kind: "tip" } : { kind: "tip", tip });
+      tip = await deps.tip(data);
     });
+    dispatch(tip === undefined ? { kind: "tip" } : { kind: "tip", tip });
   };
 
   /**

@@ -68,11 +68,14 @@ function markdown(source: string): ApplicationDetailBlock {
   };
 }
 
+/** What Tip of the session says while the tasks it is chosen from can't be read. */
+export const DESK_NO_TIP_YET = "This session has no tip yet.";
+
 /**
  * What a view over the session's own reads shows while one of `reads` is
  * not ready: the tasks still loading or unreadable, or the session's tip
- * still being chosen. Undefined once every one is ready, so the view's own
- * blocks fill in.
+ * still being chosen or waiting on tasks that can't be read. Undefined once
+ * every one is ready, so the view's own blocks fill in.
  */
 export function awaitedBlocks(
   state: DeskProductState,
@@ -90,7 +93,9 @@ export function awaitedBlocks(
           }]
           : [{ kind: "pending", label: "Loading tasks…" }];
       case "tip":
-        return [{ kind: "pending", label: "Choosing this session's tip…" }];
+        return status === "failed"
+          ? [{ kind: "text", runs: [{ text: DESK_NO_TIP_YET }] }]
+          : [{ kind: "pending", label: "Choosing this session's tip…" }];
       default:
         // The manual opens in place of the desk, never in a reader.
         continue;

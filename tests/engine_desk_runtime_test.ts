@@ -428,6 +428,9 @@ Deno.test("the Desk rotates its tip across sessions and survives a tip-state fai
   }, async (desk) => {
     await desk.shows("Live");
     assert(!desk.screen().includes("Tip"), "a failed tip read shows no tip");
+    // Tip of the session says so rather than waiting for one.
+    await desk.palette("Tip of the session", "tip");
+    await desk.shows("This session has no tip.");
   });
   assertEquals(output.stderr, [], "and warns about nothing");
 });

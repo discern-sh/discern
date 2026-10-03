@@ -35,6 +35,7 @@ import {
   sessionRead,
 } from "../src/engine/desk/desk_transitions.ts";
 import { deskLayers } from "../src/engine/desk/layer_view.ts";
+import { DESK_NO_TIP_YET } from "../src/engine/desk/reader_view.ts";
 import { commandValue } from "../src/engine/desk/palette_view.ts";
 import { DESK_KEYS } from "../src/engine/desk/keys.ts";
 import { COMMANDS_ROW_ID } from "../src/engine/desk/desk_transitions.ts";
@@ -45,6 +46,7 @@ import { taskFleetEntry } from "./status_fleet.ts";
 import {
   deskIntent,
   editingTask,
+  failDesk,
   freshDesk,
   observeDesk,
   PRODUCT_NOW,
@@ -320,6 +322,25 @@ for (const command of DESK_COMMANDS) {
     }
   });
 }
+
+Deno.test("Tip of the session never waits on a tip the session can't choose", () => {
+  // The first survey failed, so no tip is being chosen: the reader says the
+  // session has none yet instead of waiting.
+  const unread = failDesk(deskLoading(["survey", "tip"])).state;
+  assertEquals(sessionRead(unread, "tip"), "failed");
+  const early = topLayer(choose(unread, "tip").state);
+  assert(early !== undefined && !showsLoading(early), "it waits for nothing");
+  assert(JSON.stringify(early).includes(DESK_NO_TIP_YET), "it says why");
+  // A tip that couldn't be chosen leaves the session with none.
+  const surveyed = deliver(unread, "survey").state;
+  const none = deskProduct(surveyed, { kind: "tip" }).state;
+  assertEquals(sessionRead(none, "tip"), "ready");
+  assert(
+    JSON.stringify(topLayer(choose(none, "tip").state)).includes(
+      "This session has no tip.",
+    ),
+  );
+});
 
 Deno.test("a group's key before the first survey goes there once the tasks are read", () => {
   const jumps = DESK_KEYS.commands.flatMap((binding) =>

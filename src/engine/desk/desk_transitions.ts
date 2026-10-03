@@ -758,8 +758,10 @@ export function resultNextLine(
 
 /**
  * How one read a command declares stands now. The session's survey,
- * manual and tip are loading until they first settle; a command's own read
- * is the opened layer's to show, so it never holds the command back.
+ * manual and tip are loading until they first settle; the tip, chosen from
+ * the first survey that reads the tasks, has failed while the survey has. A
+ * command's own read is the opened layer's to show, so it never holds the
+ * command back.
  */
 export function sessionRead(
   state: DeskProductState,
@@ -777,6 +779,8 @@ export function sessionRead(
     case "tip":
       return state.tip !== undefined || state.tipChosen === true
         ? "ready"
+        : sessionRead(state, "survey") === "failed"
+        ? "failed"
         : "loading";
     case "own":
       return "ready";
