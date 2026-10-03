@@ -2381,42 +2381,39 @@ function heldManual(): {
   };
 }
 
-Deno.test("Read the manual chosen before the manual is read opens it as soon as it is", async () => {
-  const manual = heldManual();
-  await withDeskSession({
-    runtime: {
-      ...surveys(() => deskSurvey(MANUAL_FLEET)),
-      manual: manual.read,
-    },
-  }, async (desk) => {
-    await desk.select("second");
-    // The Desk hands the terminal over at once and says why.
-    await chooseManualEarly(desk);
-    assert(!desk.screen().includes("try again"));
-    manual.finish("read");
-    await desk.shows("Manual fixture");
-    await desk.press("q");
-    await desk.until(
-      () => desk.state().lists[DESK_LIST_ID]?.selectedId === "second",
-      "the inbox as it was left",
-    );
-    assert(!desk.screen().includes("Manual fixture"));
-    // Once read, it opens on the Desk's own screen.
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("Manual fixture");
+for (const outcome of ["read", "failed"] as const) {
+  const name = outcome === "read"
+    ? "Read the manual chosen before the manual is read opens it as soon as it is"
+    : "Read the manual chosen before a read that fails says why back on the Desk";
+  Deno.test(name, async () => {
+    const manual = heldManual();
+    // Once the read settles, choosing it again opens it on the Desk's own
+    // screen, or says at once why it can't.
+    const settled = outcome === "read" ? "Manual fixture" : "could not open";
+    await withDeskSession({
+      runtime: {
+        ...surveys(() => deskSurvey(MANUAL_FLEET)),
+        manual: manual.read,
+      },
+    }, async (desk) => {
+      await desk.select("second");
+      // The Desk hands the terminal over at once and says why.
+      await chooseManualEarly(desk);
+      assert(!desk.screen().includes("try again"));
+      manual.finish(outcome);
+      await desk.shows(settled);
+      if (outcome === "read") await desk.press("q");
+      await desk.until(
+        () =>
+          desk.state().lists[DESK_LIST_ID]?.selectedId === "second" &&
+          !desk.screen().includes("Manual fixture"),
+        "the inbox as it was left",
+      );
+      await desk.palette("Read the manual", "manual");
+      await desk.shows(settled);
+    });
   });
-});
-
-Deno.test("Read the manual chosen before a read that fails says why back on the Desk", async () => {
-  const manual = heldManual();
-  await withDeskSession({ runtime: { manual: manual.read } }, async (desk) => {
-    await chooseManualEarly(desk);
-    manual.finish("failed");
-    await desk.shows("manual could not open");
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("manual could not open");
-  });
-});
+}
 
 Deno.test("a reader chosen before the first survey opens at once and fills in once the tasks are read", async () => {
   let release: (() => void) | undefined;
