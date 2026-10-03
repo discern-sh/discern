@@ -8,6 +8,7 @@ import { assert, assertEquals } from "@std/assert";
 import { displayWidth } from "../src/lib/text.ts";
 import {
   appendStreamedOutput,
+  type LiveTailLimit,
   liveTailLimit,
   liveTailOutput,
   liveTailOutputLines,
@@ -17,6 +18,11 @@ import {
   streamedOutputIsBlank,
   wholeStreamedOutput,
 } from "../src/lib/live_tail.ts";
+
+/** A limit of `count` code units: one row of that many columns, fitted. */
+function units(count: number): LiveTailLimit {
+  return liveTailLimit("fit", count, 1);
+}
 
 Deno.test("the live tail keeps what the frame can show of a streamed line", () => {
   const smile = "\u{1F600}";
@@ -178,13 +184,13 @@ Deno.test("the live tail keeps what the frame can show of a streamed line", () =
     ] as const,
     (row) => row.name,
     (row) => {
-      const kept = liveTailText(row.kind, row.text, row.limit, "…");
+      const kept = liveTailText(row.kind, row.text, units(row.limit), "…");
       assertEquals(kept, row.expected);
       assert(kept.length <= row.limit, `${kept.length} > ${row.limit}`);
     },
   );
   assertEquals(
-    liveTailText("line", "abcdefghij", 7, "..."),
+    liveTailText("line", "abcdefghij", units(7), "..."),
     "...ghij",
     "an ASCII terminal marks the cut in ASCII",
   );
@@ -263,27 +269,28 @@ Deno.test("a view reads streamed output only through the live tail", () => {
     [
       {
         name: "every line keeps its start and its end, for a reader",
-        read: () => liveTailOutput(output, 8, "…").split("\n"),
+        read: () => liveTailOutput(output, units(8), "…").split("\n"),
         expected: ["one", "STAR…END", "  ", "two  ", "", "three", ""],
       },
       {
         name: "the last lines that carry text, trailing space removed",
-        read: () => liveTailOutputLines(output, 3, 8, "…"),
+        read: () => liveTailOutputLines(output, 3, units(8), "…"),
         expected: ["…aaaaEND", "two", "three"],
       },
       {
         name: "fewer lines than asked when the output holds fewer",
-        read: () => liveTailOutputLines(output, 9, 8, "…"),
+        read: () => liveTailOutputLines(output, 9, units(8), "…"),
         expected: ["one", "…aaaaEND", "two", "three"],
       },
       {
         name: "nothing from output that wrote nothing",
-        read: () => liveTailOutputLines(NO_STREAMED_OUTPUT, 3, 8, "…"),
+        read: () => liveTailOutputLines(NO_STREAMED_OUTPUT, 3, units(8), "…"),
         expected: [],
       },
       {
         name: "a first line with nothing before it",
-        read: () => liveTailOutputLines(streamedOutput("\nonly"), 3, 8, "…"),
+        read: () =>
+          liveTailOutputLines(streamedOutput("\nonly"), 3, units(8), "…"),
         expected: ["only"],
       },
     ],

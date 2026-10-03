@@ -15,7 +15,12 @@ import type {
   TerminalViewportObservation,
 } from "../../lib/terminal.ts";
 import { terminalLine } from "../../lib/terminal.ts";
-import { liveTailLimit, liveTailText } from "../../lib/live_tail.ts";
+import {
+  APPEND_ONLY_LIMIT,
+  type LiveTailLimit,
+  liveTailLimit,
+  liveTailText,
+} from "../../lib/live_tail.ts";
 import { createTerminalIO } from "../../lib/terminal_painter.ts";
 import { bestEffortSync } from "../../shared/best_effort.ts";
 import { SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
@@ -137,7 +142,7 @@ function observedTicks(
  */
 function liveTailLog(
   log: ActivityLogController,
-  limit: () => number,
+  limit: () => LiveTailLimit,
   ellipsis: string,
 ): LiveTailLog {
   let pending: { readonly prefix: string; readonly text: string } | undefined;
@@ -394,7 +399,7 @@ export async function createGateTtyProgress(
           () =>
             repainting
               ? liveTailLimit("fill", viewport.size().columns, tailRows)
-              : Number.POSITIVE_INFINITY,
+              : APPEND_ONLY_LIMIT,
           options.terminal.capabilities.unicode ? "…" : "...",
         ),
         groups,

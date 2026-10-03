@@ -3,8 +3,9 @@
  *
  * A package view that repaints lays out every line it holds again on each
  * frame, and the work that wrote a line chose its length. A view therefore
- * receives only the part of each streamed line it can show. The Gate's live
- * activity log bounds each child line with `liveTailText`. Output captured
+ * receives only the part of each streamed line it can show, within a
+ * `LiveTailLimit` only this module makes. The Gate's live activity log bounds
+ * each child line with `liveTailText`. Output captured
  * beside a live screen arrives as `StreamedOutput`, whose text only this
  * module reads: a view through the live tail, a test through
  * `wholeStreamedOutput`. The record that holds a `StreamedOutput`, or a job's
@@ -34,6 +35,15 @@ const SCROLLED_START_SHARE = 0.6;
  */
 export type LiveTailSizing = "fill" | "fit";
 
+declare const LIMIT: unique symbol;
+
+/**
+ * Code units of one streamed line a view keeps. Only this module makes one:
+ * `liveTailLimit` from the rows a view shows, and `APPEND_ONLY_LIMIT` for
+ * output written once.
+ */
+export type LiveTailLimit = number & { readonly [LIMIT]: true };
+
 /**
  * Code units of one streamed line a view keeps. To fill `rows` at `columns`,
  * it keeps one row more than it shows, at two code units per cell, so wide
@@ -44,9 +54,17 @@ export function liveTailLimit(
   sizing: LiveTailSizing,
   columns: number,
   rows: number,
-): number {
-  return sizing === "fill" ? columns * (rows + 1) * 2 : columns * rows;
+): LiveTailLimit {
+  return (sizing === "fill"
+    ? columns * (rows + 1) * 2
+    : columns * rows) as LiveTailLimit;
 }
+
+/**
+ * The limit for output written once and never laid out again, such as the
+ * package's append-only feed: it keeps every line whole.
+ */
+export const APPEND_ONLY_LIMIT = Number.POSITIVE_INFINITY as LiveTailLimit;
 
 /**
  * The part of one streamed line a view can show, as its kind keeps it: at
@@ -58,7 +76,7 @@ export function liveTailLimit(
 export function liveTailText(
   kind: LiveTailKind,
   text: string,
-  limit: number,
+  limit: LiveTailLimit,
   ellipsis: string,
 ): string {
   if (text.length <= limit) return text;
@@ -180,7 +198,7 @@ export function streamedOutputIsBlank(output: StreamedOutput): boolean {
  */
 export function liveTailOutput(
   output: StreamedOutput,
-  limit: number,
+  limit: LiveTailLimit,
   ellipsis: string,
 ): string {
   return output[TEXT].split("\n").map((line) =>
@@ -196,7 +214,7 @@ export function liveTailOutput(
 export function liveTailOutputLines(
   output: StreamedOutput,
   count: number,
-  limit: number,
+  limit: LiveTailLimit,
   ellipsis: string,
 ): readonly string[] {
   const text = output[TEXT];

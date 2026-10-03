@@ -6,16 +6,23 @@
  *
  * A package view that repaints lays out every line it holds again on each
  * frame, and the work that wrote a line chose its length. Two paths carry
- * streamed text to such a view, and this guard enumerates every call site on
- * each from the authored runtime source:
+ * streamed text to such a view. Each view's limit is a `LiveTailLimit`, which
+ * only `liveTailLimit` makes, so the compiler holds where a limit comes from.
+ * This guard holds the rest, across the authored runtime source:
  *
- * - The Gate hands child lines to the package activity log. Every `append` or
- *   `updatePartial` call in a module that imports the activity log must bound
- *   its text with `liveTailText` inline.
+ * - The Gate hands child lines to the package activity log. In a module that
+ *   imports the activity log, every part of an `append` or `updatePartial`
+ *   argument that is not a literal is the job prefix or an inline
+ *   `liveTailText` call that bounds the streamed text.
  * - Output captured beside a live screen arrives as `StreamedOutput`, whose
- *   text only the live tail module reads. Every runtime call of a reader must
- *   pass a limit computed by `liveTailLimit`, and runtime source never reads
- *   the text whole.
+ *   text only the live tail module reads. Runtime source never reads it
+ *   whole.
+ * - The bound and the readers are called where they are imported: never
+ *   passed on, re-exported, or loaded dynamically, so this guard sees every
+ *   call.
+ * - No limit is forged by a type assertion or sized by a literal or an
+ *   unbounded number, and only a module that opens the activity log takes
+ *   the append-only limit.
  *
  * The terminal boundary guard separately admits the activity log only in the
  * Gate's live controller.
@@ -33,12 +40,23 @@ const ACTIVITY_LOG_EXPORTS = new Set([
   "ActivityLogController",
 ]);
 const ACTIVITY_LOG_LINE_METHODS = new Set(["append", "updatePartial"]);
-/** Each streamed-output reader, by the index of its limit argument. */
-const STREAMED_OUTPUT_READERS: ReadonlyMap<string, number> = new Map([
-  ["liveTailOutput", 1],
-  ["liveTailOutputLines", 2],
-]);
+/** The one name an activity-log line may join unbounded: its job's prefix. */
+const ACTIVITY_LOG_PREFIX = "prefix";
+const BOUND = "liveTailText";
+const READERS = new Set(["liveTailOutput", "liveTailOutputLines"]);
 const WHOLE_READER = "wholeStreamedOutput";
+/** Live tail functions a module may only call where it imports them. */
+const CALLED_ONLY = new Set([BOUND, WHOLE_READER, ...READERS]);
+const LIMIT_FUNCTION = "liveTailLimit";
+const LIMIT_TYPE = "LiveTailLimit";
+const APPEND_ONLY_LIMIT = "APPEND_ONLY_LIMIT";
+/** Wrappers whose operand is still a runtime value, unlike other type syntax. */
+const VALUE_WRAPPERS = new Set([
+  "TSAsExpression",
+  "TSSatisfiesExpression",
+  "TSNonNullExpression",
+  "TSTypeAssertion",
+]);
 
 const RUNTIME_FILES = await structuralGuardScope({
   guard: "tests/terminal_live_tail_guard_test.ts#runtime-streamed-output",
@@ -50,11 +68,21 @@ const RUNTIME_FILES = await structuralGuardScope({
   },
 });
 
-/** One path from streamed text to a repainting view, and whether it is bound. */
+/** One path from streamed text toward a repainting view. */
+type StreamedPath =
+  | "activity-log"
+  | "streamed-output-reader"
+  | "whole-read"
+  | "escaped"
+  | "forged-limit"
+  | "literal-size"
+  | "append-only-limit";
+
+/** One site on a path, and whether it keeps the live tail's bound. */
 interface StreamedSite {
   readonly file: string;
   readonly line: number;
-  readonly path: "activity-log" | "streamed-output-reader" | "whole-read";
+  readonly path: StreamedPath;
   readonly bounded: boolean;
 }
 
@@ -66,52 +94,99 @@ function propertyName(node: Deno.lint.Node): string | undefined {
     : undefined;
 }
 
-/** The called member's name, for `object.name(...)` or `object["name"](...)`. */
-function calledMember(node: Deno.lint.CallExpression): string | undefined {
-  return node.callee.type === "MemberExpression"
-    ? propertyName(node.callee.property)
-    : undefined;
+/** Whether two nodes are the same source span. */
+function sameSpan(left: Deno.lint.Node, right: Deno.lint.Node): boolean {
+  return left.range[0] === right.range[0] && left.range[1] === right.range[1];
 }
 
-/** A source span, as Deno's syntax tree reports it. */
-type Span = readonly [number, number];
+/** A name a module reads a live tail export through. */
+type Reference = Deno.lint.Identifier | Deno.lint.MemberExpression;
+
+/** Whether `node` is the callee its parent calls. */
+function calledDirectly(node: Reference): boolean {
+  const parent = node.parent;
+  return parent.type === "CallExpression" && sameSpan(parent.callee, node);
+}
+
+/** Whether a string literal, or a template without substitutions. */
+function literalText(node: Deno.lint.Node | undefined): boolean {
+  if (node?.type === "Literal") return typeof node.value === "string";
+  return node?.type === "TemplateLiteral" && node.expressions.length === 0;
+}
 
 /**
- * The spans of text handed to the activity log that must each hold a bound
- * call: every branch of a conditional but a string literal. A spread hands
- * over text no span can vouch for.
+ * Whether an identifier names a runtime value where it stands: not a
+ * property name, an import binding, a re-export's source name, or type
+ * syntax.
  */
-function lineBranches(node: Deno.lint.Node): Span[] | undefined {
-  if (node.type === "SpreadElement") return undefined;
-  if (node.type === "Literal" && typeof node.value === "string") return [];
-  if (node.type === "ConditionalExpression") {
-    const consequent = lineBranches(node.consequent);
-    const alternate = lineBranches(node.alternate);
-    return consequent === undefined || alternate === undefined
-      ? undefined
-      : [...consequent, ...alternate];
+function valueReference(node: Deno.lint.Identifier): boolean {
+  const parent = node.parent;
+  switch (parent.type) {
+    case "MemberExpression":
+      return parent.computed || !sameSpan(parent.property, node);
+    case "Property":
+      return sameSpan(parent.value, node);
+    case "ImportSpecifier":
+    case "ImportDefaultSpecifier":
+    case "ImportNamespaceSpecifier":
+      return false;
+    case "ExportSpecifier":
+      return parent.parent.type === "ExportNamedDeclaration" &&
+        parent.parent.source === null && sameSpan(parent.local, node);
+    default:
+      return !parent.type.startsWith("TS") || VALUE_WRAPPERS.has(parent.type);
   }
-  return [node.range];
 }
 
-/** One call site awaiting the facts the whole module establishes. */
-interface PendingSite {
-  readonly line: number;
-  readonly path: StreamedSite["path"];
-  /** Spans that must each contain a bound call, for an activity-log line. */
-  readonly branches?: readonly Span[];
-  /** A limit argument that is a named constant, for a reader. */
-  readonly limitName?: string;
-  readonly bounded: boolean;
+/**
+ * The parts of text handed to the activity log that are not literals: the
+ * substitutions of a template, the operands of a concatenation, the branches
+ * of a conditional. A spread hands over text no part can vouch for.
+ */
+function textParts(node: Deno.lint.Node): Deno.lint.Node[] | undefined {
+  if (node.type === "SpreadElement") return undefined;
+  if (literalText(node)) return [];
+  const parts = (children: readonly Deno.lint.Node[]) => {
+    const found = children.map(textParts);
+    return found.some((part) => part === undefined)
+      ? undefined
+      : found.flatMap((part) => part ?? []);
+  };
+  switch (node.type) {
+    case "TemplateLiteral":
+      return parts(node.expressions);
+    case "BinaryExpression":
+      return node.operator === "+" ? parts([node.left, node.right]) : [node];
+    case "ConditionalExpression":
+      return parts([node.consequent, node.alternate]);
+    default:
+      return [node];
+  }
 }
 
-/** Every streamed-text call site in one module. */
+/** Whether a size given to `liveTailLimit` is a literal or unbounded. */
+function unboundedSize(node: Deno.lint.Node | undefined): boolean {
+  if (node === undefined || node.type === "Literal") return true;
+  if (node.type === "Identifier") {
+    return node.name === "Infinity" || node.name === "NaN";
+  }
+  return node.type === "MemberExpression" &&
+    node.object.type === "Identifier" && node.object.name === "Number";
+}
+
+/** The repository path an import specifier in `rel` names. */
+function dependency(rel: string, specifier: string): string {
+  return specifier.startsWith(".")
+    ? normalize(join(dirname(rel), specifier)).replaceAll("\\", "/")
+    : specifier;
+}
+
+/** Every streamed-text site in one module. */
 function streamedSites(rel: string, source: string): StreamedSite[] {
-  const pending: PendingSite[] = [];
+  const sites: StreamedSite[] = [];
+  const appendOnly: number[] = [];
   const authority = new Map<string, string>();
   const namespaces = new Set<string>();
-  const limitConstants = new Set<string>();
-  const boundCalls: Span[] = [];
   let activityLog = false;
   const plugin = {
     name: "discern-live-tail",
@@ -120,42 +195,68 @@ function streamedSites(rel: string, source: string): StreamedSite[] {
         create(context: Deno.lint.RuleContext): Deno.lint.LintVisitor {
           const line = (node: Deno.lint.Node): number =>
             context.sourceCode.text.slice(0, node.range[0]).split("\n").length;
-          const imported = (callee: Deno.lint.Node): string | undefined => {
-            if (callee.type === "Identifier") return authority.get(callee.name);
-            if (
-              callee.type === "MemberExpression" &&
-              callee.object.type === "Identifier" &&
-              namespaces.has(callee.object.name)
-            ) return propertyName(callee.property);
-            return undefined;
+          const seen = new Set<string>();
+          /** Record a site once, though a shorthand visits its span twice. */
+          const site = (
+            node: Deno.lint.Node,
+            path: StreamedPath,
+            bounded = false,
+          ): void => {
+            const key = `${path}:${node.range.join(":")}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            sites.push({ file: rel, line: line(node), path, bounded });
           };
-          const limitCall = (
-            node: Deno.lint.Node | null | undefined,
+          /** The live tail export a callee names, imported or namespaced. */
+          const exported = (node: Deno.lint.Node): string | undefined => {
+            if (node.type === "Identifier") return authority.get(node.name);
+            return node.type === "MemberExpression" &&
+                node.object.type === "Identifier" &&
+                namespaces.has(node.object.name)
+              ? propertyName(node.property)
+              : undefined;
+          };
+          /** A value reference to a live tail export, wherever it stands. */
+          const referenced = (node: Reference, name: string): void => {
+            if (name === WHOLE_READER) site(node, "whole-read");
+            else if (CALLED_ONLY.has(name) && !calledDirectly(node)) {
+              site(node, "escaped");
+            }
+            if (name === APPEND_ONLY_LIMIT) appendOnly.push(line(node));
+          };
+          /** Whether a part of an activity-log line keeps the bound. */
+          const boundPart = (part: Deno.lint.Node): boolean =>
+            (part.type === "Identifier" &&
+              part.name === ACTIVITY_LOG_PREFIX) ||
+            (part.type === "CallExpression" &&
+              exported(part.callee) === BOUND &&
+              part.arguments[1] !== undefined &&
+              !literalText(part.arguments[1]));
+          const fromLiveTail = (
+            node: { readonly source: Deno.lint.Node | null },
           ): boolean =>
-            node?.type === "CallExpression" &&
-            imported(node.callee) === "liveTailLimit";
-          const reader = (
-            node: Deno.lint.CallExpression,
-            limitAt: number,
-          ): PendingSite => {
-            const limit = node.arguments[limitAt];
-            return {
-              line: line(node),
-              path: "streamed-output-reader",
-              bounded: limitCall(limit),
-              ...(limit?.type === "Identifier"
-                ? { limitName: limit.name }
-                : {}),
-            };
+            node.source?.type === "Literal" &&
+            typeof node.source.value === "string" &&
+            dependency(rel, node.source.value) === LIVE_TAIL_AUTHORITY;
+          const forged = (
+            node: Deno.lint.TSAsExpression | Deno.lint.TSTypeAssertion,
+          ): void => {
+            const type = node.typeAnnotation;
+            if (type.type !== "TSTypeReference") return;
+            const name = type.typeName.type === "Identifier"
+              ? authority.get(type.typeName.name)
+              : type.typeName.type === "TSQualifiedName" &&
+                  type.typeName.left.type === "Identifier" &&
+                  namespaces.has(type.typeName.left.name)
+              ? type.typeName.right.name
+              : undefined;
+            if (name === LIMIT_TYPE) site(node, "forged-limit");
           };
           return {
             ImportDeclaration(node): void {
-              const specifier = node.source.value;
-              const dependency = specifier.startsWith(".")
-                ? normalize(join(dirname(rel), specifier)).replaceAll("\\", "/")
-                : specifier;
+              const from = dependency(rel, node.source.value);
               for (const entry of node.specifiers) {
-                if (dependency === LIVE_TAIL_AUTHORITY) {
+                if (from === LIVE_TAIL_AUTHORITY) {
                   if (entry.type === "ImportNamespaceSpecifier") {
                     namespaces.add(entry.local.name);
                   } else if (entry.type === "ImportSpecifier") {
@@ -166,47 +267,66 @@ function streamedSites(rel: string, source: string): StreamedSite[] {
                   }
                 }
                 if (
-                  dependency === INTERACTIVE_MODULE &&
+                  from === INTERACTIVE_MODULE &&
                   entry.type === "ImportSpecifier" &&
                   ACTIVITY_LOG_EXPORTS.has(propertyName(entry.imported) ?? "")
                 ) activityLog = true;
               }
             },
-            VariableDeclarator(node): void {
-              if (node.id.type === "Identifier" && limitCall(node.init)) {
-                limitConstants.add(node.id.name);
-              }
+            ExportNamedDeclaration(node): void {
+              if (fromLiveTail(node)) site(node, "escaped");
             },
-            CallExpression(node): void {
-              const name = imported(node.callee);
-              if (name === "liveTailText") boundCalls.push(node.range);
-              if (name === WHOLE_READER) {
-                pending.push({
-                  line: line(node),
-                  path: "whole-read",
-                  bounded: false,
-                });
-              }
-              const limitAt = name === undefined
-                ? undefined
-                : STREAMED_OUTPUT_READERS.get(name);
-              if (limitAt !== undefined) pending.push(reader(node, limitAt));
-              const method = calledMember(node);
+            ExportAllDeclaration(node): void {
+              if (fromLiveTail(node)) site(node, "escaped");
+            },
+            ImportExpression(node): void {
+              if (fromLiveTail(node)) site(node, "escaped");
+            },
+            Identifier(node): void {
+              if (!valueReference(node)) return;
+              const name = authority.get(node.name);
+              if (name !== undefined) referenced(node, name);
+              const parent = node.parent;
               if (
-                activityLog && method !== undefined &&
-                ACTIVITY_LOG_LINE_METHODS.has(method)
-              ) {
-                const text = node.arguments[0];
-                const branches = text === undefined
-                  ? undefined
-                  : lineBranches(text);
-                pending.push({
-                  line: line(node),
-                  path: "activity-log",
-                  bounded: false,
-                  ...(branches === undefined ? {} : { branches }),
-                });
+                namespaces.has(node.name) &&
+                !(parent.type === "MemberExpression" &&
+                  sameSpan(parent.object, node))
+              ) site(node, "escaped");
+            },
+            MemberExpression(node): void {
+              if (
+                node.object.type !== "Identifier" ||
+                !namespaces.has(node.object.name)
+              ) return;
+              const name = propertyName(node.property);
+              if (name === undefined) site(node, "escaped");
+              else referenced(node, name);
+            },
+            TSAsExpression: forged,
+            TSTypeAssertion: forged,
+            CallExpression(node): void {
+              const name = exported(node.callee);
+              if (name !== undefined && READERS.has(name)) {
+                site(node, "streamed-output-reader", true);
               }
+              if (
+                name === LIMIT_FUNCTION &&
+                node.arguments.slice(1, 3).some(unboundedSize)
+              ) site(node, "literal-size");
+              const method = node.callee.type === "MemberExpression"
+                ? propertyName(node.callee.property)
+                : undefined;
+              if (
+                !activityLog || method === undefined ||
+                !ACTIVITY_LOG_LINE_METHODS.has(method)
+              ) return;
+              const text = node.arguments[0];
+              const parts = text === undefined ? undefined : textParts(text);
+              site(
+                node,
+                "activity-log",
+                parts !== undefined && parts.every(boundPart),
+              );
             },
           };
         },
@@ -214,19 +334,20 @@ function streamedSites(rel: string, source: string): StreamedSite[] {
     },
   } satisfies Deno.lint.Plugin;
   Deno.lint.runPlugin(plugin, rel, source);
-  const holdsBound = ([start, end]: Span): boolean =>
-    boundCalls.some(([from, to]) => from >= start && to <= end);
-  return pending.map(({ line, path, branches, limitName, bounded }) => ({
-    file: rel,
-    line,
-    path,
-    bounded: bounded ||
-      (branches !== undefined && branches.every(holdsBound)) ||
-      (limitName !== undefined && limitConstants.has(limitName)),
-  }));
+  if (!activityLog) {
+    sites.push(
+      ...appendOnly.map((line) => ({
+        file: rel,
+        line,
+        path: "append-only-limit" as const,
+        bounded: false,
+      })),
+    );
+  }
+  return sites.sort((left, right) => left.line - right.line);
 }
 
-/** Every streamed-text call site the authored runtime source contains. */
+/** Every streamed-text site the authored runtime source contains. */
 async function runtimeSites(): Promise<StreamedSite[]> {
   const sites: StreamedSite[] = [];
   for (const rel of RUNTIME_FILES) {
@@ -252,12 +373,12 @@ Deno.test("streamed output reaches a repainting view only through the live tail"
   assertEquals(
     unbounded(sites),
     [],
-    "Bound streamed text before a repainting view receives it: call liveTailText inline in an activity-log append or updatePartial, pass a liveTailOutput reader a limit from liveTailLimit, and never read StreamedOutput whole at runtime.",
+    "Bound streamed text before a repainting view receives it. In an activity-log append or updatePartial, join only the job's prefix to an inline liveTailText call on the streamed text. Call the live tail's bound and readers where you import them. Never read StreamedOutput whole at runtime, assert a LiveTailLimit, size one with a literal, or take APPEND_ONLY_LIMIT outside the module that opens the activity log.",
   );
   for (const path of ["activity-log", "streamed-output-reader"] as const) {
     assert(
       sites.some((site) => site.path === path),
-      `the guard found no ${path} call site, so it would pass vacuously`,
+      `the guard found no ${path} site, so it would pass vacuously`,
     );
   }
 });
@@ -266,36 +387,56 @@ Deno.test("the live tail guard rejects every unbounded path it can find", () => 
   const planted = [
     'import { withActivityLog } from "discern-design-system/cli/interactive";',
     'import * as tail from "../../lib/live_tail.ts";',
-    'import { liveTailLimit as limitFor, liveTailOutput as shown, liveTailOutputLines, liveTailText as bound, wholeStreamedOutput as whole } from "../../lib/live_tail.ts";',
-    "const LIMIT = limitFor(80, 6);",
-    "const WIDE = 1_000_000;",
-    "log.append(`${prefix}${bound('line', text, LIMIT, '…')}`);",
-    "log.updatePartial(text === '' ? '' : bound('partial', text, LIMIT, '…'));",
+    'import { APPEND_ONLY_LIMIT, liveTailLimit as limitFor, type LiveTailLimit, liveTailOutput as shown, liveTailOutputLines, liveTailText as bound, wholeStreamedOutput as whole } from "../../lib/live_tail.ts";',
+    'const LIMIT = limitFor("fill", columns, rows);',
+    'log.append(`${prefix}${bound("line", text, LIMIT, "…")}`);',
+    'log.updatePartial(text === "" ? "" : bound("partial", text, LIMIT, "…"));',
     "log.append(`${prefix}${text}`);",
-    "log['updatePartial'](text === '' ? text : bound('partial', text, LIMIT, '…'));",
-    "shown(output, LIMIT, '…');",
-    "shown(output, limitFor(80, 24), '…');",
-    "shown(output, WIDE, '…');",
-    "liveTailOutputLines(output, 3, Number.POSITIVE_INFINITY, '…');",
-    "tail.liveTailOutput(output, LIMIT, '…');",
+    'log["updatePartial"](text === "" ? text : bound("partial", text, LIMIT, "…"));',
+    'log.append(`${bound("line", prefix, LIMIT, "…")}${text}`);',
+    'log.updatePartial(prefix + bound("partial", "", LIMIT, "…"));',
+    "log.append(...lines);",
+    'shown(output, LIMIT, "…");',
+    'tail.liveTailOutputLines(output, 3, LIMIT, "…");',
+    'limitFor("fit", 1e9, rows);',
+    'tail.liveTailLimit("fit", columns, Number.MAX_SAFE_INTEGER);',
+    "const read = shown;",
+    "export { liveTailOutputLines };",
+    'export { liveTailText } from "../../lib/live_tail.ts";',
+    'export * from "../../lib/live_tail.ts";',
+    'const loaded = await import("../../lib/live_tail.ts");',
+    "const namespace = tail;",
     "whole(output);",
     "tail.wholeStreamedOutput(output);",
+    "const forged = 1e9 as LiveTailLimit;",
+    "const qualified = (1e9 as unknown) as tail.LiveTailLimit;",
+    "const appendOnly = APPEND_ONLY_LIMIT;",
   ].join("\n");
   const sites = streamedSites("src/engine/desk/planted.ts", planted);
   assertEquals(
     sites.map((site) => `${site.line} ${site.path} ${site.bounded}`),
     [
+      "5 activity-log true",
       "6 activity-log true",
-      "7 activity-log true",
+      "7 activity-log false",
       "8 activity-log false",
       "9 activity-log false",
-      "10 streamed-output-reader true",
-      "11 streamed-output-reader true",
-      "12 streamed-output-reader false",
-      "13 streamed-output-reader false",
-      "14 streamed-output-reader true",
-      "15 whole-read false",
-      "16 whole-read false",
+      "10 activity-log false",
+      "11 activity-log false",
+      "12 streamed-output-reader true",
+      "13 streamed-output-reader true",
+      "14 literal-size false",
+      "15 literal-size false",
+      "16 escaped false",
+      "17 escaped false",
+      "18 escaped false",
+      "19 escaped false",
+      "20 escaped false",
+      "21 escaped false",
+      "22 whole-read false",
+      "23 whole-read false",
+      "24 forged-limit false",
+      "25 forged-limit false",
     ],
   );
   assertEquals(
@@ -303,8 +444,11 @@ Deno.test("the live tail guard rejects every unbounded path it can find", () => 
       "src/engine/desk/planted.ts",
       planted.replace(/^.*withActivityLog.*$/mu, ""),
     )
-      .filter((site) => site.path === "activity-log"),
-    [],
-    "a module without the package activity log has no activity-log path",
+      .filter((site) =>
+        site.path === "activity-log" || site.path === "append-only-limit"
+      )
+      .map((site) => `${site.line} ${site.path}`),
+    ["26 append-only-limit"],
+    "a module without the package activity log hands it no line, and takes no append-only limit",
   );
 });
