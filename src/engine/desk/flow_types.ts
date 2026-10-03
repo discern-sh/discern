@@ -120,10 +120,8 @@ export interface DeskReviewDisclosures {
     readonly insertions: number;
     readonly deletions: number;
   };
-  /** A finished effect's complete output, as Markdown. */
-  readonly output?: string;
-  /** A disclosure that opens with the sheet, such as an exception's command. */
-  readonly open?: "command" | "output";
+  /** A disclosure that opens with the sheet: an exception's command. */
+  readonly open?: "command";
 }
 
 /** A button beside a review's confirm that does something else instead. */
