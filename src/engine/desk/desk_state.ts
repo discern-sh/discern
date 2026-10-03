@@ -262,12 +262,14 @@ export function activityEnding(entry: DeskActivity): DeskActivityEnding {
 export const DESK_ACTIVITY_SUMMARY_LINES = 3;
 
 /**
- * The code units one streamed line keeps in Session activity: the rows its
- * summary shows, at the width discern assumes for a terminal it cannot
- * measure. A Desk view is built without the viewport's size; the package
- * still lays the text out at the real width.
+ * The code units one streamed line keeps in Session activity, which lays out
+ * every row it keeps: no more than fits the summary's rows at the width
+ * discern assumes for a terminal it cannot measure. A Desk view is built
+ * without the viewport's size; the package still lays the text out at the
+ * real width.
  */
 export const DESK_ACTIVITY_LINE_LIMIT = liveTailLimit(
+  "fit",
   DEFAULT_TERMINAL_COLUMNS,
   DESK_ACTIVITY_SUMMARY_LINES,
 );
@@ -1116,10 +1118,12 @@ export const DESK_OUTPUT_LINES = 400;
 
 /**
  * The code units one streamed line keeps in the output reader and a result's
- * Full output: one screen at the size discern assumes for a terminal it
- * cannot measure, since a Desk view is built without the viewport's size.
+ * Full output, which scroll to every row they keep: no more than fits one
+ * screen at the size discern assumes for a terminal it cannot measure, since
+ * a Desk view is built without the viewport's size.
  */
 export const DESK_OUTPUT_LINE_LIMIT = liveTailLimit(
+  "fit",
   DEFAULT_TERMINAL_COLUMNS,
   DEFAULT_TERMINAL_ROWS,
 );

@@ -5,8 +5,10 @@
 
 import { assertCases } from "./assert_cases.ts";
 import { assert, assertEquals } from "@std/assert";
+import { displayWidth } from "../src/lib/text.ts";
 import {
   appendStreamedOutput,
+  liveTailLimit,
   liveTailOutput,
   liveTailOutputLines,
   liveTailText,
@@ -145,7 +147,8 @@ Deno.test("the live tail keeps what the frame can show of a streamed line", () =
         expected: `…${accented.repeat(3)}`,
       },
       {
-        name: "a partial's cut never separates a combining mark from its letter",
+        name:
+          "a partial's cut never separates a combining mark from its letter",
         kind: "partial",
         text: accented.repeat(10),
         limit: 8,
@@ -163,6 +166,36 @@ Deno.test("the live tail keeps what the frame can show of a streamed line", () =
     liveTailText("line", "abcdefghij", 7, "..."),
     "...ghij",
     "an ASCII terminal marks the cut in ASCII",
+  );
+});
+
+Deno.test("a limit fills a clipping view's rows and fits a view that shows every row", () => {
+  const [columns, rows] = [10, 3];
+  const rowsOf = (kept: string): number =>
+    Math.ceil(displayWidth(kept) / columns);
+  for (const character of ["x", "\u754C", "\u{1F600}"]) {
+    const line = character.repeat(400);
+    const filled = liveTailText(
+      "line",
+      line,
+      liveTailLimit("fill", columns, rows),
+      "…",
+    );
+    assert(
+      rowsOf(filled) > rows,
+      `a clipping view keeps more than its rows of ${character}: ${filled}`,
+    );
+  }
+  const fitted = liveTailText(
+    "line",
+    "x".repeat(400),
+    liveTailLimit("fit", columns, rows),
+    "…",
+  );
+  assertEquals(
+    rowsOf(fitted),
+    rows,
+    "a line of narrow characters fills a view that shows every row exactly",
   );
 });
 

@@ -17,12 +17,25 @@ import { stripAnsi } from "./text.ts";
 export type LiveTailKind = "line" | "partial";
 
 /**
- * Code units of one streamed line a view keeps: one row more than it shows at
- * `columns`, at two code units per cell so wide and astral characters still
- * fill it.
+ * How a view's rows hold the lines it keeps. A view anchored at its last rows
+ * clips the rows above them, so it keeps enough of a line to `fill` its rows.
+ * A view that lays out every row it keeps, such as a summary or a reader that
+ * scrolls, keeps no more of a line than will `fit` them.
  */
-export function liveTailLimit(columns: number, tailRows: number): number {
-  return columns * (tailRows + 1) * 2;
+export type LiveTailSizing = "fill" | "fit";
+
+/**
+ * Code units of one streamed line a view keeps. To fill `rows` at `columns`,
+ * it keeps one row more than it shows, at two code units per cell, so wide
+ * and astral characters still fill them. To fit them, it keeps one code unit
+ * per cell, so a line of narrow characters fills them exactly.
+ */
+export function liveTailLimit(
+  sizing: LiveTailSizing,
+  columns: number,
+  rows: number,
+): number {
+  return sizing === "fill" ? columns * (rows + 1) * 2 : columns * rows;
 }
 
 /**

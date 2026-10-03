@@ -405,7 +405,7 @@ Deno.test("Gate activity hands the package only the live tail of a long line", a
   await Promise.resolve();
   await progress.complete(PROOF_STEPS);
 
-  const bound = "lint │ ".length + liveTailLimit(columns, tailRows);
+  const bound = "lint │ ".length + liveTailLimit("fill", columns, tailRows);
   assertEquals(received.length, 3);
   assertEquals(
     received.filter((text) => text.length > bound).map((text) => text.length),

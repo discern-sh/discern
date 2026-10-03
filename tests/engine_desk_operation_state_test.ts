@@ -8,6 +8,9 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
+  activityOutputSummary,
+  DESK_ACTIVITY_SUMMARY_LINES,
+  DESK_OUTPUT_LINE_LIMIT,
   type DeskEvent,
   deskProduct,
   type DeskProductState,
@@ -33,6 +36,8 @@ import {
   streamedOutput,
   wholeStreamedOutput,
 } from "../src/lib/live_tail.ts";
+import { DEFAULT_TERMINAL_COLUMNS } from "../src/lib/terminal.ts";
+import { displayWidth } from "../src/lib/text.ts";
 import { BUILT_IN_STEP_LABELS, type EnginePlan } from "../src/shared/result.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
 import {
@@ -531,8 +536,12 @@ Deno.test("a row its own operation moves keeps the operation's message", () => {
   assertEquals(left.state.message?.text, "Landed Alpha on main");
 });
 
-/** A frame of `state` tall enough to hold a long line's bounded rows. */
-function tallFrame(state: DeskProductState): string {
+/**
+ * A frame of `state` wide enough that no line a Desk view keeps wraps, so a
+ * word the view shows never straddles two rows.
+ */
+function wideFrame(state: DeskProductState): string {
+  const columns = DESK_OUTPUT_LINE_LIMIT * 2;
   const model = createTerminalApplicationModel(
     deskView(state, PRODUCT_UI, PRODUCT_VIEW_ENV),
     { keymap: deskKeymap(), viKeys: true },
@@ -540,8 +549,8 @@ function tallFrame(state: DeskProductState): string {
   return stripAnsi(
     renderTerminalApplication(
       model,
-      { columns: 120, rows: 120 },
-      testTerminalCapabilities({ columns: 120 }),
+      { columns, rows: 40 },
+      testTerminalCapabilities({ columns }),
     ).frame,
   );
 }
@@ -577,12 +586,12 @@ Deno.test("each Desk view of an operation's output shows a long line's tail, and
   const views = [
     [
       "the output reader",
-      tallFrame(deskIntent(reported, { kind: "output" }).state),
+      wideFrame(deskIntent(reported, { kind: "output" }).state),
     ],
     ["a result's Full output", sheet.sheet.output ?? ""],
     [
       "Session activity",
-      tallFrame(
+      wideFrame(
         open(failed, { kind: "reader", reader: { kind: "activity" } }).state,
       ),
     ],
@@ -596,13 +605,20 @@ Deno.test("each Desk view of an operation's output shows a long line's tail, and
       `${view} receives only the end of a line it cannot show whole`,
     );
   }
-  const recorded = failed.activity.at(-1)?.output;
-  assert(recorded !== undefined);
+  const entry = failed.activity.at(-1);
+  assert(entry?.output !== undefined);
   assertEquals(
-    wholeStreamedOutput(recorded),
+    wholeStreamedOutput(entry.output),
     written,
     "the session's record keeps every line whole",
   );
+  for (const line of activityOutputSummary(entry)) {
+    assert(
+      displayWidth(line) <=
+        DEFAULT_TERMINAL_COLUMNS * DESK_ACTIVITY_SUMMARY_LINES,
+      `Session activity lays out every row it keeps, so a line fits its summary's rows: ${line}`,
+    );
+  }
 });
 
 Deno.test("a failure becomes a result sheet while its progress shows, and a message while hidden", () => {

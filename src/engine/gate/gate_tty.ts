@@ -378,7 +378,7 @@ export async function createGateTtyProgress(
           log,
           () =>
             repainting
-              ? liveTailLimit(viewport.size().columns, tailRows)
+              ? liveTailLimit("fill", viewport.size().columns, tailRows)
               : Number.POSITIVE_INFINITY,
           options.terminal.capabilities.unicode ? "…" : "...",
         ),
