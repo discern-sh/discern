@@ -554,6 +554,14 @@ Deno.test("a run reports a stale reason only when its verification computed it",
             `${label}: a refused verification leaves no passing evidence`,
           );
         }
+        if (found === "claim-lost") {
+          assert(
+            result.evidence.every((component) =>
+              component.outcome.kind !== "stale"
+            ),
+            `${label}: a retirement cancels the run's work and stales none of it`,
+          );
+        }
       }
     }
   }

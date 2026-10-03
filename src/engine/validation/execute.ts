@@ -87,6 +87,12 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Whether a refused verification found the attempt retired by another run. */
+function foundRetirement(error: unknown): boolean {
+  return error instanceof ValidationSubjectChanged &&
+    error.reason === "claim-lost";
+}
+
 /**
  * What a refused closing verification leaves pending, taken from the refusal
  * itself: a retired claim cancelled the run, another proven change stales its
@@ -263,9 +269,7 @@ async function executeProducerGraph(
   // A pre-check that finds the claim retired is the cancellation the
   // coordinator has not delivered yet, not a producer failure.
   const failure = (error: unknown): ProducerCapture => ({
-    outcome: execution.signal.aborted ||
-        error instanceof ValidationSubjectChanged &&
-          error.reason === "claim-lost"
+    outcome: execution.signal.aborted || foundRetirement(error)
       ? "cancelled"
       : "failed",
     complete: false,
@@ -445,11 +449,17 @@ async function executeProducerGraph(
   try {
     await runtime.verify(execution, { allowCancelled: true });
   } catch (error) {
+    // A retirement cancelled the passing work; any other refusal leaves it
+    // stale against the subject it verified.
+    const refused = {
+      kind: foundRetirement(error) ? "cancelled" : "stale",
+      reason: errorText(error),
+    } as const;
     return {
       evidence: evidence.map((component) =>
         component.outcome.kind !== "passed" ? component : ({
           ...component,
-          outcome: { kind: "stale", reason: errorText(error) },
+          outcome: refused,
         })
       ),
       blockers: [...blockers, verificationBlocker(error)],
