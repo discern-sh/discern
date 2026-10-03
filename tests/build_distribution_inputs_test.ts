@@ -21,6 +21,7 @@ import { observeValidationInputs } from "../src/engine/validation/runtime.ts";
 import { EDITOR_PATH_POLICIES } from "../scripts/repository_files.ts";
 import {
   commandExclusions,
+  DENO_DISCOVERY_COMMANDS,
   readDenoExclusions,
 } from "../scripts/deno_exclusions.ts";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
@@ -186,8 +187,10 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
     );
     assertEquals(await gitOut(root, "status", "--porcelain=v1"), "");
     const exclusions = await readDenoExclusions(REPO_ROOT);
-    for (const section of ["fmt", "lint", "test"] as const) {
-      const excludes = commandExclusions(exclusions, section).map((pattern) =>
+    // Every discovering command, `deno check` included, must skip every
+    // live build output; `check` applies the top-level list alone.
+    for (const command of DENO_DISCOVERY_COMMANDS) {
+      const excludes = commandExclusions(exclusions, command).map((pattern) =>
         globToRegExp(pattern.endsWith("/") ? `${pattern}**` : pattern)
       );
       assertEquals(
@@ -195,7 +198,7 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
           !excludes.some((pattern) => pattern.test(path))
         ),
         [],
-        section,
+        `deno ${command} would discover these live build outputs`,
       );
     }
     assert(
