@@ -5,6 +5,7 @@ import {
   type CapturedStream,
   withOutputCapture,
 } from "../../shared/output_capture.ts";
+import type { StreamedOutput } from "../../lib/live_tail.ts";
 import {
   type CompletionObservationFact,
   withCompletionObserver,
@@ -36,7 +37,7 @@ import {
  */
 export interface DeskEffectSession {
   readonly signal: AbortSignal;
-  readonly output: (stream: CapturedStream, text: string) => void;
+  readonly output: (stream: CapturedStream, text: StreamedOutput) => void;
   readonly observe: (fact: CompletionObservationFact) => void;
 }
 

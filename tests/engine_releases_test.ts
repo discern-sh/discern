@@ -20,6 +20,7 @@ import {
 import { browserLaunch, openInBrowser } from "../src/lib/open_browser.ts";
 import {
   inspectReleaseCheck,
+  releaseCheckHistory,
   type ReleaseCheckRead,
   releaseReminderDue,
   writeReleaseCheck,
@@ -281,6 +282,38 @@ Deno.test("UTC calendar interval refuses to invent age from unavailable, future,
   );
 });
 
+Deno.test("the last check reads the recorded handoff and never invents one", () => {
+  assertEquals(releaseCheckHistory(record), { state: "never" });
+  assertEquals(releaseCheckHistory({ status: "missing" }), { state: "never" });
+  assert(record.status === "recorded");
+  const at = new Date(due).toISOString();
+  assertEquals(
+    releaseCheckHistory({
+      status: "recorded",
+      value: {
+        ...record.value,
+        last_handoff_at: at,
+        version_when_handed_off: DISCERN_VERSION,
+      },
+    }),
+    { state: "checked", at },
+  );
+  for (
+    const read of [
+      { status: "malformed" },
+      {
+        status: "newer",
+        reason: "future",
+      },
+      { status: "unavailable", reason: "denied" },
+      {
+        status: "recorded",
+        value: { ...record.value, last_handoff_at: at },
+      },
+    ] as const
+  ) assertEquals(releaseCheckHistory(read), { state: "unknown" });
+});
+
 Deno.test("release evidence shares linked checkouts, preserves future schemas, and tolerates corrupt or unwritable state", async () => {
   await withTempDir(async (root) => {
     assertEquals(
@@ -400,7 +433,7 @@ Deno.test("human codenames remain separate from numeric protocol and mismatch id
   assert(versionMismatchHint("0.1.0", "7.8.1") !== undefined);
 });
 
-Deno.test("status and doctor reminders are read-only and advisory with logbook disabled", async () => {
+Deno.test("status and doctor reminders are read-only and advisory with logbook disabled, and status takes a read its caller made", async () => {
   await withTempDir(async (root) => {
     await scaffoldEngine(root, { agents: [] });
     const configPath = join(root, "discern.toml");
@@ -413,6 +446,7 @@ Deno.test("status and doctor reminders are read-only and advisory with logbook d
     );
     await gitInit(root);
     await writeReleaseCheck(root, undefined, first);
+    const dueRead = await inspectReleaseCheck(root);
     const path = await gitAdminStatePath(root, "releaseCheck");
     assert(path);
     const before = await Deno.readTextFile(path);
@@ -432,6 +466,17 @@ Deno.test("status and doctor reminders are read-only and advisory with logbook d
       (await statusResult(root, { all: true, nowMs: due })).data
         ?.release_reminder,
       undefined,
+      "the disk's record is fresh",
+    );
+    // A caller that already read the record hands status that read, so the
+    // reminder follows it rather than a second read of the disk.
+    assert(
+      (await statusResult(root, {
+        all: true,
+        nowMs: due,
+        releaseCheck: dueRead,
+      })).data?.release_reminder,
+      "the given read is due",
     );
   });
 });

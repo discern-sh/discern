@@ -9,11 +9,12 @@ import {
 import { SYSTEM_CLOCK } from "../../src/shared/clock.ts";
 import { DISCERN_VERSION } from "../../src/lib/version.ts";
 import { writeExecutable } from "../engine_helpers.ts";
+import { RELEASE_CHECK_CUES } from "../../src/engine/desk/commands.ts";
 import {
-  deskEmpty,
   deskFleetFixture,
   deskFocused,
   type DeskFrameTest,
+  deskHome,
   deskLayerOpen,
   deskLayerReady,
   deskSettledPhase as phase,
@@ -61,12 +62,18 @@ export async function releaseDeskJourney(
     );
     const resized = resize ? { columns: 40, rows: 20 } : geometry;
     const review = "review-updates-review";
-    const empty = deskEmpty();
+    const empty = deskHome();
     const palette = deskLayerOpen("palette");
     // Ready markers come from the settled application's state, never elapsed
-    // sleep. Below 40 columns the palette row truncates, so only its start is
-    // asserted.
-    const due = geometry.columns < 40 ? "check" : "check due";
+    // sleep. This clone has never opened the release page, so its reminder
+    // is due and the palette says it never checked; below 40 columns the
+    // palette row truncates, so only the value's start is asserted.
+    const never = geometry.columns < 40 ? "never" : RELEASE_CHECK_CUES.never;
+    // Once the page has opened, nothing says a check is due or that this
+    // clone never checked.
+    const checked = (capture: { readonly text: string }): boolean =>
+      !capture.text.includes(RELEASE_CHECK_CUES.due) &&
+      !capture.text.includes(RELEASE_CHECK_CUES.never);
     // The release information reader, once the page has been handed over:
     // its loading line gives way to what the browser did.
     const result = deskLayerReady("reader-opened");
@@ -81,7 +88,7 @@ export async function releaseDeskJourney(
         geometry,
         "due",
         "Check for updates, due",
-        both(palette, showing("Check for", due)),
+        both(palette, showing("Check for", never)),
         { keys: ["enter"] },
       ),
       // The browser opens only after the disclosure's explicit Open, which
@@ -120,7 +127,7 @@ export async function releaseDeskJourney(
         resized,
         "returned",
         "the palette without the due check",
-        both(palette, (capture) => !capture.text.includes("check due")),
+        both(palette, checked),
         { keys: ["escape"], allowLoneEscape: true },
       ),
       // A refresh repaints nothing here, so it and the quit share a phase;
@@ -156,10 +163,7 @@ export async function releaseDeskJourney(
     assertEquals(releaseReminderDue(after, SYSTEM_CLOCK.wallNow()), false);
     const returned = run.frames.find((frame) => frame.name === "returned");
     assert(returned !== undefined);
-    assert(
-      !returned.text.includes("check due"),
-      "the advisory clears without restarting",
-    );
+    assert(checked(returned), "the advisory clears without restarting");
     const shown = run.frames.find((frame) => frame.name === "outcome");
     assert(shown !== undefined);
     assert(

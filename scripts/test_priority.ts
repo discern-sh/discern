@@ -17,6 +17,7 @@ import {
   type DenoInfoGraph,
 } from "../src/shared/deno_graph.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { commandExclusions, decodeDenoExclusions } from "./deno_exclusions.ts";
 import { listTestModules } from "./test_modules.ts";
 
 export interface TestPriority {
@@ -29,23 +30,37 @@ export interface TestPriority {
 }
 
 const SelectionConfigSchema = z.object({
-  test: z.object({
-    exclude: z.array(z.string()).optional(),
-    include: z.unknown().optional(),
-  }).passthrough().optional(),
+  test: z.object({ include: z.unknown().optional() }).passthrough()
+    .optional(),
   workspace: z.unknown().optional(),
-  exclude: z.unknown().optional(),
 }).passthrough();
 
-/** Preserve the native config exclusions when the CLI supplies an ignore list. */
+/**
+ * Whether native `--ignore` can carry one exclusion unchanged. The list is
+ * comma-separated, so a comma would split the entry. A negation would also
+ * change its neighbours: once any `--ignore` entry starts with `!`, Deno stops
+ * honouring the plain-path entries beside it, which would return excluded
+ * trees and the priority files themselves to the remaining selection.
+ */
+export function ignoreCarries(path: string): boolean {
+  return !path.includes(",") && !path.startsWith("!");
+}
+
+/**
+ * Preserve the native config exclusions when the CLI supplies an ignore list.
+ * Native `--ignore` replaces the top-level and the test exclusions alike, so
+ * the carried list holds both.
+ */
 export function priorityExclusions(config: unknown): string[] | undefined {
   const parsed = SelectionConfigSchema.safeParse(config);
+  const exclusions = decodeDenoExclusions(config);
   if (
-    !parsed.success || parsed.data.test?.include !== undefined ||
-    parsed.data.workspace !== undefined || parsed.data.exclude !== undefined
+    !parsed.success || exclusions === undefined ||
+    parsed.data.test?.include !== undefined ||
+    parsed.data.workspace !== undefined
   ) return undefined;
-  const excluded = parsed.data.test?.exclude ?? [];
-  return excluded.some((path) => path.includes(",")) ? undefined : excluded;
+  const excluded = commandExclusions(exclusions, "test");
+  return excluded.every(ignoreCarries) ? excluded : undefined;
 }
 
 /** Only literal native test filenames can be removed from the remaining selection. */

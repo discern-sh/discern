@@ -47,6 +47,29 @@ export function releaseReminderDue(
   return utcDay(now) - utcDay(reference) >= RELEASE_REMINDER_DAYS;
 }
 
+/**
+ * When this clone last handed the owner to the release page: `checked` at
+ * the recorded handoff, `never` when no handoff is recorded, `unknown` when
+ * the record can't be read. Like the reminder, it reads the clone's own
+ * clock and is never evidence of a fetch.
+ */
+export type ReleaseCheckHistory =
+  | { readonly state: "checked"; readonly at: string }
+  | { readonly state: "never" }
+  | { readonly state: "unknown" };
+
+/** The last recorded handoff, from the same record the reminder reads. */
+export function releaseCheckHistory(
+  read: ReleaseCheckRead,
+): ReleaseCheckHistory {
+  if (read.status === "missing") return { state: "never" };
+  if (read.status !== "recorded") return { state: "unknown" };
+  const parsed = ReleaseCheckSchema.safeParse(read.value);
+  if (!parsed.success) return { state: "unknown" };
+  const at = parsed.data.last_handoff_at;
+  return at === undefined ? { state: "never" } : { state: "checked", at };
+}
+
 /** Read the registered record while preserving forward-schema evidence. */
 export async function inspectReleaseCheck(
   root: string,

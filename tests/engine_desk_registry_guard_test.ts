@@ -50,10 +50,13 @@ import {
   DESK_PALETTE_SECTION_TITLES,
   DESK_PALETTE_SECTIONS,
   type DeskCommandMetadata,
+  lastUpdateCheck,
+  RELEASE_CHECK_CUES,
 } from "../src/engine/desk/commands.ts";
 import {
   DESK_KEYS,
   DESK_LAYERS,
+  DESK_ROW_LAYERS,
   EDITOR_RESERVED_CHORDS,
   PACKAGE_RESERVED_KEYS,
   sheetFieldChords,
@@ -171,19 +174,24 @@ Deno.test("Desk registry guard: keys", () => {
       for (const id of DESK_COMMANDS) {
         const metadata = command(id);
         if (metadata.key === undefined) continue;
-        const layer = metadata.scope === "parked-row"
-          ? "branch"
+        // A global command's key works whichever row is selected.
+        const layers = metadata.scope === "parked-row"
+          ? ["branch"] as const
           : metadata.scope === "landed-row"
-          ? "landed"
-          : "inbox";
-        assert(
-          DESK_KEYS[layer].some((binding) =>
-            binding.key === metadata.key &&
-            binding.meaning.kind === "command" &&
-            binding.meaning.command === id
-          ),
-          `${id}: ${metadata.key} in ${layer}`,
-        );
+          ? ["landed"] as const
+          : metadata.scope === "global"
+          ? DESK_ROW_LAYERS
+          : ["inbox"] as const;
+        for (const layer of layers) {
+          assert(
+            DESK_KEYS[layer].some((binding) =>
+              binding.key === metadata.key &&
+              binding.meaning.kind === "command" &&
+              binding.meaning.command === id
+            ),
+            `${id}: ${metadata.key} in ${layer}`,
+          );
+        }
       }
     },
     "a key that runs a control names it, never a typed copy of its label":
@@ -349,6 +357,11 @@ Deno.test("Desk registry guard: labels and bindings", () => {
           version: "9.8.7",
           trunk: "main",
           sessionOperations: 2,
+          releaseCheck: {
+            state: "checked" as const,
+            at: "2026-01-01T00:00:00.000Z",
+          },
+          now: Date.parse("2026-01-22T00:00:00.000Z"),
           data: statusData([], {
             git: {
               branch: "main",
@@ -405,10 +418,38 @@ Deno.test("Desk registry guard: labels and bindings", () => {
             "2 branches",
             "has changes",
             "2 this session",
-            "check due",
+            "checked 3w ago",
           ],
         );
+        assertEquals(
+          lastUpdateCheck({
+            version: "9.8.7",
+            releaseCheck: { state: "never" },
+          }),
+          "never checked",
+        );
+        assertEquals(
+          lastUpdateCheck({
+            version: "9.8.7",
+            releaseCheck: { state: "unknown" },
+            now: 0,
+          }),
+          undefined,
+          "an unreadable record says nothing",
+        );
       },
+    "every release check cue speaks of checking, never of a release": () => {
+      // discern fetches nothing: status's reminder and the last check both
+      // count on this clone's clock since it last opened the release page.
+      const cues = Object.values(RELEASE_CHECK_CUES).flatMap((cue) =>
+        typeof cue === "string" ? [cue] : ["just now", "3w ago"].map(cue)
+      );
+      assertEquals(cues.length, 4, "one family: due, never, and checked");
+      for (const cue of cues) {
+        assert(/\bcheck/iu.test(cue), cue);
+        assert(!/available|new (?:release|version)|upgrade/iu.test(cue), cue);
+      }
+    },
     "Check for updates discloses the browser and the running version": () => {
       const facts = { version: "9.8.7", data: statusData([]) };
       const disclosure = commandDisclosure("updates", facts);
@@ -416,7 +457,7 @@ Deno.test("Desk registry guard: labels and bindings", () => {
       assertStringIncludes(disclosure, "discern.sh");
       assertStringIncludes(disclosure, "9.8.7");
       assertStringIncludes(disclosure, "Nothing is installed");
-      const updates = deskPalette(observedDesk(productSurvey([]))).sections
+      const updates = deskPalette(observedDesk(productSurvey([])), 0).sections
         .flatMap((section) => section.items)
         .find((item) => item.id === "updates");
       assert(updates !== undefined, "the palette offers Check for updates");

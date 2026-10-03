@@ -13,6 +13,8 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
 import {
+  chooseManualEarly,
+  DESK_MANUAL_FIXTURE,
   DESK_ROOT,
   type DeskSession,
   deskSession,
@@ -22,9 +24,11 @@ import {
   joinedTranscript,
   preparedStart,
   scriptedDeskRuntime,
+  scriptedTermination,
   startedTask,
   withDeskSession,
 } from "./fixtures/desk_session.ts";
+import type { DocsBrowserRequest } from "../src/commands/docs.ts";
 import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import type {
@@ -424,6 +428,9 @@ Deno.test("the Desk rotates its tip across sessions and survives a tip-state fai
   }, async (desk) => {
     await desk.shows("Live");
     assert(!desk.screen().includes("Tip"), "a failed tip read shows no tip");
+    // Tip of the session says so rather than waiting for one.
+    await desk.palette("Tip of the session", "tip");
+    await desk.shows("This session has no tip.");
   });
   assertEquals(output.stderr, [], "and warns about nothing");
 });
@@ -1382,6 +1389,12 @@ Deno.test("a refusal is contained as a message and the next survey shows why", a
       await desk.confirm();
       await desk.shows(testCase.refusal.slice(0, 40));
       desk.settle();
+      await desk.until(
+        () => desk.state().lists.inbox?.selectedId !== testCase.name,
+        "the task leaves the inbox",
+      );
+      // Home leads back to the Commands row, whose panel has no task left.
+      await desk.press("home");
       await desk.shows("No tasks yet");
     });
   }
@@ -2256,6 +2269,18 @@ async function manualBack(desk: DeskSession, shown: string): Promise<void> {
   await desk.escape(() => desk.screen().includes(shown), shown);
 }
 
+/** Choose Read the manual from the palette and wait for its contents. */
+async function openManual(desk: DeskSession): Promise<void> {
+  await desk.palette("Read the manual", "manual");
+  await desk.shows("Manual fixture");
+}
+
+/** Wait for the manual to give way to the inbox, its selection as left. */
+async function backFromManual(desk: DeskSession, why: string): Promise<void> {
+  await desk.until(() => !desk.screen().includes("Manual fixture"), why);
+  assertEquals(desk.state().lists[DESK_LIST_ID]?.selectedId, "second");
+}
+
 Deno.test("Read the manual opens in place of the inbox and Escape returns to it as it was", async () => {
   let pauses = 0;
   await withDeskSession({
@@ -2270,8 +2295,7 @@ Deno.test("Read the manual opens in place of the inbox and Escape returns to it 
     },
   }, async (desk) => {
     await desk.select("second");
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("Manual fixture");
+    await openManual(desk);
     await desk.shows("Back to the desk");
     // The contents open the first page; its first link opens the guide.
     await desk.press("enter");
@@ -2290,14 +2314,9 @@ Deno.test("Read the manual opens in place of the inbox and Escape returns to it 
     assertEquals(desk.top(), undefined);
     assertEquals(desk.state().lists[DESK_LIST_ID]?.selectedId, "second");
     // The next opening resumes where its reader left it.
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("Manual fixture");
+    await openManual(desk);
     await desk.press("q");
-    await desk.until(
-      () => !desk.screen().includes("Manual fixture"),
-      "the inbox after q",
-    );
-    assertEquals(desk.state().lists[DESK_LIST_ID]?.selectedId, "second");
+    await backFromManual(desk, "the inbox after q");
   });
   assertEquals(pauses, 0);
 });
@@ -2314,8 +2333,7 @@ Deno.test("the manual opens its pages while the screen stays and says when one c
       },
     },
   }, async (desk) => {
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("Manual fixture");
+    await openManual(desk);
     await desk.press("enter", "tab", "tab", "enter");
     await desk.until(
       () => opened.includes("https://example.com/docs"),
@@ -2331,27 +2349,123 @@ Deno.test("the manual opens its pages while the screen stays and says when one c
   assertEquals(opened, ["https://example.com/docs", DISCERN_DOCS_URL]);
 });
 
-Deno.test("Read the manual says when the manual is still loading or could not be read", async () => {
+/** A manual read the test finishes, with or without a manual to show. */
+function heldManual(): {
+  readonly read: () => Promise<DocsBrowserRequest>;
+  readonly finish: (outcome: "read" | "failed") => void;
+} {
+  let finish: ((outcome: "read" | "failed") => void) | undefined;
+  const done = new Promise<"read" | "failed">((resolve) => {
+    finish = resolve;
+  });
+  return {
+    read: async () => {
+      if (await done === "failed") {
+        throw new Error("this binary has no bundled manual");
+      }
+      return DESK_MANUAL_FIXTURE;
+    },
+    finish: (outcome) => finish?.(outcome),
+  };
+}
+
+for (const outcome of ["read", "failed"] as const) {
+  const name = outcome === "read"
+    ? "Read the manual chosen before the manual is read opens it in place as soon as it is"
+    : "Read the manual chosen before a read that fails says why back on the Desk";
+  Deno.test(name, async () => {
+    const manual = heldManual();
+    // Once the read settles, choosing it again opens it in place where its
+    // reader left it, or says at once why it can't.
+    const settled = outcome === "read" ? "Read the guide" : "could not open";
+    await withDeskSession({
+      runtime: {
+        ...surveys(() => deskSurvey(MANUAL_FLEET)),
+        manual: manual.read,
+      },
+    }, async (desk) => {
+      await desk.select("second");
+      // The Desk hands the terminal over at once and says why.
+      await chooseManualEarly(desk);
+      assert(!desk.screen().includes("try again"));
+      manual.finish(outcome);
+      if (outcome === "read") {
+        await desk.shows("Manual fixture");
+        await desk.press("enter");
+        await desk.shows("Read the guide");
+        await desk.press("q");
+      } else await desk.shows(settled);
+      await backFromManual(desk, "the inbox as it was left");
+      await desk.palette("Read the manual", "manual");
+      await desk.shows(settled);
+    });
+  });
+}
+
+Deno.test("a Ctrl+C while the Desk waits to read the manual quits as one on the inbox does", async () => {
+  const termination = scriptedTermination();
+  const raised: Deno.Signal[] = [];
+  let preferenceReads = 0;
+  const desk = await deskSession({
+    runtime: {
+      // The read never finishes, so the Desk waits with the terminal handed
+      // over, where a typed Ctrl+C arrives as SIGINT.
+      manual: () => new Promise<DocsBrowserRequest>(() => {}),
+      terminations: () => termination,
+      raise: (signal) => {
+        raised.push(signal);
+      },
+      readPreferences: () => {
+        preferenceReads += 1;
+        return { schema_version: 2 };
+      },
+    },
+  });
+  await chooseManualEarly(desk);
+  assert(termination.interruptHandedOver(), "the Desk hears SIGINT itself");
+  assertEquals(await desk.exit, 0);
+  desk.io.close();
+  assertEquals(raised, [], "it quits; no signal ends the process");
+  assertEquals(preferenceReads, 2, "it remembers its folds as any quit does");
+});
+
+Deno.test("a reader chosen before the first survey opens at once and fills in once the tasks are read", async () => {
   let release: (() => void) | undefined;
-  let refused = false;
-  const reading = new Promise<void>((resolve) => {
+  const surveyed = new Promise<void>((resolve) => {
     release = resolve;
   });
+  const queued = deskSurvey(MANUAL_FLEET, {
+    queue: [{
+      effort: "second",
+      branch: "agent/second",
+      path: "/worktrees/second",
+      head: "a".repeat(40),
+      submitted_at: "2026-07-11T11:30:00.000Z",
+      authority: "pre-authorized",
+      position: 1,
+      readiness: "ready",
+    }],
+  });
   await withDeskSession({
+    loading: true,
     runtime: {
-      manual: async () => {
-        await reading;
-        refused = true;
-        throw new Error("this binary has no bundled manual");
+      status: async () => {
+        await surveyed;
+        return { ok: true, data: queued };
       },
     },
   }, async (desk) => {
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("The manual is still loading");
+    await desk.palette("Landing", "landing");
+    await desk.opened("reader-landing");
+    await desk.shows("Loading tasks…");
+    assert(!desk.screen().includes("Nothing is queued"), "nothing is claimed");
     release?.();
-    await desk.until(() => refused, "the read to end");
-    await desk.palette("Read the manual", "manual");
-    await desk.shows("manual could not open");
+    await desk.until(
+      () => !desk.screen().includes("Loading tasks…"),
+      "the reader to fill in",
+    );
+    await desk.shows("#1");
+    assertEquals(desk.top(), "reader-landing", "it stayed open");
   });
 });
 

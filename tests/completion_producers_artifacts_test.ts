@@ -214,8 +214,6 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         root,
         attempt,
         null,
-        undefined,
-        COMPLETION_CLOCK,
       )).kind,
       "written",
     );
@@ -231,7 +229,6 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         }),
         null,
         execution.fence,
-        COMPLETION_CLOCK,
       )).kind,
       "written",
     );
@@ -300,7 +297,6 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
           }),
           null,
           execution.fence,
-          COMPLETION_CLOCK,
         )).kind,
         "written",
       );
@@ -320,7 +316,6 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         }),
         current.stamp,
         execution.fence,
-        COMPLETION_CLOCK,
       )).kind,
       "written",
     );
@@ -330,8 +325,6 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         root,
         assembler,
         null,
-        undefined,
-        COMPLETION_CLOCK,
       )).kind,
       "written",
     );
@@ -361,7 +354,6 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         }),
         null,
         { attempt_id: assembler.id, token: assembler.data.state.claim.token },
-        COMPLETION_CLOCK,
       )).kind,
       "written",
     );

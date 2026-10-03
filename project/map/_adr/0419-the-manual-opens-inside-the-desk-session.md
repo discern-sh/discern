@@ -1,6 +1,6 @@
 # ADR 0419: The manual opens inside the Desk session
 
-**Status**: accepted; amends [ADR 0417](0417-desk-owned-effects-run-in-session.md) (which controls keep the terminal) [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md) (where the browser's page effects run) and [ADR 0399](0399-acceptance-can-queue-without-starting-landing.md) (the manual's route)
+**Status**: accepted; **amended** 2026-10-02, see [the manual opens once the session reads it](#amendment-the-manual-opens-once-the-session-reads-it); amends [ADR 0417](0417-desk-owned-effects-run-in-session.md) (which controls keep the terminal) [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md) (where the browser's page effects run) and [ADR 0399](0399-acceptance-can-queue-without-starting-landing.md) (the manual's route)
 
 ## Context
 
@@ -12,7 +12,7 @@ The design system rebuilt its Markdown browser on the same application runtime t
 
 **The manual is a nested application.** Read the manual returns the package browser over the bundled manual as a nested command. It opens in place of the inbox and closes back to it with the inbox's selection, open layers and scroll unchanged. Escape at the contents, `q`, or the **Back to the desk** entry closes it; a Ctrl+C closes it and reaches the Desk as Ctrl+C, so it quits or asks first exactly as on the inbox.
 
-**The session reads the manual once, as it starts.** An action must return its command synchronously, so the Desk reads the manual beside its other start-up reads and the command paints at once. Until the read lands, or when it fails, choosing it leaves a message and opens nothing. `discern docs` and the Desk read the corpus through one loader, [`readDocsBrowser`](../../../src/commands/docs.ts), and build the same browser request.
+**The session reads the manual once, as it starts.** An action must return its command synchronously, so the Desk reads the manual beside its other start-up reads and the command paints at once. When the read fails, choosing it says where the diagnosis is and opens nothing. The [amendment](#amendment-the-manual-opens-once-the-session-reads-it) covers a choice made before the read finishes. `discern docs` and the Desk read the corpus through one loader, [`readDocsBrowser`](../../../src/commands/docs.ts), and build the same browser request.
 
 **Pages open while the screen stays.** Inside the Desk, **Read the docs online** and a followed web link open the system browser through a package background command; one policy, [`openDocsBrowserChoice`](../../../src/commands/docs_links.ts), decides what may open, and a refusal or a browser that can't open shows inside the manual. Standalone `discern docs` answers its pages the same way through the same responder, [`docsBrowserPageResponder`](../../../src/commands/docs_links.ts), because a standalone browser request takes the `respond` handler a nested one does.
 
@@ -30,3 +30,15 @@ The design system rebuilt its Markdown browser on the same application runtime t
 - **Keep the foreground child.** Rejected: two frames and two key maps for one product, and a screen flash on every visit.
 - **Show the manual as a Desk reader layer.** Rejected: the browser's own keys (`/`, `c`, `q`, Escape as Back) would compete with the Desk's key map, and the package keeps a nested application's keys its own for as long as it is in front.
 - **Read the manual only when chosen.** Rejected: the read finishes after the action has returned, so the owner would have to choose the manual a second time.
+
+## Amendment: the manual opens once the session reads it
+
+Recorded 2026-10-02 at the owner's request.
+
+The home panel lists **Read the manual** on the Desk's first frame, so a newcomer may choose it before the session's read finishes. Under load that read takes seconds, and the Desk answered "still loading; try again". A command must never refuse and ask for a retry because something it reads is still loading. The command registry now declares what each command reads, and a test per command holds each read back.
+
+- **An early choice opens the manual the moment the read lands.** The application runtime starts a command only in answer to an action, so a read that finishes later can't open a nested application by itself. The Desk therefore hands over the terminal at once with one line, `Reading the manual…`, as a foreground command whose run waits for the read and resolves with the nested manual, which the runtime opens on the Desk's screen once it takes the screen back. A failed read says why back on the Desk.
+- **Ctrl+C while the Desk waits means what it means on the inbox.** With the terminal handed over, a typed Ctrl+C arrives as SIGINT, which nothing else hears during the wait. The Desk hears it itself, ends the wait, and answers it as its key map answers Ctrl+C: it quits with its epilogue and remembered folds, or asks first while operations run beside the screen. Once the manual is open, its Ctrl+C reaches the Desk as the decision says.
+- **Once the session has read the manual, it opens nested without the handover.** Only the early choice pays a screen flash, once.
+
+A runtime that could start a command when a read finishes would let the Desk wait on its own screen instead of handing the terminal over. Until then a flash in the first moments of a session beats a refusal. The other way to remove the refusal was to delay the Desk's first frame until the session had read the manual. That would slow every launch, by seconds under load, to fix a choice few launches make.

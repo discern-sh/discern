@@ -13,6 +13,8 @@ export async function project(
   testInputs: readonly string[] = ["**"],
   options: {
     environment?: readonly string[];
+    /** Producers the test job waits for. */
+    needs?: readonly string[];
   } = {},
 ): Promise<string> {
   await scaffoldEngine(root, { agents: [] });
@@ -29,6 +31,10 @@ test = { run = ${JSON.stringify(testRun)}, inputs = ${
       options.environment === undefined
         ? ""
         : `, environment = ${JSON.stringify(options.environment)}`
+    }${
+      options.needs === undefined
+        ? ""
+        : `, needs = ${JSON.stringify(options.needs)}`
     } }
 [standards.coverage]
 producer = 'jobs.test'

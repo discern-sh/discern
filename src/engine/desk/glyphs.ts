@@ -33,6 +33,8 @@ export const DESK_GLYPHS = {
   back: { unicode: "←", ascii: "<" },
   meterFill: { unicode: "━", ascii: "=" },
   meterTrack: { unicode: "─", ascii: "-" },
+  /** The Commands row that leads the inbox: a menu of the desk's commands. */
+  commands: { unicode: "≡", ascii: "=" },
   /** The project mark: once, in the header; dropped without Unicode. */
   brand: { unicode: DISCERN_MARK, ascii: "" },
 } as const satisfies Record<string, DeskGlyph>;

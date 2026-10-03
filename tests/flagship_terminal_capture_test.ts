@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { projectTerminalSpans } from "discern-design-system/cli/projection";
 import {
@@ -9,9 +9,12 @@ import {
   normalizeFlagshipTerminalOutput,
 } from "./fixtures/flagship_terminal_captures.ts";
 import {
+  assertTerminalCaptureFits,
   compileDiscernCaptureBinary,
+  decodeTerminalCapture,
   renderTerminalCaptureHtml,
   serializeTerminalCapture,
+  terminalCaptureOverflows,
 } from "./fixtures/terminal_command_capture.ts";
 import { withTempDir } from "./helpers.ts";
 import { realPtyTest } from "./real_pty.ts";
@@ -27,6 +30,33 @@ function terminalHtmlText(html: string): string {
   }
   return unescapeHtml(content.replaceAll(/<[^>]+>/gu, ""));
 }
+
+Deno.test("every reviewed flagship capture fits its capture geometry", async () => {
+  for (const command of FLAGSHIP_COMMANDS) {
+    const capture = decodeTerminalCapture(
+      await Deno.readTextFile(
+        join(FLAGSHIP_CAPTURE_DIRECTORY, `${command.name}.json`),
+      ),
+    );
+    assertEquals(capture.name, command.name);
+    assertTerminalCaptureFits(capture.name, capture, capture.geometry.columns);
+  }
+});
+
+Deno.test("the capture geometry check names each line wider than the terminal", () => {
+  const screens = {
+    screen: `fits\n${"x".repeat(81)}`,
+    keyframes: { ready: `\x1b[1m${"y".repeat(80)}\x1b[0m` },
+  };
+  assertEquals(terminalCaptureOverflows(screens, 80), [
+    { screen: "screen", line: 2, width: 81, text: "x".repeat(81) },
+  ]);
+  assertThrows(
+    () => assertTerminalCaptureFits("demo", screens, 80),
+    Error,
+    "screen:2 (81 cells)",
+  );
+});
 
 Deno.test("flagship normalizers replace facts without hiding visible structure", () => {
   const source = [

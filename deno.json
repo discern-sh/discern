@@ -133,19 +133,31 @@
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "jsr:@discern-sh/design-system@0.38.0"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.39.0"
   },
+  "exclude": [
+    ".agents/skills/",
+    ".claude/skills/",
+    ".claude/worktrees/",
+    ".deno_compile_bundle_*.mjs",
+    ".discern-bundled-manual/",
+    ".idea/dataSources/",
+    ".idea/httpRequests/",
+    ".idea/queries/",
+    ".idea/shelf/",
+    ".scratch/",
+    "coverage/",
+    "dist/",
+    "project/map/_private"
+  ],
   "fmt": {
     "proseWrap": "never",
     "exclude": [
       ".claude/",
-      ".discern-bundled-manual/",
-      ".deno_compile_bundle_*.mjs",
       ".idea/",
       "AGENTS.md",
       "CLAUDE.md",
       "discern.toml",
-      "dist/",
       "GEMINI.md",
       "project/TODO.md",
       "project/instructions.md",
@@ -190,9 +202,6 @@
     },
     "exclude": [
       ".claude/",
-      ".discern-bundled-manual/",
-      ".deno_compile_bundle_*.mjs",
-      "dist/",
       "site/ui/components/HtmlFragment.tsx",
       "site/page-src/",
       "templates/",
@@ -202,9 +211,6 @@
   "test": {
     "exclude": [
       ".claude/",
-      ".discern-bundled-manual/",
-      ".deno_compile_bundle_*.mjs",
-      "dist/",
       "templates/",
       "tests/fixtures/"
     ]

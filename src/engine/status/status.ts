@@ -22,6 +22,7 @@
 import {
   inspectReleaseCheck,
   RELEASE_REMINDER,
+  type ReleaseCheckRead,
   releaseReminderDue,
 } from "../../shared/release_check.ts";
 import { observeFleet } from "../../shared/fleet_observation.ts";
@@ -223,6 +224,12 @@ export interface StatusOptions {
   verbose?: boolean;
   /** One effect-boundary clock shared by collection, hints, and presentation. */
   nowMs?: number;
+  /**
+   * The clone's release record as the caller already read it, so the
+   * reminder and whatever else the caller shows from the record come from
+   * one read and never disagree.
+   */
+  releaseCheck?: ReleaseCheckRead;
 }
 
 /** CLI presentation flags. `verbose` also selects the full structured wire
@@ -359,7 +366,10 @@ export async function statusResult(
   // AND gains the fleet, so it is not fleet-led.
   const fleetLed = includeFleet && location === "main";
 
-  const releaseDue = releaseReminderDue(await inspectReleaseCheck(root), nowMs);
+  const releaseDue = releaseReminderDue(
+    opts.releaseCheck ?? await inspectReleaseCheck(root),
+    nowMs,
+  );
   const materialCurrency = await statusMaterialCurrency(root, cfg);
   const completionRecovery = await completionRecoveryStatus(root);
   const data: StatusData = {

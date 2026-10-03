@@ -8,6 +8,7 @@
  * and opens nothing. Pure: the effects say what the controller should do.
  */
 
+import { NO_STREAMED_OUTPUT } from "../../lib/live_tail.ts";
 import {
   DESK_KEYS,
   type DeskKeyBinding,
@@ -20,9 +21,19 @@ import {
   rememberedLaunch,
   unavailableSentence,
 } from "./model.ts";
-import type { DeskCommand } from "../../shared/desk_vocabulary.ts";
+import {
+  DESK_COMMAND_LABELS,
+  type DeskCommand,
+} from "../../shared/desk_vocabulary.ts";
+import {
+  commandReaderKind,
+  DESK_COMMAND_REGISTRY,
+  type DeskCommandMetadata,
+} from "./commands.ts";
+import type { FleetRowGroup } from "../../shared/fleet_row_vocabulary.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
 import type {
+  DeskAwaited,
   DeskIntent,
   DeskLayer,
   DeskOperation,
@@ -42,6 +53,8 @@ import {
 } from "./operations.ts";
 import {
   closeLayer,
+  deskMessageTopic,
+  type DeskRowRef,
   formValuesKey,
   layerId,
   open,
@@ -51,6 +64,7 @@ import {
   renameTitle,
   resultAlternatives,
   rowRef,
+  sessionRead,
   taskOperation,
   toast,
   withRows,
@@ -89,6 +103,8 @@ function shownOperation(state: DeskProductState): DeskOperation | undefined {
 /** The key map layer the selection puts the inbox in. */
 function keyLayer(state: DeskProductState, ui: DeskUi): DeskKeyLayer {
   switch (rowRef(state, ui.selected)?.kind) {
+    case "commands":
+      return "commands";
     case "parked":
       return "branch";
     case "landed":
@@ -242,28 +258,93 @@ function closeRoutes(state: DeskProductState): DeskProductState {
 }
 
 /**
- * Open the manual in place of the inbox. The session reads it as it
- * starts, so it opens at once; until then, or when it can't be read, the
- * message says so and nothing opens.
+ * Open the manual in place of the inbox. The session reads it as it starts;
+ * the controller opens it at once once read, or as soon as the read
+ * finishes. Only a read that failed opens nothing, and the message says
+ * where its diagnosis is.
  */
 function readManual(state: DeskProductState): DeskTransition {
   const closed = closeRoutes(state);
-  switch (state.manual.state) {
-    case "ready":
-      return { state: closed, effects: [{ kind: "manual" }] };
-    case "loading":
-      return UNCHANGED(
-        toast(closed, "muted", "The manual is still loading; try again"),
-      );
-    case "failed":
-      return UNCHANGED(
-        toast(
-          closed,
-          "warning",
-          "The manual could not open. Run discern docs to read its diagnosis.",
-        ),
-      );
+  return sessionRead(state, "manual") === "failed"
+    ? UNCHANGED(
+      toast(
+        closed,
+        "warning",
+        "The manual could not open. Run discern docs to read its diagnosis.",
+      ),
+    )
+    : { state: closed, effects: [{ kind: "manual" }] };
+}
+
+/** Where an awaited request goes, as its message names it. */
+function awaitedTitle(awaited: DeskAwaited): string {
+  return awaited.kind === "group"
+    ? FLEET_ROW_GROUP_TITLES[awaited.group]
+    : DESK_COMMAND_LABELS[awaited.command];
+}
+
+/**
+ * Keep a request only the survey can decide until it has read the tasks,
+ * and say so, rather than answer from tasks it hasn't read.
+ */
+function awaitSurvey(
+  state: DeskProductState,
+  awaited: DeskAwaited,
+): DeskTransition {
+  return UNCHANGED(
+    toast(
+      { ...closeLayer(state, "palette"), awaiting: awaited },
+      "muted",
+      `Going to ${awaitedTitle(awaited)} once tasks load`,
+      { topic: "awaiting" },
+    ),
+  );
+}
+
+/**
+ * Whether a command waits for the survey before it can run: one the survey
+ * decides, which reads it and has no review of its own to open at once and
+ * fill in.
+ */
+function waitsForSurvey(
+  state: DeskProductState,
+  command: DeskCommand,
+): boolean {
+  const metadata: DeskCommandMetadata = DESK_COMMAND_REGISTRY[command];
+  return metadata.reads.includes("survey") &&
+    metadata.confirmation.kind === "none" &&
+    sessionRead(state, "survey") !== "ready";
+}
+
+/** Go to the first task of one decision group, or say it has none. */
+function jumpGroup(
+  state: DeskProductState,
+  group: FleetRowGroup,
+): DeskTransition {
+  if (sessionRead(state, "survey") !== "ready") {
+    return awaitSurvey(state, { kind: "group", group });
   }
+  const first = firstOfGroup(state, group);
+  return first === undefined
+    ? UNCHANGED(
+      toast(state, "muted", `Nothing in ${FLEET_ROW_GROUP_TITLES[group]}`),
+    )
+    : { state, effects: [{ kind: "select", id: deskRowId(first) }] };
+}
+
+/**
+ * Run a request the survey decided, now that it has read the tasks; the
+ * message that said it was waiting goes with it.
+ */
+export function runAwaited(
+  state: DeskProductState,
+  awaited: DeskAwaited,
+): DeskTransition {
+  const { message, ...rest } = state;
+  const settled = deskMessageTopic(message?.id) === "awaiting" ? rest : state;
+  return awaited.kind === "group"
+    ? jumpGroup(settled, awaited.group)
+    : commandIntent(settled, awaited.command, awaited.ref);
 }
 
 /** Run an action on a task if it can run; otherwise say why. */
@@ -288,8 +369,19 @@ function actionIntent(
 }
 
 /**
+ * The palette as it opens from a row: over the home panel, beside the
+ * Commands row, it lists the panel's commands first, where they were read.
+ */
+function paletteFrom(ref: DeskRowRef | undefined): DeskLayer {
+  return ref?.kind === "commands"
+    ? { kind: "palette", home: true }
+    : { kind: "palette" };
+}
+
+/**
  * A row's Enter: its next step, or its menu when it has none it can run now,
- * whose Unavailable section says why.
+ * whose Unavailable section says why. The Commands row's Enter opens the
+ * palette over the home panel it leads to.
  */
 function nextIntent(
   state: DeskProductState,
@@ -300,7 +392,9 @@ function nextIntent(
   const ref = rowRef(state, id);
   if (ref === undefined) return UNCHANGED(state);
   let transition: DeskTransition;
-  if (ref.kind === "parked") {
+  if (ref.kind === "commands") {
+    transition = open(state, paletteFrom(ref));
+  } else if (ref.kind === "parked") {
     transition = commandIntent(state, "resume", ref.branch);
   } else if (ref.kind === "landed") {
     transition = commandIntent(state, "landed_proof", id);
@@ -334,23 +428,9 @@ function toggle(
 }
 
 /** A reader the command opens, when it opens one. */
-function commandReader(
-  command: DeskCommand,
-): DeskLayer | undefined {
-  switch (command) {
-    case "landing":
-      return { kind: "reader", reader: { kind: "landing" } };
-    case "main_checkout":
-      return { kind: "reader", reader: { kind: "main" } };
-    case "activity":
-      return { kind: "reader", reader: { kind: "activity" } };
-    case "keys":
-      return { kind: "reader", reader: { kind: "keys" } };
-    case "tip":
-      return { kind: "reader", reader: { kind: "tip" } };
-    default:
-      return undefined;
-  }
+function commandReader(command: DeskCommand): DeskLayer | undefined {
+  const kind = commandReaderKind(command);
+  return kind === undefined ? undefined : { kind: "reader", reader: { kind } };
 }
 
 /** Run one Desk command. */
@@ -359,8 +439,17 @@ function commandIntent(
   command: DeskCommand,
   ref?: string,
 ): DeskTransition {
+  // A reader or a review opens at once and fills in as its reads arrive;
+  // anything else the survey decides waits for it.
   const reader = commandReader(command);
   if (reader !== undefined) return open(state, reader);
+  if (waitsForSurvey(state, command)) {
+    return awaitSurvey(state, {
+      kind: "command",
+      command,
+      ...(ref === undefined ? {} : { ref }),
+    });
+  }
   switch (command) {
     case "new_task":
       return form(state, commandStep("new_task"), {});
@@ -468,20 +557,9 @@ function keyIntent(
             ? open(state, { kind: "actions", rowId: ui.selected ?? "" })
             : UNCHANGED(state);
         case "palette":
-          return open(state, { kind: "palette" });
-        case "jump-group": {
-          const group = meaning.group ?? "review";
-          const first = firstOfGroup(state, group);
-          return first === undefined
-            ? UNCHANGED(
-              toast(
-                state,
-                "muted",
-                `Nothing in ${FLEET_ROW_GROUP_TITLES[group]}`,
-              ),
-            )
-            : { state, effects: [{ kind: "select", id: deskRowId(first) }] };
-        }
+          return open(state, paletteFrom(ref));
+        case "jump-group":
+          return jumpGroup(state, meaning.group ?? "review");
         case "dismiss":
           return UNCHANGED(toast(state, "muted", "q quits"));
         default:
@@ -610,7 +688,7 @@ function operate(
       time.clock,
       read.follows ?? [],
     ),
-    output: "",
+    output: NO_STREAMED_OUTPUT,
   };
   const operations = new Map(state.operations);
   operations.set(operation.id, operation);
@@ -754,13 +832,17 @@ function reviewAgain(state: DeskProductState, id: string): DeskTransition {
     : UNCHANGED(state);
 }
 
-/** Resolve one intent. */
+/**
+ * Resolve one intent. Whatever the owner asks for next replaces a request
+ * still waiting for the survey.
+ */
 export function intentTransition(
-  state: DeskProductState,
+  current: DeskProductState,
   intent: DeskIntent,
   ui: DeskUi,
   time: DeskInputTime,
 ): DeskTransition {
+  const { awaiting: _replaced, ...state } = current;
   switch (intent.kind) {
     case "key":
       return keyIntent(state, intent.key, ui);

@@ -57,6 +57,8 @@ import type {
 } from "../../src/engine/worktree/lifecycle.ts";
 import { freshTipSeenState } from "../../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../../src/lib/version.ts";
+import { DESK_MANUAL_READING } from "../../src/engine/desk/manual.ts";
+import { DESK_COMMAND_LABELS } from "../../src/shared/desk_vocabulary.ts";
 import type { DocsBrowserRequest } from "../../src/commands/docs.ts";
 import { resolveDocsBrowserLink } from "../../src/commands/docs_links.ts";
 import { fixtureEffortGrant } from "../effort_grant_fixtures.ts";
@@ -239,7 +241,11 @@ export function scriptedDeskRuntime(
     findRoot: () => DESK_ROOT,
     loadConfig: () => DESK_CONFIG,
     status: () => ({ ok: true, data }),
+    // A scripted fleet has no fingerprint, so every cadence surveys it: a
+    // test that changes its survey sees the change one cadence later.
+    probe: () => undefined,
     mainRepoPath: () => DESK_ROOT,
+    releaseCheck: () => ({ status: "missing" }),
     grantEffortPlan: () => ({
       title: "Landing pre-authorization plan",
       details: [],
@@ -350,9 +356,15 @@ export function scriptedDeskRuntime(
 /** A termination nothing signals unless a test ends the session itself. */
 export function scriptedTermination(): DeskTermination & {
   readonly end: (signal: Deno.Signal) => void;
+  /**
+   * Deliver SIGINT to whatever hears it while the Desk has handed over the
+   * terminal, as a Ctrl+C typed there would; false when nothing hears it.
+   */
+  readonly interruptHandedOver: () => boolean;
 } {
   const controller = new AbortController();
   let received: Deno.Signal | undefined;
+  const hearing = new Set<() => void>();
   const end = (signal: Deno.Signal): void => {
     received ??= signal;
     controller.abort();
@@ -360,8 +372,18 @@ export function scriptedTermination(): DeskTermination & {
   return {
     signal: controller.signal,
     interrupt: () => end("SIGINT"),
+    hearInterrupts: (heard) => {
+      const listener = (): void => heard();
+      hearing.add(listener);
+      return () => hearing.delete(listener);
+    },
     release: () => received,
     end,
+    interruptHandedOver: () => {
+      const listening = [...hearing];
+      for (const heard of listening) heard();
+      return listening.length > 0;
+    },
   };
 }
 
@@ -442,6 +464,8 @@ export interface DeskSessionOptions {
   readonly colorDepth?: TerminalColorDepth;
   /** Runtime seams; the rest come from {@linkcode scriptedDeskRuntime}. */
   readonly runtime?: Partial<DeskRuntime>;
+  /** The session's manual clock, when the test schedules against it too. */
+  readonly clock?: ManualTerminalClock;
   readonly output?: DeskTranscript;
   /** Leave the first survey unanswered; the session starts painting only. */
   readonly loading?: boolean;
@@ -543,22 +567,27 @@ export async function deskSession(
       ? {}
       : { colorDepth: options.colorDepth }),
   });
-  const clock = new ManualTerminalClock();
+  const clock = options.clock ?? new ManualTerminalClock();
   const output = options.output ?? deskTranscript();
   let live: TerminalApplicationContext<unknown> | undefined;
   let surveys = 0;
   const scripted = options.production === true
     ? undefined
     : scriptedDeskRuntime(output);
-  const status = options.runtime?.status ?? scripted?.status ??
-    ((root: string) => statusResult(root, { all: true }));
+  const status: DeskRuntime["status"] = options.runtime?.status ??
+    scripted?.status ??
+    ((root, releaseCheck) =>
+      statusResult(root, {
+        all: true,
+        ...(releaseCheck === undefined ? {} : { releaseCheck }),
+      }));
   const runtime: Partial<DeskRuntime> = {
     ...scripted,
     ...(scripted === undefined ? {} : { now: () => DESK_NOW + clock.now() }),
     scheduler: clockScheduler(clock),
     ...options.runtime,
-    status: async (root) => {
-      const result = await status(root);
+    status: async (root, releaseCheck) => {
+      const result = await status(root, releaseCheck);
       surveys += 1;
       return result;
     },
@@ -719,6 +748,27 @@ export async function deskSession(
     },
     exit,
   };
+}
+
+/**
+ * Choose Read the manual before the session has read it. The Desk hands the
+ * terminal over, so it reads no key until the manual opens: Enter goes in
+ * without waiting for the Desk to read it, and the handoff line is printed
+ * on the released screen, outside any frame the Desk paints.
+ */
+export async function chooseManualEarly(desk: DeskSession): Promise<void> {
+  await desk.press("ctrl-k");
+  await desk.opened("palette");
+  await desk.type(DESK_COMMAND_LABELS.manual);
+  await desk.until(
+    () => desk.state().layers.palette?.highlightedId === "manual",
+    "the palette on Read the manual",
+  );
+  desk.io.enqueueKeys("enter");
+  await desk.until(
+    () => desk.io.output().includes(DESK_MANUAL_READING),
+    "the Desk to hand the terminal over",
+  );
 }
 
 /** Whether an input names a key rather than text to type. */

@@ -19,6 +19,7 @@ import type {
 } from "../src/shared/result_schemas.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
 import { DESK_LIST_ID } from "../src/engine/desk/desk_state.ts";
+import { COMMANDS_ROW_ID } from "../src/engine/desk/desk_transitions.ts";
 
 /** The inbox geometries the design pins. */
 const INBOX_SIZES = [
@@ -126,9 +127,10 @@ Deno.test("the inbox needs no Tab at any pinned geometry", async () => {
       );
       assertEquals(desk.state().focusedControlId, DESK_LIST_ID);
       const first = desk.state().lists[DESK_LIST_ID]?.selectedId;
+      assertEquals(first, COMMANDS_ROW_ID, "the Desk opens on its commands");
       await desk.press("down");
       const second = desk.state().lists[DESK_LIST_ID]?.selectedId;
-      assert(second !== first, "Down moves the selection");
+      assert(second !== first, "Down moves the selection to a task");
       assertEquals(
         desk.state().focusedControlId,
         DESK_LIST_ID,
@@ -137,7 +139,7 @@ Deno.test("the inbox needs no Tab at any pinned geometry", async () => {
       await desk.press(".");
       await desk.opened("actions");
       await desk.escape(() => desk.top() === undefined, "the menu to close");
-      await desk.press("up", "enter");
+      await desk.press("enter");
       await desk.until(
         () => desk.top()?.startsWith("review-") ?? false,
         "Enter to open the next step",

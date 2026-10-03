@@ -7,8 +7,6 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { z } from "@zod/zod";
-import { decodeWith } from "./decode_cli_result.ts";
 import { globToRegExp, join } from "@std/path";
 import {
   authoredDistributionFiles,
@@ -21,6 +19,11 @@ import { withTempDir } from "./helpers.ts";
 import { BUNDLED_MANUAL_STAGE_DIR } from "../src/lib/paths.ts";
 import { observeValidationInputs } from "../src/engine/validation/runtime.ts";
 import { EDITOR_PATH_POLICIES } from "../scripts/repository_files.ts";
+import {
+  commandExclusions,
+  DENO_DISCOVERY_COMMANDS,
+  readDenoExclusions,
+} from "../scripts/deno_exclusions.ts";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
@@ -183,13 +186,11 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
       [".gitignore"],
     );
     assertEquals(await gitOut(root, "status", "--porcelain=v1"), "");
-    const exclusions = z.object({ exclude: z.array(z.string()) });
-    const deno = decodeWith(
-      z.object({ fmt: exclusions, lint: exclusions, test: exclusions }),
-      await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
-    );
-    for (const section of [deno.fmt, deno.lint, deno.test]) {
-      const excludes = section.exclude.map((pattern) =>
+    const exclusions = await readDenoExclusions(REPO_ROOT);
+    // Every discovering command, `deno check` included, must skip every
+    // live build output; `check` applies the top-level list alone.
+    for (const command of DENO_DISCOVERY_COMMANDS) {
+      const excludes = commandExclusions(exclusions, command).map((pattern) =>
         globToRegExp(pattern.endsWith("/") ? `${pattern}**` : pattern)
       );
       assertEquals(
@@ -197,6 +198,7 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
           !excludes.some((pattern) => pattern.test(path))
         ),
         [],
+        `deno ${command} would discover these live build outputs`,
       );
     }
     assert(

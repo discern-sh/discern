@@ -75,6 +75,12 @@ import {
   openInBrowser,
 } from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
+import { fleetFingerprint } from "../status/fleet_fingerprint.ts";
+import {
+  inspectReleaseCheck,
+  releaseCheckHistory,
+  type ReleaseCheckRead,
+} from "../../shared/release_check.ts";
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import {
@@ -115,7 +121,7 @@ import {
 import {
   type DeskTip,
   markTipShown,
-  renderTipLine,
+  renderDeskTip,
   selectTip,
   type TipSeenState,
 } from "./tips.ts";
@@ -179,6 +185,12 @@ export interface DeskTermination {
   readonly signal: AbortSignal;
   /** SIGINT reached the owned screen. */
   interrupt(): void;
+  /**
+   * Hear SIGINT while the Desk waits with the terminal handed over and no
+   * child of its own hears it, as a Ctrl+C typed there arrives; returns the
+   * stop. It ends nothing itself: the Desk answers it as a Ctrl+C.
+   */
+  hearInterrupts(heard: () => void): () => void;
   /** Stop listening, and say which signal ended the session, if one did. */
   release(): Deno.Signal | undefined;
 }
@@ -194,13 +206,29 @@ export interface DeskRuntime extends DeskLandingPermission {
   inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
   loadConfig(root: string): DeskMaybePromise<DiscernConfig>;
-  status(root: string): DeskMaybePromise<{
+  /**
+   * The status survey. The inbox's survey passes the release record it
+   * already read, so the reminder and the last check the Desk shows come
+   * from one read.
+   */
+  status(root: string, releaseCheck?: ReleaseCheckRead): DeskMaybePromise<{
     ok: boolean;
     data?: StatusData | undefined;
     message?: string | undefined;
     hints?: readonly string[] | undefined;
   }>;
+  /**
+   * The fleet's fingerprint, which moves whenever `status` would read
+   * something different; `undefined` when it cannot be read.
+   */
+  probe(root: string): DeskMaybePromise<string | undefined>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
+  /**
+   * The clone's release record, read once per survey. A check reads none:
+   * the fleet's fingerprint watches the record, so a check that confirms
+   * the last survey confirms its record too.
+   */
+  releaseCheck(root: string): DeskMaybePromise<ReleaseCheckRead>;
   makeOut(): Out;
   error(message: string): void;
   application(
@@ -371,6 +399,16 @@ function deskTerminations(): DeskTermination {
   return {
     signal: controller.signal,
     interrupt: () => end("SIGINT"),
+    hearInterrupts: (heard) => {
+      const handler = (): void => heard();
+      Deno.addSignalListener("SIGINT", handler);
+      let listening = true;
+      return () => {
+        if (!listening) return;
+        listening = false;
+        Deno.removeSignalListener("SIGINT", handler);
+      };
+    },
     release: () => {
       for (const [signal, handler] of handlers) {
         Deno.removeSignalListener(signal, handler);
@@ -402,8 +440,14 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
   loadConfig: (root) => loadConfig(root),
-  status: (root) => statusResult(root, { all: true }),
+  status: (root, releaseCheck) =>
+    statusResult(root, {
+      all: true,
+      ...(releaseCheck === undefined ? {} : { releaseCheck }),
+    }),
+  probe: (root) => fleetFingerprint(root),
   mainRepoPath: (root) => mainRepoPath(root),
+  releaseCheck: (root) => inspectReleaseCheck(root),
   // The only production writers of landing permission: this runtime is
   // private to the Desk's entry, which only the CLI's human surfaces open.
   grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
@@ -820,7 +864,7 @@ async function sessionTip(
     ),
   );
   runtime.recordTipShown(selected.tip.id);
-  return renderTipLine(selected);
+  return renderDeskTip(selected);
 }
 
 /** Remember the groups the owner left folded, once they differ from the
@@ -914,20 +958,27 @@ export async function runDesk(
       now: runtime.now,
       scheduler: runtime.scheduler,
       observe: async () => {
-        const result = await runtime.status(root);
+        const release = await runtime.releaseCheck(root);
+        const result = await runtime.status(root, release);
         if (!result.ok || result.data === undefined) {
           throw new Error(result.message ?? "The status survey failed.");
         }
         // The owner reads these: agent-directed hints stay on the wire, as
         // on any interactive terminal.
-        return { data: result.data, hints: interactiveHintTexts(result.hints) };
+        return {
+          data: result.data,
+          hints: interactiveHintTexts(result.hints),
+          releaseCheck: releaseCheckHistory(release),
+        };
       },
+      probe: async () => await runtime.probe(root),
       tip: (data) => sessionTip(root, config, runtime, data),
       manual: async () =>
         deskManual(
           await runtime.manual(),
           async (url) => await runtime.openBrowser(url),
         ),
+      interrupts: (heard) => termination.hearInterrupts(heard),
       evidence: {
         git: async (args, cwd, signal) =>
           await runtime.git([...args], cwd, {

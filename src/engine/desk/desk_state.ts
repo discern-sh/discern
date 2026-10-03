@@ -12,13 +12,27 @@
  */
 
 import type { TerminalApplicationDismissTarget } from "discern-design-system/cli/interactive";
+import {
+  liveTailLimit,
+  liveTailOutput,
+  liveTailOutputLines,
+  type StreamedOutput,
+  streamedOutputIsBlank,
+} from "../../lib/live_tail.ts";
+import {
+  DEFAULT_TERMINAL_COLUMNS,
+  DEFAULT_TERMINAL_ROWS,
+} from "../../lib/terminal.ts";
 import type { StatusData } from "../../shared/result_schemas.ts";
+import type { ReleaseCheckHistory } from "../../shared/release_check.ts";
 import type { EnginePlan } from "../../shared/result.ts";
 import type { DeskAction, DeskCommand } from "../../shared/desk_vocabulary.ts";
+import type { FleetRowGroup } from "../../shared/fleet_row_vocabulary.ts";
 import {
   type DeskCapabilities,
   type DeskRow,
   deskRowId,
+  elapsedSince,
   withDeskCapabilities,
 } from "./model.ts";
 import type { DeskPreferences } from "./preferences.ts";
@@ -41,7 +55,7 @@ import {
   emptyEvidenceCache,
   rememberEvidence,
 } from "./evidence.ts";
-import { intentTransition } from "./desk_intent.ts";
+import { intentTransition, runAwaited } from "./desk_intent.ts";
 import {
   closeLayer,
   departureMessage,
@@ -63,6 +77,10 @@ import {
   withRows,
 } from "./desk_transitions.ts";
 import { FLEET_ROW_GROUP_TITLES } from "../status/row_states.ts";
+import {
+  isProjectOnlyPolicy,
+  operationEffectPolicy,
+} from "../../shared/operation_effects.ts";
 import { compactDuration } from "../output.ts";
 import { DESK_GLYPHS, MESSAGE_MARKS } from "./glyphs.ts";
 import type { DeskTip } from "./tips.ts";
@@ -72,10 +90,19 @@ import {
 } from "../../shared/fleet_row_vocabulary.ts";
 
 /**
- * Survey cadence: one at a time, this long after the last finished. An
+ * Refresh cadence: one read at a time, this long after the last finished. An
  * operation's end starts a superseding survey at once instead.
  */
 export const DESK_REFRESH_MS = 5_000;
+
+/**
+ * The oldest a survey may be before the cadence surveys again although the
+ * fleet's fingerprint has not moved. A survey derives some facts from the
+ * clock, such as a task turning stale after days idle, which no fingerprint
+ * sees; such a fact shows on the first cadence this long after the last
+ * survey.
+ */
+export const DESK_SURVEY_CEILING_MS = 30_000;
 
 /** Consecutive failed surveys before the Desk says it is offline. */
 export const DESK_OFFLINE_FAILURES = 2;
@@ -156,7 +183,11 @@ export type DeskScriptOwner =
 export type DeskLayer =
   /** Every action for a task row or a parked branch row. */
   | { readonly kind: "actions"; readonly rowId: string }
-  | { readonly kind: "palette" }
+  /**
+   * The palette; `home` when it opened over the home panel, from the
+   * Commands row, so it lists the panel's commands first.
+   */
+  | { readonly kind: "palette"; readonly home?: true }
   | { readonly kind: "agents"; readonly taskId: string }
   | {
     readonly kind: "scripts";
@@ -206,10 +237,8 @@ export interface DeskMessage {
   /** The tone of the message's mark; its words read in neutral text. */
   readonly tone: "success" | "warning" | "danger" | "muted" | "accent";
   readonly text: string;
-  /** What it found, after the lead and in ink: a return's result. */
+  /** What it found, after the text and in ink: a return's result. */
   readonly detail?: string;
-  /** A faint word before the text, such as the tip's `Tip`. */
-  readonly lead?: string;
   /** A leading glyph such as `!` or `←`. */
   readonly mark?: { readonly unicode: string; readonly ascii: string };
   /** A key hint at the far right, such as `r Retry`. */
@@ -233,7 +262,7 @@ export interface DeskActivity {
   /** How it ended, when it ran beside the screen: its outcome in a word. */
   readonly ended?: "done" | "failed" | "stopped";
   /** The last lines it wrote, when it ran beside the screen. */
-  readonly output?: string;
+  readonly output?: StreamedOutput;
 }
 
 /** How one activity ended, in the words Session activity and the exit list use. */
@@ -250,12 +279,27 @@ export function activityEnding(entry: DeskActivity): DeskActivityEnding {
 /** How many of its last written lines Session activity shows for an entry. */
 export const DESK_ACTIVITY_SUMMARY_LINES = 3;
 
+/**
+ * The code units one streamed line keeps in Session activity, which lays out
+ * every row it keeps: no more than fits the summary's rows at the width
+ * discern assumes for a terminal it cannot measure. A Desk view is built
+ * without the viewport's size; the package still lays the text out at the
+ * real width.
+ */
+export const DESK_ACTIVITY_LINE_LIMIT = liveTailLimit(
+  "fit",
+  DEFAULT_TERMINAL_COLUMNS,
+  DESK_ACTIVITY_SUMMARY_LINES,
+);
+
 /** The last lines an activity wrote, blank lines left out. */
 export function activityOutputSummary(entry: DeskActivity): readonly string[] {
-  return (entry.output ?? "").split("\n")
-    .map((line) => line.trimEnd())
-    .filter((line) => line.trim() !== "")
-    .slice(-DESK_ACTIVITY_SUMMARY_LINES);
+  return entry.output === undefined ? [] : liveTailOutputLines(
+    entry.output,
+    DESK_ACTIVITY_SUMMARY_LINES,
+    DESK_ACTIVITY_LINE_LIMIT,
+    "…",
+  );
 }
 
 /**
@@ -282,7 +326,7 @@ export interface DeskOperation {
   readonly startedAt: number;
   readonly progress: DeskOperationProgress;
   /** The last lines it wrote. */
-  readonly output: string;
+  readonly output: StreamedOutput;
   /** The owner asked it to stop. */
   readonly stopping?: boolean;
 }
@@ -298,19 +342,44 @@ export interface DeskDeparture {
   readonly announced?: boolean;
 }
 
-/** The survey's progress: one at a time, with a single queued follow-up. */
+/**
+ * The survey's progress: one read at a time, with a single queued follow-up.
+ * A cadence read is a check of the fleet's fingerprint first, and a survey
+ * only when the fingerprint moved.
+ */
 export interface DeskSurvey {
   readonly generation: number;
   readonly inFlight: boolean;
+  /** The read in flight is a check, which the header does not show. */
+  readonly checking: boolean;
   readonly followUp: boolean;
   readonly failures: number;
-  /** When the adopted observation was read. */
+  /**
+   * When the adopted observation was last confirmed current: the time its
+   * running clocks were read at, and the age Offline names.
+   */
   readonly observedAt?: number;
+  /** When the adopted observation's survey finished. */
+  readonly surveyedAt?: number;
+  /** The fleet's fingerprint, taken just before that survey read it. */
+  readonly fingerprint?: string;
   readonly error?: string;
 }
 
 /** A child that returned, waiting for the next observation to say what it changed. */
 export type DeskPendingReturn = DeskChildReturn;
+
+/**
+ * A request only the survey can decide, such as going to a group or to the
+ * parked branches: what the owner chose, kept until the tasks are read.
+ */
+export type DeskAwaited =
+  | { readonly kind: "group"; readonly group: FleetRowGroup }
+  | {
+    readonly kind: "command";
+    readonly command: DeskCommand;
+    readonly ref?: string;
+  };
 
 /** Everything the Desk itself knows. */
 export interface DeskProductState {
@@ -331,7 +400,12 @@ export interface DeskProductState {
   /** The owner closed the offline warning; it returns after a success. */
   readonly offlineDismissed?: boolean;
   readonly preferences: DeskPreferences;
+  /** The session's tip, which the home panel carries once it is chosen. */
   readonly tip?: DeskTip;
+  /** The session has chosen its tip, or found none to show. */
+  readonly tipChosen?: true;
+  /** When this clone last opened the release page, read with each survey. */
+  readonly releaseCheck?: ReleaseCheckHistory;
   readonly activity: readonly DeskActivity[];
   readonly departed: ReadonlyMap<string, DeskDeparture>;
   /**
@@ -342,6 +416,11 @@ export interface DeskProductState {
   readonly pendingReturn?: DeskPendingReturn;
   /** A checkout an effect created, selected once a survey lists it. */
   readonly pendingSelect?: string;
+  /**
+   * A selection the owner asked for before the first survey read the
+   * tasks, run as soon as one has; a later request replaces it.
+   */
+  readonly awaiting?: DeskAwaited;
   /** Effects running beside the screen, by id. */
   readonly operations: ReadonlyMap<string, DeskOperation>;
   readonly manual: DeskManualStatus;
@@ -424,7 +503,20 @@ export type DeskSelectionMove =
 
 /** One input to the state machine. */
 export type DeskEvent =
+  /** Someone asked for a survey: the owner, or a change the Desk made. */
   | { readonly kind: "refresh" }
+  /** The refresh cadence came round. */
+  | { readonly kind: "cadence"; readonly now: number }
+  /**
+   * A check read the fleet's fingerprint; absent when it could not, which
+   * a survey then answers.
+   */
+  | {
+    readonly kind: "checked";
+    readonly generation: number;
+    readonly now: number;
+    readonly fingerprint?: string;
+  }
   | {
     readonly kind: "observed";
     readonly generation: number;
@@ -432,6 +524,10 @@ export type DeskEvent =
     readonly data: StatusData;
     readonly hints: readonly string[];
     readonly exceptionArgvs: ReadonlyMap<string, readonly string[]>;
+    /** The release record as the survey found it, when it was read. */
+    readonly releaseCheck?: ReleaseCheckHistory;
+    /** The fleet's fingerprint just before the survey read it. */
+    readonly fingerprint?: string;
   }
   | {
     readonly kind: "observation-failed";
@@ -452,7 +548,8 @@ export type DeskEvent =
     /** The parts it read; the rest it found kept. */
     readonly read: DeskEvidenceRead;
   }
-  | { readonly kind: "tip"; readonly tip: DeskTip }
+  /** The session's tip was chosen, or none was due. */
+  | { readonly kind: "tip"; readonly tip?: DeskTip }
   | {
     readonly kind: "intent";
     readonly intent: DeskIntent;
@@ -514,7 +611,7 @@ export type DeskEvent =
     readonly kind: "operation-progress";
     readonly operationId: string;
     readonly progress: DeskOperationProgress;
-    readonly output: string;
+    readonly output: StreamedOutput;
   }
   /** An operation running beside the screen ended. */
   | {
@@ -523,7 +620,7 @@ export type DeskEvent =
     /** Whether it ran to its end or was stopped on the way. */
     readonly ended: "ran" | "stopped";
     readonly outcome: DeskOutcome;
-    readonly output: string;
+    readonly output: StreamedOutput;
     readonly now: number;
     /** The list item selected as it ended. */
     readonly selected?: string;
@@ -544,7 +641,17 @@ export type DeskEvent =
 
 /** Work the live controller performs for a transition. */
 export type DeskEffect =
-  | { readonly kind: "survey"; readonly generation: number }
+  /**
+   * Survey the fleet. A check that found the fleet moved passes on the
+   * fingerprint it read; otherwise the survey takes one before it reads.
+   */
+  | {
+    readonly kind: "survey";
+    readonly generation: number;
+    readonly fingerprint?: string;
+  }
+  /** Read the fleet's fingerprint, and survey only if it moved. */
+  | { readonly kind: "check"; readonly generation: number }
   | { readonly kind: "schedule-survey"; readonly afterMs: number }
   | {
     readonly kind: "prepare";
@@ -630,7 +737,13 @@ export function initialDeskProduct(options: {
 }): DeskProductState {
   return {
     trunk: options.trunk,
-    survey: { generation: 0, inFlight: false, followUp: false, failures: 0 },
+    survey: {
+      generation: 0,
+      inFlight: false,
+      checking: false,
+      followUp: false,
+      failures: 0,
+    },
     hints: [],
     rows: [],
     exceptionArgvs: new Map(),
@@ -647,12 +760,12 @@ export function initialDeskProduct(options: {
   };
 }
 
-/** The next survey after one finishes: the queued follow-up, or the cadence. */
+/** The next read after one finishes: the queued follow-up, or the cadence. */
 function afterSurvey(transition: DeskTransition): DeskTransition {
   if (transition.state.survey.followUp) {
     const next = refresh({
       ...transition.state,
-      survey: { ...transition.state.survey, inFlight: false },
+      survey: { ...transition.state.survey, inFlight: false, checking: false },
     });
     return {
       state: next.state,
@@ -668,6 +781,143 @@ function afterSurvey(transition: DeskTransition): DeskTransition {
   };
 }
 
+/** A survey's progress without the facts of the survey it adopted. */
+function withoutSurveyed(survey: DeskSurvey): DeskSurvey {
+  const { fingerprint: _fingerprint, surveyedAt: _surveyedAt, ...rest } =
+    survey;
+  return rest;
+}
+
+/**
+ * Whether a running verb changes discern's own state. One that only reads,
+ * or only runs project code, such as a Desk session or an agent, moves the
+ * fingerprint through what it changes and through the logbook as it ends.
+ */
+function changesDiscernState(verb: string): boolean {
+  const policy = operationEffectPolicy(verb);
+  return policy === undefined || !isProjectOnlyPolicy(policy);
+}
+
+/**
+ * Whether something in the adopted observation moves with the clock or with
+ * a process no fingerprint sees: an operation this Desk runs, a run of a
+ * verb that changes discern's state, a landing under way, or the calling
+ * checkout's own operation.
+ */
+function inMotion(state: DeskProductState): boolean {
+  const data = state.data;
+  return state.operations.size > 0 || data?.operation !== undefined ||
+    (data?.fleet ?? []).some((entry) =>
+      entry.integration !== undefined ||
+      (entry.running !== undefined && changesDiscernState(entry.running.verb))
+    );
+}
+
+/**
+ * Whether the cadence must survey rather than check: nothing is adopted yet,
+ * the last read failed, the adopted survey has no fingerprint or has reached
+ * its ceiling, a child's or a new task's outcome waits for one, or something
+ * is in motion.
+ */
+function surveyDue(state: DeskProductState, now: number): boolean {
+  const survey = state.survey;
+  return state.data === undefined || survey.failures > 0 ||
+    survey.fingerprint === undefined || survey.surveyedAt === undefined ||
+    now - survey.surveyedAt >= DESK_SURVEY_CEILING_MS ||
+    state.pendingReturn !== undefined || state.pendingSelect !== undefined ||
+    inMotion(state);
+}
+
+/** The cadence came round: survey when one is due, otherwise check. */
+function cadence(
+  state: DeskProductState,
+  event: Extract<DeskEvent, { readonly kind: "cadence" }>,
+): DeskTransition {
+  if (state.survey.inFlight) return { state, effects: [] };
+  if (surveyDue(state, event.now)) return refresh(state);
+  const generation = state.survey.generation + 1;
+  return {
+    state: {
+      ...state,
+      survey: {
+        ...state.survey,
+        generation,
+        inFlight: true,
+        checking: true,
+        followUp: false,
+      },
+    },
+    effects: [{ kind: "check", generation }],
+  };
+}
+
+/**
+ * The adopted observation as a survey at `now` would read the same fleet:
+ * each running verb's elapsed time counted on from when it was read.
+ */
+function observationAt(
+  data: StatusData,
+  observedAt: number | undefined,
+  now: number,
+): StatusData {
+  if (observedAt === undefined || data.fleet === undefined) return data;
+  return {
+    ...data,
+    fleet: data.fleet.map((entry) =>
+      entry.running === undefined ? entry : {
+        ...entry,
+        running: {
+          ...entry.running,
+          elapsed_ms: elapsedSince(entry.running.elapsed_ms, observedAt, now),
+        },
+      }
+    ),
+  };
+}
+
+/**
+ * A check finished. An unmoved fingerprint confirms the adopted survey as of
+ * now, so the Desk adopts it again as of now, deriving what it shows from the
+ * clock afresh; a moved or unread one surveys.
+ */
+function checked(
+  state: DeskProductState,
+  event: Extract<DeskEvent, { readonly kind: "checked" }>,
+): DeskTransition {
+  const survey = state.survey;
+  if (event.generation !== survey.generation || !survey.checking) {
+    return { state, effects: [] };
+  }
+  const data = state.data;
+  if (
+    data !== undefined && event.fingerprint !== undefined &&
+    event.fingerprint === survey.fingerprint
+  ) {
+    return adopt(state, {
+      generation: event.generation,
+      now: event.now,
+      data: observationAt(data, survey.observedAt, event.now),
+      hints: state.hints,
+      exceptionArgvs: state.exceptionArgvs,
+      // The release record the survey read with its status: the
+      // fingerprint watches the record, so an unmoved one confirms both.
+      ...(state.releaseCheck === undefined
+        ? {}
+        : { releaseCheck: state.releaseCheck }),
+    }, { fingerprint: event.fingerprint, surveyedAt: survey.surveyedAt });
+  }
+  return {
+    state: { ...state, survey: { ...survey, checking: false } },
+    effects: [{
+      kind: "survey",
+      generation: survey.generation,
+      ...(event.fingerprint === undefined
+        ? {}
+        : { fingerprint: event.fingerprint }),
+    }],
+  };
+}
+
 /** Adopt one completed survey. */
 function observed(
   state: DeskProductState,
@@ -676,6 +926,24 @@ function observed(
   if (event.generation !== state.survey.generation) {
     return { state, effects: [] };
   }
+  return adopt(state, event, {
+    fingerprint: event.fingerprint,
+    surveyedAt: event.now,
+  });
+}
+
+/**
+ * Adopt an observation: a survey's, or the one a check confirmed. Its
+ * fingerprint and survey time are the survey's own.
+ */
+function adopt(
+  state: DeskProductState,
+  event: Omit<Extract<DeskEvent, { readonly kind: "observed" }>, "kind">,
+  surveyed: {
+    readonly fingerprint: string | undefined;
+    readonly surveyedAt: number | undefined;
+  },
+): DeskTransition {
   const data = heldForOperations(state, event.data);
   // The survey reads the fleet as finished operations left it.
   const fresh = { ...state, gone: new Set<string>() };
@@ -688,12 +956,22 @@ function observed(
     hints: event.hints,
     rows,
     exceptionArgvs: event.exceptionArgvs,
+    ...(event.releaseCheck === undefined
+      ? {}
+      : { releaseCheck: event.releaseCheck }),
     departed: departures(state, data, rows),
     survey: {
-      ...state.survey,
+      ...withoutSurveyed(state.survey),
       inFlight: false,
+      checking: false,
       failures: 0,
       observedAt: event.now,
+      ...(surveyed.fingerprint === undefined
+        ? {}
+        : { fingerprint: surveyed.fingerprint }),
+      ...(surveyed.surveyedAt === undefined
+        ? {}
+        : { surveyedAt: surveyed.surveyedAt }),
     },
   };
   const { warning: _cleared, offlineDismissed: _reset, ...withoutWarning } =
@@ -711,6 +989,12 @@ function observed(
   if (state.pendingReturn !== undefined) {
     const { pendingReturn: _done, ...rest } = next;
     next = returnMessage(rest, state.pendingReturn);
+  }
+  if (state.awaiting !== undefined) {
+    const { awaiting: _ran, ...rest } = next;
+    const ran = runAwaited(rest, state.awaiting);
+    next = ran.state;
+    effects.push(...ran.effects);
   }
   return afterSurvey({ state: next, effects });
 }
@@ -764,6 +1048,7 @@ function observationFailed(
     survey: {
       ...state.survey,
       inFlight: false,
+      checking: false,
       failures,
       error: event.error,
     },
@@ -1090,12 +1375,24 @@ function pageOpened(
 /** The lines an operation's output keeps for its reader and activity. */
 export const DESK_OUTPUT_LINES = 400;
 
-/** The last lines of an operation's output. */
-export function outputTail(output: string): string {
-  const lines = output.split("\n");
-  return lines.length <= DESK_OUTPUT_LINES
-    ? output
-    : lines.slice(-DESK_OUTPUT_LINES).join("\n");
+/**
+ * The code units one streamed line keeps in the output reader and a result's
+ * Full output, which scroll to every row they keep: no more than fits one
+ * screen at the size discern assumes for a terminal it cannot measure, since
+ * a Desk view is built without the viewport's size.
+ */
+export const DESK_OUTPUT_LINE_LIMIT = liveTailLimit(
+  "fit",
+  DEFAULT_TERMINAL_COLUMNS,
+  DEFAULT_TERMINAL_ROWS,
+);
+
+/**
+ * What an operation wrote, as a reader that scrolls shows it: a long line
+ * keeps its start and its end.
+ */
+export function shownOutput(output: StreamedOutput): string {
+  return liveTailOutput(output, DESK_OUTPUT_LINE_LIMIT, "…");
 }
 
 /** A running operation reported progress. */
@@ -1109,7 +1406,7 @@ function operationProgressed(
   operations.set(operation.id, {
     ...operation,
     progress: event.progress,
-    output: outputTail(event.output),
+    output: event.output,
   });
   return { state: { ...state, operations }, effects: [] };
 }
@@ -1122,10 +1419,13 @@ function showsProgress(state: DeskProductState, operationId: string): boolean {
 }
 
 /** A failure's full output: what the operation wrote, then its result. */
-function fullOutput(written: string, result: string | undefined): string {
-  const captured = written.trim() === ""
+function fullOutput(
+  written: StreamedOutput,
+  result: string | undefined,
+): string {
+  const captured = streamedOutputIsBlank(written)
     ? undefined
-    : `\`\`\`text\n${outputTail(written).trimEnd()}\n\`\`\``;
+    : `\`\`\`text\n${shownOutput(written).trimEnd()}\n\`\`\``;
   return [captured, result].filter((part) => part !== undefined).join(
     "\n\n",
   );
@@ -1166,9 +1466,7 @@ function operationSettled(
       ...(outcome.message === undefined
         ? {}
         : { summary: outcome.message.text }),
-      ...(event.output.trim() === ""
-        ? {}
-        : { output: outputTail(event.output) }),
+      ...(streamedOutputIsBlank(event.output) ? {} : { output: event.output }),
     }],
   });
   if (shown) next = closeLayer(next, "progress");
@@ -1283,6 +1581,10 @@ export function deskProduct(
   switch (event.kind) {
     case "refresh":
       return refresh(state);
+    case "cadence":
+      return cadence(state, event);
+    case "checked":
+      return checked(state, event);
     case "observed":
       return observed(state, event);
     case "observation-failed":
@@ -1299,10 +1601,11 @@ export function deskProduct(
       };
     case "tip":
       return {
-        state: toast({ ...state, tip: event.tip }, "muted", event.tip.brief, {
-          topic: "tip",
-          lead: event.tip.lead,
-        }),
+        state: {
+          ...state,
+          ...(event.tip === undefined ? {} : { tip: event.tip }),
+          tipChosen: true,
+        },
         effects: [],
       };
     case "intent":

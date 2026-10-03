@@ -24,6 +24,7 @@ import {
   deskFleetFixture,
   deskFocused,
   type DeskFrameTest,
+  deskHome,
   deskLandingAuthority,
   deskLayerOpen,
   deskLayerReady,
@@ -120,9 +121,13 @@ async function fixtureDirectories(
   };
 }
 
-/** From the landing task at rest to its confirmed review. */
+/**
+ * From the Desk at home, down to the landing task, the first in the list,
+ * and on to its confirmed review.
+ */
 function confirmLanding(): DeskTtyInputPhase[] {
   return [
+    phase(SIZE, undefined, "the Desk at home", deskHome(), { keys: ["down"] }),
     phase(SIZE, undefined, "the landing task at rest", deskAtRest(LANDING), {
       input: "l",
     }),

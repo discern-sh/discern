@@ -25,7 +25,13 @@ import {
 } from "../../shared/desk_vocabulary.ts";
 import { plural } from "../../shared/result_markdown_values.ts";
 import { proofHuman, queueHuman, relativeAge } from "../status/row_facts.ts";
-import { DESK_KEYS, type DeskKeyBinding, JUMP_GROUP_READS } from "./keys.ts";
+import {
+  COMMANDS_LABEL,
+  DESK_KEYS,
+  type DeskKeyBinding,
+  type DeskRowLayer,
+  JUMP_GROUP_READS,
+} from "./keys.ts";
 import { deskRowId } from "./model.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
 import type { DeskChangesEvidence } from "./contracts.ts";
@@ -38,8 +44,14 @@ import {
   type DeskMarkdownReading,
   type DeskProductState,
   type DeskReaderSubject,
+  shownOutput,
 } from "./desk_state.ts";
-import { branchTitle, rowRef } from "./desk_transitions.ts";
+import {
+  type StreamedOutput,
+  streamedOutputIsBlank,
+} from "../../lib/live_tail.ts";
+import { branchTitle, rowRef, sessionRead } from "./desk_transitions.ts";
+import { type DeskCommandRead, readerReads } from "./commands.ts";
 import { ageText, diffRuns, glyph, proofLineBlock } from "./inspector_view.ts";
 import { inlineRuns } from "./header_view.ts";
 
@@ -65,6 +77,42 @@ function markdown(source: string): ApplicationDetailBlock {
     kind: "block",
     content: createCliBlock(renderMarkdownCli, { source }),
   };
+}
+
+/** What Tip of the session says while the tasks it is chosen from can't be read. */
+export const DESK_NO_TIP_YET = "This session has no tip yet.";
+
+/**
+ * What a view over the session's own reads shows while one of `reads` is
+ * not ready: the tasks still loading or unreadable, or the session's tip
+ * still being chosen or waiting on tasks that can't be read. Undefined once
+ * every one is ready, so the view's own blocks fill in.
+ */
+export function awaitedBlocks(
+  state: DeskProductState,
+  reads: readonly DeskCommandRead[],
+): ApplicationDetailBlock[] | undefined {
+  for (const read of reads) {
+    const status = sessionRead(state, read);
+    if (status === "ready") continue;
+    switch (read) {
+      case "survey":
+        return status === "failed"
+          ? [{
+            kind: "text",
+            runs: [{ text: "Couldn't read tasks", tone: "warning" }],
+          }]
+          : [{ kind: "pending", label: "Loading tasks…" }];
+      case "tip":
+        return status === "failed"
+          ? [{ kind: "text", runs: [{ text: DESK_NO_TIP_YET }] }]
+          : [{ kind: "pending", label: "Choosing this session's tip…" }];
+      default:
+        // The manual opens in place of the desk, never in a reader.
+        continue;
+    }
+  }
+  return undefined;
 }
 
 /** A read that has not finished, failed, or produced its blocks. */
@@ -104,7 +152,45 @@ function keyItems(
   return items;
 }
 
-/** The keys reader: every key the inbox and a review answer to. */
+/**
+ * Where each row other than a task's gives keys a meaning of its own, as the
+ * keys reader's section titles say it.
+ */
+const ROW_PLACES = {
+  commands: `On the ${COMMANDS_LABEL} row`,
+  branch: "On a parked branch",
+  landed: "On a landed task",
+} as const satisfies Record<Exclude<DeskRowLayer, "inbox">, string>;
+
+/**
+ * The keys each row other than a task's gives a meaning the inbox's map
+ * does not, by the place that means them: Enter on the Commands row opens
+ * Commands rather than a next step. A place whose keys all mean what they
+ * mean on a task has none.
+ */
+function rowOwnKeys(
+  meaning: (binding: DeskKeyBinding) => string | undefined,
+): { title: string; items: { key: string[]; label: string }[] }[] {
+  return (Object.keys(ROW_PLACES) as (keyof typeof ROW_PLACES)[]).flatMap(
+    (layer) => {
+      const items = keyItems(DESK_KEYS[layer], (binding) => {
+        const inbox = DESK_KEYS.inbox.find((candidate) =>
+          candidate.key === binding.key
+        );
+        return inbox !== undefined &&
+            JSON.stringify(inbox.meaning) === JSON.stringify(binding.meaning)
+          ? undefined
+          : meaning(binding);
+      });
+      return items.length === 0 ? [] : [{ title: ROW_PLACES[layer], items }];
+    },
+  );
+}
+
+/**
+ * The keys reader: every key the inbox and a review answer to, and the
+ * meanings other rows give keys.
+ */
 function keysReader(state: DeskProductState): ApplicationReader<DeskIntent> {
   const gesture = (names: readonly string[]) => (binding: DeskKeyBinding) =>
     binding.meaning.kind === "gesture" &&
@@ -178,6 +264,13 @@ function keysReader(state: DeskProductState): ApplicationReader<DeskIntent> {
               : undefined,
         ),
       ),
+      ...rowOwnKeys(either(
+        gesture(["palette", "next-step", "actions"]),
+        (binding) =>
+          binding.meaning.kind === "command"
+            ? DESK_COMMAND_LABELS[binding.meaning.command]
+            : undefined,
+      )).map(({ title, items }) => section(title, items)),
       section(
         "In a review",
         keyItems(
@@ -592,8 +685,24 @@ export function deskReader(
   return { ...readerLayer(state, reader, env), escapeLabel: READER_ESCAPE };
 }
 
-/** One reader layer's contents. */
+/**
+ * One reader layer: its contents, or, while a read its command declares is
+ * still loading, that read's pending line in their place.
+ */
 function readerLayer(
+  state: DeskProductState,
+  reader: DeskReaderSubject,
+  env: DeskReaderEnv,
+): ApplicationReader<DeskIntent> {
+  const layer = readerContents(state, reader, env);
+  const waiting = awaitedBlocks(state, readerReads(reader.kind));
+  if (waiting === undefined) return layer;
+  const { rows: _rows, footnote: _footnote, ...rest } = layer;
+  return { ...rest, blocks: waiting };
+}
+
+/** One reader layer's contents. */
+function readerContents(
   state: DeskProductState,
   reader: DeskReaderSubject,
   env: DeskReaderEnv,
@@ -611,7 +720,7 @@ function readerLayer(
         blocks: [{
           kind: "text",
           runs: state.tip === undefined
-            ? [{ text: "This session has no tip yet." }]
+            ? [{ text: "This session has no tip." }]
             : inlineRuns(state.tip.full),
         }],
         keys: [{
@@ -772,15 +881,15 @@ function readerLayer(
 
 /** What an operation wrote, after the command it runs. */
 export function outputBlocks(
-  output: string,
+  output: StreamedOutput,
   command: string,
 ): ApplicationDetailBlock[] {
   return [
     { kind: "text", runs: [{ text: command, role: "code" }] },
-    output.trim() === "" ? text("Nothing written yet.") : {
+    streamedOutputIsBlank(output) ? text("Nothing written yet.") : {
       kind: "block",
       content: createCliBlock(renderCodeBlockCli, {
-        code: output.trimEnd(),
+        code: shownOutput(output).trimEnd(),
       }),
     },
   ];

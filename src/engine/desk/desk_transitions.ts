@@ -26,7 +26,7 @@ import {
   type DeskReviewAlternative,
   type DeskReviewLine,
 } from "./flow_types.ts";
-import { DESK_COMMANDS } from "./commands.ts";
+import { DESK_COMMANDS, type DeskCommandRead } from "./commands.ts";
 import { MESSAGE_MARKS } from "./glyphs.ts";
 import {
   buildDeskRows,
@@ -43,6 +43,13 @@ import { compareTaskTitles } from "../status/fleet_rows.ts";
 
 /** The one list the inbox shows; the package remembers selection by it. */
 export const DESK_LIST_ID = "inbox";
+
+/**
+ * The list identity of the Commands row that leads the inbox. No task can
+ * take it: a task id or branch never holds a colon, and a path starts with
+ * a slash.
+ */
+export const COMMANDS_ROW_ID = "desk:commands";
 
 /**
  * Layers open at once, bottom to top: the package's own limit, which a test
@@ -426,20 +433,14 @@ export function taskOperation(
 
 /** Start a survey now, or queue exactly one follow-up while one runs. */
 export function refresh(state: DeskProductState): DeskTransition {
-  if (state.survey.inFlight) {
+  if (state.survey.inFlight && !state.survey.checking) {
     return {
       state: { ...state, survey: { ...state.survey, followUp: true } },
       effects: [],
     };
   }
-  const generation = state.survey.generation + 1;
-  return {
-    state: {
-      ...state,
-      survey: { ...state.survey, generation, inFlight: true, followUp: false },
-    },
-    effects: [{ kind: "survey", generation }],
-  };
+  // A check in flight gives way: what was asked for is a survey.
+  return resurvey(state);
 }
 
 /**
@@ -452,21 +453,27 @@ export function resurvey(state: DeskProductState): DeskTransition {
   return {
     state: {
       ...state,
-      survey: { ...state.survey, generation, inFlight: true, followUp: false },
+      survey: {
+        ...state.survey,
+        generation,
+        inFlight: true,
+        checking: false,
+        followUp: false,
+      },
     },
     effects: [{ kind: "survey", generation }],
   };
 }
 
 /**
- * What a message on the message line is about: the session tip, a return
- * from a child the Desk lent the terminal to, the offline warning, or any
- * other notice.
+ * What a message on the message line is about: a return from a child the
+ * Desk lent the terminal to, the offline warning, a request waiting for the
+ * survey (cleared once it runs), or any other notice.
  */
 export const DESK_MESSAGE_TOPICS = [
-  "tip",
   "return",
   "offline",
+  "awaiting",
   "notice",
 ] as const;
 
@@ -494,7 +501,7 @@ export function toast(
   state: DeskProductState,
   tone: DeskMessage["tone"],
   text: string,
-  extra: Pick<DeskMessage, "mark" | "key" | "tasks" | "detail" | "lead"> & {
+  extra: Pick<DeskMessage, "mark" | "key" | "tasks" | "detail"> & {
     readonly topic?: DeskMessageTopic;
   } = {},
 ): DeskProductState {
@@ -545,6 +552,8 @@ export function taskTitleOf(state: DeskProductState, branch: string): string {
 
 /** What a list identity stands for. */
 export type DeskRowRef =
+  /** The Commands row: its Enter opens the palette, its detail is home. */
+  | { readonly kind: "commands" }
   | { readonly kind: "task"; readonly row: DeskRow }
   | { readonly kind: "parked"; readonly branch: string }
   | {
@@ -558,6 +567,7 @@ export function rowRef(
   id: string | undefined,
 ): DeskRowRef | undefined {
   if (id === undefined) return undefined;
+  if (id === COMMANDS_ROW_ID) return { kind: "commands" };
   const row = state.rows.find((candidate) => deskRowId(candidate) === id);
   if (row !== undefined) return { kind: "task", row };
   if (id.startsWith("parked:")) {
@@ -744,4 +754,35 @@ export function resultNextLine(
     text: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}`,
     source: next.source,
   };
+}
+
+/**
+ * How one read a command declares stands now. The session's survey,
+ * manual and tip are loading until they first settle; the tip, chosen from
+ * the first survey that reads the tasks, has failed while the survey has. A
+ * command's own read is the opened layer's to show, so it never holds the
+ * command back.
+ */
+export function sessionRead(
+  state: DeskProductState,
+  read: DeskCommandRead,
+): "loading" | "ready" | "failed" {
+  switch (read) {
+    case "survey":
+      return state.data !== undefined
+        ? "ready"
+        : state.survey.failures > 0
+        ? "failed"
+        : "loading";
+    case "manual":
+      return state.manual.state;
+    case "tip":
+      return state.tip !== undefined || state.tipChosen === true
+        ? "ready"
+        : sessionRead(state, "survey") === "failed"
+        ? "failed"
+        : "loading";
+    case "own":
+      return "ready";
+  }
 }

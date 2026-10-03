@@ -2,11 +2,13 @@
  * The inbox: the Desk's one application view.
  *
  * A header with the project, its chips, how many tasks need the owner, and
- * how fresh the observation is; one grouped list ordered by who moves next,
- * with a following inspector; a message line; and a footer whose left half
- * is the selected row's next step and keyed alternatives. Layers come from
- * their own views. Pure: `deskView` reads product state, the package's
- * read-only state, and the clock, and returns an immutable view.
+ * how fresh the observation is; one grouped list led by the Commands row,
+ * then the tasks ordered by who moves next, with a following inspector that
+ * is the home panel while the Commands row is selected; a message line; and
+ * a footer whose left half is the selected row's next step and keyed
+ * alternatives. Layers come from their own views. Pure: `deskView` reads
+ * product state, the package's read-only state, and the clock, and returns
+ * an immutable view.
  */
 
 import type {
@@ -38,7 +40,13 @@ import { compareTaskTitles } from "../status/fleet_rows.ts";
 import { positiveCount } from "../status/row_facts.ts";
 import { type DeskRow, deskRowId } from "./model.ts";
 import { DESK_COMMAND_REGISTRY } from "./commands.ts";
-import { DESK_KEYS, PACKAGE_RESERVED_KEYS, ZOOM_HINT_LABELS } from "./keys.ts";
+import {
+  COMMANDS_LABEL,
+  DESK_KEYS,
+  DESK_ROW_LAYERS,
+  PACKAGE_RESERVED_KEYS,
+  ZOOM_HINT_LABELS,
+} from "./keys.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
 import type {
   DeskIntent,
@@ -48,6 +56,7 @@ import type {
 } from "./desk_state.ts";
 import {
   branchTitle,
+  COMMANDS_ROW_ID,
   DESK_LIST_ID,
   DESK_TOAST_MS,
   landedRowId,
@@ -79,13 +88,22 @@ import {
 } from "./evidence.ts";
 import { type DeskLayerEnv, deskLayers } from "./layer_view.ts";
 import { FULL_OUTPUT_KEY, REVIEW_AGAIN_KEY } from "./sheet_view.ts";
-import { deskChips, inlineRuns } from "./header_view.ts";
+import { deskChips } from "./header_view.ts";
+import {
+  COMMANDS_GROUP_ID,
+  commandsGroup,
+  homeBlocks,
+  homeStrip,
+  noTasks,
+} from "./home_view.ts";
 import { inertView } from "./text.ts";
 
 /** What the view reads besides product and package state. */
 export interface DeskViewEnv extends DeskLayerEnv {
   /** The main checkout. */
   readonly root: string;
+  /** The running discern version, which the home panel names. */
+  readonly version: string;
   /**
    * The application's clock as the view is built. A running time counts
    * on from it as a clock the package paints; without it, it shows as
@@ -111,9 +129,20 @@ const BUSY_AFTER_MS = 1_500;
 /** The group shown in title order when the owner sorts by title. */
 const TITLE_GROUP = { id: "tasks", title: "Tasks" } as const;
 
-/** What a branch group holds, said beside its fold in the empty state. */
+/**
+ * The title cells the list keeps while there are no tasks: the Commands
+ * row's title, all it then holds besides branch folds, so the list takes no
+ * more than the package's least and the home panel, where the desk explains
+ * what a task is, takes the rest. A home test holds it to the title.
+ */
+export const EMPTY_LIST_MIN_TITLE = 8;
+
+/**
+ * What a branch group holds, said beside its fold while there are no tasks,
+ * short enough to read whole beside the fold in the narrowed list.
+ */
 const BRANCH_GROUP_GLOSS: Readonly<Record<string, string>> = {
-  parked: "branches without a checkout",
+  parked: "without a checkout",
   landed: "landed recently",
 };
 
@@ -337,7 +366,10 @@ function initiallyFolded(state: DeskProductState, group: string): boolean {
   return foldedGroups(state.preferences).includes(group);
 }
 
-/** The inbox list: decision groups (or one title-ordered group), then branches. */
+/**
+ * The inbox list: the Commands row, then the decision groups (or one
+ * title-ordered group), then branches.
+ */
 function inboxList(
   state: DeskProductState,
   env: DeskViewEnv,
@@ -389,10 +421,21 @@ function inboxList(
       items: landedItems(state.data, env),
     },
   ];
-  const groups = [...taskGroups, ...branchGroups];
+  // With no task to compare against, a branch group says what it holds
+  // beside its fold.
+  const glossed = noTasks(state)
+    ? branchGroups.map((group) => {
+      const gloss = BRANCH_GROUP_GLOSS[group.id];
+      return gloss === undefined || group.aside !== undefined
+        ? group
+        : { ...group, aside: [{ text: gloss, tone: "faint" as const }] };
+    })
+    : branchGroups;
+  const groups = [commandsGroup(state), ...taskGroups, ...glossed];
   return {
     id: DESK_LIST_ID,
     groups,
+    ...(noTasks(state) ? { minTitle: EMPTY_LIST_MIN_TITLE } : {}),
     columns: [
       { id: "flag", width: 1, priority: 1 },
       { id: "label", width: 13, align: "end" },
@@ -406,7 +449,7 @@ function inboxList(
   };
 }
 
-/** Each row's detail blocks and strip. */
+/** Each row's detail blocks and strip, the Commands row's home panel first. */
 function details(
   state: DeskProductState,
   env: DeskViewEnv,
@@ -415,8 +458,12 @@ function details(
   strip: Record<string, ApplicationDetailStrip>;
 } {
   const base = inspection(state, env);
-  const content: Record<string, readonly ApplicationDetailBlock[]> = {};
-  const strip: Record<string, ApplicationDetailStrip> = {};
+  const content: Record<string, readonly ApplicationDetailBlock[]> = {
+    [COMMANDS_ROW_ID]: homeBlocks(state, env),
+  };
+  const strip: Record<string, ApplicationDetailStrip> = {
+    [COMMANDS_ROW_ID]: homeStrip(state, env),
+  };
   for (const row of state.rows) {
     const id = deskRowId(row);
     const evidence = cachedEvidence(
@@ -448,28 +495,24 @@ function details(
   return { content, strip };
 }
 
-/** The header's liveness: Live, Refreshing, Retrying, or Offline. */
+/**
+ * The header's liveness: Live, Refreshing, Retrying, or Offline. A check of
+ * the fleet's fingerprint is part of being Live; only a survey refreshes.
+ */
 function liveness(
   state: DeskProductState,
 ): "idle" | "busy" | "retrying" | "stale" {
   if (state.survey.failures >= DESK_OFFLINE_FAILURES) return "stale";
   if (state.survey.failures > 0) return "retrying";
-  return state.survey.inFlight ? "busy" : "idle";
+  return state.survey.inFlight && !state.survey.checking ? "busy" : "idle";
 }
 
 /**
  * The words of a message after its mark: muted, except an outcome (a
  * success or a failure), whose sentence reads in ink; a detail that names
- * what was found reads in ink after the lead.
+ * what was found reads in ink after the text.
  */
 function messageWords(message: DeskMessage): ApplicationRun[] {
-  if (message.topic === "tip") {
-    return [
-      { text: message.lead ?? "Tip", tone: "faint" },
-      { text: "   " },
-      ...inlineRuns(message.text),
-    ];
-  }
   const outcome = message.tone === "success" || message.tone === "danger";
   return [
     { text: message.text, ...(outcome ? { tone: "ink" as const } : {}) },
@@ -481,10 +524,8 @@ function messageWords(message: DeskMessage): ApplicationRun[] {
 }
 
 /**
- * The message row: a toast, the tip, or a persistent warning. Only the
- * leading mark carries the message's tone; the line itself stays muted.
- * The tip reads only whole, so it is optional: a terminal too narrow for
- * its brief, or too short to spare the footer's row, leaves it out.
+ * The message row: a toast or a persistent warning. Only the leading mark
+ * carries the message's tone; the line itself stays muted.
  */
 export function messageLine(
   message: DeskMessage | undefined,
@@ -502,18 +543,15 @@ export function messageLine(
     id: message.id,
     tone: "muted",
     runs,
-    ...(message.topic === "tip" ? { optional: true } : {}),
     ...(message.key === undefined ? {} : {
       trailing: [
         { text: message.key.key, role: "key" as const },
         { text: ` ${message.key.label}`, tone: "muted" as const },
       ],
     }),
-    ...(message.persistent === true ? {} : {
-      dismiss: message.topic === "tip"
-        ? { onKey: true }
-        : { afterMs: DESK_TOAST_MS, onKey: true },
-    }),
+    ...(message.persistent === true
+      ? {}
+      : { dismiss: { afterMs: DESK_TOAST_MS, onKey: true } }),
   };
 }
 
@@ -522,9 +560,14 @@ export function messageLine(
  * actions when it has none it can run now), then its keyed alternatives.
  * The first hint is the footer's primary, so it is always Enter's.
  */
-function rowHints(state: DeskProductState, ui: DeskUi): KeyHint[] {
+function rowHints(
+  state: DeskProductState,
+  ui: DeskUi,
+  list: ApplicationList<DeskIntent>,
+): KeyHint[] {
   const ref = rowRef(state, ui.selected);
   if (ref === undefined) return [];
+  if (ref.kind === "commands") return commandsHints(state, list);
   if (ref.kind === "parked") {
     return [
       { key: "enter", label: DESK_COMMAND_LABELS.resume },
@@ -551,6 +594,27 @@ function rowHints(state: DeskProductState, ui: DeskUi): KeyHint[] {
   ];
 }
 
+/**
+ * The Commands row's hints: Enter opens the palette, New task leads while
+ * there are no tasks, and Down reaches the first group below, by its name.
+ */
+function commandsHints(
+  state: DeskProductState,
+  list: ApplicationList<DeskIntent>,
+): KeyHint[] {
+  const below = list.groups.find((group) =>
+    group.id !== COMMANDS_GROUP_ID && group.items.length > 0
+  );
+  const newTask = DESK_COMMAND_REGISTRY.new_task.key;
+  return [
+    { key: "enter", label: COMMANDS_LABEL },
+    ...(noTasks(state)
+      ? [{ key: newTask, label: DESK_COMMAND_LABELS.new_task }]
+      : []),
+    ...(below === undefined ? [] : [{ key: "down", label: below.title }]),
+  ];
+}
+
 /** The label a gesture key carries in the inbox key map. */
 function gestureLabel(key: string): string {
   const binding = DESK_KEYS.inbox.find((candidate) => candidate.key === key);
@@ -558,29 +622,36 @@ function gestureLabel(key: string): string {
 }
 
 /**
- * The inbox footer: the row's hints left, the pinned routes right. Filter is
- * offered only while a list is on screen to filter.
+ * The inbox footer: the row's hints left, the pinned routes right. Actions
+ * concern a task or a branch, so the Commands row leaves them out, and
+ * Filter shows only while the list holds a task or a branch to match: the
+ * filter passes over the Commands row.
  */
 function footer(
   state: DeskProductState,
   ui: DeskUi,
-  shown: TerminalApplicationView<DeskIntent>["body"],
+  list: ApplicationList<DeskIntent>,
 ): TerminalApplicationView<DeskIntent>["footer"] {
   const ref = rowRef(state, ui.selected);
-  const left = ref === undefined && shown.kind === "empty"
-    ? emptyHints(shown)
-    : rowHints(state, ui);
+  const left = rowHints(state, ui, list);
   // Enter already names Actions when the row has nothing else to run.
   const actions = (ref?.kind === "task" || ref?.kind === "parked") &&
     left[0]?.label !== gestureLabel(".");
-  const filterable = shown.kind !== "empty" || shown.list !== undefined;
-  // Nor does New task need its key while Enter already says it.
-  const creates = left[0]?.label === DESK_COMMAND_LABELS.new_task;
+  // Nor does New task need its key while the row's own hints name it.
+  const creates = left.some((hint) =>
+    hint.label === DESK_COMMAND_LABELS.new_task
+  );
+  // Nor Ctrl+K while Enter already opens Commands, the Commands row's own
+  // cell showing its key.
+  const commands = left[0]?.label === COMMANDS_LABEL;
+  const filterable = list.groups.some((group) =>
+    group.counted !== false && group.items.length > 0
+  );
   return {
     left,
     right: [
       ...(actions ? [{ key: ".", label: gestureLabel(".") }] : []),
-      { key: "ctrl-k", label: gestureLabel("ctrl-k") },
+      ...(commands ? [] : [{ key: "ctrl-k", label: gestureLabel("ctrl-k") }]),
     ],
     extra: [
       { key: "?", label: DESK_COMMAND_REGISTRY.keys.short },
@@ -589,22 +660,6 @@ function footer(
       { key: "q", label: DESK_COMMAND_LABELS.quit },
     ],
   };
-}
-
-/**
- * The empty state's own hints: what Enter does, and Down to the branch
- * groups listed beneath it, by the first one's name.
- */
-function emptyHints(
-  shown: Extract<TerminalApplicationView<DeskIntent>["body"], {
-    readonly kind: "empty";
-  }>,
-): KeyHint[] {
-  const below = shown.list?.groups.find((group) => group.items.length > 0);
-  return [
-    { key: shown.primary.key, label: shown.primary.label },
-    ...(below === undefined ? [] : [{ key: "down", label: below.title }]),
-  ];
 }
 
 /** The keys zoom gives its own meanings, which no row hint may claim there. */
@@ -641,7 +696,7 @@ function zoomFooter(
 export function deskKeymap(): ApplicationKeyBinding<DeskIntent>[] {
   const reserved: readonly string[] = PACKAGE_RESERVED_KEYS;
   const keys = new Set<string>();
-  for (const layer of ["inbox", "branch", "landed"] as const) {
+  for (const layer of DESK_ROW_LAYERS) {
     for (const binding of DESK_KEYS[layer]) {
       if (!reserved.includes(binding.key)) keys.add(binding.key);
     }
@@ -684,8 +739,9 @@ export function deskView(
   const needYou = needYouCount(state);
   const message = messageLine(state.message ?? state.warning);
   const layers = deskLayers(state, env);
-  const listed = body(state, env);
-  const base = footer(state, ui, listed);
+  const list = inboxList(state, env);
+  const listed = body(state, env, list);
+  const base = footer(state, ui, list);
   const shown = listed.kind === "master-detail"
     ? { ...listed, zoomFooter: zoomFooter(base) }
     : listed;
@@ -722,15 +778,6 @@ export function deskView(
     windowTitle: needYou === 0 ? project : `${project} · ${needYou} need you`,
     ...(state.preferences.mouse === true ? { input: { mouse: true } } : {}),
     tooSmallHints: [{ key: "q", label: DESK_COMMAND_LABELS.quit }],
-    ...(state.data === undefined
-      ? {
-        copy: {
-          noItems: state.survey.failures > 0
-            ? "Couldn't read tasks"
-            : "Loading tasks…",
-        },
-      }
-      : {}),
   };
   // Observed text reaches the view in many slots; one pass keeps every
   // single-line slot free of line breaks and control characters.
@@ -738,57 +785,22 @@ export function deskView(
   return view;
 }
 
-/** The body: the inbox, the empty state, or the list alone. */
+/**
+ * The body: the list and its inspector, or the list alone while details are
+ * hidden. The Commands row leads either way, so a desk with no tasks is the
+ * same inbox, its home panel saying what a task is. Hiding details hides a
+ * task's facts, so until there is a task the home panel stays: it is where
+ * the desk says it is loading, couldn't read the tasks, or has none yet.
+ */
 function body(
   state: DeskProductState,
   env: DeskViewEnv,
+  list: ApplicationList<DeskIntent>,
 ): TerminalApplicationView<DeskIntent>["body"] {
-  const list = inboxList(state, env);
-  if (state.data !== undefined && state.rows.length === 0) {
-    const branches = list.groups.filter((group) =>
-      group.id === "parked" || group.id === "landed"
-    );
-    const hasBranches = branches.some((group) => group.items.length > 0);
-    return {
-      kind: "empty",
-      title: "No tasks yet",
-      // One sentence per line, so neither breaks mid-phrase.
-      body: [
-        [{ text: "A task is its own checkout and branch for one change." }],
-        [{
-          text:
-            `Hand it to an agent; land it on ${state.trunk} once its checks pass.`,
-        }],
-      ],
-      primary: {
-        key: "enter",
-        label: DESK_COMMAND_LABELS.new_task,
-        action: { kind: "command", command: "new_task" },
-      },
-      secondary: [{ key: "ctrl-k", label: gestureLabel("ctrl-k") }],
-      ...(hasBranches
-        ? {
-          list: {
-            ...list,
-            // With no task to compare against, a branch group says what it
-            // holds beside its fold.
-            groups: branches.map((group) => {
-              const gloss = BRANCH_GROUP_GLOSS[group.id];
-              return gloss === undefined || group.aside !== undefined
-                ? group
-                : {
-                  ...group,
-                  aside: [{ text: gloss, tone: "faint" as const }],
-                };
-            }),
-          },
-        }
-        : {}),
-    };
-  }
-  if (state.preferences.details === "hidden" || state.data === undefined) {
-    return { kind: "list", list };
-  }
+  if (
+    state.preferences.details === "hidden" && state.data !== undefined &&
+    !noTasks(state)
+  ) return { kind: "list", list };
   const { content, strip } = details(state, env);
   return {
     kind: "master-detail",

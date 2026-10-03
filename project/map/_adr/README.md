@@ -395,6 +395,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0418 — Desk effects are attributed to their task](0418-desk-effects-are-attributed-to-their-task.md)
 - [0419 — The manual opens inside the Desk session](0419-the-manual-opens-inside-the-desk-session.md)
 - [0420 — The Desk is an inbox with a following inspector and modal layers](0420-the-desk-is-an-inbox-with-a-following-inspector-and-modal-layers.md)
+- [0421 — A lapsed lease permits a takeover but does not end a claim](0421-a-lapsed-lease-permits-a-takeover-but-does-not-end-a-claim.md)
+- [0422 — The Desk checks the fleet's fingerprint before it surveys](0422-the-desk-checks-the-fleet-fingerprint-before-it-surveys.md)
 
 <!-- END GENERATED: current ADR records -->
 

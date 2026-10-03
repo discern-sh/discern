@@ -24,6 +24,7 @@ import { completeGateFixture } from "../complete_gate_fixture.ts";
 
 import { SYSTEM_CLOCK } from "../../src/shared/clock.ts";
 import {
+  COMMANDS_ROW_ID,
   type DeskMessageTopic,
   deskMessageTopic,
 } from "../../src/engine/desk/desk_transitions.ts";
@@ -1075,11 +1076,17 @@ interface ChildTerminalEvidence {
 /** What a settled frame must show before a phase's input goes in. */
 export type DeskFrameTest = (capture: TerminalFrameCapture) => boolean;
 
-/** The inbox at rest: a row selected, its evidence read, no layer open. */
+/**
+ * The inbox at rest on a task or branch row: that row, or any such row,
+ * selected, its evidence read, no layer open. The Commands row the Desk
+ * opens on never satisfies it, so a wait that should find a task cannot
+ * pass on a selection reset to home; {@linkcode deskHome} waits for home.
+ */
 export function deskAtRest(id?: string): DeskFrameTest {
   return (capture) =>
     capture.state?.topLayerId === undefined &&
     capture.state?.selectedItemId !== undefined &&
+    capture.state.selectedItemId !== COMMANDS_ROW_ID &&
     (id === undefined || capture.state.selectedItemId === id) &&
     capture.state.detailPending !== true;
 }
@@ -1109,11 +1116,33 @@ export function deskZoomed(): DeskFrameTest {
     capture.state?.zoomed === true && capture.state.detailPending !== true;
 }
 
-/** A project with no tasks: the empty body, its New task hint focused. */
-export function deskEmpty(): DeskFrameTest {
+/**
+ * The Desk at home, as it opens: the Commands row selected once the first
+ * survey has read the tasks, beside the list, with no layer open. A project
+ * with no tasks rests here too, its home panel saying so.
+ */
+export function deskHome(): DeskFrameTest {
   return (capture) =>
     capture.state?.topLayerId === undefined &&
-    capture.state?.focusedControlId === "primary";
+    capture.state?.selectedItemId === COMMANDS_ROW_ID &&
+    capture.state.zoomed !== true &&
+    capture.state.liveness === "idle" &&
+    capture.state.detailPending !== true;
+}
+
+/**
+ * The Desk at home in its steady state: {@linkcode deskHome} once the
+ * session's tip, chosen after the first survey, has reached the home panel.
+ * The state report does not carry the tip, so this reads the panel's Tip
+ * section title; only a panel with room shows it, so it suits the standard
+ * size and up.
+ */
+export function deskHomeWithTip(): DeskFrameTest {
+  return (capture) =>
+    deskHome()(capture) &&
+    capture.text.split("\n").some((line) =>
+      /\sTip(?:\s+new in \S+)?\s*$/u.test(line)
+    );
 }
 
 /** A layer on top. */

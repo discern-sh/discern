@@ -12,7 +12,6 @@ import { currentOperationSignal } from "../shared/operation_signal.ts";
 import { loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
-import { reportFailure } from "../lib/narration.ts";
 import { recordedRun } from "./logbook/cli.ts";
 import { reraiseInterrupt } from "./process_signals.ts";
 import { runOwnedChild } from "./owned_child.ts";
@@ -98,8 +97,7 @@ export function parseQueueInvocation(
 
 /** Render one queue failure and its canonical recovery form to stderr. */
 function writeQueueError(message: string): void {
-  reportFailure(
-    new Logger({ json: false, noColor: false }),
+  new Logger({ json: false, noColor: false }).failure(
     message,
     [`Run: ${QUEUE_USAGE}`],
   );

@@ -18,6 +18,7 @@ import type {
 } from "../../src/shared/result_schemas.ts";
 import { mainFleetEntry, statusData, taskFleetEntry } from "../status_fleet.ts";
 import type { DeskReview } from "../../src/engine/desk/flow_types.ts";
+import type { ReleaseCheckHistory } from "../../src/shared/release_check.ts";
 import {
   formValuesKey,
   layerId as layerIdOf,
@@ -59,6 +60,7 @@ export function observeDesk(
   state: DeskProductState,
   data: StatusData,
   now = PRODUCT_NOW,
+  releaseCheck?: ReleaseCheckHistory,
 ): DeskTransition {
   const pending = state.survey.inFlight
     ? state
@@ -70,6 +72,7 @@ export function observeDesk(
     data,
     hints: [],
     exceptionArgvs: new Map(),
+    ...(releaseCheck === undefined ? {} : { releaseCheck }),
   });
 }
 

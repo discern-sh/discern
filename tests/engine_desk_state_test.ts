@@ -15,6 +15,7 @@ import {
   DESK_FORM_PREVIEW_MS,
   DESK_OFFLINE_FAILURES,
   DESK_REFRESH_MS,
+  DESK_SURVEY_CEILING_MS,
   type DeskEffect,
   type DeskEvent,
   type DeskIntent,
@@ -26,6 +27,7 @@ import {
   layerId,
 } from "../src/engine/desk/desk_state.ts";
 import {
+  COMMANDS_ROW_ID,
   DESK_LAYER_DEPTH,
   DESK_MESSAGE_TOPICS,
   deskMessageId,
@@ -47,6 +49,7 @@ import type {
   StatusData,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
+import type { ReleaseCheckHistory } from "../src/shared/release_check.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
 import {
   deskIntent,
@@ -138,22 +141,228 @@ Deno.test("one survey runs at a time and a refresh during one queues exactly one
   assertEquals(settled.state.survey.followUp, false);
 });
 
+/** The fingerprint of a fleet at rest. */
+const FINGERPRINT = "fleet-at-rest";
+
+/**
+ * A Desk that adopted `data`, surveyed with `fingerprint` at `NOW`, with the
+ * release record the survey read beside it.
+ */
+function surveyed(
+  data: StatusData,
+  fingerprint: string | undefined,
+  releaseCheck?: ReleaseCheckHistory,
+): DeskProductState {
+  const asked = deskProduct(
+    initialDeskProduct({ trunk: "main", preferences: { schema_version: 2 } }),
+    { kind: "refresh" },
+  ).state;
+  return deskProduct(asked, {
+    kind: "observed",
+    generation: asked.survey.generation,
+    now: NOW,
+    data,
+    hints: [],
+    exceptionArgvs: new Map(),
+    ...(fingerprint === undefined ? {} : { fingerprint }),
+    ...(releaseCheck === undefined ? {} : { releaseCheck }),
+  }).state;
+}
+
+Deno.test("the cadence checks the fleet's fingerprint and surveys only when it moved, is due, or something moves", () => {
+  const liveness = (state: DeskProductState): string | undefined =>
+    deskView(state, UI, ENV).header.liveness?.state;
+  const rest = surveyed(survey([editing("alpha")]), FINGERPRINT);
+
+  const tick = deskProduct(rest, {
+    kind: "cadence",
+    now: NOW + DESK_REFRESH_MS,
+  });
+  const generation = rest.survey.generation + 1;
+  assertEquals(tick.effects, [{ kind: "check", generation }]);
+  assertEquals(liveness(tick.state), "idle", "a check is part of being Live");
+
+  const confirmed = deskProduct(tick.state, {
+    kind: "checked",
+    generation,
+    now: NOW + DESK_REFRESH_MS,
+    fingerprint: FINGERPRINT,
+  });
+  assertEquals(confirmed.effects, [{
+    kind: "schedule-survey",
+    afterMs: DESK_REFRESH_MS,
+  }]);
+  assertEquals(confirmed.state.data, rest.data, "the survey is adopted again");
+  assertEquals(confirmed.state.rows.length, rest.rows.length);
+  assertEquals(confirmed.state.survey.observedAt, NOW + DESK_REFRESH_MS);
+  assertEquals(
+    confirmed.state.survey.surveyedAt,
+    NOW,
+    "its age is the survey's",
+  );
+  assertEquals(confirmed.state.survey.inFlight, false);
+
+  const moved = deskProduct(tick.state, {
+    kind: "checked",
+    generation,
+    now: NOW + DESK_REFRESH_MS,
+    fingerprint: "fleet-moved",
+  });
+  assertEquals(moved.effects, [{
+    kind: "survey",
+    generation,
+    fingerprint: "fleet-moved",
+  }]);
+  assertEquals(liveness(moved.state), "busy", "a survey refreshes");
+  const unread = deskProduct(tick.state, {
+    kind: "checked",
+    generation,
+    now: NOW + DESK_REFRESH_MS,
+  });
+  assertEquals(unread.effects, [{ kind: "survey", generation }]);
+
+  const asked = deskProduct(tick.state, { kind: "refresh" });
+  assertEquals(
+    asked.effects,
+    [{ kind: "survey", generation: generation + 1 }],
+    "an asked-for survey supersedes a check",
+  );
+  assertEquals(
+    deskProduct(asked.state, {
+      kind: "checked",
+      generation,
+      now: NOW + DESK_REFRESH_MS,
+      fingerprint: FINGERPRINT,
+    }).state,
+    asked.state,
+    "the superseded check is set aside",
+  );
+
+  const cadenceAt = (state: DeskProductState, now: number): DeskEffect[] => [
+    ...deskProduct(state, { kind: "cadence", now }).effects,
+  ];
+  const surveyNext = (state: DeskProductState): DeskEffect[] => [{
+    kind: "survey",
+    generation: state.survey.generation + 1,
+  }];
+  assertEquals(
+    cadenceAt(confirmed.state, NOW + DESK_SURVEY_CEILING_MS),
+    surveyNext(confirmed.state),
+    "an adopted survey reaches its ceiling from when it was taken",
+  );
+  const running = surveyed(
+    productSurvey([taskFleetEntry("beta", {
+      running: {
+        verb: "done",
+        started: "2026-07-11T11:59:00Z",
+        elapsed_ms: 60_000,
+      },
+    })]),
+    FINGERPRINT,
+  );
+  assertEquals(
+    cadenceAt(running, NOW + DESK_REFRESH_MS),
+    surveyNext(running),
+    "a run in motion is surveyed every cadence",
+  );
+  const watching = surveyed(
+    productSurvey([taskFleetEntry("beta", {
+      running: {
+        verb: "desk",
+        started: "2026-07-11T11:59:00Z",
+        elapsed_ms: 60_000,
+      },
+    })]),
+    FINGERPRINT,
+  );
+  assertEquals(
+    cadenceAt(watching, NOW + DESK_REFRESH_MS),
+    [{ kind: "check", generation: watching.survey.generation + 1 }],
+    "an open Desk session is not a run in motion",
+  );
+  const unprinted = surveyed(survey([editing("alpha")]), undefined);
+  assertEquals(
+    cadenceAt(unprinted, NOW + DESK_REFRESH_MS),
+    surveyNext(unprinted),
+    "a survey without a fingerprint is surveyed again",
+  );
+  const failing = fail(rest, NOW + DESK_REFRESH_MS).state;
+  assertEquals(
+    cadenceAt(failing, NOW + 2 * DESK_REFRESH_MS),
+    surveyNext(failing),
+    "a failed read retries with a survey",
+  );
+});
+
+Deno.test("a check that finds the fleet unmoved changes nothing the Desk shows", () => {
+  // A run of a verb that changes no discern state leaves the cadence
+  // checking, so its clock counts on across every check. The fingerprint
+  // watches the release record, so the home panel's last update check is
+  // the survey's too.
+  const releaseCheck: ReleaseCheckHistory = {
+    state: "checked",
+    at: "2026-06-20T12:00:00.000Z",
+  };
+  const rest = surveyed(
+    survey([
+      editing("alpha"),
+      taskFleetEntry("beta", {
+        running: {
+          verb: "await",
+          started: "2026-07-11T11:59:30Z",
+          elapsed_ms: 30_000,
+          typical_duration_ms: 120_000,
+        },
+      }),
+    ]),
+    FINGERPRINT,
+    releaseCheck,
+  );
+  const generation = rest.survey.generation + 1;
+  const tick = deskProduct(rest, {
+    kind: "cadence",
+    now: NOW + DESK_REFRESH_MS,
+  });
+  assertEquals(tick.effects, [{ kind: "check", generation }]);
+  const runningRow = rest.rows.find((row) => row.entry.running !== undefined);
+  assert(runningRow !== undefined, "the fleet has a running row");
+
+  const confirmedAt = NOW + DESK_REFRESH_MS + 400;
+  const confirmed = deskProduct(tick.state, {
+    kind: "checked",
+    generation,
+    now: confirmedAt,
+    fingerprint: FINGERPRINT,
+  }).state;
+  assertEquals(confirmed.releaseCheck, releaseCheck);
+  for (const selected of [deskRowId(runningRow), COMMANDS_ROW_ID]) {
+    const ui = { ...UI, selected };
+    for (const at of [confirmedAt, confirmedAt + 2 * DESK_REFRESH_MS]) {
+      assertEquals(
+        deskView(confirmed, ui, { ...ENV, now: at }),
+        deskView(tick.state, ui, { ...ENV, now: at }),
+        `${selected}: the Desk ${at - NOW} ms after its survey`,
+      );
+    }
+  }
+});
+
 Deno.test("every message's id names its topic, which a state report reader recovers", () => {
   for (const topic of DESK_MESSAGE_TOPICS) {
     assertEquals(deskMessageTopic(deskMessageId(topic, 12)), topic);
   }
   assertEquals(deskMessageTopic("operation-3"), undefined);
   assertEquals(deskMessageTopic(undefined), undefined);
+});
+
+Deno.test("the session's tip is kept for the home panel and leaves the message line alone", () => {
+  const tip = { brief: "Press `?` for keys", full: "Press `?` for keys" };
   const tipped = deskProduct(observedDesk(survey([editing("alpha")])), {
     kind: "tip",
-    tip: {
-      lead: "Tip",
-      brief: "Press `?` for keys",
-      full: "Press `?` for keys",
-    },
-  }).state.message;
-  assertEquals(deskMessageTopic(tipped?.id), "tip");
-  assertEquals(tipped?.topic, "tip");
+    tip,
+  }).state;
+  assertEquals(tipped.tip, tip);
+  assertEquals(tipped.message, undefined);
 });
 
 Deno.test("a failed survey retries once before the Desk says it is offline", () => {
@@ -651,13 +860,14 @@ Deno.test("a returning effect leaves its message, its result, and one refresh", 
   );
 });
 
-Deno.test("Read the manual opens it once read and otherwise says why nothing opened", () => {
+Deno.test("Read the manual opens it while it is read or once read, and says why when it can't be", () => {
   const read = open(observedDesk(survey([])), { kind: "palette" });
   const manual: DeskIntent = { kind: "command", command: "manual" };
+  // Still reading: the controller opens it as soon as the read finishes.
   const loading = intent(read.state, manual);
-  assertEquals(loading.effects, []);
+  assertEquals(loading.effects, [{ kind: "manual" }]);
   assertEquals(loading.state.layers, []);
-  assertStringIncludes(loading.state.message?.text ?? "", "still loading");
+  assertEquals(loading.state.message, undefined);
   const ready = run(read.state, {
     kind: "manual-read",
     result: { state: "ready" },

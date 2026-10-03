@@ -1930,9 +1930,10 @@ function narrateIntegration(
     } ${data.behind} commit(s), ` +
       `${data.files_total} file(s) changed beneath your work.`,
   );
-  for (const c of data.commits) {
-    ctx.log.detail(`  ${c.sha}  ${c.subject}`);
-  }
+  ctx.log.detailRows(
+    data.commits.map((c) => ({ label: c.sha, body: c.subject })),
+    "    ",
+  );
   if (data.commits_truncated) {
     ctx.log.detail(`  … (+${data.commits_total - data.commits.length} more)`);
   }

@@ -243,7 +243,7 @@ After setup, discern can add up to 3 recent observations from the logbook, its l
 
 ## Release information
 
-In the desk, the command palette (Ctrl+K) includes **Check for updates…**, even when there are no tasks. It asks before opening the release notes in your browser, where you can see what's changed and whether an update is available. Once you choose **Open**, the desk shows the release information: whether the browser opened, and the page's address either way. Escape returns to the live desk.
+In the desk, **Check for updates…** is listed beside the Commands row the desk opens on and in the command palette (Ctrl+K), even when there are no tasks, with when you last checked beside it. Once a check is due, the Commands row reads **Check updates**, and Enter there opens the palette on **Check for updates…**. It asks before opening the release notes in your browser, where you can see what's changed and whether an update is available. Once you choose **Open**, the desk shows the release information: whether the browser opened, and the page's address either way. Escape returns to the live desk.
 
 A reminder may appear after 14 days. It only invites you to check: it doesn't mean an update is available, or that anything is wrong with your installation. [Maintain or remove discern](../20-guides/maintain-or-remove-discern.md#check-release-information) explains how to check and update.
 

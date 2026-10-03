@@ -1,11 +1,11 @@
 /**
  * The Desk's one key map.
  *
- * Every layer the Desk shows (the inbox with a task, a parked branch, or a
- * landed row selected, the action menu, the palette, a sheet or form, a
- * reader) resolves each key to exactly one meaning: a task action from the
- * action registry, a command from the command registry, or a navigation
- * gesture. Task mnemonics, command keys, and the decision groups a number
+ * Every layer the Desk shows (the inbox with a task, the Commands row, a
+ * parked branch, or a landed row selected, the action menu, the palette, a
+ * sheet or form, a reader) resolves each key to exactly one meaning: a task
+ * action from the action registry, a command from the command registry, or
+ * a navigation gesture. Task mnemonics, command keys, and the decision groups a number
  * jumps to come from their registries, never from a copy here; a key that
  * runs a registered control names that control, so its label is read from
  * the vocabulary. The inbox's key bindings, its footer hints, and the keys
@@ -34,6 +34,7 @@ import {
 /** The layers that own the keyboard, bottom to top. */
 export const DESK_LAYERS = [
   "inbox",
+  "commands",
   "branch",
   "landed",
   "menu",
@@ -171,6 +172,12 @@ function unlisted(binding: DeskKeyBinding): DeskKeyBinding {
   return { ...binding, listed: false };
 }
 
+/**
+ * What the palette is called wherever a key opens it: the footer, the keys
+ * reader, and the Commands row that leads the inbox.
+ */
+export const COMMANDS_LABEL = "Commands";
+
 /** The keys reader's words for a group jump, which the Parked key shares. */
 export const JUMP_GROUP_READS = "Jump to a group";
 
@@ -227,8 +234,8 @@ const LIST_GESTURES = [
   gesture("escape", "dismiss", "Clear", {
     reads: "Clear filter, leave zoom",
   }),
-  gesture("ctrl-k", "palette", "Commands"),
-  gesture(":", "palette", "Commands"),
+  gesture("ctrl-k", "palette", COMMANDS_LABEL),
+  gesture(":", "palette", COMMANDS_LABEL),
   unlisted(calls("ctrl-c", "quit")),
   // One number per decision group, in status's display order.
   ...FLEET_ROW_DECISIONS.map((group, index) =>
@@ -246,6 +253,15 @@ const LIST_GESTURES = [
  */
 export const ZOOM_HINT_LABELS = { walk: "Next task", back: "Back" } as const;
 
+/** The layers the inbox's own rows put it in, one per kind of row. */
+export const DESK_ROW_LAYERS = [
+  "inbox",
+  "commands",
+  "branch",
+  "landed",
+] as const satisfies readonly DeskLayer[];
+export type DeskRowLayer = (typeof DESK_ROW_LAYERS)[number];
+
 /** The one key map, per layer. */
 export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
   {
@@ -255,6 +271,14 @@ export const DESK_KEYS: Readonly<Record<DeskLayer, readonly DeskKeyBinding[]>> =
       gesture("right", "actions", "Actions"),
       gesture(".", "actions", "Actions"),
       ...actionKeys(),
+    ],
+    // The Commands row has no actions of its own: each way into a row's
+    // choices opens the palette, which holds every command.
+    commands: [
+      ...LIST_GESTURES,
+      gesture("enter", "palette", COMMANDS_LABEL),
+      gesture("right", "palette", COMMANDS_LABEL),
+      gesture(".", "palette", COMMANDS_LABEL),
     ],
     branch: [
       ...LIST_GESTURES,

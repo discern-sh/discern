@@ -237,9 +237,9 @@ export interface TipDef<P = undefined> {
   /** Renders the tip from named, compiler-checked parameters. */
   readonly template: (params: P) => string;
   /**
-   * The same lesson in one short sentence for the Desk's message line,
-   * within {@link TIP_BRIEF_CELLS} as shown; the full template stays one
-   * key away in the palette's Tip of the session.
+   * The same lesson in one short sentence for the Desk's home panel, within
+   * {@link TIP_BRIEF_CELLS} as shown; the full template stays one key away
+   * in the palette's Tip of the session.
    */
   readonly brief: (params: P) => string;
 }
@@ -251,9 +251,9 @@ export interface TipDef<P = undefined> {
 export const TIP_RENDERED_LENGTH_LIMIT = 160;
 
 /**
- * The cells a brief may take as shown: what the Desk's message line leaves
- * after its margins and the `Tip` label at 80 columns. The line shows a tip
- * only whole, so a brief within this shows from 80 columns up.
+ * The cells a brief may take as shown: about two lines of the home panel's
+ * narrowest column, so the tip reads at a glance beside the Desk's commands
+ * without pushing them off a standard screen.
  */
 export const TIP_BRIEF_CELLS = 70;
 
@@ -1263,10 +1263,12 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:cli-help":
     "Each command displays its own built-in help, making a rotating lesson redundant.",
   "feature:hints": "Each hint appears with the action that makes it relevant.",
-  "feature:release-awareness":
-    "The persistent root update action and clone-local reminder explain this handoff; it must not enter rotating tip history.",
-  "verb:releases":
-    "The root update action and release result teach the handoff at the point of use.",
+  "feature:release-awareness": `${
+    quoted(DESK_COMMAND_LABELS.updates)
+  } in the home panel, which says when this clone last checked, and the Commands row's due cue explain this handoff; it must not enter rotating tip history.`,
+  "verb:releases": `${
+    quoted(DESK_COMMAND_LABELS.updates)
+  } in the home panel and the release result teach the handoff at the point of use.`,
   "feature:install":
     "The installer teaches installation before the desk becomes available.",
   "feature:setup":

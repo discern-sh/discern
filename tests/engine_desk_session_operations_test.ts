@@ -20,6 +20,7 @@ import type { DiscernResult } from "../src/shared/result.ts";
 import type { GateData } from "../src/shared/result_schemas.ts";
 import type { DeskRuntime } from "../src/engine/desk/desk.ts";
 import {
+  chooseManualEarly,
   deskSession,
   deskSurvey,
   deskTaskEntry,
@@ -238,13 +239,18 @@ Deno.test("Stop ends a check through its signal and says where it stopped", asyn
   });
 });
 
-Deno.test("quitting while a check runs asks first, and Quit anyway stops it", async () => {
+Deno.test("quitting while a check runs asks first, as a Ctrl+C does while the Desk waits for the manual, and Quit anyway stops it", async () => {
   const stopped: string[] = [];
+  const termination = scriptedTermination();
   const desk = await deskSession({
     cliModel: TEST_CLI_MODEL,
     runtime: {
       status: () => ({ ok: true, data: deskSurvey([checkable()]) }),
       ...stoppableCheck(stopped),
+      // The manual's read never finishes, so choosing it waits with the
+      // terminal handed over, where a typed Ctrl+C arrives as SIGINT.
+      manual: () => new Promise(() => {}),
+      terminations: () => termination,
     },
   });
   await desk.select("beta");
@@ -252,11 +258,18 @@ Deno.test("quitting while a check runs asks first, and Quit anyway stops it", as
   await desk.opened(CHECK);
   await desk.confirm();
   await desk.opened("progress");
+  await desk.escape(() => desk.top() === undefined, "the inbox");
   await desk.press("ctrl-c");
   await desk.opened("quit");
   await desk.shows("Quit while this runs?");
   await desk.shows("Running checks on Beta");
   assertEquals(desk.state().layers.quit?.focusedControlId, "button:safe");
+  await desk.escape(() => desk.top() === undefined, "Keep waiting");
+  await chooseManualEarly(desk);
+  assert(termination.interruptHandedOver(), "the Desk hears SIGINT itself");
+  await desk.opened("quit");
+  await desk.shows("Quit while this runs?");
+  assertEquals(stopped, [], "the check runs on until the owner answers");
   await desk.press("right");
   assertEquals(desk.state().layers.quit?.focusedControlId, "button:quit");
   // Quit anyway ends the session, so nothing waits for the Desk to read it.

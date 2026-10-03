@@ -19,3 +19,9 @@ export const InvalidationReasonSchema = z.enum([
   "claim-lost",
 ]);
 export type InvalidationReason = z.infer<typeof InvalidationReasonSchema>;
+
+/**
+ * Why a run's evidence went stale. A lost claim is not one: another run
+ * retired the attempt, so the run ends as cancelled and says so instead.
+ */
+export type StaleEvidenceReason = Exclude<InvalidationReason, "claim-lost">;

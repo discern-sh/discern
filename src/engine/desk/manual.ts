@@ -5,6 +5,11 @@
  * opened, `q`, or its exit entry returns to the inbox as it was left. A page
  * the manual opens in the system browser opens while the screen stays, and
  * the browser says why when it can't.
+ *
+ * The session reads the manual once as it starts. Chosen before that read
+ * finishes, the Desk hands the terminal over at once, saying it is reading
+ * the manual, and opens it in place of the inbox as soon as the read is
+ * done.
  */
 
 import type { TerminalApplicationCommand } from "discern-design-system/cli/interactive";
@@ -18,6 +23,9 @@ import {
 
 /** What the manual's exit entry says inside the Desk. */
 export const DESK_MANUAL_EXIT = "Back to the desk";
+
+/** What the Desk says as it hands over the terminal before the manual is read. */
+export const DESK_MANUAL_READING = "Reading the manual…";
 
 /** The manual, read once per session and opened as often as the owner asks. */
 export interface DeskManual {
