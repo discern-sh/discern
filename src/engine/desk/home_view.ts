@@ -267,11 +267,11 @@ export const DESK_STRIP_COMMANDS = [
 /**
  * The Commands row's strip on a narrow screen: the row with the palette's
  * key, then whether there are tasks yet, a due check, the commands it names
- * by their short forms, each followed by the panel's value as a fact of its
- * own (`Updates · checked 3w ago`), and the running discern. The strip
- * keeps whole facts in order, so a later, shorter one shows where an
- * earlier one cannot: a value that doesn't fit never costs its command its
- * name.
+ * by their short forms, each with the panel's value after it in
+ * parentheses (`Updates (checked 3w ago)`), and the running discern. The
+ * strip keeps facts in order, whole or without their faint value, so a
+ * value that doesn't fit never costs its command its name, and never reads
+ * as a command of its own.
  */
 export function homeStrip(
   state: DeskProductState,
@@ -294,17 +294,17 @@ export function homeStrip(
       ...(checkDue(state)
         ? [[{ text: RELEASE_CHECK_CUES.due, tone: "warning" as const }]]
         : []),
-      ...DESK_STRIP_COMMANDS.flatMap((command): ApplicationRun[][] => {
+      ...DESK_STRIP_COMMANDS.map((command): ApplicationRun[] => {
         const { key, short } = metadata(command);
         const name = short ?? DESK_COMMAND_LABELS[command];
         const value = commandValue(state, command, env.now);
         return [
-          key === undefined
+          ...(key === undefined
             ? [{ text: name }]
-            : [{ text: key, role: "key" as const }, { text: ` ${name}` }],
+            : [{ text: key, role: "key" as const }, { text: ` ${name}` }]),
           ...(value === undefined
             ? []
-            : [[{ text: value, tone: "faint" as const }]]),
+            : [{ text: ` (${value})`, tone: "faint" as const }]),
         ];
       }),
       [{ text: running(env), tone: "faint" as const }],

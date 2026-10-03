@@ -644,21 +644,19 @@ function paletteValue(
     ?.meta?.map((run) => run.text).join("");
 }
 
-/** The faint fact the strip shows right after one command's name, if any. */
+/** The faint value the strip shows after one command's name, if any. */
 function stripValue(
   state: DeskProductState,
   command: DeskCommand,
 ): string | undefined {
   const { short } = DESK_COMMAND_REGISTRY[command] as DeskCommandMetadata;
   const name = short ?? DESK_COMMAND_LABELS[command];
-  const facts = homeStrip(state, ENV).facts;
-  const at = facts.findIndex((runs) =>
+  const fact = homeStrip(state, ENV).facts.find((runs) =>
     runs.some((run) => run.text.trim() === name)
   );
-  const next = facts[at + 1];
-  return next?.every((run) => run.tone === "faint") === true &&
-      !next.some((run) => run.text.startsWith("discern "))
-    ? next.map((run) => run.text).join("")
+  const value = fact?.at(-1);
+  return value?.tone === "faint"
+    ? /^ \((?<inner>.+)\)$/u.exec(value.text)?.groups?.inner
     : undefined;
 }
 
@@ -896,7 +894,12 @@ Deno.test("the narrow strip names the commands it leads to, each by its short fo
       fact.map((run) => run.text).join("")
     );
     for (const short of shorts) {
-      assert(facts.some((fact) => fact.endsWith(short)), `${short}: ${facts}`);
+      assert(
+        strip.facts.some((fact) =>
+          fact.some((run) => run.text.trim() === short)
+        ),
+        `${short}: ${facts}`,
+      );
     }
     assert(!facts.some((fact) => /\d+ commands?/u.test(fact)), "no count");
     assert(
@@ -912,6 +915,9 @@ Deno.test("the narrow strip names the commands it leads to, each by its short fo
     for (const short of ["Manual", "Updates", "Scripts"]) {
       assertStringIncludes(desk.screen(), short, "named at 60 columns");
     }
+    // The last check reads as the command's own, never as another command.
+    assertStringIncludes(desk.screen(), "Updates (never checked)");
+    assert(!desk.screen().includes("· never checked"), desk.screen());
   }, { columns: 60, rows: 20 });
 });
 
