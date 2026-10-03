@@ -488,6 +488,27 @@ export async function readFleetLogbookActivity(
 }
 
 /**
+ * Read the bounded activity tail as it stood at one past instant. Events
+ * stamped after that instant are excluded, so an operation running then still
+ * reads as running after it completes, however late the read happens.
+ */
+export async function readFleetLogbookActivityAt(
+  commonGitDir: string,
+  currentEpoch: string,
+  atMs: number,
+): Promise<FleetLogbookActivity> {
+  const stream = await readRecentLogbookStream(
+    commonGitDir,
+    FLEET_ACTIVITY_EVENT_LIMIT,
+  );
+  return deriveFleetLogbookActivity(
+    stream.events.filter((event) => Date.parse(event.at) <= atMs),
+    currentEpoch,
+    atMs,
+  );
+}
+
+/**
  * Read every month file under the logbook directory into one chronological
  * stream. Month files sort chronologically by name; events are then ordered by
  * their own `at` (concurrent worktrees can interleave appends out of order, and

@@ -20,7 +20,12 @@
  * demand the notice without reintroducing a race.
  */
 
-import { assert, assertEquals, assertMatch } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertStringIncludes,
+} from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { z } from "@zod/zod";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
@@ -29,9 +34,17 @@ import {
   buildTestRunSlots,
   groupNeedsTestSlot,
 } from "../src/engine/gate/test_slots.ts";
+import { buildTestRunSlotAcquirer } from "../src/engine/test_run_slots.ts";
 import type { JobGroup } from "../src/engine/gate/plan.ts";
 import { makeOut } from "../src/engine/output.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { configEpoch } from "../src/engine/logbook/epoch.ts";
+import { appendEvent } from "../src/engine/logbook/store.ts";
+import {
+  LOGBOOK_SCHEMA_VERSION,
+  type LogbookEvent,
+} from "../src/engine/logbook/schema.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -345,6 +358,105 @@ Deno.test("test slots: a queued acquire fires the wait notice, then resolves whe
         "a contended acquire records its wait",
       );
       hold.release();
+    } finally {
+      release();
+    }
+  });
+});
+
+Deno.test("test slots: the queued notice retains the operations active when the wait began", async () => {
+  await withTempDir(async (dir) => {
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const cfg = await loadConfig(dir);
+    // The waiter's clock fixes the instant it enters the wait. The log the
+    // waiter reads already holds events stamped after it: the holder's
+    // completion and a later arrival's start, as when the optional activity
+    // read finishes after the announcement under load.
+    const enteredAt = SYSTEM_CLOCK.wallNow();
+    const stamp = (offsetMs: number): string =>
+      new Date(enteredAt + offsetMs).toISOString();
+    const begin = (
+      branch: string,
+      invocation: string,
+      offsetMs: number,
+    ): LogbookEvent => ({
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: stamp(offsetMs),
+      writer: "test",
+      kind: "begin",
+      invocation,
+      verb: "queue",
+      surface: "cli",
+      driver: {},
+      branch,
+      head: "abc1234",
+      epoch: configEpoch(cfg).fingerprint,
+    });
+    for (
+      const event of [
+        begin("agent/slot-holder", "holder-run", -60_000),
+        {
+          schema: LOGBOOK_SCHEMA_VERSION,
+          at: stamp(1_000),
+          writer: "test",
+          kind: "verb",
+          invocation: "holder-run",
+          verb: "queue",
+          surface: "cli",
+          branch: "agent/slot-holder",
+          head: "abc1234",
+          clean: true,
+          outcome: "ok",
+          duration_ms: 61_000,
+          epoch: configEpoch(cfg).fingerprint,
+        },
+        begin("agent/late-arrival", "late-run", 500),
+      ] satisfies LogbookEvent[]
+    ) {
+      await appendEvent(join(dir, ".git"), event);
+    }
+    const release = await holdSlot(dir);
+    try {
+      const acquirer = buildTestRunSlotAcquirer(dir, cfg, {
+        clock: { ...SYSTEM_CLOCK, wallNow: () => enteredAt },
+      });
+      assert(acquirer !== undefined, "cap=1 must build an acquirer");
+      const notices: string[] = [];
+      const pending = acquirer.acquire((event) => {
+        if (event.kind === "queued") notices.push(event.hint.text);
+      });
+      await waitForPendingCondition(
+        pending,
+        () => notices.length > 0,
+        "the queued notice",
+        { intervalMs: 100 },
+      );
+      release();
+      (await pending)?.release();
+      const [notice = ""] = notices;
+      assertStringIncludes(
+        notice,
+        "Other operations active at that time: queue on agent/slot-holder.",
+      );
+      assertEquals(
+        notice.includes("agent/late-arrival"),
+        false,
+        "an operation that began after the wait was not active at that time",
+      );
     } finally {
       release();
     }

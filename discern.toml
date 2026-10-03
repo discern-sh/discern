@@ -669,7 +669,7 @@
     "deno.lock",
   ]
   direction = "up"
-  limit = 92.5
+  limit = 92.6
   margin = 0.5
 
 [standards.module_coverage]
@@ -712,7 +712,7 @@
   scale = 1000
   # Corrected from the mismatched whole-map denominator: 4,863 alerts across
   # 312,085 staged words. Private prose and frontmatter stay outside the rate.
-  limit = 13.87
+  limit = 13.82
   run = "deno task prose \"${map.dir}\""
   inputs = [
     "${map.dir}**",
@@ -882,7 +882,7 @@
 # not spend the budget. Consolidate a named group, then pin the reduction.
 [standards.duplicated_lines]
   direction = "down"
-  limit = 5055
+  limit = 5041
   run = "deno task duplication-census"
   inputs = [
     "*.ts",

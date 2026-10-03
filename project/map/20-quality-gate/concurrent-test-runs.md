@@ -54,7 +54,7 @@ capacity becomes available. No action is needed.
 
 Active waits persist independently of other checks finishing. `discern progress` reports elapsed waiting from the saved observation; admission, cancellation, and failure close the matching wait. Live observations refresh at most every 30 seconds while capacity remains unavailable. Immediate admission emits no wait.
 
-The [Logbook](../70-reference/the-logbook.md) begins an unmarked `queue` before admission and completes it after the child. Marker bypass writes no duplicate. Result `hints[]` can retain other operations active at queue entry and their historical durations. Those operations may themselves be waiting. These facts establish neither slot ownership nor queue order nor an estimated start time. Recording off omits that context.
+The [Logbook](../70-reference/the-logbook.md) begins an unmarked `queue` before admission and completes it after the child. Marker bypass writes no duplicate. Result `hints[]` can retain other operations active at queue entry and their historical durations. The logbook read follows the wait line, so it replays only events stamped by queue entry: an operation that finishes during the read stays in the history. Those operations may themselves be waiting. These facts establish neither slot ownership nor queue order nor an estimated start time. Recording off omits that context.
 
 Timing stays split:
 
