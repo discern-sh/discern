@@ -620,7 +620,9 @@ function gestureLabel(key: string): string {
 
 /**
  * The inbox footer: the row's hints left, the pinned routes right. Actions
- * concern a task or a branch, so the Commands row leaves them out.
+ * concern a task or a branch, so the Commands row leaves them out, and
+ * Filter shows only while the list holds a task or a branch to match: the
+ * filter passes over the Commands row.
  */
 function footer(
   state: DeskProductState,
@@ -639,6 +641,9 @@ function footer(
   // Nor Ctrl+K while Enter already opens Commands, the Commands row's own
   // cell showing its key.
   const commands = left[0]?.label === COMMANDS_LABEL;
+  const filterable = list.groups.some((group) =>
+    group.counted !== false && group.items.length > 0
+  );
   return {
     left,
     right: [
@@ -647,7 +652,7 @@ function footer(
     ],
     extra: [
       { key: "?", label: DESK_COMMAND_REGISTRY.keys.short },
-      { key: "/", label: gestureLabel("/") },
+      ...(filterable ? [{ key: "/", label: gestureLabel("/") }] : []),
       ...(creates ? [] : [{ key: "n", label: DESK_COMMAND_LABELS.new_task }]),
       { key: "q", label: DESK_COMMAND_LABELS.quit },
     ],

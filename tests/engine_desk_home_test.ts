@@ -37,7 +37,10 @@ import {
 import { COMMANDS_LABEL, DESK_KEYS } from "../src/engine/desk/keys.ts";
 import { deskChips } from "../src/engine/desk/header_view.ts";
 import { deskPalette } from "../src/engine/desk/palette_view.ts";
-import { EMPTY_LIST_MIN_TITLE } from "../src/engine/desk/inbox_view.ts";
+import {
+  deskView,
+  EMPTY_LIST_MIN_TITLE,
+} from "../src/engine/desk/inbox_view.ts";
 import type { StatusData } from "../src/shared/result_schemas.ts";
 import type { ReleaseCheckRead } from "../src/shared/release_check.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
@@ -50,6 +53,8 @@ import {
   freshDesk,
   observedDesk,
   PRODUCT_NOW,
+  PRODUCT_UI,
+  PRODUCT_VIEW_ENV,
   productSurvey,
 } from "./fixtures/desk_product.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
@@ -387,6 +392,19 @@ Deno.test("the palette opened from the Commands row lists the home panel's comma
     await desk.opened("palette");
     assertEquals(highlighted(desk), "next:ready");
   }, { columns: 120, rows: 30 });
+});
+
+Deno.test("the footer offers the filter only while the list holds a task or a branch", () => {
+  const filters = (state: DeskProductState): boolean =>
+    (deskView(
+      state,
+      { ...PRODUCT_UI, selected: COMMANDS_ROW_ID },
+      PRODUCT_VIEW_ENV,
+    ).footer.extra ?? []).some((hint) => hint.key === "/");
+  assertEquals(filters(freshDesk()), false, "before the first survey");
+  for (const [name, data] of FLEETS) {
+    assertEquals(filters(observedDesk(data())), name !== "no tasks", name);
+  }
 });
 
 Deno.test("the Commands row's footer names Commands once", async () => {
