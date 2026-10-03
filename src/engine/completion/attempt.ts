@@ -86,6 +86,17 @@ export class AttemptClaimLost extends Error {
   }
 }
 
+/**
+ * What a run reports once a step proves its claim gone, whichever step found
+ * it: the retirement cancelled the run.
+ */
+export function claimLossBlocker(): {
+  readonly kind: "cancelled";
+  readonly reason: string;
+} {
+  return { kind: "cancelled", reason: new AttemptClaimLost().message };
+}
+
 /** Why a run was cancelled, naming the claim loss when that is what stopped it. */
 export function cancellationReason(
   signal: AbortSignal,

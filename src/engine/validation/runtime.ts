@@ -33,6 +33,7 @@ import type { EnvReader } from "../../shared/env.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import { jobEnvironment } from "../jobs/command.ts";
 import {
+  AttemptClaimLost,
   attemptHoldsClaim,
   AttemptSchema,
   cancellationReason,
@@ -63,7 +64,11 @@ import {
   type JobTimeout,
 } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
-import type { ProducerCapture, ValidationRuntime } from "./execute.ts";
+import {
+  type ProducerCapture,
+  type ValidationRuntime,
+  ValidationSubjectChanged,
+} from "./execute.ts";
 
 /** Read-only inventory preserves unavailable/newer readings for fail-closed planning. */
 export async function observeCompletionRecords(
@@ -203,6 +208,26 @@ export async function observeValidationInputs(
     files,
     complete: toolchain.every((path) => Object.hasOwn(files, path)),
   };
+}
+
+/** Refuse once the checkout's present inputs differ from those its demand was planned on. */
+export async function verifyValidationInputs(
+  root: string,
+  planned: ValidationInputs,
+  toolchain: readonly string[] = [],
+  selection?: ValidationInputSelection,
+): Promise<void> {
+  if (
+    JSON.stringify(
+      await observeValidationInputs(root, toolchain, selection),
+    ) !==
+      JSON.stringify(planned)
+  ) {
+    throw new ValidationSubjectChanged(
+      "inputs-changed",
+      "Candidate inputs changed during validation.",
+    );
+  }
 }
 
 /** A validation adapter never installs, restores or changes the checkout it runs in. */
@@ -403,29 +428,52 @@ function runtime(
           }),
         ],
       );
-      const boundAttempt = AttemptSchema.parse(execution.attempt);
       if (
         attempt.kind !== "recorded" || attempt.record.kind !== "attempt" ||
-        !attemptHoldsClaim(attempt.record.data, execution.fence.token) ||
+        candidate.kind !== "recorded" || candidate.record.kind !== "candidate"
+      ) {
+        throw new Error(
+          "Cannot verify completion records; the attempt or its candidate record is missing or unreadable. Preserve the checkout for recovery.",
+        );
+      }
+      if (!attemptHoldsClaim(attempt.record.data, execution.fence.token)) {
+        throw new ValidationSubjectChanged(
+          "claim-lost",
+          new AttemptClaimLost().message,
+        );
+      }
+      if (
         attempt.record.data.state.kind !== "claimed" ||
-        !sameClaimedAttemptBinding(attempt.record.data, boundAttempt) ||
-        candidate.kind !== "recorded" ||
-        candidate.record.kind !== "candidate" ||
+        !sameClaimedAttemptBinding(
+          attempt.record.data,
+          AttemptSchema.parse(execution.attempt),
+        )
+      ) throw new Error("validation binding differs from its attempt record");
+      if (
         JSON.stringify(candidate.record.data) !==
           JSON.stringify(CandidateSchema.parse(execution.candidate))
-      ) throw new Error("validation claim was lost or superseded");
+      ) {
+        throw new ValidationSubjectChanged(
+          "source-replaced",
+          "the recorded candidate no longer describes the validated source",
+        );
+      }
       if (!head.success || !status.success) {
         throw new Error(
           "Cannot verify the candidate checkout; preserve it and inspect Git before retrying validation.",
         );
       }
       if (head.stdout.trim() !== execution.candidate.head) {
-        throw new Error(
+        throw new ValidationSubjectChanged(
+          "source-replaced",
           "Candidate HEAD changed during validation; preserve the checkout and prepare the intended committed revision before retrying.",
         );
       }
       if (status.stdout !== "") {
-        throw new Error(checkoutChangesMessage(status.stdout));
+        throw new ValidationSubjectChanged(
+          "inputs-changed",
+          checkoutChangesMessage(status.stdout),
+        );
       }
       await options.verifyConditions();
       const effective = {
@@ -439,13 +487,15 @@ function runtime(
           (effective[name] ?? options.inheritedEnvironment.get(name)) !==
             expected
         ) {
-          throw new Error(
+          throw new ValidationSubjectChanged(
+            "environment-changed",
             "declared producer environment changed after demand planning",
           );
         }
       }
       if (execution.seed !== options.conditions.seed) {
-        throw new Error(
+        throw new ValidationSubjectChanged(
+          "seed-changed",
           "checkout seed differs from planned applicability",
         );
       }
