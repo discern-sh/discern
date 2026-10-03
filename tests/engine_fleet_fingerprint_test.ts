@@ -115,23 +115,22 @@ const FILESYSTEM_READS = [
 
 /** Run `read` and return every filesystem path it touched. */
 async function recordedReads(read: () => Promise<unknown>): Promise<string[]> {
-  const host = Deno as unknown as Record<string, unknown>;
   const originals = new Map<string, unknown>();
   const paths = new Set<string>();
   for (const name of FILESYSTEM_READS) {
-    const original = host[name];
+    const original: unknown = Reflect.get(Deno, name);
     if (typeof original !== "function") continue;
     originals.set(name, original);
-    host[name] = (...args: unknown[]): unknown => {
+    Reflect.set(Deno, name, (...args: unknown[]): unknown => {
       const target = args[0];
       paths.add(target instanceof URL ? target.pathname : String(target));
       return Reflect.apply(original, Deno, args);
-    };
+    });
   }
   try {
     await read();
   } finally {
-    for (const [name, original] of originals) host[name] = original;
+    for (const [name, original] of originals) Reflect.set(Deno, name, original);
   }
   return [...paths].sort();
 }
