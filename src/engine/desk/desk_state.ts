@@ -12,6 +12,17 @@
  */
 
 import type { TerminalApplicationDismissTarget } from "discern-design-system/cli/interactive";
+import {
+  liveTailLimit,
+  liveTailOutput,
+  liveTailOutputLines,
+  type StreamedOutput,
+  streamedOutputIsBlank,
+} from "../../lib/live_tail.ts";
+import {
+  DEFAULT_TERMINAL_COLUMNS,
+  DEFAULT_TERMINAL_ROWS,
+} from "../../lib/terminal.ts";
 import type { StatusData } from "../../shared/result_schemas.ts";
 import type { EnginePlan } from "../../shared/result.ts";
 import type { DeskAction, DeskCommand } from "../../shared/desk_vocabulary.ts";
@@ -233,7 +244,7 @@ export interface DeskActivity {
   /** How it ended, when it ran beside the screen: its outcome in a word. */
   readonly ended?: "done" | "failed" | "stopped";
   /** The last lines it wrote, when it ran beside the screen. */
-  readonly output?: string;
+  readonly output?: StreamedOutput;
 }
 
 /** How one activity ended, in the words Session activity and the exit list use. */
@@ -250,12 +261,25 @@ export function activityEnding(entry: DeskActivity): DeskActivityEnding {
 /** How many of its last written lines Session activity shows for an entry. */
 export const DESK_ACTIVITY_SUMMARY_LINES = 3;
 
+/**
+ * The code units one streamed line keeps in Session activity: the rows its
+ * summary shows, at the width discern assumes for a terminal it cannot
+ * measure. A Desk view is built without the viewport's size; the package
+ * still lays the text out at the real width.
+ */
+export const DESK_ACTIVITY_LINE_LIMIT = liveTailLimit(
+  DEFAULT_TERMINAL_COLUMNS,
+  DESK_ACTIVITY_SUMMARY_LINES,
+);
+
 /** The last lines an activity wrote, blank lines left out. */
 export function activityOutputSummary(entry: DeskActivity): readonly string[] {
-  return (entry.output ?? "").split("\n")
-    .map((line) => line.trimEnd())
-    .filter((line) => line.trim() !== "")
-    .slice(-DESK_ACTIVITY_SUMMARY_LINES);
+  return entry.output === undefined ? [] : liveTailOutputLines(
+    entry.output,
+    DESK_ACTIVITY_SUMMARY_LINES,
+    DESK_ACTIVITY_LINE_LIMIT,
+    "…",
+  );
 }
 
 /**
@@ -282,7 +306,7 @@ export interface DeskOperation {
   readonly startedAt: number;
   readonly progress: DeskOperationProgress;
   /** The last lines it wrote. */
-  readonly output: string;
+  readonly output: StreamedOutput;
   /** The owner asked it to stop. */
   readonly stopping?: boolean;
 }
@@ -514,7 +538,7 @@ export type DeskEvent =
     readonly kind: "operation-progress";
     readonly operationId: string;
     readonly progress: DeskOperationProgress;
-    readonly output: string;
+    readonly output: StreamedOutput;
   }
   /** An operation running beside the screen ended. */
   | {
@@ -523,7 +547,7 @@ export type DeskEvent =
     /** Whether it ran to its end or was stopped on the way. */
     readonly ended: "ran" | "stopped";
     readonly outcome: DeskOutcome;
-    readonly output: string;
+    readonly output: StreamedOutput;
     readonly now: number;
     /** The list item selected as it ended. */
     readonly selected?: string;
@@ -1090,12 +1114,19 @@ function pageOpened(
 /** The lines an operation's output keeps for its reader and activity. */
 export const DESK_OUTPUT_LINES = 400;
 
-/** The last lines of an operation's output. */
-export function outputTail(output: string): string {
-  const lines = output.split("\n");
-  return lines.length <= DESK_OUTPUT_LINES
-    ? output
-    : lines.slice(-DESK_OUTPUT_LINES).join("\n");
+/**
+ * The code units one streamed line keeps in the output reader and a result's
+ * Full output: one screen at the size discern assumes for a terminal it
+ * cannot measure, since a Desk view is built without the viewport's size.
+ */
+export const DESK_OUTPUT_LINE_LIMIT = liveTailLimit(
+  DEFAULT_TERMINAL_COLUMNS,
+  DEFAULT_TERMINAL_ROWS,
+);
+
+/** What an operation wrote, as a view shows it: each line bounded. */
+export function shownOutput(output: StreamedOutput): string {
+  return liveTailOutput(output, DESK_OUTPUT_LINE_LIMIT, "…");
 }
 
 /** A running operation reported progress. */
@@ -1109,7 +1140,7 @@ function operationProgressed(
   operations.set(operation.id, {
     ...operation,
     progress: event.progress,
-    output: outputTail(event.output),
+    output: event.output,
   });
   return { state: { ...state, operations }, effects: [] };
 }
@@ -1122,10 +1153,13 @@ function showsProgress(state: DeskProductState, operationId: string): boolean {
 }
 
 /** A failure's full output: what the operation wrote, then its result. */
-function fullOutput(written: string, result: string | undefined): string {
-  const captured = written.trim() === ""
+function fullOutput(
+  written: StreamedOutput,
+  result: string | undefined,
+): string {
+  const captured = streamedOutputIsBlank(written)
     ? undefined
-    : `\`\`\`text\n${outputTail(written).trimEnd()}\n\`\`\``;
+    : `\`\`\`text\n${shownOutput(written).trimEnd()}\n\`\`\``;
   return [captured, result].filter((part) => part !== undefined).join(
     "\n\n",
   );
@@ -1166,9 +1200,7 @@ function operationSettled(
       ...(outcome.message === undefined
         ? {}
         : { summary: outcome.message.text }),
-      ...(event.output.trim() === ""
-        ? {}
-        : { output: outputTail(event.output) }),
+      ...(streamedOutputIsBlank(event.output) ? {} : { output: event.output }),
     }],
   });
   if (shown) next = closeLayer(next, "progress");

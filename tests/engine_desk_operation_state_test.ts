@@ -26,7 +26,13 @@ import {
   renderTerminalApplication,
 } from "discern-design-system/cli/interactive";
 import { testTerminalCapabilities } from "discern-design-system/cli/interactive/testing";
+import { stripAnsi } from "discern-design-system/cli";
 import { progressAfter } from "../src/engine/desk/operations.ts";
+import {
+  NO_STREAMED_OUTPUT,
+  streamedOutput,
+  wholeStreamedOutput,
+} from "../src/lib/live_tail.ts";
 import { BUILT_IN_STEP_LABELS, type EnginePlan } from "../src/shared/result.ts";
 import { taskFleetEntry } from "./status_fleet.ts";
 import {
@@ -130,7 +136,7 @@ function settle(
     operationId: onlyOperation(state),
     ended,
     outcome,
-    output,
+    output: streamedOutput(output),
     now: PRODUCT_NOW + 60_000,
   };
   return deskProduct(state, event);
@@ -241,17 +247,17 @@ Deno.test("an operation's progress and output follow its reports", () => {
     kind: "operation-progress",
     operationId: id,
     progress: moving,
-    output: "Fast-forwarding main…\n",
+    output: streamedOutput("Fast-forwarding main…\n"),
   });
   const after = reported.state.operations.get(id);
   assertEquals(after?.progress.steps[0]?.state, "active");
-  assertEquals(after?.output, "Fast-forwarding main…\n");
+  assertEquals(after?.output, streamedOutput("Fast-forwarding main…\n"));
   assertEquals(
     deskProduct(reported.state, {
       kind: "operation-progress",
       operationId: "gone",
       progress: moving,
-      output: "",
+      output: NO_STREAMED_OUTPUT,
     }).state,
     reported.state,
     "a report for an operation that ended changes nothing",
@@ -525,6 +531,80 @@ Deno.test("a row its own operation moves keeps the operation's message", () => {
   assertEquals(left.state.message?.text, "Landed Alpha on main");
 });
 
+/** A frame of `state` tall enough to hold a long line's bounded rows. */
+function tallFrame(state: DeskProductState): string {
+  const model = createTerminalApplicationModel(
+    deskView(state, PRODUCT_UI, PRODUCT_VIEW_ENV),
+    { keymap: deskKeymap(), viKeys: true },
+  ).model;
+  return stripAnsi(
+    renderTerminalApplication(
+      model,
+      { columns: 120, rows: 120 },
+      testTerminalCapabilities({ columns: 120 }),
+    ).frame,
+  );
+}
+
+Deno.test("each Desk view of an operation's output shows a long line's tail, and its record keeps all of it", () => {
+  const long = `FIRST-WORDS ${"word ".repeat(4_000)}FINAL-WORDS`;
+  const written = `${long}\nnext line\n`;
+  const started = confirmed(landing(), actionStep("accept")).state;
+  const id = onlyOperation(started);
+  const operation = started.operations.get(id);
+  assert(operation !== undefined);
+  const reported = deskProduct(started, {
+    kind: "operation-progress",
+    operationId: id,
+    progress: operation.progress,
+    output: streamedOutput(written),
+  }).state;
+  const failure: DeskOutcome = {
+    command: operation.command,
+    ok: false,
+    message: { tone: "danger", text: "Alpha didn't land" },
+    result: {
+      title: "Alpha didn't land",
+      tone: "danger",
+      lines: [],
+      command: operation.command,
+      output: "**accept** stopped",
+    },
+  };
+  const failed = settle(reported, failure, "ran", written).state;
+  const sheet = failed.layers[0];
+  assert(sheet?.kind === "result");
+  const views = [
+    [
+      "the output reader",
+      tallFrame(deskIntent(reported, { kind: "output" }).state),
+    ],
+    ["a result's Full output", sheet.sheet.output ?? ""],
+    [
+      "Session activity",
+      tallFrame(
+        open(failed, { kind: "reader", reader: { kind: "activity" } }).state,
+      ),
+    ],
+  ] as const;
+  for (const [view, shown] of views) {
+    assert(/…[a-z]* word word/u.test(shown), `${view} marks the cut: ${shown}`);
+    assertStringIncludes(shown, "FINAL-WORDS", view);
+    assertStringIncludes(shown, "next line", view);
+    assert(
+      !shown.includes("FIRST-WORDS"),
+      `${view} receives only the end of a line it cannot show whole`,
+    );
+  }
+  const recorded = failed.activity.at(-1)?.output;
+  assert(recorded !== undefined);
+  assertEquals(
+    wholeStreamedOutput(recorded),
+    written,
+    "the session's record keeps every line whole",
+  );
+});
+
 Deno.test("a failure becomes a result sheet while its progress shows, and a message while hidden", () => {
   const failure: DeskOutcome = {
     command: "discern accept --target agent/alpha --confirmed",
@@ -551,7 +631,9 @@ Deno.test("a failure becomes a result sheet while its progress shows, and a mess
   assertStringIncludes(sheet.sheet.output ?? "", "a.ts");
   assertStringIncludes(sheet.sheet.output ?? "", "**accept**");
   assertEquals(shown.state.activity.at(-1)?.ended, "failed");
-  assertStringIncludes(shown.state.activity.at(-1)?.output ?? "", "conflict");
+  const recorded = shown.state.activity.at(-1)?.output;
+  assert(recorded !== undefined, "the session records what it wrote");
+  assertEquals(wholeStreamedOutput(recorded), "merging…\nconflict in a.ts\n");
 
   const hidden = deskProduct(
     open(started, { kind: "palette" }).state,
@@ -586,7 +668,7 @@ Deno.test("Stop is offered only where stopping is clean, and stops through the s
         at: 0,
       },
     }, PRODUCT_CLOCK + 1),
-    output: "",
+    output: NO_STREAMED_OUTPUT,
   }).state;
   assertEquals(
     deskIntent(moved, { kind: "stop" }).effects,
@@ -752,7 +834,7 @@ Deno.test("a landing lists what it landed under Landed and hands the selection t
       operationId: onlyOperation(started),
       ended: "ran",
       outcome,
-      output: "",
+      output: NO_STREAMED_OUTPUT,
       now: PRODUCT_NOW + 60_000,
       selected,
     });
