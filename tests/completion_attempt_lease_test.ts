@@ -17,6 +17,7 @@ import {
 } from "../src/engine/completion/attempt_lifecycle.ts";
 import {
   ATTEMPT_CLAIM_LEASE_MS,
+  AttemptClaimLost,
   cancellationReason,
   type CompletionAttempt,
 } from "../src/engine/completion/attempt.ts";
@@ -561,7 +562,7 @@ Deno.test("the coordinator resumes after a stall and settles when nobody retired
     const heartbeat = handHeartbeat();
     const reserved = await reserveAt(root, 130, time.clock);
 
-    const aborted = await withAttemptClaim(
+    const ended = await withAttemptClaim(
       root,
       reserved.fence,
       new AbortController().signal,
@@ -574,7 +575,7 @@ Deno.test("the coordinator resumes after a stall and settles when nobody retired
       },
       { clock: time.clock, scheduler: heartbeat.scheduler },
     );
-    assertEquals(aborted, false);
+    assertEquals(ended, { kind: "settled", value: false });
     const renewed = await readCompletionRecord(
       root,
       { kind: "attempt", id: reserved.attempt.identity.id },
@@ -624,8 +625,12 @@ Deno.test("the coordinator learns of a retirement during its stall and ends as c
       },
       { clock: time.clock, scheduler: heartbeat.scheduler },
     );
-    // Every cancellation the run reports names the retirement as its reason.
-    assertStringIncludes(ended, "Another discern run closed");
+    // The run ends retired, and every cancellation it reported on the way
+    // names the retirement as its reason.
+    assertEquals(ended, {
+      kind: "retired",
+      value: new AttemptClaimLost().message,
+    });
     const interrupted = new AbortController();
     interrupted.abort();
     assertEquals(
@@ -640,30 +645,49 @@ Deno.test("the coordinator learns of a retirement during its stall and ends as c
   });
 });
 
-Deno.test("a pass cannot settle on an attempt another run retired", async () => {
+/** The settlement a claimed run receives. */
+type Settle = (outcome: "passed" | "failed" | "cancelled") => Promise<void>;
+
+Deno.test("a run another run retired ends retired, whatever it returned or raised", async () => {
   await withTempDir(async (root) => {
     await initializeRepository(root);
     const time = handClock(1_000);
-    const reserved = await reserveAt(root, 150, time.clock);
-    await assertRejects(
-      () =>
-        withAttemptClaim(
-          root,
-          reserved.fence,
-          new AbortController().signal,
-          async (_signal, settle) => {
-            time.advance(STALL_MS);
-            await recoverAbandonedAttempts(root, {
-              clock: time.clock,
-              ownerState: () => Promise.resolve("unknown"),
-            });
-            await settle("passed");
-          },
-          { clock: time.clock, scheduler: handHeartbeat().scheduler },
-        ),
-      Error,
-      "Completion attempt settlement claim-lost",
-    );
+    // A pass, a failure, and a raised error all find the retirement at
+    // settlement and end the same way, recording nothing.
+    const endings = [
+      async (settle: Settle): Promise<string> => {
+        await settle("passed");
+        return "passed";
+      },
+      async (settle: Settle): Promise<string> => {
+        await settle("failed");
+        return "failed";
+      },
+      (): Promise<string> => Promise.reject(new Error("a raised failure")),
+    ];
+    for (const [index, ending] of endings.entries()) {
+      const reserved = await reserveAt(root, 150 + index * 4, time.clock);
+      const claimed = await withAttemptClaim(
+        root,
+        reserved.fence,
+        new AbortController().signal,
+        async (_signal, settle) => {
+          time.advance(STALL_MS);
+          await recoverAbandonedAttempts(root, {
+            clock: time.clock,
+            ownerState: () => Promise.resolve("unknown"),
+          });
+          return await ending(settle);
+        },
+        { clock: time.clock, scheduler: handHeartbeat().scheduler },
+      );
+      assertEquals(claimed.kind, "retired", String(index));
+      assertEquals(await attemptState(root, reserved), {
+        kind: "finished",
+        outcome: "cancelled",
+        finished_at: time.now(),
+      });
+    }
   });
 });
 

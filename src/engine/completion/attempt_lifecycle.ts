@@ -205,12 +205,26 @@ export function claimLossIsProven(
 }
 
 /**
+ * How a claimed run ended. A retired run's outcome is the retirement,
+ * whatever it returned or raised: another run closed its attempt, so nothing
+ * it chose can be recorded. `value` is what it returned, if anything.
+ */
+export type ClaimedRun<T> =
+  | { readonly kind: "settled"; readonly value: T }
+  | { readonly kind: "retired"; readonly value: T | undefined };
+
+/**
  * Keep a live run's claim current; a proven loss aborts its remaining work.
  * Renewal runs on the event loop, so anything that stalls the loop — a
  * terminal that stops reading synchronous narration, a sleeping machine —
  * lets the lease lapse. That is deliberate: a run that is not progressing
  * should not keep others from retiring it. When the loop resumes, the overdue
  * renewal re-reads the record and either renews or learns of the retirement.
+ *
+ * Whichever step learns of a retirement — a renewal, a fenced write, a
+ * comparison, or settlement itself — the run ends `retired`. Settlement
+ * always re-reads the record, so a retirement any earlier step found without
+ * reporting it is found there too.
  */
 export async function withAttemptClaim<T>(
   root: string,
@@ -223,7 +237,7 @@ export async function withAttemptClaim<T>(
     ) => Promise<void>,
   ) => Promise<T>,
   timing: { readonly scheduler?: Scheduler; readonly clock?: Clock } = {},
-): Promise<T> {
+): Promise<ClaimedRun<T>> {
   const scheduler = timing.scheduler ?? SYSTEM_SCHEDULER;
   const clock = timing.clock ?? SYSTEM_CLOCK;
   const lost = new AbortController();
@@ -265,8 +279,8 @@ export async function withAttemptClaim<T>(
       const written = await settleAttempt(root, fence, outcome, clock);
       if (written.kind === "written") return;
       if (claimLossIsProven(written)) {
-        // The run that retired this attempt already closed it. A run that is
-        // not reporting a pass has nothing left to record; a pass cannot be.
+        // The run that retired this attempt already closed it, so the run
+        // ends retired. A pass still raises, so nothing after it runs.
         loseClaim();
         if (outcome !== "passed") return;
       }
@@ -292,13 +306,24 @@ export async function withAttemptClaim<T>(
     completion = { ok: false, failure: error };
   }
   await stopRenewing();
+  let unsettled: { readonly failure: unknown } | undefined;
   try {
     await (settlement ?? settle(signal.aborted ? "cancelled" : "failed"));
   } catch (error) {
+    unsettled = { failure: error };
+  }
+  if (lost.signal.reason instanceof AttemptClaimLost) {
+    return {
+      kind: "retired",
+      value: completion.ok ? completion.value : undefined,
+    };
+  }
+  if (unsettled !== undefined) {
     // A failed settlement is never the reason the run ended; it is a second
     // failure beside one the run already has. Both are raised together so the
     // run's own reason leads and neither is lost. A run that ended by
     // awaiting that same settlement has one failure, raised once.
+    const error = unsettled.failure;
     if (completion.ok || completion.failure === error) throw error;
     throw new AggregateError(
       [completion.failure, error],
@@ -308,7 +333,7 @@ export async function withAttemptClaim<T>(
       { cause: error },
     );
   }
-  if (completion.ok) return completion.value;
+  if (completion.ok) return { kind: "settled", value: completion.value };
   throw completion.failure;
 }
 

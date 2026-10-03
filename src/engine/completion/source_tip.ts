@@ -25,7 +25,7 @@ import {
 import { integrationBranch } from "../worktree/git.ts";
 import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import type { CompletionArtifact } from "./artifacts.ts";
-import { cancellationReason } from "./attempt.ts";
+import { claimLossBlocker } from "./attempt.ts";
 import {
   recoverAbandonedAttempts,
   reserveAttempt,
@@ -87,6 +87,23 @@ export async function requirementsAt(
       entry,
     ) => entry.requirement),
   );
+}
+
+/**
+ * A retired run's outcome. Another run closed its attempt, so whatever the
+ * run chose to report, the retirement is its one pending cause.
+ */
+function retiredCompletion<T>(
+  value: CompletedCandidate<T> | CompletionBlocker | undefined,
+): CompletedCandidate<T> | CompletionBlocker {
+  if (value?.kind !== "completed") return claimLossBlocker();
+  return {
+    kind: "completed",
+    value: value.value,
+    candidate_id: value.candidate_id,
+    candidate: value.candidate,
+    blockers: [claimLossBlocker()],
+  };
 }
 
 /** Project recorded readings onto validated envelopes. */
@@ -261,7 +278,7 @@ export async function completeSourceTip<T>(
       candidate_id: candidateId,
       attempt_id: reserved.attempt.identity.id,
     };
-    return await withAttemptClaim(
+    const claimed = await withAttemptClaim(
       root,
       reserved.fence,
       signal,
@@ -304,10 +321,7 @@ export async function completeSourceTip<T>(
           if (claimSignal.aborted) {
             return {
               kind: "cancelled" as const,
-              reason: cancellationReason(
-                claimSignal,
-                "Completion was cancelled before it produced a result.",
-              ),
+              reason: "Completion was cancelled before it produced a result.",
             };
           }
           return {
@@ -365,10 +379,7 @@ export async function completeSourceTip<T>(
             ...base,
             blockers: [{
               kind: "cancelled" as const,
-              reason: cancellationReason(
-                claimSignal,
-                "Completion was cancelled; its attempt is closed.",
-              ),
+              reason: "Completion was cancelled; its attempt is closed.",
             }],
           };
         }
@@ -428,11 +439,9 @@ export async function completeSourceTip<T>(
           await settle("failed");
           return {
             ...base,
-            blockers: [{
-              kind: "unavailable" as const,
-              reason:
-                `Proof publication ${proof.kind}; observe the records and run discern done again.`,
-            }],
+            blockers: [
+              publicationRefusal({ kind: "proof", id: proofId }, proof),
+            ],
           };
         }
         await settle("passed");
@@ -454,6 +463,9 @@ export async function completeSourceTip<T>(
         return { ...base, proof_id: proofId, blockers: [] };
       },
     );
+    return claimed.kind === "settled"
+      ? claimed.value
+      : retiredCompletion(claimed.value);
   }, options.signal);
   if (attribution !== undefined) {
     const finishedAt = SYSTEM_CLOCK.wallNow();
