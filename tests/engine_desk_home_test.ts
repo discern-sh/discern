@@ -626,20 +626,22 @@ function paletteValue(
     ?.meta?.map((run) => run.text).join("");
 }
 
-/** The faint value the strip shows after one command's name, if any. */
+/** The faint fact the strip shows right after one command's name, if any. */
 function stripValue(
   state: DeskProductState,
   command: DeskCommand,
 ): string | undefined {
   const { short } = DESK_COMMAND_REGISTRY[command] as DeskCommandMetadata;
   const name = short ?? DESK_COMMAND_LABELS[command];
-  const fact = homeStrip(state, ENV).facts.find((runs) =>
+  const facts = homeStrip(state, ENV).facts;
+  const at = facts.findIndex((runs) =>
     runs.some((run) => run.text.trim() === name)
   );
-  const faint = fact?.filter((run) => run.tone === "faint");
-  return faint === undefined || faint.length === 0
-    ? undefined
-    : faint.map((run) => run.text).join("").trim();
+  const next = facts[at + 1];
+  return next?.every((run) => run.tone === "faint") === true &&
+      !next.some((run) => run.text.startsWith("discern "))
+    ? next.map((run) => run.text).join("")
+    : undefined;
 }
 
 Deno.test("the home panel names which discern runs, and every tier says the last check in one phrase", () => {
@@ -809,27 +811,54 @@ Deno.test("on a standard screen the home panel shows Create, Help and the tip, e
   for (
     const [name, data] of [["a full fleet", fullFleet], ...FLEETS] as const
   ) {
-    await session(data, async (desk) => {
-      await desk.until(
-        () =>
-          selected(desk) === COMMANDS_ROW_ID && desk.screen().includes("Tip"),
-        `${name}: the tip on the first screen at 80x24:\n${desk.screen()}`,
-      );
-      for (const label of labels(["create", "help"])) {
-        assertStringIncludes(desk.screen(), label, `${name}: ${label} whole`);
-      }
-    }, { columns: 80, rows: 24 });
+    // A check three weeks ago is wider than `never checked`: Help keeps it
+    // beside Check for updates, and `?` gives way, since the footer, the
+    // palette and the keys reader still name it.
+    await session(
+      data,
+      async (desk) => {
+        await desk.until(
+          () =>
+            selected(desk) === COMMANDS_ROW_ID && desk.screen().includes("Tip"),
+          `${name}: the tip on the first screen at 80x24:\n${desk.screen()}`,
+        );
+        for (const label of labels(["create", "help"])) {
+          assertStringIncludes(desk.screen(), label, `${name}: ${label} whole`);
+        }
+        assertStringIncludes(
+          lineWith(desk, DESK_COMMAND_LABELS.updates),
+          "checked 3w ago",
+          `${name}: the last check on a standard screen`,
+        );
+      },
+      { columns: 80, rows: 24 },
+      handedOff("2026-06-18T00:00:00.000Z"),
+    );
     // Tall enough for the whole panel at the narrowest standard column:
-    // every home label shows whole, beside its value and key.
-    await session(data, async (desk) => {
-      await desk.until(
-        () => desk.screen().includes("Tip"),
-        `${name}: the whole panel`,
-      );
-      for (const label of labels([...DESK_PALETTE_SECTIONS])) {
-        assertStringIncludes(desk.screen(), label, `${name}: ${label} whole`);
-      }
-    }, { columns: 80, rows: 60 });
+    // every home label shows whole, beside its value and key; Parked
+    // branches keeps the key named nowhere else on the screen.
+    await session(
+      data,
+      async (desk) => {
+        await desk.until(
+          () => desk.screen().includes("Tip"),
+          `${name}: the whole panel`,
+        );
+        for (const label of labels([...DESK_PALETTE_SECTIONS])) {
+          assertStringIncludes(desk.screen(), label, `${name}: ${label} whole`);
+        }
+        // The tip may name the command too; the panel's row ends with its key.
+        assert(
+          desk.screen().split("\n").some((line) =>
+            line.includes(DESK_COMMAND_LABELS.parked) &&
+            line.trimEnd().endsWith(` ${DESK_COMMAND_REGISTRY.parked.key}`)
+          ),
+          `${name}: Parked branches keeps its key`,
+        );
+      },
+      { columns: 80, rows: 60 },
+      handedOff("2026-06-18T00:00:00.000Z"),
+    );
   }
 });
 

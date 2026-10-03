@@ -146,25 +146,40 @@ const HOME_META_CELLS = 24;
  * One section's commands as the palette lists them: each label, then the
  * faint value the palette shows beside it, then its key at the end, so a
  * key never reads as a count. A label is the whole promise in the desk's
- * words, so the block fits its content and keeps its longest label whole:
- * the value gives way first, and a label with nothing beside it runs on
- * into the empty cells.
+ * words, so the block fits its content and keeps its longest label whole,
+ * and a label with nothing beside it runs on into the empty cells. Where a
+ * value and a key can't both fit, the values give way first, except in a
+ * section whose values all sit on rows without a key: there the key gives
+ * way, so Help keeps the last update check on a standard screen while the
+ * footer, the palette and the keys reader still name `?`. A key such as
+ * Parked branches' `6` is named nowhere else on the home screen, so its
+ * section keeps it.
  */
 function commandRows(
   state: DeskProductState,
   commands: readonly DeskCommand[],
   now: number,
 ): ApplicationDetailBlock {
+  const rows = commands.map((command) => ({
+    command,
+    meta: commandValue(state, command, now),
+    key: metadata(command).key,
+  }));
+  const valuesStay = rows.some((row) => row.meta !== undefined) &&
+    rows.every((row) => row.key === undefined || row.meta === undefined);
   return {
     kind: "rows",
     fit: true,
     columns: [
-      { id: "meta", width: HOME_META_CELLS, align: "end", priority: 1 },
-      { id: "key", width: 1 },
+      {
+        id: "meta",
+        width: HOME_META_CELLS,
+        align: "end",
+        priority: valuesStay ? 2 : 1,
+      },
+      { id: "key", width: 1, ...(valuesStay ? { priority: 1 } : {}) },
     ],
-    items: commands.map((command) => {
-      const meta = commandValue(state, command, now);
-      const key = metadata(command).key;
+    items: rows.map(({ command, meta, key }) => {
       return {
         text: [{ text: DESK_COMMAND_LABELS[command] }],
         cells: {
@@ -252,9 +267,11 @@ export const DESK_STRIP_COMMANDS = [
 /**
  * The Commands row's strip on a narrow screen: the row with the palette's
  * key, then whether there are tasks yet, a due check, the commands it names
- * by their short forms with the panel's values (`Updates checked 3w ago`),
- * and the running discern. The strip keeps whole facts in order, so a
- * later, shorter one shows where an earlier one cannot.
+ * by their short forms, each followed by the panel's value as a fact of its
+ * own (`Updates · checked 3w ago`), and the running discern. The strip
+ * keeps whole facts in order, so a later, shorter one shows where an
+ * earlier one cannot: a value that doesn't fit never costs its command its
+ * name.
  */
 export function homeStrip(
   state: DeskProductState,
@@ -277,16 +294,17 @@ export function homeStrip(
       ...(checkDue(state)
         ? [[{ text: RELEASE_CHECK_CUES.due, tone: "warning" as const }]]
         : []),
-      ...DESK_STRIP_COMMANDS.map((command): ApplicationRun[] => {
+      ...DESK_STRIP_COMMANDS.flatMap((command): ApplicationRun[][] => {
         const { key, short } = metadata(command);
         const name = short ?? DESK_COMMAND_LABELS[command];
         const value = commandValue(state, command, env.now);
         return [
-          ...(key === undefined ? [] : [{ text: key, role: "key" as const }]),
-          { text: key === undefined ? name : ` ${name}` },
+          key === undefined
+            ? [{ text: name }]
+            : [{ text: key, role: "key" as const }, { text: ` ${name}` }],
           ...(value === undefined
             ? []
-            : [{ text: ` ${value}`, tone: "faint" as const }]),
+            : [[{ text: value, tone: "faint" as const }]]),
         ];
       }),
       [{ text: running(env), tone: "faint" as const }],
