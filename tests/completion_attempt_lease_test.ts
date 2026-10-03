@@ -12,6 +12,7 @@ import {
   renewAttemptClaim,
   reserveAttempt,
   type ReservedAttempt,
+  type SettleAttempt,
   settleAttempt,
   withAttemptClaim,
 } from "../src/engine/completion/attempt_lifecycle.ts";
@@ -29,6 +30,7 @@ import {
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
 import { openOperationJournal } from "../src/engine/completion/operation_journal.ts";
+import type { CompletionRecord } from "../src/engine/completion/records.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import type {
   IntervalHandle,
@@ -491,7 +493,8 @@ Deno.test("an owner whose lease lapsed while nobody retired it still renews, pub
     time.advance(STALL_MS);
     assertEquals((await publishCandidate(root, reserved)).kind, "written");
     assertEquals(
-      (await settleAttempt(root, reserved.fence, "passed", time.clock)).kind,
+      (await settleAttempt(root, reserved.fence, "passed", time.clock)).attempt
+        .kind,
       "written",
     );
     assertEquals(await attemptState(root, reserved), {
@@ -523,7 +526,9 @@ Deno.test("a retirement during the stall is refused at every claim-dependent ste
       const step of [
         () => renewAttemptClaim(root, reserved.fence, time.clock),
         () => publishCandidate(root, reserved),
-        () => settleAttempt(root, reserved.fence, "cancelled", time.clock),
+        async () =>
+          (await settleAttempt(root, reserved.fence, "cancelled", time.clock))
+            .attempt,
       ]
     ) assertEquals((await step()).kind, "claim-lost");
     assertEquals(await attemptState(root, reserved), retired);
@@ -553,6 +558,99 @@ Deno.test("a renewal landing before a retirement is written keeps the claim", as
     );
     assertEquals((await attemptState(root, reserved)).kind, "planning");
   });
+});
+
+/** A bound attempt whose lease lapsed long ago, with the Proof it may publish. */
+async function lapsedProofOwner(root: string): Promise<{
+  readonly fence: { readonly attempt_id: string; readonly token: string };
+  readonly proof: CompletionRecord;
+  /** Proof recorded, and the attempt's outcome. */
+  readonly ended: () => Promise<[boolean, string]>;
+}> {
+  await initializeRepository(root);
+  const { attempt, proof } = completionFixtures();
+  assert(attempt.kind === "attempt" && attempt.data.state.kind === "claimed");
+  assertEquals(
+    (await writeCompletionRecord(root, attempt, null)).kind,
+    "written",
+  );
+  return {
+    fence: { attempt_id: attempt.id, token: attempt.data.state.claim.token },
+    proof,
+    ended: async () => {
+      const state = await readCompletionRecord(root, attempt);
+      assert(state.kind === "recorded" && state.record.kind === "attempt");
+      assert(state.record.data.state.kind === "finished");
+      return [
+        (await readCompletionRecord(root, proof)).kind === "recorded",
+        state.record.data.state.outcome,
+      ];
+    },
+  };
+}
+
+Deno.test("a Proof lands only with the pass that settles it, never beside a retirement", async (t) => {
+  // The owner's lease lapsed, so recovery may retire it. Whichever of the two
+  // transitions lands first wins outright: a Proof exists exactly when the
+  // attempt settled passed.
+  const lapsed = { ...COMPLETION_CLOCK, wallNow: (): number => 100_000 };
+  const recover = (
+    root: string,
+    probe: () => Promise<unknown> = () => Promise.resolve(),
+  ): Promise<string[]> =>
+    recoverAbandonedAttempts(root, {
+      clock: lapsed,
+      ownerState: async () => {
+        await probe();
+        return "unknown";
+      },
+    });
+  await t.step(
+    "the owner settles while recovery probes it",
+    () =>
+      withTempDir(async (root) => {
+        const owner = await lapsedProofOwner(root);
+        assertEquals(
+          await recover(
+            root,
+            () =>
+              settleAttempt(root, owner.fence, "passed", lapsed, owner.proof),
+          ),
+          [],
+        );
+        assertEquals(await owner.ended(), [true, "passed"]);
+      }),
+  );
+  await t.step(
+    "recovery retires the owner first",
+    () =>
+      withTempDir(async (root) => {
+        const owner = await lapsedProofOwner(root);
+        assertEquals(await recover(root), [owner.fence.attempt_id]);
+        const settled = await settleAttempt(
+          root,
+          owner.fence,
+          "passed",
+          lapsed,
+          owner.proof,
+        );
+        assertEquals(settled.attempt.kind, "claim-lost");
+        assertEquals(await owner.ended(), [false, "cancelled"]);
+      }),
+  );
+  await t.step(
+    "both race for the publication",
+    () =>
+      withTempDir(async (root) => {
+        const owner = await lapsedProofOwner(root);
+        await Promise.all([
+          settleAttempt(root, owner.fence, "passed", lapsed, owner.proof),
+          recover(root),
+        ]);
+        const [proven, outcome] = await owner.ended();
+        assertEquals(outcome, proven ? "passed" : "cancelled");
+      }),
+  );
 });
 
 Deno.test("the coordinator resumes after a stall and settles when nobody retired it", async () => {
@@ -645,21 +743,21 @@ Deno.test("the coordinator learns of a retirement during its stall and ends as c
   });
 });
 
-/** The settlement a claimed run receives. */
-type Settle = (outcome: "passed" | "failed" | "cancelled") => Promise<void>;
-
 Deno.test("a run another run retired ends retired, whatever it returned or raised", async () => {
   await withTempDir(async (root) => {
     await initializeRepository(root);
     const time = handClock(1_000);
-    // A pass, a failure, and a raised error all find the retirement at
-    // settlement and end the same way, recording nothing.
+    // A pass with its Proof, a failure, and a raised error all find the
+    // retirement at settlement and end the same way, recording nothing.
     const endings = [
-      async (settle: Settle): Promise<string> => {
-        await settle("passed");
+      async (settle: SettleAttempt): Promise<string> => {
+        assertEquals(
+          (await settle("passed", completionFixtures().proof))?.kind,
+          "claim-lost",
+        );
         return "passed";
       },
-      async (settle: Settle): Promise<string> => {
+      async (settle: SettleAttempt): Promise<string> => {
         await settle("failed");
         return "failed";
       },

@@ -1,10 +1,11 @@
 /**
  * One run's attempt over its candidate: reserved with the next repository
  * sequence, bound to the demand it will execute, and settled with an outcome.
- * Every transition is a compare-and-swap on the attempt record under the
- * common publication lock, so two runs never share a sequence or a claim.
- * Ownership is read from that record alone: a lapsed lease lets another run
- * retire the attempt, and only the retirement ends the claim.
+ * Every transition reads the attempt record and compare-and-swaps it inside
+ * one common publication, so two runs never share a sequence or a claim and
+ * no transition lands between another's read and write. Ownership is read
+ * from that record alone: a lapsed lease lets another run retire the attempt,
+ * and only the retirement ends the claim.
  */
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
@@ -22,7 +23,6 @@ import { observeCompletionRecords } from "../validation/runtime.ts";
 import {
   AttemptClaimLost,
   attemptHoldsClaim,
-  CLAIM_NOT_HELD,
   claimLease,
   claimTakeoverPermitted,
   type CompletionAttempt,
@@ -35,10 +35,15 @@ import {
   type ValidationPlan,
   validationPurpose,
 } from "./protocol.ts";
+import type { CompletionRecord } from "./records.ts";
 import {
   type CompletionWriteOutcome,
+  type CompletionWriteRefusal,
+  FENCE_REFUSALS,
   type PublicationFence,
   readCompletionRecord,
+  unreadableAttempt,
+  withinCompletionPublication,
   writeCompletionRecord,
 } from "./store.ts";
 
@@ -140,6 +145,34 @@ export async function reserveAttempt(
   });
 }
 
+/** The attempt record as the store holds it, ready for a compare-and-swap. */
+interface RecordedAttempt {
+  readonly record: Extract<CompletionRecord, { readonly kind: "attempt" }>;
+  readonly stamp: string;
+}
+
+/**
+ * Read the attempt record and decide its successor inside one publication:
+ * `next` sees the record as it stands, and nothing lands between that read
+ * and the compare-and-swap `next` makes.
+ */
+async function transitionAttempt<T>(
+  root: string,
+  attemptId: string,
+  next: (current: RecordedAttempt) => Promise<T>,
+): Promise<T | CompletionWriteRefusal> {
+  return await withinCompletionPublication(root, async () => {
+    const current = await readCompletionRecord(root, {
+      kind: "attempt",
+      id: attemptId,
+    });
+    if (current.kind !== "recorded" || current.record.kind !== "attempt") {
+      return unreadableAttempt(attemptId);
+    }
+    return await next({ record: current.record, stamp: current.stamp });
+  });
+}
+
 /**
  * Extend the claim the attempt record still names, whether or not its lease
  * lapsed meanwhile: a stalled owner that nobody retired resumes its lease.
@@ -149,32 +182,31 @@ export async function renewAttemptClaim(
   fence: PublicationFence,
   clock: Clock = SYSTEM_CLOCK,
 ): Promise<CompletionWriteOutcome> {
-  const current = await readCompletionRecord(root, {
-    kind: "attempt",
-    id: fence.attempt_id,
-  });
-  if (current.kind !== "recorded" || current.record.kind !== "attempt") {
-    return { kind: "unavailable", reason: "the attempt record is unreadable" };
-  }
-  const attempt = current.record.data;
-  if (!attemptHoldsClaim(attempt, fence.token)) {
-    return { kind: "claim-lost", reason: CLAIM_NOT_HELD };
-  }
-  return await writeCompletionRecord(
+  return await transitionAttempt(
     root,
-    {
-      ...current.record,
-      revision: current.record.revision + 1,
-      data: {
-        ...attempt,
-        state: {
-          ...attempt.state,
-          claim: { ...attempt.state.claim, ...claimLease(clock.wallNow()) },
+    fence.attempt_id,
+    async ({ record, stamp }) => {
+      const attempt = record.data;
+      if (!attemptHoldsClaim(attempt, fence.token)) {
+        return FENCE_REFUSALS["claim-not-held"];
+      }
+      return await writeCompletionRecord(
+        root,
+        {
+          ...record,
+          revision: record.revision + 1,
+          data: {
+            ...attempt,
+            state: {
+              ...attempt.state,
+              claim: { ...attempt.state.claim, ...claimLease(clock.wallNow()) },
+            },
+          },
         },
-      },
+        stamp,
+        fence,
+      );
     },
-    current.stamp,
-    fence,
   );
 }
 
@@ -184,9 +216,7 @@ function errorMessage(error: unknown): string {
 }
 
 /** One failed write outcome as the sentence a diagnostic prints. */
-function writeFailureReason(
-  outcome: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
-): string {
+function writeFailureReason(outcome: CompletionWriteRefusal): string {
   return "reason" in outcome
     ? outcome.reason
     : `record version ${outcome.version}`;
@@ -198,11 +228,21 @@ function writeFailureReason(
  * a renewal retries them on its next interval rather than cancelling a healthy
  * run; nor does the lease running out, which only lets another run retire it.
  */
-export function claimLossIsProven(
-  outcome: Exclude<CompletionWriteOutcome, { readonly kind: "written" }>,
-): boolean {
+export function claimLossIsProven(outcome: CompletionWriteRefusal): boolean {
   return outcome.kind === "claim-lost";
 }
+
+/**
+ * Close the run's attempt with its outcome. A pass may carry its Proof, which
+ * is then published in the transition that settles the attempt, so no
+ * retirement can land between them. Resolves with why the attempt did not
+ * settle as asked: another run retired it, or its Proof was refused and the
+ * attempt settled failed. Any other settlement failure is raised.
+ */
+export type SettleAttempt = (
+  outcome: "passed" | "failed" | "cancelled",
+  proof?: CompletionRecord,
+) => Promise<CompletionWriteRefusal | undefined>;
 
 /**
  * How a claimed run ended. A retired run's outcome is the retirement,
@@ -230,12 +270,7 @@ export async function withAttemptClaim<T>(
   root: string,
   fence: PublicationFence,
   parentSignal: AbortSignal,
-  run: (
-    signal: AbortSignal,
-    settle: (
-      outcome: "passed" | "failed" | "cancelled",
-    ) => Promise<void>,
-  ) => Promise<T>,
+  run: (signal: AbortSignal, settle: SettleAttempt) => Promise<T>,
   timing: { readonly scheduler?: Scheduler; readonly clock?: Clock } = {},
 ): Promise<ClaimedRun<T>> {
   const scheduler = timing.scheduler ?? SYSTEM_SCHEDULER;
@@ -243,7 +278,7 @@ export async function withAttemptClaim<T>(
   const lost = new AbortController();
   let renewals = Promise.resolve();
   let timer: IntervalHandle | undefined;
-  let settlement: Promise<void> | undefined;
+  let settlement: Promise<CompletionWriteRefusal | undefined> | undefined;
   const loseClaim = (): void => {
     if (!lost.signal.aborted) lost.abort(new AttemptClaimLost());
   };
@@ -271,22 +306,19 @@ export async function withAttemptClaim<T>(
     }
     await renewals;
   };
-  const settle = (
-    outcome: "passed" | "failed" | "cancelled",
-  ): Promise<void> => {
+  const settle: SettleAttempt = (outcome, proof) => {
     settlement ??= (async () => {
       await stopRenewing();
-      const written = await settleAttempt(root, fence, outcome, clock);
-      if (written.kind === "written") return;
-      if (claimLossIsProven(written)) {
-        // The run that retired this attempt already closed it, so the run
-        // ends retired. A pass still raises, so nothing after it runs.
+      const settled = await settleAttempt(root, fence, outcome, clock, proof);
+      if (settled.attempt.kind === "written") return settled.proof;
+      if (claimLossIsProven(settled.attempt)) {
+        // The run that retired this attempt already closed it.
         loseClaim();
-        if (outcome !== "passed") return;
+        return settled.attempt;
       }
       throw new Error(
-        `Completion attempt settlement ${written.kind}: ${
-          writeFailureReason(written)
+        `Completion attempt settlement ${settled.attempt.kind}: ${
+          writeFailureReason(settled.attempt)
         }`,
       );
     })();
@@ -352,42 +384,41 @@ export async function recoverAbandonedAttempts(
     ) continue;
     const observed = entry.reading.record;
     if (observed.data.state.kind === "finished") continue;
+    const token = observed.data.state.claim.token;
     const owner = await (options.ownerState === undefined
       ? journalOwnerState(root, observed.data)
       : options.ownerState(observed.data));
-    const current = await readCompletionRecord(root, {
-      kind: "attempt",
-      id: observed.id,
-    });
-    if (
-      current.kind !== "recorded" || current.record.kind !== "attempt" ||
-      !attemptHoldsClaim(current.record.data, observed.data.state.claim.token)
-    ) {
-      continue;
-    }
-    // Re-read after the owner probe: a renewal that landed meanwhile keeps
-    // the claim, and the compare-and-swap below loses to one landing later.
-    if (
-      owner !== "gone" &&
-      !claimTakeoverPermitted(current.record.data.state.claim, clock.wallNow())
-    ) {
-      continue;
-    }
-    const written = await writeCompletionRecord(
+    // Decide on the record as it stands after the owner probe, inside the
+    // publication that retires it: a renewal or settlement that landed first
+    // keeps the attempt, and none can land between this read and the write.
+    const retired = await transitionAttempt(
       root,
-      {
-        ...current.record,
-        revision: current.record.revision + 1,
-        data: {
-          ...current.record.data,
-          state: {
-            kind: "finished",
-            outcome: "cancelled",
-            finished_at: clock.wallNow(),
+      observed.id,
+      async ({ record, stamp }) => {
+        if (
+          !attemptHoldsClaim(record.data, token) ||
+          owner !== "gone" &&
+            !claimTakeoverPermitted(record.data.state.claim, clock.wallNow())
+        ) {
+          return undefined;
+        }
+        return await writeCompletionRecord(
+          root,
+          {
+            ...record,
+            revision: record.revision + 1,
+            data: {
+              ...record.data,
+              state: {
+                kind: "finished",
+                outcome: "cancelled",
+                finished_at: clock.wallNow(),
+              },
+            },
           },
-        },
+          stamp,
+        );
       },
-      current.stamp,
     );
     // Every unapplied outcome leaves the claim exactly as it was: another
     // owner moved it, the lock was busy, or the store could not be written.
@@ -395,8 +426,8 @@ export async function recoverAbandonedAttempts(
     // result envelope, so the claim stays for the next run to retire. A claim
     // that still blocks is reported as its own pending cause, carrying the
     // attempt id and the effective expiry that explain it.
-    if (written.kind === "written") {
-      recovered.push(current.record.id);
+    if (retired?.kind === "written") {
+      recovered.push(observed.id);
     }
   }
   return recovered;
@@ -465,38 +496,57 @@ export async function bindAttemptDemand(
   });
 }
 
+/** What one settlement transition did to the attempt, and to its Proof. */
+export interface AttemptSettlement {
+  /** The attempt's own transition, or why it did not land. */
+  readonly attempt: CompletionWriteOutcome;
+  /** Why the Proof published with a pass was refused; the attempt then settled failed. */
+  readonly proof?: CompletionWriteRefusal;
+}
+
 /**
  * Finish the attempt through its own fence; a finished attempt never reopens.
- * The record is re-validated under the publication lock, so settlement
- * succeeds after any stall during which nobody retired the attempt.
+ * The record is read and written in one publication, so settlement succeeds
+ * after any stall during which nobody retired the attempt. A pass's `proof`
+ * is published inside the same transition, before the attempt finishes.
  */
 export async function settleAttempt(
   root: string,
   fence: PublicationFence,
   outcome: "passed" | "failed" | "cancelled",
   clock: Clock = SYSTEM_CLOCK,
-): Promise<CompletionWriteOutcome> {
-  const current = await readCompletionRecord(root, {
-    kind: "attempt",
-    id: fence.attempt_id,
-  });
-  if (current.kind !== "recorded" || current.record.kind !== "attempt") {
-    return { kind: "unavailable", reason: "the attempt record is unreadable" };
-  }
-  if (!attemptHoldsClaim(current.record.data, fence.token)) {
-    return { kind: "claim-lost", reason: CLAIM_NOT_HELD };
-  }
-  return await writeCompletionRecord(
+  proof?: CompletionRecord,
+): Promise<AttemptSettlement> {
+  const settled = await transitionAttempt(
     root,
-    {
-      ...current.record,
-      revision: current.record.revision + 1,
-      data: {
-        ...current.record.data,
-        state: { kind: "finished", outcome, finished_at: clock.wallNow() },
-      },
+    fence.attempt_id,
+    async ({ record, stamp }): Promise<AttemptSettlement> => {
+      if (!attemptHoldsClaim(record.data, fence.token)) {
+        return { attempt: FENCE_REFUSALS["claim-not-held"] };
+      }
+      const published = proof === undefined
+        ? undefined
+        : await writeCompletionRecord(root, proof, null, fence);
+      const refused = published?.kind === "written" ? undefined : published;
+      const attempt = await writeCompletionRecord(
+        root,
+        {
+          ...record,
+          revision: record.revision + 1,
+          data: {
+            ...record.data,
+            state: {
+              kind: "finished",
+              outcome: refused === undefined ? outcome : "failed",
+              finished_at: clock.wallNow(),
+            },
+          },
+        },
+        stamp,
+        fence,
+      );
+      return refused === undefined ? { attempt } : { attempt, proof: refused };
     },
-    current.stamp,
-    fence,
   );
+  return "attempt" in settled ? settled : { attempt: settled };
 }

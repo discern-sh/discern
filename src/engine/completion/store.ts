@@ -417,9 +417,33 @@ export async function writeCompletionRecord(
       },
     );
   } catch (error) {
-    return {
-      kind: error instanceof OperationLockError ? "busy" : "unavailable",
-      reason: error instanceof Error ? error.message : String(error),
-    };
+    return publicationFailure(error);
+  }
+}
+
+/** A publication that could not run, as the refusal it is. */
+function publicationFailure(error: unknown): CompletionWriteRefusal {
+  return {
+    kind: error instanceof OperationLockError ? "busy" : "unavailable",
+    reason: error instanceof Error ? error.message : String(error),
+  };
+}
+
+/**
+ * Run a read-then-write transition inside one publication, so no other
+ * transition lands between its read and its compare-and-swap. A publication
+ * that cannot start is reported as the refusal it is, as a single write's is.
+ */
+export async function withinCompletionPublication<T>(
+  root: string,
+  transition: () => Promise<T>,
+): Promise<T | CompletionWriteRefusal> {
+  try {
+    return await withCompletionPublication(
+      await Deno.realPath(root),
+      transition,
+    );
+  } catch (error) {
+    return publicationFailure(error);
   }
 }

@@ -419,32 +419,27 @@ export async function completeSourceTip<T>(
           await settle("failed");
           return { ...base, blockers: assembly.blockers };
         }
+        // The Proof is published in the transition that settles the attempt
+        // passed, so a retirement lands before both or not at all.
         const proofId = reserved.fence.attempt_id;
-        const proof = await writeCompletionRecord(
-          root,
-          {
-            version: ON_DISK_FORMATS.completionRecord.version,
-            kind: "proof",
-            id: proofId,
-            revision: 1,
-            data: {
-              ...assembly.proof,
-              ...(result.review === undefined ? {} : { review: result.review }),
-            },
+        const refused = await settle("passed", {
+          version: ON_DISK_FORMATS.completionRecord.version,
+          kind: "proof",
+          id: proofId,
+          revision: 1,
+          data: {
+            ...assembly.proof,
+            ...(result.review === undefined ? {} : { review: result.review }),
           },
-          null,
-          reserved.fence,
-        );
-        if (proof.kind !== "written") {
-          await settle("failed");
+        });
+        if (refused !== undefined) {
           return {
             ...base,
             blockers: [
-              publicationRefusal({ kind: "proof", id: proofId }, proof),
+              publicationRefusal({ kind: "proof", id: proofId }, refused),
             ],
           };
         }
-        await settle("passed");
         emitCompletionEvent({
           id: `${proofId}:proven`,
           at: SYSTEM_CLOCK.wallNow(),
