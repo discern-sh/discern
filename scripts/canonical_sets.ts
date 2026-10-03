@@ -970,7 +970,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "git-admin-state",
     title: "Git-admin state",
     what:
-      "Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.",
+      "Every discern-owned Git-admin artifact carries its path, lifetime, shape, validation-write policy, and how the fleet change probe watches it. Registry-driven guards enroll each new member in placement, lifecycle, and change-probe checks.",
     source: {
       kind: "module",
       module: "src/shared/git_admin_state.ts",
@@ -982,6 +982,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/engine_logbook_lifecycle_test.ts",
       "tests/engine_write_preflight_test.ts",
       "tests/engine_effort_grant_test.ts",
+      "tests/engine_fleet_fingerprint_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
