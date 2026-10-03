@@ -433,7 +433,7 @@ Deno.test("human codenames remain separate from numeric protocol and mismatch id
   assert(versionMismatchHint("0.1.0", "7.8.1") !== undefined);
 });
 
-Deno.test("status and doctor reminders are read-only and advisory with logbook disabled", async () => {
+Deno.test("status and doctor reminders are read-only and advisory with logbook disabled, and status takes a read its caller made", async () => {
   await withTempDir(async (root) => {
     await scaffoldEngine(root, { agents: [] });
     const configPath = join(root, "discern.toml");
@@ -446,6 +446,7 @@ Deno.test("status and doctor reminders are read-only and advisory with logbook d
     );
     await gitInit(root);
     await writeReleaseCheck(root, undefined, first);
+    const dueRead = await inspectReleaseCheck(root);
     const path = await gitAdminStatePath(root, "releaseCheck");
     assert(path);
     const before = await Deno.readTextFile(path);
@@ -465,30 +466,18 @@ Deno.test("status and doctor reminders are read-only and advisory with logbook d
       (await statusResult(root, { all: true, nowMs: due })).data
         ?.release_reminder,
       undefined,
+      "the disk's record is fresh",
     );
-  });
-});
-
-Deno.test("status reads the reminder from a release record its caller already read", async () => {
-  await withTempDir(async (root) => {
-    await scaffoldEngine(root, { agents: [] });
-    await gitInit(root);
-    // No record on disk: only the given read can make the check due.
-    const read = {
-      status: "recorded",
-      value: {
-        schema_version: 1,
-        first_seen_at: new Date(first).toISOString(),
-      },
-    } as const;
-    const given = await statusResult(root, {
-      all: true,
-      nowMs: due,
-      releaseCheck: read,
-    });
-    assert(given.data?.release_reminder, "the given read is due");
-    const own = await statusResult(root, { all: true, nowMs: due });
-    assertEquals(own.data?.release_reminder, undefined, "the disk's is not");
+    // A caller that already read the record hands status that read, so the
+    // reminder follows it rather than a second read of the disk.
+    assert(
+      (await statusResult(root, {
+        all: true,
+        nowMs: due,
+        releaseCheck: dueRead,
+      })).data?.release_reminder,
+      "the given read is due",
+    );
   });
 });
 
