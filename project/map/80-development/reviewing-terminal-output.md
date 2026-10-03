@@ -178,7 +178,7 @@ The flagship scenario applies named normalizers at capture time. They replace on
 
 Normalizers do not change line breaks, indentation, terminal styling, borders, or command structure. A layout defect must remain visible in the fixture diff.
 
-Every flagship screen must fit its capture geometry. A real terminal hard-wraps an over-wide line at its edge, mid-word and without the line's indentation. `terminalCaptureOverflows` measures each visible line of the final screen and every named frame through the package projection. The test applies it to each reviewed fixture enrolled in `FLAGSHIP_COMMANDS` without opening a pseudo-terminal, and to each live capture. A failure names the command, screen, line, and measured width.
+Every flagship screen must fit its capture geometry. A real terminal hard-wraps an over-wide line at its edge, mid-word and without the line's indentation. `terminalCaptureOverflows` measures each visible line of the final screen and every named frame through the package projection. `captureFlagshipTerminalScreens` measures the screens the terminal received, before a normalizer shortens a duration or platform string, so fixture regeneration and the live comparison both refuse an over-wide screen. The test also measures each reviewed fixture enrolled in `FLAGSHIP_COMMANDS` without opening a pseudo-terminal. A failure names the command, screen, line, and measured width.
 
 When an intentional rendering change updates a flagship, regenerate all evidence, inspect each changed HTML file as a rendered browser page, then run the exact comparison test:
 

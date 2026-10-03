@@ -9,7 +9,8 @@ import {
   writeConfig,
 } from "../engine_helpers.ts";
 import {
-  captureDiscernCommand,
+  assertTerminalCaptureFits,
+  captureReceivedDiscernCommand,
   type TerminalCaptureNormalizationContext,
   type TerminalCaptureNormalizer,
   type TerminalCommandCapture,
@@ -258,7 +259,7 @@ export async function captureFlagshipTerminalScreens(
     const worktree = await createFixtureWorktree(main);
     const captures: Record<string, TerminalCommandCapture> = {};
     for (const command of FLAGSHIP_COMMANDS) {
-      const capture = await captureDiscernCommand({
+      const { capture, received } = await captureReceivedDiscernCommand({
         executable,
         name: command.name,
         args: command.args,
@@ -268,6 +269,13 @@ export async function captureFlagshipTerminalScreens(
         env: { DISCERN_TEMPLATES_DIR: join(REPO_ROOT, "templates") },
         normalizers: FLAGSHIP_CAPTURE_NORMALIZERS,
       });
+      // Normalizers can shorten a line, so the width the terminal received
+      // is the one that must fit.
+      assertTerminalCaptureFits(
+        command.name,
+        received,
+        capture.geometry.columns,
+      );
       assertNoResidualPath(command.name, capture.screen, main);
       captures[command.name] = capture;
     }

@@ -174,10 +174,31 @@ function applyNormalizers(
   );
 }
 
+/** The screens one capture holds: the final screen and each named keyframe. */
+export interface TerminalCaptureScreens {
+  readonly screen: string;
+  readonly keyframes: Readonly<Record<string, string>>;
+}
+
+/** A capture plus the screens its terminal received, projected but not yet
+ * normalized: what a live geometry check must measure, because a normalizer
+ * can shorten a line that overflowed the real terminal. */
+export interface ReceivedTerminalCommandCapture {
+  readonly capture: TerminalCommandCapture;
+  readonly received: TerminalCaptureScreens;
+}
+
 /** Capture a complete Discern invocation through the repository's one PTY driver. */
 export async function captureDiscernCommand(
   options: CaptureDiscernCommandOptions,
 ): Promise<TerminalCommandCapture> {
+  return (await captureReceivedDiscernCommand(options)).capture;
+}
+
+/** Capture one invocation and keep the screens its terminal received. */
+export async function captureReceivedDiscernCommand(
+  options: CaptureDiscernCommandOptions,
+): Promise<ReceivedTerminalCommandCapture> {
   const geometry = options.geometry ?? TERMINAL_CAPTURE_GEOMETRIES.canonical;
   const color = options.color ?? true;
   const staticOutput = options.static ?? options.input === undefined;
@@ -215,23 +236,35 @@ export async function captureDiscernCommand(
     cwd: options.cwd,
   };
   const project = terminalCaptureProjection(geometry, staticOutput);
-  const normalized = (output: string): string =>
-    applyNormalizers(project(output), normalizers, context);
-  return {
-    schemaVersion: 1,
-    name: options.name,
-    args: [...options.args],
-    geometry: { ...geometry },
-    environment,
-    exitCode: result.code,
-    normalizers: normalizers.map((normalizer) => normalizer.name),
-    screen: normalized(result.transcript),
+  const received: TerminalCaptureScreens = {
+    screen: project(result.transcript),
     keyframes: Object.fromEntries(
       Object.entries(result.keyframes).map(([name, output]) => [
         name,
-        normalized(output),
+        project(output),
       ]),
     ),
+  };
+  const normalized = (output: string): string =>
+    applyNormalizers(output, normalizers, context);
+  return {
+    capture: {
+      schemaVersion: 1,
+      name: options.name,
+      args: [...options.args],
+      geometry: { ...geometry },
+      environment,
+      exitCode: result.code,
+      normalizers: normalizers.map((normalizer) => normalizer.name),
+      screen: normalized(received.screen),
+      keyframes: Object.fromEntries(
+        Object.entries(received.keyframes).map(([name, output]) => [
+          name,
+          normalized(output),
+        ]),
+      ),
+    },
+    received,
   };
 }
 
@@ -365,26 +398,43 @@ export interface TerminalCaptureOverflow {
 }
 
 /**
- * Every visible line, across the final and named screens, wider than the
- * capture's geometry columns. A real terminal hard-wraps such a line at its
- * edge, mid-word and without the line's indentation, so an over-wide line in
- * evidence is a layout defect rather than a rendering of it. Measured through
- * the package projection's visible text, so styling never counts.
+ * Every visible line, across the final and named screens, wider than
+ * `columns`. A real terminal hard-wraps such a line at its edge, mid-word and
+ * without the line's indentation, so an over-wide line in evidence is a
+ * layout defect rather than a rendering of it. Measured through the package
+ * projection's visible text, so styling never counts.
  */
 export function terminalCaptureOverflows(
-  capture: TerminalCommandCapture,
+  screens: TerminalCaptureScreens,
+  columns: number,
 ): TerminalCaptureOverflow[] {
-  const screens: [string, string][] = [
-    ["screen", capture.screen],
-    ...Object.entries(capture.keyframes),
+  const named: [string, string][] = [
+    ["screen", screens.screen],
+    ...Object.entries(screens.keyframes),
   ];
-  return screens.flatMap(([screen, output]) =>
+  return named.flatMap(([screen, output]) =>
     projectTerminalSpans(output).map((span) => span.text).join("")
       .split("\n").flatMap((text, index) => {
         const width = displayWidth(text);
-        return width > capture.geometry.columns
-          ? [{ screen, line: index + 1, width, text }]
-          : [];
+        return width > columns ? [{ screen, line: index + 1, width, text }] : [];
       })
+  );
+}
+
+/** Refuse screens with a line wider than `columns`, naming each such line so
+ * the failure points at the renderer to fix. */
+export function assertTerminalCaptureFits(
+  name: string,
+  screens: TerminalCaptureScreens,
+  columns: number,
+): void {
+  const overflows = terminalCaptureOverflows(screens, columns);
+  if (overflows.length === 0) return;
+  throw new Error(
+    `${name} renders ${overflows.length} line(s) wider than its ${columns}-column capture; route each through a width-aware package renderer (the narration verbs wrap; a humanLine caller owns its wrapping):\n${
+      overflows.map((overflow) =>
+        `  ${overflow.screen}:${overflow.line} (${overflow.width} cells) ${overflow.text}`
+      ).join("\n")
+    }`,
   );
 }
