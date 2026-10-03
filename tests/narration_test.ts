@@ -365,18 +365,29 @@ Deno.test("every narration verb that renders prose stays within the terminal wid
   }
 });
 
-Deno.test("a wrapped detail hangs under its own indent with styling closed per line", () => {
-  const output = renderAtGuardWidth((narration) =>
-    narration.detail(WIDTH_GUARD_PROSE)
-  );
-  const lines = output.trimEnd().split("\n");
-  assert(lines.length > 1, "the guard prose must wrap");
-  for (const line of lines) {
-    assert(line.startsWith("  \x1b["), `detail line lost its indent: ${line}`);
+Deno.test("a wrapped detail keeps its indent, hangs deeper, and closes styling per line", () => {
+  for (const indent of ["", "  "]) {
+    const lines = renderAtGuardWidth((narration) =>
+      narration.detail(`${indent}${WIDTH_GUARD_PROSE}`)
+    ).trimEnd().split("\n");
+    assert(lines.length > 1, "the guard prose must wrap");
+    const [first = "", ...continuations] = lines;
     assert(
-      line.endsWith("\x1b[0m"),
-      `detail styling crosses a line end: ${line}`,
+      first.startsWith(`  ${indent}\x1b[`),
+      `detail lost the caller's indent: ${first}`,
     );
+    for (const line of continuations) {
+      assert(
+        line.startsWith(`  ${indent}  \x1b[`),
+        `a continuation must hang two cells past its item: ${line}`,
+      );
+    }
+    for (const line of lines) {
+      assert(
+        line.endsWith("\x1b[0m"),
+        `detail styling crosses a line end: ${line}`,
+      );
+    }
   }
 });
 

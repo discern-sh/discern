@@ -22,6 +22,10 @@ import {
 } from "./terminal.ts";
 import { breakLongTokens, displayWidth, wrapText } from "./text.ts";
 
+/** Cells a wrapped item's continuation hangs past its first line, so the
+ * continuation never reads as the start of the next item. */
+const ITEM_HANG = 2;
+
 /** A physical process stream the sink can write to. */
 export type OutputStream = "stdout" | "stderr";
 
@@ -161,8 +165,9 @@ export interface Narration {
   heading(text: string): void;
   /** Start a semantic group and optionally give it a visible ruled label. */
   group(id: string, label?: string): void;
-  /** A dimmed detail paragraph indented under a heading; wrapped lines hang
-   * under the same indent. */
+  /** A dimmed detail item indented under a heading. The text's own leading
+   * spaces deepen its indent; a wrapped item's continuation lines hang two
+   * cells past its first line. */
   detail(text: string): void;
   /** A pre-composed narration line emitted verbatim — the caller owns its
    * wrapping, indentation, and any package Token roles. */
@@ -190,6 +195,10 @@ export function makeNarration(
   streams: NarrationStreams,
 ): Narration {
   const columns = terminal.presenter.capabilities.columns;
+  const muted = (line: string): string =>
+    terminal.presenter.style(line, { role: "muted" });
+  const strong = (line: string): string =>
+    terminal.presenter.style(line, { role: "strong" });
   const failureLine = (text: string): string =>
     terminal.presenter.failure(text);
   /** Cells a package narration renderer spends on its glyph and gap: its
@@ -208,22 +217,35 @@ export function makeNarration(
       breakLongTokens(terminalLine(message), columns - glyphColumn(render)),
     );
   /** Bound one inert prose line to the presenter's width behind a styled
-   * `lead`. A line that fits is kept intact; an over-wide one re-flows through
-   * the text authority, continuations hang under the lead, an overlong token
-   * breaks rather than overflow, and `paint` styles each wrapped line on its
-   * own so no styling crosses a line end. */
+   * `lead`. The line's own leading spaces deepen the indent, so an indented
+   * line keeps its indent whether it fits or wraps. A line that fits is kept
+   * intact, interior spacing included; an over-wide one re-flows through the
+   * text authority with each continuation `hang` cells deeper, an overlong
+   * token breaks rather than overflow, and `paint` styles each wrapped line on
+   * its own so no styling crosses a line end. */
   const hanging = (
     lead: string,
     text: string,
     paint: (line: string) => string,
+    hang = 0,
   ): string => {
-    const indent = displayWidth(lead);
-    const available = columns - indent;
-    const lines = displayWidth(text) <= available
-      ? [text]
-      : wrapText(text, available, "", { breakLongWords: true });
+    const leadWidth = displayWidth(lead);
+    const room = Math.max(1, columns - leadWidth);
+    // However deep the caller indents, at least one content cell remains.
+    const leading = (text.match(/^ */u)?.[0] ?? "").slice(0, room - 1);
+    const content = text.slice(leading.length);
+    const width = room - leading.length;
+    const continuation = " ".repeat(Math.min(hang, width - 1));
+    const lines = displayWidth(content) <= width
+      ? [content]
+      : wrapText(content, width, continuation, { breakLongWords: true })
+        .map((line, index) =>
+          index === 0 ? line : line.slice(continuation.length)
+        );
     return lines.map((line, index) =>
-      `${index === 0 ? lead : " ".repeat(indent)}${paint(line)}`
+      `${index === 0 ? lead : " ".repeat(leadWidth)}${leading}${
+        index === 0 ? "" : continuation
+      }${paint(line)}`
     ).join("\n");
   };
   const errorBlock = (message: string): void => {
@@ -238,9 +260,12 @@ export function makeNarration(
       if (raw.trim() === "") return [""];
       const leading = raw.match(/^\s*/u)?.[0] ?? "";
       const content = terminalLine(raw.slice(leading.length));
-      return wrapText(content, width - leading.length, `${leading}  `, {
-        breakLongWords: true,
-      }).map((line, index) => (index === 0 ? `${leading}${line}` : line));
+      return wrapText(
+        content,
+        width - leading.length,
+        `${leading}${" ".repeat(ITEM_HANG)}`,
+        { breakLongWords: true },
+      ).map((line, index) => (index === 0 ? `${leading}${line}` : line));
     });
     const [first = "", ...continuation] = lines;
     sink.line(
@@ -273,14 +298,7 @@ export function makeNarration(
       sink.line(glyphLine(failureLine, message), streams.alerts),
     heading: (text: string): void => {
       sink.boundary({ evenAtStart: true, stream: streams.narration });
-      sink.line(
-        hanging(
-          "",
-          terminalLine(text),
-          (line) => terminal.presenter.style(line, { role: "strong" }),
-        ),
-        streams.narration,
-      );
+      sink.line(hanging("", terminalLine(text), strong), streams.narration);
     },
     group: (id: string, label?: string): void => {
       assertHumanOutputGroupId(id);
@@ -289,9 +307,9 @@ export function makeNarration(
       if (label !== undefined) {
         sink.line(
           hanging(
-            `  ${terminal.presenter.style("──", { role: "muted" })} `,
+            `  ${muted("──")} `,
             terminalLine(label),
-            (line) => terminal.presenter.style(line, { role: "strong" }),
+            strong,
           ),
           sink.lastStream(),
         );
@@ -299,11 +317,7 @@ export function makeNarration(
     },
     detail: (text: string): void =>
       sink.line(
-        hanging(
-          "  ",
-          terminalLine(text),
-          (line) => terminal.presenter.style(line, { role: "muted" }),
-        ),
+        hanging("  ", terminalLine(text), muted, ITEM_HANG),
         streams.narration,
       ),
     humanLine: (text: string): void => sink.line(text, streams.narration),
