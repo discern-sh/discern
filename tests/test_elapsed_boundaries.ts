@@ -17,17 +17,10 @@ export const TEST_ELAPSED_BOUNDARIES: readonly TestElapsedBoundary[] = [
   },
   {
     path: "tests/jobs_runner_test.ts",
-    enclosing: "runParallel: fail-fast cancels the slow sibling promptly",
+    enclosing: "failFastFromBoom",
     reads: 2,
     reason:
-      "The observer starts the interval at sibling failure; settlement checks the runner's cancellation and pipe-drain lifetime.",
-  },
-  {
-    path: "tests/jobs_runner_test.ts",
-    enclosing: "fail-fast escalates to SIGKILL when a sibling ignores SIGTERM",
-    reads: 2,
-    reason:
-      "A ready stubborn child exercises the runner's SIGKILL escalation after the failing sibling settles.",
+      "The observer starts the interval when the failing job settles; settlement checks the runner's cancellation of its siblings, from pipe drain to SIGKILL escalation for one that ignores SIGTERM.",
   },
   {
     path: "tests/jobs_runner_test.ts",
