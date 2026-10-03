@@ -9,8 +9,10 @@
  *   probe watches, so a new status input fails here until the probe watches
  *   it too. The guard sees only the reads the fixture's states trigger, so
  *   the fixture holds one of each kind of state a survey reads;
- * - the probe costs one Git process per checkout plus two, and an unchanged
- *   fleet reads the same fingerprint twice;
+ * - every Git process the probe spawns goes through its runner: one per
+ *   checkout plus two, and the common directory's discovery where no
+ *   discovery scope retains it; an unchanged fleet reads the same
+ *   fingerprint twice;
  * - every discern administration entry the registry declares watched moves
  *   the fingerprint when written, every unwatched one does not, and so do
  *   commits, refs, working-tree edits, the ignored files status reads, and
@@ -31,6 +33,7 @@ import {
 import { statusResult } from "../src/engine/status/status.ts";
 import { parseWorktreeList } from "../src/engine/worktree/git.ts";
 import { recordRetiredWorktreePath } from "../src/engine/worktree/retired_paths.ts";
+import { withGitDiscoveryScope } from "../src/shared/git_discovery.ts";
 import {
   GIT_ADMIN_STATE,
   GIT_ADMIN_STATE_KEYS,
@@ -49,6 +52,7 @@ import {
   type DeskTtyProject,
 } from "./fixtures/desk_tty_harness.ts";
 import { git, gitOut } from "./engine_helpers.ts";
+import { countedGitSpawns } from "./git_admin_observer.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { withTempDir } from "./temp_dir.ts";
 
@@ -368,23 +372,51 @@ Deno.test("the fleet fingerprint watches every survey input and moves with each 
     );
 
     await t.step(
-      "an unchanged fleet reads the same fingerprint for one Git process per checkout plus two",
+      "every Git process the probe spawns goes through its runner, one per checkout plus two",
       async () => {
         const calls: string[] = [];
         const counted: FleetFingerprintGit = (args, cwd) => {
           calls.push(args[0] ?? "");
           return FLEET_FINGERPRINT_GIT(args, cwd);
         };
-        const first = await fleetFingerprint(project.root, counted);
-        const perProbe = calls.length;
-        const second = await fleetFingerprint(project.root, counted);
-        assert(first !== undefined);
-        assertEquals(second, first);
-        assertEquals(perProbe, layout.checkouts.length + 2);
+        /** One probe: its fingerprint, its spawns, and its runner's calls. */
+        const probe = async (): Promise<{
+          readonly fingerprint: string | undefined;
+          readonly spawns: number;
+          readonly calls: readonly string[];
+        }> => {
+          calls.length = 0;
+          const { value, spawns } = await countedGitSpawns(() =>
+            fleetFingerprint(project.root, counted)
+          );
+          return { fingerprint: value, spawns, calls: [...calls] };
+        };
+        // `git worktree list`, `git for-each-ref`, and each checkout's status.
+        const reads = [
+          "worktree",
+          "for-each-ref",
+          ...layout.checkouts.map(() => "status"),
+        ];
+        const cold = await probe();
+        assert(cold.fingerprint !== undefined);
+        assertEquals(cold.spawns, cold.calls.length, "spawned past the runner");
         assertEquals(
-          [...new Set(calls)].sort(),
-          ["for-each-ref", "status", "worktree"],
+          [...cold.calls].sort(),
+          [...reads, "rev-parse"].sort(),
+          "outside a discovery scope the common directory is discovered too",
         );
+        // The Desk probes inside its operation's discovery scope.
+        const warm = await withGitDiscoveryScope(async () => {
+          await probe();
+          return await probe();
+        });
+        assertEquals(warm.spawns, warm.calls.length, "spawned past the runner");
+        assertEquals(
+          [...warm.calls].sort(),
+          reads.sort(),
+          "a discovery scope retains the common directory",
+        );
+        assertEquals(warm.fingerprint, cold.fingerprint);
       },
     );
 

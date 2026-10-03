@@ -17,3 +17,23 @@ export async function countedAdminQueries<T>(
     Deno.Command = Command;
   }
 }
+
+/** Count every git process the engine constructs during `operation`. */
+export async function countedGitSpawns<T>(
+  operation: () => Promise<T>,
+): Promise<{ readonly value: T; readonly spawns: number }> {
+  const Command = Deno.Command;
+  let spawns = 0;
+  Deno.Command = class extends Command {
+    /** Count the spawn while retaining the native command. */
+    constructor(command: string | URL, options?: Deno.CommandOptions) {
+      super(command, options);
+      spawns += 1;
+    }
+  };
+  try {
+    return { value: await operation(), spawns };
+  } finally {
+    Deno.Command = Command;
+  }
+}

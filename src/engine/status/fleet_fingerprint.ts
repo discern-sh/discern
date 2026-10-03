@@ -2,9 +2,10 @@
  * The fleet change probe: a cheap fingerprint of what a status survey reads.
  *
  * A fleet survey spawns a few hundred Git processes. The probe spawns one per
- * checkout plus two and stats a few hundred files at most. Two equal
- * fingerprints mean a survey taken at the second would read the repository
- * the first one did:
+ * checkout plus two, every one through its runner, and stats a few hundred
+ * files at most; discovering the common directory adds one where no
+ * operation's discovery scope retains it. Two equal fingerprints mean a
+ * survey taken at the second would read the repository the first one did:
  *
  * - the same registrations and HEADs (`git worktree list`) and refs
  *   (`git for-each-ref`), and each checkout's reflog for its HEAD;
@@ -40,7 +41,7 @@ import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { skillsDirsForAgents } from "../../lib/providers.ts";
 import { parseWorktreeList, resolveCommonGitDir } from "../worktree/git.ts";
 import {
-  readRetiredWorktreePathRecords,
+  readRetiredWorktreePathRecordsIn,
   retiredPathState,
 } from "../worktree/retired_paths.ts";
 
@@ -271,16 +272,23 @@ async function registrationDirs(commonDir: string): Promise<string[]> {
 /**
  * Where one fleet's fingerprint looks, read from its registrations, its
  * configuration and its retired-path records. `undefined` when the
- * repository's common directory cannot be found.
+ * repository's common directory cannot be found. Discovering the common
+ * directory is the layout's only Git process, through `git`.
  */
 export async function fleetFingerprintLayout(
   root: string,
   checkouts: readonly string[],
+  git: FleetFingerprintGit = FLEET_FINGERPRINT_GIT,
 ): Promise<FleetFingerprintLayout | undefined> {
-  const commonDir = await resolveCommonGitDir(root);
+  const commonDir = await resolveCommonGitDir(
+    root,
+    (cwd, args) => git(args, cwd),
+  );
   if (commonDir === undefined) return undefined;
   const config = await loadConfig(root);
-  const retired = await readRetiredWorktreePathRecords(root);
+  const retired = await readRetiredWorktreePathRecordsIn(
+    join(commonDir, GIT_ADMIN_STATE.retiredWorktreePaths.path),
+  );
   return {
     checkouts,
     commonDir,
@@ -309,7 +317,7 @@ export async function fleetFingerprint(
   const checkouts = parseWorktreeList(listed.stdout).map((record) =>
     record.path
   );
-  const layout = await fleetFingerprintLayout(root, checkouts);
+  const layout = await fleetFingerprintLayout(root, checkouts, git);
   if (layout === undefined) return undefined;
   const [changes, inputs] = await Promise.all([
     observeFleet(checkouts, (checkout) => checkoutLines(checkout, git)),

@@ -579,16 +579,22 @@ export async function clearRetiredWorktreeBranch(
 /** Read the live bounded record population without creating or pruning state. */
 export async function readRetiredWorktreePathRecords(
   root: string,
-  opts: {
-    readonly now?: number;
-    readonly ttlMs?: number;
-    readonly maxEntries?: number;
-  } = {},
+  opts: EvidenceStoreBounds = {},
 ): Promise<readonly RetiredWorktreePathRecord[]> {
   const directory = await storeDirectory(root);
-  if (directory === undefined) {
-    return [];
-  }
+  return directory === undefined
+    ? []
+    : await readRetiredWorktreePathRecordsIn(directory, opts);
+}
+
+/**
+ * The live bounded record population of the store at `directory`, for a
+ * reader that has already resolved the common Git directory.
+ */
+export async function readRetiredWorktreePathRecordsIn(
+  directory: string,
+  opts: EvidenceStoreBounds = {},
+): Promise<readonly RetiredWorktreePathRecord[]> {
   const now = opts.now ?? SYSTEM_CLOCK.wallNow();
   const ttlMs = opts.ttlMs ?? RETIRED_WORKTREE_PATH_TTL_MS;
   const records: RetiredWorktreePathRecord[] = [];
