@@ -4343,6 +4343,8 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set",
   "tests/terminal_boundary_guard_test.ts":
     "applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set",
+  "tests/terminal_live_tail_guard_test.ts":
+    "applies the live-tail bound to every runtime call site that hands streamed output to a repainting package view rather than guarding a closed member set",
   "tests/logger_ambient_guard_test.ts":
     "applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment",
   "tests/lifecycle_trunk_resolution_guard_test.ts":

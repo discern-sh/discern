@@ -8,10 +8,13 @@
  * go to the capture instead, so work a session runs beside its screen can
  * narrate exactly as the CLI does without a single byte reaching the
  * terminal the session paints. A capture also marks its scope as unable to
- * interact: nothing inside it may prompt.
+ * interact: nothing inside it may prompt. The capture receives the text as
+ * streamed output, which a view that repaints reads only through the live
+ * tail, so no line the work wrote reaches a view whole.
  */
 
 import { AsyncLocalStorage } from "./module_loading.ts";
+import { type StreamedOutput, streamedOutput } from "../lib/live_tail.ts";
 
 /** One process stream a boundary would have written to. */
 export type CapturedStream = "stdout" | "stderr";
@@ -19,7 +22,7 @@ export type CapturedStream = "stdout" | "stderr";
 /** A destination for output that would have reached the process streams. */
 export interface OutputCapture {
   /** Receive text exactly as the boundary would have written it. */
-  write(stream: CapturedStream, text: string): void;
+  write(stream: CapturedStream, text: StreamedOutput): void;
 }
 
 const scope = new AsyncLocalStorage<OutputCapture>();
@@ -48,7 +51,7 @@ export function captureBytes(
 ): boolean {
   const capture = scope.getStore();
   if (capture === undefined) return false;
-  capture.write(stream, decoder.decode(bytes));
+  capture.write(stream, streamedOutput(decoder.decode(bytes)));
   return true;
 }
 
@@ -59,6 +62,6 @@ export function captureBytes(
 export function captureLine(stream: CapturedStream, line: string): boolean {
   const capture = scope.getStore();
   if (capture === undefined) return false;
-  capture.write(stream, `${line}\n`);
+  capture.write(stream, streamedOutput(`${line}\n`));
   return true;
 }

@@ -1463,9 +1463,7 @@ function renderExecutionModel(
       width,
     }));
     // An aligned legend, rather than one long sentence that would itself wrap.
-    log.humanLine(
-      `  ${terminal.role("What runs when you call each verb:", "muted")}`,
-    );
+    log.detail("What runs when you call each verb:");
     log.humanLine(
       `    ${terminal.tone(padDisplayEnd("[project]", 9), "success")} ${
         terminal.role("your configured command", "muted")
@@ -1505,9 +1503,7 @@ function renderExecutionModel(
       width,
     }));
     if (vp.steps.length === 0) {
-      log.humanLine(
-        `  ${terminal.role("(nothing configured)", "muted")}`,
-      );
+      log.detail("(nothing configured)");
       return;
     }
     for (const s of vp.steps) {
@@ -1611,8 +1607,9 @@ export function renderDoctorCheck(
         ? [line]
         : wrapText(line, lineWidth, "", { breakLongWords: true })
     );
+    // Continuations hang under the text beside the two-cell glyph column.
     return {
-      line: lines.join("\n"),
+      line: lines.join("\n").replaceAll(/\n(?=.)/gu, "\n  "),
       status: check.status,
       ...(fix === undefined ? {} : { fix }),
     };
@@ -1744,8 +1741,13 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     },
     {
       id: "doctor-checks",
+      items: [(): void => renderDoctorChecks(log, checks, terminal)],
+    },
+    // Version advice is its own group: at the checks' hanging indent it would
+    // otherwise read as the last check's continuation.
+    {
+      id: "doctor-version-advice",
       items: [
-        (): void => renderDoctorChecks(log, checks, terminal),
         ...(adoptionAdvice === undefined
           ? []
           : [(): void => log.detail(adoptionAdvice)]),

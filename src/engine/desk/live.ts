@@ -24,7 +24,11 @@ import type {
   TerminalApplicationState,
   TerminalApplicationViewIssue,
 } from "discern-design-system/cli/interactive";
-import { stripAnsi } from "../../shared/color_env.ts";
+import {
+  appendStreamedOutput,
+  NO_STREAMED_OUTPUT,
+  type StreamedOutput,
+} from "../../lib/live_tail.ts";
 import type { DeskEffectSession } from "./execution.ts";
 import type { DeskTip } from "./tips.ts";
 import { progressActivity, progressAfter } from "./operations.ts";
@@ -47,6 +51,7 @@ import type {
 } from "./preferences.ts";
 import {
   activityEnding,
+  DESK_OUTPUT_LINES,
   type DeskEffect,
   type DeskEvent,
   type DeskIntent,
@@ -60,7 +65,6 @@ import {
   type DeskUi,
   initialDeskProduct,
   isTerminalEffect,
-  outputTail,
 } from "./desk_state.ts";
 import { DESK_LIST_ID, rowRef, withoutOperation } from "./desk_transitions.ts";
 import {
@@ -249,7 +253,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
    */
   const running = new Map<
     string,
-    { progress: DeskOperation["progress"]; output: string }
+    { progress: DeskOperation["progress"]; output: StreamedOutput }
   >();
   const finished = new Map<string, DeskOutcome>();
   /**
@@ -609,7 +613,10 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
       id: operationId,
       run: async (report, signal) => {
         if (operation === undefined) return;
-        const live = { progress: operation.progress, output: "" };
+        const live = {
+          progress: operation.progress,
+          output: NO_STREAMED_OUTPUT,
+        };
         running.set(operationId, live);
         const now = (): number => context?.now() ?? 0;
         const reported = (): void => report(progressActivity(live.progress));
@@ -618,7 +625,11 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
           outcome = await deps.flows.operate(snapshot, operation, {
             signal,
             output: (_stream, text) => {
-              live.output = outputTail(`${live.output}${stripAnsi(text)}`);
+              live.output = appendStreamedOutput(
+                live.output,
+                text,
+                DESK_OUTPUT_LINES,
+              );
               reported();
             },
             observe: (fact) => {
@@ -640,7 +651,7 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
     outcome: TerminalApplicationCommandOutcome,
   ): void => {
     const operation = state.operations.get(operationId);
-    const output = running.get(operationId)?.output ?? "";
+    const output = running.get(operationId)?.output ?? NO_STREAMED_OUTPUT;
     const left = finished.get(operationId);
     running.delete(operationId);
     finished.delete(operationId);
