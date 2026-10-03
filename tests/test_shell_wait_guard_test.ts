@@ -1,7 +1,15 @@
-/** Every elapsed shell wait requires a reviewed semantic purpose. */
-import { assert, assertEquals } from "@std/assert";
+/**
+ * Every elapsed shell wait requires a reviewed semantic purpose, and every
+ * file hold comes from the renderer that bounds it by its owner.
+ */
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { shellAwaitFile } from "./shell_hold.ts";
 import {
+  SHELL_FILE_HOLD_RENDERER,
+  shellFileHoldFindings,
+  shellFileHoldSites,
+  shellHoldSources,
   shellWaitingFindings,
   shellWaitSites,
 } from "./test_shell_wait_guard.ts";
@@ -98,5 +106,79 @@ Deno.test("elapsed shell waits belong to the reviewed full-universe census", asy
   assertEquals(
     shellWaitingFindings(await waitingSources(), TEST_SHELL_WAIT_BOUNDARIES),
     [],
+  );
+});
+
+Deno.test("a hand-written file hold fails wherever tests or repository tools write one", async () => {
+  await withTempDir(async (root) => {
+    await new Deno.Command("git", { args: ["init", "-q"], cwd: root }).output();
+    // Assembled at runtime, so this module's own text stays outside the census.
+    const loop = ["wh", "ile"].join("");
+    const until = ["un", "til"].join("");
+    const pause = ["sl", "eep"].join("");
+    const planted = [
+      [
+        "tests/future_test.ts",
+        `const hold = 'printf ready > "$1"; ${loop} [ ! -e "$2" ]; do ${pause} 0.05; done';`,
+      ],
+      [
+        "tests/new-rig/pause.sh",
+        `#!/bin/sh\n${until} [ -f "$1/release" ]; do ${pause} 0.1; done\n`,
+      ],
+      [
+        "tests/hook_test.ts",
+        `const hook = ["${loop} ! test -f \\"$PWD/ready\\"; do", "  ${pause} 0.01", "done"];`,
+      ],
+      [
+        "components/orbit.test.ts",
+        `const job = "${loop} :; do [ -s ready ] && break; ${pause} 1; done";`,
+      ],
+      [
+        "scripts/capture.ts",
+        `const step = '${until} [ -e "$SIGNALS/built" ]; do :; done';`,
+      ],
+      [
+        "site/scripts/preview.ts",
+        `const step = '${loop} [ ! -e built ]; do ${pause} 1; done';`,
+      ],
+      [
+        "tests/pasted_test.ts",
+        `const hold = ${JSON.stringify(shellAwaitFile('"$2"'))};`,
+      ],
+    ] as const;
+    const exempt = [
+      ["tests/caller_test.ts", `const hold = shellAwaitFile('"$2"');`],
+      [
+        "src/engine/shipped.ts",
+        `const step = '${loop} [ ! -e "$1" ]; do ${pause} 1; done';`,
+      ],
+    ] as const;
+    for (const [path, source] of [...planted, ...exempt]) {
+      await Deno.mkdir(join(root, path, ".."), { recursive: true });
+      await Deno.writeTextFile(join(root, path), source);
+    }
+    const findings = shellFileHoldFindings(await shellHoldSources(root));
+    assertEquals(
+      findings.map((finding) => finding.slice(0, finding.indexOf(":"))),
+      planted.map(([path]) => path).sort(),
+    );
+    for (const finding of findings) {
+      assertStringIncludes(finding, "hand-written shell loop");
+      assertStringIncludes(finding, SHELL_FILE_HOLD_RENDERER.enclosing);
+      assertStringIncludes(finding, SHELL_FILE_HOLD_RENDERER.path);
+    }
+  });
+});
+
+Deno.test("every file hold in tests and repository tools comes from the owner-bounded renderer", async () => {
+  const sources = await shellHoldSources();
+  assertEquals(shellFileHoldFindings(sources), []);
+  assertEquals(
+    shellFileHoldSites(sources).map(({ path, enclosing }) => ({
+      path,
+      enclosing,
+    })),
+    [SHELL_FILE_HOLD_RENDERER],
+    "the renderer's own poll must stay recognizable, or its exemption guards nothing",
   );
 });

@@ -1,12 +1,24 @@
 /** Syntax census of elapsed shell waits, including embedded child programs. */
+import { join } from "@std/path";
 import { ts } from "ts-morph";
-import type { WaitingSource } from "./test_waiting_guard.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { shellAwaitFile } from "./shell_hold.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { isTestWaitingPath, type WaitingSource } from "./test_waiting_guard.ts";
 
 interface ShellWaitSite {
   readonly path: string;
   readonly enclosing: string;
   readonly argument: string;
   readonly line: number;
+}
+
+/** One decoded string, template, or non-module source with its owner. */
+interface ShellText {
+  readonly path: string;
+  readonly enclosing: string;
+  readonly line: number;
+  readonly value: string;
 }
 
 /** Nearest named test or helper; string aliases remain enrolled at declaration. */
@@ -70,28 +82,17 @@ function textValue(node: ts.Node): string | undefined {
   return undefined;
 }
 
-/** Scan declarations as well as calls, so renamed commands and wrappers enroll. */
-export function shellWaitSites(
-  sources: readonly WaitingSource[],
-): ShellWaitSite[] {
-  const sites: ShellWaitSite[] = [];
+/** Decode every string a source could hand to a shell, at its enclosing owner. */
+function shellTexts(sources: readonly WaitingSource[]): ShellText[] {
+  const texts: ShellText[] = [];
   for (const item of sources) {
-    const inspect = (value: string, scope: string, line: number): void => {
-      for (
-        const match of value.trim().matchAll(
-          /(?:^|[\s;|&'"`(}])(?:\/(?:[\w.-]+\/)*|command\s+|exec\s+)?sleep(?:\s+(\$\{[^}]+\}|[^\s;|'"`\\]+)|$)/gu,
-        )
-      ) {
-        sites.push({
-          path: item.path,
-          enclosing: scope,
-          argument: match[1] ?? "<command>",
-          line,
-        });
-      }
-    };
     if (!/\.[cm]?[jt]sx?$/u.test(item.path)) {
-      inspect(item.source, "<module>", 1);
+      texts.push({
+        path: item.path,
+        enclosing: "<module>",
+        line: 1,
+        value: item.source,
+      });
       continue;
     }
     const file = ts.createSourceFile(
@@ -103,18 +104,109 @@ export function shellWaitSites(
     const visit = (node: ts.Node): void => {
       const value = textValue(node);
       if (value !== undefined) {
-        inspect(
+        texts.push({
+          path: item.path,
+          enclosing: enclosing(node),
+          line: file.getLineAndCharacterOfPosition(node.getStart()).line + 1,
           value,
-          enclosing(node),
-          file.getLineAndCharacterOfPosition(node.getStart()).line + 1,
-        );
+        });
       } else {
         ts.forEachChild(node, visit);
       }
     };
     visit(file);
   }
-  return sites;
+  return texts;
+}
+
+const SHELL_SLEEP =
+  /(?:^|[\s;|&'"`(}])(?:\/(?:[\w.-]+\/)*|command\s+|exec\s+)?sleep(?:\s+(\$\{[^}]+\}|[^\s;|'"`\\]+)|$)/gu;
+
+/** Scan declarations as well as calls, so renamed commands and wrappers enroll. */
+export function shellWaitSites(
+  sources: readonly WaitingSource[],
+): ShellWaitSite[] {
+  return shellTexts(sources).flatMap((text) =>
+    [...text.value.trim().matchAll(SHELL_SLEEP)].map((match) => ({
+      path: text.path,
+      enclosing: text.enclosing,
+      argument: match[1] ?? "<command>",
+      line: text.line,
+    }))
+  );
+}
+
+/** A `[`/`test` unary file predicate such as `-e`, `-f`, or `-s`. */
+const FILE_TEST = String.raw`(?:\[|test)\s+(?:!\s+)?-[bcdefghLprSsuwx]\s`;
+/** A loop whose condition is a file predicate, wherever its body is written. */
+const FILE_LOOP = new RegExp(
+  "(?:^|[\\s;|&'\"`(}])(?:while|until)\\s+(?:!\\s+)?" + FILE_TEST,
+  "u",
+);
+const FILE_PREDICATE = new RegExp(FILE_TEST, "u");
+
+/**
+ * The one renderer allowed to poll a file. Its holds also end once their
+ * directory or owning process is gone, so an abandoned fixture cannot poll
+ * forever.
+ */
+export const SHELL_FILE_HOLD_RENDERER = {
+  path: "tests/shell_hold.ts",
+  enclosing: shellAwaitFile.name,
+} as const;
+
+/**
+ * Shell text that polls a file: a loop whose condition is a file predicate,
+ * or a file predicate beside a timed wait in the same text.
+ */
+export function shellFileHoldSites(
+  sources: readonly WaitingSource[],
+): Omit<ShellText, "value">[] {
+  return shellTexts(sources).filter((text) => {
+    const value = text.value.trim();
+    return FILE_LOOP.test(value) ||
+      (FILE_PREDICATE.test(value) && value.match(SHELL_SLEEP) !== null);
+  }).map(({ path, enclosing, line }) => ({ path, enclosing, line }));
+}
+
+/** Tests and repository tools, whose holds poll directories they own. */
+export async function shellHoldSources(
+  root: string = REPO_ROOT,
+): Promise<WaitingSource[]> {
+  const files = await structuralGuardScope({
+    guard: "tests/test_shell_wait_guard.ts#shell-file-holds",
+    universe: {
+      kind: "specialized",
+      name: "executable text including test fixtures",
+      text: true,
+      reason:
+        "A file hold is spawned from Deno modules, shell fixtures, or child programs embedded in either, including executable fixture trees.",
+    },
+    narrow: {
+      reason:
+        "Tests and repository tools at any depth hold children on directories they own; shipped code, workflows, and prose never spawn one.",
+      include: (path) =>
+        isTestWaitingPath(path) || /(?:^|\/)scripts\//u.test(path),
+    },
+  }, root);
+  return await Promise.all(files.map(async (path) => ({
+    path,
+    source: await Deno.readTextFile(join(root, path)),
+  })));
+}
+
+/** Every file hold must come from the renderer that bounds it by its owner. */
+export function shellFileHoldFindings(
+  sources: readonly WaitingSource[],
+): string[] {
+  return shellFileHoldSites(sources).filter((site) =>
+    site.path !== SHELL_FILE_HOLD_RENDERER.path ||
+    site.enclosing !== SHELL_FILE_HOLD_RENDERER.enclosing
+  ).map((site) =>
+    `${site.path}:${site.line} polls a file in a hand-written shell loop in ${
+      JSON.stringify(site.enclosing)
+    }; render the hold with ${SHELL_FILE_HOLD_RENDERER.enclosing} from ${SHELL_FILE_HOLD_RENDERER.path}, which also ends it once its directory or owning process is gone`
+  ).sort();
 }
 
 export interface ShellWaitBoundary {

@@ -23,6 +23,12 @@ function lineAt(source: string, offset: number): number {
   return source.slice(0, offset).split("\n").length;
 }
 
+/** Test directories and native test entry names, at any depth. */
+export function isTestWaitingPath(path: string): boolean {
+  return /(?:^|\/)tests\//u.test(path) ||
+    /(?:^|\/)(?:[^/]+[._]test|test)\.[cm]?[jt]sx?$/u.test(path);
+}
+
 /** Return the Git-derived executable test and fixture text universe. */
 export async function waitingSources(
   root: string = REPO_ROOT,
@@ -39,9 +45,7 @@ export async function waitingSources(
     narrow: {
       reason:
         "Test directories and native test entry names enroll at any depth; production scheduling is outside test waiting.",
-      include: (path) =>
-        /(?:^|\/)tests\//u.test(path) ||
-        /(?:^|\/)(?:[^/]+[._]test|test)\.[cm]?[jt]sx?$/u.test(path),
+      include: isTestWaitingPath,
     },
   }, root);
   return await Promise.all(files.map(async (path) => ({
