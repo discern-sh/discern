@@ -1,13 +1,15 @@
 /** Shared full-universe census for named deliberate error-discard boundaries. */
 
-import { join } from "@std/path";
 import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 import {
   BEST_EFFORT_BOUNDARIES,
   type BestEffortBoundary,
 } from "../src/shared/best_effort.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
-import { structuralGuardScope } from "./structural_guard_scope.ts";
+import {
+  readScopedSources,
+  structuralGuardScope,
+} from "./structural_guard_scope.ts";
 
 export interface BestEffortSource {
   readonly path: string;
@@ -38,10 +40,7 @@ export async function bestEffortSources(
       include: (path) => !path.startsWith("tests/"),
     },
   }, root);
-  return await Promise.all(files.map(async (path) => ({
-    path,
-    source: await Deno.readTextFile(join(root, path)),
-  })));
+  return await readScopedSources(root, files);
 }
 
 /** Parse one authored module without resolving its dependency graph. */

@@ -1,12 +1,14 @@
 /** Shared full-universe census for test waiting and real-delay enrollment. */
 
-import { join } from "@std/path";
 import {
   TEST_REAL_DELAY_BOUNDARIES,
   type TestRealDelayBoundary,
 } from "./waiting.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
-import { structuralGuardScope } from "./structural_guard_scope.ts";
+import {
+  readScopedSources,
+  structuralGuardScope,
+} from "./structural_guard_scope.ts";
 
 export interface WaitingSource {
   readonly path: string;
@@ -48,10 +50,7 @@ export async function waitingSources(
       include: isTestWaitingPath,
     },
   }, root);
-  return await Promise.all(files.map(async (path) => ({
-    path,
-    source: await Deno.readTextFile(join(root, path)),
-  })));
+  return await readScopedSources(root, files);
 }
 
 /** Inspect direct timer calls and the two-way registry/call-site contract. */

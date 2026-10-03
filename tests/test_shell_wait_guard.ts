@@ -1,9 +1,11 @@
 /** Syntax census of elapsed shell waits, including embedded child programs. */
-import { join } from "@std/path";
 import { ts } from "ts-morph";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { shellAwaitFile } from "./shell_hold.ts";
-import { structuralGuardScope } from "./structural_guard_scope.ts";
+import {
+  readScopedSources,
+  structuralGuardScope,
+} from "./structural_guard_scope.ts";
 import { isTestWaitingPath, type WaitingSource } from "./test_waiting_guard.ts";
 
 interface ShellWaitSite {
@@ -189,10 +191,7 @@ export async function shellHoldSources(
         isTestWaitingPath(path) || /(?:^|\/)scripts\//u.test(path),
     },
   }, root);
-  return await Promise.all(files.map(async (path) => ({
-    path,
-    source: await Deno.readTextFile(join(root, path)),
-  })));
+  return await readScopedSources(root, files);
 }
 
 /** Every file hold must come from the renderer that bounds it by its owner. */

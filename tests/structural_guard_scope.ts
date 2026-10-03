@@ -16,6 +16,7 @@
  * explain why none of the canonical universes fits.
  */
 
+import { join } from "@std/path";
 import {
   AUTHORED_DENO_FILES,
   AUTHORED_TEXT_FILES,
@@ -180,4 +181,21 @@ export async function structuralGuardScope(
     declaration.narrow.reason,
   );
   return files.filter(declaration.narrow.include);
+}
+
+/** One scoped repository file and its text, ready for a structural rule. */
+export interface ScopedSource {
+  readonly path: string;
+  readonly source: string;
+}
+
+/** Read each path a structural guard scoped, relative to the same root. */
+export async function readScopedSources(
+  root: string,
+  paths: readonly string[],
+): Promise<ScopedSource[]> {
+  return await Promise.all(paths.map(async (path) => ({
+    path,
+    source: await Deno.readTextFile(join(root, path)),
+  })));
 }
