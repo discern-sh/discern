@@ -7,7 +7,6 @@ import { withTempDir } from "./temp_dir.ts";
 import {
   settlePending,
   TEST_PROCESS_TIMEOUT_MS,
-  waitForPath,
   waitForPendingCondition,
 } from "./waiting.ts";
 
@@ -139,15 +138,20 @@ Deno.test({
         release,
       );
       assertEquals(await holdExit(parent), 0);
-      await waitForPath(ready);
+      const orphaned = parent.stdout.text();
+      await waitForPendingCondition(
+        orphaned,
+        () => targetExists(ready),
+        "the orphaned hold to start",
+      );
       await owner.stdin.close();
       assertEquals((await owner.status).code, 0);
-      const orphaned = await settlePending(
-        parent.stdout.text(),
-        "the orphaned hold to exit",
-        { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
+      assertEquals(
+        await settlePending(orphaned, "the orphaned hold to exit", {
+          timeoutMs: TEST_PROCESS_TIMEOUT_MS,
+        }),
+        "hold:1",
       );
-      assertEquals(orphaned, "hold:1");
       assertEquals(await targetExists(release), false);
       assertEquals(await targetExists(dir), true);
     });
