@@ -51,7 +51,7 @@ import {
   DESK_PALETTE_SECTIONS,
   type DeskCommandMetadata,
   lastUpdateCheck,
-  RELEASE_CHECK_DUE,
+  RELEASE_CHECK_CUES,
 } from "../src/engine/desk/commands.ts";
 import {
   DESK_KEYS,
@@ -418,7 +418,7 @@ Deno.test("Desk registry guard: labels and bindings", () => {
             "2 branches",
             "has changes",
             "2 this session",
-            "3w ago",
+            "checked 3w ago",
           ],
         );
         assertEquals(
@@ -438,18 +438,18 @@ Deno.test("Desk registry guard: labels and bindings", () => {
           "an unreadable record says nothing",
         );
       },
-    "a release check cue says a check is due, never that a release exists":
-      () => {
-        // discern fetches nothing: status's reminder counts days since this
-        // clone last opened the release page.
-        assert(/\bcheck/iu.test(RELEASE_CHECK_DUE), RELEASE_CHECK_DUE);
-        assert(
-          !/available|new (?:release|version)|upgrade/iu.test(
-            RELEASE_CHECK_DUE,
-          ),
-          RELEASE_CHECK_DUE,
-        );
-      },
+    "every release check cue speaks of checking, never of a release": () => {
+      // discern fetches nothing: status's reminder and the last check both
+      // count on this clone's clock since it last opened the release page.
+      const cues = Object.values(RELEASE_CHECK_CUES).flatMap((cue) =>
+        typeof cue === "string" ? [cue] : ["just now", "3w ago"].map(cue)
+      );
+      assertEquals(cues.length, 4, "one family: due, never, and checked");
+      for (const cue of cues) {
+        assert(/\bcheck/iu.test(cue), cue);
+        assert(!/available|new (?:release|version)|upgrade/iu.test(cue), cue);
+      }
+    },
     "Check for updates discloses the browser and the running version": () => {
       const facts = { version: "9.8.7", data: statusData([]) };
       const disclosure = commandDisclosure("updates", facts);

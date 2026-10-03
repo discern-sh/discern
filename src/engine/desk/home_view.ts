@@ -32,7 +32,7 @@ import {
   type DeskCommandFacts,
   type DeskCommandMetadata,
   type DeskPaletteSection,
-  RELEASE_CHECK_DUE,
+  RELEASE_CHECK_CUES,
 } from "./commands.ts";
 import { COMMANDS_LABEL } from "./keys.ts";
 import { DESK_GLYPHS } from "./glyphs.ts";
@@ -114,7 +114,9 @@ export function commandsGroup(
     // does, and the palette's key keeps its place beside it.
     cells: {
       ...(checkDue(state)
-        ? { label: [{ text: RELEASE_CHECK_DUE, tone: "warning" as const }] }
+        ? {
+          label: [{ text: RELEASE_CHECK_CUES.due, tone: "warning" as const }],
+        }
         : {}),
       age: [paletteKey("faint")],
     },
@@ -248,7 +250,7 @@ export function homeBlocks(
  * The commands the strip names below the split, in the order they matter on
  * a narrow screen: starting work, then the three a newcomer cannot guess a
  * key for. Each reads as its registry short form, or its label where it
- * declares none.
+ * declares none, followed by the faint value the panel shows beside it.
  */
 export const DESK_STRIP_COMMANDS = [
   "new_task",
@@ -260,13 +262,15 @@ export const DESK_STRIP_COMMANDS = [
 /**
  * The Commands row's strip on a narrow screen: the row with the palette's
  * key, then whether there are tasks yet, a due check, the commands it names
- * by their short forms, and the running discern. The strip keeps whole
- * facts in order, so a later, shorter one shows where an earlier one cannot.
+ * by their short forms with the panel's values (`Updates checked 3w ago`),
+ * and the running discern. The strip keeps whole facts in order, so a
+ * later, shorter one shows where an earlier one cannot.
  */
 export function homeStrip(
   state: DeskProductState,
   env: DeskHomeEnv,
 ): ApplicationDetailStrip {
+  const facts = commandFacts(state, env.now);
   return {
     title: [
       {
@@ -282,14 +286,19 @@ export function homeStrip(
     facts: [
       ...(noTasks(state) ? [[{ text: "No tasks yet" }]] : []),
       ...(checkDue(state)
-        ? [[{ text: RELEASE_CHECK_DUE, tone: "warning" as const }]]
+        ? [[{ text: RELEASE_CHECK_CUES.due, tone: "warning" as const }]]
         : []),
-      ...DESK_STRIP_COMMANDS.map((command) => {
-        const { key, short } = metadata(command);
+      ...DESK_STRIP_COMMANDS.map((command): ApplicationRun[] => {
+        const { key, short, meta } = metadata(command);
         const name = short ?? DESK_COMMAND_LABELS[command];
-        return key === undefined
-          ? [{ text: name }]
-          : [{ text: key, role: "key" as const }, { text: ` ${name}` }];
+        const value = meta?.(facts);
+        return [
+          ...(key === undefined ? [] : [{ text: key, role: "key" as const }]),
+          { text: key === undefined ? name : ` ${name}` },
+          ...(value === undefined
+            ? []
+            : [{ text: ` ${value}`, tone: "faint" as const }]),
+        ];
       }),
       [{ text: running(env), tone: "faint" as const }],
     ],

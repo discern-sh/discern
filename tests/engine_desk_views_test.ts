@@ -18,7 +18,7 @@ import {
   proofLineBlock,
 } from "../src/engine/desk/inspector_view.ts";
 import { planBlocks, planLines } from "../src/engine/desk/sheet_view.ts";
-import { RELEASE_CHECK_DUE } from "../src/engine/desk/commands.ts";
+import { RELEASE_CHECK_CUES } from "../src/engine/desk/commands.ts";
 import {
   BUILT_IN_STEP_LABELS,
   verbatimStepLabel,
@@ -911,7 +911,7 @@ Deno.test("header chips route fleet facts to where they live", () => {
       "! main needs a refresh",
       "! 2 emergency exceptions",
       "! 1 ADR number clash",
-      RELEASE_CHECK_DUE,
+      RELEASE_CHECK_CUES.due,
     ],
   );
   const state = desk(productSurvey([]));

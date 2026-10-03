@@ -74,15 +74,21 @@ export const DESK_PALETTE_SECTION_TITLES = {
 } as const satisfies Record<DeskPaletteSection, string>;
 
 /**
- * The one phrase the desk says status's release reminder is due in: the
- * Commands row's label cell, which is as wide as a task's state label, the
- * header chip and the Needs you entry it routes from, and the narrow
- * strip. It names what to do, Check for updates, as Enter on the row then
- * offers it. The reminder counts days on this clone's own clock since it
- * last opened the release page; discern fetches nothing, so it never says a
- * release exists.
+ * Every word the desk says about checking for a release, one family from
+ * one place. `due` is status's release reminder, in the Commands row's
+ * label cell (as wide as a task's state label), the header chip and the
+ * Needs you entry it routes from, and the narrow strip; it names what to
+ * do, Check for updates, as Enter on the row then offers it. `never` and
+ * `checked` say when this clone last opened the release page, beside Check
+ * for updates wherever a tier lists it: the home panel, its zoom, the
+ * palette and the strip. Both count on this clone's own clock; discern
+ * fetches nothing, so no cue says a release exists.
  */
-export const RELEASE_CHECK_DUE = "Check updates";
+export const RELEASE_CHECK_CUES = {
+  due: "Check updates",
+  never: "never checked",
+  checked: (ago: string): string => `checked ${ago}`,
+} as const;
 
 /** The observed facts a command's meta, summary, or consequences read. */
 export interface DeskCommandFacts {
@@ -100,15 +106,16 @@ export interface DeskCommandFacts {
 }
 
 /**
- * When this clone last checked for updates, beside Check for updates: how
- * long ago it last opened the release page, or that it never has. It reads
- * the clone's own record, never a fetch, so it says nothing of a release.
+ * When this clone last checked for updates, beside Check for updates:
+ * `checked 3w ago`, or `never checked`. It reads the clone's own record,
+ * never a fetch, so it says nothing of a release; an unreadable record
+ * says nothing at all.
  */
 export function lastUpdateCheck(facts: DeskCommandFacts): string | undefined {
   const history = facts.releaseCheck;
-  if (history?.state === "never") return "never checked";
+  if (history?.state === "never") return RELEASE_CHECK_CUES.never;
   if (history?.state !== "checked" || facts.now === undefined) return undefined;
-  return relativeAge(history.at, facts.now);
+  return RELEASE_CHECK_CUES.checked(relativeAge(history.at, facts.now));
 }
 
 /** What a command's review lines read: its facts and what it previewed. */
