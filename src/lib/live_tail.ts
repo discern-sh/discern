@@ -135,7 +135,10 @@ export function liveTailOutputLines(
   return lines;
 }
 
-/** All of the output's text, for a test that checks what was kept. */
+/**
+ * All of the output's text, for a test that checks what was kept. The
+ * terminal live tail guard admits no runtime caller.
+ */
 export function wholeStreamedOutput(output: StreamedOutput): string {
   return output[TEXT];
 }
