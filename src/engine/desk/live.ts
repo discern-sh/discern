@@ -87,6 +87,21 @@ import type { DeskFlowStep, DeskOutcome, DeskReview } from "./flow_types.ts";
 import { DESK_MANUAL_READING, type DeskManual } from "./manual.ts";
 import { failureSheet } from "./review.ts";
 
+/** A wait that ended because SIGINT arrived first. */
+const INTERRUPTED = Symbol("interrupted");
+
+/**
+ * What Ctrl+C runs on the Desk's screen: the action its key map binds, so a
+ * Ctrl+C heard while the terminal is handed over means the same.
+ */
+const DESK_INTERRUPT: DeskIntent = (() => {
+  const binding = DESK_KEYMAP.find((candidate) => candidate.key === "ctrl-c");
+  if (binding === undefined) {
+    throw new TypeError("The Desk's key map binds no Ctrl+C.");
+  }
+  return binding.action;
+})();
+
 /** How long the selection must stay put before the slot reads its evidence. */
 export const DESK_SELECTION_SETTLE_MS = 150;
 
@@ -147,6 +162,11 @@ export interface LiveDeskDependencies {
   readonly tip: (data: StatusData) => Promise<DeskTip | undefined>;
   /** Read the manual, which the session does once as it starts. */
   readonly manual: () => Promise<DeskManual>;
+  /**
+   * Hear SIGINT while the Desk waits with the terminal handed over and no
+   * child of its own hears it; returns the stop.
+   */
+  readonly interrupts: (heard: () => void) => () => void;
   readonly evidence: DeskEvidenceReader;
   readonly flows: DeskFlows;
   readonly persist: (
@@ -682,19 +702,23 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
    * and scroll underneath; while the manual is open the Desk's surveys,
    * ticks and evidence reads wait, and it picks them up once it closes.
    * Before the session's read of it has finished, the Desk hands over the
-   * terminal at once, saying so, and the manual opens on its own screen as
-   * soon as it is read; a read that fails says so back on the Desk.
+   * terminal at once, saying so, and opens the manual in place of the inbox
+   * as soon as it is read; a read that fails says so back on the Desk.
+   * While it waits the Desk hears SIGINT itself, so a Ctrl+C there reaches
+   * it as Ctrl+C on the inbox does: it quits, or asks first while
+   * operations run beside the screen.
    */
   const openManual = (): TerminalApplicationCommand => {
     const mouse = state.preferences.mouse === true;
-    if (manual !== undefined) {
+    const opened = (read: DeskManual): TerminalApplicationCommand => {
       foreground = true;
-      return manual.open(mouse, () => {
+      return read.open(mouse, () => {
         foreground = false;
         publish();
         settle();
       });
-    }
+    };
+    if (manual !== undefined) return opened(manual);
     const read = reading;
     if (read === undefined) {
       throw new TypeError("The manual opens only once its read has started.");
@@ -704,29 +728,53 @@ export function liveDesk(deps: LiveDeskDependencies): LiveDesk {
       handoff: [{ text: DESK_MANUAL_READING }],
       run: async () => {
         foreground = true;
+        let waited: DeskManual | typeof INTERRUPTED | undefined;
         try {
-          await (await read).browse(mouse);
+          waited = await untilInterrupted(read);
         } catch (error) {
           // The session's own read reports why the manual can't open.
           if (sessionRead(state, "manual") !== "failed") throw error;
         } finally {
           foreground = false;
         }
-        // Back on the Desk, a manual that couldn't be read says why, as
-        // choosing it now would.
-        if (sessionRead(state, "manual") === "failed") {
-          dispatch({
-            kind: "intent",
-            intent: { kind: "command", command: "manual" },
-            ui: ui(),
-            now: deps.now(),
-            clock: context?.now() ?? 0,
-          });
+        if (waited !== undefined && waited !== INTERRUPTED) {
+          return opened(waited);
         }
+        // Back on the Desk, a Ctrl+C means what it means there; a manual
+        // that couldn't be read says why, as choosing it now would.
+        const terminal = dispatch({
+          kind: "intent",
+          intent: waited === INTERRUPTED
+            ? DESK_INTERRUPT
+            : { kind: "command", command: "manual" },
+          ui: ui(),
+          now: deps.now(),
+          clock: context?.now() ?? 0,
+        });
         publish();
         settle();
+        return terminal === undefined ? undefined : command(terminal);
       },
     };
+  };
+
+  /**
+   * Wait for `work` while the Desk has handed over the terminal and no child
+   * of its own hears SIGINT: one that arrives ends the wait instead of the
+   * process.
+   */
+  const untilInterrupted = async <T>(
+    work: Promise<T>,
+  ): Promise<T | typeof INTERRUPTED> => {
+    let stop = (): void => {};
+    const heard = new Promise<typeof INTERRUPTED>((resolve) => {
+      stop = deps.interrupts(() => resolve(INTERRUPTED));
+    });
+    try {
+      return await Promise.race([work, heard]);
+    } finally {
+      stop();
+    }
   };
 
   /**

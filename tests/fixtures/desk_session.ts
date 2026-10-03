@@ -22,10 +22,7 @@ import {
   ManualTerminalClock,
   TERMINAL_KEY_SEQUENCES,
 } from "discern-design-system/cli/interactive/testing";
-import {
-  requestMarkdownBrowser,
-  runTerminalApplication,
-} from "../../src/lib/terminal_interaction.ts";
+import { runTerminalApplication } from "../../src/lib/terminal_interaction.ts";
 import type { TerminalColorDepth } from "discern-design-system/cli";
 import {
   type DeskRuntime,
@@ -60,6 +57,8 @@ import type {
 } from "../../src/engine/worktree/lifecycle.ts";
 import { freshTipSeenState } from "../../src/engine/desk/tips.ts";
 import { DISCERN_VERSION } from "../../src/lib/version.ts";
+import { DESK_MANUAL_READING } from "../../src/engine/desk/manual.ts";
+import { DESK_COMMAND_LABELS } from "../../src/shared/desk_vocabulary.ts";
 import type { DocsBrowserRequest } from "../../src/commands/docs.ts";
 import { resolveDocsBrowserLink } from "../../src/commands/docs_links.ts";
 import { fixtureEffortGrant } from "../effort_grant_fixtures.ts";
@@ -264,9 +263,6 @@ export function scriptedDeskRuntime(
     application: () => {
       throw new Error("A scripted Desk runs inside deskSession.");
     },
-    browseManual: () => {
-      throw new Error("A scripted Desk browses its manual inside deskSession.");
-    },
     terminations: () => scriptedTermination(),
     raise: () => {},
     pause: () => {},
@@ -357,9 +353,15 @@ export function scriptedDeskRuntime(
 /** A termination nothing signals unless a test ends the session itself. */
 export function scriptedTermination(): DeskTermination & {
   readonly end: (signal: Deno.Signal) => void;
+  /**
+   * Deliver SIGINT to whatever hears it while the Desk has handed over the
+   * terminal, as a Ctrl+C typed there would; false when nothing hears it.
+   */
+  readonly interruptHandedOver: () => boolean;
 } {
   const controller = new AbortController();
   let received: Deno.Signal | undefined;
+  const hearing = new Set<() => void>();
   const end = (signal: Deno.Signal): void => {
     received ??= signal;
     controller.abort();
@@ -367,8 +369,18 @@ export function scriptedTermination(): DeskTermination & {
   return {
     signal: controller.signal,
     interrupt: () => end("SIGINT"),
+    hearInterrupts: (heard) => {
+      const listener = (): void => heard();
+      hearing.add(listener);
+      return () => hearing.delete(listener);
+    },
     release: () => received,
     end,
+    interruptHandedOver: () => {
+      const listening = [...hearing];
+      for (const heard of listening) heard();
+      return listening.length > 0;
+    },
   };
 }
 
@@ -574,14 +586,6 @@ export async function deskSession(
       surveys += 1;
       return result;
     },
-    // Handed the terminal before its read finished, the manual browses on
-    // the same fake terminal, as `discern docs` would on the real one.
-    browseManual: (request, handlers) =>
-      requestMarkdownBrowser(
-        request,
-        { io, interactive: () => true },
-        handlers,
-      ),
     application: (application, termination) =>
       runTerminalApplication({
         ...application,
@@ -739,6 +743,27 @@ export async function deskSession(
     },
     exit,
   };
+}
+
+/**
+ * Choose Read the manual before the session has read it. The Desk hands the
+ * terminal over, so it reads no key until the manual opens: Enter goes in
+ * without waiting for the Desk to read it, and the handoff line is printed
+ * on the released screen, outside any frame the Desk paints.
+ */
+export async function chooseManualEarly(desk: DeskSession): Promise<void> {
+  await desk.press("ctrl-k");
+  await desk.opened("palette");
+  await desk.type(DESK_COMMAND_LABELS.manual);
+  await desk.until(
+    () => desk.state().layers.palette?.highlightedId === "manual",
+    "the palette on Read the manual",
+  );
+  desk.io.enqueueKeys("enter");
+  await desk.until(
+    () => desk.io.output().includes(DESK_MANUAL_READING),
+    "the Desk to hand the terminal over",
+  );
 }
 
 /** Whether an input names a key rather than text to type. */

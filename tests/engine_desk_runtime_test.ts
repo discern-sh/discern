@@ -13,6 +13,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
 import {
+  chooseManualEarly,
   DESK_MANUAL_FIXTURE,
   DESK_ROOT,
   type DeskSession,
@@ -23,10 +24,10 @@ import {
   joinedTranscript,
   preparedStart,
   scriptedDeskRuntime,
+  scriptedTermination,
   startedTask,
   withDeskSession,
 } from "./fixtures/desk_session.ts";
-import { DESK_MANUAL_READING } from "../src/engine/desk/manual.ts";
 import type { DocsBrowserRequest } from "../src/commands/docs.ts";
 import { fixtureEffortGrant } from "./effort_grant_fixtures.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
@@ -2340,27 +2341,6 @@ Deno.test("the manual opens its pages while the screen stays and says when one c
   assertEquals(opened, ["https://example.com/docs", DISCERN_DOCS_URL]);
 });
 
-/**
- * Choose Read the manual before the manual is read. The Desk hands the
- * terminal over, so it reads no key until the manual opens: Enter goes in
- * without waiting for the Desk to read it, and the handoff line is printed
- * on the released screen, outside any frame the Desk paints.
- */
-async function chooseManualEarly(desk: DeskSession): Promise<void> {
-  await desk.press("ctrl-k");
-  await desk.opened("palette");
-  await desk.type("Read the manual");
-  await desk.until(
-    () => desk.state().layers.palette?.highlightedId === "manual",
-    "the palette on Read the manual",
-  );
-  desk.io.enqueueKeys("enter");
-  await desk.until(
-    () => desk.io.output().includes(DESK_MANUAL_READING),
-    "the Desk to hand the terminal over",
-  );
-}
-
 /** A manual read the test finishes, with or without a manual to show. */
 function heldManual(): {
   readonly read: () => Promise<DocsBrowserRequest>;
@@ -2383,13 +2363,13 @@ function heldManual(): {
 
 for (const outcome of ["read", "failed"] as const) {
   const name = outcome === "read"
-    ? "Read the manual chosen before the manual is read opens it as soon as it is"
+    ? "Read the manual chosen before the manual is read opens it in place as soon as it is"
     : "Read the manual chosen before a read that fails says why back on the Desk";
   Deno.test(name, async () => {
     const manual = heldManual();
-    // Once the read settles, choosing it again opens it on the Desk's own
-    // screen, or says at once why it can't.
-    const settled = outcome === "read" ? "Manual fixture" : "could not open";
+    // Once the read settles, choosing it again opens it in place where its
+    // reader left it, or says at once why it can't.
+    const settled = outcome === "read" ? "Read the guide" : "could not open";
     await withDeskSession({
       runtime: {
         ...surveys(() => deskSurvey(MANUAL_FLEET)),
@@ -2401,8 +2381,12 @@ for (const outcome of ["read", "failed"] as const) {
       await chooseManualEarly(desk);
       assert(!desk.screen().includes("try again"));
       manual.finish(outcome);
-      await desk.shows(settled);
-      if (outcome === "read") await desk.press("q");
+      if (outcome === "read") {
+        await desk.shows("Manual fixture");
+        await desk.press("enter");
+        await desk.shows("Read the guide");
+        await desk.press("q");
+      } else await desk.shows(settled);
       await desk.until(
         () =>
           desk.state().lists[DESK_LIST_ID]?.selectedId === "second" &&
@@ -2414,6 +2398,33 @@ for (const outcome of ["read", "failed"] as const) {
     });
   });
 }
+
+Deno.test("a Ctrl+C while the Desk waits to read the manual quits as one on the inbox does", async () => {
+  const termination = scriptedTermination();
+  const raised: Deno.Signal[] = [];
+  let preferenceReads = 0;
+  const desk = await deskSession({
+    runtime: {
+      // The read never finishes, so the Desk waits with the terminal handed
+      // over, where a typed Ctrl+C arrives as SIGINT.
+      manual: () => new Promise<DocsBrowserRequest>(() => {}),
+      terminations: () => termination,
+      raise: (signal) => {
+        raised.push(signal);
+      },
+      readPreferences: () => {
+        preferenceReads += 1;
+        return { schema_version: 2 };
+      },
+    },
+  });
+  await chooseManualEarly(desk);
+  assert(termination.interruptHandedOver(), "the Desk hears SIGINT itself");
+  assertEquals(await desk.exit, 0);
+  desk.io.close();
+  assertEquals(raised, [], "it quits; no signal ends the process");
+  assertEquals(preferenceReads, 2, "it remembers its folds as any quit does");
+});
 
 Deno.test("a reader chosen before the first survey opens at once and fills in once the tasks are read", async () => {
   let release: (() => void) | undefined;

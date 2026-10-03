@@ -38,11 +38,7 @@ import {
   type DocsBrowserRequest,
   readDocsBrowser,
 } from "../../commands/docs.ts";
-import {
-  DESK_MANUAL_EXIT,
-  deskManual,
-  type DeskManualBrowser,
-} from "./manual.ts";
+import { DESK_MANUAL_EXIT, deskManual } from "./manual.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
@@ -69,7 +65,6 @@ import {
   canInteract,
   isInteractionCancelled,
   requestCompactAcknowledgement,
-  requestMarkdownBrowser,
   runTerminalApplication,
   type TerminalApplicationOptions,
 } from "../../lib/terminal_interaction.ts";
@@ -189,6 +184,12 @@ export interface DeskTermination {
   readonly signal: AbortSignal;
   /** SIGINT reached the owned screen. */
   interrupt(): void;
+  /**
+   * Hear SIGINT while the Desk waits with the terminal handed over and no
+   * child of its own hears it, as a Ctrl+C typed there arrives; returns the
+   * stop. It ends nothing itself: the Desk answers it as a Ctrl+C.
+   */
+  hearInterrupts(heard: () => void): () => void;
   /** Stop listening, and say which signal ended the session, if one did. */
   release(): Deno.Signal | undefined;
 }
@@ -200,11 +201,6 @@ export interface DeskTermination {
 export interface DeskRuntime extends DeskLandingPermission {
   /** Read the manual the Desk opens in place of its inbox. */
   manual(): DeskMaybePromise<DocsBrowserRequest>;
-  /**
-   * Browse the manual on a screen of its own, as `discern docs` does, while
-   * the Desk has handed over the terminal before the manual was read.
-   */
-  browseManual: DeskManualBrowser;
   canInteract(): boolean;
   inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
@@ -393,6 +389,16 @@ function deskTerminations(): DeskTermination {
   return {
     signal: controller.signal,
     interrupt: () => end("SIGINT"),
+    hearInterrupts: (heard) => {
+      const handler = (): void => heard();
+      Deno.addSignalListener("SIGINT", handler);
+      let listening = true;
+      return () => {
+        if (!listening) return;
+        listening = false;
+        Deno.removeSignalListener("SIGINT", handler);
+      };
+    },
     release: () => {
       for (const [signal, handler] of handlers) {
         Deno.removeSignalListener(signal, handler);
@@ -420,8 +426,6 @@ function configuredEditorCommand(
  * same functions with the same options. */
 const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   manual: () => readDocsBrowser("docs", { exitLabel: DESK_MANUAL_EXIT }),
-  browseManual: (request, handlers) =>
-    requestMarkdownBrowser(request, {}, handlers),
   canInteract: () => canInteract(false),
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
@@ -961,8 +965,8 @@ export async function runDesk(
         deskManual(
           await runtime.manual(),
           async (url) => await runtime.openBrowser(url),
-          runtime.browseManual,
         ),
+      interrupts: (heard) => termination.hearInterrupts(heard),
       evidence: {
         git: async (args, cwd, signal) =>
           await runtime.git([...args], cwd, {
