@@ -22,8 +22,22 @@ const DenoExclusionConfigSchema = z.object({
   test: SectionSchema.optional(),
 }).passthrough();
 
+/**
+ * The Deno subcommands that discover files and apply these exclusions.
+ * `check` has no section of its own, so it applies the top-level list alone.
+ */
+export const DENO_DISCOVERY_COMMANDS = [
+  "check",
+  "fmt",
+  "lint",
+  "test",
+] as const;
+
+/** One subcommand that discovers files under the configured exclusions. */
+export type DenoDiscoveryCommand = typeof DENO_DISCOVERY_COMMANDS[number];
+
 /** A `deno.json` section that may declare its own `exclude`. */
-export type DenoExcludeSection = "fmt" | "lint" | "test";
+export type DenoExcludeSection = Exclude<DenoDiscoveryCommand, "check">;
 
 /** One `deno.json`'s exclusions: the shared list and each section's additions. */
 export interface DenoExclusions {
@@ -75,9 +89,12 @@ export async function readDenoExclusions(
 }
 
 /** The complete list one subcommand applies, shared entries first. */
-export function sectionExclusions(
+export function commandExclusions(
   exclusions: DenoExclusions,
-  section: DenoExcludeSection,
+  command: DenoDiscoveryCommand,
 ): string[] {
-  return [...exclusions.workspace, ...exclusions.sections[section]];
+  return [
+    ...exclusions.workspace,
+    ...(command === "check" ? [] : exclusions.sections[command]),
+  ];
 }

@@ -19,6 +19,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { dirname, join } from "@std/path";
 import {
+  DENO_DISCOVERY_COMMANDS,
+  type DenoDiscoveryCommand,
   type DenoExclusions,
   readDenoExclusions,
 } from "../scripts/deno_exclusions.ts";
@@ -159,6 +161,16 @@ const BROKEN_PROBE = [
   "",
 ].join("\n");
 
+/** Each discovering command's invocation: it walks the tree without running it. */
+const DISCOVERY_ARGS: Readonly<
+  Record<DenoDiscoveryCommand, readonly string[]>
+> = {
+  check: ["check"],
+  fmt: ["fmt", "--check"],
+  lint: ["lint"],
+  test: ["test", "--no-run"],
+};
+
 /** Run one Deno command in `cwd`, returning its exit and uncolored output. */
 async function denoOutput(
   cwd: string,
@@ -204,10 +216,7 @@ Deno.test("Deno's discovery commands skip every hidden Git-ignored root", async 
       await Deno.writeTextFile(join(fixture, path), BROKEN_PROBE);
     }
     for (
-      const args of [["check"], ["test", "--no-run"], ["lint"], [
-        "fmt",
-        "--check",
-      ]]
+      const args of DENO_DISCOVERY_COMMANDS.map((id) => DISCOVERY_ARGS[id])
     ) {
       const command = `deno ${args.join(" ")}`;
       const { success, text } = await denoOutput(fixture, args);

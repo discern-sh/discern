@@ -26,8 +26,8 @@ import {
 } from "../src/lib/paths.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import {
+  commandExclusions,
   readDenoExclusions,
-  sectionExclusions,
 } from "../scripts/deno_exclusions.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
@@ -37,7 +37,7 @@ const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
  * section's own — which together protect frontmatter-contracted source trees.
  */
 async function fmtExclude(): Promise<string[]> {
-  return sectionExclusions(await readDenoExclusions(REPO_ROOT), "fmt");
+  return commandExclusions(await readDenoExclusions(REPO_ROOT), "fmt");
 }
 
 /** True when the repo-relative directory sits inside an excluded entry. */

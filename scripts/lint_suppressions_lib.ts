@@ -9,7 +9,7 @@
  */
 
 import { globToRegExp, join } from "@std/path";
-import { parseDenoExclusions, sectionExclusions } from "./deno_exclusions.ts";
+import { commandExclusions, parseDenoExclusions } from "./deno_exclusions.ts";
 import { extractSourceComments } from "./source_comments.ts";
 
 export type DenoLintSuppressionDirective =
@@ -101,7 +101,7 @@ function exclusionMatches(pattern: string, file: string): boolean {
  * lint section's own — refusing malformed census input.
  */
 function configuredLintExclusions(configText: string): string[] {
-  return sectionExclusions(parseDenoExclusions(configText), "lint");
+  return commandExclusions(parseDenoExclusions(configText), "lint");
 }
 
 /**

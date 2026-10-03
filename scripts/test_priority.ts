@@ -17,7 +17,7 @@ import {
   type DenoInfoGraph,
 } from "../src/shared/deno_graph.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
-import { decodeDenoExclusions, sectionExclusions } from "./deno_exclusions.ts";
+import { commandExclusions, decodeDenoExclusions } from "./deno_exclusions.ts";
 import { listTestModules } from "./test_modules.ts";
 
 export interface TestPriority {
@@ -59,7 +59,7 @@ export function priorityExclusions(config: unknown): string[] | undefined {
     parsed.data.test?.include !== undefined ||
     parsed.data.workspace !== undefined
   ) return undefined;
-  const excluded = sectionExclusions(exclusions, "test");
+  const excluded = commandExclusions(exclusions, "test");
   return excluded.every(ignoreCarries) ? excluded : undefined;
 }
 

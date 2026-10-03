@@ -20,8 +20,8 @@ import { BUNDLED_MANUAL_STAGE_DIR } from "../src/lib/paths.ts";
 import { observeValidationInputs } from "../src/engine/validation/runtime.ts";
 import { EDITOR_PATH_POLICIES } from "../scripts/repository_files.ts";
 import {
+  commandExclusions,
   readDenoExclusions,
-  sectionExclusions,
 } from "../scripts/deno_exclusions.ts";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -187,7 +187,7 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
     assertEquals(await gitOut(root, "status", "--porcelain=v1"), "");
     const exclusions = await readDenoExclusions(REPO_ROOT);
     for (const section of ["fmt", "lint", "test"] as const) {
-      const excludes = sectionExclusions(exclusions, section).map((pattern) =>
+      const excludes = commandExclusions(exclusions, section).map((pattern) =>
         globToRegExp(pattern.endsWith("/") ? `${pattern}**` : pattern)
       );
       assertEquals(
