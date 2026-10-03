@@ -207,11 +207,15 @@ Deno.test("narration: lineCapture cases", () => {
   });
 });
 
+/** One call that hands a narration verb the guard's prose. */
+type NarrationWriter = (narration: Narration, prose: string) => void;
+
 /** How one narration verb receives prose: rendered within the terminal width,
- * or passed through verbatim because its caller composes the layout. */
+ * or passed through verbatim because its caller composes the layout. Each
+ * contract names the call that exercises its own verb. */
 type NarrationWidthContract =
-  | { readonly bounded: (narration: Narration, prose: string) => void }
-  | { readonly verbatim: string };
+  | { readonly bounded: NarrationWriter }
+  | { readonly verbatim: string; readonly write: NarrationWriter };
 
 /** Keyed by the narration interface itself, so a new verb cannot compile
  * without declaring whether it bounds its prose to the terminal width. */
@@ -227,6 +231,7 @@ const NARRATION_WIDTH_CONTRACTS = {
   detail: { bounded: (narration, prose) => narration.detail(prose) },
   humanLine: {
     verbatim: "the caller composes package renderers and owns the wrapping",
+    write: (narration, prose) => narration.humanLine(prose),
   },
   terminalSafeMultilineError: {
     bounded: (narration, prose) =>
@@ -279,7 +284,7 @@ Deno.test("every narration verb that renders prose stays within the terminal wid
     if ("verbatim" in contract) {
       assertEquals(
         renderAtGuardWidth((narration) =>
-          narration.humanLine(WIDTH_GUARD_PROSE)
+          contract.write(narration, WIDTH_GUARD_PROSE)
         ),
         `${WIDTH_GUARD_PROSE}\n`,
         `${verb} is verbatim because ${contract.verbatim}`,
