@@ -14,12 +14,13 @@
  * - the same discern state, each administration entry read as the registry's
  *   `changeProbe` declares;
  * - the same ignored files status reads: env files and materialized skills;
- * - the same retired checkout paths, present or absent.
+ * - the same retired checkout paths, each through the bounded inspection
+ *   status reports a reappeared path from.
  *
  * The clock is not an input. A survey also derives facts from it, such as a
  * task turning stale after days idle, so a caller still surveys on a ceiling.
- * `tests/engine_fleet_fingerprint_coverage_test.ts` records every path a
- * survey reads and fails when one falls outside what this probe watches.
+ * `tests/engine_fleet_fingerprint_test.ts` records every path a survey of its
+ * fixture reads and fails when one falls outside what this probe watches.
  */
 
 import { join } from "@std/path";
@@ -38,7 +39,10 @@ import { sha256Hex } from "../../shared/sha256.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { skillsDirsForAgents } from "../../lib/providers.ts";
 import { parseWorktreeList, resolveCommonGitDir } from "../worktree/git.ts";
-import { readRetiredWorktreePathRecords } from "../worktree/retired_paths.ts";
+import {
+  readRetiredWorktreePathRecords,
+  retiredPathState,
+} from "../worktree/retired_paths.ts";
 
 /** The Git boundary the probe reads through. */
 export type FleetFingerprintGit = (
@@ -69,14 +73,19 @@ const CHECKOUT_STATUS = [
 ] as const;
 
 /** How far the probe reads under one filesystem input. */
-export type FleetFingerprintDepth = "self" | "entries" | "contents";
+export type FleetFingerprintDepth =
+  | "self"
+  | "entries"
+  | "contents"
+  | "retired";
 
 /** One filesystem input of the fingerprint. */
 export interface FleetFingerprintPath {
   readonly path: string;
   /**
    * `self`: the path's own metadata; `entries`: also each immediate
-   * subdirectory's; `contents`: every file and directory under it.
+   * subdirectory's; `contents`: every file and directory under it; `retired`:
+   * the bounded inspection status reports a reappeared checkout path from.
    */
   readonly depth: FleetFingerprintDepth;
 }
@@ -152,7 +161,7 @@ export function fleetFingerprintPaths(
     }
   }
   for (const retired of layout.retiredPaths) {
-    paths.push({ path: retired, depth: "self" });
+    paths.push({ path: retired, depth: "retired" });
   }
   return paths;
 }
@@ -207,6 +216,9 @@ async function listing(path: string): Promise<{
 
 /** The fingerprint lines for one input, read to its depth. */
 async function pathLines(input: FleetFingerprintPath): Promise<string[]> {
+  if (input.depth === "retired") {
+    return [`${input.path}\t${await retiredPathState(input.path)}`];
+  }
   const own = await statLine(input.path);
   if (input.depth === "self" || own.info?.isDirectory !== true) {
     return [own.line];

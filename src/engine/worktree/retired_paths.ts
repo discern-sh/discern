@@ -666,6 +666,16 @@ async function fingerprintEntry(
 }
 
 /**
+ * What status reports of a retired path, as one comparable line: the bounded
+ * inspection a reappeared path is reported from, or `absent`. A change probe
+ * that compares it reads exactly what the report can show.
+ */
+export async function retiredPathState(path: string): Promise<string> {
+  const inspection = await inspectPath(path);
+  return inspection === undefined ? "absent" : JSON.stringify(inspection);
+}
+
+/**
  * Inspect a recreated path without following symlinks. Large or unreadable
  * populations stay visible but cannot enter prune's removable set.
  */

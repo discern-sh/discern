@@ -5,13 +5,16 @@
  * not moved, so the fingerprint must move whenever a survey would read
  * something different. Three observations share one project:
  *
- * - every path a status survey reads lies inside what the probe watches, so
- *   a new status input fails here until the probe watches it too;
+ * - every path a status survey of the fixture reads lies inside what the
+ *   probe watches, so a new status input fails here until the probe watches
+ *   it too. The guard sees only the reads the fixture's states trigger, so
+ *   the fixture holds one of each kind of state a survey reads;
  * - the probe costs one Git process per checkout plus two, and an unchanged
  *   fleet reads the same fingerprint twice;
  * - every discern administration entry the registry declares watched moves
  *   the fingerprint when written, every unwatched one does not, and so do
- *   commits, refs, working-tree edits and the ignored files status reads.
+ *   commits, refs, working-tree edits, the ignored files status reads, and
+ *   changes inside a reappeared checkout path.
  */
 
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
@@ -27,6 +30,7 @@ import {
 } from "../src/engine/status/fleet_fingerprint.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import { parseWorktreeList } from "../src/engine/worktree/git.ts";
+import { recordRetiredWorktreePath } from "../src/engine/worktree/retired_paths.ts";
 import {
   GIT_ADMIN_STATE,
   GIT_ADMIN_STATE_KEYS,
@@ -48,7 +52,11 @@ import { git, gitOut } from "./engine_helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { withTempDir } from "./temp_dir.ts";
 
-/** One task per kind of state a survey reads, a parked branch, and an overlap. */
+/**
+ * One task per kind of state a survey reads, a parked branch, and an overlap.
+ * {@linkcode reappearedCheckoutPath} adds a retired checkout path that exists
+ * again with nested contents.
+ */
 const FLEET = deskFleetFixture([
   deskFleetEntry("proven-a1b2c3", {
     aheadCommits: 2,
@@ -84,6 +92,24 @@ const FLEET = deskFleetFixture([
   ],
   orphanBranches: [deskOrphanBranch("parked-f6a7b8", { parked: true })],
 });
+
+/**
+ * A removed checkout's path, recorded as retired, that a program recreated
+ * with nested contents: status walks it to report the reappearance.
+ */
+async function reappearedCheckoutPath(
+  project: DeskTtyProject,
+  parent: string,
+): Promise<string> {
+  const path = join(parent, "retired-task");
+  await Deno.mkdir(join(path, "sub"), { recursive: true });
+  await Deno.writeTextFile(join(path, "sub", "a.txt"), "left behind\n");
+  assert(
+    await recordRetiredWorktreePath(project.root, path),
+    "the path is recorded as retired",
+  );
+  return path;
+}
 
 /** Git's files in a registration directory, as `git worktree list` reads them. */
 const GIT_REGISTRATION_FILES: readonly string[] = [
@@ -312,6 +338,7 @@ async function touchAdminEntry(
 Deno.test("the fleet fingerprint watches every survey input and moves with each change", async (t) => {
   await withTempDir(async (parent) => {
     const project = await createDeskTtyProject(parent, FLEET);
+    const reappeared = await reappearedCheckoutPath(project, parent);
     const layout = await layoutOf(project.root);
 
     await t.step(
@@ -404,6 +431,14 @@ Deno.test("the fleet fingerprint watches every survey input and moves with each 
         "an env file appearing",
         () =>
           Deno.writeTextFile(join(task, layout.envFiles[0] ?? ".env"), "A=1\n"),
+      ],
+      [
+        "a file nested in a reappeared checkout path",
+        () => Deno.writeTextFile(join(reappeared, "sub", "b.txt"), "more\n"),
+      ],
+      [
+        "Git metadata nested in a reappeared checkout path",
+        () => Deno.mkdir(join(reappeared, "sub", ".git")),
       ],
     ];
     for (const [change, apply] of repositoryChanges) {
