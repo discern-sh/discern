@@ -41,6 +41,7 @@ import {
   renderProofMarkdown,
 } from "../src/engine/gate/proof_render.ts";
 import type { JobGroup } from "../src/engine/gate/plan.ts";
+import type { JobOutputEvent } from "../src/engine/jobs/types.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   resolveTerminalContext,
@@ -358,55 +359,52 @@ function recordedActivityLog(received: string[]): typeof withActivityLog {
 const LONG_STREAMED_LINE = `FIRST-WORDS ${"word ".repeat(4_000)}FINAL-WORDS`;
 
 Deno.test("Gate activity writes a long line whole once the package stops repainting", async () => {
-  const received: string[] = [];
-  const { progress, writes, viewport, lint, tick } =
-    await controlledGateActivity(
-      { columns: 64, rows: 12 },
-      4,
-      recordedActivityLog(received),
-    );
-  progress.started(lint);
-  viewport.set({ columns: 64, rows: 3 });
-  tick();
-  await Promise.resolve();
-  const appendOnly = writes.length;
-  progress.output({ kind: "line", label: "lint", text: LONG_STREAMED_LINE });
-  await progress.complete(PROOF_STEPS);
+  const line: JobOutputEvent = {
+    kind: "line",
+    label: "lint",
+    text: LONG_STREAMED_LINE,
+  };
+  const partial: JobOutputEvent = { ...line, kind: "partial" };
+  await assertCasesAsync(
+    [
+      {
+        name: "a line written after the frame falls back",
+        live: [],
+        after: [line],
+      },
+      {
+        name: "a partial still pending when the frame falls back",
+        live: [partial],
+        after: [],
+      },
+    ] as const,
+    (row) => row.name,
+    async (row) => {
+      const received: string[] = [];
+      const { progress, writes, viewport, lint, tick } =
+        await controlledGateActivity(
+          { columns: 64, rows: 20 },
+          4,
+          recordedActivityLog(received),
+        );
+      progress.started(lint);
+      for (const event of row.live) progress.output(event);
+      tick();
+      await Promise.resolve();
+      viewport.set({ columns: 64, rows: 3 });
+      tick();
+      await Promise.resolve();
+      const appendOnly = writes.length;
+      for (const event of row.after) progress.output(event);
+      await progress.complete(PROOF_STEPS);
 
-  assertEquals(received, [`lint │ ${LONG_STREAMED_LINE}`]);
-  assertStringIncludes(
-    stripAnsi(writes.slice(appendOnly).join("")),
-    LONG_STREAMED_LINE,
-    "append-only output writes each line once and keeps all of it",
-  );
-});
-
-Deno.test("Gate activity writes a pending partial whole once the package stops repainting", async () => {
-  const received: string[] = [];
-  const { progress, writes, viewport, lint, tick } =
-    await controlledGateActivity(
-      { columns: 64, rows: 20 },
-      4,
-      recordedActivityLog(received),
-    );
-  progress.started(lint);
-  progress.output({ kind: "partial", label: "lint", text: LONG_STREAMED_LINE });
-  tick();
-  await Promise.resolve();
-  viewport.set({ columns: 64, rows: 3 });
-  tick();
-  await Promise.resolve();
-  const appendOnly = writes.length;
-  await progress.complete(PROOF_STEPS);
-
-  assert(
-    (received[0]?.length ?? 0) < LONG_STREAMED_LINE.length,
-    "the live frame receives the partial bounded",
-  );
-  assertStringIncludes(
-    stripAnsi(writes.slice(appendOnly).join("")),
-    LONG_STREAMED_LINE,
-    "append-only output writes a partial still pending at finish whole",
+      assertEquals(received.at(-1), `lint │ ${LONG_STREAMED_LINE}`);
+      assertStringIncludes(
+        stripAnsi(writes.slice(appendOnly).join("")),
+        LONG_STREAMED_LINE,
+        "append-only output writes each line once and keeps all of it",
+      );
+    },
   );
 });
 
@@ -435,7 +433,11 @@ Deno.test("Gate activity hands the package only the live tail of a long line", a
   await progress.complete(PROOF_STEPS);
 
   const bound = "lint │ ".length + liveTailLimit("fill", columns, tailRows);
-  assertEquals(received.length, 3);
+  assertEquals(
+    received.length,
+    4,
+    "a partial, a line, a transient, and the transient handed over again at finish",
+  );
   assertEquals(
     received.filter((text) => text.length > bound).map((text) => text.length),
     [],
