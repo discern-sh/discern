@@ -13,8 +13,18 @@
 
 import { stripAnsi } from "./text.ts";
 
-/** A committed line, or the line still being written. */
-export type LiveTailKind = "line" | "partial";
+/**
+ * Which part of a streamed line a view keeps. A committed `line` keeps its
+ * end: the rows a tail anchored at its last rows shows, and the words a
+ * summary of how work ended reads. A `partial` line, still being written,
+ * shows the start of its last carriage-return segment, so it keeps that
+ * start. A `scrolled` line, in a reader that scrolls to every row it keeps,
+ * keeps its start and its end: an error usually names itself first.
+ */
+export type LiveTailKind = "line" | "partial" | "scrolled";
+
+/** The share of a scrolled line's room its start keeps; its end keeps the rest. */
+const SCROLLED_START_SHARE = 0.6;
 
 /**
  * How a view's rows hold the lines it keeps. A view anchored at its last rows
@@ -39,10 +49,8 @@ export function liveTailLimit(
 }
 
 /**
- * The part of one streamed line a view can show: at most `limit` code units,
- * the ellipsis that marks a cut included. A committed line shows its last
- * wrapped rows, so it keeps its end; an in-progress line shows the start of
- * its last carriage-return segment, so it keeps that start. A line is
+ * The part of one streamed line a view can show, as its kind keeps it: at
+ * most `limit` code units, the ellipsis that marks a cut included. A line is
  * measured without the escape sequences no view shows, so styling neither
  * spends the limit nor leaves a fragment at a cut, and a cut falls only
  * between graphemes.
@@ -59,6 +67,12 @@ export function liveTailText(
   const room = Math.max(0, limit - ellipsis.length);
   if (kind === "line") {
     return `${ellipsis}${shown.slice(graphemeEnd(shown, shown.length - room))}`;
+  }
+  if (kind === "scrolled") {
+    const start = Math.floor(room * SCROLLED_START_SHARE);
+    return `${shown.slice(0, graphemeStart(shown, start))}${ellipsis}${
+      shown.slice(graphemeEnd(shown, shown.length - (room - start)))
+    }`;
   }
   const end = shown.endsWith("\r") ? shown.length - 1 : shown.length;
   const start = shown.lastIndexOf("\r", end - 1) + 1;
@@ -160,14 +174,17 @@ export function streamedOutputIsBlank(output: StreamedOutput): boolean {
   return output[TEXT].trim() === "";
 }
 
-/** Every line of the output, each bounded as a committed line. */
+/**
+ * Every line of the output, for a reader that scrolls to every row it keeps:
+ * a long line keeps its start and its end.
+ */
 export function liveTailOutput(
   output: StreamedOutput,
   limit: number,
   ellipsis: string,
 ): string {
   return output[TEXT].split("\n").map((line) =>
-    liveTailText("line", line, limit, ellipsis)
+    liveTailText("scrolled", line, limit, ellipsis)
   ).join("\n");
 }
 

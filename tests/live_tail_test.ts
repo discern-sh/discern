@@ -82,6 +82,27 @@ Deno.test("the live tail keeps what the frame can show of a streamed line", () =
         expected: "newest",
       },
       {
+        name: "a long scrolled line keeps its start and its end",
+        kind: "scrolled",
+        text: `START${"a".repeat(30)}END`,
+        limit: 8,
+        expected: "STAR…END",
+      },
+      {
+        name: "a scrolled line's cuts fall between graphemes",
+        kind: "scrolled",
+        text: flag.repeat(10),
+        limit: 12,
+        expected: `${flag}…${flag}`,
+      },
+      {
+        name: "a scrolled line's cuts never fall inside an escape sequence",
+        kind: "scrolled",
+        text: red("X").repeat(20),
+        limit: 8,
+        expected: "XXXX…XXX",
+      },
+      {
         name: "styling does not spend the limit",
         kind: "line",
         text: red("styled"),
@@ -241,9 +262,9 @@ Deno.test("a view reads streamed output only through the live tail", () => {
   assertCases(
     [
       {
-        name: "every line is bounded as a committed line",
+        name: "every line keeps its start and its end, for a reader",
         read: () => liveTailOutput(output, 8, "…").split("\n"),
-        expected: ["one", "…aaaaEND", "  ", "two  ", "", "three", ""],
+        expected: ["one", "STAR…END", "  ", "two  ", "", "three", ""],
       },
       {
         name: "the last lines that carry text, trailing space removed",

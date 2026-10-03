@@ -207,7 +207,10 @@ export interface DeskResultSheet {
   /** How bad it is: nothing it set out to do happened, or only part. */
   readonly tone: "danger" | "warning";
   readonly lines: readonly DeskReviewLine[];
-  /** The complete output, as Markdown. */
+  /**
+   * What Full output reads, as Markdown: what the effect wrote, each line as
+   * the output reader keeps it, then its result.
+   */
   readonly output?: string;
   readonly command: string;
   /** The task it concerns, whose next steps the sheet offers. */

@@ -1128,7 +1128,10 @@ export const DESK_OUTPUT_LINE_LIMIT = liveTailLimit(
   DEFAULT_TERMINAL_ROWS,
 );
 
-/** What an operation wrote, as a view shows it: each line bounded. */
+/**
+ * What an operation wrote, as a reader that scrolls shows it: a long line
+ * keeps its start and its end.
+ */
 export function shownOutput(output: StreamedOutput): string {
   return liveTailOutput(output, DESK_OUTPUT_LINE_LIMIT, "…");
 }

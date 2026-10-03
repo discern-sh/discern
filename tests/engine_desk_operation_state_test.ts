@@ -555,7 +555,7 @@ function wideFrame(state: DeskProductState): string {
   );
 }
 
-Deno.test("each Desk view of an operation's output shows a long line's tail, and its record keeps all of it", () => {
+Deno.test("a reader keeps both ends of a long line, Session activity its end, and the record all of it", () => {
   const long = `FIRST-WORDS ${"word ".repeat(4_000)}FINAL-WORDS`;
   const written = `${long}\nnext line\n`;
   const started = confirmed(landing(), actionStep("accept")).state;
@@ -587,22 +587,27 @@ Deno.test("each Desk view of an operation's output shows a long line's tail, and
     [
       "the output reader",
       wideFrame(deskIntent(reported, { kind: "output" }).state),
+      true,
     ],
-    ["a result's Full output", sheet.sheet.output ?? ""],
+    ["a result's Full output", sheet.sheet.output ?? "", true],
     [
       "Session activity",
       wideFrame(
         open(failed, { kind: "reader", reader: { kind: "activity" } }).state,
       ),
+      false,
     ],
   ] as const;
-  for (const [view, shown] of views) {
+  for (const [view, shown, scrolls] of views) {
     assert(/…[a-z]* word word/u.test(shown), `${view} marks the cut: ${shown}`);
     assertStringIncludes(shown, "FINAL-WORDS", view);
     assertStringIncludes(shown, "next line", view);
-    assert(
-      !shown.includes("FIRST-WORDS"),
-      `${view} receives only the end of a line it cannot show whole`,
+    assertEquals(
+      shown.includes("FIRST-WORDS"),
+      scrolls,
+      scrolls
+        ? `${view} scrolls to every row it keeps, so a long line keeps its start`
+        : `${view} keeps only the end of a line it cannot show whole`,
     );
   }
   const entry = failed.activity.at(-1);
