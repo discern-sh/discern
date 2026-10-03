@@ -19,7 +19,6 @@ import {
   makeOutputSink,
   type Narration,
   type OutputSink,
-  reportFailure,
   silentOutputSink,
 } from "./narration.ts";
 import {
@@ -29,6 +28,7 @@ import {
   terminalLine,
   type TerminalMultiline,
 } from "./terminal.ts";
+import type { AlignedRow } from "./text.ts";
 
 /** How a command should present its results. */
 export interface LogOptions {
@@ -121,7 +121,7 @@ export class Logger {
 
   /** Emit the shared terminal failure form: condition, then recovery actions. */
   failure(message: string, recovery: readonly string[] = []): void {
-    reportFailure(this.#narration, message, recovery);
+    this.#narration.failure(message, recovery);
   }
 
   /** A bold section banner owning one leading blank line. Suppressed in JSON
@@ -135,9 +135,21 @@ export class Logger {
     this.#narration.group(id, label);
   }
 
-  /** A dimmed detail line, indented under a heading. Suppressed in JSON mode. */
+  /** A dimmed detail item, indented under a heading. Suppressed in JSON mode. */
   detail(text: string): void {
     this.#narration.detail(text);
+  }
+
+  /** An undimmed item indented under a group — a recovery step, a listed
+   * path — laid out like {@link detail}. Suppressed in JSON mode. */
+  item(text: string): void {
+    this.#narration.item(text);
+  }
+
+  /** Dimmed label + body detail rows aligned through the one column policy.
+   * Suppressed in JSON mode. */
+  detailRows(rows: readonly AlignedRow[], indent?: string): void {
+    this.#narration.detailRows(rows, indent);
   }
 
   /**

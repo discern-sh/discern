@@ -1044,18 +1044,21 @@ async function executeLanding(
   }
 
   log.heading("Acceptance plan");
-  log.detail(`Branch:        ${effort.branch}`);
-  log.detail(`From worktree: ${effort.path}`);
-  log.detail(
-    `Into trunk:    ${mainRepo} (fast-forward ${trunk} to ${
-      short(subject.head)
-    })`,
-  );
-  log.detail(
-    `Authority:     ${
-      landingAuthorityDetail(authority, consent.source === "conversation")
-    }`,
-  );
+  log.detailRows([
+    { label: "Branch:", body: effort.branch },
+    { label: "From worktree:", body: effort.path },
+    {
+      label: "Into trunk:",
+      body: `${mainRepo} (fast-forward ${trunk} to ${short(subject.head)})`,
+    },
+    {
+      label: "Authority:",
+      body: landingAuthorityDetail(
+        authority,
+        consent.source === "conversation",
+      ),
+    },
+  ]);
   for (const warning of authority.warnings) log.warn(warning);
 
   log.info(`Fast-forwarding ${trunk} to ${effort.branch}…`);

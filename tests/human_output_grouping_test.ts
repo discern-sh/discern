@@ -258,6 +258,19 @@ const OUTPUT_IDIOM_RULES: readonly {
   // Alignment belongs to renderAlignedRows (display-width aware); padding by
   // code units drifts on styled or wide text.
   { id: "padEnd-alignment", pattern: /\.padEnd\(/g },
+  // A wrapped detail line re-flows, so interior padding cannot hold a column;
+  // aligned label + body rows go through the narration's detailRows.
+  {
+    id: "detail-padded-alignment",
+    pattern:
+      /\.detail\(\s*(?:`[^`]*?\S {2,}\S|"[^"\n]*?\S {2,}\S|'[^'\n]*?\S {2,}\S)/g,
+  },
+  // An indented prose item wraps through the narration's item or detail verb;
+  // a verbatim humanLine never wraps, so its indent is lost at the edge.
+  {
+    id: "indented-humanLine-item",
+    pattern: /\.humanLine\(\s*["'`] /g,
+  },
   // The narration authority owns both retired and current line-prefix glyphs.
   {
     id: "narration-glyph-literal",
@@ -297,6 +310,13 @@ const OUTPUT_IDIOM_EXCEPTIONS: readonly OutputIdiomException[] = [
     rule: "direct-console-presentation",
     count: 2,
     reason: "The Logger authority's exact console-backed line writers.",
+  },
+  {
+    file: "src/commands/doctor.ts",
+    rule: "indented-humanLine-item",
+    count: 3,
+    reason:
+      "Doctor's execution-model legend and step rows compose tone-styled tags over a column it wraps itself.",
   },
   {
     file: "src/shared/result.ts",
@@ -689,14 +709,22 @@ Deno.test("human output grouping: contracts", () => {
         'function harbor(out: { raw(s: string): void }) { out.raw("→ next"); }',
         'function estuary(n: number) { writeStdout("\\n".repeat(n)); }',
         'function inlet() { writeStderr("\\nSection heading"); }',
+        "function delta(log: { detail(s: string): void }, sha: string) {",
+        "  log.detail(`  ${sha}  subject`);",
+        '  log.detail("Label:    value");',
+        '  log.humanLine("  Run: discern help");',
+        "}",
         "// a commented console.log(`✓ done`) never matches",
       ].join("\n");
       assertEquals(
         outputIdiomFindings(synthetic).map((finding) => finding.rule).sort(),
         [
           "boundary-newline-repeat",
+          "detail-padded-alignment",
+          "detail-padded-alignment",
           "direct-console-presentation",
           "direct-console-presentation",
+          "indented-humanLine-item",
           "narration-glyph-literal",
           "narration-glyph-literal",
           "padEnd-alignment",
@@ -706,10 +734,11 @@ Deno.test("human output grouping: contracts", () => {
       );
       assertEquals(
         outputIdiomFindings(
-          'const mark = "✓";\nlog.error("state the condition");\n',
+          'const mark = "✓";\nlog.error("state the condition");\n' +
+            "log.detail(`  ${path}`);\n",
         ),
         [],
-        "a bare data glyph and an authority call stay legal",
+        "a bare data glyph, an authority call, and a leading indent stay legal",
       );
     },
   });

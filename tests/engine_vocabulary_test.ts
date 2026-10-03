@@ -15,7 +15,7 @@ import {
   VERB_FORM_VARIANTS,
 } from "../src/shared/vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
@@ -123,9 +123,12 @@ Deno.test("every command synonym suggests its canonical verb on both surfaces", 
 
       const human = await runAgent(dir, [synonym]);
       assertEquals(human.code, 1, human.output);
-      assertStringIncludes(human.stderr, unknownCommandMessage(synonym));
-      assertStringIncludes(human.stderr, suggestion);
-      assertStringIncludes(human.stderr, pointer);
+      assertTerminalTextIncludes(
+        human.stderr,
+        unknownCommandMessage(synonym),
+      );
+      assertTerminalTextIncludes(human.stderr, suggestion);
+      assertTerminalTextIncludes(human.stderr, pointer);
     }
   });
 });
@@ -161,8 +164,8 @@ Deno.test("the unknown-command lesson shows even outside a project", async () =>
       );
       const r = await runAgent(dir, [synonym]);
       assertEquals(r.code, 1, r.output);
-      assertStringIncludes(r.stderr, unknownCommandMessage(synonym));
-      assertStringIncludes(r.stderr, suggestion);
+      assertTerminalTextIncludes(r.stderr, unknownCommandMessage(synonym));
+      assertTerminalTextIncludes(r.stderr, suggestion);
     }
   });
 });

@@ -131,20 +131,29 @@ export async function authoredTsFiles(
   return await gitListedRepoFiles(root, ["*.ts", "*.tsx"]);
 }
 
+/**
+ * The JavaScript and TypeScript extensions `deno lint`, `deno check`, and
+ * `deno test` discover as modules.
+ */
+export const DENO_MODULE_EXTENSIONS = [
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+] as const;
+
 /** Every authored source extension accepted by `deno lint`. */
 export async function authoredDenoFiles(
   root: string = REPO_ROOT,
 ): Promise<string[]> {
-  return await gitListedRepoFiles(root, [
-    "*.ts",
-    "*.tsx",
-    "*.mts",
-    "*.cts",
-    "*.js",
-    "*.jsx",
-    "*.mjs",
-    "*.cjs",
-  ]);
+  return await gitListedRepoFiles(
+    root,
+    DENO_MODULE_EXTENSIONS.map((extension) => `*${extension}`),
+  );
 }
 
 /** The authored-TypeScript universe of this checkout, enumerated once. */

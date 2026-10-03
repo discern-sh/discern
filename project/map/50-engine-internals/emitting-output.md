@@ -27,7 +27,9 @@ log.ok("Sources are current.");
 log.warn("One source is missing; the default applies.");
 ```
 
-Dynamic facts are made inert by the authority itself (`terminalLine` runs inside `info`/`ok`/`warn`/`error`/`heading`/`detail` and group labels). `humanLine` and `line` emit verbatim — sanitize what you interpolate.
+Dynamic facts are made inert by the authority itself (`terminalLine` runs inside `info`/`ok`/`warn`/`error`/`heading`/`detail`/`item`/`detailRows`/`failure` and group labels). `humanLine` and `line` emit verbatim — sanitize what you interpolate.
+
+Every verb that renders prose keeps each line within the presenter's width. The glyph lines wrap inside the package narration verbs. A token wider than their text column is broken first through the [text authority](../../../src/lib/text.ts), because package wrapping takes more than linear time to split a long word. `heading`, `detail`, `item`, and group labels re-flow an over-wide line through the same authority and style each wrapped line separately. A `detail` or `item` keeps its own leading spaces as indent, and a wrapped item's continuation hangs two cells deeper, so it never reads as the next item; `detail` is dimmed and `item` is not. A long advisory paragraph therefore belongs on `detail` or `item`, not on a hand-composed `humanLine`. A `humanLine` caller owns its wrapping and composes a width-aware package renderer. [`narration_test.ts`](../../../tests/narration_test.ts) keys its width contracts on the `Narration` interface, so a new verb must declare whether it bounds its prose. The same test fails when a bounded verb hands the package presenter a token wider than the terminal.
 
 ## A group
 
@@ -54,17 +56,15 @@ for (
 
 [`renderAlignedRows`](../../../src/lib/text.ts) is the single column policy: widest label capped (default 32; pass `labelCap` to tighten), a two-cell gutter, and body wrap with a hanging indent when you pass `width`, stacking whenever the body column would fall under 24 cells, with hard-broken overlong labels so no line overflows. Multi-section listings that must share one column compute it once with `alignedLabelWidth` and pass `labelWidth`. Style hooks (`styleLabel`, `styleBody`) apply after geometry. Never hand-pad with `padEnd`; the guard rejects it.
 
+Label + body rows inside narration go through `detailRows(rows, indent?)`, which applies the same policy at the terminal width with detail styling, so a wrapped body hangs under the body column. Interior padding inside a `detail` cannot hold a column once the line wraps, so the guard rejects that spelling too.
+
 ## An error, with recovery
 
 ```ts
-import { reportFailure } from "../lib/narration.ts";
-
-reportFailure(log, "the requested page is missing.", [
-  "Run: discern map",
-]);
+log.failure("the requested page is missing.", ["Run: discern map"]);
 ```
 
-The failure form is the danger line (state the condition, name the object), optionally followed by one recovery group carrying the next step. A message that already ends with its next step stays a single `log.error(...)`; a distinct actionable command gets the recovery group. A product-composed message whose paragraphs carry the meaning (a batched refusal, an issue list) goes through `errorBlock`: authored newlines stay real structure, each line's dynamic facts are made inert, and every line wraps under the glyph. Captured foreign text stays on `error`, where every separator renders visible. A refusal with several detail groups composes the same primitives directly: `error`, then `group(id)` and indented `humanLine` items per group. The retired `discern:` prefix never returns: the package-owned `✕` glyph is discern's voice, and only raw child-process bytes reach the terminal without it.
+The failure form is the danger line (state the condition, name the object), optionally followed by one recovery group carrying each next step as an `item`. A message that already ends with its next step stays a single `log.error(...)`; a distinct actionable command gets the recovery group. A product-composed message whose paragraphs carry the meaning (a batched refusal, an issue list) goes through `errorBlock`: authored newlines stay real structure, each line's dynamic facts are made inert, and every line wraps under the glyph. Captured foreign text stays on `error`, where every separator renders visible. A refusal with several detail groups composes the same primitives directly: `error`, then `group(id)` and `item` lines per group. The retired `discern:` prefix never returns: the package-owned `✕` glyph is discern's voice, and only raw child-process bytes reach the terminal without it.
 
 ## Where interaction and Components enter
 
@@ -82,6 +82,6 @@ An advisory carrying a command, path, configuration key, flag, provider id, or m
 
 The internal registry atlas at `project/map/_internal/registry-atlas.md` states whether each generated inventory obtains member wording from its registry or a named shared policy, then names its renderer, documentation path, and tests. [`canonical_sets_enrolment_test.ts`](../../../tests/canonical_sets_enrolment_test.ts) treats a future inventory without that account as a missing authority.
 
-Outside the narration authority there are only exact process adapters: the machine envelope chokepoint ([`emit.ts`](../../../src/shared/emit.ts)), scalar stdout values for shell capture, raw document bodies, the crash frame, and supervised child streams. [`PROCESS_OUTPUT_BOUNDARIES`](../../../src/shared/process_boundaries.ts) names each direct console or stream-write operation by stable id, function, channel, purpose, and reason. The bidirectional structural census rejects unknown and stale sites; the falling `process_output_boundaries` Standard prevents the exception population from growing ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md)). [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) separately holds semantic grouping, so a hand-emitted boundary newline, narration glyph outside the authority, or `padEnd` alignment in a shipped human surface still fails the gate.
+Outside the narration authority there are only exact process adapters: the machine envelope chokepoint ([`emit.ts`](../../../src/shared/emit.ts)), scalar stdout values for shell capture, raw document bodies, the crash frame, and supervised child streams. [`PROCESS_OUTPUT_BOUNDARIES`](../../../src/shared/process_boundaries.ts) names each direct console or stream-write operation by stable id, function, channel, purpose, and reason. The bidirectional structural census rejects unknown and stale sites; the falling `process_output_boundaries` Standard prevents the exception population from growing ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md)). [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) separately holds semantic grouping, so a hand-emitted boundary newline, narration glyph outside the authority, `padEnd` alignment, padded `detail` alignment, or an indented `humanLine` item in a shipped human surface still fails the gate.
 
 A change to human terminal output also follows the [terminal-output review loop](../80-development/reviewing-terminal-output.md): capture the real command before and after, inspect the visual browser rendering, and attach the HTML artifact path to the handoff.

@@ -11,11 +11,11 @@ import {
 import { sha256Hex } from "../src/shared/sha256.ts";
 import { CandidateSchema } from "../src/engine/completion/candidate.ts";
 import { writeCompletionRecord } from "../src/engine/completion/store.ts";
+import { recoverAbandonedAttempts } from "../src/engine/completion/attempt_lifecycle.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   COMPLETION_CLAIM,
-  COMPLETION_CLOCK,
   completionFixtures,
   completionId,
 } from "./completion_fixtures.ts";
@@ -144,8 +144,6 @@ Deno.test("candidate retention requires the observing attempt's own live claim",
       root,
       fixtures.attempt,
       null,
-      undefined,
-      COMPLETION_CLOCK,
     );
     assert(attempt.kind === "written", JSON.stringify(attempt));
     await assertRejects(
@@ -154,8 +152,14 @@ Deno.test("candidate retention requires the observing attempt's own live claim",
       "Candidate belongs to another attempt identity.",
       "the attempt's own candidate coordinate binds retention",
     );
-    // The real store enforces the live-claim clock; a system clock past the
-    // fixture claim expiry refuses publication rather than recording it.
+    // A lapsed lease never refuses its owner; the retirement it permits does.
+    // The fixture claim's lease lapsed long ago, so recovery may retire it.
+    assertEquals(
+      await recoverAbandonedAttempts(root, {
+        ownerState: () => Promise.resolve("unknown"),
+      }),
+      [fixtures.attempt.id],
+    );
     await assertRejects(
       () => retainCandidate(root, candidateRecord.id, candidate, fence),
       Error,

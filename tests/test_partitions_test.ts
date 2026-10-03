@@ -180,6 +180,7 @@ Deno.test("test partitions: contracts", () => {
             { ...priority, moduleCount: 0 },
             { ...priority, moduleCount: NaN },
             { ...priority, excluded: ["name,comma/"] },
+            { ...priority, excluded: ["generated/*", "!generated/kept/"] },
             { ...priority, files: ["tests/[literal]_test.ts"] },
           ]
         ) assertEquals(partitionSelections(4, 42, candidate), ordinary);

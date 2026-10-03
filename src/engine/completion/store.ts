@@ -4,7 +4,6 @@ import {
   atomicReplaceJson,
   atomicReplaceText,
 } from "../../shared/atomic_write.ts";
-import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
   GIT_ADMIN_STATE,
   gitAdminStatePath,
@@ -20,7 +19,7 @@ import {
   withCompletionPublication,
 } from "../operation_lock.ts";
 import { RecordIdSchema } from "./identity.ts";
-import { ATTEMPT_CLAIM_LEASE_MS, effectiveClaimExpiry } from "./attempt.ts";
+import { attemptHoldsClaim, CLAIM_NOT_HELD } from "./attempt.ts";
 import { migrateSingularSourceCandidate } from "./candidate.ts";
 import { applicabilitySubject } from "./evidence.ts";
 import {
@@ -195,6 +194,11 @@ export type CompletionWriteOutcome =
     readonly reason: string;
   }
   | Exclude<CompletionRecordReading, { readonly kind: "recorded" | "missing" }>;
+/** Every outcome of a write that did not land. */
+export type CompletionWriteRefusal = Exclude<
+  CompletionWriteOutcome,
+  { readonly kind: "written" }
+>;
 
 /** Retain the exact previous document before replacing its current snapshot. */
 async function preserveRevision(
@@ -219,72 +223,115 @@ async function preserveRevision(
   return undefined;
 }
 
-/** Evidence publication must belong to the live attempt, including its candidate. */
+/** Why a fenced write was refused. */
+export type FenceRefusal = {
+  readonly kind: "claim-lost" | "transition-refused" | "unavailable";
+  readonly reason: string;
+};
+
+/**
+ * Every refusal a fence can give besides an unreadable attempt record. Only an
+ * attempt record that is finished or names another token reports
+ * `claim-lost`. A publication
+ * that does not match its attempt's binding is a refused transition: it says
+ * nothing about who holds the claim, and its reason is kept.
+ */
+export const FENCE_REFUSALS = {
+  "claim-not-held": { kind: "claim-lost", reason: CLAIM_NOT_HELD },
+  "unfenced": {
+    kind: "transition-refused",
+    reason: "publication requires the producing attempt's claim",
+  },
+  "unbound": {
+    kind: "transition-refused",
+    reason: "the attempt has not bound its demand yet",
+  },
+  "another-attempt": {
+    kind: "transition-refused",
+    reason: "the record names another producing attempt",
+  },
+  "another-candidate": {
+    kind: "transition-refused",
+    reason: "the record and its attempt name different candidates",
+  },
+  "another-sequence": {
+    kind: "transition-refused",
+    reason: "the evidence sequence does not match its attempt",
+  },
+  "another-subject": {
+    kind: "transition-refused",
+    reason:
+      "the evidence applicability, mode, or purpose does not match its attempt",
+  },
+  "another-mode": {
+    kind: "transition-refused",
+    reason: "Proof requires a completion attempt with the same mode",
+  },
+} as const satisfies Record<string, FenceRefusal>;
+
+/** An attempt record that cannot be read proves nothing either way; it is named. */
+export function unreadableAttempt(attemptId: string): FenceRefusal {
+  return {
+    kind: "unavailable",
+    reason: `the attempt record attempt/${attemptId} is missing or unreadable`,
+  };
+}
+
+/**
+ * Evidence publication must belong to the live attempt, including its
+ * candidate. Ownership is re-read here, under the publication lock, from the
+ * attempt record alone.
+ */
 async function checkFence(
   store: CompletionRecordStore,
   record: CompletionRecord,
   fence: PublicationFence | undefined,
-  now: number,
-): Promise<string | undefined> {
+): Promise<FenceRefusal | undefined> {
   const publishes = record.kind === "candidate" || record.kind === "evidence" ||
     record.kind === "proof";
   if (fence === undefined) {
-    return publishes
-      ? "candidate and evidence publication require a current attempt claim"
-      : undefined;
+    return publishes ? FENCE_REFUSALS.unfenced : undefined;
   }
   const reading = await store.read({
     kind: "attempt",
     id: fence.attempt_id,
   });
   if (reading.kind !== "recorded" || reading.record.kind !== "attempt") {
-    return "attempt is missing or unreadable";
+    return unreadableAttempt(fence.attempt_id);
   }
   const attempt = reading.record.data;
-  if (
-    attempt.state.kind === "finished" ||
-    attempt.state.claim.token !== fence.token ||
-    effectiveClaimExpiry(
-        attempt.state.claim,
-        ATTEMPT_CLAIM_LEASE_MS,
-      ) <= now
-  ) return "attempt claim was lost, expired, or superseded";
+  if (!attemptHoldsClaim(attempt, fence.token)) {
+    return FENCE_REFUSALS["claim-not-held"];
+  }
   if (
     (record.kind === "proof" || record.kind === "evidence") &&
     attempt.state.kind !== "claimed"
-  ) {
-    return "Evidence and Proof publication wait until the attempt's demand is bound.";
+  ) return FENCE_REFUSALS.unbound;
+  if (!publishes) return undefined;
+  if (record.data.attempt_id !== fence.attempt_id) {
+    return FENCE_REFUSALS["another-attempt"];
   }
-  if (publishes) {
-    if (record.data.attempt_id !== fence.attempt_id) {
-      return "publisher does not own the producing attempt";
-    }
-    const candidateId = record.kind === "candidate"
-      ? record.id
-      : record.data.candidate_id;
-    if (candidateId !== attempt.identity.candidate_id) {
-      return "publisher names another candidate";
+  const candidateId = record.kind === "candidate"
+    ? record.id
+    : record.data.candidate_id;
+  if (candidateId !== attempt.identity.candidate_id) {
+    return FENCE_REFUSALS["another-candidate"];
+  }
+  if (record.kind === "evidence") {
+    if (record.data.sequence !== attempt.identity.sequence) {
+      return FENCE_REFUSALS["another-sequence"];
     }
     if (
-      record.kind === "evidence" &&
-      record.data.sequence !== attempt.identity.sequence
-    ) return "evidence sequence does not match its attempt";
-    if (
-      record.kind === "evidence" &&
-      (!attempt.subjects.includes(
+      !attempt.subjects.includes(
         await applicabilitySubject(record.data.applicability),
       ) || record.data.mode !== attempt.mode ||
-        record.data.purpose !== attempt.purpose)
-    ) {
-      return "evidence applicability, mode, or purpose does not match its attempt";
-    }
-    if (
-      record.kind === "proof" &&
-      (record.data.mode !== attempt.mode || attempt.purpose !== "completion")
-    ) {
-      return "Proof publication requires a completion attempt with the same mode";
-    }
+      record.data.purpose !== attempt.purpose
+    ) return FENCE_REFUSALS["another-subject"];
   }
+  if (
+    record.kind === "proof" &&
+    (record.data.mode !== attempt.mode || attempt.purpose !== "completion")
+  ) return FENCE_REFUSALS["another-mode"];
   return undefined;
 }
 
@@ -297,7 +344,6 @@ export async function writeCompletionRecord(
   record: CompletionRecord,
   expected: string | null,
   fence?: PublicationFence,
-  clock: Clock = SYSTEM_CLOCK,
 ): Promise<CompletionWriteOutcome> {
   const parsed = CompletionRecordSchema.safeParse(record);
   if (!parsed.success) return { kind: "invalid", reason: parsed.error.message };
@@ -338,13 +384,8 @@ export async function writeCompletionRecord(
               "record identity or lifetime does not permit this transition",
           };
         }
-        const lost = await checkFence(
-          store,
-          parsed.data,
-          fence,
-          clock.wallNow(),
-        );
-        if (lost !== undefined) return { kind: "claim-lost", reason: lost };
+        const refused = await checkFence(store, parsed.data, fence);
+        if (refused !== undefined) return refused;
         if (
           current.kind === "recorded" &&
           !isAttemptClaimRenewal(current.record, parsed.data)
@@ -376,9 +417,33 @@ export async function writeCompletionRecord(
       },
     );
   } catch (error) {
-    return {
-      kind: error instanceof OperationLockError ? "busy" : "unavailable",
-      reason: error instanceof Error ? error.message : String(error),
-    };
+    return publicationFailure(error);
+  }
+}
+
+/** A publication that could not run, as the refusal it is. */
+function publicationFailure(error: unknown): CompletionWriteRefusal {
+  return {
+    kind: error instanceof OperationLockError ? "busy" : "unavailable",
+    reason: error instanceof Error ? error.message : String(error),
+  };
+}
+
+/**
+ * Run a read-then-write transition inside one publication, so no other
+ * transition lands between its read and its compare-and-swap. A publication
+ * that cannot start is reported as the refusal it is, as a single write's is.
+ */
+export async function withinCompletionPublication<T>(
+  root: string,
+  transition: () => Promise<T>,
+): Promise<T | CompletionWriteRefusal> {
+  try {
+    return await withCompletionPublication(
+      await Deno.realPath(root),
+      transition,
+    );
+  } catch (error) {
+    return publicationFailure(error);
   }
 }

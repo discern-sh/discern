@@ -50,7 +50,6 @@ import {
   plainModeEnabled,
   resolveSetupConfig,
 } from "../lib/terminal_interaction.ts";
-import { terminalLine } from "../lib/terminal.ts";
 import { alignedLabelWidth, padDisplayEnd } from "../lib/text.ts";
 import {
   applyConfigDoc,
@@ -2491,14 +2490,14 @@ function emitSetupIncomplete(
   log.error(message);
   log.group("unfinished-items");
   for (const file of leftover) {
-    log.humanLine(`  • ${terminalLine(file)} (skeleton marker remains)`);
+    log.item(`• ${file} (skeleton marker remains)`);
   }
   for (const check of unmet) {
-    log.humanLine(`  • Step ${check.step} — ${terminalLine(check.describe)}`);
+    log.item(`• Step ${check.step} — ${check.describe}`);
   }
   log.group("recovery");
-  log.humanLine(
-    "  Fill them and re-run, or pass --unproven to record completion without Proof.",
+  log.item(
+    "Fill them and re-run, or pass --unproven to record completion without Proof.",
   );
 }
 
@@ -2583,11 +2582,11 @@ function emitSetupDirtyRefusal(
   log.error(refusal.message);
   log.group(refusal.group);
   for (const path of refusal.paths) {
-    log.humanLine(`  • ${terminalLine(path)}`);
+    log.item(`• ${path}`);
   }
   if (refusal.recovery !== undefined) {
     log.group("recovery");
-    for (const line of refusal.recovery) log.humanLine(line);
+    for (const line of refusal.recovery) log.item(line);
   }
 }
 
@@ -2600,8 +2599,8 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
     paths: uncommitted,
     group: "uncommitted-items",
     recovery: [
-      "  The completion Proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
-      "  (Untracked scratch outside the setup files never blocks; --unproven skips this check.)",
+      "The completion Proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
+      "(Untracked scratch outside the setup files never blocks; --unproven skips this check.)",
     ],
   });
 }
@@ -3828,11 +3827,11 @@ function emitDoneGateFailure(
     const log = new Logger({ json: false, noColor: false });
     log.error(message);
     log.group("proof-context");
-    log.humanLine(
-      `  The final-tree transaction is marker commit → refresh → doctor → linked-worktree probe → Gate → Proof. The ${stage} step failed.`,
+    log.item(
+      `The final-tree transaction is marker commit → refresh → doctor → linked-worktree probe → Gate → Proof. The ${stage} step failed.`,
     );
     log.group("recovery");
-    log.humanLine(`  ${projection.recovery}`);
+    log.item(projection.recovery);
     for (const diagnostic of projection.diagnostics ?? []) {
       const location = diagnostic.file === undefined
         ? ""
@@ -3840,13 +3839,11 @@ function emitDoneGateFailure(
           diagnostic.line === undefined ? "" : `:${diagnostic.line}`
         }`;
       const rule = diagnostic.rule === undefined ? "" : ` [${diagnostic.rule}]`;
-      log.humanLine(
-        `  ${diagnostic.tool}${location}${rule}: ${diagnostic.message}`,
-      );
-      log.humanLine(`  Reproduce: ${diagnostic.reproduce_cmd}`);
+      log.item(`${diagnostic.tool}${location}${rule}: ${diagnostic.message}`);
+      log.item(`Reproduce: ${diagnostic.reproduce_cmd}`);
     }
-    log.humanLine(
-      "  Use --unproven only when you intend to record a completion event without Proof; setup acceptance will refuse it.",
+    log.item(
+      "Use --unproven only when you intend to record a completion event without Proof; setup acceptance will refuse it.",
     );
   }
   return 1;

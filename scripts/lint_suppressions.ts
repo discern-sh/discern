@@ -32,7 +32,7 @@ const exclusions = effectiveLintExclusions(
 );
 for (const exclusion of exclusions) {
   console.error(
-    `deno.json lint.exclude '${exclusion.pattern}' excludes ` +
+    `deno.json lint exclusion '${exclusion.pattern}' excludes ` +
       `${exclusion.files.join(", ")}`,
   );
 }

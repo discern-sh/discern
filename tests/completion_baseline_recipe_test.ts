@@ -304,7 +304,6 @@ Deno.test("E08 E16: one demanded instrumented suite supplies every coverage cons
           record,
           null,
           kind === "candidate" ? execution.fence : undefined,
-          COMPLETION_CLOCK,
         )).kind,
         "written",
       );
