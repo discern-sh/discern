@@ -191,7 +191,7 @@ export async function runCompleteGate<T extends CompletionGateResult>(
 function completionNextAction(blocker: CompletionBlocker): string {
   switch (blocker.kind) {
     case "stale-evidence":
-      return "The source or the trunk changed. Run discern update when the branch is behind the trunk, then run discern done to establish complete current evidence.";
+      return "Run discern update when the branch is behind the trunk, then run discern done to establish complete current evidence.";
     case "missing-judgment":
       return "Resolve the served checkpoint judgment, then run discern done again.";
     case "unavailable":
