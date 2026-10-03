@@ -16,7 +16,11 @@ import {
 import { junitToDiagnostics } from "../src/engine/gate/diagnostics.ts";
 import { formatProducerProgressLine } from "../src/engine/validation/progress_lines.ts";
 import { withToolTempDir } from "./temp_dir.ts";
-import { priorityFile, type TestPriority } from "./test_priority.ts";
+import {
+  ignoreCarries,
+  priorityFile,
+  type TestPriority,
+} from "./test_priority.ts";
 import { selectionSeconds, type TestDurationHints } from "./test_durations.ts";
 
 /** Partition only complete runs whose forwarded options preserve native selection. */
@@ -382,7 +386,7 @@ export function partitionSelections(
   if (
     priority === undefined || count < 2 ||
     !Number.isSafeInteger(priority.moduleCount) || priority.moduleCount < 1 ||
-    priority.excluded.some((path) => path.includes(","))
+    !priority.excluded.every(ignoreCarries)
   ) return ordinary;
   const sorted = [...new Set(priority.files)].filter(priorityFile).sort();
   if (sorted.length === 0 || sorted.length >= priority.moduleCount) {

@@ -80,6 +80,8 @@ Deno.test("priority fallback preserves unsupported native selections and literal
       { workspace: [] },
       { exclude: "wrong" },
       { exclude: ["comma,name"] },
+      { exclude: [".vale/*", "!.vale/config/"] },
+      { test: { exclude: ["!tests/kept/"] } },
     ]
   ) {
     assertEquals(priorityExclusions(value), undefined);

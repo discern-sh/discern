@@ -36,6 +36,17 @@ const SelectionConfigSchema = z.object({
 }).passthrough();
 
 /**
+ * Whether native `--ignore` can carry one exclusion unchanged. The list is
+ * comma-separated, so a comma would split the entry. A negation would also
+ * change its neighbours: once any `--ignore` entry starts with `!`, Deno stops
+ * honouring the plain-path entries beside it, which would return excluded
+ * trees and the priority files themselves to the remaining selection.
+ */
+export function ignoreCarries(path: string): boolean {
+  return !path.includes(",") && !path.startsWith("!");
+}
+
+/**
  * Preserve the native config exclusions when the CLI supplies an ignore list.
  * Native `--ignore` replaces the top-level and the test exclusions alike, so
  * the carried list holds both.
@@ -49,7 +60,7 @@ export function priorityExclusions(config: unknown): string[] | undefined {
     parsed.data.workspace !== undefined
   ) return undefined;
   const excluded = sectionExclusions(exclusions, "test");
-  return excluded.some((path) => path.includes(",")) ? undefined : excluded;
+  return excluded.every(ignoreCarries) ? excluded : undefined;
 }
 
 /** Only literal native test filenames can be removed from the remaining selection. */
