@@ -19,7 +19,7 @@ import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { compactDuration } from "./output.ts";
 import { resolveCommonGitDir } from "./worktree/git.ts";
-import { readFleetLogbookActivity } from "./logbook/read.ts";
+import { readFleetLogbookActivityAt } from "./logbook/read.ts";
 import { configEpoch } from "./logbook/epoch.ts";
 import { withProgressWait } from "./completion/progress_wait.ts";
 import { type Clock, SYSTEM_CLOCK } from "../shared/clock.ts";
@@ -168,12 +168,16 @@ const NO_DECORATION: {
 };
 
 /**
- * Read optional queue-line context from the fleet logbook. Any read failure
- * removes the decoration without affecting whether or when the lock acquires.
+ * Read optional wait history from the fleet logbook as it stood when the wait
+ * began. The read follows the wait announcement, so replaying only events
+ * stamped by `enteredAtMs` keeps an operation that finishes meanwhile in the
+ * history. Any read failure removes the decoration without affecting whether
+ * or when the lock acquires.
  */
 async function waitDecoration(
   root: string,
   cfg: DiscernConfig,
+  enteredAtMs: number,
 ): Promise<{ inFlight: string | undefined; typical: string | undefined }> {
   try {
     const commonGitDir = await resolveCommonGitDir(root);
@@ -184,9 +188,10 @@ async function waitDecoration(
       cwd: root,
     });
     const ownBranch = branchProbe.success ? branchProbe.stdout.trim() : "";
-    const activity = await readFleetLogbookActivity(
+    const activity = await readFleetLogbookActivityAt(
       commonGitDir,
       configEpoch(cfg).fingerprint,
+      enteredAtMs,
     );
     const running: { branch: string; verb: string }[] = [];
     for (const [branch, entry] of activity.byBranch) {
@@ -312,6 +317,8 @@ export function buildTestRunSlotAcquirer(
             "This work will start automatically when capacity becomes available. No action is needed.",
           capacity: { in_use: cap, limit: cap },
         };
+        // The history describes this instant, which precedes the announcement.
+        const enteredAt = clock.wallNow();
         wait.update(details);
         onEvent({
           kind: "queued",
@@ -319,7 +326,7 @@ export function buildTestRunSlotAcquirer(
             cap,
             logbookOff: !cfg.project.record_logbook,
             ...(cfg.project.record_logbook
-              ? await waitDecoration(root, cfg)
+              ? await waitDecoration(root, cfg, enteredAt)
               : NO_DECORATION),
           }),
         });
