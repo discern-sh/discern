@@ -175,6 +175,9 @@ export interface Narration {
    * spaces deepen its indent; a wrapped item's continuation lines hang two
    * cells past its first line. */
   detail(text: string): void;
+  /** An undimmed item indented under a group — a recovery step, a listed
+   * path — laid out exactly as {@link Narration.detail}. */
+  item(text: string): void;
   /** Dimmed label + body detail rows aligned through the one column policy;
    * a body too wide for the terminal wraps under the body column. `indent`
    * leads every row, the detail indent by default. */
@@ -196,6 +199,14 @@ export interface Narration {
    * separator is visible.
    */
   errorBlock(message: string): void;
+  /**
+   * The one human failure form: a danger block stating the condition, then
+   * one recovery group carrying each next step as an {@link Narration.item}.
+   * A failure whose message already names its next step passes no recovery
+   * and stays the danger block alone; a distinct actionable step — a command
+   * to run, a canonical suggestion — gets the recovery group.
+   */
+  failure(condition: string, recovery?: readonly string[]): void;
 }
 
 /** Build the one narration implementation over a sink and stream policy. */
@@ -288,6 +299,25 @@ export function makeNarration(
       streams.alerts,
     );
   };
+  /** One indented item on the narration stream; `detail` and `item` differ
+   * only in `paint`. */
+  const indented = (text: string, paint: (line: string) => string): void =>
+    sink.line(
+      hanging("  ", terminalLine(text), paint, ITEM_HANG),
+      streams.narration,
+    );
+  const item = (text: string): void => indented(text, (line) => line);
+  const group = (id: string, label?: string): void => {
+    assertHumanOutputGroupId(id);
+    if (label !== undefined) assertHumanOutputGroupLabel(id, label);
+    sink.boundary();
+    if (label !== undefined) {
+      sink.line(
+        hanging(`  ${muted("──")} `, terminalLine(label), strong),
+        sink.lastStream(),
+      );
+    }
+  };
   return {
     info: (message: string): void =>
       sink.line(
@@ -310,26 +340,9 @@ export function makeNarration(
       sink.boundary({ evenAtStart: true, stream: streams.narration });
       sink.line(hanging("", terminalLine(text), strong), streams.narration);
     },
-    group: (id: string, label?: string): void => {
-      assertHumanOutputGroupId(id);
-      if (label !== undefined) assertHumanOutputGroupLabel(id, label);
-      sink.boundary();
-      if (label !== undefined) {
-        sink.line(
-          hanging(
-            `  ${muted("──")} `,
-            terminalLine(label),
-            strong,
-          ),
-          sink.lastStream(),
-        );
-      }
-    },
-    detail: (text: string): void =>
-      sink.line(
-        hanging("  ", terminalLine(text), muted, ITEM_HANG),
-        streams.narration,
-      ),
+    group,
+    detail: (text: string): void => indented(text, muted),
+    item,
     detailRows: (rows: readonly AlignedRow[], indent = "  "): void => {
       for (
         const line of renderAlignedRows(
@@ -346,24 +359,11 @@ export function makeNarration(
     terminalSafeMultilineError: (message: TerminalMultiline): void =>
       errorBlock(message),
     errorBlock,
+    failure: (condition: string, recovery: readonly string[] = []): void => {
+      errorBlock(condition);
+      if (recovery.length === 0) return;
+      group("failure-recovery");
+      for (const step of recovery) item(step);
+    },
   };
-}
-
-/**
- * The one human failure form: a danger line stating the condition, then one
- * recovery group carrying the next step. A failure whose message already names
- * its next step stays a single `error` line; a distinct actionable step —
- * a command to run, a canonical suggestion — gets the recovery group.
- */
-export function reportFailure(
-  narration: Pick<Narration, "errorBlock" | "group" | "humanLine">,
-  condition: string,
-  recovery: readonly string[] = [],
-): void {
-  narration.errorBlock(condition);
-  if (recovery.length === 0) return;
-  narration.group("failure-recovery");
-  for (const step of recovery) {
-    narration.humanLine(`  ${terminalLine(step)}`);
-  }
 }

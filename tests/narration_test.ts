@@ -9,7 +9,6 @@ import {
   makeNarration,
   makeOutputSink,
   type Narration,
-  reportFailure,
   silentOutputSink,
 } from "../src/lib/narration.ts";
 import {
@@ -190,9 +189,7 @@ Deno.test("narration: lineCapture cases", () => {
         narration: "stderr",
         alerts: "stderr",
       });
-      reportFailure(narration, "the input is malformed", [
-        "Run: discern --help",
-      ]);
+      narration.failure("the input is malformed", ["Run: discern --help"]);
       assertEquals(stderr, [
         "✕ the input is malformed",
         "",
@@ -205,7 +202,7 @@ Deno.test("narration: lineCapture cases", () => {
         narration: "stderr",
         alerts: "stderr",
       });
-      reportFailure(narration, "nothing to land; commit first");
+      narration.failure("nothing to land; commit first");
       assertEquals(stderr, ["✕ nothing to land; commit first"]);
     },
   });
@@ -233,6 +230,7 @@ const NARRATION_WIDTH_CONTRACTS = {
     bounded: (narration, prose) => narration.group("width-guard", prose),
   },
   detail: { bounded: (narration, prose) => narration.detail(prose) },
+  item: { bounded: (narration, prose) => narration.item(prose) },
   detailRows: {
     bounded: (narration, prose) =>
       narration.detailRows([
@@ -253,6 +251,9 @@ const NARRATION_WIDTH_CONTRACTS = {
   errorBlock: {
     bounded: (narration, prose) => narration.errorBlock(`${prose}\n  ${prose}`),
   },
+  failure: {
+    bounded: (narration, prose) => narration.failure(prose, [prose, prose]),
+  },
 } satisfies Record<keyof Narration, NarrationWidthContract>;
 
 /** Ordinary words plus one token wider than the whole guard terminal. */
@@ -264,6 +265,7 @@ const WIDTH_GUARD_COLUMNS = 30;
  * received while rendering it. */
 interface GuardRender {
   readonly output: string;
+  readonly stdout: string;
   readonly presented: readonly string[];
 }
 
@@ -314,7 +316,11 @@ function renderAtWidth(
       { narration: "stdout", alerts: "stderr" },
     ),
   );
-  return { output: [...stdout, ...stderr].join(""), presented };
+  return {
+    output: [...stdout, ...stderr].join(""),
+    stdout: stdout.join(""),
+    presented,
+  };
 }
 
 /** Render one verb on a colour terminal of the guard width. */
@@ -395,6 +401,23 @@ Deno.test("a wrapped detail keeps its indent, hangs deeper, and closes styling p
         `detail styling crosses a line end: ${line}`,
       );
     }
+  }
+});
+
+Deno.test("a wrapped recovery step hangs past its item in the failure form", () => {
+  const steps = stripAnsi(
+    renderAtWidth(
+      WIDTH_GUARD_COLUMNS,
+      (narration) =>
+        narration.failure("refused.", [WIDTH_GUARD_PROSE, "Run: discern"]),
+    ).stdout,
+  ).trimEnd().split("\n");
+  assertEquals(steps.at(-1), "  Run: discern");
+  const [first = "", ...continuations] = steps.slice(0, -1);
+  assert(first.startsWith("  Run"), first);
+  assert(continuations.length > 0, "the guard prose must wrap");
+  for (const line of continuations) {
+    assert(/^ {4}\S/u.test(line), `a step continuation must hang: ${line}`);
   }
 });
 

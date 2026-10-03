@@ -1463,9 +1463,7 @@ function renderExecutionModel(
       width,
     }));
     // An aligned legend, rather than one long sentence that would itself wrap.
-    log.humanLine(
-      `  ${terminal.role("What runs when you call each verb:", "muted")}`,
-    );
+    log.detail("What runs when you call each verb:");
     log.humanLine(
       `    ${terminal.tone(padDisplayEnd("[project]", 9), "success")} ${
         terminal.role("your configured command", "muted")
@@ -1505,9 +1503,7 @@ function renderExecutionModel(
       width,
     }));
     if (vp.steps.length === 0) {
-      log.humanLine(
-        `  ${terminal.role("(nothing configured)", "muted")}`,
-      );
+      log.detail("(nothing configured)");
       return;
     }
     for (const s of vp.steps) {

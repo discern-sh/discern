@@ -10,7 +10,6 @@ import {
 } from "../shared/hints.ts";
 import { unknownCommandMessage } from "../shared/vocabulary.ts";
 import { Logger } from "../lib/log.ts";
-import { reportFailure } from "../lib/narration.ts";
 
 /**
  * Report an unknown word with an optional canonical suggestion. Machine output
@@ -38,8 +37,7 @@ export function reportUnknownCommand(
     });
     return;
   }
-  reportFailure(
-    new Logger({ json: false, noColor: false }),
+  new Logger({ json: false, noColor: false }).failure(
     unknownCommandMessage(word),
     interactiveHints(hints).map((hint) => hint.text),
   );
