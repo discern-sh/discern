@@ -80,7 +80,7 @@ export type HeldAttempt = CompletionAttempt & {
 export class AttemptClaimLost extends Error {
   constructor() {
     super(
-      "Another discern run closed this completion attempt after it stopped renewing its claim, so its results were not recorded.",
+      "Another discern run closed this run's completion attempt after its claim stopped renewing, so this run did not complete.",
     );
     this.name = "AttemptClaimLost";
   }
