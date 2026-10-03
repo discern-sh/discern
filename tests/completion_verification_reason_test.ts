@@ -42,10 +42,16 @@ import {
   observeValidationInputs,
   verifyValidationInputs,
 } from "../src/engine/validation/runtime.ts";
-import type { ValidationSnapshot } from "../src/engine/validation/catalog.ts";
+import type {
+  ValidationInputs,
+  ValidationSnapshot,
+} from "../src/engine/validation/catalog.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
-import { withTempDir } from "./helpers.ts";
+import {
+  type PooledInstallCase,
+  withPristineInstalls,
+} from "./engine_surface_fixture.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import {
   captured,
@@ -71,8 +77,15 @@ interface RecordedCheckout {
   readonly runtime: (environment?: Record<string, string>) => ValidationRuntime;
 }
 
+/** What a seeded checkout planned, independent of where a copy of it lives. */
+interface RecordedSeed {
+  readonly snap: ValidationSnapshot;
+  readonly execution: ClaimedExecution;
+  readonly inputs: ValidationInputs;
+}
+
 /** Commit a checkout and record its live attempt and candidate. */
-async function recordedCheckout(root: string): Promise<RecordedCheckout> {
+async function seedRecordedCheckout(root: string): Promise<RecordedSeed> {
   // The toolchain file is ignored, so a change to it reaches only the
   // planned-input comparison and never the checkout status.
   await Deno.writeTextFile(join(root, ".gitignore"), "tool.lock\n");
@@ -81,8 +94,7 @@ async function recordedCheckout(root: string): Promise<RecordedCheckout> {
   const baseline = await snapshot();
   const head = await gitOut(root, "rev-parse", "HEAD");
   const tree = await gitOut(root, "rev-parse", "HEAD^{tree}");
-  const toolchain = PRODUCER_RECIPE.toolchain;
-  const inputs = await observeValidationInputs(root, toolchain);
+  const inputs = await observeValidationInputs(root, PRODUCER_RECIPE.toolchain);
   const snap = await snapshot({
     candidate: {
       ...baseline.candidate,
@@ -98,9 +110,7 @@ async function recordedCheckout(root: string): Promise<RecordedCheckout> {
     mode: "strict",
     requirements: snap.requirements,
   });
-  const execution = { ...claimed(snap, plan), path: root };
-  const conditions = CONDITIONS[0];
-  assert(conditions !== undefined);
+  const execution = claimed(snap, plan);
   for (
     const [record, fence] of [
       [{
@@ -128,10 +138,17 @@ async function recordedCheckout(root: string): Promise<RecordedCheckout> {
       "written",
     );
   }
+  return { snap, execution, inputs };
+}
+
+/** The seeded checkout as a copy at `root` holds it; records travel in its Git directory. */
+function recordedCheckout(seed: RecordedSeed, root: string): RecordedCheckout {
+  const conditions = CONDITIONS[0];
+  assert(conditions !== undefined);
   return {
     root,
-    snap,
-    execution,
+    snap: seed.snap,
+    execution: { ...seed.execution, path: root },
     runtime: (environment = { MODE: "test" }) =>
       createValidationRuntime({
         root,
@@ -139,7 +156,8 @@ async function recordedCheckout(root: string): Promise<RecordedCheckout> {
         environment,
         inheritedEnvironment: { get: () => undefined },
         timeout: 30,
-        verifyConditions: () => verifyValidationInputs(root, inputs, toolchain),
+        verifyConditions: () =>
+          verifyValidationInputs(root, seed.inputs, PRODUCER_RECIPE.toolchain),
         clock: COMPLETION_CLOCK,
       }),
   };
@@ -284,22 +302,85 @@ const CHECKOUT_CHANGES: readonly CheckoutChange[] = [
   },
 ];
 
-Deno.test("each verification comparison reports what it found, and only that", async () => {
-  for (const scenario of CHECKOUT_CHANGES) {
-    await withTempDir(async (root) => {
-      const checkout = await recordedCheckout(root);
-      const changed = await scenario.change(checkout) ?? {};
-      const verified = await finding(
-        changed.runtime ?? checkout.runtime(),
-        changed.execution ?? checkout.execution,
-      );
-      assertEquals(verified.found, scenario.found, scenario.name);
-      if (verified.found === "claim-lost") {
-        // Whichever step finds the retirement, it is told in one sentence.
-        assertEquals(verified.message, new AttemptClaimLost().message);
-      }
-    });
-  }
+/** The rendered pending causes a run reports, as narration prints them. */
+function rendered(blockers: readonly CompletionBlocker[]): string[] {
+  return blockers.map((blocker) => {
+    const account = completionBlockerAccount(blocker);
+    return `${account.reason} ${account.next}`;
+  });
+}
+
+Deno.test("a verification against a real checkout reports what its comparison found", async (t) => {
+  // Every case mutates its own copy of one seeded checkout.
+  let seed: RecordedSeed | undefined;
+  const at = (root: string): RecordedCheckout => {
+    assert(seed !== undefined, "the checkout is seeded before any case");
+    return recordedCheckout(seed, root);
+  };
+  await withPristineInstalls(
+    t,
+    async (root) => {
+      seed = await seedRecordedCheckout(root);
+    },
+    [
+      ...CHECKOUT_CHANGES.map((scenario): PooledInstallCase => [
+        scenario.name,
+        async (root) => {
+          const checkout = at(root);
+          const changed = await scenario.change(checkout) ?? {};
+          const verified = await finding(
+            changed.runtime ?? checkout.runtime(),
+            changed.execution ?? checkout.execution,
+          );
+          assertEquals(verified.found, scenario.found);
+          if (verified.found === "claim-lost") {
+            // Whichever step finds the retirement, it is told in one sentence.
+            assertEquals(verified.message, new AttemptClaimLost().message);
+          }
+        },
+      ]),
+      [
+        "a run retired mid-validation reports the retirement, not changed inputs",
+        async (root) => {
+          const checkout = at(root);
+          const controller = new AbortController();
+          const execution = {
+            ...checkout.execution,
+            signal: controller.signal,
+          };
+          const plan = planValidation(checkout.snap, observation(), {
+            kind: "done",
+            mode: "strict",
+            requirements: checkout.snap.requirements,
+          });
+          const result = await executeValidation(
+            checkout.snap,
+            plan,
+            execution,
+            {
+              ...checkout.runtime(),
+              produce: async () => {
+                await retire(root, execution);
+                controller.abort(new AttemptClaimLost());
+                return {
+                  outcome: "cancelled",
+                  complete: false,
+                  output: new Uint8Array(),
+                  artifacts: [],
+                  reason: "command failed (1)",
+                };
+              },
+            },
+            COMPLETION_CLOCK,
+          );
+          assertEquals(
+            [...new Set(rendered(result.blockers))],
+            rendered([claimLossBlocker()]),
+          );
+        },
+      ],
+    ],
+  );
 });
 
 Deno.test("every change a production comparison can report is exercised against a real checkout", async () => {
@@ -360,14 +441,6 @@ const FINDINGS: readonly Finding[] = [
   ...InvalidationReasonSchema.options,
   "unverifiable",
 ];
-
-/** The rendered pending causes a run reports, as narration prints them. */
-function rendered(blockers: readonly CompletionBlocker[]): string[] {
-  return blockers.map((blocker) => {
-    const account = completionBlockerAccount(blocker);
-    return `${account.reason} ${account.next}`;
-  });
-}
 
 Deno.test("a run reports a stale reason only when its verification computed it", async () => {
   const snap = await snapshot();
@@ -476,37 +549,6 @@ Deno.test("a run reports a stale reason only when its verification computed it",
       }
     }
   }
-});
-
-Deno.test("a run whose claim another run retired reports the retirement, not changed inputs", async () => {
-  await withTempDir(async (root) => {
-    const checkout = await recordedCheckout(root);
-    const controller = new AbortController();
-    const execution = { ...checkout.execution, signal: controller.signal };
-    const plan = planValidation(checkout.snap, observation(), {
-      kind: "done",
-      mode: "strict",
-      requirements: checkout.snap.requirements,
-    });
-    const result = await executeValidation(checkout.snap, plan, execution, {
-      ...checkout.runtime(),
-      produce: async () => {
-        await retire(root, execution);
-        controller.abort(new AttemptClaimLost());
-        return {
-          outcome: "cancelled",
-          complete: false,
-          output: new Uint8Array(),
-          artifacts: [],
-          reason: new AttemptClaimLost().message,
-        };
-      },
-    }, COMPLETION_CLOCK);
-    assertEquals(
-      [...new Set(rendered(result.blockers))],
-      rendered([claimLossBlocker()]),
-    );
-  });
 });
 
 Deno.test("a refused publication reports the refusal it received", () => {
