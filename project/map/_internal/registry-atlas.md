@@ -28,7 +28,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
 | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 18      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
-| [`deno-visible-ignored-roots`](#deno-visible-ignored-roots--git-ignored-roots-outside-deno-exclusion)                 | `scripts/repository_files.ts#DENO_VISIBLE_IGNORED_ROOTS`                          | 2       | —                | —                           |
+| [`deno-visible-ignore-patterns`](#deno-visible-ignore-patterns--git-ignore-patterns-outside-deno-exclusion)           | `scripts/repository_files.ts#DENO_VISIBLE_IGNORE_PATTERNS`                        | 16      | —                | —                           |
 | [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 28      | —                | —                           |
 | [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
 | [`contributor-intake-surfaces`](#contributor-intake-surfaces--contributor-intake-surfaces)                            | `scripts/repository_files.ts#CONTRIBUTOR_INTAKE_SURFACES`                         | 8       | —                | —                           |
@@ -215,7 +215,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/contributor_governance_test.ts`             | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/cross_agent_reference_codegen_test.ts`      | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/demand_canon_test.ts`                       | [`demand-canon`](#demand-canon--demand-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `tests/deno_discovery_exclusions_test.ts`          | [`deno-visible-ignored-roots`](#deno-visible-ignored-roots--git-ignored-roots-outside-deno-exclusion)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `tests/deno_discovery_exclusions_test.ts`          | [`deno-visible-ignore-patterns`](#deno-visible-ignore-patterns--git-ignore-patterns-outside-deno-exclusion)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/dev_vocab_guard_test.ts`                    | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/diagnostic_formats_enrolment_test.ts`       | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/discern_commit_enrolment_test.ts`           | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -1813,14 +1813,28 @@ Every absent generated output shared editor configuration may exclude, plus priv
 - Glossary: not enrolled — these are repository-maintenance paths rather than product vocabulary
 - Feature canon: not enrolled — editor presentation and local state do not change product behavior
 
-## `deno-visible-ignored-roots` — Git-ignored roots outside Deno exclusion
+## `deno-visible-ignore-patterns` — Git-ignore patterns outside Deno exclusion
 
-Every Git-ignored directory root deno.json's top-level exclude deliberately leaves visible, with its reason; every other ignored root is excluded so Deno's check and test discovery never reach ignored scratch or build output.
+Every pattern a tracked .gitignore ignores that deno.json's top-level exclude deliberately leaves visible, with the reason it is safe; every other ignored pattern is excluded so Deno's check and test discovery never reach ignored scratch or build output.
 
-- Source: `scripts/repository_files.ts` — `DENO_VISIBLE_IGNORED_ROOTS`
-- Members: 2
+- Source: `scripts/repository_files.ts` — `DENO_VISIBLE_IGNORE_PATTERNS`
+- Members: 16
+  - `non-module-files: **/.DS_Store`
+  - `non-module-files: **/*.log`
   - `deno-skips: node_modules/`
+  - `non-module-files: .idea/gbrowsers.xml`
+  - `non-module-files: .idea/gbrowser_project.xml`
+  - `re-included: .vale/*`
+  - `non-module-files: site/pages/index.html`
+  - `non-module-files: site/pages/agents.html`
+  - `non-module-files: site/pages/agents.md`
   - `rebuilt: site/pages/assets/design-system/`
+  - `non-module-files: site/pages/v2.html`
+  - `non-module-files: .claude/settings.local.json`
+  - `non-module-files: site/pages/release-catalogue.json`
+  - `non-module-files: site/release-publication.json`
+  - `non-module-files: .idea/workspace.xml`
+  - `non-module-files: .idea/dataSources.local.xml`
 - Guards: `tests/deno_discovery_exclusions_test.ts`
 - Glossary: not enrolled — these are repository-maintenance paths rather than product vocabulary
 - Feature canon: not enrolled — the repository's own Deno discovery scope does not change product behavior
@@ -5908,7 +5922,7 @@ This meta-registry: the closed set of closed sets.
   - `build-targets`
   - `repository-literal-policies`
   - `editor-path-policies`
-  - `deno-visible-ignored-roots`
+  - `deno-visible-ignore-patterns`
   - `repository-community-files`
   - `map-tier-publication-postures`
   - `contributor-intake-surfaces`

@@ -574,14 +574,14 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
-    id: "deno-visible-ignored-roots",
-    title: "Git-ignored roots outside Deno exclusion",
+    id: "deno-visible-ignore-patterns",
+    title: "Git-ignore patterns outside Deno exclusion",
     what:
-      "Every Git-ignored directory root deno.json's top-level exclude deliberately leaves visible, with its reason; every other ignored root is excluded so Deno's check and test discovery never reach ignored scratch or build output.",
+      "Every pattern a tracked .gitignore ignores that deno.json's top-level exclude deliberately leaves visible, with the reason it is safe; every other ignored pattern is excluded so Deno's check and test discovery never reach ignored scratch or build output.",
     source: {
       kind: "module",
       module: "scripts/repository_files.ts",
-      exportName: "DENO_VISIBLE_IGNORED_ROOTS",
+      exportName: "DENO_VISIBLE_IGNORE_PATTERNS",
     },
     guards: ["tests/deno_discovery_exclusions_test.ts"],
     artifacts: [],
@@ -596,8 +596,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
     },
     members: async () =>
-      (await import("./repository_files.ts")).DENO_VISIBLE_IGNORED_ROOTS.map(
-        (root) => `${root.discovery}: ${root.path}`,
+      (await import("./repository_files.ts")).DENO_VISIBLE_IGNORE_PATTERNS.map(
+        (entry) => `${entry.discovery}: ${entry.pattern}`,
       ),
   },
   {

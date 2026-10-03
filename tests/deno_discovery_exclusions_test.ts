@@ -1,133 +1,380 @@
 /**
- * Git-ignored directory roots stay out of Deno's file discovery.
+ * Git-ignored paths stay out of Deno's file discovery.
  *
  * `deno fmt` and `deno lint` skip Git-ignored paths on their own, but
  * `deno check` and `deno test` walk everything under the project root. Ignored
- * scratch TypeScript — agent probes, capture tools — would otherwise fail the
- * gate's typecheck and test stages with errors unrelated to the change. The
- * top-level `exclude` in deno.json therefore names exactly the directory roots
- * `.gitignore` ignores, less the reasoned `DENO_VISIBLE_IGNORED_ROOTS`.
+ * scratch modules — agent probes, capture tools, an interrupted build's
+ * bundle — would otherwise fail the gate's typecheck and test stages with
+ * errors unrelated to the change. The top-level `exclude` in deno.json
+ * therefore names every pattern a tracked `.gitignore` ignores, less the
+ * reasoned `DENO_VISIBLE_IGNORE_PATTERNS`.
  *
- * The roots derive from `.gitignore`, so a newly ignored directory fails here
- * until it is excluded or registered. The reverse direction keeps the
- * top-level list, which hides paths from every Deno command at once, from
- * ever naming authored source. A behavioral check plants broken TypeScript
- * under every hidden root and runs Deno's own discovery commands against the
- * repository's real exclusion list.
+ * Every pattern counts, whatever its spelling: a slashless name or a `dir/*`
+ * glob ignores directories as surely as a trailing-slash root does, and a
+ * nested `.gitignore` ignores paths beneath its own directory. A newly ignored
+ * pattern therefore fails here until it is excluded or registered. The
+ * reverse direction keeps the top-level list, which hides paths from every
+ * Deno command at once, from ever naming authored source. A behavioral check
+ * plants broken modules under every hidden pattern and runs Deno's own
+ * discovery commands against the repository's real exclusion list.
  */
 
-import { assert, assertEquals } from "@std/assert";
-import { dirname, join } from "@std/path";
+import { assert, assertEquals, assertThrows } from "@std/assert";
+import { basename, dirname, globToRegExp, join } from "@std/path";
 import {
   DENO_DISCOVERY_COMMANDS,
   type DenoDiscoveryCommand,
   type DenoExclusions,
   readDenoExclusions,
 } from "../scripts/deno_exclusions.ts";
-import { DENO_VISIBLE_IGNORED_ROOTS } from "../scripts/repository_files.ts";
+import {
+  DENO_VISIBLE_IGNORE_PATTERNS,
+  type DenoVisibleIgnorePattern,
+} from "../scripts/repository_files.ts";
 import { GENERATED_SITE_OUTPUTS } from "../site/build.ts";
 import { assertNamedCases } from "./assert_cases.ts";
-import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { DENO_MODULE_EXTENSIONS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { withTempDir } from "./temp_dir.ts";
 
+/** One `.gitignore` pattern, translated to the form deno.json's `exclude` takes. */
+interface IgnorePattern {
+  /**
+   * Relative to the repository root. An unanchored pattern gains a `**\/`
+   * prefix, and a directory-only pattern keeps its trailing slash.
+   */
+  readonly pattern: string;
+  /** A `!` pattern re-includes what an earlier pattern ignored. */
+  readonly negated: boolean;
+  /** `<.gitignore path>:<line>`, for diagnostics. */
+  readonly source: string;
+}
+
 /**
- * The directory roots one `.gitignore` text ignores, in Deno exclude form.
- * Only directory-only patterns (a trailing slash) qualify: negations re-include
- * rather than ignore, and file patterns name no tree of modules. A pattern with
- * no inner slash matches at any depth, so it maps to a `**` glob.
+ * Translate one `.gitignore` file's patterns, in order, to Deno exclude form.
+ * A pattern with a slash before its end is anchored to the file's directory;
+ * any other pattern matches at every depth beneath it. A trailing slash keeps
+ * its directory-only meaning, and the absence of one ignores files and
+ * directories alike.
  */
-function gitignoredDirectoryRoots(text: string): string[] {
-  const roots: string[] = [];
-  for (const raw of text.split(/\r?\n/u)) {
+function gitignorePatterns(file: string, text: string): IgnorePattern[] {
+  const directory = dirname(file);
+  const base = directory === "." ? "" : `${directory}/`;
+  const patterns: IgnorePattern[] = [];
+  text.split(/\r?\n/u).forEach((raw, index) => {
     const line = raw.trimEnd();
-    if (line === "" || line.startsWith("#") || line.startsWith("!")) continue;
-    if (!line.endsWith("/")) continue;
-    const body = line.slice(0, -1);
-    roots.push(
-      body.includes("/") ? `${body.replace(/^\//u, "")}/` : `**/${line}`,
+    if (line === "" || line.startsWith("#")) return;
+    const source = `${file}:${index + 1}`;
+    if (line.includes("\\")) {
+      throw new Error(
+        `${source} escapes a character, which gitignorePatterns does not ` +
+          "translate yet; teach it the escape before relying on the pattern",
+      );
+    }
+    const negated = line.startsWith("!");
+    const body = negated ? line.slice(1) : line;
+    const directoryOnly = body.endsWith("/");
+    const name = directoryOnly ? body.slice(0, -1) : body;
+    const path = name.includes("/") ? name.replace(/^\//u, "") : `**/${name}`;
+    patterns.push({
+      pattern: `${base}${path}${directoryOnly ? "/" : ""}`,
+      negated,
+      source,
+    });
+  });
+  return patterns;
+}
+
+/** Whether `pattern` matches `path` or one of its ancestor directories. */
+function covers(pattern: string, path: string): boolean {
+  const matcher = globToRegExp(pattern.replace(/\/$/u, ""), {
+    globstar: true,
+  });
+  const parts = path.replace(/\/$/u, "").split("/");
+  return parts.some((_, index) =>
+    matcher.test(parts.slice(0, index + 1).join("/"))
+  );
+}
+
+/** The later negations that re-include a path beneath `patterns[index]`. */
+function reincluding(
+  patterns: readonly IgnorePattern[],
+  index: number,
+): IgnorePattern[] {
+  const ignored = patterns[index];
+  if (ignored === undefined) return [];
+  return patterns.slice(index + 1).filter((later) =>
+    later.negated && covers(ignored.pattern, later.pattern)
+  );
+}
+
+/**
+ * Whether a pattern's final segment could name a JavaScript or TypeScript
+ * module. A glob decides the name's extension only when a dot follows its
+ * last wildcard.
+ */
+function couldNameModule(pattern: string): boolean {
+  const segment = pattern.split("/").at(-1) ?? "";
+  const wildcard = Math.max(
+    ...["*", "?", "[", "]"].map((glob) => segment.lastIndexOf(glob)),
+  );
+  const literal = segment.slice(wildcard + 1);
+  if (wildcard >= 0 && !literal.includes(".")) return true;
+  return DENO_MODULE_EXTENSIONS.some((extension) =>
+    literal.endsWith(extension)
+  );
+}
+
+/** A concrete module path beneath one hidden pattern, where a probe goes. */
+function probePath(pattern: string): string {
+  if (/[[\]]/u.test(pattern)) {
+    throw new Error(
+      `${pattern}: teach probePath to plant under a bracket glob`,
     );
   }
-  return roots;
+  const concrete = pattern.replace(/(^|\/)\*\*\//gu, "$1nested/")
+    .replaceAll("*", "probe").replaceAll("?", "p");
+  if (concrete.endsWith("/")) return `${concrete}probe_test.ts`;
+  return couldNameModule(concrete) ? concrete : `${concrete}/probe_test.ts`;
 }
 
-/** Compare a Deno exclude entry with a root: no `./` prefix, one trailing slash. */
-function normalizedRoot(entry: string): string {
-  return entry.replace(/^\.\//u, "").replace(/\/?$/u, "/");
+/** Compare a Deno exclude entry with a translated pattern: no `./` prefix. */
+function normalizedEntry(entry: string): string {
+  return entry.replace(/^\.\//u, "");
 }
 
-/** The repository's ignored directory roots and its decoded Deno exclusions. */
+/** Every tracked `.gitignore`'s patterns: the root file first, then by path. */
+async function repositoryIgnorePatterns(): Promise<IgnorePattern[]> {
+  const files = await structuralGuardScope({
+    guard: "tests/deno_discovery_exclusions_test.ts#gitignore-patterns",
+    universe: "authored-text",
+    narrow: {
+      reason: "Git reads ignore rules only from files named .gitignore",
+      include: (path) => basename(path) === ".gitignore",
+    },
+  });
+  const ordered = [...files].sort((a, b) =>
+    a.split("/").length - b.split("/").length || a.localeCompare(b)
+  );
+  const patterns: IgnorePattern[] = [];
+  for (const file of ordered) {
+    patterns.push(
+      ...gitignorePatterns(
+        file,
+        await Deno.readTextFile(join(REPO_ROOT, file)),
+      ),
+    );
+  }
+  return patterns;
+}
+
+/** The repository's ignore patterns and its decoded Deno exclusions. */
 async function repositoryDiscoveryInputs(): Promise<{
-  roots: string[];
+  patterns: IgnorePattern[];
   exclusions: DenoExclusions;
 }> {
-  const roots = gitignoredDirectoryRoots(
-    await Deno.readTextFile(join(REPO_ROOT, ".gitignore")),
-  );
-  return { roots, exclusions: await readDenoExclusions(REPO_ROOT) };
+  return {
+    patterns: await repositoryIgnorePatterns(),
+    exclusions: await readDenoExclusions(REPO_ROOT),
+  };
 }
 
-Deno.test("gitignore directory roots: parser cases", () => {
+/** The registered visible patterns of one discovery kind. */
+function visibleOfKind(
+  discovery: DenoVisibleIgnorePattern["discovery"],
+): string[] {
+  return DENO_VISIBLE_IGNORE_PATTERNS.filter((entry) =>
+    entry.discovery === discovery
+  ).map((entry) => entry.pattern);
+}
+
+/** Render patterns with their `.gitignore` lines for a failure message. */
+function described(patterns: readonly IgnorePattern[]): string {
+  return patterns.map((entry) => `${entry.pattern} (${entry.source})`).join(
+    ", ",
+  );
+}
+
+Deno.test("gitignore patterns: translation cases", () => {
   assertNamedCases({
-    "anchored, nested, and unanchored directory patterns become roots": () => {
+    "every spelling translates, slashless names and globs included": () => {
       assertEquals(
-        gitignoredDirectoryRoots("/dist/\n/.claude/worktrees/\nbuild/\r\n"),
-        ["dist/", ".claude/worktrees/", "**/build/"],
+        gitignorePatterns(
+          ".gitignore",
+          "/dist/\n/.claude/worktrees/\nbuild/\r\n/tmp\nnode_modules\n" +
+            "*.log\n/.vale/*\n/a/b.html\n",
+        ).map((entry) => entry.pattern),
+        [
+          "dist/",
+          ".claude/worktrees/",
+          "**/build/",
+          "tmp",
+          "**/node_modules",
+          "**/*.log",
+          ".vale/*",
+          "a/b.html",
+        ],
       );
     },
-    "comments, negations, and file patterns name no root": () => {
+    "a nested .gitignore resolves against its own directory": () => {
       assertEquals(
-        gitignoredDirectoryRoots(
-          "# /dist/\n!/.vale/config/\n/.vale/*\n*.log\n.DS_Store\n/a/b.html\n\n",
-        ),
-        [],
+        gitignorePatterns(".idea/.gitignore", "/shelf/\nworkspace.xml\n"),
+        [
+          {
+            pattern: ".idea/shelf/",
+            negated: false,
+            source: ".idea/.gitignore:1",
+          },
+          {
+            pattern: ".idea/**/workspace.xml",
+            negated: false,
+            source: ".idea/.gitignore:2",
+          },
+        ],
+      );
+    },
+    "comments and blanks name nothing, and negations stay marked": () => {
+      assertEquals(
+        gitignorePatterns(".gitignore", "# /dist/\n\n!/.vale/config/\n"),
+        [{ pattern: ".vale/config/", negated: true, source: ".gitignore:3" }],
+      );
+    },
+    "an escaped pattern is refused rather than mistranslated": () => {
+      assertThrows(() => gitignorePatterns(".gitignore", "\\#literal\n"));
+    },
+    "a negation re-includes beneath a glob but not beside it": () => {
+      const patterns = gitignorePatterns(
+        ".gitignore",
+        "/.vale/*\n/dist/\n!/.vale/config/\n!/distant/\n",
+      );
+      assertEquals(reincluding(patterns, 0).map((entry) => entry.source), [
+        ".gitignore:3",
+      ]);
+      assertEquals(reincluding(patterns, 1), []);
+    },
+    "only a pattern that cannot end in a module extension names non-modules":
+      () => {
+        for (
+          const pattern of [
+            "**/.DS_Store",
+            "**/*.log",
+            "site/pages/index.html",
+            "tmp",
+          ]
+        ) assertEquals(couldNameModule(pattern), false, pattern);
+        for (
+          const pattern of [
+            ".deno_compile_bundle_*.mjs",
+            ".vale/*",
+            "**/*s",
+            "scratch.ts",
+          ]
+        ) assertEquals(couldNameModule(pattern), true, pattern);
+      },
+    "probes land beneath directories and on module globs": () => {
+      assertEquals(probePath("**/build/"), "nested/build/probe_test.ts");
+      assertEquals(
+        probePath(".deno_compile_bundle_*.mjs"),
+        ".deno_compile_bundle_probe.mjs",
+      );
+      assertEquals(
+        probePath("project/map/_private"),
+        "project/map/_private/probe_test.ts",
       );
     },
   });
 });
 
-Deno.test("deno.json's top-level exclude names exactly the Git-ignored directory roots", async () => {
-  const { roots, exclusions } = await repositoryDiscoveryInputs();
-  assert(roots.length > 0, ".gitignore must yield directory roots");
-  const visible = new Set(DENO_VISIBLE_IGNORED_ROOTS.map((root) => root.path));
-  const stale = [...visible].filter((path) => !roots.includes(path));
+Deno.test("every Git-ignored pattern is excluded from Deno discovery or registered visible", async () => {
+  const { patterns, exclusions } = await repositoryDiscoveryInputs();
+  const ignored = patterns.filter((entry) => !entry.negated);
+  assert(ignored.length > 0, ".gitignore must yield ignore patterns");
+  const excluded = new Set(exclusions.workspace.map(normalizedEntry));
+  const visible = new Set(
+    DENO_VISIBLE_IGNORE_PATTERNS.map((entry) => entry.pattern),
+  );
+  const missing = ignored.filter((entry) =>
+    !excluded.has(entry.pattern) && !visible.has(entry.pattern)
+  );
+  assertEquals(
+    described(missing),
+    "",
+    `.gitignore ignores ${described(missing)}, which deno check and ` +
+      "deno test would still discover. A slashless name or a glob such as " +
+      "dir/* ignores directories as surely as a trailing-slash root. Add " +
+      'each pattern as shown to the top-level "exclude" in deno.json, or ' +
+      "register it in DENO_VISIBLE_IGNORE_PATTERNS " +
+      "(scripts/repository_files.ts) with the reason it may stay visible",
+  );
+  const ignoredPatterns = new Set(ignored.map((entry) => entry.pattern));
+  const stale = [...visible].filter((pattern) => !ignoredPatterns.has(pattern));
   assertEquals(
     stale,
     [],
-    `DENO_VISIBLE_IGNORED_ROOTS registers ${stale.join(", ")}, which ` +
-      ".gitignore no longer ignores as a directory; remove the entry",
+    `DENO_VISIBLE_IGNORE_PATTERNS registers ${stale.join(", ")}, which no ` +
+      ".gitignore ignores any more; remove the entry",
   );
-  const excluded = new Set(exclusions.workspace.map(normalizedRoot));
-  const missing = roots.filter((root) =>
-    !visible.has(root) && !excluded.has(root)
+});
+
+Deno.test("deno.json's top-level exclude names only Git-ignored patterns", async () => {
+  const { patterns, exclusions } = await repositoryDiscoveryInputs();
+  const ignored = new Set(
+    patterns.filter((entry) => !entry.negated).map((entry) => entry.pattern),
   );
-  assertEquals(
-    missing,
-    [],
-    `.gitignore ignores ${missing.join(", ")}, which deno check and ` +
-      "deno test would still discover. Add each to the top-level " +
-      '"exclude" in deno.json, or register it in DENO_VISIBLE_IGNORED_ROOTS ' +
-      "(scripts/repository_files.ts) with the reason it must stay visible",
+  const visible = new Set(
+    DENO_VISIBLE_IGNORE_PATTERNS.map((entry) => entry.pattern),
   );
-  const unexpected = [...excluded].filter((entry) =>
-    !roots.includes(entry) || visible.has(entry)
+  const unexpected = exclusions.workspace.filter((entry) =>
+    !ignored.has(normalizedEntry(entry)) || visible.has(normalizedEntry(entry))
   );
   assertEquals(
     unexpected,
     [],
     `deno.json's top-level "exclude" names ${unexpected.join(", ")}; ` +
-      "each entry must be a Git-ignored directory root outside " +
-      "DENO_VISIBLE_IGNORED_ROOTS. That list hides paths from every Deno " +
-      "command at once, so it holds ignored roots only; put any other " +
-      "exclusion in the fmt, lint, or test section that needs it",
+      "each entry must be a non-negated .gitignore pattern in Deno form " +
+      "and outside DENO_VISIBLE_IGNORE_PATTERNS. That list hides paths " +
+      "from every Deno command at once, so it holds ignored paths only; " +
+      "put any other exclusion in the fmt, lint, or test section that " +
+      "needs it",
   );
+});
+
+Deno.test("no top-level exclusion hides what a .gitignore negation re-includes", async () => {
+  const { patterns, exclusions } = await repositoryDiscoveryInputs();
+  const excluded = new Set(exclusions.workspace.map(normalizedEntry));
+  const hiding = patterns.flatMap((entry, index) =>
+    !entry.negated && excluded.has(entry.pattern)
+      ? reincluding(patterns, index)
+      : []
+  );
+  assertEquals(
+    described(hiding),
+    "",
+    `.gitignore re-includes ${described(hiding)} beneath a pattern ` +
+      'deno.json\'s top-level "exclude" names, so deno fmt would stop ' +
+      "formatting those tracked files, and test priority's native --ignore " +
+      "cannot carry the negation. Register the pattern as re-included in " +
+      "DENO_VISIBLE_IGNORE_PATTERNS instead",
+  );
+  for (const pattern of visibleOfKind("re-included")) {
+    assert(
+      patterns.some((entry, index) =>
+        !entry.negated && entry.pattern === pattern &&
+        reincluding(patterns, index).length > 0
+      ),
+      `DENO_VISIBLE_IGNORE_PATTERNS marks ${pattern} re-included, but no ` +
+        "later .gitignore negation re-includes anything beneath it; add it " +
+        'to the top-level "exclude" in deno.json instead',
+    );
+  }
 });
 
 Deno.test("no deno.json section repeats a top-level exclusion", async () => {
   const { exclusions } = await repositoryDiscoveryInputs();
-  const shared = new Set(exclusions.workspace.map(normalizedRoot));
+  const shared = new Set(exclusions.workspace.map(normalizedEntry));
   for (const [section, entries] of Object.entries(exclusions.sections)) {
     const repeated = entries.filter((entry) =>
-      shared.has(normalizedRoot(entry))
+      shared.has(normalizedEntry(entry))
     );
     assertEquals(
       repeated,
@@ -140,16 +387,30 @@ Deno.test("no deno.json section repeats a top-level exclusion", async () => {
 
 Deno.test("every rebuilt ignored root is deleted and regenerated by the gate's build", () => {
   const wiped = new Set(GENERATED_SITE_OUTPUTS.map((path) => `site/${path}`));
-  const unowned = DENO_VISIBLE_IGNORED_ROOTS.filter((root) =>
-    root.discovery === "rebuilt" && !wiped.has(root.path)
-  ).map((root) => root.path);
+  const unowned = visibleOfKind("rebuilt").filter((pattern) =>
+    !wiped.has(pattern)
+  );
   assertEquals(
     unowned,
     [],
-    `DENO_VISIBLE_IGNORED_ROOTS marks ${unowned.join(", ")} rebuilt, but ` +
+    `DENO_VISIBLE_IGNORE_PATTERNS marks ${unowned.join(", ")} rebuilt, but ` +
       "the site build (GENERATED_SITE_OUTPUTS in site/build.ts) does not " +
       "delete it before regenerating, so stray modules there would reach " +
       "deno check and deno test. Exclude the root in deno.json instead",
+  );
+});
+
+Deno.test("every non-module-files pattern names files no Deno command loads", () => {
+  const modular = visibleOfKind("non-module-files").filter((pattern) =>
+    pattern.endsWith("/") || couldNameModule(pattern)
+  );
+  assertEquals(
+    modular,
+    [],
+    `DENO_VISIBLE_IGNORE_PATTERNS marks ${modular.join(", ")} ` +
+      "non-module-files, but each is a directory or could name a " +
+      'JavaScript or TypeScript module. Add it to the top-level "exclude" ' +
+      "in deno.json instead",
   );
 });
 
@@ -191,16 +452,13 @@ async function denoOutput(
   };
 }
 
-Deno.test("Deno's discovery commands skip every hidden Git-ignored root", async () => {
-  const { roots, exclusions } = await repositoryDiscoveryInputs();
-  const rebuilt = new Set(
-    DENO_VISIBLE_IGNORED_ROOTS.filter((root) => root.discovery === "rebuilt")
-      .map((root) => root.path),
-  );
-  const hidden = roots.filter((root) => !rebuilt.has(root)).map((
-    root,
-  ) => root.replace(/^\*\*\//u, "nested/"));
-  assert(hidden.length > 0, ".gitignore must yield hidden roots");
+Deno.test("Deno's discovery commands skip every hidden Git-ignored pattern", async () => {
+  const { exclusions } = await repositoryDiscoveryInputs();
+  const probes = [
+    ...exclusions.workspace.map(normalizedEntry),
+    ...visibleOfKind("deno-skips"),
+  ].map(probePath);
+  assert(probes.length > 0, "deno.json must hide ignored patterns");
   await withTempDir(async (fixture) => {
     // Only the real top-level list: no section exclusion and no Git
     // repository, so neither can hide a probe on the list's behalf.
@@ -209,9 +467,7 @@ Deno.test("Deno's discovery commands skip every hidden Git-ignored root", async 
       JSON.stringify({ exclude: exclusions.workspace }),
     );
     const control = "visible/probe_test.ts";
-    for (
-      const path of [control, ...hidden.map((root) => `${root}probe_test.ts`)]
-    ) {
+    for (const path of [control, ...probes]) {
       await Deno.mkdir(join(fixture, dirname(path)), { recursive: true });
       await Deno.writeTextFile(join(fixture, path), BROKEN_PROBE);
     }
@@ -224,10 +480,10 @@ Deno.test("Deno's discovery commands skip every hidden Git-ignored root", async 
         !success && text.includes(control),
         `${command} must reject the visible control probe:\n${text}`,
       );
-      for (const root of hidden) {
+      for (const probe of probes) {
         assert(
-          !text.includes(`${root}probe_test.ts`),
-          `${command} discovered ${root}, which deno.json's top-level ` +
+          !text.includes(probe),
+          `${command} discovered ${probe}, which deno.json's top-level ` +
             `"exclude" or Deno's own discovery must hide:\n${text}`,
         );
       }

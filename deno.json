@@ -139,16 +139,21 @@
     ".agents/skills/",
     ".claude/skills/",
     ".claude/worktrees/",
+    ".deno_compile_bundle_*.mjs",
     ".discern-bundled-manual/",
+    ".idea/dataSources/",
+    ".idea/httpRequests/",
+    ".idea/queries/",
+    ".idea/shelf/",
     ".scratch/",
     "coverage/",
-    "dist/"
+    "dist/",
+    "project/map/_private"
   ],
   "fmt": {
     "proseWrap": "never",
     "exclude": [
       ".claude/",
-      ".deno_compile_bundle_*.mjs",
       ".idea/",
       "AGENTS.md",
       "CLAUDE.md",
@@ -197,7 +202,6 @@
     },
     "exclude": [
       ".claude/",
-      ".deno_compile_bundle_*.mjs",
       "site/ui/components/HtmlFragment.tsx",
       "site/page-src/",
       "templates/",
@@ -207,7 +211,6 @@
   "test": {
     "exclude": [
       ".claude/",
-      ".deno_compile_bundle_*.mjs",
       "templates/",
       "tests/fixtures/"
     ]

@@ -86,40 +86,127 @@ export const EDITOR_PATH_POLICIES: readonly EditorPathPolicy[] = [
   },
 ] as const;
 
-export interface DenoVisibleIgnoredRoot {
-  /** The root as `.gitignore` names it, without the leading slash. */
-  readonly path: string;
+export interface DenoVisibleIgnorePattern {
+  /**
+   * The `.gitignore` pattern in the form `deno.json`'s `exclude` takes:
+   * relative to the repository root, an unanchored pattern prefixed with
+   * `**\/`, and a directory-only pattern keeping its trailing slash.
+   */
+  readonly pattern: string;
   /**
    * `deno-skips`: Deno's own file discovery never walks it, which the guard
    * proves. `rebuilt`: Deno walks it, including its JavaScript, but the gate's
    * build stage deletes and regenerates the whole root before lint, check, and
    * test run, so nothing stray survives into them; the guard holds the root to
-   * the outputs the site build deletes.
+   * the outputs the site build deletes. `non-module-files`: it names files
+   * only, none with a JavaScript or TypeScript extension, so no Deno command
+   * type-checks or tests them; the guard rejects a pattern that could end in
+   * one. `re-included`: a later `.gitignore` negation re-includes tracked
+   * files beneath it, which a top-level exclusion would hide from `deno fmt`
+   * and which native `--ignore` cannot carry; the guard requires that
+   * negation.
    */
-  readonly discovery: "deno-skips" | "rebuilt";
+  readonly discovery:
+    | "deno-skips"
+    | "rebuilt"
+    | "non-module-files"
+    | "re-included";
   readonly reason: string;
 }
 
 /**
- * Git-ignored directory roots deliberately left out of `deno.json`'s
- * top-level `exclude`. Every other ignored directory root is excluded there,
- * because `deno check` and `deno test` ignore `.gitignore` and would otherwise
- * type-check ignored scratch and build output.
+ * Git-ignored patterns deliberately left out of `deno.json`'s top-level
+ * `exclude`. Every other pattern any tracked `.gitignore` ignores is excluded
+ * there, because `deno check` and `deno test` ignore `.gitignore` and would
+ * otherwise type-check ignored scratch and build output.
  */
-export const DENO_VISIBLE_IGNORED_ROOTS: readonly DenoVisibleIgnoredRoot[] = [
-  {
-    path: "node_modules/",
-    discovery: "deno-skips",
-    reason:
-      "npm resolution under nodeModulesDir reads it, and Deno's discovery already skips it",
-  },
-  {
-    path: "site/pages/assets/design-system/",
-    discovery: "rebuilt",
-    reason:
-      "the hosted deploy rebuilds and serves these CSS, JavaScript, and font bundles under this deno.json, so the live site's assets never depend on how deploy packaging treats excluded paths",
-  },
-] as const;
+export const DENO_VISIBLE_IGNORE_PATTERNS: readonly DenoVisibleIgnorePattern[] =
+  [
+    {
+      pattern: "**/.DS_Store",
+      discovery: "non-module-files",
+      reason: "macOS Finder writes per-directory metadata files",
+    },
+    {
+      pattern: "**/*.log",
+      discovery: "non-module-files",
+      reason: "local tools write plain-text logs",
+    },
+    {
+      pattern: "node_modules/",
+      discovery: "deno-skips",
+      reason:
+        "npm resolution under nodeModulesDir reads it, and Deno's discovery already skips it",
+    },
+    {
+      pattern: ".idea/gbrowsers.xml",
+      discovery: "non-module-files",
+      reason: "the IDE browser plugin writes per-user browser settings",
+    },
+    {
+      pattern: ".idea/gbrowser_project.xml",
+      discovery: "non-module-files",
+      reason: "the IDE browser plugin writes per-user tab state",
+    },
+    {
+      pattern: ".vale/*",
+      discovery: "re-included",
+      reason:
+        "the pinned Vale sync writes only YAML style packages here, beside the tracked styles and vocabulary the negations re-include for deno fmt",
+    },
+    {
+      pattern: "site/pages/index.html",
+      discovery: "non-module-files",
+      reason: "the site build renders this page for the deploy upload",
+    },
+    {
+      pattern: "site/pages/agents.html",
+      discovery: "non-module-files",
+      reason: "the site build renders this page for the deploy upload",
+    },
+    {
+      pattern: "site/pages/agents.md",
+      discovery: "non-module-files",
+      reason: "a retired site output that every site build removes",
+    },
+    {
+      pattern: "site/pages/assets/design-system/",
+      discovery: "rebuilt",
+      reason:
+        "the hosted deploy rebuilds and serves these CSS, JavaScript, and font bundles under this deno.json, so the live site's assets never depend on how deploy packaging treats excluded paths",
+    },
+    {
+      pattern: "site/pages/v2.html",
+      discovery: "non-module-files",
+      reason: "a retired site output that every site build removes",
+    },
+    {
+      pattern: ".claude/settings.local.json",
+      discovery: "non-module-files",
+      reason: "Claude Code keeps machine-local settings here",
+    },
+    {
+      pattern: "site/pages/release-catalogue.json",
+      discovery: "non-module-files",
+      reason: "the site build writes the release catalogue the deploy serves",
+    },
+    {
+      pattern: "site/release-publication.json",
+      discovery: "non-module-files",
+      reason:
+        "deployment stages publication evidence here and re-includes it in the upload, which must never depend on Deno exclusions",
+    },
+    {
+      pattern: ".idea/workspace.xml",
+      discovery: "non-module-files",
+      reason: "the IDE keeps per-user workspace state",
+    },
+    {
+      pattern: ".idea/dataSources.local.xml",
+      discovery: "non-module-files",
+      reason: "the IDE keeps machine-local data source settings",
+    },
+  ] as const;
 
 export interface CommunityFilePolicy {
   readonly path: string;
