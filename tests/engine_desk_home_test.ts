@@ -827,9 +827,9 @@ Deno.test("on a standard screen the home panel shows Create, Help and the tip, e
   for (
     const [name, data] of [["a full fleet", fullFleet], ...FLEETS] as const
   ) {
-    // A check three weeks ago is wider than `never checked`: Help keeps it
-    // beside Check for updates, and `?` gives way, since the footer, the
-    // palette and the keys reader still name it.
+    // A check months ago is wider than `never checked`: Check for updates
+    // moves it right over the key cell it leaves empty, so Help keeps both
+    // it and `?`.
     await session(
       data,
       async (desk) => {
@@ -838,17 +838,22 @@ Deno.test("on a standard screen the home panel shows Create, Help and the tip, e
             selected(desk) === COMMANDS_ROW_ID && desk.screen().includes("Tip"),
           `${name}: the tip on the first screen at 80x24:\n${desk.screen()}`,
         );
+        const screen = desk.screen();
         for (const label of labels(["create", "help"])) {
-          assertStringIncludes(desk.screen(), label, `${name}: ${label} whole`);
+          assertStringIncludes(screen, label, `${name}: ${label} whole`);
         }
-        assertStringIncludes(
-          lineWith(desk, DESK_COMMAND_LABELS.updates),
-          "checked 3w ago",
-          `${name}: the last check on a standard screen`,
+        const updates = lineWith(desk, DESK_COMMAND_LABELS.updates);
+        const keys = lineWith(desk, DESK_COMMAND_LABELS.keys);
+        const check = /checked \d+mo ago/u.exec(updates);
+        assert(check !== null, `${name}: the last check:\n${screen}`);
+        assert(keys.trimEnd().endsWith(" ?"), `${name}: ? stays:\n${screen}`);
+        assert(
+          check.index + check[0].length <= keys.lastIndexOf("?") + 1,
+          `${name}: the check ends by the key column:\n${screen}`,
         );
       },
       { columns: 80, rows: 24 },
-      handedOff("2026-06-18T00:00:00.000Z"),
+      handedOff("2025-10-01T00:00:00.000Z"),
     );
     // Tall enough for the whole panel at the narrowest standard column:
     // every home label shows whole, beside its value and key; Parked
