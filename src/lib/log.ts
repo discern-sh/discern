@@ -29,6 +29,7 @@ import {
   terminalLine,
   type TerminalMultiline,
 } from "./terminal.ts";
+import type { AlignedRow } from "./text.ts";
 
 /** How a command should present its results. */
 export interface LogOptions {
@@ -135,9 +136,15 @@ export class Logger {
     this.#narration.group(id, label);
   }
 
-  /** A dimmed detail line, indented under a heading. Suppressed in JSON mode. */
+  /** A dimmed detail item, indented under a heading. Suppressed in JSON mode. */
   detail(text: string): void {
     this.#narration.detail(text);
+  }
+
+  /** Dimmed label + body detail rows aligned through the one column policy.
+   * Suppressed in JSON mode. */
+  detailRows(rows: readonly AlignedRow[], indent?: string): void {
+    this.#narration.detailRows(rows, indent);
   }
 
   /**

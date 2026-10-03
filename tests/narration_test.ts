@@ -233,6 +233,13 @@ const NARRATION_WIDTH_CONTRACTS = {
     bounded: (narration, prose) => narration.group("width-guard", prose),
   },
   detail: { bounded: (narration, prose) => narration.detail(prose) },
+  detailRows: {
+    bounded: (narration, prose) =>
+      narration.detailRows([
+        { label: "Label:", body: prose },
+        { label: prose, body: prose },
+      ]),
+  },
   humanLine: {
     verbatim: "the caller composes package renderers and owns the wrapping",
     write: (narration, prose) => narration.humanLine(prose),
@@ -388,6 +395,26 @@ Deno.test("a wrapped detail keeps its indent, hangs deeper, and closes styling p
         `detail styling crosses a line end: ${line}`,
       );
     }
+  }
+});
+
+Deno.test("detail rows wrap each body under the shared body column", () => {
+  const lines = stripAnsi(
+    renderAtWidth(60, (narration) =>
+      narration.detailRows([
+        { label: "Branch:", body: "agent/x" },
+        { label: "Into trunk:", body: WIDTH_GUARD_PROSE },
+      ])).output,
+  ).trimEnd().split("\n");
+  const column = "  Into trunk:  ".length;
+  assertEquals(lines[0], "  Branch:      agent/x");
+  assert(lines[1]?.startsWith("  Into trunk:  Run"), lines[1]);
+  assert(lines.length > 2, "the long body must wrap");
+  for (const line of lines.slice(2)) {
+    assert(
+      line.startsWith(" ".repeat(column)) && line[column] !== " ",
+      `a body continuation must hang under the body column: ${line}`,
+    );
   }
 });
 

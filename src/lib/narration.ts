@@ -20,7 +20,13 @@ import {
   terminalLine,
   type TerminalMultiline,
 } from "./terminal.ts";
-import { breakLongTokens, displayWidth, wrapText } from "./text.ts";
+import {
+  type AlignedRow,
+  breakLongTokens,
+  displayWidth,
+  renderAlignedRows,
+  wrapText,
+} from "./text.ts";
 
 /** Cells a wrapped item's continuation hangs past its first line, so the
  * continuation never reads as the start of the next item. */
@@ -169,6 +175,10 @@ export interface Narration {
    * spaces deepen its indent; a wrapped item's continuation lines hang two
    * cells past its first line. */
   detail(text: string): void;
+  /** Dimmed label + body detail rows aligned through the one column policy;
+   * a body too wide for the terminal wraps under the body column. `indent`
+   * leads every row, the detail indent by default. */
+  detailRows(rows: readonly AlignedRow[], indent?: string): void;
   /** A pre-composed narration line emitted verbatim — the caller owns its
    * wrapping, indentation, and any package Token roles. */
   humanLine(text: string): void;
@@ -320,6 +330,17 @@ export function makeNarration(
         hanging("  ", terminalLine(text), muted, ITEM_HANG),
         streams.narration,
       ),
+    detailRows: (rows: readonly AlignedRow[], indent = "  "): void => {
+      for (
+        const line of renderAlignedRows(
+          rows.map((row) => ({
+            label: terminalLine(row.label),
+            body: terminalLine(row.body),
+          })),
+          { indent, width: columns, styleLabel: muted, styleBody: muted },
+        )
+      ) sink.line(line, streams.narration);
+    },
     humanLine: (text: string): void => sink.line(text, streams.narration),
     // Already-inert multiline text renders as the one authored failure block.
     terminalSafeMultilineError: (message: TerminalMultiline): void =>
