@@ -641,6 +641,7 @@ Deno.test("a running done in the author checkout is never deadlocked by acceptan
         CONFIG.replace('lint = ":"', 'lint = "sh author-pause.sh"'),
       );
       await gitInit(dir);
+      const hold = shellAwaitFile(`"${scratch}/release"`);
       await Deno.writeTextFile(
         join(dir, "author-pause.sh"),
         [
@@ -650,7 +651,7 @@ Deno.test("a running done in the author checkout is never deadlocked by acceptan
           "    *integration*) ;;",
           "    *)",
           `      touch "${scratch}/started"`,
-          `      ${shellAwaitFile(`"${scratch}/release"`)} ;;`,
+          `      ${hold} ;;`,
           "  esac",
           "fi",
           "exit 0",
