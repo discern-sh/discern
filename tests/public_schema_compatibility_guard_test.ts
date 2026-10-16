@@ -1309,6 +1309,55 @@ Deno.test("result compatibility preserves existing guarantees and canonical cont
           ],
         );
       },
+    "a type-less nested union compares its members field by field":
+      (): undefined => {
+        const previous = clone(RESULT_OUTPUT_FIXTURE);
+        const previousLaunch = (previous.$defs as JsonObject)
+          .VoyageLaunchResult as JsonObject;
+        (previousLaunch.properties as JsonObject).payload = {
+          anyOf: [
+            { type: "object", properties: { cargo: { type: "string" } } },
+            {
+              anyOf: [
+                {
+                  type: "object",
+                  properties: { fault: { type: "string" } },
+                  required: ["fault"],
+                },
+              ],
+            },
+          ],
+        };
+        const payloadOf = (schema: JsonObject): JsonObject =>
+          (((schema.$defs as JsonObject).VoyageLaunchResult as JsonObject)
+            .properties as JsonObject).payload as JsonObject;
+        const innerFault = (schema: JsonObject): JsonObject =>
+          ((((payloadOf(schema).anyOf as JsonValue[])[1] as JsonObject)
+            .anyOf as JsonValue[])[0] as JsonObject).properties as JsonObject;
+
+        const widened = clone(previous);
+        innerFault(widened).detail = { type: "string" };
+        assertEquals(
+          publicSchemaCompatibilityIssues(
+            previous,
+            widened,
+            RESULT_SCHEMA_COMPATIBILITY_POLICY,
+          ),
+          [],
+          "an optional field inside a nested union stays compatible",
+        );
+
+        const narrowed = clone(previous);
+        delete innerFault(narrowed).fault;
+        assert(
+          publicSchemaCompatibilityIssues(
+            previous,
+            narrowed,
+            RESULT_SCHEMA_COMPATIBILITY_POLICY,
+          ).some((issue) => issue.includes("fault")),
+          "a field removed inside a nested union still breaks",
+        );
+      },
     "ordinary open result objects permit optional fields": (): undefined => {
       for (const additionalProperties of [undefined, true] as const) {
         const previous = clone(RESULT_OUTPUT_FIXTURE);
