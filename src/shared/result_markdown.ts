@@ -906,12 +906,16 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
           strings(object(inventory.jobs)?.not_applicable).join(", ") || "none"
         }.`,
       listFact("Leftover setup markers", strings(data.leftover)),
-      ...unmet.map((check) => {
+      ...unmet.flatMap((check) => {
         const step = number(check.step);
+        const label = step === undefined ? "Setup check" : `Step ${step}`;
         const describe = text(check.describe) ?? "Unmet setup check.";
-        return `${
-          step === undefined ? "Setup check" : `Step ${step}`
-        }: ${describe}`;
+        return [
+          `${label}: ${describe}`,
+          ...strings(check.reasons).map((reason) =>
+            `${label} unmet: ${reason}`
+          ),
+        ];
       }),
     ]),
     supportingMarkdown: uniqueVerbatim([

@@ -135,12 +135,18 @@ export async function deriveSetupProjectContext(
   };
 }
 
-/** Read a setup orientation page with optional numeric ordering prefixes. */
-export async function readSetupOrientation(
+/** One setup orientation page: its project-relative path and its text. */
+export interface SetupOrientationPage {
+  path: string;
+  text: string;
+}
+
+/** Find a setup orientation page with optional numeric ordering prefixes. */
+export async function findSetupOrientation(
   root: string,
   mapDir: string,
   leaf: string,
-): Promise<string | undefined> {
+): Promise<SetupOrientationPage | undefined> {
   try {
     const regions = [];
     for await (const entry of Deno.readDir(join(root, mapDir))) {
@@ -149,11 +155,21 @@ export async function readSetupOrientation(
       ) regions.push(entry.name);
     }
     for (const region of regions.toSorted()) {
-      const text = await readTextIfExists(join(root, mapDir, region, leaf));
-      if (text !== undefined) return text;
+      const path = join(mapDir, region, leaf);
+      const text = await readTextIfExists(join(root, path));
+      if (text !== undefined) return { path, text };
     }
   } catch (error) {
     if (!(error instanceof Deno.errors.NotFound)) throw error;
   }
   return undefined;
+}
+
+/** Read a setup orientation page with optional numeric ordering prefixes. */
+export async function readSetupOrientation(
+  root: string,
+  mapDir: string,
+  leaf: string,
+): Promise<string | undefined> {
+  return (await findSetupOrientation(root, mapDir, leaf))?.text;
 }
