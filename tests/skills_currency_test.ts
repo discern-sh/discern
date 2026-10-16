@@ -91,54 +91,54 @@ Deno.test("a whole un-materialized dir is `missing`, not `stale` (non-blocking)"
   });
 });
 
-Deno.test("a hand-edited bundled copy is `stale`", async () => {
+/** Materialize cleanly (after an optional setup), apply one mutation to the
+ * skills dir, and return the names the currency check calls `stale`. */
+const staleAfter = async (
+  mutate: (abs: string) => Promise<void>,
+  setup: (root: string) => Promise<void> = async () => {},
+): Promise<string[]> =>
   await withTempDir(async (root) => {
     const config = cfg();
+    await setup(root);
     await materializeClean(root, config);
-    // Tamper with a copied bundled skill — content drift the manifest can't see.
-    const tampered = join(root, SKILLS_REL, "discern-write-adr", "SKILL.md");
-    await Deno.writeTextFile(tampered, "HAND EDITED\n", { append: true });
-    const drift = await checkSkillsCurrent(root, config);
-    const stale = drift.filter((d) => d.reason === "stale");
-    assertEquals(stale.map((d) => d.name), ["discern-write-adr"]);
+    await mutate(join(root, SKILLS_REL));
+    return (await checkSkillsCurrent(root, config))
+      .filter((d) => d.reason === "stale")
+      .map((d) => d.name);
   });
+
+Deno.test("a hand-edited bundled copy is `stale`", async () => {
+  // Tamper with a copied bundled skill — content drift the manifest can't see.
+  const stale = await staleAfter(async (abs) => {
+    await Deno.writeTextFile(
+      join(abs, "discern-write-adr", "SKILL.md"),
+      "HAND EDITED\n",
+      { append: true },
+    );
+  });
+  assertEquals(stale, ["discern-write-adr"]);
 });
 
 Deno.test("an effective skill deleted from the dir is `stale`", async () => {
-  await withTempDir(async (root) => {
-    const config = cfg();
-    await materializeClean(root, config);
-    await Deno.remove(join(root, SKILLS_REL, "discern-write-adr"), {
-      recursive: true,
-    });
-    const drift = await checkSkillsCurrent(root, config);
-    const stale = drift.filter((d) => d.reason === "stale");
-    assertEquals(stale.map((d) => d.name), ["discern-write-adr"]);
+  const stale = await staleAfter(async (abs) => {
+    await Deno.remove(join(abs, "discern-write-adr"), { recursive: true });
   });
+  assertEquals(stale, ["discern-write-adr"]);
 });
 
 Deno.test("an authored symlink replaced by a real dir is `stale`", async () => {
-  await withTempDir(async (root) => {
-    const config = cfg();
-    await authoredSkill(root, "mine");
-    await materializeClean(root, config);
-    // Replace the live symlink with a real directory — the wrong materialization kind.
-    const link = join(root, SKILLS_REL, "mine");
-    await Deno.remove(link);
-    await Deno.mkdir(link);
-    const drift = await checkSkillsCurrent(root, config);
-    const stale = drift.filter((d) => d.reason === "stale");
-    assertEquals(stale.map((d) => d.name), ["mine"]);
-  });
+  // Replace the live symlink with a real directory — the wrong materialization kind.
+  const stale = await staleAfter(async (abs) => {
+    await Deno.remove(join(abs, "mine"));
+    await Deno.mkdir(join(abs, "mine"));
+  }, (root) => authoredSkill(root, "mine"));
+  assertEquals(stale, ["mine"]);
 });
 
 Deno.test("a lingering managed entry (in the manifest, no longer effective) is `stale`", async () => {
-  await withTempDir(async (root) => {
-    const config = cfg();
-    await materializeClean(root, config);
-    // A dir discern OWNED before but that is no longer effective: add it to the
-    // manifest + drop a real dir. This is the orphan the prune pass would remove.
-    const abs = join(root, SKILLS_REL);
+  // A dir discern OWNED before but that is no longer effective: add it to the
+  // manifest + drop a real dir. This is the orphan the prune pass would remove.
+  const stale = await staleAfter(async (abs) => {
     await Deno.mkdir(join(abs, "dropped-builtin"));
     const manifest = decodeWith(
       MATERIALIZED_SKILLS_SCHEMA,
@@ -148,10 +148,8 @@ Deno.test("a lingering managed entry (in the manifest, no longer effective) is `
       join(abs, MATERIALIZED_MANIFEST),
       JSON.stringify([...manifest, "dropped-builtin"].sort(), null, 2),
     );
-    const drift = await checkSkillsCurrent(root, config);
-    const stale = drift.filter((d) => d.reason === "stale");
-    assertEquals(stale.map((d) => d.name), ["dropped-builtin"]);
   });
+  assertEquals(stale, ["dropped-builtin"]);
 });
 
 Deno.test("repointing a path key makes materialized skills `stale` until re-materialized (ADR 0102)", async () => {
