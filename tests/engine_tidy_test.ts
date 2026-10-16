@@ -628,3 +628,46 @@ Deno.test("a formatter that altered frontmatter is refused, never written", () =
     "altered the frontmatter",
   );
 });
+
+Deno.test("tidy leaves a generator-owned target unformatted and unscanned, and names it", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    const config = await Deno.readTextFile(join(root, "discern.toml"));
+    await write(
+      join(root, "discern.toml"),
+      `${config}\n[generated.external]\npaths = ["instructions/one.md"]\nrun = "true"\n`,
+    );
+    // A misaligned diagram the scan would otherwise report.
+    const owned =
+      "# Instructions\n\n-   item\n\n```\n┌───┐\n│ x  │\n└───┘\n```\n";
+    await write(join(root, "instructions", "one.md"), owned);
+
+    const plan = await planTidy(root);
+    assertEquals(plan.generated, [
+      { type: "md", display: "instructions/one.md", group: "external" },
+    ]);
+    assertEquals(plan.diagrams, []);
+    assertEquals(
+      plan.changes.some((change) => change.display === "instructions/one.md"),
+      false,
+    );
+
+    const preview = await tidyResult(root, { dryRun: true });
+    assertStringIncludes(
+      (preview.plan?.details ?? []).join("\n"),
+      "instructions/one.md (external)",
+    );
+
+    const applied = await tidyResult(root);
+    assertEquals(applied.ok, true, JSON.stringify(applied));
+    assertEquals(
+      await Deno.readTextFile(join(root, "instructions", "one.md")),
+      owned,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      "# Map\n\n- item\n",
+      "unowned targets still converge in the same run",
+    );
+  });
+});

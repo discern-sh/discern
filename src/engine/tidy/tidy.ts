@@ -20,14 +20,22 @@
  * overflow (src/lib/table_integrity.ts). Those findings are taken on the
  * pre-format bytes and refuse the whole invocation before any write, because
  * here the formatting itself is the destruction.
+ *
+ * A target a `[generated.<name>]` group owns is neither formatted nor scanned:
+ * its generator is its only writer, and any rewrite here would be undone by the
+ * next regeneration and fail the gate as drift. The plan names each one.
  */
 
 import { walk } from "@std/fs";
 import { isAbsolute, join, relative } from "@std/path";
-import { loadConfig } from "../../shared/config_schema.ts";
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { CONFIG_REL } from "../../shared/env.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
+import {
+  generatedGroupForFile,
+  resolveGeneratedGroups,
+} from "../../shared/generated_artifacts.ts";
 import {
   type Diagnostic,
   type DiscernResult,
@@ -85,10 +93,20 @@ export interface TableFinding {
   reason: string;
 }
 
+/** A target a `[generated.<name>]` group owns, left to its generator. */
+export interface GeneratedTidySkip {
+  type: TidyType;
+  display: string;
+  /** The owning group's `<name>`. */
+  group: string;
+}
+
 /** The complete read-only plan; only changed files become operations. */
 export interface TidyPlan {
   types: readonly TidyType[];
   changes: readonly TidyChange[];
+  /** Targets a generator owns, which tidy neither formats nor scans. */
+  generated: readonly GeneratedTidySkip[];
   /** Diagram-geometry findings across every Markdown target, in order. */
   diagrams: readonly DiagramFinding[];
   /** Lossy table rows across every Markdown target; any entry blocks writes. */
@@ -148,9 +166,12 @@ function isWithin(path: string, directory: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-/** Discover authored Markdown while excluding generated and private boundaries. */
-async function markdownTargets(root: string): Promise<string[]> {
-  const config = await loadConfig(root);
+/** Discover the configured Markdown surfaces, excluding the skills tree, the
+ * brief, and the config. Generator ownership is applied by the planner. */
+async function markdownTargets(
+  root: string,
+  config: DiscernConfig,
+): Promise<string[]> {
   const map = resolveMapDir(root, config);
   const todo = resolveTodoPath(root, config).abs;
   const brief = resolveBriefPath(root).abs;
@@ -236,46 +257,63 @@ export async function planTidy(
   type?: string,
 ): Promise<TidyPlan> {
   const types = selectedTypes(type);
-  const changes: TidyChange[] = [];
-  const diagrams: DiagramFinding[] = [];
-  const tables: TableFinding[] = [];
+  const config = await loadConfig(root);
+  const groups = resolveGeneratedGroups(config);
+  const targets: { type: TidyType; abs: string }[] = [];
   if (types.includes("md")) {
-    for (const target of await markdownTargets(root)) {
-      const { change, before, after } = await formatTarget(root, "md", target);
-      if (change !== undefined) {
-        changes.push(change);
-      }
-      const display = displayPath(root, target);
-      // Lossy tables are checked on the PRE-format bytes: the row still holds
-      // the cells formatting would drop, so the author can still escape them.
-      // Torn-span findings stay out of tidy — that state formats losslessly,
-      // and refusing it would brick projects on wreckage they inherited.
-      for (const violation of scanMarkdownTables(before)) {
-        if (violation.kind === "extra_cells") {
-          tables.push({
-            display,
-            line: violation.line,
-            reason: violation.reason,
-          });
-        }
-      }
-      // Geometry is checked on the bytes the executor will leave on disk, so
-      // a finding's line and column stay accurate after the write.
-      for (const violation of scanMarkdownDiagrams(after)) {
-        diagrams.push({ display, ...violation });
-      }
+    for (const abs of await markdownTargets(root, config)) {
+      targets.push({ type: "md", abs });
     }
   }
   if (types.includes("toml")) {
     const configPath = join(root, CONFIG_REL);
     if (await statOrMissing(configPath) !== undefined) {
-      const { change } = await formatTarget(root, "toml", configPath);
-      if (change !== undefined) {
-        changes.push(change);
-      }
+      targets.push({ type: "toml", abs: configPath });
     }
   }
-  return { types, changes, diagrams, tables };
+
+  const changes: TidyChange[] = [];
+  const generated: GeneratedTidySkip[] = [];
+  const diagrams: DiagramFinding[] = [];
+  const tables: TableFinding[] = [];
+  for (const target of targets) {
+    const display = displayPath(root, target.abs);
+    const owner = generatedGroupForFile(groups, root, target.abs);
+    if (owner !== undefined) {
+      generated.push({ type: target.type, display, group: owner.name });
+      continue;
+    }
+    const { change, before, after } = await formatTarget(
+      root,
+      target.type,
+      target.abs,
+    );
+    if (change !== undefined) {
+      changes.push(change);
+    }
+    if (target.type !== "md") {
+      continue;
+    }
+    // Lossy tables are checked on the PRE-format bytes: the row still holds
+    // the cells formatting would drop, so the author can still escape them.
+    // Torn-span findings stay out of tidy — that state formats losslessly,
+    // and refusing it would brick projects on wreckage they inherited.
+    for (const violation of scanMarkdownTables(before)) {
+      if (violation.kind === "extra_cells") {
+        tables.push({
+          display,
+          line: violation.line,
+          reason: violation.reason,
+        });
+      }
+    }
+    // Geometry is checked on the bytes the executor will leave on disk, so
+    // a finding's line and column stay accurate after the write.
+    for (const violation of scanMarkdownDiagrams(after)) {
+      diagrams.push({ display, ...violation });
+    }
+  }
+  return { types, changes, generated, diagrams, tables };
 }
 
 /** Project a private byte plan onto the shared serializable plan vocabulary. */
@@ -287,6 +325,18 @@ export function tidyPlanToEngine(plan: TidyPlan): EnginePlan {
       `${plan.changes.length} file${
         plan.changes.length === 1 ? "" : "s"
       } would change`,
+      ...(plan.generated.length > 0
+        ? [
+          `${plan.generated.length} generator-owned ${
+            plan.generated.length === 1
+              ? "file left to its [generated] group"
+              : "files left to their [generated] groups"
+          }: ${
+            plan.generated.map((skip) => `${skip.display} (${skip.group})`)
+              .join(", ")
+          }`,
+        ]
+        : []),
       ...(plan.diagrams.length > 0
         ? [
           `${plan.diagrams.length} misaligned diagram glyph${
