@@ -194,7 +194,7 @@ export const SKILL_OWNERSHIP_IMPORTERS: Readonly<
     proof: {
       file: "tests/engine_uninstall_test.ts",
       test:
-        "uninstall removes discern's skill entries and keeps every entry it did not place",
+        "uninstall removes discern's footprint and keeps the user's content",
     },
   },
   "src/lib/agent_gitignore.ts": {

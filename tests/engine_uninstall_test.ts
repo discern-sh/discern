@@ -81,17 +81,15 @@ async function gitResult(
 /**
  * Every project-relative path discern CREATES from nothing (so uninstall must
  * remove it outright), derived from the provider registry: the compiled agent
- * files, the materialized skills dirs, and each declared integration file — minus
- * the co-owned files we pre-seeded with user content (those are asserted
- * byte-restored instead of removed).
+ * files and each declared integration file — minus the co-owned files we
+ * pre-seeded with user content (those are asserted byte-restored instead of
+ * removed). Skills directories are shared, so the journey asserts their
+ * entries instead.
  */
 function registryCreatedPaths(): string[] {
   const out = new Set<string>();
   for (const rel of allInstructionFilePaths()) {
     out.add(rel);
-  }
-  for (const dir of allSkillsDirs()) {
-    out.add(dir);
   }
   for (const provider of Object.values(PROVIDERS)) {
     const mcp = wiredMcp(provider);
@@ -188,12 +186,40 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
       );
     }
 
+    // Another tool installed a skill beside discern's in every skills directory.
+    const foreignSkills = allSkillsDirs().map((skillsDir) =>
+      `${skillsDir}/third-party-skill`
+    );
+    for (const foreign of foreignSkills) {
+      await ensureDir(join(dir, foreign));
+      await Deno.writeTextFile(
+        join(dir, foreign, "SKILL.md"),
+        "installed by another tool\n",
+      );
+    }
+
     const result = await runAgent(dir, ["uninstall", "--json", "--yes"]);
     assertEquals(result.code, 0, result.output);
     const envelope = decodeCliResult(result.stdout, "uninstall");
     assertResultDataKey(envelope, "removed_runtime_state");
+    assertResultDataKey(envelope, "kept");
     assert(envelope.ok, result.output);
     assertEquals((await inspectReleaseCheck(dir)).status, "missing");
+
+    // Each skills directory keeps only the entry discern did not place.
+    for (const foreign of foreignSkills) {
+      assertEquals(
+        await Deno.readTextFile(join(dir, foreign, "SKILL.md")),
+        "installed by another tool\n",
+      );
+      assert(envelope.data.kept?.includes(foreign) === true, result.output);
+      assertEquals(
+        (await Array.fromAsync(Deno.readDir(join(dir, foreign, ".."))))
+          .map((entry) => entry.name),
+        ["third-party-skill"],
+        `only the foreign entry may remain beside ${foreign}`,
+      );
+    }
 
     // 1. Every registry-declared file discern created is gone.
     for (const rel of registryCreatedPaths()) {
@@ -291,43 +317,6 @@ Deno.test("uninstall strips registry-owned provider hooks without resolving temp
       !/template-seeded settings cannot be removed/.test(human.output),
       `human view must use the registry-backed strip contract; got:\n${human.output}`,
     );
-  });
-});
-
-Deno.test("uninstall removes discern's skill entries and keeps every entry it did not place", async () => {
-  await withTempDir(async (dir) => {
-    await wireFullHarness(dir);
-    const foreignByDir = new Map<string, string>();
-    for (const skillsDir of allSkillsDirs()) {
-      const foreign = `${skillsDir}/third-party-skill`;
-      await ensureDir(join(dir, foreign));
-      await Deno.writeTextFile(
-        join(dir, foreign, "SKILL.md"),
-        "installed by another tool\n",
-      );
-      foreignByDir.set(skillsDir, foreign);
-    }
-
-    const result = await runAgent(dir, ["uninstall", "--json", "--yes"]);
-    assertEquals(result.code, 0, result.output);
-    const envelope = decodeCliResult(result.stdout, "uninstall");
-    assertResultDataKey(envelope, "kept");
-    assert(envelope.ok, result.output);
-
-    for (const [skillsDir, foreign] of foreignByDir) {
-      assertEquals(
-        await Deno.readTextFile(join(dir, foreign, "SKILL.md")),
-        "installed by another tool\n",
-        `uninstall must keep ${foreign}`,
-      );
-      assert(envelope.data.kept?.includes(foreign) === true, result.output);
-      assertEquals(
-        (await Array.fromAsync(Deno.readDir(join(dir, skillsDir))))
-          .map((entry) => entry.name),
-        ["third-party-skill"],
-        `only the foreign entry may remain in ${skillsDir}`,
-      );
-    }
   });
 });
 

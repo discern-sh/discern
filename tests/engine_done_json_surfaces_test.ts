@@ -519,7 +519,7 @@ Deno.test("done --standalone --json: tracked discern-managed ignored artifacts f
   });
 });
 
-Deno.test("done --standalone --json: a hand-edited materialized skill blocks (skills); a foreign skill does not, committed or not", async () => {
+Deno.test("done --standalone --json: a hand-edited materialized skill blocks (skills); a foreign skill does not, committed or not, until it holds a name discern needs", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -567,32 +567,34 @@ Deno.test("done --standalone --json: a hand-edited materialized skill blocks (sk
       null,
       "a committed foreign skill is not a discern-managed artifact",
     );
-  });
-});
 
-Deno.test("done --standalone --json: a foreign entry holding a discern skill's name blocks (skills) without being replaced", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const contested = join(dir, ".claude", "skills", "discern-write-adr");
-    await Deno.mkdir(contested, { recursive: true });
-    await Deno.writeTextFile(join(contested, "SKILL.md"), "# not discern's\n");
+    // The project then authors a skill under the foreign skill's name. Refresh
+    // refuses to replace the entry it did not place, and the gate blocks until
+    // the owner frees the name.
+    await Deno.mkdir(join(dir, "discern", "skills", "user-dropin"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, "discern", "skills", "user-dropin", "SKILL.md"),
+      '---\nname: user-dropin\ndescription: "An authored skill."\n---\n',
+    );
     await runAgent(dir, ["refresh"]);
     assertEquals(
-      await Deno.readTextFile(join(contested, "SKILL.md")),
-      "# not discern's\n",
+      await Deno.readTextFile(join(skillsDir, "user-dropin", "SKILL.md")),
+      "# mine\n",
       "refresh must refuse to replace an entry it did not place",
     );
-
-    const obj = decodeGateResult(
+    obj = decodeGateResult(
       (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
     );
     assertEquals(obj.data.failed_stage, "skills");
-    const diag = diagFor(obj, "skills");
-    assert(diag !== undefined, "a skills diagnostic should be attached");
-    assert(diag.output !== undefined);
-    assertTerminalTextIncludes(diag.output, ".claude/skills/discern-write-adr");
-    assertTerminalTextIncludes(diag.output, "[skills].exclude");
+    const conflict = diagFor(obj, "skills");
+    assert(
+      conflict?.output !== undefined,
+      "a skills diagnostic should be attached",
+    );
+    assertTerminalTextIncludes(conflict.output, ".claude/skills/user-dropin");
+    assertTerminalTextIncludes(conflict.output, "[skills].exclude");
   });
 });
 
