@@ -6,11 +6,7 @@ import {
   assertMatch,
   assertStringIncludes,
 } from "@std/assert";
-import {
-  DISCERN_MARK_FILLED_PATH,
-  DISCERN_MARK_OUTLINE_PATH,
-  SELF_TITLED_PAGES,
-} from "../site/brand.ts";
+import { SELF_TITLED_PAGES } from "../site/brand.ts";
 import { siteRoutes } from "../site/routes.ts";
 import { loadDocsSite } from "../site/docs.tsx";
 import {
@@ -27,6 +23,7 @@ import {
   SITE_ORIGIN,
 } from "../site/seo.tsx";
 import { unescapeHtml } from "../src/lib/markdown.ts";
+import { SOCIAL_CARD_SIZE, socialCardPath } from "../site/social/address.ts";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -301,7 +298,28 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     assertEquals(canonicalOf(html), canonicalUrl(route), route);
     assertStringIncludes(html, '<meta property="og:title"', route);
     assertStringIncludes(html, '<meta property="og:description"', route);
-    assertStringIncludes(html, '<meta property="og:image"', route);
+    const card = canonicalUrl(socialCardPath(route));
+    assertStringIncludes(
+      html,
+      `<meta property="og:image" content="${card}" />`,
+      route,
+    );
+    assertStringIncludes(
+      html,
+      `<meta name="twitter:image" content="${card}" />`,
+      route,
+    );
+    assertStringIncludes(
+      html,
+      `<meta property="og:image:width" content="${SOCIAL_CARD_SIZE.width}" />`,
+      route,
+    );
+    assertStringIncludes(
+      html,
+      `<meta property="og:image:height" content="${SOCIAL_CARD_SIZE.height}" />`,
+      route,
+    );
+    assertStringIncludes(html, '<meta property="og:image:alt"', route);
     assertStringIncludes(html, '<meta name="twitter:card"', route);
     assert(
       !/<script\b[^>]*src=["']https?:\/\//i.test(html),
@@ -323,17 +341,6 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
       assert(!html.includes('"name":"Documentation · discern.sh docs"'));
     }
   }
-
-  const card = await request("/assets/og-card.png");
-  assertEquals(card.status, 200);
-  assertEquals(card.headers.get("content-type"), "image/png");
-
-  const cardSource = await Deno.readTextFile(
-    new URL("../site/pages/assets/og-card.svg", import.meta.url),
-  );
-  assertStringIncludes(cardSource, `d="${DISCERN_MARK_FILLED_PATH}"`);
-  assertStringIncludes(cardSource, `d="${DISCERN_MARK_OUTLINE_PATH}"`);
-  assert(!cardSource.includes("m22 45 15 14 26-32"));
 });
 
 Deno.test("every explicit Markdown edition declares its HTML canonical and noindex policy", async () => {
@@ -383,7 +390,8 @@ Deno.test("security headers cover pages, assets, machine routes, redirects, erro
   const cases = [
     await request("/docs"),
     await request("/docs.md"),
-    await request("/assets/og-card.png"),
+    await request("/assets/favicon.svg"),
+    await request(socialCardPath("/")),
     await request("/sitemap.xml"),
     await request("/docs/"),
     await request("/no-such-page"),

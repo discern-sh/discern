@@ -10,6 +10,7 @@ import {
 } from "../src/shared/product_identity.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
 import { SECURITY_DISCLOSURE } from "./security.ts";
+import { SOCIAL_CARD_PREFIX } from "./social/address.ts";
 
 export const DOCUMENT_ROUTES = {
   manual: "/docs",
@@ -151,6 +152,11 @@ export function siteRoutes(
       path: `${PUBLIC_ASSET_PREFIX}*`,
       format: "asset",
       source: "site/pages/assets/",
+    },
+    {
+      path: `${SOCIAL_CARD_PREFIX}/*`,
+      format: "asset",
+      source: "site/social/model.ts",
     },
   ];
   const paths = new Set<string>();

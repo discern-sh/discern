@@ -16,9 +16,9 @@ import {
 } from "../src/shared/entropy.ts";
 import { DISCERN_RELEASES_URL } from "../src/shared/brand.ts";
 import { unescapeHtml } from "../src/lib/markdown.ts";
+import { SOCIAL_CARD_SIZE, socialCardPath } from "./social/address.ts";
 
 export const SITE_ORIGIN = "https://discern.sh";
-export const OG_IMAGE_PATH = "/assets/og-card.png";
 export const META_DESCRIPTION_MIN = 50;
 export const META_DESCRIPTION_MAX = 160;
 
@@ -190,7 +190,7 @@ function metadataMarkup(
   const social = SOCIAL_PAGE_METADATA[route];
   const socialTitle = social?.title ?? title;
   const socialDescription = social?.description ?? description;
-  const image = canonicalUrl(social?.image ?? OG_IMAGE_PATH);
+  const image = canonicalUrl(socialCardPath(route));
   const data = structuredData(route, title, description);
   const jsonLd = data === undefined
     ? ""
@@ -203,10 +203,15 @@ function metadataMarkup(
 <meta property="og:description" content="${htmlEscape(socialDescription)}" />
 <meta property="og:url" content="${htmlEscape(canonical)}" />
 <meta property="og:image" content="${htmlEscape(image)}" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="${SOCIAL_CARD_SIZE.width}" />
+<meta property="og:image:height" content="${SOCIAL_CARD_SIZE.height}" />
+<meta property="og:image:alt" content="${htmlEscape(socialTitle)}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${htmlEscape(socialTitle)}" />
 <meta name="twitter:description" content="${htmlEscape(socialDescription)}" />
-<meta name="twitter:image" content="${htmlEscape(image)}" />${jsonLd}
+<meta name="twitter:image" content="${htmlEscape(image)}" />
+<meta name="twitter:image:alt" content="${htmlEscape(socialTitle)}" />${jsonLd}
 <!-- /discern:metadata -->`;
 }
 

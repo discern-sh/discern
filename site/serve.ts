@@ -51,6 +51,12 @@ import { RELEASE_ROUTES } from "../src/shared/product_identity.ts";
 import { loadReleaseCatalogue } from "./releases/catalogue.ts";
 import type { CatalogueRecord } from "./releases/model.ts";
 import { releaseResponse } from "./releases/response.ts";
+import {
+  RETIRED_SOCIAL_CARD_ASSETS,
+  socialCardRoute,
+} from "./social/address.ts";
+import { socialCardFor } from "./social/model.ts";
+import { socialCardPng } from "./social/render.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 /** Published routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
@@ -358,6 +364,26 @@ async function endpointResponse(
   }
 }
 
+/** Serve the card that previews one live HTML route, or nothing for any other route. */
+async function socialCardResponse(
+  route: string,
+  routing: SiteRouting,
+): Promise<Response | undefined> {
+  if (!routing.liveRoutes.includes(route)) return undefined;
+  const card = socialCardFor(route, {
+    site: routing.site,
+    releases: routing.releases ?? await loadReleaseCatalogue(),
+  });
+  if (card === undefined) return undefined;
+  return new Response(await socialCardPng(card), {
+    status: 200,
+    headers: {
+      "content-type": CONTENT_TYPES[".png"] ?? "image/png",
+      "cache-control": "public, max-age=3600",
+    },
+  });
+}
+
 /** Dispatch schemas, installer, docs, fixed pages, and declared assets. */
 async function routeResponse(
   req: Request,
@@ -377,6 +403,12 @@ async function routeResponse(
     path.startsWith(`${PUBLIC_MAP_ROUTE}/`)
   ) {
     return await serveDocuments(path, wantsText(req));
+  }
+
+  const cardRoute = socialCardRoute(path);
+  if (cardRoute !== undefined) {
+    return await socialCardResponse(cardRoute, routing) ??
+      notFound(wantsText(req));
   }
 
   const route = PAGES[path];
@@ -494,7 +526,11 @@ async function handleRequest(
     ...routing.redirects.redirects.keys(),
   ]);
   const variant = canonicalPathVariant(decoded, addressable);
-  const target = routing.redirects.redirects.get(variant) ?? variant;
+  const target = routing.redirects.redirects.get(variant) ??
+    (Object.hasOwn(RETIRED_SOCIAL_CARD_ASSETS, variant)
+      ? RETIRED_SOCIAL_CARD_ASSETS[variant]
+      : undefined) ??
+    variant;
   if (
     target !== decoded || needsDomainRedirect(url)
   ) {

@@ -27,16 +27,18 @@ export const AGENTS_TITLE =
 export const AGENTS_DESCRIPTION =
   "discern gives coding agents explicit project state, bounded results, isolated work, project-specific instructions, useful refusals, and Proof tied to the exact completed change.";
 
+/** The agents page's social copy, written for a human reading a shared link. */
+export const AGENTS_SOCIAL = {
+  title: "Finally, software where your coding agent is the user.",
+  description:
+    "Developer software designed around the machine doing the work, while the person responsible keeps the final decision.",
+} as const;
+
 /** Route-specific social copy, which can address an out-of-context human share. */
 export const SOCIAL_PAGE_METADATA: Readonly<
-  Record<string, { title: string; description: string; image: string }>
+  Record<string, { title: string; description: string }>
 > = {
-  "/agents": {
-    title: "Finally, software where your coding agent is the user.",
-    description:
-      "Developer software designed around the machine doing the work, while the person responsible keeps the final decision.",
-    image: "/assets/agents-og.png",
-  },
+  "/agents": AGENTS_SOCIAL,
 };
 
 /**
@@ -53,3 +55,5 @@ export const SELF_TITLED_PAGES: Readonly<Record<string, string>> = {
 /** Canonical 100-unit geometry for drawn derivatives of the Unicode mark. */
 export const DISCERN_MARK_FILLED_PATH = "M50 12 90 84H50Z";
 export const DISCERN_MARK_OUTLINE_PATH = "M50 12 90 84H10Z";
+/** The outline's stroke width in the same 100-unit box, with round joins. */
+export const DISCERN_MARK_OUTLINE_STROKE = 7;

@@ -231,8 +231,8 @@ Deno.test("every retired-phrase exception still names a real path", async () => 
 Deno.test("the vocabulary scan universe reaches the site tree", async () => {
   const site = await siteFiles(VOCABULARY_FILES);
   assert(
-    site.prose.some(([rel]) => rel === "site/pages/assets/og-card.svg"),
-    "site prose files should include the social card",
+    site.prose.some(([rel]) => rel === "site/text/discern.txt"),
+    "site prose files should include the plaintext edition",
   );
   assert(
     site.literals.some(([rel]) => rel.startsWith("site/")),

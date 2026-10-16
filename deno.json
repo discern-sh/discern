@@ -133,7 +133,11 @@
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "jsr:@discern-sh/design-system@0.39.0"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.39.0",
+    "fontkit": "npm:fontkit@2.0.4",
+    "@types/fontkit": "npm:@types/fontkit@2.0.9",
+    "@resvg/resvg-wasm": "npm:@resvg/resvg-wasm@2.6.2",
+    "woff2-encoder": "npm:woff2-encoder@2.0.0"
   },
   "exclude": [
     ".agents/skills/",

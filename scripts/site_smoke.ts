@@ -9,6 +9,12 @@ import { SELF_TITLED_PAGES } from "../site/brand.ts";
 import { loadDocsSite, relatedDecisionCitations } from "../site/docs.tsx";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
 import { SECURITY_DISCLOSURE, securityTxt } from "../site/security.ts";
+import {
+  RETIRED_SOCIAL_CARD_ASSETS,
+  SOCIAL_CARD_SIZE,
+  socialCardPath,
+} from "../site/social/address.ts";
+import { RELEASE_ROUTES } from "../src/shared/product_identity.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
 import {
   buildSiteRedirectTable,
@@ -111,6 +117,22 @@ function sameItems(
       );
     }
   }
+}
+
+/** The eight bytes every PNG file starts with. */
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const;
+
+/** A PNG's pixel size from its header, or `undefined` for anything else. */
+export function pngSize(
+  bytes: Uint8Array,
+): { width: number; height: number } | undefined {
+  if (
+    bytes.length < 24 || PNG_SIGNATURE.some((byte, i) => bytes[i] !== byte)
+  ) {
+    return undefined;
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { width: view.getUint32(16), height: view.getUint32(20) };
 }
 
 /** Compare two response bodies byte-for-byte without decoding them. */
@@ -300,15 +322,29 @@ export async function runSiteSmoke(
         'meta[property="og:title"]',
         'meta[property="og:description"]',
         'meta[property="og:image"]',
+        'meta[property="og:image:alt"]',
         'meta[property="og:url"]',
         'meta[name="twitter:card"]',
         'meta[name="twitter:title"]',
         'meta[name="twitter:description"]',
         'meta[name="twitter:image"]',
+        'meta[name="twitter:image:alt"]',
       ]
     ) {
       if (document.querySelector(selector) === null) {
         fail(`${route}: missing ${selector}`);
+      }
+    }
+    const card = canonicalUrl(socialCardPath(route));
+    for (
+      const selector of [
+        'meta[property="og:image"]',
+        'meta[name="twitter:image"]',
+      ]
+    ) {
+      const image = document.querySelector(selector)?.getAttribute("content");
+      if (image !== card) {
+        fail(`${route}: ${selector} is ${image}, not its own card ${card}`);
       }
     }
     const structured = [
@@ -712,7 +748,51 @@ export async function runSiteSmoke(
     fail(`${SECURITY_DISCLOSURE.route}: response differs from the registry`);
   }
 
-  for (const path of ["/robots.txt", "/assets/og-card.png", "/install"]) {
+  const cardSamples = [
+    ...new Set([
+      "/",
+      RELEASE_ROUTES.html,
+      site.landing.route,
+      site.pages[0]?.route,
+      site.publicMap.landing.route,
+      site.decisions.route,
+      site.decisions.pages[0]?.route,
+    ]),
+  ].filter((route): route is string =>
+    route !== undefined && expectedRoutes.includes(route)
+  );
+  await parallel(cardSamples, async (route) => {
+    const path = socialCardPath(route);
+    const response = await get(path);
+    secure(response, path);
+    if (response.status !== 200) fail(`${path}: status ${response.status}`);
+    if (response.headers.get("content-type") !== "image/png") {
+      fail(`${path}: content type ${response.headers.get("content-type")}`);
+    }
+    const size = pngSize(new Uint8Array(await response.arrayBuffer()));
+    if (
+      size?.width !== SOCIAL_CARD_SIZE.width ||
+      size.height !== SOCIAL_CARD_SIZE.height
+    ) {
+      fail(`${path}: image size ${JSON.stringify(size)}`);
+    }
+  });
+  for (const [retired, card] of Object.entries(RETIRED_SOCIAL_CARD_ASSETS)) {
+    const response = await get(retired);
+    await response.body?.cancel();
+    if (
+      response.status !== 308 ||
+      response.headers.get("location") !== redirectDestination(base, card)
+    ) {
+      fail(
+        `${retired}: ${response.status} to ${
+          response.headers.get("location")
+        }, not a 308 to ${card}`,
+      );
+    }
+  }
+
+  for (const path of ["/robots.txt", "/install"]) {
     const response = await get(path);
     secure(response, path);
     if (response.status !== 200) fail(`${path}: status ${response.status}`);

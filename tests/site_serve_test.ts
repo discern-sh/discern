@@ -12,6 +12,7 @@ import {
   DISCERN_MARK,
   DISCERN_MARK_FILLED_PATH,
   DISCERN_MARK_OUTLINE_PATH,
+  DISCERN_MARK_OUTLINE_STROKE,
 } from "../site/brand.ts";
 import { handler, PAGES, TEXT_EDITION, wantsText } from "../site/serve.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
@@ -66,6 +67,10 @@ Deno.test("the project mark and favicon preserve the ADR 0149 identity", async (
   const svg = await res.text();
   assertStringIncludes(svg, `d="${DISCERN_MARK_FILLED_PATH}"`);
   assertStringIncludes(svg, `d="${DISCERN_MARK_OUTLINE_PATH}"`);
+  assertStringIncludes(
+    svg,
+    `stroke-width="${DISCERN_MARK_OUTLINE_STROKE}"`,
+  );
   assertStringIncludes(svg, "currentColor");
   assertStringIncludes(svg, "prefers-color-scheme: dark");
   assert(
