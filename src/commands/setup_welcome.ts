@@ -126,7 +126,7 @@ const FRESH_OWNER_WELCOME = [
   "The selected agent studies the repository, preserves its workflows, sets up the final quality check (the gate) and separate working copies for tasks, then writes the maintained project guide and shared agent instructions.",
   "Expect roughly 20–40 minutes and a meaningful number of tokens, prepared as small commits on a separate reviewable branch. You decide cost, access, durable data, new dependencies, exceptions, and landing.",
   `${SETUP_REVERSIBILITY.welcome} ${SETUP_REVERSIBILITY.uninstall}`,
-  "The footprint is the root `discern.toml`, one visible `discern/` folder, managed `.gitignore` and `.gitattributes` blocks, the agent file compiled from authored instructions, and the selected coding tools' local integration files. Git ignores the skills discern generates in provider skill directories, and only those. No API key or outside service is required.",
+  "The footprint is the root `discern.toml`, one visible `discern/` folder, managed `.gitignore` and `.gitattributes` blocks, the agent file compiled from authored instructions, and the selected coding tools' local integration files. discern's generated skills stay Git-ignored. No API key or outside service is required.",
   "Because future sessions inherit this work, use your strongest suitable reasoning model. Switch with the tool's model selector and start a fresh project session. To stop, say so before `begin`; this welcome and the preflight are read-only.",
 ] as const;
 
