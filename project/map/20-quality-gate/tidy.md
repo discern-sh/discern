@@ -23,6 +23,8 @@ Fresh installations put bare `discern tidy` in the [format job](../00-orientatio
 | Markdown | Every `.md` file under `[map].dir`, the `[project].todo` file, and files matched by `[instructions].sources`. | The project brief, authored Skills, generated agent files, and Markdown outside those configured sources. |
 | TOML     | The root `discern.toml`.                                                                                      | Every other TOML file, including files owned by the project's stack or a coding-agent provider.           |
 
+A target that a `[generated.<name>]` group owns is also left alone. Tidy neither formats nor scans it, because the group's `run` command is its only writer. A rewrite would come back as drift at the next regeneration ([ADR 0424](../_adr/0424-generator-owned-paths-have-one-writer.md)). `--dry-run` names each skipped file and its group. The planner matches each target with the same ownership predicate the gate's drift check uses.
+
 Markdown prose is unwrapped, two-space indented, space-based, and LF-terminated. Fenced code stays unchanged. Box-drawing diagrams in fenced or indented code blocks must align; a bad glyph reports `diagrams_misaligned` with file, line, and column. Only a fence tagged `freeform` opts out, because indented blocks have no tag. TOML preserves comments and shows dotted depth with two-space steps. The embedded formatter makes no network call and needs no project runtime ([ADR 0321](../_adr/0321-diagram-geometry-follows-markdown-code-block-semantics.md)).
 
 ## Run it directly

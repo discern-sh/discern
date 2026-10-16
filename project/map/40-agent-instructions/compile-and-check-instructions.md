@@ -30,7 +30,7 @@ For each full-body output, local Markdown destinations are rewritten to resolve 
 
 The renderer gives every full body and pointer one final line feed; writers and currency checks consume those bytes.
 
-The ADR index is opt-in by construction: a README that carries the `BEGIN GENERATED` markers is maintained, one without them is never touched. Fresh installs receive the markers from the setup skeleton; an existing project adopts the index by adding them.
+The ADR index is opt-in by construction: a README that carries the `BEGIN GENERATED` markers is maintained, one without them is never touched. Fresh installs receive the markers from the setup skeleton; an existing project adopts the index by adding them. A README that a `[generated.<name>]` group owns is never touched either. `adrIndexState` reports it as absent, so refresh, status, the gate, and update's conflict policy leave it to that generator ([ADR 0424](../_adr/0424-generator-owned-paths-have-one-writer.md)).
 
 The built-in map section also derives a compact region list from the configured map ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)). Each non-internal top-level directory contributes its region target and front-door title. Adding or renaming a region, or changing its front-door title, changes the agent files. Other changes within an existing region leave that list unchanged. Run `discern refresh` after either kind of source change; the currency check reports whether the tracked outputs changed.
 
