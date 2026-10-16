@@ -291,7 +291,7 @@ Deno.test("discern recognizes its ignore file under either attribution setting a
   assert(!isDiscernSkillsIgnore("/*\n"));
 });
 
-Deno.test("status surfaces a skills conflict as drift, and the refresh it points to explains how to free the name", async () => {
+Deno.test("status names a skills conflict with its own choice-shaped hint", async () => {
   await withTempDir(async (root) => {
     await materializeSkills(root, cfg(), DIRS);
     await Deno.remove(join(root, SKILLS_DIR, BUNDLED), { recursive: true });
@@ -302,15 +302,12 @@ Deno.test("status surfaces a skills conflict as drift, and the refresh it points
     );
 
     const currency = await statusMaterialCurrency(root, cfg());
-    assert(
-      currency.artifactHints.some((hint) =>
-        hint.id === HINTS["materialized-skills-stale"].id
-      ),
-      "a conflict must not go silent at orientation",
+    const ids = currency.artifactHints.map((hint) => hint.id);
+    assert(ids.includes(HINTS["materialized-skills-conflict"].id), `${ids}`);
+    const conflict = currency.artifactHints.find((hint) =>
+      hint.id === HINTS["materialized-skills-conflict"].id
     );
-    const plan = await planMaterializeSkills(root, cfg(), DIRS);
-    assertEquals(plan.errors.length, 1);
-    assertStringIncludes(plan.errors[0] ?? "", `${SKILLS_DIR}/${BUNDLED}`);
-    assertStringIncludes(plan.errors[0] ?? "", "[skills].exclude");
+    assertStringIncludes(conflict?.text ?? "", `${SKILLS_DIR}/${BUNDLED}`);
+    assertStringIncludes(conflict?.text ?? "", "[skills].exclude");
   });
 });

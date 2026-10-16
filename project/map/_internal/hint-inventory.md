@@ -1140,6 +1140,17 @@ Rendered example:
 
 > This project hasn't recorded which discern version last updated its managed files. Run `discern upgrade --dry-run` to preview the update, then `discern upgrade` to apply it.
 
+## `materialized-skills-conflict`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: An entry discern did not place holds a name discern needs in a skills directory.
+
+Rendered example:
+
+> discern left entries it did not place untouched, although it needs their names: .claude/skills/notes exists and discern did not place it, so discern will not replace it with the authored skill of the same name. Free each name, then run `discern refresh`: rename the other entry, or rename the discern-side skill under [skills].dir or list it in [skills].exclude. Delete an entry that is an earlier copy of discern's own output. Move the rules from an ignore file discern did not write into the root .gitignore, then delete that file.
+
 ## `materialized-skills-missing`
 
 - Category: `next-step`

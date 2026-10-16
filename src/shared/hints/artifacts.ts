@@ -105,6 +105,25 @@ export const ARTIFACT_HINTS = {
       ),
   }),
 
+  /**
+   * An entry discern did not place holds a name discern needs in a shared
+   * skills directory. Refresh refuses to replace it, so the remedy is a choice
+   * about which side keeps the name.
+   */
+  "materialized-skills-conflict": defineHint<{ details: string }>({
+    id: "materialized-skills-conflict",
+    category: "next-step",
+    audience: "all",
+    when:
+      "An entry discern did not place holds a name discern needs in a skills directory.",
+    example: {
+      details:
+        ".claude/skills/notes exists and discern did not place it, so discern will not replace it with the authored skill of the same name",
+    },
+    template: ({ details }): string =>
+      `discern left entries it did not place untouched, although it needs their names: ${details}. Free each name, then run ${CMD.refresh}: rename the other entry, or rename the discern-side skill under [skills].dir or list it in [skills].exclude. Delete an entry that is an earlier copy of discern's own output. Move the rules from an ignore file discern did not write into the root .gitignore, then delete that file.`,
+  }),
+
   /** Missing provider-integration context for the shared generated-drift remedy. */
   "provider-integrations-missing": defineHint<{ paths: string }>({
     id: "provider-integrations-missing",

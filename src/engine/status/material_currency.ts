@@ -12,7 +12,11 @@ import {
   checkProviderHooksCurrent,
   type ProviderHookDriftEntry,
 } from "../../lib/provider_hooks.ts";
-import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
+import {
+  checkSkillsCurrent,
+  skillsConflictHint,
+  type SkillsDriftEntry,
+} from "../../lib/skills.ts";
 import { DISCERN_VERSION } from "../../lib/version.ts";
 import {
   compareManagedVersion,
@@ -158,9 +162,12 @@ function materialCurrencyHints(ctx: CurrencyEvidence): FiredHint[] {
   // instructions. `missing`/`foreign` (a not-yet-built dir, another tool's entry) read
   // differently from `stale` (a drift a refresh overwrites), so only stale gets the
   // edit-the-source redirect; foreign is surfaced but never presented as fixable. A
-  // `conflict` reads as stale here: the refresh this sends the agent to reports the
-  // conflict and how to free the name.
-  const realSkillsDrift = ctx.skillsDrift.filter((d) => d.reason !== "foreign");
+  // `conflict` is neither: refresh refuses it, so it gets its own choice-shaped hint.
+  const conflicts = ctx.skillsDrift.filter((d) => d.reason === "conflict");
+  if (conflicts.length > 0) hints.push(skillsConflictHint(conflicts));
+  const realSkillsDrift = ctx.skillsDrift.filter((d) =>
+    d.reason === "missing" || d.reason === "stale"
+  );
   if (realSkillsDrift.length > 0) {
     const dirs = [...new Set(realSkillsDrift.map((d) => d.dir))].join(", ");
     const allMissing = realSkillsDrift.every((d) => d.reason === "missing");

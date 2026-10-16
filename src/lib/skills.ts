@@ -57,6 +57,7 @@ import {
 } from "../shared/fs_presence.ts";
 import { bestEffort } from "../shared/best_effort.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import {
   isDiscernSkillsIgnore,
   MATERIALIZED_MANIFEST,
@@ -836,13 +837,20 @@ async function planMaterializeSkillsDir(
 }
 
 /** The refusal message for conflicts, shared by every surface that reports
- * them: refresh's error and the gate's skills diagnostic. */
+ * them: refresh's error, the gate's skills diagnostic, and status. */
 export function skillsConflictMessage(
-  conflicts: readonly SkillsConflict[],
+  conflicts: readonly { readonly detail: string }[],
 ): string {
-  return `discern left entries it did not place untouched, although it needs their names: ${
-    conflicts.map((conflict) => conflict.detail).join("; ")
-  }. Free each name, then run \`discern refresh\`: rename the other entry, or rename the discern-side skill under [skills].dir or list it in [skills].exclude. Delete an entry that is an earlier copy of discern's own output. Move the rules from an ignore file discern did not write into the root .gitignore, then delete that file.`;
+  return skillsConflictHint(conflicts).text;
+}
+
+/** Fire the conflict hint for one set of refused entries. */
+export function skillsConflictHint(
+  conflicts: readonly { readonly detail: string }[],
+): FiredHint {
+  return fire(HINTS["materialized-skills-conflict"], {
+    details: conflicts.map((conflict) => conflict.detail).join("; "),
+  });
 }
 
 /**
