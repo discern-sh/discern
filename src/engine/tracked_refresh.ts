@@ -383,13 +383,6 @@ export async function planRefresh(
     );
     for (const directory of skills.directories) {
       addSkillEffects(effects, directory.operations);
-      if (directory.foreign.length > 0) {
-        warnings.push(
-          `${directory.dirRel}/ has unmanaged entries discern would leave untouched: ${
-            directory.foreign.join(", ")
-          }`,
-        );
-      }
     }
     warnings.push(...skills.warnings);
     errors.push(...skills.errors.map((message) => ({

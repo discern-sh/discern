@@ -465,25 +465,6 @@ async function removeAny(path: string, isDir: boolean): Promise<void> {
   }
 }
 
-/** Surface foreign entries left untouched in a skills dir (another tool's skill or a
- * hand-placed drop-in). Reported so the operator knows discern saw them — never
- * replaced, ignored, or deleted. */
-function warnForeignSkills(
-  log: Logger | undefined,
-  skillsRel: string,
-  foreign: string[],
-): void {
-  if (foreign.length === 0) {
-    return;
-  }
-  const plural = foreign.length === 1 ? "entry" : "entries";
-  log?.warn(
-    `${skillsRel}/ has ${foreign.length} unmanaged ${plural} discern left untouched: ${
-      foreign.sort().join(", ")
-    }`,
-  );
-}
-
 /**
  * Materialize the effective skill set into EVERY configured agent's skills
  * directory. `dirs` are the project-relative targets — one per agent family, from
@@ -796,7 +777,6 @@ export async function applyMaterializeSkillsPlan(
     log?.warn(warning);
   }
   for (const directory of plan.directories) {
-    warnForeignSkills(log, directory.dirRel, [...directory.foreign]);
     let failed = false;
     const changed = { copied: 0, linked: 0, pruned: 0 };
     for (const operation of directory.operations) {
