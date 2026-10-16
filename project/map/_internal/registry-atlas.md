@@ -119,6 +119,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
 | [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 412     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 31      | "File ownership" | node `ownership-buckets`    |
+| [`skill-dir-consumers`](#skill-dir-consumers--skills-directory-consumers)                                             | `tests/skill_dir_consumers.ts#SKILL_DIR_CONSUMERS`                                | 22      | —                | —                           |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#DEAD_CONFIG_POSITIONS`                                  | 10      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 12      | —                | —                           |
@@ -150,9 +151,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 16      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 4       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 139     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 140     | —                | node `canonical-sets`       |
 
-139 sets · 201 guard tests · 75 committed artifacts.
+140 sets · 202 guard tests · 75 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -339,6 +340,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/site_serve_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/site_workflow_test.ts`                      | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `tests/skill_dir_consumers_guard_test.ts`          | [`skill-dir-consumers`](#skill-dir-consumers--skills-directory-consumers)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/skill_name_parity_test.ts`                  | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/source_path_references_test.ts`             | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/spoiler_guard_test.ts`                      | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -5074,6 +5076,38 @@ Every project-tree path discern writes or maintains, with its operational owners
 - Glossary: the "File ownership" entry carries the concept
 - Feature canon: described by the `ownership-buckets` node
 
+## `skill-dir-consumers` — Skills-directory consumers
+
+Every shipped call site that reads a provider skills-directory path from the registry, with what it does with the path, and every shipped importer of the ownership module with the test proving it leaves other tools' skills alone.
+
+- Source: `tests/skill_dir_consumers.ts` — `SKILL_DIR_CONSUMERS`
+- Members: 22
+  - `src/commands/doctor.ts#runChecks`
+  - `src/engine/dispatch.ts#planSkillsEject`
+  - `src/engine/instruction_render.ts#instructionContext`
+  - `src/engine/instructions.ts#materializeLocalRefreshArtifacts`
+  - `src/engine/status/fleet_fingerprint.ts#fleetFingerprintLayout`
+  - `src/engine/tracked_refresh.ts#planRefresh`
+  - `src/lib/agent_gitignore.ts#discernOwnedArtifactIgnorePaths`
+  - `src/lib/artifact_ownership.ts#providerArtifacts`
+  - `src/lib/config.ts#defaultInstructionScopePaths`
+  - `src/lib/detect_agents.ts#consentAgentSet`
+  - `src/lib/plan_view.ts#renderReview`
+  - `src/lib/providers.ts#agentArtifactPosture`
+  - `src/lib/providers.ts#agentIntegrationPrefixes`
+  - `src/lib/providers.ts#allSkillsDirs`
+  - `src/lib/providers.ts#neutralAgentScopePaths`
+  - `src/lib/providers.ts#providerSetupFacts`
+  - `src/lib/providers.ts#skillsDirsForAgents`
+  - `src/lib/providers.ts#writtenProviderArtifactPathsForAgents`
+  - `src/lib/skill_ownership.ts#surveySkillsDirs`
+  - `src/lib/skills.ts#checkSkillsCurrent`
+  - `src/lib/skills.ts#claudeSkillsDirOf`
+  - `src/shared/setup_messages.ts#consentRelayItems`
+- Guards: `tests/skill_dir_consumers_guard_test.ts`
+- Glossary: not enrolled — the files-and-ownership reference explains entry-level ownership of skills directories in context
+- Feature canon: not enrolled — the repository's contributor guard infrastructure owns this enrolment check
+
 ## `distribution-vocabulary` — Distribution vocabulary
 
 Dead config positions, command suggestions, and grammatical command variants.
@@ -5903,7 +5937,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 139
+- Members: 140
   - `site-marketing-pages`
   - `site-endpoints`
   - `public-site-routes`
@@ -6011,6 +6045,7 @@ This meta-registry: the closed set of closed sets.
   - `docs-workflow-directives`
   - `adrs`
   - `project-artifacts`
+  - `skill-dir-consumers`
   - `distribution-vocabulary`
   - `voice-banned-moves`
   - `brand-vale-styles`

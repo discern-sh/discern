@@ -3349,6 +3349,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
   },
   {
+    id: "skill-dir-consumers",
+    title: "Skills-directory consumers",
+    what:
+      "Every shipped call site that reads a provider skills-directory path from the registry, with what it does with the path, and every shipped importer of the ownership module with the test proving it leaves other tools' skills alone.",
+    source: {
+      kind: "module",
+      module: "tests/skill_dir_consumers.ts",
+      exportName: "SKILL_DIR_CONSUMERS",
+    },
+    guards: ["tests/skill_dir_consumers_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the files-and-ownership reference explains entry-level ownership of skills directories in context",
+      },
+      featureCanon: {
+        absent:
+          "the repository's contributor guard infrastructure owns this enrolment check",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../tests/skill_dir_consumers.ts")).SKILL_DIR_CONSUMERS,
+      ),
+  },
+  {
     id: "distribution-vocabulary",
     title: "Distribution vocabulary",
     what:
