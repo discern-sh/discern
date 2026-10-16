@@ -30,11 +30,11 @@ import {
   claudeSkillsDirOf,
   ejectSkill,
   listSkills,
-  MATERIALIZED_MANIFEST,
   materializeSkills,
   planMaterializeSkills,
   resolveEffectiveSkills,
 } from "../src/lib/skills.ts";
+import { MATERIALIZED_MANIFEST } from "../src/lib/skill_ownership.ts";
 import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
 import { allSkillsDirs, skillsDirsForAgents } from "../src/lib/providers.ts";
 import { placementLadderProse } from "../src/shared/questions.ts";

@@ -1635,15 +1635,15 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "Ejection has already copied the complete skill, and host defaults usually leave it readable even when permission normalization fails.",
   },
   "skills-materialized-manifest-decode-fallback": {
-    path: "src/lib/skills.ts",
+    path: "src/lib/skill_ownership.ts",
     enclosingFunction: "readMaterializedNames",
     operation:
-      "disable orphan pruning for malformed materialized-skill ownership JSON",
+      "treat malformed materialized-skill ownership JSON as owning nothing",
     kind: "direct",
     shape: "sync",
     observability: { kind: "unobservable" },
     reason:
-      "Pruning requires positive ownership evidence, so a malformed local manifest cannot authorize deletion of any skill directory.",
+      "Every ownership decision requires positive evidence, so a malformed local manifest cannot authorize replacing, ignoring, or deleting any skill entry.",
   },
   "standard-proposal-store-decode-fallback": {
     path: "src/engine/gate/standard_proposal_state.ts",

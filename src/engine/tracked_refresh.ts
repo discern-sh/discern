@@ -68,6 +68,7 @@ export type RefreshArtifactKind =
   | TrackedRefreshArtifactKind
   | "skill"
   | "skill_manifest"
+  | "skill_ignore"
   | "proof_notes_fetch"
   | "generated_merge_driver";
 
@@ -292,7 +293,11 @@ function addSkillEffects(
       target: operation.targetRel,
       disposition: operation.disposition,
       artifacts: [
-        operation.kind === "manifest" ? "skill_manifest" : "skill",
+        operation.kind === "manifest"
+          ? "skill_manifest"
+          : operation.kind === "ignore"
+          ? "skill_ignore"
+          : "skill",
       ],
       trackedKinds: [],
       boundary: `skills:${operation.dirRel}`,
@@ -373,6 +378,8 @@ export async function planRefresh(
       root,
       config,
       skillsDirsForAgents(agents),
+      {},
+      env,
     );
     for (const directory of skills.directories) {
       addSkillEffects(effects, directory.operations);
@@ -652,7 +659,8 @@ function artifactGroup(effect: RefreshEffect): string {
   if (effect.artifacts.includes("agent_file")) return "Agent files";
   if (
     effect.artifacts.includes("skill") ||
-    effect.artifacts.includes("skill_manifest")
+    effect.artifacts.includes("skill_manifest") ||
+    effect.artifacts.includes("skill_ignore")
   ) return "Materialized skills";
   if (effect.artifacts.includes("proof_notes_fetch")) {
     return "Checkout-local integrations";

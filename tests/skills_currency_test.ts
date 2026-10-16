@@ -12,11 +12,8 @@ import {
   type DiscernConfig,
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
-import {
-  checkSkillsCurrent,
-  MATERIALIZED_MANIFEST,
-  materializeSkills,
-} from "../src/lib/skills.ts";
+import { checkSkillsCurrent, materializeSkills } from "../src/lib/skills.ts";
+import { MATERIALIZED_MANIFEST } from "../src/lib/skill_ownership.ts";
 import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { withTempDir } from "./helpers.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";

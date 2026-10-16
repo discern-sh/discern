@@ -56,6 +56,7 @@ export const ARTIFACT_PROVENANCE_SOURCES = {
   gitattributes:
     "discern.toml, the source-path registry, and the provider registry",
   gitignore: "the bundled .gitignore fragment and provider registry",
+  skillsIgnore: "the materialized-skills record beside it",
   worktreeEnvironment: "[worktree] in discern.toml",
   codexConfig: "the Codex integration and discern.toml",
   codexEnvironment: "the Codex worktree integration",

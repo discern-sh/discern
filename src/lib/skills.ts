@@ -6,8 +6,7 @@
  * skills** (under `[skills].dir`, default `./skills`), where *yours win by name*.
  * The effective set is materialized into EACH configured agent's skills directory
  * (the provider registry's `skillsDir` — `.claude/skills/` for Claude Code, the
- * cross-tool `.agents/skills/` shared by Codex + Gemini; all gitignored, the
- * providers', never the user's footprint):
+ * cross-tool `.agents/skills/` shared by Codex + Gemini):
  *   - a bundled skill is **rendered** in (its source lives in the binary, out of
  *     the project tree, so a symlink would dangle): markdown passes through the
  *     strict instructions template engine against the resolved-config context, so a
@@ -16,13 +15,15 @@
  *   - an authored skill is **symlinked** to `[skills].dir` (so edits are live,
  *     and its content — the user's — is never templated).
  *
- * No directory is ever part-tracked/part-ignored: `[skills].dir` is 100% yours, an
- * agent skills dir is 100% generated. That removes by construction the mixed-
- * ignore trap that silently de-tracked authored skills on upgrade.
+ * `[skills].dir` is wholly the project's. A provider skills dir is shared with any
+ * other tool that installs skills there: discern owns only the entries its
+ * ownership record names (`skill_ownership.ts`, ADR 0424), keeps them out of Git
+ * with an ignore file listing exactly those entries, and never replaces, ignores,
+ * or deletes an entry it did not place.
  *
  * `setup`/`upgrade` materialize for the main checkout; a linked git worktree does
- * NOT inherit the gitignored agent skills dirs, so worktree setup materializes them
- * too. Materialization always reconciles, so a removed/ejected skill never lingers.
+ * NOT inherit discern's ignored entries, so worktree setup materializes them too.
+ * Materialization always reconciles, so a removed/ejected skill never lingers.
  */
 
 import { dirname, join, relative } from "@std/path";
@@ -55,6 +56,17 @@ import {
   targetExists,
 } from "../shared/fs_presence.ts";
 import { bestEffort } from "../shared/best_effort.ts";
+import type { EnvReader } from "../shared/env.ts";
+import { fire, HINTS } from "../shared/hints.ts";
+import {
+  isDiscernSkillsIgnore,
+  MATERIALIZED_MANIFEST,
+  materializedNamesText,
+  readMaterializedNames,
+  renderSkillsIgnore,
+  SKILLS_IGNORE_FILE,
+  skillsIgnoreMatches,
+} from "./skill_ownership.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -70,15 +82,6 @@ export interface SkillEntry {
   /** True when an authored skill shadows a bundled built-in of the same name. */
   overrides_bundled: boolean;
 }
-
-/**
- * discern's ownership record inside `.claude/skills/`: the skill names it
- * materialized on the last run. It is what lets a later run prune a stale copy
- * discern itself placed (a bundled skill a newer binary stopped shipping) WITHOUT
- * clobbering a user's hand-placed drop-in — the two are otherwise indistinguishable
- * real directories. A dotfile, so the provider's skill discovery ignores it.
- */
-export const MATERIALIZED_MANIFEST = ".discern-materialized.json";
 
 /** Directory names directly under `dir` (sorted), or `[]` if `dir` is absent. */
 async function dirNames(dir: string): Promise<string[]> {
@@ -405,20 +408,35 @@ export interface SkillMaterializationOperation {
   readonly targetAbs: string;
   readonly dirRel: string;
   readonly disposition: SkillMaterializationDisposition;
-  readonly kind: "bundled" | "authored" | "stale" | "manifest";
+  /** `ignore` and `manifest` are discern's two control files. */
+  readonly kind: "bundled" | "authored" | "stale" | "ignore" | "manifest";
   /** Present for an effective bundled/authored skill. */
   readonly skill?: SkillEntry | undefined;
-  /** The exact manifest bytes planned from the effective set. */
-  readonly manifestText?: string | undefined;
+  /** The exact control-file bytes planned from the owned names. */
+  readonly text?: string | undefined;
+  /** Why an owned entry needs replacing, for an `update`. */
+  readonly detail?: string | undefined;
   /** Existing directories need recursive removal before replacement. */
   readonly removeDirectory?: boolean | undefined;
+}
+
+/** An entry discern needs but will not replace, because it did not place it. */
+export interface SkillsConflict {
+  /** The contested entry name: an effective skill's, or the ignore file's. */
+  readonly name: string;
+  readonly detail: string;
 }
 
 /** One independently-failing skills-directory boundary. */
 export interface SkillMaterializationDirectoryPlan {
   readonly dirRel: string;
+  /** Whether the directory exists before the plan applies. */
+  readonly exists: boolean;
   readonly operations: readonly SkillMaterializationOperation[];
+  /** Entries discern did not place and leaves untouched. */
   readonly foreign: readonly string[];
+  /** Entries discern needs but refuses to replace. */
+  readonly conflicts: readonly SkillsConflict[];
 }
 
 /** The complete read-only materialized-skills plan. */
@@ -447,51 +465,9 @@ async function removeAny(path: string, isDir: boolean): Promise<void> {
   }
 }
 
-/** The names discern materialized last run (its ownership record), or `[]` when the
- * record is absent or unreadable — a corrupt record simply disables orphan pruning
- * for this run rather than risking a wrong deletion. */
-async function readMaterializedNames(
-  claudeSkillsDir: string,
-): Promise<Set<string>> {
-  const text = await readTextIfExists(
-    join(claudeSkillsDir, MATERIALIZED_MANIFEST),
-  );
-  if (text === undefined) return new Set<string>();
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed)) {
-      return new Set(parsed.filter((n): n is string => typeof n === "string"));
-    }
-    return new Set<string>();
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-    // discern-best-effort: skills-materialized-manifest-decode-fallback
-    return new Set<string>();
-  }
-}
-
-/**
- * True when a directory entry that is NOT in the effective set is discern's own
- * stale artifact rather than a user drop-in: its name is in the ownership
- * manifest (discern placed it — a copied bundled skill or an authored skill's
- * symlink, live or not), or it is a dangling symlink (a removed authored skill
- * from a run predating the manifest). The ONE classification the prune pass
- * ({@link planMaterializeSkills}) and the currency check ({@link checkSkillsDir})
- * share, so the check can never call an entry `stale` that a refresh would then
- * refuse to prune.
- */
-async function isOwnedStaleEntry(
-  path: string,
-  entry: Deno.DirEntry,
-  ownedBefore: Set<string>,
-): Promise<boolean> {
-  return ownedBefore.has(entry.name) ||
-    (entry.isSymlink && !(await targetExists(path)));
-}
-
-/** Surface foreign entries left untouched in `.claude/skills/` (a user drop-in under
- * an unmanaged name). The directory is discern-generated, so a stray entry is worth
- * a heads-up — but never a deletion, per the never-clobber-a-drop-in contract. */
+/** Surface foreign entries left untouched in a skills dir (another tool's skill or a
+ * hand-placed drop-in). Reported so the operator knows discern saw them — never
+ * replaced, ignored, or deleted. */
 function warnForeignSkills(
   log: Logger | undefined,
   skillsRel: string,
@@ -528,37 +504,73 @@ export async function materializeSkills(
   );
 }
 
-/** Render the stable ownership-manifest body for one effective skill set. */
-function materializedNamesText(names: readonly string[]): string {
-  return `${JSON.stringify([...names].sort(), null, 2)}\n`;
+/** Render one conflict's refusal for an effective skill whose name is taken. */
+function nameConflict(targetRel: string, skill: SkillEntry): SkillsConflict {
+  return {
+    name: skill.name,
+    detail:
+      `${targetRel} exists and discern did not place it, so discern will not replace it with the ${skill.source} skill of the same name`,
+  };
 }
 
-/** Plan one configured agent skills directory without changing it. */
+/**
+ * Plan one configured agent skills directory without changing it. Each entry is
+ * classified against the ownership record:
+ *   - an effective skill already current is kept (and recorded, so an entry
+ *     byte-identical to discern's own output is adopted rather than rewritten);
+ *   - an effective skill discern owns but which differs is replaced;
+ *   - an effective skill whose name another entry holds is a conflict: discern
+ *     refuses to replace what it did not place;
+ *   - a recorded entry no longer effective is pruned;
+ *   - anything else is foreign and left alone.
+ * The ignore file and the record are then planned from exactly the names
+ * discern owns afterwards. {@link checkSkillsDir} projects this same plan, so the
+ * currency check can never disagree with what a refresh would do.
+ */
 async function planMaterializeSkillsDir(
   root: string,
   rel: string,
   effective: SkillEntry[],
   ctx: InstructionContext,
+  env: EnvReader,
 ): Promise<SkillMaterializationDirectoryPlan> {
   const abs = join(root, rel);
   const managed = new Map(effective.map((entry) => [entry.name, entry]));
   const ownedBefore = await readMaterializedNames(abs);
   const operations: SkillMaterializationOperation[] = [];
   const foreign: string[] = [];
+  const conflicts: SkillsConflict[] = [];
+  const ownedAfter: string[] = [];
   const seen = new Set<string>();
-  const skillsDirEntry = await lstatIfExists(abs);
+  const exists = await lstatIfExists(abs) !== undefined;
+  let ignoreText: string | undefined;
+  let foreignIgnore = false;
 
-  if (skillsDirEntry !== undefined) {
+  if (exists) {
     for await (const entry of Deno.readDir(abs)) {
       if (entry.name === MATERIALIZED_MANIFEST) {
         continue;
       }
       const path = join(abs, entry.name);
       const targetRel = join(rel, entry.name);
+      if (entry.name === SKILLS_IGNORE_FILE) {
+        const text = entry.isFile ? await readTextIfExists(path) : undefined;
+        if (text !== undefined && isDiscernSkillsIgnore(text)) {
+          ignoreText = text;
+        } else {
+          foreignIgnore = true;
+        }
+        continue;
+      }
+      const owned = ownedBefore.has(entry.name);
+      const removeDirectory = entry.isDirectory && !entry.isSymlink;
       const skill = managed.get(entry.name);
       if (skill !== undefined) {
         seen.add(entry.name);
-        if (await skillMismatch(abs, path, entry, skill, ctx) !== undefined) {
+        const mismatch = await skillMismatch(abs, path, entry, skill, ctx);
+        if (mismatch === undefined) {
+          ownedAfter.push(entry.name);
+        } else if (owned) {
           operations.push({
             targetRel,
             targetAbs: path,
@@ -566,19 +578,23 @@ async function planMaterializeSkillsDir(
             disposition: "update",
             kind: skill.source,
             skill,
-            removeDirectory: entry.isDirectory && !entry.isSymlink,
+            detail: mismatch,
+            removeDirectory,
           });
+          ownedAfter.push(entry.name);
+        } else {
+          conflicts.push(nameConflict(targetRel, skill));
         }
         continue;
       }
-      if (await isOwnedStaleEntry(path, entry, ownedBefore)) {
+      if (owned) {
         operations.push({
           targetRel,
           targetAbs: path,
           dirRel: rel,
           disposition: "remove",
           kind: "stale",
-          removeDirectory: entry.isDirectory && !entry.isSymlink,
+          removeDirectory,
         });
       } else {
         foreign.push(entry.name);
@@ -598,13 +614,31 @@ async function planMaterializeSkillsDir(
       kind: skill.source,
       skill,
     });
+    ownedAfter.push(skill.name);
   }
 
-  if (effective.length > 0 || skillsDirEntry !== undefined) {
+  if (effective.length > 0 || exists) {
+    const ignoreRel = join(rel, SKILLS_IGNORE_FILE);
+    if (foreignIgnore) {
+      conflicts.push({
+        name: SKILLS_IGNORE_FILE,
+        detail:
+          `${ignoreRel} exists and discern did not write it, so discern cannot keep the ignore rules for its own skills there`,
+      });
+    } else if (
+      ignoreText === undefined || !skillsIgnoreMatches(ignoreText, ownedAfter)
+    ) {
+      operations.push({
+        targetRel: ignoreRel,
+        targetAbs: join(abs, SKILLS_IGNORE_FILE),
+        dirRel: rel,
+        disposition: ignoreText === undefined ? "create" : "update",
+        kind: "ignore",
+        text: renderSkillsIgnore(ownedAfter, env),
+      });
+    }
     const manifestAbs = join(abs, MATERIALIZED_MANIFEST);
-    const expected = materializedNamesText(
-      effective.map((entry) => entry.name),
-    );
+    const expected = materializedNamesText(ownedAfter);
     const current = await readTextIfExists(manifestAbs);
     if (current !== expected) {
       operations.push({
@@ -613,19 +647,37 @@ async function planMaterializeSkillsDir(
         dirRel: rel,
         disposition: current === undefined ? "create" : "update",
         kind: "manifest",
-        manifestText: expected,
+        text: expected,
       });
     }
   }
 
+  // The ignore file applies first, so a new entry is never visible to Git; the
+  // record applies last, so it only ever names entries already placed.
+  const rank = (operation: SkillMaterializationOperation): number =>
+    operation.kind === "ignore" ? 0 : operation.kind === "manifest" ? 2 : 1;
   operations.sort((left, right) =>
-    left.kind === "manifest"
-      ? 1
-      : right.kind === "manifest"
-      ? -1
-      : left.targetRel.localeCompare(right.targetRel)
+    rank(left) - rank(right) || left.targetRel.localeCompare(right.targetRel)
   );
-  return { dirRel: rel, operations, foreign: foreign.sort() };
+  return {
+    dirRel: rel,
+    exists,
+    operations,
+    foreign: foreign.sort(),
+    conflicts: conflicts.sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+/** The refusal message for one directory's conflicts, shared by every surface
+ * that reports them. */
+export function skillsConflictMessage(
+  dirRel: string,
+  conflicts: readonly SkillsConflict[],
+): string {
+  return fire(HINTS["materialized-skills-conflict"], {
+    dirs: dirRel,
+    details: conflicts.map((conflict) => conflict.detail),
+  }).text;
 }
 
 /**
@@ -638,6 +690,7 @@ export async function planMaterializeSkills(
   config: DiscernConfig,
   dirs: readonly string[],
   options: PlanMaterializeSkillsOptions = {},
+  env: EnvReader = Deno.env,
 ): Promise<SkillMaterializationPlan> {
   assertManagedMaterialWritable(config);
   const byName = await resolveSkillsByName(root, config, options.templatesDir);
@@ -652,9 +705,17 @@ export async function planMaterializeSkills(
   const errors: string[] = [];
   for (const rel of dirs) {
     try {
-      directories.push(
-        await planMaterializeSkillsDir(root, rel, effective, ctx),
+      const directory = await planMaterializeSkillsDir(
+        root,
+        rel,
+        effective,
+        ctx,
+        env,
       );
+      directories.push(directory);
+      if (directory.conflicts.length > 0) {
+        errors.push(skillsConflictMessage(rel, directory.conflicts));
+      }
     } catch (error) {
       errors.push(
         `could not plan skills materialization into ${rel}: ${
@@ -689,9 +750,9 @@ export async function applySkillMaterializationOperation(
     await removeAny(operation.targetAbs, operation.removeDirectory === true);
     return { copied: 0, linked: 0, pruned: 1 };
   }
-  if (operation.kind === "manifest") {
+  if (operation.kind === "manifest" || operation.kind === "ignore") {
     await ensureDir(dirname(operation.targetAbs));
-    await Deno.writeTextFile(operation.targetAbs, operation.manifestText ?? "");
+    await Deno.writeTextFile(operation.targetAbs, operation.text ?? "");
     return { copied: 0, linked: 0, pruned: 0 };
   }
   const skill = operation.skill;
@@ -903,12 +964,9 @@ export function claudeSkillsDirOf(root: string): string {
 
 // ── currency check (ADR 0034, extended to skills) ───────────────────────────
 // The stateless skills analog of `checkInstructionCurrent`: re-resolve the effective
-// set and compare it to what is materialized on disk, with NO stored hash. (The
-// MATERIALIZED_MANIFEST is reconciliation state the WRITE path uses for pruning;
-// this is read-only OBSERVATION, the dual the gate and `status` consume.) Because it
-// and `materializeSkills` both go through `resolveEffectiveSkills`, the check can
-// never disagree with what a refresh would place — the same single-source guarantee
-// instructions have.
+// set and compare it to what is materialized on disk, with NO stored content hash.
+// It is a read-only projection of the very plan `materializeSkills` would apply, so
+// the check can never disagree with what a refresh would place, prune, or refuse.
 
 /** One materialized skills entry that does not match what `discern refresh` would
  * place. */
@@ -919,13 +977,17 @@ export interface SkillsDriftEntry {
    * `missing` — the whole dir is absent (the expected state of a gitignored artifact
    * on a fresh checkout; non-blocking, exactly like a missing instruction file).
    * `stale` — the dir exists but an effective skill is absent / differs from its
-   * source, or a managed entry lingers that is no longer effective (real drift: a
-   * hand-edit or an un-refreshed change; this is what blocks `done`).
-   * `foreign` — an unmanaged entry discern never placed (reported, never clobbered —
-   * mirrors materialization's never-touch-a-drop-in contract; non-blocking).
+   * source, a managed entry lingers that is no longer effective, or discern's
+   * ignore file no longer lists exactly its entries (real drift: a hand-edit or an
+   * un-refreshed change a refresh clears; this blocks `done`).
+   * `conflict` — an entry discern did not place holds a name discern needs (an
+   * effective skill's, or its ignore file's). A refresh refuses to replace it, so
+   * only the owner can resolve it; this blocks `done`.
+   * `foreign` — an entry discern never placed under a name it does not need
+   * (reported, never touched; non-blocking).
    * discern-allow-retrospective: "no longer effective" is the current effective set.
    */
-  reason: "missing" | "stale" | "foreign";
+  reason: "missing" | "stale" | "conflict" | "foreign";
   /** The skill name involved (`""` for a whole-dir `missing`). */
   name: string;
   /** Human-readable detail for the diagnostic / hint. */
@@ -1032,75 +1094,57 @@ async function skillMismatch(
   return undefined;
 }
 
-/** Reconcile ONE materialized skills dir against the effective set, read-only. */
+/** Project one directory's materialization plan onto drift entries, read-only. */
 async function checkSkillsDir(
+  root: string,
   rel: string,
-  abs: string,
   effective: SkillEntry[],
   ctx: InstructionContext,
+  env: EnvReader,
 ): Promise<SkillsDriftEntry[]> {
-  const drift: SkillsDriftEntry[] = [];
-  const managed = new Map(effective.map((e) => [e.name, e]));
-
+  const plan = await planMaterializeSkillsDir(root, rel, effective, ctx, env);
   // Whole dir absent → missing (non-blocking), and only when something is expected.
-  if (await lstatIfExists(abs) === undefined) {
-    if (effective.length > 0) {
-      drift.push({
-        dir: rel,
-        reason: "missing",
-        name: "",
-        detail: `${rel}/ is not materialized yet`,
-      });
-    }
-    return drift;
+  if (!plan.exists) {
+    return effective.length === 0 ? [] : [{
+      dir: rel,
+      reason: "missing",
+      name: "",
+      detail: `${rel}/ is not materialized yet`,
+    }];
   }
-
-  const ownedBefore = await readMaterializedNames(abs);
-  const seen = new Set<string>();
-  for await (const entry of Deno.readDir(abs)) {
-    if (entry.name === MATERIALIZED_MANIFEST) {
-      continue; // discern's ownership record, not a skill
-    }
-    seen.add(entry.name);
-    const path = join(abs, entry.name);
-    const skill = managed.get(entry.name);
-    if (skill === undefined) {
-      // Not effective: a stale managed entry discern's refresh would prune,
-      // versus a foreign drop-in it must never touch — the SAME predicate the
-      // prune pass applies, so `stale` always means "a refresh clears this".
-      const stale = await isOwnedStaleEntry(path, entry, ownedBefore);
-      drift.push({
-        dir: rel,
-        reason: stale ? "stale" : "foreign",
-        name: entry.name,
-        detail: stale
-          ? `${rel}/${entry.name} lingers but is no longer in the effective set`
-          : `${rel}/${entry.name} is an unmanaged entry discern did not place`,
-      });
-      continue;
-    }
-    const mismatch = await skillMismatch(abs, path, entry, skill, ctx);
-    if (mismatch !== undefined) {
-      drift.push({
-        dir: rel,
-        reason: "stale",
-        name: entry.name,
-        detail: mismatch,
-      });
+  const drift: SkillsDriftEntry[] = [];
+  for (const operation of plan.operations) {
+    const name = operation.targetRel.slice(rel.length + 1);
+    const detail = operation.kind === "manifest"
+      ? undefined
+      : operation.kind === "ignore"
+      ? `${operation.targetRel} ${
+        operation.disposition === "create" ? "is missing" : "is out of date"
+      }, so Git does not ignore exactly the skills discern materialized`
+      : operation.kind === "stale"
+      ? `${operation.targetRel} lingers but is no longer in the effective set`
+      : operation.disposition === "create"
+      ? `${operation.targetRel} is in the effective set but not materialized`
+      : operation.detail;
+    if (detail !== undefined) {
+      drift.push({ dir: rel, reason: "stale", name, detail });
     }
   }
-
-  // An effective skill entirely absent from an existing dir → stale (incomplete
-  // materialization, e.g. a newer binary's bundled skill not yet refreshed in).
-  for (const e of effective) {
-    if (!seen.has(e.name)) {
-      drift.push({
-        dir: rel,
-        reason: "stale",
-        name: e.name,
-        detail: `${rel}/${e.name} is in the effective set but not materialized`,
-      });
-    }
+  for (const conflict of plan.conflicts) {
+    drift.push({
+      dir: rel,
+      reason: "conflict",
+      name: conflict.name,
+      detail: conflict.detail,
+    });
+  }
+  for (const name of plan.foreign) {
+    drift.push({
+      dir: rel,
+      reason: "foreign",
+      name,
+      detail: `${rel}/${name} is an entry discern did not place`,
+    });
   }
   return drift;
 }
@@ -1115,6 +1159,7 @@ async function checkSkillsDir(
 export async function checkSkillsCurrent(
   root: string,
   config: DiscernConfig,
+  env: EnvReader = Deno.env,
 ): Promise<SkillsDriftEntry[]> {
   const dirs = skillsDirsForAgents(resolveConfiguredAgents(config));
   if (dirs.length === 0) {
@@ -1124,7 +1169,7 @@ export async function checkSkillsCurrent(
   const ctx = instructionContext(config);
   const drift: SkillsDriftEntry[] = [];
   for (const rel of dirs) {
-    drift.push(...await checkSkillsDir(rel, join(root, rel), effective, ctx));
+    drift.push(...await checkSkillsDir(root, rel, effective, ctx, env));
   }
   return drift;
 }
