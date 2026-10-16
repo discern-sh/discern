@@ -1,4 +1,4 @@
-# ADR 0424: Skills directories are owned entry by entry
+# ADR 0425: Skills directories are owned entry by entry
 
 **Status**: accepted; amends the skills-directory clauses of [ADR 0128](0128-enumerated-ownership-tracked-guidance.md) and [ADR 0020](0020-dissolve-discern-dir.md)
 

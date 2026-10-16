@@ -142,15 +142,14 @@ function providerArtifacts(): ArtifactPathEntry[] {
         ownership: provider.skillsDir.ownership,
         writtenArtifact: provider.skillsDir.writtenArtifact,
         description:
-          `Provider skills directory. discern maintains the skills its \`${MATERIALIZED_MANIFEST}\` names; entries other tools place stay theirs.`,
+          `Skills directory. discern maintains the skills its \`${MATERIALIZED_MANIFEST}\` names; other entries stay their installers'.`,
       }, {
         id: `provider:${name}:skills-record`,
         path: `${dir}/${MATERIALIZED_MANIFEST}`,
         pathKind: "file",
         ownership: { generated: true },
         writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
-        description:
-          "Records which skills discern materialized in this directory: its only evidence for replacing, ignoring, or removing an entry.",
+        description: "Names the skills discern placed in this directory.",
       }, {
         id: `provider:${name}:skills-ignore`,
         path: `${dir}/${SKILLS_IGNORE_FILE}`,
@@ -160,7 +159,7 @@ function providerArtifacts(): ArtifactPathEntry[] {
           ARTIFACT_PROVENANCE_SOURCES.skillsIgnore,
         ),
         description:
-          "Ignores only the skills discern materialized in this directory, so other entries stay visible to Git.",
+          "Ignores only the skills discern placed in this directory.",
       });
     }
     const mcp = wiredMcp(provider);
