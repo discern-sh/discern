@@ -294,6 +294,43 @@ Deno.test("uninstall strips registry-owned provider hooks without resolving temp
   });
 });
 
+Deno.test("uninstall removes discern's skill entries and keeps every entry it did not place", async () => {
+  await withTempDir(async (dir) => {
+    await wireFullHarness(dir);
+    const foreignByDir = new Map<string, string>();
+    for (const skillsDir of allSkillsDirs()) {
+      const foreign = `${skillsDir}/third-party-skill`;
+      await ensureDir(join(dir, foreign));
+      await Deno.writeTextFile(
+        join(dir, foreign, "SKILL.md"),
+        "installed by another tool\n",
+      );
+      foreignByDir.set(skillsDir, foreign);
+    }
+
+    const result = await runAgent(dir, ["uninstall", "--json", "--yes"]);
+    assertEquals(result.code, 0, result.output);
+    const envelope = decodeCliResult(result.stdout, "uninstall");
+    assertResultDataKey(envelope, "kept");
+    assert(envelope.ok, result.output);
+
+    for (const [skillsDir, foreign] of foreignByDir) {
+      assertEquals(
+        await Deno.readTextFile(join(dir, foreign, "SKILL.md")),
+        "installed by another tool\n",
+        `uninstall must keep ${foreign}`,
+      );
+      assert(envelope.data.kept?.includes(foreign) === true, result.output);
+      assertEquals(
+        (await Array.fromAsync(Deno.readDir(join(dir, skillsDir))))
+          .map((entry) => entry.name),
+        ["third-party-skill"],
+        `only the foreign entry may remain in ${skillsDir}`,
+      );
+    }
+  });
+});
+
 Deno.test("uninstall --dry-run reports the plan and changes nothing", async () => {
   await withTempDir(async (dir) => {
     await wireFullHarness(dir);

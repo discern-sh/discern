@@ -59,7 +59,6 @@ import {
 } from "../lib/paths.ts";
 import {
   allInstructionFilePaths,
-  allSkillsDirs,
   PROVIDERS,
   renderProviderHookSeed,
   stripDiscernFromCodexConfig,
@@ -67,6 +66,7 @@ import {
   wiredMcp,
 } from "../lib/providers.ts";
 import { gitAdminNamespaceDirs } from "../shared/git_admin_state.ts";
+import { surveySkillsDirs } from "../lib/skill_ownership.ts";
 import { suppressLogbookWrites } from "../engine/logbook/store.ts";
 import type { UninstallData } from "../shared/result_schemas.ts";
 import { stripDiscernFromJsonSettings } from "../lib/settings_strip.ts";
@@ -286,10 +286,29 @@ async function computeUninstallPlan(
       noteDelete(rel, false, "generated agent instruction file");
     }
   }
-  // 2. Materialized skills directories (gitignored, regenerable).
-  for (const rel of allSkillsDirs()) {
-    if (await pathExists(abs(rel))) {
-      noteDelete(rel, true, "materialized skills directory");
+  // 2. Materialized skills — only the entries discern's ownership record names
+  //    and its two control files. A skills directory is shared, so every other
+  //    entry stays, and the directory goes only if it empties out.
+  for (const survey of await surveySkillsDirs(root)) {
+    for (const entry of survey.owned) {
+      noteDelete(
+        `${survey.dirRel}/${entry.name}`,
+        entry.isDirectory,
+        "materialized skill",
+      );
+    }
+    for (const name of survey.control) {
+      noteDelete(
+        `${survey.dirRel}/${name}`,
+        false,
+        "discern's skills ownership record",
+      );
+    }
+    for (const entry of survey.foreign) {
+      plan.kept.push({
+        rel: `${survey.dirRel}/${entry.name}`,
+        why: "a skills-directory entry discern did not place",
+      });
     }
   }
   // 3. discern-owned provider files (whole files discern authored).
