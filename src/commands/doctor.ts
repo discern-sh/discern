@@ -106,7 +106,7 @@ import {
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { expandSourcePathReferences } from "../shared/source_path_references.ts";
 import {
-  generatedGroupForPath,
+  generatedGroupOwnsPath,
   type ResolvedGeneratedGroup,
   resolveGeneratedGroups,
 } from "../shared/generated_artifacts.ts";
@@ -337,15 +337,6 @@ async function generatedFileInventory(
       ]),
     ].sort(),
   };
-}
-
-/** Match through the shared generated-artifact accessor so doctor uses the same
- * scope-glob dialect as every other `[generated]` consumer. */
-function generatedGroupMatchesPath(
-  group: ResolvedGeneratedGroup,
-  path: string,
-): boolean {
-  return generatedGroupForPath([group], path) !== undefined;
 }
 
 /** Name a generated-group field in the spelling used by repair diagnostics. */
@@ -801,10 +792,10 @@ export async function runChecks(
       if (inventory !== undefined) {
         for (const group of groups) {
           const tracked = inventory.tracked.filter((path) =>
-            generatedGroupMatchesPath(group, path)
+            generatedGroupOwnsPath(group, path)
           );
           const outsideIndex = inventory.untrackedOrIgnored.filter((path) =>
-            generatedGroupMatchesPath(group, path)
+            generatedGroupOwnsPath(group, path)
           );
           const patterns = JSON.stringify(group.paths);
           if (tracked.length > 0) {
@@ -844,7 +835,7 @@ export async function runChecks(
 
         for (const path of inventory.tracked) {
           const owners = groups.filter((group) =>
-            generatedGroupMatchesPath(group, path)
+            generatedGroupOwnsPath(group, path)
           );
           if (owners.length < 2) {
             continue;
