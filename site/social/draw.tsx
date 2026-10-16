@@ -4,6 +4,8 @@
  * frame serves every page; each card kind arranges its own text within it.
  */
 
+import { Fragment, type ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { DISCERN_ACCENT_HUE } from "../../src/shared/brand.ts";
 import {
   DISCERN_MARK_FILLED_PATH,
@@ -93,30 +95,66 @@ function fixed(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** Drawn pieces in order, as siblings in the SVG. */
+function layers(parts: readonly ReactElement[]): ReactElement {
+  return (
+    <>
+      {parts.map((part, index) => <Fragment key={index}>{part}</Fragment>)}
+    </>
+  );
+}
+
+/** A stroked symbol, such as the drawn arrow. */
+function stroke(d: string, width: number, fill: Paint): ReactElement {
+  return (
+    <path
+      d={d}
+      fill="none"
+      stroke={fill.color}
+      strokeOpacity={fill.opacity}
+      strokeWidth={width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  );
+}
+
 /** Fill every outline in one path; draw each mark and stroked symbol separately. */
-function paint(inks: readonly Ink[], fill: Paint): string {
-  let outlines = "";
-  let marks = "";
-  for (const ink of inks) {
-    if (ink.kind === "outline") outlines += ink.d;
-    else if (ink.kind === "mark") marks += mark(ink.x, ink.y, ink.scale, fill);
-    else {
-      marks +=
-        `<path d="${ink.d}" fill="none" stroke="${fill.color}" stroke-opacity="${fill.opacity}" stroke-width="${ink.width}" stroke-linecap="round" stroke-linejoin="round"/>`;
-    }
+function paint(inks: readonly Ink[], fill: Paint): ReactElement {
+  const outlines = inks.flatMap((ink) => ink.kind === "outline" ? [ink.d] : [])
+    .join("");
+  const parts: ReactElement[] = [];
+  if (outlines !== "") {
+    parts.push(
+      <path d={outlines} fill={fill.color} fillOpacity={fill.opacity} />,
+    );
   }
-  return `${
-    outlines === ""
-      ? ""
-      : `<path d="${outlines}" fill="${fill.color}" fill-opacity="${fill.opacity}"/>`
-  }${marks}`;
+  for (const ink of inks) {
+    if (ink.kind === "mark") parts.push(mark(ink.x, ink.y, ink.scale, fill));
+    if (ink.kind === "stroke") parts.push(stroke(ink.d, ink.width, fill));
+  }
+  return layers(parts);
 }
 
 /** The canonical mark at one position and scale of its 100-unit box. */
-function mark(x: number, y: number, scale: number, fill: Paint): string {
-  return `<g transform="translate(${fixed(x)} ${fixed(y)}) scale(${
-    fixed(scale * 1000) / 1000
-  })" opacity="${fill.opacity}"><path d="${DISCERN_MARK_FILLED_PATH}" fill="${fill.color}"/><path d="${DISCERN_MARK_OUTLINE_PATH}" fill="none" stroke="${fill.color}" stroke-width="${DISCERN_MARK_OUTLINE_STROKE}" stroke-linejoin="round"/></g>`;
+function mark(x: number, y: number, scale: number, fill: Paint): ReactElement {
+  return (
+    <g
+      transform={`translate(${fixed(x)} ${fixed(y)}) scale(${
+        fixed(scale * 1000) / 1000
+      })`}
+      opacity={fill.opacity}
+    >
+      <path d={DISCERN_MARK_FILLED_PATH} fill={fill.color} />
+      <path
+        d={DISCERN_MARK_OUTLINE_PATH}
+        fill="none"
+        stroke={fill.color}
+        strokeWidth={DISCERN_MARK_OUTLINE_STROKE}
+        strokeLinejoin="round"
+      />
+    </g>
+  );
 }
 
 /** Where and how strongly to draw the approach backdrop. */
@@ -132,8 +170,8 @@ interface Approach {
 /** Concentric triangles stepping outward, each a faint terrace and a hairline. */
 function approach(
   { cx, cy, innermost, rings, ring, terrace }: Approach,
-): string {
-  let paths = "";
+): ReactElement {
+  const paths: ReactElement[] = [];
   for (let index = rings - 1; index >= 0; index--) {
     const radius = innermost * APPROACH_RING_RATIO ** index;
     const half = radius * Math.sin(Math.PI / 3);
@@ -143,12 +181,18 @@ function approach(
     const depth = index / (rings - 1);
     const opacity = fixed((ring[0] + (ring[1] - ring[0]) * depth) * 1000) /
       1000;
-    paths += `<path d="${d}" fill="#ffffff" fill-opacity="${terrace}"/>` +
-      `<path d="${d}" fill="none" stroke="#ffffff" stroke-opacity="${opacity}" stroke-width="${
-        fixed(0.9 + 0.45 * depth)
-      }"/>`;
+    paths.push(
+      <path d={d} fill="#ffffff" fillOpacity={terrace} />,
+      <path
+        d={d}
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity={opacity}
+        strokeWidth={fixed(0.9 + 0.45 * depth)}
+      />,
+    );
   }
-  return paths;
+  return layers(paths);
 }
 
 /** The homepage hero's backdrop, as the marketing cards show it. */
@@ -199,7 +243,7 @@ const EYEBROW: TextStyle = {
 
 /** Lay text blocks down a column, aligning each block's cap height to its top. */
 class Column {
-  readonly parts: string[] = [];
+  readonly parts: ReactElement[] = [];
 
   constructor(
     private readonly type: Typesetter,
@@ -237,7 +281,7 @@ class Column {
 }
 
 /** The brand lockup in the top-left corner, with an optional corpus crumb. */
-function lockup(type: Typesetter, crumb?: string): string {
+function lockup(type: Typesetter, crumb?: string): ReactElement {
   const name: TextStyle = {
     face: "mono",
     weight: 600,
@@ -253,18 +297,22 @@ function lockup(type: Typesetter, crumb?: string): string {
     const trail = type.shape(crumb, { ...name, weight: 400 });
     parts.push(paint(trail.draw(130 + word.width, 88), CARD_PALETTE.faint));
   }
-  return parts.join("");
+  return layers(parts);
 }
 
 /** The page address, right-aligned along the foot and cut to fit. */
-function address(type: Typesetter, route: string, style = URL_TEXT): string {
+function address(
+  type: Typesetter,
+  route: string,
+  style = URL_TEXT,
+): ReactElement {
   const text = `discern.sh${route === "/" ? "" : route}`;
   const line = type.line(text, style, RIGHT - MARGIN);
   return paint(line.draw(RIGHT - line.width, URL_BASELINE), CARD_PALETTE.faint);
 }
 
 /** A marketing page: the hero's headline and backdrop. */
-function statement(card: StatementCard, type: Typesetter): string {
+function statement(card: StatementCard, type: Typesetter): ReactElement {
   const column = new Column(type, MARGIN, 182);
   const title = type.fit(card.headline, headline, [112, 96, 84, 72], {
     width: 820,
@@ -283,12 +331,12 @@ function statement(card: StatementCard, type: Typesetter): string {
     1.3,
     CARD_PALETTE.muted,
   );
-  return [
+  return layers([
     approach(HERO_BACKDROP),
     lockup(type),
     ...column.parts,
     address(type, card.route, { ...URL_TEXT, size: 22 }),
-  ].join("");
+  ]);
 }
 
 /** The eyebrow: a section numeral in the accent, then small capitals. */
@@ -403,17 +451,17 @@ export function setDocumentText(
 }
 
 /** A manual page, map, or decision: serif title, its description, and its address. */
-function documentLayout(card: DocumentCard, type: Typesetter): string {
-  return [
+function documentLayout(card: DocumentCard, type: Typesetter): ReactElement {
+  return layers([
     approach(DOCUMENT_BACKDROP),
     lockup(type, card.crumb),
     ...setDocumentText(card, type).column.parts,
     address(type, card.route),
-  ].join("");
+  ]);
 }
 
 /** The releases page: the newest version, its codename, and its summary. */
-function releaseLayout(card: ReleaseCard, type: Typesetter): string {
+function releaseLayout(card: ReleaseCard, type: Typesetter): ReactElement {
   const parts = [approach(HERO_BACKDROP), lockup(type, "/releases")];
   if (card.date !== undefined) {
     const date = type.shape(card.date, { ...LEDE, size: 21, tracking: 0 });
@@ -458,7 +506,7 @@ function releaseLayout(card: ReleaseCard, type: Typesetter): string {
     1.32,
     CARD_PALETTE.muted,
   );
-  return [...parts, ...column.parts, address(type, card.route)].join("");
+  return layers([...parts, ...column.parts, address(type, card.route)]);
 }
 
 /** The complete SVG for one card. */
@@ -468,5 +516,15 @@ export function drawSocialCard(card: SocialCard, type: Typesetter): string {
     : card.kind === "document"
     ? documentLayout(card, type)
     : releaseLayout(card, type);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}"><rect width="${WIDTH}" height="${HEIGHT}" fill="${CARD_PALETTE.canvas.color}"/>${body}</svg>`;
+  return renderToStaticMarkup(
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={WIDTH}
+      height={HEIGHT}
+      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+    >
+      <rect width={WIDTH} height={HEIGHT} fill={CARD_PALETTE.canvas.color} />
+      {body}
+    </svg>,
+  );
 }

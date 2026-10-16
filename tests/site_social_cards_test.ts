@@ -29,7 +29,7 @@ import {
   APPROACH_RING_RATIO,
   drawSocialCard,
   setDocumentText,
-} from "../site/social/draw.ts";
+} from "../site/social/draw.tsx";
 import { type SocialCard, socialCardFor } from "../site/social/model.ts";
 import { socialCardTypesetter } from "../site/social/render.ts";
 import { MissingGlyphError } from "../site/social/typeset.ts";

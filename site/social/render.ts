@@ -8,7 +8,7 @@
 import { createRequire } from "module";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import { DESIGN_SYSTEM_BUNDLES } from "../design_system.ts";
-import { drawSocialCard } from "./draw.ts";
+import { drawSocialCard } from "./draw.tsx";
 import type { SocialCard } from "./model.ts";
 import { Typesetter } from "./typeset.ts";
 

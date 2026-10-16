@@ -2,7 +2,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { handler } from "../site/serve.ts";
-import { CARD_PALETTE } from "../site/social/draw.ts";
+import { CARD_PALETTE } from "../site/social/draw.tsx";
 import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
 
 const ORIGIN = "https://discern.sh";
