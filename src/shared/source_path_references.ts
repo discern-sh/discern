@@ -10,8 +10,9 @@
  * prescriptive default and no seeding story, so the registry's satellites
  * (seeding, scope fills, leakage sentinels) must not enrol them — only the
  * reference machinery sees them. Directory references expand with exactly one
- * trailing slash, independently of the configured spelling, so a reference can
- * prefix a child path without inheriting a path-default convention.
+ * trailing slash, independently of the configured spelling, and absorb any
+ * separator written after them, so `${map.dir}x` and `${map.dir}/x` name the
+ * same child without inheriting a path-default convention or an empty segment.
  */
 
 import type { DiscernConfig } from "./config_schema.ts";
@@ -57,8 +58,9 @@ export const LIVE_PATH_REFERENCE_SPELLINGS: readonly string[] = [
 ];
 
 /** Expand every registered live source-path reference in one scope-glob dialect
- * string. Directory members include one trailing slash; file members preserve
- * their configured spelling. Unregistered braced forms remain byte-for-byte
+ * string. Directory members include one trailing slash and absorb the slashes
+ * written directly after the reference; file members preserve their configured
+ * spelling and whatever follows. Unregistered braced forms remain byte-for-byte
  * intact for the shell or another downstream consumer; expansion is
  * simultaneous, so a configured path containing reference-shaped text is not
  * recursively interpreted. */
@@ -87,7 +89,11 @@ export function expandSourcePathReferences(
     replacements.set(member.reference, member.resolve(config));
   }
   return value.replace(
-    /\$\{[^{}]+\}/g,
-    (reference) => replacements.get(reference) ?? reference,
+    /(\$\{[^{}]+\})(\/*)/g,
+    (written: string, reference: string, separators: string) => {
+      const path = replacements.get(reference);
+      if (path === undefined) return written;
+      return path.endsWith("/") ? path : `${path}${separators}`;
+    },
   );
 }

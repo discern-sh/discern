@@ -13,7 +13,11 @@ import { planScopeGates } from "../src/engine/gate/plan.ts";
 import { jobsInStage } from "../src/engine/gate/stages.ts";
 import { scopesForPaths } from "../src/engine/scopes/scopes.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
+import { canonicalDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
+import {
+  generatedGroupForPath,
+  resolveGeneratedGroups,
+} from "../src/shared/generated_artifacts.ts";
 import {
   SOURCE_PATH_NAMES,
   SOURCE_PATHS,
@@ -198,6 +202,73 @@ Deno.test("source path references: contracts", () => {
         assertEquals(
           expandSourcePathReferences("${map.dir}|${skills.dir}", config),
           "docs/map/|tools/skills/",
+        );
+      },
+    "a separator after a directory reference never yields an empty segment":
+      () => {
+        const directories = SOURCE_PATH_REFERENCES.filter(({ name }) =>
+          SOURCE_PATHS[name].pathKind === "directory"
+        );
+        assert(directories.length > 0, "the registry has directory members");
+        for (const { name, reference } of directories) {
+          const child = `${resolvedReferencePath(name)}child`;
+          for (const spelling of ["", "/", "//"]) {
+            assertEquals(
+              expandSourcePathReferences(
+                `${reference}${spelling}child`,
+                CONFIG,
+              ),
+              child,
+              `${reference}${spelling}child`,
+            );
+          }
+        }
+        for (const { name, reference } of SOURCE_PATH_REFERENCES) {
+          if (SOURCE_PATHS[name].pathKind === "directory") continue;
+          assertEquals(
+            expandSourcePathReferences(`${reference}/child`, CONFIG),
+            `${resolvedReferencePath(name)}/child`,
+            `${reference} is a file reference and keeps what follows it`,
+          );
+        }
+      },
+    "every generated-path consumer sees a slash-separated directory reference resolved":
+      () => {
+        const directories = SOURCE_PATH_REFERENCES.filter(({ name }) =>
+          SOURCE_PATHS[name].pathKind === "directory"
+        );
+        const config = parseConfigOrThrow([
+          "[generated.references]",
+          `paths = ${
+            JSON.stringify(
+              directories.map(({ reference }) => `${reference}/**`),
+            )
+          }`,
+          'run = "true"',
+          "",
+        ].join("\n"));
+        const groups = resolveGeneratedGroups(config);
+        const resolved = new Map(
+          resolveSourcePaths(config).map(({ name, path }) => [name, path]),
+        );
+        for (const { name } of directories) {
+          const owned = `${
+            resolved.get(name)?.replace(/\/+$/, "")
+          }/nested/file.md`;
+          assertEquals(
+            generatedGroupForPath(groups, owned)?.name,
+            "references",
+            `${name}: ownership matching`,
+          );
+        }
+        const attributes = canonicalDiscernGitattributesBlock(groups, [], [], {
+          get: () => undefined,
+        });
+        assertEquals(attributes.refused, [], "attribute translation");
+        assertEquals(
+          attributes.patterns,
+          groups[0]?.paths,
+          "each pattern carries the generated merge rule",
         );
       },
     "scalar config-path references expand from their configured value": () => {
