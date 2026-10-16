@@ -155,18 +155,18 @@ discern ignores provider-local files by their exact registered paths, so neighbo
 # --- /discern ---
 ```
 
-### Skills directories
-
-A coding agent's skills directory, such as `.claude/skills/` or `.agents/skills/`, is shared: other tools may install skills there too. discern owns only the skills named in the directory's `.discern-materialized.json` record. It also writes a `.gitignore` inside the directory that lists exactly those skills and its two control files, so Git ignores discern's skills and nothing else there. You can commit another tool's skills, and fresh clones and worktrees get them.
-
-- **Name conflicts:** `discern refresh` never replaces an entry it did not place. If such an entry holds the name of one of discern's skills, refresh leaves it alone and reports a conflict, and `discern done` fails at its `skills` stage until you free the name. Rename the other entry, rename your authored skill, or list the skill in `[skills].exclude`. If the entry is an earlier copy of discern's own skill, delete it. An entry that matches discern's output byte for byte is adopted.
-- **An ignore file discern didn't write:** if the directory already has a `.gitignore` of yours, discern reports a conflict instead of editing it. Move its rules into the root `.gitignore` and delete it.
-- **Checking the rules:** `discern doctor` asks Git about every entry and warns when an ignore rule hides another tool's skill, naming the rule, or when one of discern's skills isn't ignored.
-- **Uninstall:** `discern uninstall` removes only the entries the record names, plus the two control files, and keeps everything else.
-
 You can add ignore rules for the agent files outside discern's block if you prefer, since the stale-copy check accepts a missing agent file.
 
 discern owns only its marked block, plus any standalone rule outside it that exactly matches one the current provider registry declares. Similar broad or retired rules outside the block stay yours. When `[worktree].root` resolves inside the repository, the block also ignores that exact directory. The default worktree location, beside the project, needs no rule.
+
+### Skills directories
+
+A coding agent's skills directory, such as `.claude/skills/` or `.agents/skills/`, is shared: other tools may install skills there too. discern owns only the skills named in the directory's `.discern-materialized.json` record. It also writes a `.gitignore` inside the directory that lists exactly those skills, the record, and itself, so Git ignores discern's files and nothing else there. You can commit another tool's skills, and fresh clones and worktrees get them.
+
+- **Name conflicts:** `discern refresh` never replaces an entry it did not place. If such an entry holds the name of one of discern's skills, refresh leaves it alone and reports a conflict, and `discern done` fails at its `skills` stage until you free the name. Rename the other entry, rename your authored skill, or list the skill in `[skills].exclude`. If the entry is an earlier copy of discern's own skill, delete it. An entry that already matches discern's output byte for byte joins the record instead, since claiming it loses nothing.
+- **An ignore file discern didn't write:** if the directory already has a `.gitignore` of yours, discern reports a conflict instead of editing it. Move its rules into the root `.gitignore` and delete it.
+- **Checking the rules:** `discern doctor` asks Git about every entry and warns when an ignore rule hides another tool's skill, naming the rule, or when one of discern's skills isn't ignored.
+- **Uninstall:** `discern uninstall` removes only the entries the record names, the record, and discern's `.gitignore`, and keeps everything else.
 
 ## Clone-local Git configuration
 
