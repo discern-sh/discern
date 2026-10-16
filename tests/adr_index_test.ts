@@ -15,6 +15,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { adrIndexState } from "../src/lib/adr_index.ts";
+import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   type AdrRecord,
   adrRecords,
@@ -27,6 +28,9 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { withTempDir } from "./helpers.ts";
 
 const ADR_DIR = join(REPO_AUTHORED_PATHS.map, "_adr");
+
+/** A project whose map lives at `docs/`, as the temp fixtures lay it out. */
+const DOCS_CONFIG = parseConfigOrThrow('[map]\ndir = "docs/"\n');
 
 /** Discover an ADR directory through the production map reader before deriving index records. */
 async function adrRecordsIn(dir: string): Promise<AdrRecord[]> {
@@ -53,7 +57,7 @@ Deno.test("ADR index: every record on disk is linked from the README index", asy
 });
 
 Deno.test("ADR index: the live repo's maintained index is current through the shipped core", async () => {
-  const state = await adrIndexState(REPO_ROOT, REPO_AUTHORED_PATHS.mapRel);
+  const state = await adrIndexState(REPO_ROOT, await loadConfig(REPO_ROOT));
   assertEquals(
     state.kind,
     "current",
@@ -139,7 +143,7 @@ Deno.test("control: a record the index omits reports stale, and the expected tex
       join(adrDir, "0001-first-choice.md"),
       "# ADR 0001: A first choice\n",
     );
-    const state = await adrIndexState(dir, "docs/");
+    const state = await adrIndexState(dir, DOCS_CONFIG);
     assertEquals(state.kind, "stale");
     assert(
       state.kind === "stale" &&
@@ -163,8 +167,43 @@ Deno.test("control: a README without markers is absent — the index is opt-in",
       join(adrDir, "0001-first-choice.md"),
       "# ADR 0001: A first choice\n",
     );
-    assertEquals((await adrIndexState(dir, "docs/")).kind, "absent");
+    assertEquals((await adrIndexState(dir, DOCS_CONFIG)).kind, "absent");
   }, { prefix: "discern-adr-index-absent-" });
+});
+
+Deno.test("control: a README a [generated] group owns is absent — its generator is its only writer", async () => {
+  await withTempDir(async (dir) => {
+    const adrDir = join(dir, "docs", "_adr");
+    await Deno.mkdir(adrDir, { recursive: true });
+    await Deno.writeTextFile(
+      join(adrDir, "README.md"),
+      [
+        "# Decisions",
+        "",
+        "<!-- BEGIN GENERATED: current ADR records -->",
+        "",
+        "<!-- END GENERATED: current ADR records -->",
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(
+      join(adrDir, "0001-first-choice.md"),
+      "# ADR 0001: A first choice\n",
+    );
+    assertEquals((await adrIndexState(dir, DOCS_CONFIG)).kind, "stale");
+    const owned = parseConfigOrThrow(
+      [
+        "[map]",
+        'dir = "docs/"',
+        "",
+        "[generated.decisions]",
+        'paths = ["${map.dir}/_adr/**"]',
+        'run = "true"',
+        "",
+      ].join("\n"),
+    );
+    assertEquals((await adrIndexState(dir, owned)).kind, "absent");
+  }, { prefix: "discern-adr-index-generated-" });
 });
 
 Deno.test("control: a record whose heading defeats the derivation reports invalid, naming it", async () => {
@@ -184,7 +223,7 @@ Deno.test("control: a record whose heading defeats the derivation reports invali
       join(adrDir, "0001-first-choice.md"),
       "# a heading with no record number\n",
     );
-    const state = await adrIndexState(dir, "docs/");
+    const state = await adrIndexState(dir, DOCS_CONFIG);
     assertEquals(state.kind, "invalid");
     assert(state.kind === "invalid");
     assertEquals(state.cause, "record");
@@ -210,7 +249,7 @@ Deno.test("control: a start marker missing its end marker reports the markers ca
       join(adrDir, "0001-first-choice.md"),
       "# ADR 0001: A first choice\n",
     );
-    const state = await adrIndexState(dir, "docs/");
+    const state = await adrIndexState(dir, DOCS_CONFIG);
     assertEquals(state.kind, "invalid");
     assert(state.kind === "invalid");
     assertEquals(state.cause, "markers");
