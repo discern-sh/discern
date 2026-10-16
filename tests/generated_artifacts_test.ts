@@ -10,8 +10,95 @@ import {
   gateFailureRemedy,
 } from "../src/shared/hints.ts";
 import { UpdateDataSchema } from "../src/shared/result_schemas.ts";
+import { Node, Project, SyntaxKind } from "ts-morph";
+import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeConfig } from "./engine_helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+
+/** The one module allowed to read the raw `[generated]` table. */
+const GENERATED_RESOLVER = "src/shared/generated_artifacts.ts";
+
+/** A receiver spelled as a parsed config: `config`, `cfg`, `ctx.config`, … */
+function isConfigReceiver(node: Node): boolean {
+  return /(?:^|\.)(?:config|cfg)$/i.test(node.getText());
+}
+
+/** Every syntactic read of `generated` from a config-shaped receiver. */
+function rawGeneratedReads(path: string, source: string): string[] {
+  const project = new Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: { noLib: true },
+  });
+  const file = project.createSourceFile(path, source);
+  const sites: Node[] = [
+    ...file.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression).filter(
+      (node) =>
+        node.getName() === "generated" &&
+        isConfigReceiver(node.getExpression()),
+    ),
+    ...file.getDescendantsOfKind(SyntaxKind.ElementAccessExpression).filter(
+      (node) =>
+        node.getArgumentExpression()?.getText().slice(1, -1) === "generated" &&
+        isConfigReceiver(node.getExpression()),
+    ),
+    ...file.getDescendantsOfKind(SyntaxKind.BindingElement).filter((node) => {
+      const pattern = node.getParent();
+      const declaration = pattern.getParent();
+      return (node.getPropertyNameNode()?.getText() ?? node.getName()) ===
+          "generated" &&
+        Node.isVariableDeclaration(declaration) &&
+        declaration.getInitializer() !== undefined &&
+        isConfigReceiver(declaration.getInitializerOrThrow());
+    }),
+  ];
+  return sites.map((node) =>
+    `${path}:${node.getStartLineNumber()}: ${node.getText()}`
+  );
+}
+
+Deno.test("only the generated resolver reads the raw [generated] table", async () => {
+  const offenders: string[] = [];
+  for (
+    const path of await structuralGuardScope({
+      guard: "tests/generated_artifacts_test.ts#raw-generated-reads",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "tests build raw config fixtures; runtime code must resolve references first",
+        include: (rel) =>
+          !rel.startsWith("tests/") && rel !== GENERATED_RESOLVER,
+      },
+    })
+  ) {
+    offenders.push(
+      ...rawGeneratedReads(
+        path,
+        await Deno.readTextFile(join(REPO_ROOT, path)),
+      ),
+    );
+  }
+  assertEquals(
+    offenders,
+    [],
+    "read [generated] through resolveGeneratedGroups so every consumer sees interpolated paths",
+  );
+  assertEquals(
+    rawGeneratedReads(
+      "probe.ts",
+      [
+        "const a = config.generated;",
+        "const b = ctx.cfg['generated'];",
+        "const { generated } = options.config;",
+        "const { generated: renamed } = config;",
+        "const c = entry.generated;",
+      ].join("\n"),
+    ).length,
+    4,
+    "the detector recognizes every raw-read spelling and ignores other receivers",
+  );
+});
 
 Deno.test("a scaffolded project loads generated groups and resolves their owned paths", async () => {
   await withTempDir(async (dir) => {
