@@ -522,7 +522,7 @@ function nameConflict(targetRel: string, skill: SkillEntry): SkillsConflict {
  *   - an effective skill discern owns but which differs is replaced;
  *   - an effective skill whose name another entry holds is a conflict: discern
  *     refuses to replace what it did not place;
- *   - a recorded entry no longer effective is pruned;
+ *   - a recorded entry outside the effective set is pruned;
  *   - anything else is foreign and left alone.
  * The ignore file and the record are then planned from exactly the names
  * discern owns afterwards. {@link checkSkillsDir} projects this same plan, so the

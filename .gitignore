@@ -47,11 +47,10 @@
 # The skills discern materializes are ignored by an ignore file inside
 # each provider skills directory that lists just those entries, so
 # skills other tools install beside them stay visible to Git. discern
-# owns this block alone and never touches your other rules. The
-# compiled agent files (AGENTS.md and its mirrors) are tracked, so
-# every agent — cloud included — reads them from a fresh clone. For
-# the full list of discern-managed files, run `discern docs` or see
-# https://discern.sh
+# owns this block alone and never touches your other rules. The agent
+# files (AGENTS.md and its mirrors) are tracked, so every agent —
+# cloud included — reads them from a fresh clone. For the full list
+# of discern-managed files, run `discern docs` or see https://discern.sh
 /.claude/settings.local.json
 # --- /discern ---
 

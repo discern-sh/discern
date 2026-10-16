@@ -121,7 +121,7 @@ Deno.test("setup consent messages preserve facts across project and provider con
         assertStringIncludes(msg, "agent files `CLAUDE.md`, `AGENTS.md`");
         assertStringIncludes(
           msg,
-          "Generated, Git-ignored provider skill directories",
+          "where Git ignores only discern's own entries",
         );
         assertStringIncludes(
           msg,

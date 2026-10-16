@@ -19,10 +19,10 @@
  * `[meta].bootstrapped`, which retires the setup redirect and hides `setup` from
  * the command list.
  *
- * Every scaffolded file is a write-once seed EXCEPT the materialized skills under
- * `.claude/skills/**` — artifacts of the binary, always (re)written and gitignored
- * (bundled skills copied in, authored ones symlinked) by the engine's `refresh`
- * step.
+ * Every scaffolded file is a write-once seed EXCEPT the materialized skills in each
+ * provider skills directory — artifacts of the binary, always (re)written by the
+ * engine's `refresh` step (bundled skills copied in, authored ones symlinked) and
+ * ignored entry by entry, beside any skills other tools installed there.
  */
 
 import { writeReleaseCheck } from "../shared/release_check.ts";

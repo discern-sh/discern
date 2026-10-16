@@ -399,9 +399,9 @@ export function consentRelayItems(
           inlineSet(instructionFiles)
         }; and selected-provider integration files ${
           inlineSet(integrationFiles)
-        }. Generated, Git-ignored provider skill directories are ${
+        }. discern's generated skills go into the provider skill directories ${
           inlineSet(skillsDirs)
-        }.`,
+        }, where Git ignores only discern's own entries.`,
     },
     {
       key: "repository-boundary",
