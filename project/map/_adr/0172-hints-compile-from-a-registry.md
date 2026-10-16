@@ -2,6 +2,8 @@
 
 > **Public-failure amendment (2026-07-28; [ADR 0208](0208-public-contracts-version-by-schema-major.md), classified by [ADR 0266](0266-public-failure-recovery-is-classified-by-error-family.md)):** The `hints: string[]` wire shape still stands, but every failed public result must now carry at least one fired, registered `next-step` hint. CLI and MCP pass results through `withFailureRecoveryHint`: a tailored registered next step passes unchanged; otherwise the boundary appends the `failure-recovery` entry only for an audited error family whose message or first diagnostic supplies the correction. `serializeResult` rejects a failed envelope that lacks registered actionable recovery or gives a tailored family the generic fallback; plain strings, notices, and guardrails do not satisfy the invariant. The prepared envelope is also the one recorded by the logbook.
 
+> **Catalog amendment (2026-10-16):** `src/shared/hints.ts` is still the one registry and the owner of the `hints[]` channel, but its entries now live in one catalog module per emitting surface under `src/shared/hints/`. `mergeHintCatalogs` composes `HINTS` from them and refuses an id two catalogs both claim; emission sites fire `HINTS[id]` and never import a catalog directly. The split keeps each module far below the complexity threshold the single file had reached, so new hints have room.
+
 **Status**: accepted
 
 ## Context

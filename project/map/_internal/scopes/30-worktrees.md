@@ -36,7 +36,7 @@ This subtree documents the public worktree workflow: isolation, identity, resour
 - `discern.toml` and `src/shared/config_schema.ts`
 - `src/engine/worktree/` (read `lifecycle.ts`, `landing_authority.ts`, the `effort_grant*.ts` capability split, `identity.ts`, and `resources.ts` centrally; sample the remaining helpers)
 - `src/engine/status/status.ts`, `src/engine/desk/`, and `src/engine/gate/finish.ts`
-- `src/shared/consent.ts`, `src/shared/hints.ts`, and `src/shared/result_schemas.ts`
+- `src/shared/consent.ts`, `src/shared/hints.ts` with its `status.ts` and `lifecycle.ts` catalogs under `src/shared/hints/`, and `src/shared/result_schemas.ts`
 - `tests/engine_worktree_test.ts`, `tests/engine_status_test.ts`, `tests/engine_desk_*`, and `tests/engine_lifecycle_authority_test.ts`
 
 ## Area owned
