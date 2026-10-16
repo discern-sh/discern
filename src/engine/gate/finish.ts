@@ -620,7 +620,7 @@ async function runCandidateGate(
   //     the heavier map-integrity corpus scan: one file's state, checked cheaply.
   let adrIndexDiag: Diagnostic | undefined;
   if (failedStage === null) {
-    const state = await adrIndexState(root, cfg.map.dir);
+    const state = await adrIndexState(root, cfg);
     if (state.kind === "stale" || state.kind === "invalid") {
       failedStage = "adr_index";
       adrIndexDiag = await adrIndexDiagnostic(root, state);

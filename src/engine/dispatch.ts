@@ -602,7 +602,7 @@ export function attachEngineCommands(
   root
     .command("tidy [type:string]")
     .description(
-      "Format the files discern manages: the map, the TODO list, your instruction files, and `discern.toml`.\nPass `md` or `toml` to format one kind; leave it out for both. It also checks that box-drawing diagrams in code blocks stay aligned: a misaligned diagram fails the run without stopping the formatting, and a fence marked `freeform` is skipped. If any file can't be parsed, such as Markdown with invalid YAML frontmatter, or formatting would drop cells from a table row, discern changes no files at all. Escape a pipe inside a code span as `\\|` to keep its cell.",
+      "Format the files discern manages: the map, the TODO list, your instruction files, and `discern.toml`.\nA file a `[generated]` group owns is left to its generator. Pass `md` or `toml` to format one kind; leave it out for both. It also checks that box-drawing diagrams in code blocks stay aligned: a misaligned diagram fails the run without stopping the formatting, and a fence marked `freeform` is skipped. If any file can't be parsed, such as Markdown with invalid YAML frontmatter, or formatting would drop cells from a table row, discern changes no files at all. Escape a pipe inside a code span as `\\|` to keep its cell.",
     )
     .option(
       "--dry-run",

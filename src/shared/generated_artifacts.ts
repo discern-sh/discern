@@ -4,6 +4,7 @@
  * to attribute committed artifact paths to their owning generator.
  */
 
+import { isAbsolute, relative, SEPARATOR } from "@std/path";
 import { type DiscernConfig, toCommand } from "./config_schema.ts";
 import { expandSourcePathReferences } from "./source_path_references.ts";
 import { pathMatchesPattern } from "../engine/scopes/glob.ts";
@@ -35,14 +36,35 @@ export function resolveGeneratedGroups(
   }));
 }
 
+/** Whether one resolved group's ownership globs match a root-relative path:
+ * the single generated-ownership predicate every consumer shares. */
+export function generatedGroupOwnsPath(
+  group: ResolvedGeneratedGroup,
+  path: string,
+): boolean {
+  return group.paths.some((pattern) => pathMatchesPattern(path, pattern));
+}
+
 /** The first resolved group whose ownership globs match `path`, if one does. */
 export function generatedGroupForPath(
   groups: readonly ResolvedGeneratedGroup[],
   path: string,
 ): ResolvedGeneratedGroup | undefined {
-  return groups.find((group) =>
-    group.paths.some((pattern) => pathMatchesPattern(path, pattern))
-  );
+  return groups.find((group) => generatedGroupOwnsPath(group, path));
+}
+
+/** The group owning an absolute file beneath the project `root`, if any. A
+ * path outside the root has no generated owner. */
+export function generatedGroupForFile(
+  groups: readonly ResolvedGeneratedGroup[],
+  root: string,
+  abs: string,
+): ResolvedGeneratedGroup | undefined {
+  const rel = relative(root, abs);
+  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
+    return undefined;
+  }
+  return generatedGroupForPath(groups, rel.replaceAll(SEPARATOR, "/"));
 }
 
 /**

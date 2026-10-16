@@ -2031,7 +2031,7 @@ async function updateRefreshCompiledPaths(
     // fails closed meanwhile: an unknown target is not safe to auto-resolve.
   }
   try {
-    const index = await adrIndexState(ctx.root, ctx.config.map.dir);
+    const index = await adrIndexState(ctx.root, ctx.config);
     if (index.kind !== "absent") {
       paths.push(index.path);
     }

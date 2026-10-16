@@ -3,7 +3,9 @@
  * ADR README (`<map dir>/_adr/README.md`). Opt-in by construction: a README
  * that carries the markers is rewritten by `discern refresh` and watched for
  * drift by `status` and the gate; one without them is never touched, so an
- * existing project that has not adopted the index pays nothing.
+ * existing project that has not adopted the index pays nothing. A README a
+ * `[generated.<name>]` group owns is never touched either: its generator is
+ * its only writer.
  *
  * This module is the ONE computation of "what the index should say":
  * {@link adrIndexState} recompiles the expected README in memory from the
@@ -14,6 +16,11 @@
  */
 
 import { join } from "@std/path";
+import type { DiscernConfig } from "../shared/config_schema.ts";
+import {
+  generatedGroupForPath,
+  resolveGeneratedGroups,
+} from "../shared/generated_artifacts.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { ADR_SUBDIR } from "./adr_numbers.ts";
 import {
@@ -43,7 +50,8 @@ export type AdrIndexInvalidCause = "record" | "markers" | "error";
 
 /** How the maintained ADR index stands against the records on disk. */
 export type AdrIndexState =
-  /** No README, or a README with no marker pair — the index is not adopted. */
+  /** No README, a README with no marker pair, or a README a generator owns —
+   * discern does not maintain the index. */
   | { kind: "absent" }
   /** The maintained lists already match the record files. */
   | { kind: "current"; path: string }
@@ -64,14 +72,20 @@ export function adrIndexPath(mapDir: string): string {
 }
 
 /**
- * Compare the ADR README on disk against the index a refresh would write.
- * `mapDir` is the configured `[map].dir`, relative to `root`.
+ * Compare the ADR README on disk against the index a refresh would write, for
+ * the configured `[map].dir` relative to `root`.
  */
 export async function adrIndexState(
   root: string,
-  mapDir: string,
+  config: DiscernConfig,
 ): Promise<AdrIndexState> {
+  const mapDir = config.map.dir;
   const rel = adrIndexPath(mapDir);
+  if (
+    generatedGroupForPath(resolveGeneratedGroups(config), rel) !== undefined
+  ) {
+    return { kind: "absent" };
+  }
   const abs = join(root, rel);
   let current: string;
   try {

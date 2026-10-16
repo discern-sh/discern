@@ -475,7 +475,7 @@ export async function planRefresh(
   }
 
   try {
-    const index = await adrIndexState(root, config.map.dir);
+    const index = await adrIndexState(root, config);
     if (index.kind === "stale") {
       const targetAbs = join(root, index.path);
       addFileEffect(

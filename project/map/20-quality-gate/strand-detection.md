@@ -16,7 +16,7 @@ Gate jobs can write files. Formatters commonly do so. A build may regenerate a m
 
 Strand detection turns that situation into a `tree_drift` failure. The diagnostic names each changed file, attributes it to the first gate stage that made it dirty, includes a capped diff, and uses `git diff` as the reproduce command ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
 
-A path a `[generated.<name>]` group owns fails earlier and more precisely: the build stage attributes it as `generated_drift`, naming the owning group and its regeneration command ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). Strand detection covers every other file written by a stage.
+A path a `[generated.<name>]` group owns fails earlier and more precisely: the build stage attributes it as `generated_drift`, naming the owning group and its regeneration command ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). Strand detection covers every other file written by a stage. discern's own fixers never write an owned path ([ADR 0424](../_adr/0424-generator-owned-paths-have-one-writer.md)). A fix-stage strand on a generated file therefore comes from a project formatter, and the remedy is to exclude the group's paths from that formatter.
 
 ## What the gate compares
 

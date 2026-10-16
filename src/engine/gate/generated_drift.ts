@@ -3,12 +3,12 @@ import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { join } from "@std/path";
 import {
   generatedGroupForPath,
+  generatedGroupOwnsPath,
   type ResolvedGeneratedGroup,
 } from "../../shared/generated_artifacts.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import type { Diagnostic } from "../../shared/result.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { pathMatchesPattern } from "../scopes/glob.ts";
 import { repoPathPrefix, stripRepoPathPrefix } from "../scopes/scopes.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 
@@ -90,11 +90,6 @@ function pathsFromStatus(stdout: string, prefix: string): string[] {
   return [...new Set(stripRepoPathPrefix(paths, prefix))];
 }
 
-/** Check a path against every declared glob owned by a generated group. */
-function matchesGroup(path: string, group: ResolvedGeneratedGroup): boolean {
-  return group.paths.some((pattern) => pathMatchesPattern(path, pattern));
-}
-
 /** Capture generated path bytes and the working-tree paths already pending. */
 export async function captureGeneratedBuildSnapshot(
   root: string,
@@ -133,7 +128,7 @@ export async function captureGeneratedBuildSnapshot(
     prefix,
   );
   const owned = candidates.filter((path) =>
-    groups.some((group) => matchesGroup(path, group))
+    groups.some((group) => generatedGroupOwnsPath(group, path))
   );
   const pending = pathsFromStatus(status.stdout, prefix);
   const [artifactEntries, pendingEntries] = await Promise.all([
@@ -164,7 +159,7 @@ export function generatedBuildDrift(
 ): GeneratedBuildDrift {
   const changed = changedArtifactPaths(before.artifacts, after.artifacts);
   const attributed = groups.flatMap((group): GeneratedGroupDrift[] => {
-    const paths = changed.filter((path) => matchesGroup(path, group));
+    const paths = changed.filter((path) => generatedGroupOwnsPath(group, path));
     return paths.length === 0 ? [] : [{ group, paths }];
   });
   const unownedPaths = [...after.pending]

@@ -84,7 +84,7 @@ export async function statusMaterialCurrency(
   // here, like the other stale_* fields; only `stale` is reported (`absent`
   // means the project has not adopted the index, and `invalid` is a source
   // problem the gate diagnoses with the offending record).
-  const adrIndex: AdrIndexState = await adrIndexState(root, cfg.map.dir);
+  const adrIndex: AdrIndexState = await adrIndexState(root, cfg);
 
   // The complete read-only tracked-refresh plan. This field is the one
   // authoritative answer to "would refresh change a tracked file?".
