@@ -526,75 +526,61 @@ Deno.test("done --standalone --json: a hand-edited materialized skill blocks (sk
     // Materialize the agent files + skills so the currency checks have real artifacts.
     await runAgent(dir, ["refresh"]);
     const skillsDir = join(dir, ".claude", "skills");
+    const skillFile = (...parts: string[]): string =>
+      join(skillsDir, ...parts, "SKILL.md");
+    /** Run the standalone gate and return its failed stage and skills diagnostic. */
+    const gate = async () => {
+      const obj = decodeGateResult(
+        (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
+      );
+      return { stage: obj.data.failed_stage, skills: diagFor(obj, "skills") };
+    };
 
     // Hand-edit a copied bundled skill → stale → finish blocks with a skills diagnostic.
-    await Deno.writeTextFile(
-      join(skillsDir, "discern-write-adr", "SKILL.md"),
-      "\nHAND EDIT\n",
-      { append: true },
-    );
-    let obj = decodeGateResult(
-      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
-    );
-    assertEquals(obj.data.failed_stage, "skills");
-    const diag = diagFor(obj, "skills");
-    assert(diag !== undefined, "a skills diagnostic should be attached");
-    assertEquals(diag.reproduce_cmd, "discern refresh");
+    await Deno.writeTextFile(skillFile("discern-write-adr"), "\nHAND EDIT\n", {
+      append: true,
+    });
+    const stale = await gate();
+    assertEquals(stale.stage, "skills");
+    assertEquals(stale.skills?.reproduce_cmd, "discern refresh");
 
     // Re-materialize, then drop in a FOREIGN skill discern never owns — it must NOT
     // block finish, uncommitted or committed beside discern's own entries.
     await runAgent(dir, ["refresh"]);
     await Deno.mkdir(join(skillsDir, "user-dropin"));
-    await Deno.writeTextFile(
-      join(skillsDir, "user-dropin", "SKILL.md"),
-      "# mine\n",
-    );
-    obj = decodeGateResult(
-      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
-    );
+    await Deno.writeTextFile(skillFile("user-dropin"), "# mine\n");
     assertEquals(
-      obj.data.failed_stage,
+      (await gate()).stage,
       null,
-      "a foreign drop-in must not block finish",
+      "a foreign drop-in must not block",
     );
     await git(dir, "add", ".claude/skills/user-dropin/SKILL.md");
     await git(dir, "commit", "-q", "-m", "Commit a third-party skill");
-    obj = decodeGateResult(
-      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
-    );
     assertEquals(
-      obj.data.failed_stage,
+      (await gate()).stage,
       null,
-      "a committed foreign skill is not a discern-managed artifact",
+      "a committed foreign skill passes",
     );
 
     // The project then authors a skill under the foreign skill's name. Refresh
     // refuses to replace the entry it did not place, and the gate blocks until
     // the owner frees the name.
-    await Deno.mkdir(join(dir, "discern", "skills", "user-dropin"), {
-      recursive: true,
-    });
+    const authored = join(dir, "discern", "skills", "user-dropin");
+    await Deno.mkdir(authored, { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern", "skills", "user-dropin", "SKILL.md"),
+      join(authored, "SKILL.md"),
       '---\nname: user-dropin\ndescription: "An authored skill."\n---\n',
     );
     await runAgent(dir, ["refresh"]);
-    assertEquals(
-      await Deno.readTextFile(join(skillsDir, "user-dropin", "SKILL.md")),
-      "# mine\n",
-      "refresh must refuse to replace an entry it did not place",
+    assertEquals(await Deno.readTextFile(skillFile("user-dropin")), "# mine\n");
+    const conflict = await gate();
+    assertEquals(conflict.stage, "skills");
+    assert(conflict.skills?.output !== undefined, "a skills diagnostic");
+    assertTerminalTextIncludes(
+      conflict.skills.output,
+      ".claude/skills/user-dropin",
     );
-    obj = decodeGateResult(
-      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
-    );
-    assertEquals(obj.data.failed_stage, "skills");
-    const conflict = diagFor(obj, "skills");
-    assert(
-      conflict?.output !== undefined,
-      "a skills diagnostic should be attached",
-    );
-    assertTerminalTextIncludes(conflict.output, ".claude/skills/user-dropin");
-    assertTerminalTextIncludes(conflict.output, "[skills].exclude");
+    assertTerminalTextIncludes(conflict.skills.output, "[skills].exclude");
   });
 });
 
