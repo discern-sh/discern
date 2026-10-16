@@ -140,8 +140,6 @@
     "woff2-encoder": "npm:woff2-encoder@2.0.0"
   },
   "exclude": [
-    ".agents/skills/",
-    ".claude/skills/",
     ".claude/worktrees/",
     ".deno_compile_bundle_*.mjs",
     ".discern-bundled-manual/",
@@ -157,6 +155,7 @@
   "fmt": {
     "proseWrap": "never",
     "exclude": [
+      ".agents/skills/",
       ".claude/",
       ".idea/",
       "AGENTS.md",
@@ -205,6 +204,7 @@
       ]
     },
     "exclude": [
+      ".agents/skills/",
       ".claude/",
       "site/ui/components/HtmlFragment.tsx",
       "site/page-src/",
@@ -214,6 +214,7 @@
   },
   "test": {
     "exclude": [
+      ".agents/skills/",
       ".claude/",
       "templates/",
       "tests/fixtures/"
