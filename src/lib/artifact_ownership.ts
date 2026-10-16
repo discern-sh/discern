@@ -11,6 +11,7 @@
 import { AGENT_NAMES, type DiscernConfig } from "../shared/config_schema.ts";
 import {
   ARTIFACT_PROVENANCE_SOURCES,
+  COMMENT_INCAPABLE_ARTIFACT,
   commentCapableNonContextArtifact,
   declaredFileOwnership,
   declaredWrittenArtifactClass,
@@ -25,6 +26,10 @@ import {
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { resolveSourcePaths } from "../shared/source_path_resolution.ts";
 import { PROVIDERS, wiredMcp } from "./providers.ts";
+import {
+  MATERIALIZED_MANIFEST,
+  SKILLS_IGNORE_FILE,
+} from "./skill_ownership.ts";
 
 /** Whether one declaration admits one file or every file below a directory. */
 export type ArtifactPathKind = "file" | "directory";
@@ -129,14 +134,33 @@ function providerArtifacts(): ArtifactPathEntry[] {
         "Agent file compiled from the configured instruction sources.",
     });
     if (provider.skillsDir !== undefined) {
+      const dir = provider.skillsDir.path;
       entries.push({
         id: `provider:${name}:skills`,
-        path: provider.skillsDir.path,
+        path: dir,
         pathKind: "directory",
         ownership: provider.skillsDir.ownership,
         writtenArtifact: provider.skillsDir.writtenArtifact,
         description:
-          "Materialized skills directory rebuilt by `discern refresh`.",
+          `Provider skills directory. discern maintains the skills its \`${MATERIALIZED_MANIFEST}\` names; entries other tools place stay theirs.`,
+      }, {
+        id: `provider:${name}:skills-record`,
+        path: `${dir}/${MATERIALIZED_MANIFEST}`,
+        pathKind: "file",
+        ownership: { generated: true },
+        writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
+        description:
+          "Records which skills discern materialized in this directory: its only evidence for replacing, ignoring, or removing an entry.",
+      }, {
+        id: `provider:${name}:skills-ignore`,
+        path: `${dir}/${SKILLS_IGNORE_FILE}`,
+        pathKind: "file",
+        ownership: { generated: true },
+        writtenArtifact: commentCapableNonContextArtifact(
+          ARTIFACT_PROVENANCE_SOURCES.skillsIgnore,
+        ),
+        description:
+          "Ignores only the skills discern materialized in this directory, so other entries stay visible to Git.",
       });
     }
     const mcp = wiredMcp(provider);

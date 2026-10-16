@@ -188,6 +188,13 @@ for (const attributionCase of ATTRIBUTION_CASES) {
         attributionCase.env,
       );
       await wireProviderProjectRules(root, ["codex"], attributionCase.env);
+      await materializeSkills(
+        root,
+        ALL_AGENT_CONFIG,
+        allSkillsDirs(),
+        undefined,
+        attributionCase.env,
+      );
 
       const entries = projectArtifactPaths(ALL_AGENT_CONFIG).filter((entry) =>
         writtenArtifactClass(entry) === "comment-capable-non-context"
@@ -227,10 +234,18 @@ Deno.test("context-loaded agent files and materialized skills open without gener
       allSkillsDirs(),
     );
 
-    const entries = projectArtifactPaths(ALL_AGENT_CONFIG).filter((entry) =>
+    const all = projectArtifactPaths(ALL_AGENT_CONFIG);
+    const entries = all.filter((entry) =>
       writtenArtifactClass(entry) === "context-loaded"
     );
     assert(entries.length > 0, "expected context-loaded output to inspect");
+    // A file declared on its own inside a context-loaded directory (discern's
+    // skills control files) carries its own class and is checked by it.
+    const declaredFiles = new Set(
+      all.filter((entry) => entry.pathKind === "file").map((entry) =>
+        join(root, entry.path)
+      ),
+    );
     for (const entry of entries) {
       if (entry.pathKind === "file") {
         const text = renderedAgentFiles.get(entry.path);
@@ -244,6 +259,7 @@ Deno.test("context-loaded agent files and materialized skills open without gener
       for await (
         const file of walk(join(root, entry.path), { includeDirs: false })
       ) {
+        if (declaredFiles.has(file.path)) continue;
         assertNoOpeningGeneratorComment(
           await Deno.readTextFile(file.path),
           file.path,

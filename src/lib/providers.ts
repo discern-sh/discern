@@ -1744,7 +1744,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     skillsDir: {
       path: CLAUDE_SKILLS_DIR,
-      ownership: { generated: true },
+      ownership: { shared: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // Claude Code's settings.local.json is the vendor's own per-machine override
@@ -1801,7 +1801,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     skillsDir: {
       path: AGENTS_SKILLS_DIR,
-      ownership: { generated: true },
+      ownership: { shared: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // MCP is wired: discern merges `[mcp_servers.discern]` into the project-committable
@@ -1940,7 +1940,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // precedence) — use the shared alias so Codex + Gemini dedupe to one dir.
     skillsDir: {
       path: AGENTS_SKILLS_DIR,
-      ownership: { generated: true },
+      ownership: { shared: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // MCP is wired: discern deep-merges `mcpServers.discern` into the
@@ -2089,7 +2089,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // onto Codex's/Gemini's target rather than adding a dir of its own.
     skillsDir: {
       path: AGENTS_SKILLS_DIR,
-      ownership: { generated: true },
+      ownership: { shared: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // MCP is wired: discern writes the stdio `discern mcp` server into the
@@ -2210,7 +2210,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // existing target.
     skillsDir: {
       path: AGENTS_SKILLS_DIR,
-      ownership: { generated: true },
+      ownership: { shared: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // MCP is wired: discern writes the stdio `discern mcp` server into the shared

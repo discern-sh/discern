@@ -497,9 +497,10 @@ export async function materializeSkills(
   config: DiscernConfig,
   dirs: readonly string[],
   log?: Logger,
+  env: EnvReader = Deno.env,
 ): Promise<MaterializeResult> {
   return await applyMaterializeSkillsPlan(
-    await planMaterializeSkills(root, config, dirs),
+    await planMaterializeSkills(root, config, dirs, {}, env),
     log,
   );
 }
