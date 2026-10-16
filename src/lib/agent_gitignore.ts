@@ -209,19 +209,19 @@ export async function readGitignoreFragment(
   }
 }
 
-/** Plan `.gitignore` reconciliation without touching disk. */
-export async function planDiscernGitignoreBlock(
+/** Reconcile `<destDir>/.gitignore` in memory, or `undefined` when the shipped
+ * fragment is unavailable. */
+async function reconcileGitignoreAt(
   destDir: string,
-  config?: DiscernConfig,
-  env: EnvReader = Deno.env,
-): Promise<GitignoreFileReconcileResult> {
+  config: DiscernConfig | undefined,
+  env: EnvReader,
+): Promise<GitignoreReconcileResult | undefined> {
   const fragment = await readGitignoreFragment(env);
   if (fragment === undefined) {
-    return { operations: [], templateAvailable: false };
+    return undefined;
   }
-  const existing = await readTextIfExists(join(destDir, TARGET_REL)) ?? "";
-  const result = reconcileDiscernGitignore(
-    existing,
+  return reconcileDiscernGitignore(
+    await readTextIfExists(join(destDir, TARGET_REL)) ?? "",
     fragment,
     agentArtifactPosture(),
     env,
@@ -229,10 +229,24 @@ export async function planDiscernGitignoreBlock(
       ? undefined
       : nestedWorktreeIgnorePath(destDir, config),
   );
-  return {
-    operations: result.operations,
-    templateAvailable: true,
-  };
+}
+
+/** Project an in-memory reconciliation onto the file-level result. */
+function fileReconcileResult(
+  result: GitignoreReconcileResult | undefined,
+): GitignoreFileReconcileResult {
+  return result === undefined
+    ? { operations: [], templateAvailable: false }
+    : { operations: result.operations, templateAvailable: true };
+}
+
+/** Plan `.gitignore` reconciliation without touching disk. */
+export async function planDiscernGitignoreBlock(
+  destDir: string,
+  config?: DiscernConfig,
+  env: EnvReader = Deno.env,
+): Promise<GitignoreFileReconcileResult> {
+  return fileReconcileResult(await reconcileGitignoreAt(destDir, config, env));
 }
 
 /** Reconcile `<destDir>/.gitignore` on disk. */
@@ -241,28 +255,11 @@ export async function ensureDiscernGitignoreBlock(
   config?: DiscernConfig,
   env: EnvReader = Deno.env,
 ): Promise<GitignoreFileReconcileResult> {
-  const fragment = await readGitignoreFragment(env);
-  if (fragment === undefined) {
-    return { operations: [], templateAvailable: false };
+  const result = await reconcileGitignoreAt(destDir, config, env);
+  if (result !== undefined && result.operations.length > 0) {
+    await Deno.writeTextFile(join(destDir, TARGET_REL), result.text);
   }
-  const path = join(destDir, TARGET_REL);
-  const existing = await readTextIfExists(path) ?? "";
-  const result = reconcileDiscernGitignore(
-    existing,
-    fragment,
-    agentArtifactPosture(),
-    env,
-    config === undefined
-      ? undefined
-      : nestedWorktreeIgnorePath(destDir, config),
-  );
-  if (result.operations.length > 0) {
-    await Deno.writeTextFile(path, result.text);
-  }
-  return {
-    operations: result.operations,
-    templateAvailable: true,
-  };
+  return fileReconcileResult(result);
 }
 
 /** Git-tracked paths discern keeps out of Git: those matching the canonical
@@ -647,20 +644,14 @@ export function discernOwnedArtifactIgnorePaths(
   ];
 }
 
-/** Strip comments and boundary syntax into the path form used for ownership checks. */
+/** Strip comments and boundary syntax into the path form used for ownership
+ * checks: the managed-rule parse, with a children wildcard kept in the path. */
 function normalizeRule(
   line: string,
 ): { negated: boolean; path: string } | undefined {
-  const withoutComment = line.split("#", 1)[0]?.trim() ?? "";
-  if (withoutComment === "") {
-    return undefined;
-  }
-  const negated = withoutComment.startsWith("!");
-  const unprefixed = negated ? withoutComment.slice(1) : withoutComment;
-  const withoutLeadingSlash = unprefixed.replace(/^\/+/, "");
-  const path = withoutLeadingSlash.replace(/\/+$/, "");
-  if (path === "") {
-    return undefined;
-  }
-  return { negated, path };
+  const rule = parseManagedIgnoreRule(line);
+  return rule === undefined ? undefined : {
+    negated: rule.negated,
+    path: rule.wildcardChildren ? `${rule.path}/*` : rule.path,
+  };
 }
