@@ -951,7 +951,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
     matches: ["discern tidy"],
     definition:
-      "discern's formatter for the Markdown files it manages and for `discern.toml`. `discern tidy` formats every Markdown page in the [map](#map), the list of deferred work, and your [instruction sources](#instruction-source). It also checks that box-drawing diagrams stay aligned, and it refuses a file whose tables or frontmatter it can't format safely. It doesn't format your source code. New installations run it in the `format` [job](#gate-job), and removing it from that job opts out. See [formatting with tidy](../20-quality-gate/tidy.md).",
+      "discern's formatter for the Markdown files it manages and for `discern.toml`. `discern tidy` formats every Markdown page in the [map](#map), the list of deferred work, and your [instruction sources](#instruction-source). It also checks that box-drawing diagrams stay aligned, and it refuses a file whose tables or frontmatter it can't format safely. It doesn't format your source code, or any file that a `[generated]` group's command writes. New installations run it in the `format` [job](#gate-job), and removing it from that job opts out. See [formatting with tidy](../20-quality-gate/tidy.md).",
   },
   {
     term: "Tip",
