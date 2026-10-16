@@ -399,6 +399,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0422 — The Desk checks the fleet's fingerprint before it surveys](0422-the-desk-checks-the-fleet-fingerprint-before-it-surveys.md)
 - [0423 — Social cards render on request from the design system's fonts](0423-social-cards-render-on-request-from-design-system-fonts.md)
 - [0424 — Generator-owned paths have one writer](0424-generator-owned-paths-have-one-writer.md)
+- [0425 — Skills directories are owned entry by entry](0425-skills-directories-are-owned-entry-by-entry.md)
 
 <!-- END GENERATED: current ADR records -->
 
