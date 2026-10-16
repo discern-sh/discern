@@ -125,7 +125,7 @@ The agent files `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are tracked, so an age
 
 The tracked-refresh plan, the changes an ordinary `discern refresh` would make to tracked files, also covers discern's portions of other tracked files: the generated attributes, the provider integrations, and the ADR index. `discern done` and `discern accept` require that plan to be empty before a change lands, so the landed commit already holds their current versions. After landing, acceptance materializes only ignored or local files ([ADR 0264](https://discern.sh/docs/decisions/0264-tracked-refresh-convergence-precedes-landing)).
 
-Materialized skills and provider-local files stay out of Git: `discern done` fails at its `tracked_artifacts` stage if one of them has been force-added.
+Materialized skills and provider-local files stay out of Git: `discern done` fails at its `tracked_artifacts` stage if one of them has been force-added. Skills another tool installed in the same skills directory are never flagged.
 
 ### `.gitattributes`
 
@@ -138,22 +138,31 @@ discern maintains one marked block in `.gitattributes`, and your rules outside t
 
 ### `.gitignore`
 
-discern ignores materialized skills and provider-local files by their exact registered paths, so neighboring files stay as they are. In the recipe app, which uses Claude Code and Codex, the block reads:
+discern ignores provider-local files by their exact registered paths, so neighboring files stay as they are. In the recipe app, which uses Claude Code and Codex, the block reads:
 
 ```text
 # --- discern ---
 # Generated automatically by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
-# discern's managed ignore rules: only the skills directories it
-# materializes and machine-local provider state. discern owns this
-# block alone and never touches your other rules. The compiled agent
+# discern's managed ignore rules: machine-local provider state only.
+# The skills discern materializes are ignored by an ignore file inside
+# each provider skills directory that lists just those entries, so
+# skills other tools install beside them stay visible to Git. discern
+# owns this block alone and never touches your other rules. The agent
 # files (AGENTS.md and its mirrors) are tracked, so every agent —
 # cloud included — reads them from a fresh clone. For the full list
 # of discern-managed files, run `discern docs` or see https://discern.sh
-/.claude/skills/
 /.claude/settings.local.json
-/.agents/skills/
 # --- /discern ---
 ```
+
+### Skills directories
+
+A coding agent's skills directory, such as `.claude/skills/` or `.agents/skills/`, is shared: other tools may install skills there too. discern owns only the skills named in the directory's `.discern-materialized.json` record. It also writes a `.gitignore` inside the directory that lists exactly those skills and its two control files, so Git ignores discern's skills and nothing else there. You can commit another tool's skills, and fresh clones and worktrees get them.
+
+- **Name conflicts:** `discern refresh` never replaces an entry it did not place. If such an entry holds the name of one of discern's skills, refresh leaves it alone and reports a conflict, and `discern done` fails at its `skills` stage until you free the name. Rename the other entry, rename your authored skill, or list the skill in `[skills].exclude`. If the entry is an earlier copy of discern's own skill, delete it. An entry that matches discern's output byte for byte is adopted.
+- **An ignore file discern didn't write:** if the directory already has a `.gitignore` of yours, discern reports a conflict instead of editing it. Move its rules into the root `.gitignore` and delete it.
+- **Checking the rules:** `discern doctor` asks Git about every entry and warns when an ignore rule hides another tool's skill, naming the rule, or when one of discern's skills isn't ignored.
+- **Uninstall:** `discern uninstall` removes only the entries the record names, plus the two control files, and keeps everything else.
 
 You can add ignore rules for the agent files outside discern's block if you prefer, since the stale-copy check accepts a missing agent file.
 

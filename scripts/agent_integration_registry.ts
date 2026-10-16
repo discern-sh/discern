@@ -150,7 +150,7 @@ function posturePhrase(name: NativeAgentName): string {
   const parts: string[] = [];
   const skills = provider.skillsDir?.path;
   if (skills !== undefined && posture.materializedDirs.includes(skills)) {
-    parts.push(`${dirCode(skills)} ignored`);
+    parts.push(`${dirCode(skills)} shared: discern's entries ignored`);
   }
   for (const state of provider.localState ?? []) {
     if (posture.localStateFiles.includes(state.path)) {
@@ -234,7 +234,7 @@ export const INTEGRATION_SEAMS = [
   },
   {
     id: "ignore-posture",
-    label: "Tracked and ignored files (managed block)",
+    label: "Tracked and ignored files",
     cell: (p) => posturePhrase(p.name),
   },
   {
@@ -575,7 +575,7 @@ export function seamNarratives(): readonly SeamNarrative[] {
     {
       title: "Settings, gitignore, and convergence",
       body:
-        `The additive, idempotent JSON merge in \`src/lib/settings_merge.ts\` appends hook groups, deduplicates by command string or group strategy, unions permission arrays, and sets other keys when absent. Codex's comment-preserving \`TomlEditor\` provides the corresponding guarantee for TOML surfaces. The managed \`.gitignore\` block ignores each agent's materialized skills directory and declared \`localState\` files. Compiled instructions and co-owned settings, MCP, and hook files stay tracked (ADR 0128). \`src/lib/agent_gitignore.ts\` reconciles the block during every \`discern upgrade\`, absorbs old discern-owned fragments, and derives current artifacts from the provider registry. The managed \`.gitattributes\` block uses the same registry to mark generated artifacts for merge and review metadata (ADR 0259). A future provider therefore enters both convergence paths through its registry declaration (ADR 0043, ADR 0093).`,
+        `The additive, idempotent JSON merge in \`src/lib/settings_merge.ts\` appends hook groups, deduplicates by command string or group strategy, unions permission arrays, and sets other keys when absent. Codex's comment-preserving \`TomlEditor\` provides the corresponding guarantee for TOML surfaces. The managed \`.gitignore\` block ignores each agent's declared \`localState\` files. Each skills directory is shared with other tools, so materialization writes an ignore file inside it that lists only the skills discern placed there (ADR 0424). Compiled instructions and co-owned settings, MCP, and hook files stay tracked (ADR 0128). \`src/lib/agent_gitignore.ts\` reconciles the block during every \`discern upgrade\`, absorbs old discern-owned fragments, and derives current artifacts from the provider registry. The managed \`.gitattributes\` block uses the same registry to mark generated artifacts for merge and review metadata (ADR 0259). A future provider therefore enters both convergence paths through its registry declaration (ADR 0043, ADR 0093).`,
     },
   ];
 }

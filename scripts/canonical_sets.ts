@@ -3367,7 +3367,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
       featureCanon: {
         absent:
-          "the repository's contributor guard infrastructure owns this enrolment check",
+          "the repository's contributor guard infrastructure owns this enrollment check",
       },
     },
     members: async () =>

@@ -150,7 +150,7 @@ A committed file that your project rebuilds from its own sources with a command.
 
 ### Generated file
 
-A file discern builds for your coding agents: an agent file or a skill folder. discern builds them from your own sources, such as your instruction source and skills, and from the instructions and skills it ships with. `discern refresh`, `discern upgrade`, and `discern prepare` rebuild them, so a direct edit gets replaced. The [gate](#gate) fails if a generated file no longer matches its source. To change one, edit its source instead. By default, Git tracks agent files and ignores the skill folders. See [agent files](#agent-file) and [skills](#skill).
+A file discern builds for your coding agents: an agent file or a skill folder. discern builds them from your own sources, such as your instruction source and skills, and from the instructions and skills it ships with. `discern refresh`, `discern upgrade`, and `discern prepare` rebuild them, so a direct edit gets replaced. The [gate](#gate) fails if a generated file no longer matches its source. To change one, edit its source instead. By default, Git tracks agent files and ignores the skill folders discern places in a coding agent's skills directory; skills other tools install there stay visible to Git. See [agent files](#agent-file) and [skills](#skill).
 
 ### Improvement review
 

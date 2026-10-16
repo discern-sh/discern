@@ -56,7 +56,7 @@ discern skills list
 
 ## Current state & gotchas
 
-- discern links authored Skills as relative symbolic links, so source edits appear in every agent directory immediately. Commit the source directory. Git ignores the materialized directory.
+- discern links authored Skills as relative symbolic links, so source edits appear in every agent directory immediately. Commit the source directory. Git ignores the materialized link.
 - discern does not template authored Markdown. A literal `{{token}}` stays literal. Only bundled Skill Markdown receives configured path substitutions.
 - A generic description may not match the relevant work. Include task language and trigger situations.
 - Use an authored name that matches a bundled name only when you intend to [override it](customize-or-exclude.md).

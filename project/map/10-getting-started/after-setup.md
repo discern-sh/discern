@@ -46,7 +46,7 @@ The `discern/` namespace contains authored material only. Generated copies do no
 
 `--not-applicable` marks a missing known lifecycle; `--applicable` restores it. It changes assurance only, and configuring the job restores applicability ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
 
-The `.gitignore` file gains one marked block for materialized skills and machine-local state. `.gitattributes` gains another marked block for generated-file merging and Markdown diffs. Keep project rules outside those blocks; discern rebuilds only its owned regions from the registries.
+The `.gitignore` file gains one marked block for machine-local provider state. `.gitattributes` gains another marked block for generated-file merging and Markdown diffs. Keep project rules outside those blocks; discern rebuilds only its owned regions from the registries.
 
 Each selected coding agent also has registry-declared integration files. discern adds its Model Context Protocol (MCP) server and supported hooks while preserving unrelated Shared entries. Claude Code receives no permission rules; its named local server is pre-approved only after workspace trust, and normal MCP tool permissions still apply. Codex receives only `git add` and `git commit` command-prefix allowances; those prefixes have no working-directory boundary and grant no push, reset, broader Git, or general shell access. The [agent integration guides](../60-agent-integrations/) list the exact paths and trust steps for every provider.
 
@@ -56,7 +56,7 @@ Unlanded `setup done` stops at Proof and the landing choice. After `setup accept
 
 Agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` come from discern's built-in instructions plus your authored sources. The files are committed, so a bare clone retains the instructions. Without the local binary, its MCP server and hooks cannot run and the ignored materialized skill directories are absent. Install discern, run `discern refresh`, and open a fresh provider session to restore the integration. Edit instruction sources instead of compiled files, then run `discern refresh`; the gate rejects a tracked generated copy that has drifted ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
-Git ignores materialized skill directories such as `.agents/skills/` and `.claude/skills/`. `discern refresh` recreates them from bundled and authored skills.
+discern materializes skills into each coding agent's skills directory, such as `.agents/skills/` or `.claude/skills/`, and an ignore file it writes there keeps exactly those skills out of Git. Skills another tool installs in the same directory stay visible to Git, so you can commit them. `discern refresh` recreates discern's skills from bundled and authored sources.
 
 ## One repository, one installation
 

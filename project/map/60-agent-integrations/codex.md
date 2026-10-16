@@ -14,14 +14,14 @@ _The Codex integration supplies canonical instructions, shared skills, a Model C
 
 discern's Codex integration is project-local and registry-driven. It writes or co-manages the files below when Codex is enabled in `[project].agents`:
 
-| File                                   | Role                                                 | Ownership             |
-| -------------------------------------- | ---------------------------------------------------- | --------------------- |
-| `AGENTS.md`                            | Canonical agent file                                 | Generated, committed  |
-| `.agents/skills/`                      | Materialized Agent Skills                            | Generated, gitignored |
-| `.codex/config.toml`                   | Codex config and Model Context Protocol (MCP) server | Shared, tracked       |
-| `.codex/hooks.json`                    | Session-start hook                                   | Shared, tracked       |
-| `.codex/environments/environment.toml` | Codex app worktree setup/cleanup                     | Shared, tracked       |
-| `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees               | Shared, tracked       |
+| File                                   | Role                                                 | Ownership                        |
+| -------------------------------------- | ---------------------------------------------------- | -------------------------------- |
+| `AGENTS.md`                            | Canonical agent file                                 | Generated, committed             |
+| `.agents/skills/`                      | Materialized Agent Skills                            | Shared; discern's skills ignored |
+| `.codex/config.toml`                   | Codex config and Model Context Protocol (MCP) server | Shared, tracked                  |
+| `.codex/hooks.json`                    | Session-start hook                                   | Shared, tracked                  |
+| `.codex/environments/environment.toml` | Codex app worktree setup/cleanup                     | Shared, tracked                  |
+| `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees               | Shared, tracked                  |
 
 ## Instructions and Skills
 

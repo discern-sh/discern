@@ -24,9 +24,9 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are materialized skills or machine-local provider state. Compiled instruction files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are tracked outputs and belong in commits.
 
-**Cause.** The file matches the discern-owned `.gitignore` block, but someone used `git add -f` or otherwise forced it into the index. The reviewable source lives elsewhere — the instruction source, `[skills].dir`, or provider config — and the named ignored artifact stays untracked even when its bytes are current.
+**Cause.** discern keeps the file out of Git — machine-local state its `.gitignore` block names, or a skill named in a skills directory's `.discern-materialized.json` record — but someone used `git add -f` or otherwise forced it into the index. The reviewable source lives elsewhere — the instruction source, `[skills].dir`, or provider config — and the named ignored artifact stays untracked even when its bytes are current.
 
-**Fix.** Remove it from the index without deleting the working-tree copy: `git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any generated artifacts that are missing, commit the index change, and re-run `discern done`.
+**Fix.** Remove it from the index without deleting the working-tree copy: `git rm -r --cached -- <path...>`. The repair command in the diagnostic names each discern-owned entry, never a whole skills directory, so skills other tools installed there stay tracked. Then run `discern refresh` to rebuild any generated artifacts that are missing, commit the index change, and re-run `discern done`.
 
 ```gotcha-match
 stage = "tracked_artifacts"

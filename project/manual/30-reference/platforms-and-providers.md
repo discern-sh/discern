@@ -214,12 +214,12 @@ discern gives Claude Code the shared instructions and [skills](glossary.md#skill
 
 When `[project].agents` includes Claude Code, discern writes or co-manages these project files:
 
-| File                    | Role                                       | Ownership             |
-| ----------------------- | ------------------------------------------ | --------------------- |
-| `CLAUDE.md`             | Agent file, often a pointer to `AGENTS.md` | Generated, committed  |
-| `.claude/skills/`       | Materialized Claude Code skills            | Generated, gitignored |
-| `.mcp.json`             | Project MCP server                         | Shared, tracked       |
-| `.claude/settings.json` | Hooks and named MCP pre-approval           | Shared, tracked       |
+| File                    | Role                                       | Ownership                        |
+| ----------------------- | ------------------------------------------ | -------------------------------- |
+| `CLAUDE.md`             | Agent file, often a pointer to `AGENTS.md` | Generated, committed             |
+| `.claude/skills/`       | Materialized Claude Code skills            | Shared; discern's skills ignored |
+| `.mcp.json`             | Project MCP server                         | Shared, tracked                  |
+| `.claude/settings.json` | Hooks and named MCP pre-approval           | Shared, tracked                  |
 
 Claude Code may create `.claude/settings.local.json` for permissions on one computer. discern doesn't seed or track it, and its `.gitignore` rules keep it out of Git.
 
@@ -331,14 +331,14 @@ discern gives Codex the canonical instructions, shared skills, an MCP server ent
 
 When `[project].agents` includes Codex, discern writes or co-manages these project files:
 
-| File                                   | Role                                   | Ownership             |
-| -------------------------------------- | -------------------------------------- | --------------------- |
-| `AGENTS.md`                            | Canonical agent file                   | Generated, committed  |
-| `.agents/skills/`                      | Materialized agent skills              | Generated, gitignored |
-| `.codex/config.toml`                   | Codex configuration and MCP server     | Shared, tracked       |
-| `.codex/hooks.json`                    | Session-start hook                     | Shared, tracked       |
-| `.codex/environments/environment.toml` | Codex app worktree setup and cleanup   | Shared, tracked       |
-| `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees | Shared, tracked       |
+| File                                   | Role                                   | Ownership                        |
+| -------------------------------------- | -------------------------------------- | -------------------------------- |
+| `AGENTS.md`                            | Canonical agent file                   | Generated, committed             |
+| `.agents/skills/`                      | Materialized agent skills              | Shared; discern's skills ignored |
+| `.codex/config.toml`                   | Codex configuration and MCP server     | Shared, tracked                  |
+| `.codex/hooks.json`                    | Session-start hook                     | Shared, tracked                  |
+| `.codex/environments/environment.toml` | Codex app worktree setup and cleanup   | Shared, tracked                  |
+| `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees | Shared, tracked                  |
 
 ### Instructions and skills
 
@@ -480,11 +480,11 @@ discern gives Gemini the shared instructions and skills, an MCP server entry, an
 
 When `[project].agents` includes Gemini, discern writes or co-manages these project files:
 
-| File                    | Role                                       | Ownership             |
-| ----------------------- | ------------------------------------------ | --------------------- |
-| `GEMINI.md`             | Agent file, often a pointer to `AGENTS.md` | Generated, committed  |
-| `.agents/skills/`       | Materialized agent skills                  | Generated, gitignored |
-| `.gemini/settings.json` | MCP server and session-start hook          | Shared, tracked       |
+| File                    | Role                                       | Ownership                        |
+| ----------------------- | ------------------------------------------ | -------------------------------- |
+| `GEMINI.md`             | Agent file, often a pointer to `AGENTS.md` | Generated, committed             |
+| `.agents/skills/`       | Materialized agent skills                  | Shared; discern's skills ignored |
+| `.gemini/settings.json` | MCP server and session-start hook          | Shared, tracked                  |
 
 Setup selects Gemini when it finds `gemini` on `PATH`. Otherwise, add `"gemini"` to `[project].agents` to get these files.
 
@@ -555,12 +555,12 @@ discern gives Cursor the canonical instructions, shared skills, an MCP server en
 
 When `[project].agents` includes Cursor, discern uses these project files:
 
-| File                 | Role                                       | Ownership             |
-| -------------------- | ------------------------------------------ | --------------------- |
-| `AGENTS.md`          | Canonical agent file Cursor reads directly | Generated, committed  |
-| `.agents/skills/`    | Materialized agent skills                  | Generated, gitignored |
-| `.cursor/mcp.json`   | Project MCP server                         | Shared, tracked       |
-| `.cursor/hooks.json` | Session-start hook                         | Shared, tracked       |
+| File                 | Role                                       | Ownership                        |
+| -------------------- | ------------------------------------------ | -------------------------------- |
+| `AGENTS.md`          | Canonical agent file Cursor reads directly | Generated, committed             |
+| `.agents/skills/`    | Materialized agent skills                  | Shared; discern's skills ignored |
+| `.cursor/mcp.json`   | Project MCP server                         | Shared, tracked                  |
+| `.cursor/hooks.json` | Session-start hook                         | Shared, tracked                  |
 
 Setup selects Cursor when it finds Cursor installed, as the next section describes. Otherwise, add `"cursor"` to `[project].agents` to get these files.
 
@@ -680,12 +680,12 @@ discern gives GitHub Copilot the canonical instructions, shared skills, an MCP s
 
 When `[project].agents` includes GitHub Copilot, discern writes, co-manages, or relies on these project files:
 
-| File                         | Role                                        | Ownership             |
-| ---------------------------- | ------------------------------------------- | --------------------- |
-| `AGENTS.md`                  | Canonical agent file Copilot reads directly | Generated, committed  |
-| `.agents/skills/`            | Materialized agent skills                   | Generated, gitignored |
-| `.mcp.json`                  | Project MCP server                          | Shared, tracked       |
-| `.github/hooks/discern.json` | Session-start hook                          | Shared, tracked       |
+| File                         | Role                                        | Ownership                        |
+| ---------------------------- | ------------------------------------------- | -------------------------------- |
+| `AGENTS.md`                  | Canonical agent file Copilot reads directly | Generated, committed             |
+| `.agents/skills/`            | Materialized agent skills                   | Shared; discern's skills ignored |
+| `.mcp.json`                  | Project MCP server                          | Shared, tracked                  |
+| `.github/hooks/discern.json` | Session-start hook                          | Shared, tracked                  |
 
 Setup selects GitHub Copilot when it finds the `copilot` CLI on `PATH`. Otherwise, add `"copilot"` to `[project].agents` to wire its configuration.
 

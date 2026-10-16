@@ -14,12 +14,12 @@ _The Claude Code integration supplies shared instructions and skills, a Model Co
 
 When Claude Code is enabled in `[project].agents`, discern writes or co-manages these project-local files:
 
-| File                    | Role                                        | Ownership             |
-| ----------------------- | ------------------------------------------- | --------------------- |
-| `CLAUDE.md`             | Pointer to the canonical agent file         | Generated, committed  |
-| `.claude/skills/`       | Materialized Claude Code Skills             | Generated, gitignored |
-| `.mcp.json`             | Project Model Context Protocol (MCP) server | Shared, tracked       |
-| `.claude/settings.json` | Hooks and named MCP pre-approval            | Shared, tracked       |
+| File                    | Role                                        | Ownership                        |
+| ----------------------- | ------------------------------------------- | -------------------------------- |
+| `CLAUDE.md`             | Pointer to the canonical agent file         | Generated, committed             |
+| `.claude/skills/`       | Materialized Claude Code Skills             | Shared; discern's skills ignored |
+| `.mcp.json`             | Project Model Context Protocol (MCP) server | Shared, tracked                  |
+| `.claude/settings.json` | Hooks and named MCP pre-approval            | Shared, tracked                  |
 
 Claude Code may create `.claude/settings.local.json` for machine-local permissions. discern neither seeds nor tracks it. The shipped `.gitignore` keeps it local.
 

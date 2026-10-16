@@ -1247,7 +1247,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "skills-materialization",
         title: "Materialization",
         what:
-          "`discern refresh` materializes the effective set into each agent's gitignored skills directory: built-ins copied, authored skills symlinked so edits stay live. An authored skill overrides a built-in of the same name, `[skills].exclude` drops named ones, and `discern skills eject <name>` copies a built-in into the project to customize.",
+          "`discern refresh` materializes the effective set into each agent's skills directory, ignoring only the entries it places and never replacing another tool's: built-ins copied, authored skills symlinked so edits stay live. An authored skill overrides a built-in of the same name, `[skills].exclude` drops named ones, and `discern skills eject <name>` copies a built-in into the project to customize.",
         why:
           "The skill set is declared once and identical for every agent, and customizing never forks the distribution.",
         plain: {

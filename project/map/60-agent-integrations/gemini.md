@@ -14,11 +14,11 @@ _The Gemini integration supplies shared instructions and skills, a Model Context
 
 discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[project].agents`:
 
-| File                    | Role                                                       | Ownership             |
-| ----------------------- | ---------------------------------------------------------- | --------------------- |
-| `GEMINI.md`             | Pointer to the canonical agent file                        | Generated, committed  |
-| `.agents/skills/`       | Materialized Agent Skills                                  | Generated, gitignored |
-| `.gemini/settings.json` | Model Context Protocol (MCP) server and session-start hook | Shared, tracked       |
+| File                    | Role                                                       | Ownership                        |
+| ----------------------- | ---------------------------------------------------------- | -------------------------------- |
+| `GEMINI.md`             | Pointer to the canonical agent file                        | Generated, committed             |
+| `.agents/skills/`       | Materialized Agent Skills                                  | Shared; discern's skills ignored |
+| `.gemini/settings.json` | Model Context Protocol (MCP) server and session-start hook | Shared, tracked                  |
 
 Gemini is not in `DEFAULT_AGENTS`; add `"gemini"` to `[project].agents` to emit these artifacts.
 
