@@ -155,21 +155,21 @@ function skillDirLiterals(
 }
 
 /** Shipped TypeScript: the only code that acts in a user's project. */
-async function shippedSources(id: string): Promise<string[]> {
-  return await structuralGuardScope({
-    guard: `tests/skill_dir_consumers_guard_test.ts#${id}`,
-    universe: "authored-ts",
-    narrow: {
-      reason:
-        "Only shipped source can claim ownership inside a user's skills directory; tests and scripts read the registry to verify it.",
-      include: (path) => path.startsWith("src/"),
-    },
-  });
-}
+const SHIPPED_ONLY = {
+  reason:
+    "Only shipped source can claim ownership inside a user's skills directory; tests and scripts read the registry to verify it.",
+  include: (path: string): boolean => path.startsWith("src/"),
+};
 
 Deno.test("every shipped skills-directory accessor use is an enrolled consumer, and every enrolment is live", async () => {
   const sites = new Set<string>();
-  for (const path of await shippedSources("accessor-sites")) {
+  for (
+    const path of await structuralGuardScope({
+      guard: "tests/skill_dir_consumers_guard_test.ts#accessor-sites",
+      universe: "authored-ts",
+      narrow: SHIPPED_ONLY,
+    })
+  ) {
     for (
       const site of accessorSites(
         path,
@@ -207,7 +207,13 @@ Deno.test("only the ownership module decides what discern owns inside a skills d
 
 Deno.test("every shipped importer of the ownership module is enrolled, and each decider names its foreign-entry proof", async () => {
   const importers = new Map<string, string[]>();
-  for (const path of await shippedSources("ownership-importers")) {
+  for (
+    const path of await structuralGuardScope({
+      guard: "tests/skill_dir_consumers_guard_test.ts#ownership-importers",
+      universe: "authored-ts",
+      narrow: SHIPPED_ONLY,
+    })
+  ) {
     if (path === SKILL_OWNERSHIP_MODULE) continue;
     const names = ownershipImports(
       path,
@@ -247,7 +253,13 @@ Deno.test("every shipped importer of the ownership module is enrolled, and each 
 Deno.test("no shipped string literal spells a skills directory outside the provider registry", async () => {
   const dirs = allSkillsDirs();
   const found: string[] = [];
-  for (const path of await shippedSources("skills-dir-literals")) {
+  for (
+    const path of await structuralGuardScope({
+      guard: "tests/skill_dir_consumers_guard_test.ts#skills-dir-literals",
+      universe: "authored-ts",
+      narrow: SHIPPED_ONLY,
+    })
+  ) {
     if (path === "src/lib/providers.ts") continue;
     found.push(
       ...skillDirLiterals(
