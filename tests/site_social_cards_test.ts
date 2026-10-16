@@ -117,29 +117,19 @@ Deno.test("cards use the homepage backdrop's ring ratio", () => {
   }
 });
 
-Deno.test("the handler serves each kind of card as a 1200×630 PNG", async () => {
-  const site = await loadDocsSite();
-  const samples = [
-    "/",
-    "/releases",
-    site.landing.route,
-    site.pages[1]?.route ?? "",
-    site.publicMap.landing.route,
-    site.decisions.pages[0]?.route ?? "",
-  ];
-  for (const route of samples) {
-    const response = await handler(
-      new Request(`${ORIGIN}${socialCardPath(route)}`),
-    );
-    assertEquals(response.status, 200, route);
-    assertEquals(response.headers.get("content-type"), "image/png", route);
-    assertEquals(response.headers.get("cache-control"), "public, max-age=3600");
-    assertEquals(
-      pngSize(new Uint8Array(await response.arrayBuffer())),
-      SOCIAL_CARD_SIZE,
-      route,
-    );
-  }
+// The process smoke fetches one card of each kind over a real socket; this
+// focused case pins the response headers it does not check.
+Deno.test("the handler serves a card as a cacheable 1200×630 PNG", async () => {
+  const response = await handler(
+    new Request(`${ORIGIN}${socialCardPath("/")}`),
+  );
+  assertEquals(response.status, 200);
+  assertEquals(response.headers.get("content-type"), "image/png");
+  assertEquals(response.headers.get("cache-control"), "public, max-age=3600");
+  assertEquals(
+    pngSize(new Uint8Array(await response.arrayBuffer())),
+    SOCIAL_CARD_SIZE,
+  );
 });
 
 Deno.test("only live routes have cards, and retired card images redirect to the homepage card", async () => {
