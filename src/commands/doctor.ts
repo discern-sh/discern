@@ -20,18 +20,12 @@ import {
   resolveConfigPath,
   resolveInstructionSources,
   resolveScriptsDir,
-  resolveSkillsDir,
 } from "../lib/paths.ts";
-import { skillsDirectoryChecks } from "../engine/doctor/skills_checks.ts";
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import {
   projectScriptSupportsEnvironmentName,
 } from "../shared/environment_variables.ts";
-import {
-  fileExists,
-  readDirIfExists,
-  readTextIfExists,
-} from "../shared/fs_presence.ts";
+import { fileExists, readTextIfExists } from "../shared/fs_presence.ts";
 import { Logger } from "../lib/log.ts";
 import {
   renderBannerCli,
@@ -125,6 +119,10 @@ import {
   type GitHealthReport,
   inspectGitHealth,
 } from "../engine/doctor/git_health.ts";
+import {
+  skillsDirectoryChecks,
+  skillsDoctorChecks,
+} from "../engine/doctor/skills_checks.ts";
 import {
   disableLogbookWritesForSession,
   logbookDir,
@@ -1072,19 +1070,7 @@ export async function runChecks(
       });
     }
   }
-  {
-    const { rel, abs } = resolveSkillsDir(destDir, config);
-    const authored =
-      (await readDirIfExists(abs) ?? []).filter((entry) => entry.isDirectory)
-        .length;
-    checks.push({
-      name: "skills",
-      ok: true,
-      detail: authored === 0
-        ? `no authored skills in ${rel}/ yet (built-ins still apply)`
-        : `${authored} authored skill(s) in ${rel}/`,
-    });
-  }
+  checks.push(...await skillsDoctorChecks(destDir, config));
 
   // 8a. provider skills directories: Git's ignore rules must match entry
   // ownership, since other tools share these directories (ADR 0425).

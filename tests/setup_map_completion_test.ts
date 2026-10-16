@@ -1,7 +1,11 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { hasMapExplanation, setupMapIssues } from "../src/shared/setup_map.ts";
+import {
+  hasMapExplanation,
+  MAP_EXPLANATION_RULE,
+  setupMapIssues,
+} from "../src/shared/setup_map.ts";
 
 Deno.test("setup requires explanation and reachability for every selected current page", async () => {
   await withTempDir(async (root) => {
@@ -78,4 +82,25 @@ Deno.test("code examples alone cannot complete a map explanation", () => {
       false,
     );
   }
+});
+
+Deno.test("a bullet-only adoption section is unmet, and its reason names the section and the rule", async () => {
+  await withTempDir(async (root) => {
+    await Deno.mkdir(join(root, "map", "_adr"), { recursive: true });
+    await Deno.writeTextFile(
+      join(root, "map", "README.md"),
+      "# Project\n\nA local command runner.\n",
+    );
+    await Deno.writeTextFile(
+      join(root, "map", "_adr", "0001-adopt-discern.md"),
+      "# Adoption\n\n## Context\n\nChanges need repeatable verification.\n\n" +
+        "## Decision\n\nAdopt discern.\n\n" +
+        "## Consequences\n\n- The gate adds verification time.\n" +
+        "- This project's release checks now run before every landing.\n",
+    );
+    assertEquals(await setupMapIssues(root, "map"), [
+      'map/_adr/0001-adopt-discern.md needs completed consequences: under "## Consequences", ' +
+      `${MAP_EXPLANATION_RULE}.`,
+    ]);
+  });
 });

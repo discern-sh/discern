@@ -1658,6 +1658,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       name: string;
       describe: string;
       passed: boolean;
+      reasons?: Array<string>;
     }>;
   } | {
     next_action: string;

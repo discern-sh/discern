@@ -29,6 +29,7 @@ import {
   resolveSkillsDir,
 } from "../../lib/paths.ts";
 import { allInstructionFilePaths } from "../../lib/providers.ts";
+import { scanAuthoredSkills } from "../../lib/skills.ts";
 import { normalizeMapDir } from "../../shared/map_path.ts";
 import { SOURCE_PATHS } from "../../shared/paths_registry.ts";
 import { questionById } from "../../shared/questions.ts";
@@ -98,15 +99,13 @@ export async function countAdrs(
   return count;
 }
 
-/** Count authored skill directories under `[skills].dir` (each a dir, conventionally
- * holding a SKILL.md). Zero when the directory is absent. */
+/** Count authored skills under `[skills].dir`, linked ones included. Zero when
+ * the directory is absent. */
 async function countAuthoredSkills(
   root: string,
   config: DiscernConfig,
 ): Promise<number> {
-  const { abs } = resolveSkillsDir(root, config);
-  return (await readDirIfExists(abs) ?? []).filter((entry) => entry.isDirectory)
-    .length;
+  return (await scanAuthoredSkills(root, config)).skills.length;
 }
 
 /** Whether any agent file is present (the output of `discern refresh`).

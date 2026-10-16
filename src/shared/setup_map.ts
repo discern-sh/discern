@@ -1,9 +1,20 @@
 import { mapPageKind } from "../lib/map_policy.ts";
 /** Structural completion of the selected map; factual accuracy remains a review. */
 import { dirname, join, resolve } from "@std/path";
-import { discoverDocs } from "../lib/docs.ts";
+import { discoverDocs, type DocEntry } from "../lib/docs.ts";
+import { normalizeMapDir } from "./map_path.ts";
 import { extractDocLinks, fencedBlocks } from "../lib/docs_integrity.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
+
+/** What {@link hasMapExplanation} accepts, stated for a page that fails it. */
+export const MAP_EXPLANATION_RULE =
+  "add at least one line of prose; a heading, list item, table row, quote, " +
+  "placeholder, link line, comment, or code block alone isn't an explanation";
+
+/** The completion reason for a page that fails {@link hasMapExplanation}. */
+export function mapExplanationIssue(path: string): string {
+  return `${path} needs an explanation: ${MAP_EXPLANATION_RULE}.`;
+}
 
 /** A heading or navigation list alone is not an explanation. */
 export function hasMapExplanation(markdown: string): boolean {
@@ -24,11 +35,18 @@ export function hasMapExplanation(markdown: string): boolean {
   });
 }
 
-/** Check current authored pages, without treating ADR bodies as live prose. */
+/**
+ * Check current authored pages, without treating ADR bodies as live prose.
+ * Each issue names the page or region by its project-relative path and states
+ * the rule it misses.
+ */
 export async function setupMapIssues(
   root: string,
   mapDir: string,
 ): Promise<string[]> {
+  const mapRel = normalizeMapDir(mapDir);
+  const rootRel = `${mapRel}README.md`;
+  const pagePath = (entry: DocEntry): string => join(mapRel, entry.relToDocs);
   const tree = await discoverDocs({
     cwd: root,
     dir: mapDir,
@@ -43,12 +61,17 @@ export async function setupMapIssues(
   );
   const front = resolve(root, mapDir, "README.md");
   const issues: string[] = [];
-  if (!pages.has(front)) issues.push("The map needs a root README.md.");
+  if (!pages.has(front)) {
+    issues.push(
+      `${rootRel} is missing: the map needs a root page that explains the ` +
+        "project and links to its regions.",
+    );
+  }
   const links = new Map<string, string[]>();
   for (const [path, entry] of pages) {
     const body = await Deno.readTextFile(path);
     if (!hasMapExplanation(body)) {
-      issues.push(`${entry.path} needs an explanation.`);
+      issues.push(mapExplanationIssue(pagePath(entry)));
     }
     const targets = extractDocLinks(body).flatMap(({ target }) => {
       const local = target.split(/[?#]/)[0] ?? "";
@@ -77,13 +100,19 @@ export async function setupMapIssues(
   }
   for (const [path, entry] of pages) {
     if (!reached.has(path)) {
-      issues.push(`${entry.path} is not reachable from the map root.`);
+      issues.push(
+        `${pagePath(entry)} is not reachable from the map root: link it ` +
+          `from ${rootRel}, or from a page that ${rootRel} already reaches.`,
+      );
     }
     if (
       entry.section && !entry.section.startsWith("_") &&
       !pages.has(resolve(root, mapDir, entry.section, "README.md"))
     ) {
-      issues.push(`${entry.section} needs a region README.md.`);
+      issues.push(
+        `${mapRel}${entry.section}/ needs a README.md that explains the ` +
+          "region and links to its pages.",
+      );
     }
   }
   const adoption = tree?.entries.find((entry) =>
@@ -98,7 +127,9 @@ export async function setupMapIssues(
         )[0] ?? "";
       if (!hasMapExplanation(section)) {
         issues.push(
-          `${adoption.path} needs completed ${heading.toLowerCase()}.`,
+          `${pagePath(adoption)} needs completed ` +
+            `${heading.toLowerCase()}: under "## ${heading}", ` +
+            `${MAP_EXPLANATION_RULE}.`,
         );
       }
     }

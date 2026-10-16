@@ -2494,6 +2494,9 @@ function emitSetupIncomplete(
   }
   for (const check of unmet) {
     log.item(`• Step ${check.step} — ${check.describe}`);
+    for (const reason of check.reasons) {
+      log.item(`  – ${reason}`);
+    }
   }
   log.group("recovery");
   log.item(

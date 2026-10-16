@@ -1,19 +1,52 @@
 /**
- * `discern doctor`'s skills-directory check (ADR 0425).
- *
- * A provider skills directory is shared with other tools, so Git's ignore rules
- * must hide exactly the entries discern's ownership record names. A foreign
- * entry an ignore rule hides never reaches a fresh clone or worktree; a discern
- * entry no rule covers shows up as untracked work. Read-only.
+ * Skill diagnostics for `discern doctor`, all read-only:
+ *  - authored skills: how many `[skills].dir` holds, and one warning per link
+ *    discern refuses to follow; the enumeration is the skills module's own;
+ *  - provider skills directories: shared with other tools, so Git's ignore
+ *    rules must hide exactly the entries discern's ownership record names
+ *    (ADR 0425). A foreign entry an ignore rule hides never reaches a fresh
+ *    clone or worktree; a discern entry no rule covers shows up as untracked
+ *    work.
  */
 
+import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { resolveSkillsDir } from "../../lib/paths.ts";
+import { scanAuthoredSkills } from "../../lib/skills.ts";
 import {
   skillsIgnorePosture,
   surveySkillsDirs,
 } from "../../lib/skill_ownership.ts";
 import type { DoctorDraftCheck } from "./completion_checks.ts";
 
-const NAME = "skills directories";
+/** The `skills` count check, then a `skill link` warning per refused link. */
+export async function skillsDoctorChecks(
+  root: string,
+  config: DiscernConfig,
+): Promise<DoctorDraftCheck[]> {
+  const { rel } = resolveSkillsDir(root, config);
+  const { skills, linkIssues } = await scanAuthoredSkills(root, config);
+  return [
+    {
+      name: "skills",
+      ok: true,
+      detail: skills.length === 0
+        ? `no authored skills in ${rel}/ yet (built-ins still apply)`
+        : `${skills.length} authored skill(s) in ${rel}/`,
+    },
+    // A refused link leaves its skill unmaterialized; warn, never fail, so a
+    // deliberate out-of-project link cannot block setup.
+    ...linkIssues.map((issue): DoctorDraftCheck => ({
+      name: `skill link: ${issue.name}`,
+      ok: true,
+      status: "warn",
+      detail: issue.message,
+      fix:
+        `replace ${issue.path} with a relative link to a skill directory inside the project, or with the skill directory itself`,
+    })),
+  ];
+}
+
+const SKILLS_DIRECTORIES = "skills directories";
 
 /** Compare Git's ignore verdicts with entry ownership in every skills directory
  * present; empty when there is none, or outside a Git repository, where Git
@@ -30,7 +63,7 @@ export async function skillsDirectoryChecks(
     const owned = surveys.reduce((n, survey) => n + survey.owned.length, 0);
     const foreign = surveys.reduce((n, survey) => n + survey.foreign.length, 0);
     return [{
-      name: NAME,
+      name: SKILLS_DIRECTORIES,
       ok: true,
       detail: `${owned} materialized skill(s) ignored; ${foreign} other entr${
         foreign === 1 ? "y" : "ies"
@@ -57,7 +90,7 @@ export async function skillsDirectoryChecks(
     );
   }
   return [{
-    name: NAME,
+    name: SKILLS_DIRECTORIES,
     ok: true,
     warn: true,
     detail: problems.join("; "),

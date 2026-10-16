@@ -348,6 +348,19 @@ function alternativeIdentity(value: JsonValue): string {
     if (value.type !== undefined) {
       return `type:${json(value.type)}`;
     }
+    // A type-less nested union is matched by its keyword, in order, so its
+    // members are compared member by member like any other alternative.
+    const composite = (["oneOf", "anyOf", "allOf"] as const).find((keyword) =>
+      Array.isArray(value[keyword])
+    );
+    if (
+      composite !== undefined &&
+      Object.keys(value).every((key) =>
+        key === composite || ANNOTATION_KEYS.has(key)
+      )
+    ) {
+      return `composite:${composite}`;
+    }
   }
   return `schema:${json(value)}`;
 }

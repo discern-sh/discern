@@ -6,6 +6,8 @@ aliases:
   - create a skill
   - authored skills
   - project skills
+  - linked skills
+  - symlinked skills
 ---
 
 # Author a project Skill
@@ -43,6 +45,27 @@ The body is a playbook for an agent with no memory of the session that authored 
 
 For operational requirements, follow [Make an operational procedure self-contained](what-a-skill-is.md#make-an-operational-procedure-self-contained). Portable validation still covers only `name` and `description`.
 
+## Link a skill kept elsewhere in the project
+
+An entry under `[skills].dir` may be a relative symbolic link to a skill directory stored elsewhere in the project. discern follows the link, so the skill materializes, lists, and passes the same checks as a directory in place. Each agent directory links to the entry under `[skills].dir`, so every hop stays relative and resolves inside each checkout and worktree.
+
+```text
+discern/skills/
+└── verify-release -> ../../tools/skills/verify-release
+```
+
+discern refuses three kinds of link and leaves that skill out of every agent directory:
+
+| Link                | Why discern refuses it                                  |
+| ------------------- | ------------------------------------------------------- |
+| Dangling            | The target does not exist, or the link loops.           |
+| Absolute            | A worktree would resolve it into a different checkout.  |
+| Outside the project | The skill's files would not travel with the repository. |
+
+`discern refresh` warns about each refused link. `discern doctor` reports it as a `skill link` warning with the fix; a warning never fails doctor. A file under `[skills].dir`, or a link to one, is not a skill.
+
+Scopes and checkpoint triggers match the paths Git reports. A change to the link itself matches `[skills].dir`. A change to the linked skill's files matches the location of those files, so a link can never move code into a neutral scope.
+
 ## Materialize and inspect it
 
 Run:
@@ -63,10 +86,14 @@ discern skills list
 
 ## Where it lives in code
 
-| Concern                               | Source                                                                                                                                |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `[skills].dir` default and schema     | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`)                                                          |
-| Authored resolution and links         | [`skills.ts`](../../../src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`)                                                |
-| Frontmatter validation                | [`skills.ts`](../../../src/lib/skills.ts) (`skillFrontmatterIssues`)                                                                  |
-| This repo's example in `[skills].dir` | [`discern-product-voice`](../../skills/discern-product-voice/SKILL.md) (generated from [`voice.ts`](../../../scripts/brand/voice.ts)) |
-| Materialization coverage              | [`instructions_test.ts`](../../../tests/instructions_test.ts)                                                                         |
+| Concern                                | Source                                                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `[skills].dir` default and schema      | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`)                                                          |
+| Authored enumeration and linked skills | [`skills.ts`](../../../src/lib/skills.ts) (`scanAuthoredSkills`)                                                                      |
+| Doctor's skill and skill-link checks   | [`skills_checks.ts`](../../../src/engine/doctor/skills_checks.ts) (`skillsDoctorChecks`)                                              |
+| Authored resolution and links          | [`skills.ts`](../../../src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`)                                                |
+| Frontmatter validation                 | [`skills.ts`](../../../src/lib/skills.ts) (`skillFrontmatterIssues`)                                                                  |
+| This repo's example in `[skills].dir`  | [`discern-product-voice`](../../skills/discern-product-voice/SKILL.md) (generated from [`voice.ts`](../../../scripts/brand/voice.ts)) |
+| Materialization coverage               | [`instructions_test.ts`](../../../tests/instructions_test.ts)                                                                         |
+| Linked-skill coverage                  | [`skill_links_test.ts`](../../../tests/skill_links_test.ts)                                                                           |
+| Single enumeration guard               | [`skill_enumeration_guard_test.ts`](../../../tests/skill_enumeration_guard_test.ts)                                                   |

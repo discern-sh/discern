@@ -1309,6 +1309,29 @@ Deno.test("result compatibility preserves existing guarantees and canonical cont
           ],
         );
       },
+    "a type-less nested union compares its members field by field":
+      (): undefined => {
+        const withPayload = (properties: JsonObject): JsonObject => {
+          const schema = clone(RESULT_OUTPUT_FIXTURE);
+          const launch = (schema.$defs as JsonObject)
+            .VoyageLaunchResult as JsonObject;
+          (launch.properties as JsonObject).payload = {
+            anyOf: [{ type: "null" }, {
+              anyOf: [{ type: "object", properties, required: ["fault"] }],
+            }],
+          };
+          return schema;
+        };
+        const fault = { type: "string" };
+        const issues = (properties: JsonObject): string[] =>
+          publicSchemaCompatibilityIssues(
+            withPayload({ fault }),
+            withPayload(properties),
+            RESULT_SCHEMA_COMPATIBILITY_POLICY,
+          );
+        assertEquals(issues({ fault, detail: fault }), []);
+        assert(issues({}).some((issue) => issue.includes("fault")));
+      },
     "ordinary open result objects permit optional fields": (): undefined => {
       for (const additionalProperties of [undefined, true] as const) {
         const previous = clone(RESULT_OUTPUT_FIXTURE);
