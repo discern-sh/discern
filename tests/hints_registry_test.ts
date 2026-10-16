@@ -9,7 +9,13 @@
  * these and land with the migration.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import { dirname, join, normalize } from "@std/path";
 import {
   appendHintTexts,
   defineHint,
@@ -21,12 +27,17 @@ import {
   hintTexts,
   interactiveHints,
   interactiveHintTexts,
+  mergeHintCatalogs,
   mergeHintTexts,
 } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
 import { assertNamedCases } from "./assert_cases.ts";
+import { HINT_CATALOG_DIR, isHintRegistryPath } from "./hint_registry_paths.ts";
+import { importSpecifiers } from "./import_specifiers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const HINT_TEXTS_SCHEMA = z.array(z.string());
 
@@ -303,3 +314,50 @@ Deno.test("hints registry: contracts", () => {
 // The class guard: every agent-audience entry — current and future — provably
 // stays off the interactive surface, and every human-visible entry provably
 // reaches it. Iterates the live registry, so a new entry auto-enrols.
+
+Deno.test("merging hint catalogs refuses an id two catalogs both claim", () => {
+  const first = { "shared-id": STATIC_HINT };
+  const second = { "shared-id": STATIC_HINT };
+  assertThrows(
+    () => mergeHintCatalogs(first, second),
+    Error,
+    "hint id shared-id is registered by two catalogs",
+  );
+  assertEquals(
+    Object.keys(mergeHintCatalogs(first, { "other-id": STATIC_HINT })),
+    ["shared-id", "other-id"],
+  );
+});
+
+Deno.test("hint catalog modules are reachable only through the registry", async () => {
+  // Emission sites fire `HINTS[id]`; importing a catalog directly would
+  // bypass the one table the closed set, renderers, and logbook key on.
+  const offenders: string[] = [];
+  const files = await structuralGuardScope({
+    guard: "tests/hints_registry_test.ts#catalog-imports",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Only shipped source fires hints; tests may inspect catalogs through the registry export.",
+      include: (path) => path.startsWith("src/"),
+    },
+  });
+  for (const rel of files) {
+    if (isHintRegistryPath(rel)) continue;
+    const { specifiers } = importSpecifiers(
+      await Deno.readTextFile(join(REPO_ROOT, rel)),
+    );
+    for (const specifier of specifiers) {
+      if (!specifier.startsWith(".")) continue;
+      const target = normalize(join(dirname(rel), specifier));
+      if (target.startsWith(HINT_CATALOG_DIR)) {
+        offenders.push(`${rel} imports ${target}`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "import hints from src/shared/hints.ts and fire HINTS[id] instead",
+  );
+});

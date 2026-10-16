@@ -3063,17 +3063,6 @@ The advisory hint registry: every hint string enters results through it.
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
-  - `tracked-ignored-artifacts`
-  - `untracked-agent-files`
-  - `generated-agent-files-missing`
-  - `generated-agent-files-stale`
-  - `materialized-skills-missing`
-  - `materialized-skills-stale`
-  - `provider-integrations-missing`
-  - `provider-integrations-stale`
-  - `adr-index-stale`
-  - `tracked-refresh-pending`
-  - `tracked-refresh-plan-failed`
   - `status-start-on-trunk`
   - `status-start-off-trunk`
   - `status-missing-trunk`
@@ -3104,6 +3093,23 @@ The advisory hint registry: every hint string enters results through it.
   - `status-fleet-member-stale`
   - `status-unlanded-branches`
   - `status-contained-refs`
+  - `tracked-ignored-artifacts`
+  - `untracked-agent-files`
+  - `generated-agent-files-missing`
+  - `generated-agent-files-stale`
+  - `materialized-skills-missing`
+  - `materialized-skills-stale`
+  - `provider-integrations-missing`
+  - `provider-integrations-stale`
+  - `adr-index-stale`
+  - `tracked-refresh-pending`
+  - `tracked-refresh-plan-failed`
+  - `refresh-mcp-first-install`
+  - `refresh-mcp-setup-deferred`
+  - `refresh-commit-tracked-artifacts`
+  - `refresh-artifact-failed`
+  - `skills-eject-edit-override`
+  - `skills-eject-finish-materialization`
   - `coupling-generated-exclusion`
   - `coupling-evidence-none`
   - `coupling-evidence-summary`
@@ -3114,13 +3120,6 @@ The advisory hint registry: every hint string enters results through it.
   - `coupling-query-partner`
   - `coupling-more-partners`
   - `coupling-strong-pair`
-  - `await-green-met`
-  - `await-landed-met`
-  - `await-trunk-moved-met`
-  - `await-not-yet`
-  - `await-green-no-worktree`
-  - `await-branch-missing`
-  - `await-trunk-missing`
   - `patterns-logbook-empty`
   - `patterns-insufficient-evidence`
   - `patterns-advisory-findings`
@@ -3210,12 +3209,13 @@ The advisory hint registry: every hint string enters results through it.
   - `standards-pin-behind`
   - `standards-none-configured`
   - `standards-pinnable-slack`
-  - `refresh-mcp-first-install`
-  - `refresh-mcp-setup-deferred`
-  - `refresh-commit-tracked-artifacts`
-  - `refresh-artifact-failed`
-  - `skills-eject-edit-override`
-  - `skills-eject-finish-materialization`
+  - `await-green-met`
+  - `await-landed-met`
+  - `await-trunk-moved-met`
+  - `await-not-yet`
+  - `await-green-no-worktree`
+  - `await-branch-missing`
+  - `await-trunk-missing`
   - `accept-awaiting-confirmation`
   - `accept-review-via-status`
   - `accept-recover-partial-effects`
