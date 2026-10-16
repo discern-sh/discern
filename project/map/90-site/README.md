@@ -30,6 +30,7 @@ The main implementation boundaries are:
 | [`site/documents.tsx`](../../../site/documents.tsx)           | Serves every document request: negotiation, raw editions, search index, React pages. |
 | [`site/search.ts`](../../../site/search.ts)                   | Builds the reader-visible search projection for the published manual.                |
 | [`site/seo.tsx`](../../../site/seo.tsx)                       | Canonical metadata, redirect validation, discovery files, and security policy.       |
+| [`site/social/`](../../../site/social/)                       | Draws each HTML route's link-preview card on request.                                |
 | [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Enrolls every static public composition in build, serving, prose, and route guards.  |
 | [`site/design_system.ts`](../../../site/design_system.ts)     | Owns route bundles, package selections, assets, and theme.                           |
 | [`site/build.ts`](../../../site/build.ts)                     | Emits selected package bundles and static marketing shells.                          |
@@ -37,7 +38,7 @@ The main implementation boundaries are:
 | [`site/dev.ts`](../../../site/dev.ts)                         | Runs loopback-only previews and source-driven rebuilds.                              |
 | [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts)     | Crawls the real handler across routes, links, metadata, raw editions, and redirects. |
 
-[The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [Publishing](publishing.md) owns local previews and production deployment. [Authoring](authoring.md) explains the TSX structure, component boundary, and browser interaction model.
+[The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [Publishing](publishing.md) owns local previews and production deployment. [Social cards](social-cards.md) owns each page's link-preview image. [Authoring](authoring.md) explains the TSX structure, component boundary, and browser interaction model.
 
 ## Route authority
 
@@ -57,7 +58,7 @@ Generated manual references reuse the canonical definitions. Every follow-up lin
 
 ## Response contract
 
-Every successful HTML response and complete release-input error page receives a canonical link, a bounded description, Open Graph and Twitter fields, and the static branded card. Document pages add breadcrumb metadata. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
+Every successful HTML response and complete release-input error page receives a canonical link, a bounded description, and Open Graph and Twitter fields that name the route's own [social card](social-cards.md). Document pages add breadcrumb metadata. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
 
 Every response class, including assets, redirects, and errors, receives the same nonce-based same-origin Content Security Policy, `nosniff`, no-referrer, permissions restrictions, and framing denial. The policy admits no third-party resource origins. Unknown routes and missing files return 404.
 
@@ -68,6 +69,7 @@ Every response class, including assets, redirects, and errors, receives the same
 - [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives canonical redirects, sitemap parity, metadata, and machine-edition boundaries from the live route model.
 - [`tests/site_accessibility_test.ts`](../../../tests/site_accessibility_test.ts) combines axe audits with focus, no-JavaScript, reduced-motion, forced-color, reflow, and print contracts.
 - [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real socket and crawls every canonical and raw route, link, anchor, redirect variant, and response class.
+- [`tests/site_social_cards_test.ts`](../../../tests/site_social_cards_test.ts) lays out every live route's social card and holds its title to a complete fit.
 - [`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) enrolls every `MARKETING_PAGES` composition in its declared public register. The manual has its separate product-voice corpus.
 
 - [Release-page guards](releases.md#visual-and-accessibility-review) cover normalized comparison states, query metadata, no-JavaScript operation, and the real browser journey.
