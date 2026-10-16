@@ -23,6 +23,7 @@ import type {
 import {
   checkDisclosure,
   comparisonText,
+  releaseDateLabel,
   releaseLabel,
   releaseSections,
 } from "../../releases/presentation.ts";
@@ -142,8 +143,7 @@ function Publication(
   if (record.date === undefined) return null;
   return (
     <time dateTime={record.date}>
-      {new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" })
-        .format(new Date(record.date))}
+      {releaseDateLabel(record.date)}
     </time>
   );
 }

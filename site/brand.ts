@@ -13,6 +13,11 @@ export const RELEASE_TITLE = "discern releases";
 
 /** Homepage metadata shared by its renderer, SEO checks, and smoke crawl. */
 export const LANDING_TITLE = "discern";
+/** The homepage hero's headline, which its social card repeats. */
+export const LANDING_HEADLINE = "Intelligence In Practice.";
+/** The one-line category claim under the footer brand and on the homepage card. */
+export const DISCERN_CATEGORY_LINE =
+  "An engineering practice for agent-built software.";
 export const LANDING_DESCRIPTION =
   "Visit the discern manual for setup instructions, guides, and full product documentation.";
 

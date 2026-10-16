@@ -17,6 +17,12 @@ export function releaseLabel(
     : `${record.version} — ${record.codename}`;
 }
 
+/** A publication date as every release surface prints it, such as "October 3, 2026". */
+export function releaseDateLabel(date: string): string {
+  return new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" })
+    .format(new Date(date));
+}
+
 /** Common sections preserve every classified record and the applicable subset. */
 export function releaseSections(
   model: ReleaseComparison,

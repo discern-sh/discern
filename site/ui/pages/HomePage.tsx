@@ -24,6 +24,7 @@ import { AGENT_NAMES } from "../../../src/shared/agent_catalogue.ts";
 import {
   DISCERN_MARK,
   LANDING_DESCRIPTION,
+  LANDING_HEADLINE,
   LANDING_TITLE,
 } from "../../brand.ts";
 import { renderDocument } from "../Document.tsx";
@@ -178,7 +179,7 @@ function HomePage(): ReactElement {
             {DISCERN_VERSION}
           </Kicker>
         }
-        title="Intelligence In Practice."
+        title={LANDING_HEADLINE}
         description={
           <p className="homepage-lede">
             discern installs a disciplined engineering practice into your

@@ -1,7 +1,11 @@
 /** One public footer, rendered through the published design-system adapter. */
 import type { ReactElement } from "react";
 import { SiteFooter as PackageSiteFooter } from "discern-design-system/react";
-import { DISCERN_AUTHOR_URL, DISCERN_MARK } from "../../brand.ts";
+import {
+  DISCERN_AUTHOR_URL,
+  DISCERN_CATEGORY_LINE,
+  DISCERN_MARK,
+} from "../../brand.ts";
 import { SITE_FOOTER_GROUPS } from "../../navigation.ts";
 import { DISCERN_REPOSITORY_URL } from "../../../src/shared/product_identity.ts";
 
@@ -15,7 +19,7 @@ export function SiteFooter(): ReactElement {
       brandMark={DISCERN_MARK}
       brandTypeface="mono"
       brandMarkTreatment="plain"
-      description="An engineering practice for agent-built software."
+      description={DISCERN_CATEGORY_LINE}
       groups={SITE_FOOTER_GROUPS}
       legal={
         <>
