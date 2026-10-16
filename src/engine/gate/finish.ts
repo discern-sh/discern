@@ -565,15 +565,17 @@ async function runCandidateGate(
   }
 
   // 1d. Materialized-skills currency (ADR 0034, extended to skills) — the same
-  //     fail-fast precondition for the skills dirs. STALE blocks; MISSING (the whole
-  //     dir absent on a fresh checkout) and FOREIGN (an unmanaged drop-in) do not.
+  //     fail-fast precondition for the skills dirs. STALE and CONFLICT (an entry
+  //     discern did not place holding a name it needs, ADR 0424) block; MISSING
+  //     (the whole dir absent on a fresh checkout) and FOREIGN (another tool's
+  //     entry under a name discern does not need) do not.
   let skillsDiag: Diagnostic | undefined;
   if (failedStage === null) {
-    const stale = (await checkSkillsCurrent(root, cfg))
-      .filter((d) => d.reason === "stale");
-    if (stale.length > 0) {
+    const blocking = (await checkSkillsCurrent(root, cfg))
+      .filter((d) => d.reason === "stale" || d.reason === "conflict");
+    if (blocking.length > 0) {
       failedStage = "skills";
-      skillsDiag = await skillsDiagnostic(root, stale);
+      skillsDiag = await skillsDiagnostic(root, blocking);
     }
   }
 

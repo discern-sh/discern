@@ -29,12 +29,15 @@ import {
 } from "../src/shared/config_schema.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
+import { statusMaterialCurrency } from "../src/engine/status/material_currency.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
 
 const [SKILLS_DIR = ""] = skillsDirsForAgents(["claude_code"]);
 const DIRS = [SKILLS_DIR];
 const BUNDLED = "discern-write-adr";
 
+/** A Claude Code project with authored skills under `skills/`. */
 function cfg(extra = ""): DiscernConfig {
   return parseConfigOrThrow(
     `[project]\nagents = ["claude_code"]\n[skills]\ndir = "skills"\n${extra}`,
@@ -48,7 +51,11 @@ async function initRepo(root: string): Promise<void> {
 }
 
 /** Place a skill directory with one SKILL.md at a project-relative path. */
-async function placeSkill(root: string, rel: string, body: string) {
+async function placeSkill(
+  root: string,
+  rel: string,
+  body: string,
+): Promise<void> {
   await Deno.mkdir(join(root, rel), { recursive: true });
   await Deno.writeTextFile(join(root, rel, "SKILL.md"), body);
 }
@@ -282,4 +289,24 @@ Deno.test("discern recognizes its ignore file under either attribution setting a
     assert(!skillsIgnoreMatches(text, ["a", "b"]));
   }
   assert(!isDiscernSkillsIgnore("/*\n"));
+});
+
+Deno.test("status names a skills conflict as a choice, not as stale drift a refresh fixes", async () => {
+  await withTempDir(async (root) => {
+    await materializeSkills(root, cfg(), DIRS);
+    await Deno.remove(join(root, SKILLS_DIR, BUNDLED), { recursive: true });
+    await placeSkill(root, `${SKILLS_DIR}/${BUNDLED}`, "not discern's\n");
+    await Deno.writeTextFile(
+      join(root, SKILLS_DIR, MATERIALIZED_MANIFEST),
+      "[]\n",
+    );
+
+    const currency = await statusMaterialCurrency(root, cfg());
+    const ids = currency.artifactHints.map((hint) => hint.id);
+    assert(ids.includes(HINTS["materialized-skills-conflict"].id), `${ids}`);
+    const conflict = currency.artifactHints.find((hint) =>
+      hint.id === HINTS["materialized-skills-conflict"].id
+    );
+    assertStringIncludes(conflict?.text ?? "", `${SKILLS_DIR}/${BUNDLED}`);
+  });
 });

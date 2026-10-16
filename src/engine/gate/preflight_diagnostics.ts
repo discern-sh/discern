@@ -7,9 +7,10 @@ import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifactsHint,
 } from "../../lib/agent_gitignore.ts";
-import type {
-  SkillsDriftEntry,
-  SkillWellformedness,
+import {
+  skillsConflictMessage,
+  type SkillsDriftEntry,
+  type SkillWellformedness,
 } from "../../lib/skills.ts";
 import {
   DOCS_INTEGRITY_REMEDIES,
@@ -109,21 +110,41 @@ export async function trackedRefreshDiagnostic(
 /** Explain stale materialized skill directories and their authored remedy. */
 export async function skillsDiagnostic(
   root: string,
-  stale: SkillsDriftEntry[],
+  blocking: SkillsDriftEntry[],
 ): Promise<Diagnostic> {
-  const dirs = [...new Set(stale.map((entry) => entry.dir))].join(", ");
+  const stale = blocking.filter((entry) => entry.reason === "stale");
+  const conflicts = blocking.filter((entry) => entry.reason === "conflict");
+  const dirs = [...new Set(blocking.map((entry) => entry.dir))].join(", ");
+  const sections: string[] = [];
+  if (stale.length > 0) {
+    sections.push(
+      `Materialized skills are out of date in: ${
+        [...new Set(stale.map((entry) => entry.dir))].join(", ")
+      }.\n` +
+        "Run `discern refresh` to re-materialize them. If you meant to change a skill, " +
+        "edit its source under [skills].dir (or `discern skills eject` a bundled one) — a " +
+        "direct edit to a materialized copy is overwritten on the next refresh.\n\n" +
+        stale.map((entry) => `  • ${entry.detail}`).join("\n"),
+    );
+  }
+  for (const dir of new Set(conflicts.map((entry) => entry.dir))) {
+    sections.push(
+      skillsConflictMessage(
+        dir,
+        conflicts.filter((entry) => entry.dir === dir),
+      ),
+    );
+  }
   const outputFields = await diagnosticOutputFields(
     root,
-    `Materialized skills are out of date in: ${dirs}.\n` +
-      "Run `discern refresh` to re-materialize them. If you meant to change a skill, " +
-      "edit its source under [skills].dir (or `discern skills eject` a bundled one) — a " +
-      "direct edit to a materialized copy is overwritten on the next refresh.\n\n" +
-      stale.map((entry) => `  • ${entry.detail}`).join("\n"),
+    sections.join("\n\n"),
   );
   return {
     tool: "skills",
     severity: "error",
-    message: `materialized skills out of date: ${dirs}`,
+    message: conflicts.length === 0
+      ? `materialized skills out of date: ${dirs}`
+      : `skills directories need attention: ${dirs}`,
     reproduce_cmd: "discern refresh",
     ...outputFields,
   };

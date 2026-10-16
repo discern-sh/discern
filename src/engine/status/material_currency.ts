@@ -155,10 +155,22 @@ function materialCurrencyHints(ctx: CurrencyEvidence): FiredHint[] {
   }
 
   // Materialized skills drifted from the effective set — the same advisory shape as
-  // instructions. `missing`/`foreign` (a not-yet-built dir, an unmanaged drop-in) read
+  // instructions. `missing`/`foreign` (a not-yet-built dir, another tool's entry) read
   // differently from `stale` (a drift a refresh overwrites), so only stale gets the
-  // edit-the-source redirect; foreign is surfaced but never presented as fixable.
-  const realSkillsDrift = ctx.skillsDrift.filter((d) => d.reason !== "foreign");
+  // edit-the-source redirect; foreign is surfaced but never presented as fixable. A
+  // `conflict` is neither: refresh refuses it, so it gets its own choice-shaped hint.
+  const conflicts = ctx.skillsDrift.filter((d) => d.reason === "conflict");
+  if (conflicts.length > 0) {
+    hints.push(
+      fire(HINTS["materialized-skills-conflict"], {
+        dirs: [...new Set(conflicts.map((d) => d.dir))].join(", "),
+        details: conflicts.map((d) => d.detail),
+      }),
+    );
+  }
+  const realSkillsDrift = ctx.skillsDrift.filter((d) =>
+    d.reason === "missing" || d.reason === "stale"
+  );
   if (realSkillsDrift.length > 0) {
     const dirs = [...new Set(realSkillsDrift.map((d) => d.dir))].join(", ");
     const allMissing = realSkillsDrift.every((d) => d.reason === "missing");
