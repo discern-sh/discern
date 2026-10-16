@@ -4066,6 +4066,14 @@
                               },
                               "passed": {
                                 "type": "boolean"
+                              },
+                              "reasons": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
                               }
                             },
                             "required": [

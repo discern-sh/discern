@@ -25,7 +25,7 @@
  * too. Materialization always reconciles, so a removed/ejected skill never lingers.
  */
 
-import { dirname, join, relative } from "@std/path";
+import { dirname, isAbsolute, join, relative } from "@std/path";
 import { assertManagedMaterialWritable } from "../shared/managed_version.ts";
 import { copy, ensureDir, walk } from "@std/fs";
 import {
@@ -86,6 +86,163 @@ async function dirNames(dir: string): Promise<string[]> {
     .filter((entry) => entry.isDirectory)
     .map((entry) => entry.name);
   return names.sort();
+}
+
+// ── authored-skill enumeration ──────────────────────────────────────────────
+// `[skills].dir` holds one directory per authored skill. An entry may also be a
+// relative link to a skill directory kept elsewhere in the project; discern
+// follows it so the skill materializes like a real directory. Every reader of
+// the authored set (resolution, doctor, the improvement audit, tidy's skill
+// exclusion) goes through {@link scanAuthoredSkills}, so they all agree on
+// which entries are skills and which links were refused.
+
+/** One authored skill found under `[skills].dir`. */
+export interface AuthoredSkillDir {
+  /** The skill's directory name under `[skills].dir`. */
+  name: string;
+  /** Absolute path of the entry under `[skills].dir` — the link itself when linked. */
+  entryAbs: string;
+  /** Absolute path of the directory holding the skill's files, spelled under
+   * the project root — the link's resolved target when linked. */
+  contentAbs: string;
+}
+
+/** Why discern refused to follow a link under `[skills].dir`. */
+export type SkillLinkProblem = "absolute" | "dangling" | "escapes";
+
+/** A link under `[skills].dir` that discern did not follow. */
+export interface SkillLinkIssue {
+  /** The entry's name under `[skills].dir`. */
+  name: string;
+  /** The link's path, under the configured `[skills].dir` spelling. */
+  path: string;
+  /** The link target exactly as written. */
+  target: string;
+  problem: SkillLinkProblem;
+  /** One self-contained sentence: the link, why it was refused, and the fix. */
+  message: string;
+}
+
+/** The authored skills under `[skills].dir` and the links discern refused. */
+export interface AuthoredSkillScan {
+  /** Followed skills, real directories and in-project links alike, by name. */
+  skills: AuthoredSkillDir[];
+  /** Refused links, by name. Each one's skill is absent from {@link skills}. */
+  linkIssues: SkillLinkIssue[];
+}
+
+/** True when `path` lies strictly inside `dir` (never `dir` itself). */
+function strictlyWithin(path: string, dir: string): boolean {
+  const rel = relative(dir, path);
+  return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+}
+
+/**
+ * Resolve one link under `[skills].dir`: its real directory when discern can
+ * follow it, `undefined` when it names a file (a file is never a skill), or the
+ * problem that stops discern following it. A followed link is relative and
+ * resolves to a directory strictly inside the project, so the same committed
+ * link resolves inside every checkout and worktree.
+ */
+async function resolveSkillLink(
+  realRoot: string,
+  linkAbs: string,
+): Promise<
+  | { contentAbs: string }
+  | { problem: SkillLinkProblem; target: string; resolved?: string }
+  | undefined
+> {
+  const target = await Deno.readLink(linkAbs);
+  let resolved: string;
+  try {
+    resolved = await Deno.realPath(linkAbs);
+  } catch (error) {
+    // A missing target, a hop through a file, and a link cycle all leave the
+    // link pointing at nothing discern can materialize.
+    if (
+      error instanceof Deno.errors.NotFound ||
+      error instanceof Deno.errors.NotADirectory ||
+      error instanceof Deno.errors.FilesystemLoop
+    ) {
+      return { problem: "dangling", target };
+    }
+    throw error;
+  }
+  if (!(await Deno.stat(resolved)).isDirectory) return undefined;
+  if (isAbsolute(target)) return { problem: "absolute", target, resolved };
+  if (!strictlyWithin(resolved, realRoot)) {
+    return { problem: "escapes", target, resolved };
+  }
+  return { contentAbs: resolved };
+}
+
+/** The diagnostic sentence for one refused skill link. */
+function skillLinkMessage(
+  path: string,
+  target: string,
+  problem: SkillLinkProblem,
+  resolved: string | undefined,
+): string {
+  const refused = "so discern does not materialize this skill";
+  switch (problem) {
+    case "dangling":
+      return `${path} links to ${target}, which does not resolve, ${refused} — ` +
+        "point the link at a skill directory inside the project, or remove it.";
+    case "absolute":
+      return `${path} is an absolute link to ${target}, ${refused} — use a ` +
+        "relative link, which resolves inside every checkout and worktree.";
+    case "escapes":
+      return `${path} links to ${target}, which resolves to ` +
+        `${resolved ?? "a path"}, not a directory inside the project, ` +
+        `${refused} — keep the skill directory inside the project and link ` +
+        "to it there.";
+  }
+}
+
+/**
+ * Enumerate the authored skills under `[skills].dir`: every real directory,
+ * plus every relative link to a directory strictly inside the project. A link
+ * that dangles, is absolute, or resolves outside the project is reported in
+ * `linkIssues` instead; a file, or a link to one, is not a skill. Empty when
+ * the directory is absent. PURE: reads only.
+ */
+export async function scanAuthoredSkills(
+  root: string,
+  config: DiscernConfig,
+): Promise<AuthoredSkillScan> {
+  const { rel: dirRel, abs: dirAbs } = resolveSkillsDir(root, config);
+  const skills: AuthoredSkillDir[] = [];
+  const linkIssues: SkillLinkIssue[] = [];
+  let realRoot: string | undefined;
+  for (const entry of await readDirIfExists(dirAbs) ?? []) {
+    const entryAbs = join(dirAbs, entry.name);
+    if (entry.isDirectory) {
+      skills.push({ name: entry.name, entryAbs, contentAbs: entryAbs });
+      continue;
+    }
+    if (!entry.isSymlink) continue;
+    realRoot ??= await Deno.realPath(root);
+    const link = await resolveSkillLink(realRoot, entryAbs);
+    if (link === undefined) continue;
+    if ("contentAbs" in link) {
+      // Respell the real target under `root`, so callers compare it with the
+      // other project paths they hold.
+      const contentAbs = join(root, relative(realRoot, link.contentAbs));
+      skills.push({ name: entry.name, entryAbs, contentAbs });
+      continue;
+    }
+    const path = join(dirRel, entry.name);
+    linkIssues.push({
+      name: entry.name,
+      path,
+      target: link.target,
+      problem: link.problem,
+      message: skillLinkMessage(path, link.target, link.problem, link.resolved),
+    });
+  }
+  const byName = (left: { name: string }, right: { name: string }): number =>
+    left.name.localeCompare(right.name);
+  return { skills: skills.sort(byName), linkIssues: linkIssues.sort(byName) };
 }
 
 /**
@@ -202,6 +359,29 @@ export function skillFrontmatterIssues(
 }
 
 /**
+ * Every directory holding authored skill content: `[skills].dir` itself plus
+ * each followed link's target, spelled under `root`. For callers that keep
+ * authored skill files out of a project-wide pass.
+ */
+export async function authoredSkillContentDirs(
+  root: string,
+  config: DiscernConfig,
+): Promise<string[]> {
+  const { skills } = await scanAuthoredSkills(root, config);
+  return [
+    resolveSkillsDir(root, config).abs,
+    ...skills.filter((skill) => skill.contentAbs !== skill.entryAbs)
+      .map((skill) => skill.contentAbs),
+  ];
+}
+
+/** Every known skill by name, plus the authored links discern refused. */
+interface ResolvedSkills {
+  byName: Map<string, SkillEntry>;
+  linkIssues: SkillLinkIssue[];
+}
+
+/**
  * Every known skill — bundled built-ins plus authored ones under `[skills].dir`,
  * keyed by name, an authored skill overriding a bundled one of the same name —
  * BEFORE the `[skills].exclude` filter. The shared base the effective set, the
@@ -212,11 +392,10 @@ async function resolveSkillsByName(
   root: string,
   config: DiscernConfig,
   templatesDir?: string,
-): Promise<Map<string, SkillEntry>> {
+): Promise<ResolvedSkills> {
   const bundledDir = await resolveBundledSkillsDir(templatesDir);
   const bundled = await dirNames(bundledDir);
-  const { abs: authoredDir } = resolveSkillsDir(root, config);
-  const authored = await dirNames(authoredDir);
+  const authored = await scanAuthoredSkills(root, config);
 
   const byName = new Map<string, SkillEntry>();
   for (const name of bundled) {
@@ -227,15 +406,17 @@ async function resolveSkillsByName(
       overrides_bundled: false,
     });
   }
-  for (const name of authored) {
-    byName.set(name, {
-      name,
+  for (const skill of authored.skills) {
+    // A linked skill materializes through its entry, so the agent link chains
+    // through `[skills].dir` and follows a retargeted link without a refresh.
+    byName.set(skill.name, {
+      name: skill.name,
       source: "authored",
-      srcAbs: join(authoredDir, name),
-      overrides_bundled: byName.has(name),
+      srcAbs: skill.entryAbs,
+      overrides_bundled: byName.has(skill.name),
     });
   }
-  return byName;
+  return { byName, linkIssues: authored.linkIssues };
 }
 
 /** Apply exclusions to one resolved skill authority in stable name order. */
@@ -249,13 +430,15 @@ function effectiveSkillsFrom(
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-/** Excluded names absent from one resolved skill authority. */
+/** Excluded names absent from one resolved skill authority. A refused authored
+ * link still names a known skill: its own diagnostic explains the absence. */
 function unknownExcludedSkillsFrom(
-  byName: ReadonlyMap<string, SkillEntry>,
+  resolved: ResolvedSkills,
   config: DiscernConfig,
 ): string[] {
+  const refused = new Set(resolved.linkIssues.map((issue) => issue.name));
   return [...new Set(config.skills.exclude)]
-    .filter((name) => !byName.has(name))
+    .filter((name) => !resolved.byName.has(name) && !refused.has(name))
     .sort();
 }
 
@@ -268,7 +451,10 @@ export async function resolveEffectiveSkills(
   root: string,
   config: DiscernConfig,
 ): Promise<SkillEntry[]> {
-  return effectiveSkillsFrom(await resolveSkillsByName(root, config), config);
+  return effectiveSkillsFrom(
+    (await resolveSkillsByName(root, config)).byName,
+    config,
+  );
 }
 
 /** The `[skills].exclude` names matching no bundled or authored skill — a likely
@@ -295,7 +481,7 @@ export async function listSkills(
   config: DiscernConfig,
 ): Promise<SkillListing[]> {
   const bundled = new Set(await bundledSkillNames());
-  const byName = await resolveSkillsByName(root, config);
+  const { byName } = await resolveSkillsByName(root, config);
   const excluded = new Set(config.skills.exclude);
   return [...byName.values()]
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -640,13 +826,17 @@ export async function planMaterializeSkills(
   options: PlanMaterializeSkillsOptions = {},
 ): Promise<SkillMaterializationPlan> {
   assertManagedMaterialWritable(config);
-  const byName = await resolveSkillsByName(root, config, options.templatesDir);
+  const resolved = await resolveSkillsByName(
+    root,
+    config,
+    options.templatesDir,
+  );
   const prospective = options.prospectiveAuthoredSkill;
   if (prospective !== undefined) {
-    byName.set(prospective.name, prospective);
+    resolved.byName.set(prospective.name, prospective);
   }
-  const effective = effectiveSkillsFrom(byName, config);
-  const unknownExcluded = unknownExcludedSkillsFrom(byName, config);
+  const effective = effectiveSkillsFrom(resolved.byName, config);
+  const unknownExcluded = unknownExcludedSkillsFrom(resolved, config);
   const ctx = instructionContext(config);
   const directories: SkillMaterializationDirectoryPlan[] = [];
   const errors: string[] = [];
@@ -666,10 +856,13 @@ export async function planMaterializeSkills(
   return {
     config,
     directories,
-    warnings: unknownExcluded.length === 0 ? [] : [
-      `[skills].exclude names no known skill: ${
-        unknownExcluded.join(", ")
-      } — check for a typo (\`discern skills list\` shows the known set).`,
+    warnings: [
+      ...resolved.linkIssues.map((issue) => issue.message),
+      ...(unknownExcluded.length === 0 ? [] : [
+        `[skills].exclude names no known skill: ${
+          unknownExcluded.join(", ")
+        } — check for a typo (\`discern skills list\` shows the known set).`,
+      ]),
     ],
     errors,
   };

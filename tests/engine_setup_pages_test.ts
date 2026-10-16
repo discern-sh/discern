@@ -18,7 +18,10 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { instructionSeedRel } from "../src/shared/paths_registry.ts";
+import {
+  instructionSeedRel,
+  SOURCE_PATHS,
+} from "../src/shared/paths_registry.ts";
 import {
   assertTerminalTextIncludes,
   REAL_TEMPLATES,
@@ -49,6 +52,9 @@ import {
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
 import { normalizeMapDir } from "../src/shared/map_path.ts";
+import { MAP_EXPLANATION_RULE } from "../src/shared/setup_map.ts";
+import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
+import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
 import { DIAGNOSTIC_FORMATS } from "../src/engine/gate/diagnostics.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
@@ -357,6 +363,17 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
       blocked.stdout,
     );
     assertEquals(unmet[0]?.step, 4);
+    // Each unmet check names the failing page and the rule it misses.
+    const principlesPage = `${
+      normalizeMapDir(SOURCE_PATHS.map.defaultPath)
+    }orientation/design-principles.md`;
+    for (const check of unmet) {
+      assertStringIncludes(
+        (check.reasons ?? []).join("\n"),
+        `${principlesPage} needs an explanation: ${MAP_EXPLANATION_RULE}.`,
+        `${check.name} must name the page and the rule`,
+      );
+    }
 
     // Completion was NOT recorded — a skipped step can't pass `done`.
     assert(
@@ -371,6 +388,16 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
     assertEquals(human.code, 1, human.output);
     assertTerminalTextIncludes(human.stderr, "not finished");
     assertTerminalTextIncludes(human.stderr, "Step 4");
+    assertTerminalTextIncludes(
+      human.stderr,
+      `${principlesPage} needs an explanation`,
+    );
+
+    // So does the Markdown projection of the same result.
+    assertTerminalTextIncludes(
+      renderResultMarkdown(res, resultPresenterForVerb("setup done")),
+      `Step 4 unmet: ${principlesPage} needs an explanation`,
+    );
   });
 });
 
@@ -505,10 +532,17 @@ type EvalCtx = { root: string; config: DiscernConfig };
 type EvalCase = {
   fail(root: string): Promise<EvalCtx>;
   pass(root: string): Promise<EvalCtx>;
+  /** What the failing fixture's reasons must name: the file, page, or setting
+   * that fails, and the rule it misses. */
+  names: readonly string[];
 };
 
 const CHECK_EVAL_CASES: Record<string, EvalCase> = {
   design_principles: {
+    names: [
+      "orientation/design-principles.md needs an explanation",
+      MAP_EXPLANATION_RULE,
+    ],
     async fail(root): Promise<EvalCtx> {
       const config = baseConfig();
       await writePrinciples(
@@ -529,6 +563,10 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
     },
   },
   instructions: {
+    names: [
+      `${instructionSeedRel(baseConfig().instructions.sources)} still carries`,
+      "_(replace this section",
+    ],
     async fail(root): Promise<EvalCtx> {
       // Conventions heading present but the stub placeholder never replaced.
       const config = baseConfig();
@@ -556,6 +594,7 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
     },
   },
   known_jobs: {
+    names: ["[jobs]", "[setup].not_applicable declares 0 of"],
     // Reads config only — no known job wired vs one wired.
     fail(root): Promise<EvalCtx> {
       return Promise.resolve({ root, config: baseConfig() });
@@ -568,6 +607,7 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
     },
   },
   complete_validation: {
+    names: ["[standards.coverage] names producer jobs.absent"],
     // Reads config only — a standard naming a missing producer fails, as does
     // the same suite registered under two names.
     fail(root): Promise<EvalCtx> {
@@ -594,6 +634,10 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
     },
   },
   primary_subsystem_context: {
+    names: [
+      "README.md needs an explanation",
+      "10-runtime/README.md is not reachable from the map root",
+    ],
     async fail(root): Promise<EvalCtx> {
       const config = baseConfig();
       await Deno.mkdir(join(root, config.map.dir), { recursive: true });
@@ -666,27 +710,33 @@ Deno.test("the final documentation check binds a conventional gotchas page to it
       join(root, base.map.dir, "README.md"),
       "# Demo map\n\nRuns commands.\n\n- [Runtime](10-runtime/)\n- [Development](development/)\n",
     );
-    assertEquals(await check.evaluate({ root, config: base }), false);
+    const unwired = await check.evaluate({ root, config: base });
+    assertEquals(unwired.length, 1, unwired.join("\n"));
+    assertStringIncludes(
+      unwired[0] ?? "",
+      `${conventionalSetupGotchasDoc(base.map.dir)} exists, but ` +
+        "[project].gotchas_doc is",
+    );
     const wired = baseConfig({
       project: {
         slug: "demo",
         gotchas_doc: conventionalSetupGotchasDoc(base.map.dir),
       },
     });
-    assertEquals(await check.evaluate({ root, config: wired }), true);
+    assertEquals(await check.evaluate({ root, config: wired }), []);
 
     await Deno.remove(
       join(root, base.map.dir, "development", "done-gate-gotchas.md"),
     );
     assertEquals(
       await check.evaluate({ root, config: base }),
-      true,
+      [],
       "absence of both the conventional page and pointer remains valid",
     );
   });
 });
 
-Deno.test("every completion check's evaluate() fails when its step's work is skipped, passes when done", async () => {
+Deno.test("every completion check fails with specific reasons when its step's work is skipped, and passes when done", async () => {
   // Coupling: the fixtures name EXACTLY the checks — a new check can't ship without
   // its fail-path exercised (or a recorded fixture).
   assertEquals(
@@ -699,16 +749,30 @@ Deno.test("every completion check's evaluate() fails when its step's work is ski
     const c = CHECK_EVAL_CASES[check.name];
     if (c === undefined) continue; // covered by the coupling assertion above
     await withTempDir(async (root) => {
-      assertEquals(
-        await check.evaluate(await c.fail(root)),
-        false,
+      const reasons = await check.evaluate(await c.fail(root));
+      assert(
+        reasons.length > 0,
         `${check.name}: evaluate() must FAIL when the step's work is skipped`,
       );
+      // A failing check says WHICH page, file, or setting fails and which rule
+      // it misses; its generic describe alone would leave the agent guessing.
+      for (const reason of reasons) {
+        assert(reason.trim().length > 0, `${check.name}: an empty reason`);
+        assert(
+          reason !== check.describe,
+          `${check.name}: a reason must be more specific than describe`,
+        );
+      }
+      const joined = reasons.join("\n");
+      assert(c.names.length > 0, `${check.name}: the fixture names nothing`);
+      for (const name of c.names) {
+        assertStringIncludes(joined, name, `${check.name}: reasons`);
+      }
     });
     await withTempDir(async (root) => {
       assertEquals(
         await check.evaluate(await c.pass(root)),
-        true,
+        [],
         `${check.name}: evaluate() must PASS when the step's work is present`,
       );
     });
@@ -723,5 +787,5 @@ Deno.test("the known-jobs completion check accepts an explicitly all-inapplicabl
   const config = baseConfig({
     setup: { not_applicable: Object.keys(KNOWN_JOBS) },
   });
-  assertEquals(await check.evaluate({ root: Deno.cwd(), config }), true);
+  assertEquals(await check.evaluate({ root: Deno.cwd(), config }), []);
 });

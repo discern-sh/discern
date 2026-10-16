@@ -373,6 +373,27 @@ Deno.test("tidy plans configured Markdown only, previews without writes, and bec
   });
 });
 
+Deno.test("tidy leaves a linked skill's content alone wherever it lives", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    // The skill's directory sits inside the map tree tidy walks.
+    await write(
+      join(root, "docs", "shared", "linked", "SKILL.md"),
+      "# Linked\n\n-   item\n",
+    );
+    await Deno.symlink(
+      "../shared/linked",
+      join(root, "docs", "skills", "linked"),
+    );
+
+    const plan = await planTidy(root, "md");
+    assertEquals(
+      plan.changes.map((change) => change.display),
+      ["docs/README.md", "instructions/one.md", "notes/TODO.md"],
+    );
+  });
+});
+
 Deno.test("missing configured Markdown paths are a no-op success", async () => {
   await withTempDir(async (root) => {
     await write(

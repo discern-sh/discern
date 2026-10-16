@@ -2068,6 +2068,24 @@ Deno.test("doctor job, instruction, and agent-integration checks run over pristi
       },
     ],
     [
+      "doctor: warns about a skill link it does not follow",
+      async (dir) => {
+        await Deno.mkdir(join(dir, "discern/skills"), { recursive: true });
+        await Deno.symlink(
+          "../missing-skill",
+          join(dir, "discern/skills/linked-skill"),
+        );
+
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, "a refused link warns; it never fails doctor");
+        const link = check(payload, "skill link: linked-skill");
+        assertEquals(link.status, "warn");
+        assertStringIncludes(link.detail, "discern/skills/linked-skill");
+        assertStringIncludes(link.detail, "does not resolve");
+        assertStringIncludes(link.fix ?? "", "relative link");
+      },
+    ],
+    [
       "doctor: flags a [instructions].sources entry naming an agent file",
       async (dir) => {
         // An output can never be a source (resolveInstructionSources refuses it), so a

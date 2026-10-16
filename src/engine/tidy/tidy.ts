@@ -51,7 +51,6 @@ import {
   resolveBriefPath,
   resolveInstructionSources,
   resolveMapDir,
-  resolveSkillsDir,
   resolveTodoPath,
 } from "../../lib/paths.ts";
 import { colorEnabled } from "../output.ts";
@@ -62,6 +61,7 @@ import {
   scanMarkdownDiagrams,
 } from "../../lib/diagram_geometry.ts";
 import { scanMarkdownTables } from "../../lib/table_integrity.ts";
+import { authoredSkillContentDirs } from "../../lib/skills.ts";
 
 /** The explicit selectors accepted after `discern tidy`. */
 export const TIDY_TYPES = ["md", "toml"] as const;
@@ -175,13 +175,14 @@ async function markdownTargets(
   const map = resolveMapDir(root, config);
   const todo = resolveTodoPath(root, config).abs;
   const brief = resolveBriefPath(root).abs;
-  const skills = resolveSkillsDir(root, config).abs;
+  const skills = await authoredSkillContentDirs(root, config);
   const configPath = join(root, CONFIG_REL);
   const targets = new Set<string>();
 
   const include = (path: string): void => {
     if (
-      path !== configPath && path !== brief && !isWithin(path, skills)
+      path !== configPath && path !== brief &&
+      !skills.some((dir) => isWithin(path, dir))
     ) {
       targets.add(path);
     }

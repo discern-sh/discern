@@ -2982,6 +2982,10 @@ const SetupDoneIncompleteDataSchema = z.strictObject({
     name: z.string(),
     describe: z.string(),
     passed: z.boolean(),
+    /** Why the check is unmet: each failing page, file, or setting and the
+     * rule it misses. `setup done` always sends at least one; the field is
+     * optional only so results from earlier releases still validate. */
+    reasons: z.array(z.string().trim().min(1)).min(1).optional(),
   })),
 });
 
