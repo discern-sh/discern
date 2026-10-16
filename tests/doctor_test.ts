@@ -38,7 +38,13 @@ import {
   agentFilePaths,
   renderAgentFiles,
 } from "../src/engine/instruction_render.ts";
-import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
+import {
+  allSkillsDirs,
+  providerFor,
+  providersWithHooks,
+} from "../src/lib/providers.ts";
+import { SKILLS_IGNORE_FILE } from "../src/lib/skill_ownership.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 import {
   AGENT_NAMES,
   loadConfig,
@@ -1898,6 +1904,49 @@ Deno.test("doctor generated-path, project-script, and hook checks run over prist
         const { code, payload } = await runDoctorJson(dir);
         assertEquals(code, 0);
         assertEquals(check(payload, "sh").ok, true);
+      },
+    ],
+    [
+      "doctor: skills directories warn when Git's ignore rules disagree with entry ownership",
+      async (dir) => {
+        const skillsDir = (await Promise.all(
+          allSkillsDirs().map(async (rel) =>
+            await pathExists(join(dir, rel)) ? rel : undefined
+          ),
+        )).find((rel) => rel !== undefined);
+        assert(skillsDir !== undefined, "the install materializes skills");
+        const foreign = `${skillsDir}/third-party-skill`;
+        await Deno.mkdir(join(dir, foreign), { recursive: true });
+        await Deno.writeTextFile(join(dir, foreign, "SKILL.md"), "foreign\n");
+
+        let { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        let skills = check(payload, "skills directories");
+        assertEquals(skills.status, "ok", skills.detail);
+        assertStringIncludes(skills.detail, "1 other entry");
+
+        // A project's own directory-wide rule hides the foreign skill.
+        await Deno.writeTextFile(join(dir, ".gitignore"), `/${skillsDir}/\n`, {
+          append: true,
+        });
+        ({ code, payload } = await runDoctorJson(dir));
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        skills = check(payload, "skills directories");
+        assertEquals(skills.status, "warn");
+        assertStringIncludes(skills.detail, foreign);
+        assertStringIncludes(skills.detail, `/${skillsDir}/`);
+        assertStringIncludes(skills.fix ?? "", "discern upgrade");
+
+        // Without discern's own ignore file, its entries are visible.
+        const restored = (await Deno.readTextFile(join(dir, ".gitignore")))
+          .replace(`/${skillsDir}/\n`, "");
+        await Deno.writeTextFile(join(dir, ".gitignore"), restored);
+        await Deno.remove(join(dir, skillsDir, SKILLS_IGNORE_FILE));
+        ({ payload } = await runDoctorJson(dir));
+        skills = check(payload, "skills directories");
+        assertEquals(skills.status, "warn");
+        assertStringIncludes(skills.detail, "not ignored");
+        assertStringIncludes(skills.fix ?? "", "discern refresh");
       },
     ],
     [
