@@ -2429,14 +2429,17 @@ export function allLocalStateFiles(): string[] {
  * tracked-artifacts check all derive from. The kinds carry the ownership
  * distinction the ignore posture needs: `instructionFiles` are compiled but TRACKED
  * (committed so a bare clone — a cloud agent's only view — reads the same page);
- * only `materializedDirs` (republished wholesale by the binary) and
+ * `materializedDirs` are shared with other tools, so only the entries discern's
+ * ownership record names stay out of Git (`skill_ownership.ts`); and
  * `localStateFiles` (per-machine state) belong out of version control. A new
  * provider auto-enrols each of its paths with the right posture.
  */
 export interface AgentArtifactPosture {
   /** Compiled instruction files — tracked, never in the managed ignore block. */
   instructionFiles: string[];
-  /** Materialized directories discern republishes — ignored. */
+  /** Skills directories discern materializes into — shared, never ignored
+   * wholesale; earlier managed blocks carried them, so upgrade still absorbs
+   * those rules. */
   materializedDirs: string[];
   /** Machine-local provider state files — ignored. */
   localStateFiles: string[];

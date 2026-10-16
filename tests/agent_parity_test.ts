@@ -81,6 +81,14 @@ const fragmentIgnoresFile = (path: string) =>
   ignoreCovers(FRAGMENT_LINES, path, false);
 const fragmentIgnoresDir = (dir: string) =>
   ignoreCovers(FRAGMENT_LINES, dir, true);
+/** Whether any block rule claims the directory itself or anything beneath it —
+ * a wildcard such as `/<dir>/*` or a prefix such as `/<dir>/<prefix>-*` would
+ * hide another tool's skills as surely as the directory rule does. */
+const fragmentClaimsInside = (dir: string) =>
+  fragmentIgnoresDir(dir) ||
+  FRAGMENT_LINES.some((line) =>
+    line.replace(/^!?\/?/, "").startsWith(`${dir.replace(/\/+$/, "")}/`)
+  );
 
 /** Validate an SVG viewBox and derive its positive width-to-height ratio. */
 function svgAspectRatio(svg: string, path: string): number {
@@ -474,17 +482,22 @@ Deno.test("provider ignore satellites distinguish tracked instructions from mate
             !fragmentIgnoresFile(path),
             `templates/.gitignore.fragment ignores the compiled instruction file ${path}. ` +
               `Instruction files are tracked by default — remove the rule; the managed block ` +
-              `enumerates only materialized dirs and machine-local state.`,
+              `enumerates only machine-local state.`,
           );
         }
       },
-    "the seed .gitignore fragment ignores EVERY known agent's materialized skills dir":
+    "the seed .gitignore fragment claims NOTHING inside any known agent's skills dir":
       (): undefined => {
+        // A skills dir is shared with every other tool that installs skills
+        // there. discern's own entries are ignored by the ignore file it keeps
+        // inside the dir, rendered from its ownership record; a root rule would
+        // hide the other tools' skills from Git too.
         for (const dir of allSkillsDirs()) {
           assert(
-            fragmentIgnoresDir(dir),
-            `templates/.gitignore.fragment does not ignore the materialized skills dir ${dir}. ` +
-              `Add "/${dir}/" to the fragment.`,
+            !fragmentClaimsInside(dir),
+            `templates/.gitignore.fragment claims ${dir} or something inside it. ` +
+              `Remove the rule: discern ignores only its own entries there, through ` +
+              `the ignore file materialization writes beside them.`,
           );
         }
       },
@@ -498,13 +511,14 @@ Deno.test("provider ignore satellites distinguish tracked instructions from mate
           );
         }
       },
-    "every rule in the canonical block maps to a registry-declared materialized/local path":
+    "every rule in the canonical block maps to a registry-declared local-state path":
       (): undefined => {
-        // Enumerated ownership: the managed block claims exactly what discern
-        // materializes or keeps machine-local, and nothing more — so a user's own
-        // file (a slash command under .claude/, a committed instruction file) can never
-        // be swept up by an over-broad wildcard. Registry-driven: a new provider's
-        // paths auto-enrol; a hand-added rule with no registry backing fails here.
+        // Enumerated ownership: the managed block claims exactly the machine-local
+        // state discern keeps out of Git, and nothing more — so a user's own file
+        // (a slash command under .claude/, a committed instruction file, another
+        // tool's skill) can never be swept up by an over-broad rule. Registry-driven:
+        // a new provider's paths auto-enrol; a hand-added rule with no registry
+        // backing fails here.
         const posture = agentArtifactPosture();
         const rules = FRAGMENT_LINES.filter(
           (l) => l !== "" && !l.startsWith("#"),
@@ -516,11 +530,10 @@ Deno.test("provider ignore satellites distinguish tracked instructions from mate
           );
           const path = rule.replace(/^\//, "").replace(/\/$/, "");
           assert(
-            posture.materializedDirs.includes(path) ||
-              posture.localStateFiles.includes(path),
+            posture.localStateFiles.includes(path),
             `the canonical .gitignore block rule "${rule}" maps to no registry-declared ` +
-              `materialized dir or local-state file — the block may claim only what the ` +
-              `provider registry says discern materializes or keeps machine-local`,
+              `local-state file — the block may claim only what the provider registry ` +
+              `says discern keeps machine-local`,
           );
         }
       },
@@ -564,11 +577,12 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
       `${name}: instruction file ${p.instructionFile.path} is ignored by the seed fragment — compiled instructions are tracked by default`,
     );
 
-    // 2. Materialized skills dir (when the agent has one): gitignored + neutral.
+    // 2. Skills dir (when the agent has one): shared, so never claimed by the
+    //    seed fragment, and neutral.
     if (p.skillsDir !== undefined) {
       assert(
-        fragmentIgnoresDir(p.skillsDir.path),
-        `${name}: skills dir ${p.skillsDir.path} not gitignored by the seed fragment`,
+        !fragmentClaimsInside(p.skillsDir.path),
+        `${name}: the seed fragment claims skills dir ${p.skillsDir.path} or something inside it`,
       );
       const scopePath = `${p.skillsDir.path.replace(/\/+$/, "")}/`;
       assert(

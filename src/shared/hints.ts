@@ -494,8 +494,8 @@ export const HINTS = {
     audience: "all",
     when: "Git tracks discern-managed ignored artifacts.",
     example: {
-      pathSummary: ".claude/skills",
-      repairCommand: "git rm -r --cached .claude/skills",
+      pathSummary: ".claude/skills/discern-write-adr",
+      repairCommand: "git rm -r --cached -- .claude/skills/discern-write-adr",
     },
     template: ({ pathSummary, repairCommand }): string =>
       `Run \`${repairCommand}\` to remove the discern-managed ignored artifacts ` +

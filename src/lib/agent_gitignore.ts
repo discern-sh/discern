@@ -3,12 +3,14 @@
  *
  * Fresh setup and mutating upgrade both use the same model: the project owns the
  * rest of `.gitignore`, while discern owns exactly one delimited block. The block
- * enumerates ONLY what discern materializes or keeps machine-local (the
- * registry's ignored artifact kinds) — the compiled instruction files stay tracked,
- * so they never appear in it. It is authored in `templates/.gitignore.fragment`,
- * widened from the provider registry, and reconciled idempotently into existing
- * installs by reconciling that exact owned region and the exact rules discern
- * declares as its own.
+ * enumerates ONLY the machine-local provider state discern keeps out of Git — the
+ * compiled instruction files stay tracked, and the provider skills directories are
+ * shared with other tools, so neither appears in it. discern's own entries in a
+ * skills directory are ignored by the ignore file it keeps beside them
+ * (`skill_ownership.ts`, ADR 0424). The block is authored in
+ * `templates/.gitignore.fragment`, widened from the provider registry, and
+ * reconciled idempotently into existing installs by reconciling that exact owned
+ * region and the exact rules discern declares as its own.
  */
 
 import { isAbsolute, join, relative } from "@std/path";
@@ -27,6 +29,7 @@ import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
 import { resolveWorktreeRoot } from "./worktree_root.ts";
 import { DISCERN_MANAGED_BLOCK } from "../shared/git_conventions.ts";
+import { discernOwnedSkillPaths, surveySkillsDirs } from "./skill_ownership.ts";
 
 export const DISCERN_GITIGNORE_BEGIN = DISCERN_MANAGED_BLOCK.begin;
 export const DISCERN_GITIGNORE_END = DISCERN_MANAGED_BLOCK.end;
@@ -92,9 +95,9 @@ export function nestedWorktreeIgnorePath(
 
 /**
  * Return the block setup and upgrade should write, ensuring the static fragment
- * has delimiters and every registry-declared IGNORED artifact — a materialized
- * directory or a machine-local state file — is covered. Instruction files are
- * tracked, so they are never widened in.
+ * has delimiters and every registry-declared machine-local state file is
+ * covered. Instruction files are tracked and skills directories are shared, so
+ * neither is widened in.
  */
 export function canonicalDiscernGitignoreBlock(
   fragment: string,
@@ -123,13 +126,6 @@ export function canonicalDiscernGitignoreBlock(
   for (const file of artifacts.localStateFiles) {
     if (!ignoreCovers(coverageLines, file, false)) {
       const rule = `/${file}`;
-      additions.push(rule);
-      coverageLines.push(rule);
-    }
-  }
-  for (const dir of artifacts.materializedDirs) {
-    if (!ignoreCovers(coverageLines, dir, true)) {
-      const rule = `/${dir}/`;
       additions.push(rule);
       coverageLines.push(rule);
     }
@@ -269,22 +265,29 @@ export async function ensureDiscernGitignoreBlock(
   };
 }
 
-/** Git-tracked paths that match discern's own materialized/local ignore rules —
- * scoped to the canonical block, so a user's own files under a provider's
- * directory (e.g. a tracked `.claude/commands/`) are never flagged. */
+/** Git-tracked paths discern keeps out of Git: those matching the canonical
+ * block's machine-local rules, plus the skills-directory entries and control
+ * files its ownership record claims. A user's own files under a provider's
+ * directory (e.g. a tracked `.claude/commands/`) and another tool's skills beside
+ * discern's are never flagged. */
 export async function trackedDiscernIgnoredArtifacts(
   root: string,
   env: EnvReader = Deno.env,
 ): Promise<TrackedDiscernIgnoredArtifacts> {
-  const artifacts = agentArtifactPosture();
   const fragment = await readGitignoreFragment(env);
   const block = canonicalDiscernGitignoreBlock(
     fragment ?? "",
-    artifacts,
+    agentArtifactPosture(),
     env,
   );
   const rules = managedIgnoreRules(block);
-  const candidates = trackedCandidateRoots(rules);
+  const ownedSkillPaths = (await surveySkillsDirs(root)).flatMap(
+    discernOwnedSkillPaths,
+  );
+  const candidates = [
+    ...trackedCandidateRoots(rules),
+    ...ownedSkillPaths.map((path) => `:(literal)${path}`),
+  ];
   if (candidates.length === 0) {
     return { paths: [], repairTargets: [] };
   }
@@ -298,13 +301,21 @@ export async function trackedDiscernIgnoredArtifacts(
 
   const paths = unique(
     splitNul(tracked.stdout).filter((path) =>
-      isIgnoredByManagedRules(
-        path,
-        rules,
-      )
+      isIgnoredByManagedRules(path, rules) ||
+      ownedSkillRoot(path, ownedSkillPaths) !== undefined
     ),
   ).sort();
-  return { paths, repairTargets: repairTargetsFor(paths, artifacts) };
+  return { paths, repairTargets: repairTargetsFor(paths, ownedSkillPaths) };
+}
+
+/** The owned skills-directory entry `path` is (or lies beneath), if any. */
+function ownedSkillRoot(
+  path: string,
+  ownedSkillPaths: readonly string[],
+): string | undefined {
+  return ownedSkillPaths.find((owned) =>
+    path === owned || path.startsWith(`${owned}/`)
+  );
 }
 
 /**
@@ -431,37 +442,15 @@ function pathMatchesRule(path: string, rule: ManagedIgnoreRule): boolean {
   return path === rule.path;
 }
 
-/** Collapse tracked children under materialized roots while retaining uncovered files. */
+/** Collapse tracked files beneath one owned skill entry to that entry, so the
+ * repair untracks exactly what discern owns and never a whole skills directory. */
 function repairTargetsFor(
   paths: readonly string[],
-  artifacts: AgentArtifactPosture,
+  ownedSkillPaths: readonly string[],
 ): string[] {
   const targets: string[] = [];
-  const covered = new Set<string>();
-  for (
-    const dir of [...artifacts.materializedDirs].sort((a, b) =>
-      b.length - a.length
-    )
-  ) {
-    const hasTrackedChild = paths.some((path) =>
-      path === dir || path.startsWith(`${dir}/`)
-    );
-    if (!hasTrackedChild) {
-      continue;
-    }
-    pushUnique(targets, dir);
-    for (const path of paths) {
-      if (path === dir || path.startsWith(`${dir}/`)) {
-        covered.add(path);
-      }
-    }
-  }
-
   for (const path of paths) {
-    if (covered.has(path)) {
-      continue;
-    }
-    pushUnique(targets, path);
+    pushUnique(targets, ownedSkillRoot(path, ownedSkillPaths) ?? path);
   }
   return targets;
 }
@@ -636,8 +625,9 @@ function isDiscernOwnedRule(
     return parsed.path === ".claude/settings.json" ||
       parsed.path === ".claude/settings.local.json";
   }
-  // A marked earlier block may carry the current registry's tracked or
-  // materialized artifacts. Retired private paths are deliberately absent.
+  // A marked earlier block may carry the current registry's tracked artifacts,
+  // its local state, or the skills-directory rules earlier blocks carried.
+  // Retired private paths are deliberately absent.
   const ownedPaths = new Set<string>(
     discernOwnedArtifactIgnorePaths(artifacts),
   );

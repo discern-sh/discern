@@ -7,6 +7,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
+import { MATERIALIZED_MANIFEST } from "../src/lib/skill_ownership.ts";
 import {
   canonicalDiscernGitignoreBlock,
   DISCERN_GITIGNORE_BEGIN,
@@ -52,21 +53,21 @@ Deno.test("ignore coverage recognizes ancestor wildcards for directories and fil
 
 Deno.test("managed ignore blocks derive coverage from declared artifacts and nested roots", () => {
   assertNamedCases({
-    "canonical block auto-includes a hypothetical new agent's IGNORED artifacts only":
+    "canonical block auto-includes a hypothetical new agent's local state only":
       (): undefined => {
-        // Simulate a registry that grew another agent: its materialized dir and local
-        // state widen into the block; its compiled instruction file — tracked by
-        // default — never does.
+        // Simulate a registry that grew another agent: its local state widens into
+        // the block; its skills dir (shared with other tools) and its compiled
+        // instruction file (tracked by default) never do.
         const fragment =
-          `${DISCERN_GITIGNORE_BEGIN}\n/.agents/skills/\n${DISCERN_GITIGNORE_END}\n`;
+          `${DISCERN_GITIGNORE_BEGIN}\n/.claude/settings.local.json\n${DISCERN_GITIGNORE_END}\n`;
         const artifacts = {
           instructionFiles: ["AGENTS.md", "CURSOR.md"],
           materializedDirs: [".agents/skills", ".cursor/skills"],
           localStateFiles: [".cursor/settings.local.json"],
         };
         const block = canonicalDiscernGitignoreBlock(fragment, artifacts);
-        assertStringIncludes(block, "/.cursor/skills/");
         assertStringIncludes(block, "/.cursor/settings.local.json");
+        assert(!block.includes("skills"), block);
         assert(!block.includes("/CURSOR.md"), block);
         assert(!block.includes("/AGENTS.md"), block);
       },
@@ -290,13 +291,26 @@ Deno.test("ensureDiscernGitignoreBlock: no .gitignore creates the canonical bloc
   });
 });
 
-Deno.test("trackedDiscernIgnoredArtifacts flags forced materialized/local paths — never a user's or instruction file", async () => {
+Deno.test("trackedDiscernIgnoredArtifacts flags forced owned/local paths — never a user's, another tool's, or an instruction file", async () => {
   await withTempDir(async (root) => {
     await Deno.writeTextFile(join(root, ".gitignore"), "node_modules/\n");
     await ensureDiscernGitignoreBlock(root);
     await Deno.mkdir(join(root, ".claude"));
     await Deno.mkdir(join(root, ".claude", "skills", "x"), { recursive: true });
+    await Deno.mkdir(join(root, ".claude", "skills", "foreign-skill"), {
+      recursive: true,
+    });
     await Deno.mkdir(join(root, ".claude", "commands"), { recursive: true });
+    // discern's ownership record names only "x"; the other entry is a skill a
+    // third-party installer committed beside it.
+    await Deno.writeTextFile(
+      join(root, ".claude", "skills", MATERIALIZED_MANIFEST),
+      '["x"]\n',
+    );
+    await Deno.writeTextFile(
+      join(root, ".claude", "skills", "foreign-skill", "SKILL.md"),
+      "a foreign skill\n",
+    );
     // Tracked by design: the compiled instruction files, the co-managed settings,
     // and a user's own slash command under .claude/ — none may be flagged.
     await Deno.writeTextFile(join(root, "AGENTS.md"), "compiled\n");
@@ -319,18 +333,29 @@ Deno.test("trackedDiscernIgnoredArtifacts flags forced materialized/local paths 
     await gitInit(root);
     await git(root, "add", "AGENTS.md", "CLAUDE.md");
     await git(root, "add", ".claude/settings.json", ".claude/commands/x.md");
+    await git(root, "add", ".claude/skills/foreign-skill/SKILL.md");
     await git(root, "add", "-f", ".claude/settings.local.json");
     await git(root, "add", "-f", ".claude/skills/x/SKILL.md");
+    await git(root, "add", "-f", `.claude/skills/${MATERIALIZED_MANIFEST}`);
 
     const tracked = await trackedDiscernIgnoredArtifacts(root);
-    assertEquals(tracked.paths.sort(), [
-      ".claude/settings.local.json",
-      ".claude/skills/x/SKILL.md",
-    ]);
-    assertEquals(tracked.repairTargets.sort(), [
-      ".claude/settings.local.json",
-      ".claude/skills",
-    ]);
+    assertEquals(
+      tracked.paths.sort(),
+      [
+        `.claude/skills/${MATERIALIZED_MANIFEST}`,
+        ".claude/settings.local.json",
+        ".claude/skills/x/SKILL.md",
+      ].sort(),
+    );
+    // The repair untracks each owned entry, never the whole skills directory.
+    assertEquals(
+      tracked.repairTargets.sort(),
+      [
+        `.claude/skills/${MATERIALIZED_MANIFEST}`,
+        ".claude/settings.local.json",
+        ".claude/skills/x",
+      ].sort(),
+    );
   });
 });
 
