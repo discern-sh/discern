@@ -58,7 +58,7 @@ Generated manual references reuse the canonical definitions. Every follow-up lin
 
 ## Response contract
 
-Every successful HTML response and complete release-input error page receives a canonical link, a bounded description, and Open Graph and Twitter fields that name the route's own [social card](social-cards.md). Document pages add breadcrumb metadata. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
+Every successful HTML response and complete release-input error page receives a canonical link and a bounded description. Its Open Graph and Twitter fields name the route's own [social card](social-cards.md). Document pages add breadcrumb metadata. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
 
 Every response class, including assets, redirects, and errors, receives the same nonce-based same-origin Content Security Policy, `nosniff`, no-referrer, permissions restrictions, and framing denial. The policy admits no third-party resource origins. Unknown routes and missing files return 404.
 
