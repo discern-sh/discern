@@ -1,6 +1,6 @@
 /**
  * Every shipped consumer of the skill-directory registry, and what it does
- * with the path (ADR 0424).
+ * with the path (ADR 0425).
  *
  * A provider skills directory is shared with any other tool that installs
  * skills there, so discern owns only the entries its materialization record
@@ -181,7 +181,7 @@ export const SKILL_OWNERSHIP_MODULE = "src/lib/skill_ownership.ts";
 export const SKILL_OWNERSHIP_IMPORTERS: Readonly<
   Record<string, OwnershipImport>
 > = {
-  "src/commands/doctor.ts": {
+  "src/engine/doctor/skills_checks.ts": {
     role: "decides",
     proof: {
       file: "tests/doctor_test.ts",

@@ -1,5 +1,5 @@
 /**
- * Entry-level ownership inside the provider skills directories (ADR 0424).
+ * Entry-level ownership inside the provider skills directories (ADR 0425).
  *
  * A provider skills directory (`.claude/skills/`, the shared `.agents/skills/`)
  * is shared ground: discern materializes its effective skill set there, and any

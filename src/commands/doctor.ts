@@ -22,10 +22,7 @@ import {
   resolveScriptsDir,
   resolveSkillsDir,
 } from "../lib/paths.ts";
-import {
-  skillsIgnorePosture,
-  surveySkillsDirs,
-} from "../lib/skill_ownership.ts";
+import { skillsDirectoryChecks } from "../engine/doctor/skills_checks.ts";
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import {
   projectScriptSupportsEnvironmentName,
@@ -1089,58 +1086,9 @@ export async function runChecks(
     });
   }
 
-  // 8a. provider skills directories — shared with other tools, so Git's ignore
-  // rules must hide exactly the entries discern's ownership record names
-  // (ADR 0424). A foreign entry an ignore rule hides never reaches a fresh clone
-  // or worktree; a discern entry no rule covers shows up as untracked work.
-  if (gitHealth?.repository.kind === "repository") {
-    const surveys = await surveySkillsDirs(destDir);
-    const posture = surveys.length === 0
-      ? undefined
-      : await skillsIgnorePosture(destDir, surveys);
-    if (posture !== undefined) {
-      const problems = [
-        ...posture.hiddenForeign.map(({ path, rule }) =>
-          `${path} is not discern's, but Git ignores it (${rule})`
-        ),
-        ...(posture.visibleOwned.length === 0 ? [] : [
-          `discern's ${posture.visibleOwned.join(", ")} ${
-            posture.visibleOwned.length === 1 ? "is" : "are"
-          } not ignored`,
-        ]),
-      ];
-      const owned = surveys.reduce((n, survey) => n + survey.owned.length, 0);
-      const foreign = surveys.reduce(
-        (n, survey) => n + survey.foreign.length,
-        0,
-      );
-      checks.push(
-        problems.length === 0
-          ? {
-            name: "skills directories",
-            ok: true,
-            detail:
-              `${owned} materialized skill(s) ignored; ${foreign} other entr${
-                foreign === 1 ? "y" : "ies"
-              } left visible to Git`,
-          }
-          : {
-            name: "skills directories",
-            ok: true,
-            warn: true,
-            detail: problems.join("; "),
-            fix: [
-              ...(posture.hiddenForeign.length === 0 ? [] : [
-                "if the matching rule is inside discern's .gitignore block, run `discern upgrade` to retire it; otherwise narrow that rule to the paths you mean to ignore, so other tools' skills reach fresh clones and worktrees",
-              ]),
-              ...(posture.visibleOwned.length === 0 ? [] : [
-                "run `discern refresh` to restore the ignore file beside discern's skills",
-              ]),
-            ].join("; "),
-          },
-      );
-    }
-  }
+  // 8a. provider skills directories: Git's ignore rules must match entry
+  // ownership, since other tools share these directories (ADR 0425).
+  checks.push(...await skillsDirectoryChecks(destDir));
 
   if (currencyUnavailable === undefined) {
     let renderedInstructionFiles = new Set<string>();

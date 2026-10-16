@@ -1,5 +1,5 @@
 /**
- * Entry-level ownership of the shared provider skills directories (ADR 0424).
+ * Entry-level ownership of the shared provider skills directories (ADR 0425).
  * discern owns exactly the entries its materialization record names; every
  * other entry — a skill a third-party installer placed, a hand-placed drop-in —
  * stays untouched and visible to Git. These cases drive real materialization
@@ -291,7 +291,7 @@ Deno.test("discern recognizes its ignore file under either attribution setting a
   assert(!isDiscernSkillsIgnore("/*\n"));
 });
 
-Deno.test("status names a skills conflict as a choice, not as stale drift a refresh fixes", async () => {
+Deno.test("status surfaces a skills conflict as drift, and the refresh it points to explains how to free the name", async () => {
   await withTempDir(async (root) => {
     await materializeSkills(root, cfg(), DIRS);
     await Deno.remove(join(root, SKILLS_DIR, BUNDLED), { recursive: true });
@@ -302,11 +302,15 @@ Deno.test("status names a skills conflict as a choice, not as stale drift a refr
     );
 
     const currency = await statusMaterialCurrency(root, cfg());
-    const ids = currency.artifactHints.map((hint) => hint.id);
-    assert(ids.includes(HINTS["materialized-skills-conflict"].id), `${ids}`);
-    const conflict = currency.artifactHints.find((hint) =>
-      hint.id === HINTS["materialized-skills-conflict"].id
+    assert(
+      currency.artifactHints.some((hint) =>
+        hint.id === HINTS["materialized-skills-stale"].id
+      ),
+      "a conflict must not go silent at orientation",
     );
-    assertStringIncludes(conflict?.text ?? "", `${SKILLS_DIR}/${BUNDLED}`);
+    const plan = await planMaterializeSkills(root, cfg(), DIRS);
+    assertEquals(plan.errors.length, 1);
+    assertStringIncludes(plan.errors[0] ?? "", `${SKILLS_DIR}/${BUNDLED}`);
+    assertStringIncludes(plan.errors[0] ?? "", "[skills].exclude");
   });
 });

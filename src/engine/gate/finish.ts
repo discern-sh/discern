@@ -566,7 +566,7 @@ async function runCandidateGate(
 
   // 1d. Materialized-skills currency (ADR 0034, extended to skills) — the same
   //     fail-fast precondition for the skills dirs. STALE and CONFLICT (an entry
-  //     discern did not place holding a name it needs, ADR 0424) block; MISSING
+  //     discern did not place holding a name it needs, ADR 0425) block; MISSING
   //     (the whole dir absent on a fresh checkout) and FOREIGN (another tool's
   //     entry under a name discern does not need) do not.
   let skillsDiag: Diagnostic | undefined;

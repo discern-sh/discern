@@ -127,14 +127,7 @@ export async function skillsDiagnostic(
         stale.map((entry) => `  • ${entry.detail}`).join("\n"),
     );
   }
-  for (const dir of new Set(conflicts.map((entry) => entry.dir))) {
-    sections.push(
-      skillsConflictMessage(
-        dir,
-        conflicts.filter((entry) => entry.dir === dir),
-      ),
-    );
-  }
+  if (conflicts.length > 0) sections.push(skillsConflictMessage(conflicts));
   const outputFields = await diagnosticOutputFields(
     root,
     sections.join("\n\n"),

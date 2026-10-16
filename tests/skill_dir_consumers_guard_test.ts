@@ -1,6 +1,6 @@
 /**
  * Skills-directory consumers stay enrolled, and only the ownership module
- * decides what discern owns inside a shared skills directory (ADR 0424).
+ * decides what discern owns inside a shared skills directory (ADR 0425).
  */
 
 import { assert, assertEquals } from "@std/assert";

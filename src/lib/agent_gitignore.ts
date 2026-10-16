@@ -7,7 +7,7 @@
  * compiled instruction files stay tracked, and the provider skills directories are
  * shared with other tools, so neither appears in it. discern's own entries in a
  * skills directory are ignored by the ignore file it keeps beside them
- * (`skill_ownership.ts`, ADR 0424). The block is authored in
+ * (`skill_ownership.ts`, ADR 0425). The block is authored in
  * `templates/.gitignore.fragment`, widened from the provider registry, and
  * reconciled idempotently into existing installs by reconciling that exact owned
  * region and the exact rules discern declares as its own.

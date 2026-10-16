@@ -17,7 +17,7 @@
  *
  * `[skills].dir` is wholly the project's. A provider skills dir is shared with any
  * other tool that installs skills there: discern owns only the entries its
- * ownership record names (`skill_ownership.ts`, ADR 0424), keeps them out of Git
+ * ownership record names (`skill_ownership.ts`, ADR 0425), keeps them out of Git
  * with an ignore file listing exactly those entries, and never replaces, ignores,
  * or deletes an entry it did not place.
  *
@@ -57,7 +57,6 @@ import {
 } from "../shared/fs_presence.ts";
 import { bestEffort } from "../shared/best_effort.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { fire, HINTS } from "../shared/hints.ts";
 import {
   isDiscernSkillsIgnore,
   MATERIALIZED_MANIFEST,
@@ -650,16 +649,14 @@ async function planMaterializeSkillsDir(
   };
 }
 
-/** The refusal message for one directory's conflicts, shared by every surface
- * that reports them. */
+/** The refusal message for conflicts, shared by every surface that reports
+ * them: refresh's error and the gate's skills diagnostic. */
 export function skillsConflictMessage(
-  dirRel: string,
   conflicts: readonly SkillsConflict[],
 ): string {
-  return fire(HINTS["materialized-skills-conflict"], {
-    dirs: dirRel,
-    details: conflicts.map((conflict) => conflict.detail),
-  }).text;
+  return `discern left entries it did not place untouched, although it needs their names: ${
+    conflicts.map((conflict) => conflict.detail).join("; ")
+  }. Free each name, then run \`discern refresh\`: rename the other entry, or rename the discern-side skill under [skills].dir or list it in [skills].exclude. Delete an entry that is an earlier copy of discern's own output. Move the rules from an ignore file discern did not write into the root .gitignore, then delete that file.`;
 }
 
 /**
@@ -696,7 +693,7 @@ export async function planMaterializeSkills(
       );
       directories.push(directory);
       if (directory.conflicts.length > 0) {
-        errors.push(skillsConflictMessage(rel, directory.conflicts));
+        errors.push(skillsConflictMessage(directory.conflicts));
       }
     } catch (error) {
       errors.push(
