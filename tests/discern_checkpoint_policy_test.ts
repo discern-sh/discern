@@ -215,6 +215,7 @@ Deno.test("discern checkpoint policy: checkpoint cases", () => {
           "src/main.ts",
           "src/engine/**",
           "src/shared/hints.ts",
+          "src/shared/hints/**",
           "src/shared/result*.ts",
           "templates/**",
           "scripts/brand/claims.ts",

@@ -106,7 +106,7 @@ Deno.test("Desk label guard", async () => {
             "src/engine/desk/desk.ts",
             "src/engine/status/row_sentences.ts",
             "src/engine/status/recovery_presentation.ts",
-            "src/shared/hints.ts",
+            "src/shared/hints/status.ts",
             "src/shared/tips.ts",
           ]
         ) assert(files.includes(module), module);

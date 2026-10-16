@@ -73,7 +73,8 @@ Deno.test("no string literal reaches hints[] or FiredHint construction outside t
   assertEquals(
     offenders,
     [],
-    "hint prose must come from src/shared/hints.ts — register the template, " +
+    "hint prose must come from the hint registry — register the template in " +
+      "the catalog of the surface that emits it, " +
       `then fire it at the call site:\n  ${offenders.join("\n  ")}`,
   );
 });

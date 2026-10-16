@@ -68,6 +68,7 @@ import {
   assertSetupResultNextAction,
   isSingleRunnableSetupCommand,
 } from "../src/shared/setup_next_action.ts";
+import { isHintRegistryPath } from "./hint_registry_paths.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
@@ -131,7 +132,7 @@ Deno.test("setup's shipped journey carries no retired pillar or dispatcher vocab
       include: (rel) =>
         rel.startsWith("templates/setup/") ||
         rel === "src/shared/setup_messages.ts" ||
-        rel === "src/shared/hints.ts",
+        isHintRegistryPath(rel),
     },
   });
   const offenders: string[] = [];

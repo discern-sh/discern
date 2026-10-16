@@ -36,8 +36,7 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 
-/** The channel-owning module — the closed universe every hint is defined in. */
-const HINTS_MODULE = join(REPO_ROOT, "src", "shared", "hints.ts");
+import { isHintRegistryPath } from "./hint_registry_paths.ts";
 
 import {
   liveCommandValidator,
@@ -158,13 +157,25 @@ Deno.test("every quoted discern command in the hint registry validates against t
     }
   }
 
-  // Pass 2 — the registry module's whole source (covers unexercised branches
-  // and shared helper strings; new templates and helpers enrol by existing).
-  const moduleSource = await Deno.readTextFile(HINTS_MODULE);
-  for (const command of new Set(sourceDiscernCommands(moduleSource))) {
-    const reason = validate(command);
-    if (reason !== undefined) {
-      failures.push(`hints.ts source: \`${command}\` — ${reason}`);
+  // Pass 2 — every registry module's whole source (covers unexercised
+  // branches and shared helper strings; new templates, helpers, and catalogs
+  // enrol by existing).
+  const registryModules = await structuralGuardScope({
+    guard: "tests/hint_command_guard_test.ts#registry-source-commands",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Hint templates and their shared wording live only in the registry and its catalog modules.",
+      include: isHintRegistryPath,
+    },
+  });
+  for (const rel of registryModules) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const command of new Set(sourceDiscernCommands(source))) {
+      const reason = validate(command);
+      if (reason !== undefined) {
+        failures.push(`${rel} source: \`${command}\` — ${reason}`);
+      }
     }
   }
 

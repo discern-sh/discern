@@ -30,6 +30,10 @@ import { CATEGORIES } from "../src/engine/improve/rules.ts";
 import { isSubjective } from "../src/engine/improve/rules.ts";
 import type { SubjectiveRule } from "../src/engine/improve/types.ts";
 import { assertNamedCases } from "./assert_cases.ts";
+import { join } from "@std/path";
+import { isHintRegistryPath } from "./hint_registry_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** Every subjective rule in the improvement catalog — the improvement membership. */
 function improvementMembership(): SubjectiveRule[] {
@@ -187,22 +191,31 @@ Deno.test("the reserved word stays off every checkpoint-facing surface — tools
     }
   }
 
-  // Hint templates and metadata: scan the module source so template
-  // functions cannot hide an occurrence; every hit must be the vetted
+  // Hint templates and metadata: scan every registry module's source so
+  // template functions cannot hide an occurrence; every hit must be the vetted
   // consent hint's own line.
-  const hintsSource = await Deno.readTextFile(
-    new URL("../src/shared/hints.ts", import.meta.url),
-  );
-  for (const [index, line] of hintsSource.split("\n").entries()) {
-    if (!reserved.test(line)) {
-      continue;
+  const registryModules = await structuralGuardScope({
+    guard: "tests/questions_registry_test.ts#hint-reserved-vocabulary",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Hint templates and their metadata live only in the registry and its catalog modules.",
+      include: isHintRegistryPath,
+    },
+  });
+  for (const rel of registryModules) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const [index, line] of source.split("\n").entries()) {
+      if (!reserved.test(line)) {
+        continue;
+      }
+      assert(
+        /conversation-consent attestation/.test(line),
+        `${rel}:${
+          index + 1
+        } uses reserved vocabulary outside the vetted consent hint`,
+      );
     }
-    assert(
-      /conversation-consent attestation/.test(line),
-      `hints.ts:${
-        index + 1
-      } uses reserved vocabulary outside the vetted consent hint`,
-    );
   }
 
   // The declaration and variance contract module carries none at all.

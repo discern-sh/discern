@@ -75,6 +75,7 @@ const WATCHED_SOURCES: readonly string[] = [
   "src/shared/agent_catalogue.ts",
   "src/shared/config_schema.ts",
   "src/shared/hints.ts",
+  "src/shared/hints",
   "src/shared/paths_registry.ts",
   "src/shared/verbs.ts",
   "templates/skills",
