@@ -6058,6 +6058,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 - `tests/browser_axe_settling_guard_test.ts` — keeps every real-page accessibility audit on the helper that settles transitions first rather than guarding a closed member set
 - `tests/completion_attempt_lease_guard_test.ts` — applies renewable ownership to every production completion-attempt reservation call site and keeps every lease read inside the claim model, rather than guarding a project-defined member set
 - `tests/file_lock_guard_test.ts` — requires every authored production use of native file-lock primitives to share explicit release ownership rather than guarding a project-defined member set
+- `tests/skill_enumeration_guard_test.ts` — keeps every authored reader of the configured skills directory on scanAuthoredSkills rather than guarding a closed member set
 - `tests/engine_desk_terminal_guard_test.ts` — holds every authored Desk module to the package application adoption boundary rather than guarding a closed member set
 - `tests/engine_desk_text_guard_test.ts` — routes every authored Desk module's product text through one sanitizer module so no line break reaches a single-line slot, rather than guarding a closed member set
 - `tests/engine_desk_proof_label_guard_test.ts` — lets only named Proof-fact readers in the Desk read a Proof status and holds every written state's decision and rendered row to status's own look, rather than guarding a closed member set
