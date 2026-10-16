@@ -127,16 +127,6 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
       "Decompose one complete workflow without splitting the effort identity invariant.",
   },
   {
-    file: "src/shared/hints.ts",
-    maxScore: 102.11,
-    maxCyclo: 138,
-    owner: "result guidance",
-    reason:
-      "A large declarative hint catalogue crosses the score threshold despite low branching.",
-    recovery:
-      "Review catalogue ownership before extracting; do not split declarations merely for score.",
-  },
-  {
     file: "src/shared/result_markdown.ts",
     maxScore: 117.02,
     maxCyclo: 319,
