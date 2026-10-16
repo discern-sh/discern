@@ -26,12 +26,9 @@ import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import {
   projectScriptSupportsEnvironmentName,
 } from "../shared/environment_variables.ts";
-import {
-  fileExists,
-  readDirIfExists,
-  readTextIfExists,
-} from "../shared/fs_presence.ts";
+import { fileExists, readTextIfExists } from "../shared/fs_presence.ts";
 import { Logger } from "../lib/log.ts";
+import { scanAuthoredSkills } from "../lib/skills.ts";
 import {
   renderBannerCli,
   renderDocsHeaderCli,
@@ -1072,17 +1069,27 @@ export async function runChecks(
     }
   }
   {
-    const { rel, abs } = resolveSkillsDir(destDir, config);
-    const authored =
-      (await readDirIfExists(abs) ?? []).filter((entry) => entry.isDirectory)
-        .length;
+    const { rel } = resolveSkillsDir(destDir, config);
+    const { skills, linkIssues } = await scanAuthoredSkills(destDir, config);
     checks.push({
       name: "skills",
       ok: true,
-      detail: authored === 0
+      detail: skills.length === 0
         ? `no authored skills in ${rel}/ yet (built-ins still apply)`
-        : `${authored} authored skill(s) in ${rel}/`,
+        : `${skills.length} authored skill(s) in ${rel}/`,
     });
+    // A refused link leaves its skill unmaterialized; warn, never fail, so a
+    // deliberate out-of-project link cannot block setup.
+    for (const issue of linkIssues) {
+      checks.push({
+        name: `skill link: ${issue.name}`,
+        ok: true,
+        status: "warn",
+        detail: issue.message,
+        fix:
+          `replace ${issue.path} with a relative link to a skill directory inside the project, or with the skill directory itself`,
+      });
+    }
   }
 
   if (currencyUnavailable === undefined) {
