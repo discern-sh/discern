@@ -90,6 +90,7 @@ discern skills list
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `[skills].dir` default and schema      | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`)                                                          |
 | Authored enumeration and linked skills | [`skills.ts`](../../../src/lib/skills.ts) (`scanAuthoredSkills`)                                                                      |
+| Doctor's skill and skill-link checks   | [`skills_checks.ts`](../../../src/engine/doctor/skills_checks.ts) (`skillsDoctorChecks`)                                              |
 | Authored resolution and links          | [`skills.ts`](../../../src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`)                                                |
 | Frontmatter validation                 | [`skills.ts`](../../../src/lib/skills.ts) (`skillFrontmatterIssues`)                                                                  |
 | This repo's example in `[skills].dir`  | [`discern-product-voice`](../../skills/discern-product-voice/SKILL.md) (generated from [`voice.ts`](../../../scripts/brand/voice.ts)) |
