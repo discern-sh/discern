@@ -1247,13 +1247,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "skills-materialization",
         title: "Materialization",
         what:
-          "`discern refresh` materializes the effective set into each agent's gitignored skills directory: built-ins copied, authored skills symlinked so edits stay live. An authored skill overrides a built-in of the same name, `[skills].exclude` drops named ones, and `discern skills eject <name>` copies a built-in into the project to customize.",
+          "`discern refresh` materializes the effective set into each agent's gitignored skills directory: built-ins copied, authored skills symlinked so edits stay live. An authored skill overrides a built-in of the same name, `[skills].exclude` drops named ones, and `discern skills eject <name>` copies a built-in into the project to customize. An authored entry may be a relative link to a skill directory elsewhere in the project; refresh and doctor report a dangling, absolute, or out-of-project link instead of skipping it silently.",
         why:
           "The skill set is declared once and identical for every agent, and customizing never forks the distribution.",
         plain: {
           title: "Putting the guides in place",
           what:
-            "`discern refresh` places the effective set into each coding agent's own guides folder, which the version history leaves out: it copies the built-in guides and links project-written guides to their originals, so edits take effect immediately. A project guide with the same name replaces a built-in one, `[skills].exclude` drops named ones, and `discern skills eject <name>` copies a built-in into the project for customizing.",
+            "`discern refresh` places the effective set into each coding agent's own guides folder, which the version history leaves out: it copies the built-in guides and links project-written guides to their originals, so edits take effect immediately. A project guide with the same name replaces a built-in one, `[skills].exclude` drops named ones, and `discern skills eject <name>` copies a built-in into the project for customizing. A project guide kept elsewhere in the project can be linked into place; a link that leads nowhere or outside the project is reported instead of skipped silently.",
           why:
             "The set is declared once and identical for every coding agent, and customizing never creates a second diverging copy of the collection.",
         },
@@ -1730,13 +1730,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "setup-observability",
         title: "Observable incompleteness",
         what:
-          "An unfinished setup is a machine-readable state, reported by `discern status` and the session-start hook until the handshake completes.",
+          "An unfinished setup is a machine-readable state, reported by `discern status` and the session-start hook until the handshake completes. `discern setup done` names each unmet step's failing page, file, or setting and the rule it misses.",
         why:
           "Status and session-start results keep unfinished setup visible until completion.",
         plain: {
           title: "Clearly showing unfinished setup",
           what:
-            "An unfinished setup is a state tools can read, reported by `discern status` and by the automatic session-start action until the conversation completes.",
+            "An unfinished setup is a state tools can read, reported by `discern status` and by the automatic session-start action until the conversation completes. `discern setup done` names the exact page, file, or setting that keeps each step unfinished, and the rule it misses.",
           why:
             "Current-state and session-start results keep unfinished setup visible until completion.",
         },
