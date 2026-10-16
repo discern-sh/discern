@@ -1,6 +1,6 @@
 /**
- * Installation hints: setup, doctor, upgrade, and configuration.
- * Entries are registered here and fired only through `HINTS` in `../hints.ts`.
+ * Installation hints: setup, doctor, upgrade, and configuration. Entries are
+ * registered here and fired only through `HINTS` in `../hints.ts`.
  */
 
 import { SOURCE_PATHS } from "../paths_registry.ts";

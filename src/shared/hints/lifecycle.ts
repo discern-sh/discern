@@ -1,6 +1,7 @@
 /**
- * Worktree lifecycle hints: starting, updating, awaiting, and landing an effort.
- * Entries are registered here and fired only through `HINTS` in `../hints.ts`.
+ * Worktree lifecycle hints: starting, updating, awaiting, and landing an
+ * effort. Entries are registered here and fired only through `HINTS` in
+ * `../hints.ts`.
  */
 
 import type { LandingConsentSource } from "../consent.ts";

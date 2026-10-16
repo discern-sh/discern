@@ -1,6 +1,6 @@
 /**
- * Standards hints: measuring, pinning, and proposing quality limits.
- * Entries are registered here and fired only through `HINTS` in `../hints.ts`.
+ * Standards hints: measuring, pinning, and proposing quality limits. Entries
+ * are registered here and fired only through `HINTS` in `../hints.ts`.
  */
 
 import { discernCommand, flag } from "../command_reference.ts";

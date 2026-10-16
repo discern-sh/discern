@@ -1,6 +1,7 @@
 /**
- * Command-surface hints: failure recovery, documentation lookup, unknown commands, and MCP session currency.
- * Entries are registered here and fired only through `HINTS` in `../hints.ts`.
+ * Command-surface hints: failure recovery, documentation lookup, unknown
+ * commands, and MCP session currency. Entries are registered here and fired
+ * only through `HINTS` in `../hints.ts`.
  */
 
 import { discernCommand, flag } from "../command_reference.ts";

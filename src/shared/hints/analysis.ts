@@ -1,6 +1,7 @@
 /**
- * Analysis hints: coupling, patterns, logbook findings, and improvement advice derived from project history.
- * Entries are registered here and fired only through `HINTS` in `../hints.ts`.
+ * Analysis hints: coupling, patterns, logbook findings, and improvement advice
+ * derived from project history. Entries are registered here and fired only
+ * through `HINTS` in `../hints.ts`.
  */
 
 import {

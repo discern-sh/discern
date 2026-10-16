@@ -1,6 +1,8 @@
 /**
- * Generated-artifact hints: currency drift in agent files, materialized skills, provider integrations, and tracked refresh output, plus `discern refresh` and `discern skills` results.
- * Entries are registered here and fired only through `HINTS` in `../hints.ts`.
+ * Generated-artifact hints: currency drift in agent files, materialized skills,
+ * provider integrations, and tracked refresh output, plus `discern refresh` and
+ * `discern skills` results. Entries are registered here and fired only through
+ * `HINTS` in `../hints.ts`.
  */
 
 import { discernCommand } from "../command_reference.ts";

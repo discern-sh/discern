@@ -1,6 +1,7 @@
 /**
- * Status hints: orientation, the fleet, and the next step `discern status` names for the current checkout.
- * Entries are registered here and fired only through `HINTS` in `../hints.ts`.
+ * Status hints: orientation, the fleet, and the next step `discern status`
+ * names for the current checkout. Entries are registered here and fired only
+ * through `HINTS` in `../hints.ts`.
  */
 
 import { managedVersionAdvice } from "../managed_version.ts";

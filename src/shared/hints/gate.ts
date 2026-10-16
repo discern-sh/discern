@@ -1,6 +1,7 @@
 /**
- * Gate hints: `discern done`, `discern prepare`, and `discern test` results, checkpoints, Proof, and the remedy for each failed stage.
- * Entries are registered here and fired only through `HINTS` in `../hints.ts`.
+ * Gate hints: `discern done`, `discern prepare`, and `discern test` results,
+ * checkpoints, Proof, and the remedy for each failed stage. Entries are
+ * registered here and fired only through `HINTS` in `../hints.ts`.
  */
 
 import type { LandingConsentSource } from "../consent.ts";
