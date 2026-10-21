@@ -1452,6 +1452,17 @@ Interactive example:
 
 > Review the setup instructions and answer its questions, then run the displayed command only if the owner chose to continue in this session; its `--confirmed` flag attests that every listed consent fact, the model switch route, current self-declared provider/model fact, stop boundary, and every numbered confirmation was carried.
 
+## `setup-awaiting-ignored-files-choice`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `setup-consent`
+- Emitting context: `setup begin` finds untracked integration files the project's ignore rules exclude, with no owner choice for them.
+
+Rendered example:
+
+> Ask the owner how setup treats the integration files the project's ignore rules exclude (`.tool/config.json` (.gitignore:3: .tool/)), and wait. Then repeat this `setup begin` with its other options unchanged: `discern setup begin --ignored-integration-files track-anyway` commits them anyway, and `discern setup begin --ignored-integration-files keep-local` keeps them on this machine. If the owner changes the rule instead, wait for that commit, then run `discern setup verify`.
+
 ## `setup-done-land-dedicated`
 
 - Category: `next-step`

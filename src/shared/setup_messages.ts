@@ -54,6 +54,13 @@ import {
   type SetupProjectNameEvidence,
   type SetupProjectNameRecommendation,
 } from "./setup_guidance.ts";
+import {
+  describeIgnoredFiles,
+  IGNORED_INTEGRATION_FLAG,
+  type IgnoredIntegrationChoice,
+  type IgnoredIntegrationFile,
+  RECOMMENDED_IGNORED_INTEGRATION_CHOICE,
+} from "./ignored_integration.ts";
 
 /** The conventional home of a project's own documentation, probed so the consent
  * message can reassure that discern never touches it — the map is a separate,
@@ -96,8 +103,10 @@ export interface ConsentAgentSet {
  * separate tree, never pointed at human docs; ADR 0100, ADR 0131), whether
  * the directory is a git work tree at all (so no surface promises the isolated
  * `discern-setup` branch, the undo story, or worktrees where git can't deliver
- * them — the non-git plan is `git init` first), and the agent set `begin` will
- * wire (a consent point of its own, with `--agents` as the mechanism). */
+ * them — the non-git plan is `git init` first), the agent set `begin` will
+ * wire (a consent point of its own, with `--agents` as the mechanism), and the
+ * untracked integration files of that set the project's ignore rules exclude
+ * (a conditional decision, with `--ignored-integration-files` as the mechanism). */
 export interface ConsentContext {
   worktreePath: string;
   worktreeEnvFiles: readonly string[];
@@ -106,6 +115,9 @@ export interface ConsentContext {
   gitRepo: boolean;
   agents: ConsentAgentSet;
   projectName?: SetupProjectNameRecommendation | undefined;
+  ignoredIntegrationFiles?:
+    | readonly Pick<IgnoredIntegrationFile, "path" | "rule">[]
+    | undefined;
 }
 
 /**
@@ -120,6 +132,10 @@ export interface ConsentContext {
 export async function deriveConsentContext(
   destDir: string,
   agents: ConsentAgentSet,
+  ignoredIntegrationFiles: readonly Pick<
+    IgnoredIntegrationFile,
+    "path" | "rule"
+  >[] = [],
   config: DiscernConfig = parseConfigOrThrow(""),
 ): Promise<ConsentContext & { projectName: SetupProjectNameRecommendation }> {
   const docsExists = await pathExists(join(destDir, HUMAN_DOCS_REL));
@@ -144,6 +160,7 @@ export async function deriveConsentContext(
     gitRepo,
     agents,
     projectName,
+    ignoredIntegrationFiles,
   };
 }
 
@@ -220,24 +237,45 @@ const CONFIRMED_BEGIN_MODEL_FLAG = "model";
 const CONFIRMED_BEGIN_MODEL = "unreported";
 const CONFIRMED_BEGIN_ATTESTATION_FLAG = "confirmed";
 
-/** Render the consent-attested continuation as a plain shell command. */
-export function confirmedBeginCommand(projectName?: string): string {
+/** Render the consent-attested continuation as a plain shell command. The
+ * ignored-files choice rides it only when the decision applies. */
+export function confirmedBeginCommand(
+  projectName?: string,
+  ignoredChoice?: IgnoredIntegrationChoice,
+): string {
   const name = projectName === undefined
     ? ""
     : ` --name ${shellQuote(projectName)}`;
-  return `discern ${CONFIRMED_BEGIN_WORDS}${name} --${CONFIRMED_BEGIN_MODEL_FLAG} ${CONFIRMED_BEGIN_MODEL} --${CONFIRMED_BEGIN_ATTESTATION_FLAG}`;
+  const ignored = ignoredChoice === undefined
+    ? ""
+    : ` --${IGNORED_INTEGRATION_FLAG} ${ignoredChoice}`;
+  return `discern ${CONFIRMED_BEGIN_WORDS}${name}${ignored} --${CONFIRMED_BEGIN_MODEL_FLAG} ${CONFIRMED_BEGIN_MODEL} --${CONFIRMED_BEGIN_ATTESTATION_FLAG}`;
 }
 
 /** The same continuation as a surface-aware reference for result hints. */
 export function confirmedBeginCommandReference(
   projectName?: string,
+  ignoredChoice?: IgnoredIntegrationChoice,
 ): CommandRef {
   return discernCommand(
     CONFIRMED_BEGIN_WORDS,
     ...(projectName === undefined ? [] : [flag("name", projectName)]),
+    ...(ignoredChoice === undefined
+      ? []
+      : [flag(IGNORED_INTEGRATION_FLAG, ignoredChoice)]),
     flag(CONFIRMED_BEGIN_MODEL_FLAG, CONFIRMED_BEGIN_MODEL),
     flag(CONFIRMED_BEGIN_ATTESTATION_FLAG),
   );
+}
+
+/** The choice the confirmed command carries for this context: the
+ * recommendation while the decision applies, nothing otherwise. */
+export function consentIgnoredChoice(
+  ctx: Pick<ConsentContext, "ignoredIntegrationFiles">,
+): IgnoredIntegrationChoice | undefined {
+  return (ctx.ignoredIntegrationFiles ?? []).length === 0
+    ? undefined
+    : RECOMMENDED_IGNORED_INTEGRATION_CHOICE;
 }
 
 /** Quote one confirmed project-name value for the displayed shell command. */
@@ -343,12 +381,17 @@ const PROJECT_NAME_CONFIRMATION = humanDecision(
   "consent",
   "project-name-confirmation",
 );
+const IGNORED_INTEGRATION_FILES = humanDecision(
+  "consent",
+  "ignored-integration-files",
+);
 const COMPLETION_HANDOFF = humanMoment("setup-done", "completion-handoff");
 const LANDING_CHOICE = humanDecision("setup-done", "landing-choice");
 const ACTIVATION_HANDOFF = humanMoment("activation", "activation-handoff");
 assertSetupHumanSurfaceConsumption("consent", [
   MODEL_SELECTION.id,
   PROJECT_NAME_CONFIRMATION.id,
+  IGNORED_INTEGRATION_FILES.id,
 ]);
 assertSetupHumanSurfaceConsumption("setup-done", [
   COMPLETION_HANDOFF.id,
@@ -448,6 +491,16 @@ export function consentConfirmations(
   if (projectNameOwnerMessage === undefined) {
     throw new Error("Project-name confirmation must always be applicable.");
   }
+  const ignoredFiles = ctx.ignoredIntegrationFiles ?? [];
+  const ignoredOwnerMessage = renderSetupOwnerMoment(
+    IGNORED_INTEGRATION_FILES,
+    "novice",
+    {
+      evidenceId: "ignored-integration-files",
+      satisfied: ignoredFiles.length > 0,
+      detail: describeIgnoredFiles(ignoredFiles),
+    },
+  )?.message;
   return [
     {
       key: "model",
@@ -480,6 +533,13 @@ export function consentConfirmations(
         }
       })(),
     },
+    ...(ignoredOwnerMessage === undefined ? [] : [{
+      key: "ignored-integration-files",
+      message: ignoredOwnerMessage.replace(
+        "<files>",
+        describeIgnoredFiles(ignoredFiles),
+      ),
+    }]),
     {
       key: "worktree-path",
       message:
@@ -505,7 +565,8 @@ export function consentConfirmations(
 /** Render the complete itemized consent relay and its attested continuation. */
 export function consentMessage(ctx: ConsentContext): string {
   const projectName = ctx.projectName?.proposed ?? "this project";
-  const command = confirmedBeginCommand(projectName);
+  const ignoredChoice = consentIgnoredChoice(ctx);
+  const command = confirmedBeginCommand(projectName, ignoredChoice);
   const relayItems = consentRelayItems(ctx);
   const confirmations = consentConfirmations(ctx);
   return [
@@ -536,6 +597,10 @@ export function consentMessage(ctx: ConsentContext): string {
         ? "''"
         : ctx.agents.wired.map((agent) => agent.name).join(",")
     }\` (edit that list).`,
+    ...(ignoredChoice === undefined ? [] : [
+      "",
+      `If the owner chose to keep the ignored integration files on this machine, pass \`--${IGNORED_INTEGRATION_FLAG} keep-local\` instead. If the owner chose to change the project's rule, do not run \`begin\` yet: once the owner has committed the rule change, run \`discern setup verify\` again. A changed coding-tool set can change which files are excluded; \`begin\` checks again and stops if a new one needs this decision.`,
+    ]),
   ].join("\n");
 }
 

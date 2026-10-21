@@ -171,6 +171,9 @@ export function renderConfigTemplateForConfig(
     project_slug: config.project.slug,
     branch_prefix: config.repository.branch_prefix,
     agents_array: renderTomlStringList(resolveConfiguredAgents(config)),
+    local_integration_files_array: renderTomlStringList(
+      config.project.local_integration_files,
+    ),
     map_dir: config.map.dir,
     gotchas_doc: config.project.gotchas_doc,
     scopes_neutral: defaultDocumentationScopes().join(", "),

@@ -49,6 +49,16 @@
               "copilot"
             ]
           }
+        },
+        "local_integration_files": {
+          "default": [],
+          "description": "Agent integration files this project keeps out of Git on purpose, because its own ignore rules exclude them. discern still writes them in every checkout, but fresh clones and cloud agents lack them until discern runs there. `discern doctor` warns about an ignored integration file that isn't listed here.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

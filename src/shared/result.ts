@@ -437,6 +437,7 @@ export const ERROR_SLUGS = [
   "ambiguous",
   "apply_failed",
   "awaiting_consent",
+  "awaiting_decision",
   "awaiting_declaration",
   "awaiting_standard_approval",
   "awaiting_variance",
@@ -864,6 +865,7 @@ export const RESULT_OPEN_VOCABULARIES = {
     values: [
       "model-selection",
       "project-name-confirmation",
+      "ignored-integration-files",
       "project-intent-gap",
       "gate-protection-change",
       "authored-source-collision",
@@ -879,6 +881,10 @@ export const RESULT_OPEN_VOCABULARIES = {
     name: "RelayProtection",
     values: ["adaptive", "verbatim-list"],
   },
+  "x-discern-ignored-integration-choices": {
+    name: "IgnoredIntegrationChoice",
+    values: ["track-anyway", "keep-local"],
+  },
   "x-discern-setup-conflict-kinds": {
     name: "SetupConflictKind",
     values: [
@@ -886,6 +892,7 @@ export const RESULT_OPEN_VOCABULARIES = {
       "dirty_worktree",
       "not_a_repo",
       "missing_git_identity",
+      "ignored_integration_files",
     ],
   },
   "x-discern-setup-done-completions": {

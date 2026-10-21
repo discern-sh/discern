@@ -199,6 +199,7 @@ export const ERROR_FAILURE_RECOVERY = {
   ambiguous: "tailored",
   apply_failed: "evidence",
   awaiting_consent: "tailored",
+  awaiting_decision: "tailored",
   awaiting_declaration: "tailored",
   awaiting_variance: "tailored",
   awaiting_standard_approval: "tailored",

@@ -9,6 +9,7 @@
  */
 
 import { AGENT_NAMES, type DiscernConfig } from "../shared/config_schema.ts";
+import type { AgentName } from "./config.ts";
 import {
   ARTIFACT_PROVENANCE_SOURCES,
   COMMENT_INCAPABLE_ARTIFACT,
@@ -119,10 +120,12 @@ export function sourceArtifactPaths(
   });
 }
 
-/** Flatten every provider integration and local-state declaration into path entries. */
-function providerArtifacts(): ArtifactPathEntry[] {
+/** Flatten each provider's integration and local-state declarations into path entries. */
+function providerArtifacts(
+  agents: readonly AgentName[] = AGENT_NAMES,
+): ArtifactPathEntry[] {
   const entries: ArtifactPathEntry[] = [];
-  for (const name of AGENT_NAMES) {
+  for (const name of agents) {
     const provider = PROVIDERS[name];
     entries.push({
       id: `provider:${name}:instructions`,
@@ -287,6 +290,24 @@ export function projectArtifactPaths(
     ...environmentArtifacts(config),
     ...providerArtifacts(),
   ]);
+}
+
+/**
+ * The integration files discern writes for these agents and expects Git to
+ * track: every Shared file a provider declares, so a bare clone carries
+ * discern's wiring. Skills directories are Shared too, but Git ignores
+ * discern's own entries there by design, and agent files are compiled
+ * outputs the agent commits itself. Unknown agent names contribute nothing.
+ */
+export function trackedSharedProviderPaths(
+  agents: readonly string[],
+): string[] {
+  const known = AGENT_NAMES.filter((name) => agents.includes(name));
+  return normalizeArtifacts(providerArtifacts(known))
+    .filter((entry) =>
+      entry.pathKind === "file" && declaredFileOwnership(entry) === "shared"
+    )
+    .map((entry) => entry.path);
 }
 
 /** True when `rel` is inside one registered file or directory path. */

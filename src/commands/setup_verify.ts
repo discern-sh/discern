@@ -7,7 +7,8 @@
  * `docs/` folder of its own (the map lives at its own default home and never touches
  * it — the consent message reassures rather than offers to adopt it; ADR 0100, ADR
  * 0131), a pre-existing agent-instruction file `begin` will fold into the
- * instruction source, the agents detected as installed (ADR 0069), and the exact sibling
+ * instruction source, the agents detected as installed (ADR 0069), any of their
+ * integration files the project's own ignore rules exclude, and the exact sibling
  * path the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `instructions`
  * block (the pre-composed "message to your human": what discern adds, what it will do
  * and cost, the model question, the worktree location) it relays and
@@ -27,6 +28,12 @@ import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import { consentAgentSet } from "../lib/detect_agents.ts";
 import { allInstructionFilePaths } from "../lib/providers.ts";
+import { ignoredIntegrationFiles } from "../lib/ignored_integration_files.ts";
+import {
+  describeIgnoredFiles,
+  type IgnoredIntegrationFile,
+  untrackedIgnoredFiles,
+} from "../shared/ignored_integration.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import { pathExists } from "../shared/fs_presence.ts";
@@ -36,6 +43,7 @@ import type {
 } from "../shared/result_schemas.ts";
 import {
   confirmedBeginCommand,
+  consentIgnoredChoice,
   consentMessage,
   deriveConsentContext,
   humanOffRampLines,
@@ -137,6 +145,11 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   const agents = await consentAgentSet();
   const detected = agents.detected;
   const effectiveAgents = agents.set.wired.map((a) => a.name);
+  // Integration files `begin` would commit for that set, but which the
+  // project's own ignore rules exclude: the owner decides before any write.
+  const ignored = git.kind === "not-a-repo" ? [] : untrackedIgnoredFiles(
+    await ignoredIntegrationFiles(destDir, effectiveAgents) ?? [],
+  );
   // The grounded facts the consent message is built from — the exact sibling
   // worktree path, whether a docs/ folder already exists, whether git is here at
   // all, and the agent set `begin` will wire — derived once in the shared module
@@ -151,10 +164,16 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   } = await deriveConsentContext(
     destDir,
     agents.set,
+    ignored,
   );
   const existingInstructions = await findExistingInstructions(destDir);
 
-  const conflicts = buildConflicts(git, identity, existingInstructions);
+  const conflicts = buildConflicts(
+    git,
+    identity,
+    existingInstructions,
+    ignored,
+  );
   // The consent conversation as ONE ready-to-relay prose block, built once and rendered
   // identically in every result representation — never split into fields, which agents
   // summarize and weaken (ADR 0078). discern ships the script, not stage directions
@@ -169,12 +188,16 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     gitRepo,
     agents: agents.set,
     projectName,
+    ignoredIntegrationFiles: ignored,
   });
   // Without git the funnel's next action is to CREATE the repository setup's
   // isolation needs (then re-run the preflight) — never straight to `begin`,
   // which could only proceed in place, with no branch and nothing to land.
   const nextAction = gitRepo
-    ? confirmedBeginCommand(projectName.proposed)
+    ? confirmedBeginCommand(
+      projectName.proposed,
+      consentIgnoredChoice({ ignoredIntegrationFiles: ignored }),
+    )
     : "git init";
 
   if (opts.json) {
@@ -192,6 +215,10 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
           exists: docsExists,
         },
         existing_instructions: existingInstructions,
+        ignored_integration_files: ignored.map(({ path, rule }) => ({
+          path,
+          rule,
+        })),
         agents_detected: detected,
         agents_effective: effectiveAgents,
         worktree_path: worktreePath,
@@ -257,6 +284,7 @@ function buildConflicts(
   git: Awaited<ReturnType<typeof worktreeState>>,
   identity: boolean,
   existingInstructions: string[],
+  ignored: readonly IgnoredIntegrationFile[],
 ): SetupVerifyConflict[] {
   const conflicts: SetupVerifyConflict[] = [];
   if (git.kind === "not-a-repo") {
@@ -287,6 +315,15 @@ function buildConflicts(
       detail: `Found existing agent instructions (${
         existingInstructions.join(", ")
       }). begin preserves them by folding their content into ${SOURCE_PATHS.instructions.defaultPath} — nothing is lost, and you reconcile any overlap with discern's instructions at the end of setup.`,
+    });
+  }
+  if (ignored.length > 0) {
+    conflicts.push({
+      kind: "ignored_integration_files",
+      detail:
+        `The project's ignore rules exclude integration files setup would commit: ${
+          describeIgnoredFiles(ignored)
+        }. The owner decides first: commit them anyway, keep them on this machine, or change the rule. The consent message below asks.`,
     });
   }
   return conflicts;

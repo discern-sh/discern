@@ -107,6 +107,9 @@ export interface SetupConfig {
   agents: AgentName[];
   /** Project-relative home for discern's agent documentation tree. */
   mapDir?: string | undefined;
+  /** Integration files the owner chose to keep out of Git because the
+   * project's ignore rules exclude them. */
+  localIntegrationFiles?: readonly string[] | undefined;
 }
 
 /**
@@ -155,6 +158,9 @@ export function tokensFromConfig(
     project_slug: config.slug,
     branch_prefix: config.branchPrefix,
     agents_array: renderTomlStringList(config.agents),
+    local_integration_files_array: renderTomlStringList(
+      [...(config.localIntegrationFiles ?? [])],
+    ),
     map_dir: config.mapDir ?? DEFAULTS.mapDir,
     gotchas_doc: DEFAULTS.gotchasDoc,
     scopes_neutral: defaultDocumentationScopes().join(", "),

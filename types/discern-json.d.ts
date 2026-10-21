@@ -5,6 +5,7 @@ export type DiscernKnownErrorSlug =
   | "ambiguous"
   | "apply_failed"
   | "awaiting_consent"
+  | "awaiting_decision"
   | "awaiting_declaration"
   | "awaiting_standard_approval"
   | "awaiting_variance"
@@ -508,6 +509,7 @@ export type DiscernKnownSetupMomentKind =
 export type DiscernKnownSetupDecisionKind =
   | "model-selection"
   | "project-name-confirmation"
+  | "ignored-integration-files"
   | "project-intent-gap"
   | "gate-protection-change"
   | "authored-source-collision"
@@ -520,11 +522,16 @@ export type DiscernKnownSetupDecisionKind =
 
 export type DiscernKnownRelayProtection = "adaptive" | "verbatim-list";
 
+export type DiscernKnownIgnoredIntegrationChoice =
+  | "track-anyway"
+  | "keep-local";
+
 export type DiscernKnownSetupConflictKind =
   | "existing_instructions"
   | "dirty_worktree"
   | "not_a_repo"
-  | "missing_git_identity";
+  | "missing_git_identity"
+  | "ignored_integration_files";
 
 export type DiscernKnownSetupDoneCompletion =
   | "created"
@@ -1138,6 +1145,10 @@ export type DiscernSetupBeginResult = DiscernResultState & {
     branch?: string | null;
     machinery_committed?: boolean;
     machinery_commit_error?: string;
+    ignored_integration_files?: {
+      choice: string;
+      paths: Array<string>;
+    };
     discern_version?: string;
     written?: Array<string>;
     instruction_refresh?: {
@@ -1303,6 +1314,10 @@ export type DiscernSetupVerifyResult = DiscernResultState & {
         exists: boolean;
       };
       existing_instructions: Array<string>;
+      ignored_integration_files?: Array<{
+        path: string;
+        rule: string;
+      }>;
       agents_detected: Array<string>;
       agents_effective: Array<string>;
       worktree_path: string;

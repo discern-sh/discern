@@ -65,6 +65,7 @@ export const SCAFFOLD_VALUES: Readonly<Record<string, string>> = {
   "project.slug": '"{{project_slug}}"',
   "project.gotchas_doc": '"{{gotchas_doc}}"',
   "project.agents": "[{{agents_array}}]",
+  "project.local_integration_files": "[{{local_integration_files_array}}]",
   "repository.branch_prefix": '"{{branch_prefix}}"',
   "map.dir": '"{{map_dir}}"',
   "jobs.format": '"discern tidy"',
