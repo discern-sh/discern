@@ -35,31 +35,37 @@ export interface GitAttributeRecord {
 }
 
 /**
- * Parse Git's NUL-delimited attribute protocol without trimming path bytes.
- * Unlike a single-field listing, the value field is allowed to be empty, so
- * this decoder validates the trailing terminator and consumes exact triples.
+ * Split NUL-terminated `-z` output into records of `width` fields, verbatim.
+ * Unlike a single-field listing, a field may be empty, so the trailing
+ * terminator is required and only whole records are accepted.
  */
-export function parseCheckAttrZ(
+function fixedWidthNulRecords(
   stdout: string,
-): GitAttributeRecord[] | undefined {
+  width: number,
+): string[][] | undefined {
   const fields = stdout.split("\0");
   if (fields.at(-1) !== "") return undefined;
   fields.pop();
-  if (fields.length % 3 !== 0) return undefined;
-  const records: GitAttributeRecord[] = [];
-  for (let index = 0; index < fields.length; index += 3) {
-    const path = fields[index];
-    const attribute = fields[index + 1];
-    const value = fields[index + 2];
-    if (
-      path === undefined || path === "" || attribute === undefined ||
-      attribute === "" || value === undefined
-    ) {
-      return undefined;
-    }
-    records.push({ path, attribute, value });
+  if (fields.length % width !== 0) return undefined;
+  const records: string[][] = [];
+  for (let index = 0; index < fields.length; index += width) {
+    records.push(fields.slice(index, index + width));
   }
   return records;
+}
+
+/** Parse Git's NUL-delimited attribute protocol without trimming path bytes. */
+export function parseCheckAttrZ(
+  stdout: string,
+): GitAttributeRecord[] | undefined {
+  const records = fixedWidthNulRecords(stdout, 3);
+  if (records === undefined) return undefined;
+  const parsed: GitAttributeRecord[] = [];
+  for (const [path = "", attribute = "", value = ""] of records) {
+    if (path === "" || attribute === "") return undefined;
+    parsed.push({ path, attribute, value });
+  }
+  return parsed;
 }
 
 /** One path an ignore rule matched, from `git check-ignore -z --verbose`. */
@@ -71,23 +77,17 @@ export interface GitIgnoreMatch {
 
 /**
  * Parse `git check-ignore -z --verbose --non-matching` output: one
- * `<source> <line> <pattern> <path>` quadruple per queried path, with empty
+ * `<source> <line> <pattern> <path>` record per queried path, with empty
  * rule fields for a path no rule matched. A negated (`!`) deciding pattern
  * re-includes its path, so it is not a match.
  */
 export function parseCheckIgnoreZ(
   stdout: string,
 ): GitIgnoreMatch[] | undefined {
-  const fields = stdout.split("\0");
-  if (fields.at(-1) !== "") return undefined;
-  fields.pop();
-  if (fields.length % 4 !== 0) return undefined;
+  const records = fixedWidthNulRecords(stdout, 4);
+  if (records === undefined) return undefined;
   const matches: GitIgnoreMatch[] = [];
-  for (let index = 0; index < fields.length; index += 4) {
-    const [source = "", line = "", pattern = "", path = ""] = fields.slice(
-      index,
-      index + 4,
-    );
+  for (const [source = "", line = "", pattern = "", path = ""] of records) {
     if (path === "") return undefined;
     if (pattern === "" || pattern.startsWith("!")) continue;
     matches.push({ path, rule: `${source}:${line}: ${pattern}` });
