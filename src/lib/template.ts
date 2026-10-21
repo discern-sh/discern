@@ -23,7 +23,6 @@ export const CONTENT_TOKEN_NAMES = [
   "project_slug",
   "branch_prefix",
   "agents_array",
-  "local_integration_files_array",
   "map_dir",
   "gotchas_doc",
   "scopes_neutral",

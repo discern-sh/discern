@@ -119,7 +119,6 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
     branch_prefix: "agent/",
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
-    local_integration_files_array: "",
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),

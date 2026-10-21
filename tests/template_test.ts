@@ -29,7 +29,6 @@ function tokens(): TokenMap {
     project_slug: "demo-app",
     branch_prefix: "agent/",
     agents_array: '"claude_code", "codex"',
-    local_integration_files_array: "",
     map_dir: "docs/",
     gotchas_doc: "docs/80-development/done-gate-gotchas.md",
     scopes_neutral: '"${map.dir}", ".discern/", ".claude/"',

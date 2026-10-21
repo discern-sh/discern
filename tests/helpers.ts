@@ -165,7 +165,6 @@ export function testTokens(overrides: Partial<TokenMap> = {}): TokenMap {
     project_slug: "demo-app",
     branch_prefix: "agent/",
     agents_array: '"claude_code", "codex"',
-    local_integration_files_array: "",
     map_dir: "docs/",
     gotchas_doc: "",
     scopes_neutral: '"${map.dir}", "${project.todo}"',

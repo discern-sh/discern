@@ -1514,24 +1514,11 @@
                 "machinery_commit_error": {
                   "type": "string"
                 },
-                "ignored_integration_files": {
-                  "type": "object",
-                  "properties": {
-                    "choice": {
-                      "type": "string",
-                      "x-discern-vocabulary": "x-discern-ignored-integration-choices"
-                    },
-                    "paths": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "required": [
-                    "choice",
-                    "paths"
-                  ]
+                "existing_integration_files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 "discern_version": {
                   "type": "string"
@@ -2382,6 +2369,12 @@
                           "path",
                           "rule"
                         ]
+                      }
+                    },
+                    "existing_integration_files": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
                       }
                     },
                     "agents_detected": {
@@ -34289,7 +34282,6 @@
     "ambiguous",
     "apply_failed",
     "awaiting_consent",
-    "awaiting_decision",
     "awaiting_declaration",
     "awaiting_standard_approval",
     "awaiting_variance",
@@ -34858,7 +34850,6 @@
   "x-discern-setup-decision-kinds": [
     "model-selection",
     "project-name-confirmation",
-    "ignored-integration-files",
     "project-intent-gap",
     "gate-protection-change",
     "authored-source-collision",
@@ -34873,16 +34864,12 @@
     "adaptive",
     "verbatim-list"
   ],
-  "x-discern-ignored-integration-choices": [
-    "track-anyway",
-    "keep-local"
-  ],
   "x-discern-setup-conflict-kinds": [
     "existing_instructions",
     "dirty_worktree",
     "not_a_repo",
     "missing_git_identity",
-    "ignored_integration_files"
+    "existing_integration_files"
   ],
   "x-discern-setup-done-completions": [
     "created",

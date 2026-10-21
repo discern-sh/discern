@@ -102,7 +102,12 @@ Deno.test("git paths: contracts", () => {
             ".gitignore\x001\x00.tool/\x00.tool/drop.json\x00" +
             "\x00\x00\x00root.json\x00",
         ),
-        [{ path: ".tool/drop.json", rule: ".gitignore:1: .tool/" }],
+        [{
+          path: ".tool/drop.json",
+          rule: ".gitignore:1: .tool/",
+          source: ".gitignore",
+          line: 1,
+        }],
       );
       assertEquals(parseCheckIgnoreZ(""), []);
       assertEquals(parseCheckIgnoreZ(".gitignore\x001\x00.tool/"), undefined);

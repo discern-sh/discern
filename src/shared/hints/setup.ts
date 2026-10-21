@@ -64,36 +64,20 @@ export const SETUP_HINTS = {
       "and every numbered confirmation was carried.",
   }),
 
-  /** `setup begin` found integration files the project's ignore rules
-   * exclude and no owner choice for them, so it wrote nothing. */
-  "setup-awaiting-ignored-files-choice": defineHint<{
-    files: string;
-    track: CommandRef;
-    keepLocal: CommandRef;
-  }>({
-    id: "setup-awaiting-ignored-files-choice",
+  /** Setup left pre-existing integration files with other content out of its
+   * commit, for the coding agent to resolve. */
+  "setup-existing-integration-files": defineHint<{ files: string }>({
+    id: "setup-existing-integration-files",
     category: "next-step",
     audience: "all",
     when:
-      "`setup begin` finds untracked integration files the project's ignore rules exclude, with no owner choice for them.",
-    family: "setup-consent",
-    example: {
-      files: "`.tool/config.json` (.gitignore:3: .tool/)",
-      track: discernCommand(
-        "setup begin",
-        flag("ignored-integration-files", "track-anyway"),
-      ),
-      keepLocal: discernCommand(
-        "setup begin",
-        flag("ignored-integration-files", "keep-local"),
-      ),
-    },
-    template: ({ files, track, keepLocal }): string =>
-      `Ask the owner how setup treats the integration files the project's ignore rules exclude (${files}), and wait. ` +
-      `Then repeat this \`setup begin\` with its other options unchanged: ${track} commits them anyway, and ${keepLocal} keeps them on this machine. ` +
-      `If the owner changes the rule instead, wait for that commit, then run ${
-        discernCommand("setup verify")
-      }.`,
+      "`setup begin` finds integration files that already held content discern didn't write.",
+    family: "setup-integration-files",
+    example: { files: "`.tool/config.json`" },
+    template: ({ files }): string =>
+      `Setup didn't commit the integration files that already held entries discern didn't write: ${files}. ` +
+      "Those entries can include personal settings or credentials. Read each file: commit it with discern's entry if the other entries are safe to share; otherwise move the personal ones to the tool's user-level settings first, then commit. " +
+      "Ask the owner only when the file doesn't settle it.",
   }),
 
   /** Setup completion carries the unfinished files and checks as structured

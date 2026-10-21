@@ -260,7 +260,7 @@ export async function skillsIgnorePosture(
   const matched = await ignoreRuleMatches(root, [...owned, ...foreign]);
   if (matched === undefined) return undefined;
   const hiddenForeign: HiddenForeignSkillEntry[] = [];
-  for (const [path, rule] of matched) {
+  for (const [path, { rule }] of matched) {
     if (foreign.has(path)) hiddenForeign.push({ path, rule });
   }
   return {

@@ -2733,13 +2733,16 @@ export const SetupVerifyFindingsSchema = z.strictObject({
     exists: z.boolean(),
   }),
   existing_instructions: z.array(z.string()),
-  /** Untracked integration files of the effective agent set that the project's
-   * own ignore rules exclude, each with the deciding rule. Non-empty means the
-   * owner chooses how `begin` treats them before it writes anything. */
+  /** Integration files of the effective agent set that the project's own root
+   * rules exclude, each with the deciding rule: discern's `.gitignore` block
+   * re-includes exactly these. */
   ignored_integration_files: z.array(z.strictObject({
     path: z.string(),
     rule: z.string(),
   })).optional(),
+  /** Integration files that already exist untracked with content discern
+   * didn't write; setup leaves them out of its commit for the agent. */
+  existing_integration_files: z.array(z.string()).optional(),
   agents_detected: z.array(z.string()),
   agents_effective: z.array(z.string()),
   worktree_path: z.string(),
@@ -3129,12 +3132,9 @@ export const SetupBeginDataSchema = z.strictObject({
   /** The git stderr line explaining a FAILED machinery auto-commit (absent when
    * committed, or when the skip was deliberate). */
   machinery_commit_error: z.string().optional(),
-  /** How the machinery commit treated integration files the project's own
-   * ignore rules exclude, when any did: the owner's choice and its files. */
-  ignored_integration_files: z.strictObject({
-    choice: openVocabulary("x-discern-ignored-integration-choices"),
-    paths: z.array(z.string()),
-  }).optional(),
+  /** Integration files that already held content discern didn't write, left
+   * out of the machinery commit for the coding agent to resolve. */
+  existing_integration_files: z.array(z.string()).optional(),
   discern_version: z.string().optional(),
   written: z.array(z.string()).optional(),
   instruction_refresh: InstructionRefreshDataSchema.optional(),

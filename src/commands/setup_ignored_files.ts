@@ -1,98 +1,75 @@
 /**
- * `setup begin`'s handling of integration files the project's own ignore
- * rules exclude. `verify` serves the owner's decision; `begin` applies it to
- * the machinery commit, which would otherwise fail on the first such file:
- *  - `track-anyway` stages those files with `--force`, once. Git then tracks
- *    them, and the rule keeps ignoring everything else it matches;
- *  - `keep-local` leaves them out of the commit and records them in
- *    `[project].local_integration_files`, so `doctor` knows the choice was made;
- *  - changing the rule happens before setup, so `begin` simply finds nothing.
- * Without a choice, `begin` refuses before writing anything.
+ * How `setup begin`'s machinery commit stages integration files.
+ *
+ * discern's `.gitignore` block re-includes the integration files the project's
+ * own rules exclude (ADR 0428), so most need no special handling. Two cases
+ * remain:
+ *  - a rule the block cannot override still matches, such as this machine's
+ *    global excludes or a nested `.gitignore`. Those files are staged with
+ *    `--force`: the project's rules allow them, and once tracked no ignore rule
+ *    applies;
+ *  - the file already existed, untracked, holding content discern did not
+ *    write. It may carry personal settings or credentials, so setup leaves it
+ *    out of the commit and tells the coding agent, which decides with the owner
+ *    only when the file does not settle it.
  */
 
-import { ignoredIntegrationFiles } from "../lib/ignored_integration_files.ts";
-import type { Logger } from "../lib/log.ts";
-import { discernCommand, flag } from "../shared/command_reference.ts";
-import { fire, HINTS, hintTexts } from "../shared/hints.ts";
 import {
-  describeIgnoredFiles,
-  IGNORED_INTEGRATION_FLAG,
-  type IgnoredIntegrationChoice,
-  type IgnoredIntegrationFile,
-  untrackedIgnoredFiles,
-} from "../shared/ignored_integration.ts";
+  existingIntegrationFiles,
+  ignoredIntegrationFiles,
+} from "../lib/ignored_integration_files.ts";
 import { runGit } from "../shared/subprocess.ts";
 
-/** How the machinery commit treats the ignored integration files. */
-export interface IgnoredFilesPlan {
-  /** The untracked files the owner's choice covers. */
-  readonly decided: readonly IgnoredIntegrationFile[];
-  readonly choice: IgnoredIntegrationChoice | undefined;
-  /** Paths staged with `--force`: already tracked beneath an ignored folder
-   * (plain `git add` stages them but still exits 1), or tracked anyway. */
+/** How the machinery commit treats integration files. */
+export interface IntegrationStaging {
+  /** Paths staged with `--force` because an ignore rule still matches. */
   readonly force: ReadonlySet<string>;
-  /** Paths left out of the commit and recorded as kept local. */
-  readonly keepLocal: readonly string[];
+  /** Pre-existing files with other content, left for the coding agent. */
+  readonly leaveOut: readonly string[];
 }
 
-/** No ignore rule matches any integration file. */
-export const NO_IGNORED_FILES: IgnoredFilesPlan = {
-  decided: [],
-  choice: undefined,
+/** Nothing to force or leave out. */
+export const PLAIN_STAGING: IntegrationStaging = {
   force: new Set(),
-  keepLocal: [],
+  leaveOut: [],
 };
 
-/**
- * Probe the selected agents' integration files and resolve the owner's
- * choice. `awaiting` lists the untracked matches when no choice was given.
- */
-export async function planIgnoredFiles(
+/** The integration files that already hold someone else's content, found
+ * before setup writes its own entries into them. Empty when Git cannot answer. */
+export async function integrationFilesToLeaveOut(
   root: string,
   agents: readonly string[],
-  choice: IgnoredIntegrationChoice | undefined,
-): Promise<
-  { plan: IgnoredFilesPlan } | { awaiting: IgnoredIntegrationFile[] }
-> {
-  const matched = await ignoredIntegrationFiles(root, agents);
-  if (matched === undefined || matched.length === 0) {
-    return { plan: NO_IGNORED_FILES };
-  }
-  const decided = untrackedIgnoredFiles(matched);
-  if (decided.length > 0 && choice === undefined) {
-    return { awaiting: decided };
-  }
-  const trackedPaths = matched.filter((file) => file.tracked).map((file) =>
-    file.path
-  );
-  const decidedPaths = decided.map((file) => file.path);
+): Promise<string[]> {
+  return await existingIntegrationFiles(root, agents) ?? [];
+}
+
+/** Resolve the staging plan after the scaffold has written discern's block. */
+export async function integrationStaging(
+  root: string,
+  agents: readonly string[],
+  leaveOut: readonly string[],
+): Promise<IntegrationStaging> {
+  const ignored = await ignoredIntegrationFiles(root, agents) ?? [];
   return {
-    plan: {
-      decided,
-      choice: decided.length === 0 ? undefined : choice,
-      force: new Set([
-        ...trackedPaths,
-        ...(choice === "track-anyway" ? decidedPaths : []),
-      ]),
-      keepLocal: choice === "keep-local" ? decidedPaths : [],
-    },
+    force: new Set(ignored.map((file) => file.path)),
+    leaveOut,
   };
 }
 
 /**
- * Stage `paths`, forcing exactly the plan's paths past the project's ignore
- * rules and leaving its kept-local paths out. Returns the paths staged, or
- * Git's failure.
+ * Stage `paths`, forcing exactly the plan's still-ignored integration files
+ * and leaving its pre-existing ones out. Returns the paths staged, or Git's
+ * failure.
  */
 export async function stageMachineryPaths(
   root: string,
   paths: readonly string[],
-  plan: IgnoredFilesPlan,
+  staging: IntegrationStaging,
 ): Promise<{ staged: string[] } | { stderr: string }> {
-  const keepLocal = new Set(plan.keepLocal);
-  const staged = paths.filter((path) => !keepLocal.has(path));
-  const forced = staged.filter((path) => plan.force.has(path));
-  const plain = staged.filter((path) => !plan.force.has(path));
+  const leaveOut = new Set(staging.leaveOut);
+  const staged = paths.filter((path) => !leaveOut.has(path));
+  const forced = staged.filter((path) => staging.force.has(path));
+  const plain = staged.filter((path) => !staging.force.has(path));
   for (
     const [args, group] of [
       [["add", "--"], plain],
@@ -104,52 +81,4 @@ export async function stageMachineryPaths(
     if (!add.success) return { stderr: add.stderr };
   }
   return { staged };
-}
-
-/**
- * Refuse `begin` before any write: the project's ignore rules exclude
- * untracked integration files and the owner has not chosen how to treat
- * them. Re-serves the question with both retries.
- */
-export function emitAwaitingIgnoredFilesChoice(
-  log: Logger,
-  json: boolean,
-  files: readonly IgnoredIntegrationFile[],
-  retry: (choice: IgnoredIntegrationChoice) => string,
-): number {
-  const described = describeIgnoredFiles(files);
-  const message =
-    `The project's ignore rules exclude integration files setup would commit: ${described}. ` +
-    "Setup needs the owner's choice before it writes anything: commit them anyway, keep them on this machine, or change the rule.";
-  const next = retry("track-anyway");
-  if (json) {
-    log.result({
-      ok: false,
-      verb: "setup begin",
-      error: "awaiting_decision",
-      message,
-      data: { next_action: next, command: next },
-      hints: hintTexts([
-        fire(HINTS["setup-awaiting-ignored-files-choice"], {
-          files: described,
-          track: discernCommand(
-            "setup begin",
-            flag(IGNORED_INTEGRATION_FLAG, "track-anyway"),
-          ),
-          keepLocal: discernCommand(
-            "setup begin",
-            flag(IGNORED_INTEGRATION_FLAG, "keep-local"),
-          ),
-        }),
-      ]),
-    });
-  } else {
-    log.error(message);
-    log.detail(`Commit them anyway: ${next}`);
-    log.detail(`Keep them on this machine: ${retry("keep-local")}`);
-    log.detail(
-      "Change the rule: commit that change, then run `discern setup verify` again.",
-    );
-  }
-  return 1;
 }

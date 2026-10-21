@@ -17,7 +17,11 @@
 
 /** Whether a working tree is clean enough that an upgrade stays revertible. */
 import { runGit } from "../shared/subprocess.ts";
-import { parseCheckIgnoreZ, parsePorcelainZ } from "../shared/git_paths.ts";
+import {
+  type GitIgnoreMatch,
+  parseCheckIgnoreZ,
+  parsePorcelainZ,
+} from "../shared/git_paths.ts";
 
 export type WorktreeState =
   | { kind: "clean" }
@@ -58,7 +62,7 @@ export async function worktreeState(
 export async function ignoreRuleMatches(
   root: string,
   paths: readonly string[],
-): Promise<Map<string, string> | undefined> {
+): Promise<Map<string, GitIgnoreMatch> | undefined> {
   if (paths.length === 0) return new Map();
   const run = await runGit(
     [
@@ -75,5 +79,5 @@ export async function ignoreRuleMatches(
   if (run.code !== 0 && run.code !== 1) return undefined;
   const matches = parseCheckIgnoreZ(run.stdout);
   if (matches === undefined) return undefined;
-  return new Map(matches.map((match) => [match.path, match.rule]));
+  return new Map(matches.map((match) => [match.path, match]));
 }

@@ -73,6 +73,10 @@ export interface GitIgnoreMatch {
   readonly path: string;
   /** The deciding rule as `<file>:<line>: <pattern>`. */
   readonly rule: string;
+  /** The file holding the deciding rule, as Git names it. */
+  readonly source: string;
+  /** The deciding rule's 1-based line in that file. */
+  readonly line: number;
 }
 
 /**
@@ -90,7 +94,12 @@ export function parseCheckIgnoreZ(
   for (const [source = "", line = "", pattern = "", path = ""] of records) {
     if (path === "") return undefined;
     if (pattern === "" || pattern.startsWith("!")) continue;
-    matches.push({ path, rule: `${source}:${line}: ${pattern}` });
+    matches.push({
+      path,
+      rule: `${source}:${line}: ${pattern}`,
+      source,
+      line: Number(line),
+    });
   }
   return matches;
 }

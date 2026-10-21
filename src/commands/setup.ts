@@ -196,16 +196,12 @@ import {
   landingSummary,
 } from "./setup_accept.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
+import { describePaths } from "../shared/ignored_integration.ts";
 import {
-  IGNORED_INTEGRATION_CHOICES,
-  IGNORED_INTEGRATION_FLAG,
-  isIgnoredIntegrationChoice,
-} from "../shared/ignored_integration.ts";
-import {
-  emitAwaitingIgnoredFilesChoice,
-  type IgnoredFilesPlan,
-  NO_IGNORED_FILES,
-  planIgnoredFiles,
+  integrationFilesToLeaveOut,
+  type IntegrationStaging,
+  integrationStaging,
+  PLAIN_STAGING,
   stageMachineryPaths,
 } from "./setup_ignored_files.ts";
 import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
@@ -306,9 +302,6 @@ export interface SetupOptions extends InitFlags {
    * consent conversation `verify` served. Required for a fresh, non-declarative
    * `begin`; its absence re-serves the consent message (ADR 0086). */
   confirmed: boolean;
-  /** The owner's choice for integration files the project's ignore rules
-   * exclude (`--ignored-integration-files`), validated before any write. */
-  ignoredIntegrationFiles?: string | undefined;
 }
 
 /** Options for `discern setup done`. */
@@ -337,7 +330,6 @@ export interface RawScaffoldCliOptions {
   reseed?: boolean | undefined;
   allowDirty?: boolean | undefined;
   confirmed?: boolean | undefined;
-  ignoredIntegrationFiles?: string | undefined;
 }
 
 /** Build {@link SetupOptions} for {@link runSetupBegin} from parsed Cliffy options
@@ -365,7 +357,6 @@ export function beginOptsFrom(
     map: o.map,
     config: o.config,
     model: o.model,
-    ignoredIntegrationFiles: o.ignoredIntegrationFiles,
   };
 }
 
@@ -1229,7 +1220,6 @@ function setupBeginRetryCommand(opts: SetupOptions): string {
     ["--map", opts.map],
     ["--config", opts.config],
     ["--model", opts.model],
-    [`--${IGNORED_INTEGRATION_FLAG}`, opts.ignoredIntegrationFiles],
   ];
   for (const [flag, value] of valueFlags) {
     if (value !== undefined) parts.push(flag, retryArg(value));
@@ -1502,21 +1492,6 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     return 1;
   }
 
-  const ignoredChoice = opts.ignoredIntegrationFiles;
-  if (
-    ignoredChoice !== undefined && !isIgnoredIntegrationChoice(ignoredChoice)
-  ) {
-    emitSetupError(
-      log,
-      opts,
-      "invalid_arguments",
-      `--${IGNORED_INTEGRATION_FLAG} takes ${
-        IGNORED_INTEGRATION_CHOICES.join(" or ")
-      }, not ${ignoredChoice}. To change the project's ignore rule instead, commit that change and run \`discern setup verify\` again.`,
-    );
-    return 1;
-  }
-
   const destDir = await resolveSetupRoot(Deno.cwd());
   const gitRepo = (await runGit(
     ["rev-parse", "--is-inside-work-tree"],
@@ -1610,38 +1585,12 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     scaffoldInput = resolved.input;
   }
 
-  // The machinery commit below cannot add an integration file the project's
-  // own ignore rules exclude, so the owner's choice settles before any write.
-  let ignoredFiles: IgnoredFilesPlan = NO_IGNORED_FILES;
-  if (
-    freshInstall && !opts.dryRun && !opts.allowDirty &&
-    scaffoldInput !== undefined
-  ) {
-    const planned = await planIgnoredFiles(
-      destDir,
-      scaffoldInput.config.agents,
-      ignoredChoice,
-    );
-    if ("awaiting" in planned) {
-      return emitAwaitingIgnoredFilesChoice(
-        log,
-        opts.json,
-        planned.awaiting,
-        (choice) =>
-          setupBeginRetryCommand({ ...opts, ignoredIntegrationFiles: choice }),
-      );
-    }
-    ignoredFiles = planned.plan;
-    if (ignoredFiles.keepLocal.length > 0) {
-      scaffoldInput = {
-        ...scaffoldInput,
-        config: {
-          ...scaffoldInput.config,
-          localIntegrationFiles: ignoredFiles.keepLocal,
-        },
-      };
-    }
-  }
+  // An integration file that already holds someone else's content may carry
+  // personal settings or credentials, so its state is read before setup writes
+  // its own entries, and the machinery commit leaves it to the coding agent.
+  const leaveOut = freshInstall && !opts.dryRun && scaffoldInput !== undefined
+    ? await integrationFilesToLeaveOut(destDir, scaffoldInput.config.agents)
+    : [];
 
   // Detect the repo's real integration branch BEFORE the `discern-setup` checkout
   // below (the last detection probe reads the currently checked-out branch), so the
@@ -1781,7 +1730,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   let machineryCommit: AutoCommitOutcome | undefined;
   if (setupBranch !== undefined) {
     machineryCommit = scaffold !== undefined
-      ? await commitScaffoldedMachinery(destDir, scaffold, ignoredFiles)
+      ? await commitScaffoldedMachinery(destDir, scaffold, leaveOut)
       : await commitPendingMachinery(destDir);
   }
   const machineryCommitted = machineryCommit?.state === "committed";
@@ -1832,6 +1781,16 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   let instructionsCompiled = scaffold?.instructionsCompiled ?? true;
   let instructionsErrors = scaffold?.instructionsErrors ?? [];
   let setupHints = scaffold?.hints ?? [];
+  if (leaveOut.length > 0) {
+    setupHints = mergeHintTexts(
+      setupHints,
+      hintTexts([
+        fire(HINTS["setup-existing-integration-files"], {
+          files: describePaths(leaveOut),
+        }),
+      ]),
+    );
+  }
   if (laid.includes(normalizeMapDir(mapDir))) {
     try {
       const refreshed = await compileInstructions(
@@ -1945,12 +1904,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       ...(machineryCommit?.state === "failed"
         ? { machinery_commit_error: machineryCommit.detail }
         : {}),
-      ...(ignoredFiles.choice === undefined ? {} : {
-        ignored_integration_files: {
-          choice: ignoredFiles.choice,
-          paths: ignoredFiles.decided.map((file) => file.path),
-        },
-      }),
+      ...(leaveOut.length === 0
+        ? {}
+        : { existing_integration_files: leaveOut }),
       next_action: "discern setup step 1",
       project: {
         slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
@@ -2030,13 +1986,11 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       `Could not auto-commit discern's wiring — commit the scaffolded files yourself once it's fixed. Git said: ${machineryCommit.detail}`,
     );
   }
-  if (ignoredFiles.choice !== undefined) {
-    const paths = ignoredFiles.decided.map((file) => `\`${file.path}\``)
-      .join(", ");
+  if (leaveOut.length > 0) {
     scaffoldLines.push(
-      ignoredFiles.choice === "track-anyway"
-        ? `Committed ${paths} despite the project's ignore rules, as the owner chose; Git tracks them from now on.`
-        : `Kept ${paths} out of Git, as the owner chose, and recorded them in \`[project].local_integration_files\`; refresh and worktree setup regenerate them.`,
+      `Didn't commit the integration files that already held entries discern didn't write: ${
+        describePaths(leaveOut)
+      }. Resolve them before setup finishes, as the hint below explains.`,
     );
   }
   if (laid.length > 0) {
@@ -2291,7 +2245,7 @@ function authoredContentSeeds(instructionRel: string): ReadonlySet<string> {
 async function commitScaffoldedMachinery(
   root: string,
   scaffold: ScaffoldOutcome,
-  ignoredFiles: IgnoredFilesPlan,
+  leaveOut: readonly string[],
 ): Promise<AutoCommitOutcome> {
   const paths = [
     ...new Set([
@@ -2304,7 +2258,11 @@ async function commitScaffoldedMachinery(
   ]
     .filter((p) => !authoredContentSeeds(scaffold.instructionRel).has(p))
     .sort();
-  return await commitMachineryPaths(root, paths, ignoredFiles);
+  return await commitMachineryPaths(
+    root,
+    paths,
+    await integrationStaging(root, scaffold.config.agents, leaveOut),
+  );
 }
 
 /**
@@ -2336,15 +2294,15 @@ async function commitPendingMachinery(
  * evidence before attempting its commit. If Git rejects the commit, that record is
  * the only authority a later resume may use. Evidence capture also refuses any
  * unrelated staged path. Best-effort and fail-open: an unprovable diff is left for
- * the agent to commit by hand. The owner's choice for ignored integration files
- * decides which paths are forced past the project's ignore rules or left out.
+ * the agent to commit by hand. `staging` forces integration files an ignore rule
+ * still matches and leaves out the ones that already held other content.
  */
 async function commitMachineryPaths(
   root: string,
   paths: string[],
-  ignoredFiles: IgnoredFilesPlan,
+  staging: IntegrationStaging = PLAIN_STAGING,
 ): Promise<AutoCommitOutcome> {
-  const stage = await stageMachineryPaths(root, paths, ignoredFiles);
+  const stage = await stageMachineryPaths(root, paths, staging);
   if ("stderr" in stage) {
     return { state: "failed", detail: gitFailureLine(stage.stderr) };
   }

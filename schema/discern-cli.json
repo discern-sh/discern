@@ -518,20 +518,6 @@
           "default": null,
           "hidden": false,
           "global": false
-        },
-        {
-          "spellings": [
-            "--ignored-integration-files"
-          ],
-          "description": "The owner's choice for integration files this project's ignore rules exclude: `track-anyway` commits just those files, and `keep-local` lists them in `[project].local_integration_files` and keeps them out of Git. Without it, a fresh setup that finds such files writes nothing.",
-          "type_definition": "<choice:string>",
-          "arity": 1,
-          "value_types": [
-            "string"
-          ],
-          "default": null,
-          "hidden": false,
-          "global": false
         }
       ]
     },

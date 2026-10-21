@@ -10,7 +10,7 @@
  */
 
 import { assertCases } from "./assert_cases.ts";
-import { assert, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   type CompletionContext,
   completionMessage,
@@ -316,7 +316,7 @@ Deno.test("confirmedBeginCommand carries --confirmed and never a --map placehold
   assert(!confirmedBeginCommand().includes("--map"));
 });
 
-Deno.test("the consent message serves the ignored-files decision only while a rule excludes a file", () => {
+Deno.test("the consent footprint names re-included integration files only while a rule excludes one", () => {
   const base = {
     worktreePath: WT,
     ...WORKTREE_ENV,
@@ -325,7 +325,6 @@ Deno.test("the consent message serves the ignored-files decision only while a ru
     agents: AGENTS,
   };
   const none = consentMessage(base);
-  assert(!none.includes("--ignored-integration-files"));
   assert(!none.includes("ignore rules exclude"));
 
   const excluded = consentMessage({
@@ -337,17 +336,13 @@ Deno.test("the consent message serves the ignored-files decision only while a ru
   });
   assertStringIncludes(
     excluded,
-    "exclude files setup would commit for your coding tools: `.tool/config.json`, `.tool/hooks.json` (.gitignore:3: .tool/)",
+    "This project's ignore rules exclude `.tool/config.json`, `.tool/hooks.json` (.gitignore:3: .tool/), so discern's `.gitignore` block re-includes just those files",
   );
-  assertStringIncludes(
-    excluded,
-    "--ignored-integration-files track-anyway --model unreported --confirmed",
+  assertEquals(
+    excluded.split("\n").filter((line) => /^\d+\. /.test(line)).length,
+    none.split("\n").filter((line) => /^\d+\. /.test(line)).length,
+    "re-included files add no question",
   );
-  assertStringIncludes(
-    excluded,
-    "pass `--ignored-integration-files keep-local`",
-  );
-  assertStringIncludes(excluded, "run `discern setup verify` again");
 });
 
 // ── completionMessage ────────────────────────────────────────────────────────

@@ -2,11 +2,12 @@
  * Integration-file diagnostics for `discern doctor`, read-only.
  *
  * discern expects Git to track each configured agent's Shared integration
- * files, so fresh clones and cloud agents carry its wiring. When the project's
- * own ignore rules exclude one Git does not track yet, refresh keeps
- * regenerating a copy only this checkout has. That is fine when the owner
- * chose it, recorded in `[project].local_integration_files`; otherwise the
- * owner has a decision to make, the same one setup's preflight serves.
+ * files, so fresh clones and cloud agents carry its wiring. discern's
+ * `.gitignore` block re-includes the ones the project's root rules exclude
+ * (ADR 0428), so an untracked integration file Git still ignores has one of
+ * two causes, each with its own fix: a root rule refresh hasn't answered yet,
+ * or a rule the block cannot override, such as this machine's global excludes
+ * or a nested ignore file.
  */
 
 import {
@@ -22,11 +23,11 @@ import {
 import type { DoctorDraftCheck } from "./completion_checks.ts";
 
 const INTEGRATION_FILES = "integration files";
-const KEPT_LOCAL_KEY = "[project].local_integration_files";
+const ROOT_IGNORE = ".gitignore";
 
-/** One check comparing Git's ignore verdicts on the configured agents'
- * integration files with the recorded keep-local choice; empty when those
- * agents write none, or outside a Git repository, where Git cannot answer. */
+/** One check that Git can track every configured agent's integration file;
+ * empty when those agents write none, or outside a Git repository, where Git
+ * cannot answer. */
 export async function integrationFileChecks(
   root: string,
   config: DiscernConfig,
@@ -36,58 +37,38 @@ export async function integrationFileChecks(
   if (total === 0) return [];
   const matched = await ignoredIntegrationFiles(root, agents);
   if (matched === undefined) return [];
-  const listed = new Set(config.project.local_integration_files);
-  const untracked = untrackedIgnoredFiles(matched);
-  const undecided = untracked.filter((file) => !listed.has(file.path));
-  const keptLocal = untracked.filter((file) => listed.has(file.path));
-  const keptPaths = new Set(keptLocal.map((file) => file.path));
-  const stale = [...listed].filter((path) => !keptPaths.has(path));
-
-  const problems: string[] = [];
-  const fixes: string[] = [];
-  if (undecided.length > 0) {
-    const paths = undecided.map((file) => file.path).join(" ");
-    problems.push(
-      `the project's ignore rules exclude ${
-        describeIgnoredFiles(undecided)
-      }, and Git doesn't track ${
-        undecided.length === 1 ? "it" : "them"
-      }, so fresh clones and cloud agents lack discern's wiring there`,
-    );
-    fixes.push(
-      `ask the owner, then either commit ${
-        undecided.length === 1 ? "it" : "them"
-      } anyway (\`git add --force -- ${paths}\`, then commit), keep ${
-        undecided.length === 1 ? "it" : "them"
-      } local by listing ${
-        undecided.length === 1 ? "it" : "them"
-      } in ${KEPT_LOCAL_KEY}, or narrow the rule so it no longer matches`,
-    );
-  }
-  if (stale.length > 0) {
-    problems.push(
-      `${KEPT_LOCAL_KEY} lists ${
-        stale.map((path) => `\`${path}\``).join(", ")
-      }, which ${
-        stale.length === 1 ? "isn't" : "aren't"
-      } an ignored, untracked integration file of a configured agent`,
-    );
-    fixes.push(`remove the stale entries from ${KEPT_LOCAL_KEY}`);
-  }
-  if (problems.length > 0) {
+  const hidden = untrackedIgnoredFiles(matched);
+  if (hidden.length === 0) {
     return [{
       name: INTEGRATION_FILES,
       ok: true,
-      warn: true,
-      detail: problems.join("; "),
-      fix: fixes.join("; "),
+      detail:
+        `Git can track all ${total} integration file(s) of the configured agents`,
     }];
   }
+  const rootRules = hidden.filter((file) => file.source === ROOT_IGNORE);
+  const elsewhere = hidden.filter((file) => file.source !== ROOT_IGNORE);
+  const fixes = [
+    rootRules.length === 0
+      ? undefined
+      : `run \`discern refresh\` so discern's ${ROOT_IGNORE} block re-includes ${
+        describeIgnoredFiles(rootRules)
+      }`,
+    elsewhere.length === 0
+      ? undefined
+      : `commit ${
+        describeIgnoredFiles(elsewhere)
+      } once with \`git add --force -- ${
+        elsewhere.map((file) => file.path).join(" ")
+      }\`, since no ignore rule applies to a tracked file`,
+  ].filter((fix): fix is string => fix !== undefined);
   return [{
     name: INTEGRATION_FILES,
     ok: true,
-    detail: keptLocal.length === 0
-      ? `Git can track all ${total} integration file(s) of the configured agents`
-      : `${keptLocal.length} of ${total} integration file(s) kept out of Git by ${KEPT_LOCAL_KEY}; fresh clones and cloud agents lack them until discern runs there`,
+    warn: true,
+    detail: `Git ignores ${describeIgnoredFiles(hidden)} and doesn't track ${
+      hidden.length === 1 ? "it" : "them"
+    }, so fresh clones and cloud agents lack discern's wiring there`,
+    fix: fixes.join("; "),
   }];
 }

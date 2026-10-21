@@ -731,15 +731,6 @@ const projectSection = z.strictObject({
         DEFAULT_AGENTS.join(", ")
       }); an empty list sets up none.`,
   ),
-  local_integration_files: z.array(projectFilePath).refine(
-    projectPathsAreUnique,
-    {
-      message:
-        "each path may appear only once, including aliases on a case-insensitive filesystem",
-    },
-  ).meta({ uniqueItems: true }).default([]).describe(
-    "Agent integration files kept out of Git on purpose, because this project's own ignore rules exclude them. Fresh clones and cloud agents lack them until discern runs there.",
-  ),
 }).prefault({}).describe(CONFIG_PROSE.project.what);
 
 const repositorySection = z.strictObject({

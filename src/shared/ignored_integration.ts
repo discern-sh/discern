@@ -1,45 +1,25 @@
 /**
- * The facts every surface shares about integration files a project's own
- * ignore rules exclude: their shape, the owner's choices, and one rendering.
- * The probe that finds them lives in `src/lib/ignored_integration_files.ts`;
- * this bottom layer lets setup's messages name them without importing it.
+ * The facts every surface shares about integration files an ignore rule
+ * matches: their shape and one rendering. The Git probe that finds them lives
+ * in `src/lib/ignored_integration_files.ts`; this bottom layer lets setup's
+ * messages name them without importing it.
  */
-
-import { RESULT_OPEN_VOCABULARIES } from "./result.ts";
 
 /** One integration file an ignore rule matches. */
 export interface IgnoredIntegrationFile {
   readonly path: string;
   /** The deciding rule as `<file>:<line>: <pattern>`. */
   readonly rule: string;
+  /** The file holding the deciding rule, as Git names it. */
+  readonly source: string;
+  /** The deciding rule's 1-based line in that file. */
+  readonly line: number;
   /** Git tracks it already, so the rule does not apply to it, though
    * `git add` still needs `--force` while its folder is ignored. */
   readonly tracked: boolean;
 }
 
-/** The `setup begin` option carrying the owner's choice. */
-export const IGNORED_INTEGRATION_FLAG = "ignored-integration-files";
-
-/** The choices `setup begin` can apply. Changing the rule is the third
- * answer; it happens before setup, so it needs no option. */
-export const IGNORED_INTEGRATION_CHOICES = RESULT_OPEN_VOCABULARIES[
-  "x-discern-ignored-integration-choices"
-].values;
-export type IgnoredIntegrationChoice =
-  typeof IGNORED_INTEGRATION_CHOICES[number];
-
-/** The choice the setup decision recommends. */
-export const RECOMMENDED_IGNORED_INTEGRATION_CHOICE: IgnoredIntegrationChoice =
-  "track-anyway";
-
-/** Narrow a raw option value to an owner choice. */
-export function isIgnoredIntegrationChoice(
-  value: string,
-): value is IgnoredIntegrationChoice {
-  return (IGNORED_INTEGRATION_CHOICES as readonly string[]).includes(value);
-}
-
-/** The matched files Git does not track: each needs the owner's decision. */
+/** The matched files Git does not track. */
 export function untrackedIgnoredFiles(
   files: readonly IgnoredIntegrationFile[],
 ): IgnoredIntegrationFile[] {
@@ -54,7 +34,11 @@ export function describeIgnoredFiles(
   for (const file of files) {
     byRule.set(file.rule, [...byRule.get(file.rule) ?? [], file.path]);
   }
-  return [...byRule].map(([rule, paths]) =>
-    `${paths.map((path) => `\`${path}\``).join(", ")} (${rule})`
-  ).join("; ");
+  return [...byRule].map(([rule, paths]) => `${describePaths(paths)} (${rule})`)
+    .join("; ");
+}
+
+/** Paths as one inline list of code spans. */
+export function describePaths(paths: readonly string[]): string {
+  return paths.map((path) => `\`${path}\``).join(", ");
 }

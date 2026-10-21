@@ -540,10 +540,6 @@ export function buildCli(
       "--confirmed",
       "Record that the owner agreed to setup in this conversation. A fresh setup needs it unless you use `--config`; without it, discern writes nothing and shows the consent checklist again.",
     )
-    .option(
-      "--ignored-integration-files <choice:string>",
-      "The owner's choice for integration files this project's ignore rules exclude: `track-anyway` commits just those files, and `keep-local` lists them in `[project].local_integration_files` and keeps them out of Git. Without it, a fresh setup that finds such files writes nothing.",
-    )
     .action(recordedExit("setup begin", async (options) => {
       const { json, noColor } = globalFlags(options);
       const { beginOptsFrom, runSetupBegin } = await loadModule(() =>

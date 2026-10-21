@@ -110,11 +110,6 @@ export const SETUP_DECISION_DELEGATION: Readonly<
       "available model capability is not established by repository evidence",
   },
   "project-name-confirmation": { allowed: true },
-  "ignored-integration-files": {
-    allowed: false,
-    reason:
-      "the choice decides what the repository shares despite a rule the owner wrote",
-  },
   "project-intent-gap": {
     allowed: false,
     reason:
@@ -526,80 +521,6 @@ export const SETUP_HUMAN_MOMENTS = [
         "The strongest project name I found is <name>, supported by <evidence>. That is the name I will use in the maintained project guide and the instructions future coding sessions inherit. Is it right, or should I use a different name?",
       experienced:
         "<evidence> supports <name> as the project name. Confirm or correct it before I persist it in the project guide and agent instructions.",
-    },
-  },
-  {
-    id: "ignored-integration-files",
-    surfaces: ["consent"],
-    kind: "decision",
-    decision_kind: "ignored-integration-files",
-    phase: "consent",
-    applicability: {
-      kind: "when",
-      evidence_id: "ignored-integration-files",
-      condition:
-        "The project's ignore rules exclude an untracked integration file setup would commit for a selected coding tool.",
-    },
-    purpose:
-      "Decide whether discern's integration files are committed although the project's own ignore rules exclude them.",
-    owner_outcome:
-      "Fresh clones, teammates, and cloud agents either receive discern's tool wiring or knowingly start without it until discern runs there.",
-    why:
-      "Setup commits each selected tool's integration files so every checkout loads discern's tools. An ignore rule written for other files in the same folder makes that commit fail, and later regenerated copies would stay on this machine without a word.",
-    current_action:
-      "Name each excluded file and the rule that excludes it, then ask the owner how to proceed before setup writes anything.",
-    authority:
-      "The owner decides what the repository shares; discern never edits the project's own ignore rules.",
-    reversibility:
-      "No setup write has occurred. A committed file can leave Git later with `git rm --cached`, and a kept-local file can join it later with `git add -f`.",
-    recovery:
-      "If the owner is unsure, keep the files local: nothing is shared, and `discern doctor` keeps the choice visible.",
-    recommendation:
-      "Commit only discern's named files despite the rule: Git tracks them from then on, and the rule keeps ignoring everything else it matches.",
-    agent_behavior: {
-      before_owner_action: "wait",
-      after_owner_action:
-        "Pass the chosen option to `discern setup begin`. If the owner changes the rule instead, wait for that commit, then run `discern setup verify` again.",
-    },
-    options: [
-      {
-        id: "track-anyway",
-        label: "Commit discern's files anyway",
-        consequence:
-          "discern adds only the named files, once, despite the rule. The rule still ignores everything else it matches, and every checkout gets discern's wiring.",
-        owner_action: "Approve committing the named files.",
-        agent_action:
-          "Run `discern setup begin` with `--ignored-integration-files track-anyway`.",
-        recommended: true,
-      },
-      {
-        id: "keep-local",
-        label: "Keep them on this machine",
-        consequence:
-          "The files stay out of Git. Refresh and worktree setup regenerate them, but fresh clones and cloud agents lack discern's wiring until discern runs there.",
-        owner_action: "Keep the rule and keep the files local.",
-        agent_action:
-          "Run `discern setup begin` with `--ignored-integration-files keep-local`, which records the files in `[project].local_integration_files`.",
-        recommended: false,
-      },
-      {
-        id: "change-rule",
-        label: "Change the project's rule",
-        consequence:
-          "Once the rule stops matching the named files, setup commits them like any other file. What else the rule ignores stays the owner's choice.",
-        owner_action:
-          "Narrow or remove the rule, and commit that change before setup begins.",
-        agent_action:
-          "After the owner's commit, run `discern setup verify` again; setup then needs no extra option.",
-        recommended: false,
-      },
-    ],
-    relay: {
-      protection: "adaptive",
-      message:
-        "This project's ignore rules exclude files setup would commit for your coding tools: <files>. Should I commit just those files anyway, keep them on this machine only, or will you change the rule first? If they stay local, fresh clones and cloud agents start without discern's tools until discern runs there. I recommend committing them; the rule keeps ignoring everything else.",
-      experienced:
-        "Ignore rules exclude these integration files: <files>. Commit them anyway (recommended), keep them local, so fresh clones and cloud agents lack discern's wiring until it runs, or change the rule and repeat the preflight.",
     },
   },
   {

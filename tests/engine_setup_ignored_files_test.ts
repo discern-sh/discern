@@ -1,22 +1,20 @@
 /**
  * Setup in a project whose own ignore rules exclude the folders discern
  * writes tracked integration files into — the shape many editor and tool
- * `.gitignore` templates take. The preflight serves one owner decision,
- * `begin` applies each answer without a failed machinery commit and refuses
- * before any write without one, and `doctor` reports the outcome.
+ * `.gitignore` templates take. Nothing waits on the owner: the preflight
+ * discloses the files discern's `.gitignore` block will re-include, `begin`
+ * commits them like any other file, and a file that already held someone
+ * else's entries stays out of the commit for the coding agent to resolve.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import { trackedSharedProviderPaths } from "../src/lib/artifact_ownership.ts";
-import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { describeIgnoredFiles } from "../src/shared/ignored_integration.ts";
-import { discernCommand, flag } from "../src/shared/command_reference.ts";
+import { describePaths } from "../src/shared/ignored_integration.ts";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, gitOut, runAgent, type RunResult } from "./engine_helpers.ts";
+import { gitInit, gitOut, runAgent } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   assertResultDataKey,
@@ -29,9 +27,9 @@ type SetupBeginData = Exclude<
   { issues: unknown }
 >;
 
-/** The provider folder one agent's integration files live under. */
-const AGENT = "codex";
-const AGENT_PATHS = trackedSharedProviderPaths([AGENT]);
+/** The agents `begin` wires, and the integration files they expect tracked. */
+const AGENTS = ["claude_code", "codex"];
+const AGENT_PATHS = trackedSharedProviderPaths(AGENTS);
 
 /** A rule that excludes `path` the way a tool-folder template would. */
 function excludingRule(path: string): string {
@@ -49,63 +47,27 @@ const RULES = [
   ),
 ];
 
-/** A committed project whose `.gitignore` excludes every provider folder. */
-async function projectIgnoringToolFolders(dir: string): Promise<void> {
-  await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
-  await Deno.writeTextFile(join(dir, ".gitignore"), `${RULES.join("\n")}\n`);
-  await gitInit(dir);
-}
-
-/** The fixture rule excluding `path`, as Git reports it. */
-function fixtureRule(path: string): string {
-  const rule = excludingRule(path);
-  return `.gitignore:${RULES.indexOf(rule) + 1}: ${rule}`;
-}
-
-/** Run `setup begin` for the one fixture agent with the given extra flags. */
-async function begin(dir: string, ...extra: string[]): Promise<RunResult> {
-  return await runAgent(dir, [
-    "setup",
-    "begin",
-    "--name",
-    "Fixture",
-    "--agents",
-    AGENT,
-    "--model",
-    "unreported",
-    "--confirmed",
-    "--json",
-    ...extra,
-  ]);
-}
+/** One root-level integration file the fixture already holds, with another
+ * tool's entry, before setup. */
+const [HELD = ""] = AGENT_PATHS.filter((path) => !path.includes("/"));
 
 /** Decode setup-begin effect accounting, excluding configuration refusals. */
 function beginData(stdout: string): SetupBeginData {
   const result = decodeCliResult(stdout, "setup begin");
-  assertResultDataKey(result, "next_action");
+  assertResultDataKey(result, "complete");
   return result.data;
 }
 
-/** The integration paths Git tracks in `dir`. */
-async function trackedAgentPaths(dir: string): Promise<string[]> {
-  return (await gitOut(dir, "ls-files", "-z", "--", ...AGENT_PATHS))
-    .split("\0").filter((path) => path !== "");
-}
-
-Deno.test("verify serves the decision, begin refuses without a valid choice, then track-anyway commits the files", async () => {
+Deno.test("setup re-includes ignored integration files without asking and leaves a file with other entries to the agent", async () => {
+  assert(HELD !== "", "the fixture needs a root-level integration file");
   await withTempDir(async (dir) => {
-    await projectIgnoringToolFolders(dir);
-    const head = await gitOut(dir, "rev-parse", "HEAD");
-    /** Assert a refusal consumed nothing: same commit, branch, and clean tree. */
-    const assertUntouched = async (): Promise<void> => {
-      assertEquals(await gitOut(dir, "rev-parse", "HEAD"), head);
-      assertEquals(
-        (await gitOut(dir, "branch", "--show-current")).trim(),
-        "main",
-      );
-      assertEquals(await gitOut(dir, "status", "--porcelain", "-z"), "");
-      assertEquals(await targetExists(join(dir, "discern.toml")), false);
-    };
+    await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
+    await Deno.writeTextFile(join(dir, ".gitignore"), `${RULES.join("\n")}\n`);
+    await Deno.writeTextFile(
+      join(dir, HELD),
+      '{"mcpServers":{"other":{"command":"other-server"}}}\n',
+    );
+    await gitInit(dir);
 
     const verify = decodeCliResult(
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
@@ -114,98 +76,64 @@ Deno.test("verify serves the decision, begin refuses without a valid choice, the
     assertResultDataKey(verify, "phase");
     const findings = verify.data.findings;
     assert(findings !== undefined);
-    const expected = trackedSharedProviderPaths(findings.agents_effective);
+    const effective = trackedSharedProviderPaths(findings.agents_effective);
     assert(
-      expected.length > 0,
+      effective.length > 0,
       "precondition: the effective agents write files",
     );
     assertEquals(
       (findings.ignored_integration_files ?? []).map((file) => file.path),
-      expected,
+      effective,
     );
-    assert(
-      verify.data.conflicts?.some((c) =>
-        c.kind === "ignored_integration_files"
-      ),
-      JSON.stringify(verify.data.conflicts),
+    assertEquals(
+      findings.existing_integration_files ?? [],
+      effective.includes(HELD) ? [HELD] : [],
     );
     assertStringIncludes(
       verify.data.instructions ?? "",
-      "commit just those files",
+      "discern's `.gitignore` block re-includes just those files",
     );
-    assertStringIncludes(
-      verify.data.next_action,
-      "--ignored-integration-files track-anyway",
-    );
+    assert(!verify.data.next_action.includes("--ignored-integration-files"));
 
-    const invalid = await begin(
-      dir,
-      "--ignored-integration-files",
-      "change-rule",
-    );
-    assertEquals(invalid.code, 1, invalid.output);
-    assertEquals(
-      decodeCliResult(invalid.stdout, "setup begin").error,
-      "invalid_arguments",
-    );
-    await assertUntouched();
-
-    const unanswered = await begin(dir);
-    assertEquals(unanswered.code, 1, unanswered.output);
-    const refusal = decodeCliResult(unanswered.stdout, "setup begin");
-    assertEquals(refusal.error, "awaiting_decision");
-    assertHasHint(refusal, HINTS["setup-awaiting-ignored-files-choice"], {
-      files: describeIgnoredFiles(
-        AGENT_PATHS.map((path) => ({ path, rule: fixtureRule(path) })),
-      ),
-      track: discernCommand(
-        "setup begin",
-        flag("ignored-integration-files", "track-anyway"),
-      ),
-      keepLocal: discernCommand(
-        "setup begin",
-        flag("ignored-integration-files", "keep-local"),
-      ),
-    });
-    await assertUntouched();
-
-    const tracked = await begin(
-      dir,
-      "--ignored-integration-files",
-      "track-anyway",
-    );
-    assertEquals(tracked.code, 0, tracked.output);
-    const data = beginData(tracked.stdout);
-    assertEquals(data.machinery_committed, true, JSON.stringify(data));
-    assertEquals(data.ignored_integration_files, {
-      choice: "track-anyway",
-      paths: AGENT_PATHS,
-    });
-    assertEquals(
-      (await trackedAgentPaths(dir)).sort(),
-      [...AGENT_PATHS].sort(),
-    );
-    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertEquals(parseConfigOrThrow(toml).project.local_integration_files, []);
-  });
-});
-
-Deno.test("begin with keep-local commits the wiring without them and records the choice for doctor", async () => {
-  await withTempDir(async (dir) => {
-    await projectIgnoringToolFolders(dir);
-    const run = await begin(dir, "--ignored-integration-files", "keep-local");
+    const run = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--name",
+      "Fixture",
+      "--agents",
+      AGENTS.join(","),
+      "--model",
+      "unreported",
+      "--confirmed",
+      "--json",
+    ]);
     assertEquals(run.code, 0, run.output);
+    const result = decodeCliResult(run.stdout, "setup begin");
     const data = beginData(run.stdout);
     assertEquals(data.machinery_committed, true, JSON.stringify(data));
-    assertEquals(data.ignored_integration_files?.choice, "keep-local");
-    assertEquals(await trackedAgentPaths(dir), []);
-    for (const path of AGENT_PATHS) {
-      assert(await targetExists(join(dir, path)), `${path} stays on disk`);
-    }
-    const committed = parseConfigOrThrow(
-      await gitOut(dir, "show", "HEAD:discern.toml"),
+    assertEquals(data.existing_integration_files, [HELD]);
+    assertHasHint(result, HINTS["setup-existing-integration-files"], {
+      files: describePaths([HELD]),
+    });
+
+    const tracked = (await gitOut(dir, "ls-files", "-z", "--", ...AGENT_PATHS))
+      .split("\0").filter((path) => path !== "").sort();
+    assertEquals(tracked, AGENT_PATHS.filter((path) => path !== HELD).sort());
+    assertStringIncludes(
+      await gitOut(dir, "show", "HEAD:.gitignore"),
+      `!/${HELD}`,
     );
-    assertEquals(committed.project.local_integration_files, AGENT_PATHS);
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain", "--", HELD),
+      `?? ${HELD}`,
+    );
+
+    // Everything else the project's rules excluded stays excluded.
+    await Deno.writeTextFile(join(dir, ".codex", "other.json"), "{}\n");
+    assertEquals(
+      await gitOut(dir, "check-ignore", "--", ".codex/other.json"),
+      ".codex/other.json",
+    );
 
     const doctor = decodeCliResult(
       (await runAgent(dir, ["doctor", "--json"])).stdout,
@@ -216,6 +144,5 @@ Deno.test("begin with keep-local commits the wiring without them and records the
       c.name === "integration files"
     );
     assertEquals(check?.status, "ok", JSON.stringify(check));
-    assertStringIncludes(check?.detail ?? "", "kept out of Git");
   });
 });
