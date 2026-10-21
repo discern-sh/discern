@@ -165,7 +165,7 @@ discern owns only its marked block, plus any standalone rule outside it that exa
 The Shared provider files in the table above, such as `.mcp.json` or `.codex/config.toml`, are tracked, so a fresh clone loads discern's tools. Many `.gitignore` templates exclude whole editor and agent tool folders, which would keep these files out of Git. Before setup writes anything, its preflight asks Git, through `git check-ignore`, about each one the selected coding agents need, and you choose for any it excludes:
 
 - **Track anyway:** setup commits just those files, once, with `git add --force`. Ignore rules don't apply to tracked files, so your rule keeps ignoring everything else it matches.
-- **Keep local:** setup leaves them out of Git and lists them in `[project].local_integration_files`. Refresh and worktree setup still write them, but a fresh clone or cloud agent lacks them until discern runs there.
+- **Keep local:** setup leaves them out of Git and lists them in `[project].local_integration_files`, which is empty otherwise. Refresh and worktree setup still write them, but a fresh clone or cloud agent lacks them until discern runs there.
 - **Change the rule:** you narrow or remove your rule, and commit that, before setup begins.
 
 discern never edits your own ignore rules. `discern doctor` repeats the check under **integration files**: it warns about an excluded file that Git doesn't track and that isn't listed as kept local, and about a listed file that no longer needs its entry.
