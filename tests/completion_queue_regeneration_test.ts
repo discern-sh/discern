@@ -167,3 +167,20 @@ for (const [name, hook] of Object.entries(hooks)) {
     },
   );
 }
+
+Deno.test("update commits a regenerated tracked file beneath an ignored folder", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(join(root, ".gitignore"), ".tool/\n");
+    await gitInit(root);
+    await git(root, "config", "core.excludesFile", "/dev/null");
+    await Deno.mkdir(join(root, ".tool"));
+    await Deno.writeTextFile(join(root, ".tool", "config.json"), "before\n");
+    await git(root, "add", "--force", "--", ".tool/config.json");
+    await git(root, "commit", "-q", "-m", "tracked beneath an ignored folder");
+    await Deno.writeTextFile(join(root, ".tool", "config.json"), "after\n");
+    const result = await commitUpdateRegeneration(root, [".tool/config.json"]);
+    assert(result.success, result.stderr);
+    assertEquals(await gitOut(root, "status", "--porcelain", "-z"), "");
+    assertEquals(await gitOut(root, "show", "HEAD:.tool/config.json"), "after");
+  });
+});
