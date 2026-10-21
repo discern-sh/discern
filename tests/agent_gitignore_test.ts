@@ -19,7 +19,8 @@ import {
   reconcileDiscernGitignore,
   trackedDiscernIgnoredArtifacts,
 } from "../src/lib/agent_gitignore.ts";
-import { withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
+import { trackedSharedProviderPaths } from "../src/lib/artifact_ownership.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 import { agentArtifactPosture } from "../src/lib/providers.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
@@ -364,3 +365,54 @@ function assertOneDiscernBlock(text: string): void {
   assertEquals(text.match(new RegExp(DISCERN_GITIGNORE_BEGIN, "g"))?.length, 1);
   assertEquals(text.match(new RegExp(DISCERN_GITIGNORE_END, "g"))?.length, 1);
 }
+
+Deno.test("the block re-includes integration files the project's rules exclude, without claiming the project's lines", () => {
+  const paths = trackedSharedProviderPaths(["codex"]);
+  const reconcile = (existing: string): string =>
+    reconcileDiscernGitignore(
+      existing,
+      FRAGMENT,
+      agentArtifactPosture(),
+      fakeEnv(),
+      undefined,
+      paths,
+    ).text;
+  assertNamedCases({
+    "a project line matching an exception stays the project's":
+      (): undefined => {
+        const existing = "node_modules/\n.codex/\n/.codex/*\n";
+        const once = reconcile(existing);
+        assert(once.startsWith(existing), once);
+        assertStringIncludes(
+          once,
+          "!/.codex/\n/.codex/*\n!/.codex/config.toml",
+        );
+        assertEquals(
+          reconcile(once),
+          once,
+          "reconciling again changes nothing",
+        );
+      },
+    "no excluding rule renders no exceptions": (): undefined => {
+      const text = reconcile("node_modules/\n");
+      assert(!text.includes("!/"), text);
+    },
+    "the block keeps its place unless a later rule excludes a file":
+      (): undefined => {
+        const placed = reconcile("node_modules/\n.codex/\n");
+        const kept = reconcile(`${placed}coverage/\n`);
+        assert(kept.endsWith("coverage/\n"), kept);
+        const moved = reconcile(`${placed}.codex/hooks.json\n`);
+        assert(
+          moved.indexOf(".codex/hooks.json\n") <
+            moved.indexOf(DISCERN_GITIGNORE_BEGIN),
+          moved,
+        );
+        assert(moved.trimEnd().endsWith(DISCERN_GITIGNORE_END), moved);
+      },
+    "the gate's owned-artifact rules never include an exception":
+      (): undefined => {
+        assert(!canonicalDiscernGitignoreBlock(FRAGMENT).includes("!/"));
+      },
+  });
+});

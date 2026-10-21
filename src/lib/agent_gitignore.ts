@@ -10,7 +10,10 @@
  * (`skill_ownership.ts`, ADR 0425). The block is authored in
  * `templates/.gitignore.fragment`, widened from the provider registry, and
  * reconciled idempotently into existing installs by reconciling that exact owned
- * region and the exact rules discern declares as its own.
+ * region and the exact rules discern declares as its own. When the project's own
+ * rules exclude an integration file discern tracks, the block also re-includes
+ * exactly that file (ADR 0428), rendered from those rules and the configured
+ * agents alone so every checkout agrees.
  */
 
 import { isAbsolute, join, relative } from "@std/path";
@@ -30,6 +33,13 @@ import type { DiscernConfig } from "../shared/config_schema.ts";
 import { resolveWorktreeRoot } from "./worktree_root.ts";
 import { DISCERN_MANAGED_BLOCK } from "../shared/git_conventions.ts";
 import { discernOwnedSkillPaths, surveySkillsDirs } from "./skill_ownership.ts";
+import { trackedSharedProviderPaths } from "./artifact_ownership.ts";
+import {
+  ignoreVerdict,
+  parseIgnorePatterns,
+  reincludingRules,
+} from "./gitignore_patterns.ts";
+import { resolveConfiguredAgents } from "../shared/config_schema.ts";
 
 export const DISCERN_GITIGNORE_BEGIN = DISCERN_MANAGED_BLOCK.begin;
 export const DISCERN_GITIGNORE_END = DISCERN_MANAGED_BLOCK.end;
@@ -51,6 +61,15 @@ export interface GitignoreFileReconcileResult {
   operations: GitignoreReconcileOperation[];
   templateAvailable: boolean;
 }
+
+/** The reconciled file text beside the bytes it replaces, for refresh's plan. */
+export interface GitignoreFilePlan extends GitignoreReconcileResult {
+  existing: string | undefined;
+}
+
+/** The comment heading the re-included integration files inside the block. */
+const REINCLUDE_HEADING =
+  "# Integration files the rules above exclude, re-included so Git tracks them.";
 
 export interface TrackedDiscernIgnoredArtifacts {
   paths: string[];
@@ -104,6 +123,7 @@ export function canonicalDiscernGitignoreBlock(
   artifacts: AgentArtifactPosture = agentArtifactPosture(),
   env: EnvReader = Deno.env,
   nestedWorktreeRoot?: string,
+  reincluded: readonly string[] = [],
 ): string {
   const normalized = normalizeLineEndings(fragment).replace(/\n+$/, "");
   const lines = normalized === "" ? [] : normalized.split("\n");
@@ -144,34 +164,48 @@ export function canonicalDiscernGitignoreBlock(
       ...additions,
     );
   }
+  if (reincluded.length > 0) {
+    withoutEnd.push(REINCLUDE_HEADING, ...reincluded);
+  }
   return `${[...withoutEnd, DISCERN_GITIGNORE_END].join("\n")}\n`;
 }
 
-/** Reconcile one `.gitignore` text to the current discern-owned block. */
+/**
+ * Reconcile one `.gitignore` text to the current discern-owned block.
+ * `integrationPaths` are the files discern expects Git to track: the block
+ * re-includes those the project's rules above it exclude. Ownership is judged
+ * against the block without them, so a project's own matching line is never
+ * mistaken for discern's.
+ */
 export function reconcileDiscernGitignore(
   existing: string,
   fragment: string,
   artifacts: AgentArtifactPosture = agentArtifactPosture(),
   env: EnvReader = Deno.env,
   nestedWorktreeRoot?: string,
+  integrationPaths: readonly string[] = [],
 ): GitignoreReconcileResult {
   const eol = existing.includes("\r\n") ? "\r\n" : "\n";
   const normalized = normalizeLineEndings(existing);
-  const canonical = canonicalDiscernGitignoreBlock(
+  const owned = canonicalDiscernGitignoreBlock(
     fragment,
     artifacts,
     env,
     nestedWorktreeRoot,
   );
-  const canonicalLines = trimFinalSplit(canonical);
   const stripped = stripDiscernOwnedLines(
     trimFinalSplit(normalized),
-    canonical,
+    owned,
     artifacts,
   );
-  const insertionIndex = stripped.insertionIndex ?? stripped.lines.length;
-  const before = stripped.lines.slice(0, insertionIndex);
-  const after = stripped.lines.slice(insertionIndex);
+  const { before, after } = blockPlacement(stripped, integrationPaths);
+  const canonicalLines = trimFinalSplit(canonicalDiscernGitignoreBlock(
+    fragment,
+    artifacts,
+    env,
+    nestedWorktreeRoot,
+    reincludingRules(before, integrationPaths),
+  ));
 
   const combined: string[] = [];
   combined.push(...before);
@@ -209,26 +243,123 @@ export async function readGitignoreFragment(
   }
 }
 
+/**
+ * Where discern's block goes among the project's own lines. It keeps its place
+ * unless a project rule after it excludes an integration file: the last
+ * matching rule wins, so the block then moves to the end, where its exceptions
+ * can re-include the file. A file without the block yet gets it at the end.
+ */
+function blockPlacement(
+  stripped: StripResult,
+  integrationPaths: readonly string[],
+): { before: string[]; after: string[] } {
+  const index = stripped.insertionIndex ?? stripped.lines.length;
+  const before = stripped.lines.slice(0, index);
+  const after = stripped.lines.slice(index);
+  if (after.length === 0) return { before, after };
+  const patterns = parseIgnorePatterns([
+    ...before,
+    ...reincludingRules(before, integrationPaths),
+    ...after,
+  ]);
+  return integrationPaths.every((path) =>
+      ignoreVerdict(patterns, path) === undefined
+    )
+    ? { before, after }
+    : { before: stripped.lines, after: [] };
+}
+
+/** The project's own `.gitignore` lines the block's exceptions answer. */
+function projectRulesAboveBlock(
+  existing: string,
+  fragment: string,
+  artifacts: AgentArtifactPosture,
+  env: EnvReader,
+  integrationPaths: readonly string[],
+): string[] {
+  return blockPlacement(
+    stripDiscernOwnedLines(
+      trimFinalSplit(normalizeLineEndings(existing)),
+      canonicalDiscernGitignoreBlock(fragment, artifacts, env),
+      artifacts,
+    ),
+    integrationPaths,
+  ).before;
+}
+
+/**
+ * The integration files of these agents that the project's own rules above
+ * discern's block exclude, each with its deciding rule: exactly the files the
+ * block re-includes. Empty when the shipped fragment is unavailable.
+ */
+export async function reincludedIntegrationFiles(
+  destDir: string,
+  agents: readonly string[],
+  env: EnvReader = Deno.env,
+): Promise<{ path: string; rule: string }[]> {
+  const fragment = await readGitignoreFragment(env);
+  if (fragment === undefined) return [];
+  const paths = trackedSharedProviderPaths(agents);
+  const patterns = parseIgnorePatterns(projectRulesAboveBlock(
+    await readTextIfExists(join(destDir, TARGET_REL)) ?? "",
+    fragment,
+    agentArtifactPosture(),
+    env,
+    paths,
+  ));
+  return paths.flatMap((path) => {
+    const verdict = ignoreVerdict(patterns, path);
+    return verdict === undefined ? [] : [{
+      path,
+      rule: `${TARGET_REL}:${verdict.pattern.line}: ${verdict.pattern.text}`,
+    }];
+  });
+}
+
+/** The integration files the configured agents expect Git to track. */
+export function gitignoreIntegrationPaths(
+  config: DiscernConfig | undefined,
+): string[] {
+  return config === undefined
+    ? []
+    : trackedSharedProviderPaths(resolveConfiguredAgents(config));
+}
+
 /** Reconcile `<destDir>/.gitignore` in memory, or `undefined` when the shipped
  * fragment is unavailable. */
 async function reconcileGitignoreAt(
   destDir: string,
   config: DiscernConfig | undefined,
   env: EnvReader,
-): Promise<GitignoreReconcileResult | undefined> {
+): Promise<GitignoreFilePlan | undefined> {
   const fragment = await readGitignoreFragment(env);
   if (fragment === undefined) {
     return undefined;
   }
-  return reconcileDiscernGitignore(
-    await readTextIfExists(join(destDir, TARGET_REL)) ?? "",
-    fragment,
-    agentArtifactPosture(),
-    env,
-    config === undefined
-      ? undefined
-      : nestedWorktreeIgnorePath(destDir, config),
-  );
+  const existing = await readTextIfExists(join(destDir, TARGET_REL));
+  return {
+    ...reconcileDiscernGitignore(
+      existing ?? "",
+      fragment,
+      agentArtifactPosture(),
+      env,
+      config === undefined
+        ? undefined
+        : nestedWorktreeIgnorePath(destDir, config),
+      gitignoreIntegrationPaths(config),
+    ),
+    existing,
+  };
+}
+
+/** Plan `.gitignore` reconciliation with its text, for refresh's file effect;
+ * `undefined` when the shipped fragment is unavailable. */
+export async function planDiscernGitignoreFile(
+  destDir: string,
+  config: DiscernConfig,
+  env: EnvReader = Deno.env,
+): Promise<GitignoreFilePlan | undefined> {
+  return await reconcileGitignoreAt(destDir, config, env);
 }
 
 /** Project an in-memory reconciliation onto the file-level result. */

@@ -17,6 +17,7 @@ import {
   GITATTRIBUTES_REL,
   planDiscernGitattributesFile,
 } from "../lib/agent_gitattributes.ts";
+import { planDiscernGitignoreFile } from "../lib/agent_gitignore.ts";
 import {
   PlanningRefreshFileOps,
   type RefreshFileSnapshot,
@@ -53,10 +54,14 @@ import {
   planGeneratedMergeDriver,
 } from "./generated_merge_driver.ts";
 
+/** The root ignore file whose discern block refresh keeps current. */
+const GITIGNORE_REL = ".gitignore";
+
 /** Which tracked refresh transformation owns a proposed file effect. */
 export type TrackedRefreshArtifactKind =
   | "agent_file"
   | "gitattributes"
+  | "gitignore"
   | "mcp"
   | "hooks"
   | "worktree_app"
@@ -611,6 +616,36 @@ export async function planRefresh(
     });
   }
 
+  // discern's `.gitignore` block re-includes the integration files the
+  // project's own rules exclude, so it follows the configured agents.
+  try {
+    const ignore = await planDiscernGitignoreFile(root, config, env);
+    if (ignore !== undefined && ignore.operations.length > 0) {
+      const targetAbs = join(root, GITIGNORE_REL);
+      addFileEffect(
+        effects,
+        {
+          targetRel: GITIGNORE_REL,
+          targetAbs,
+          disposition: ignore.existing === undefined ? "create" : "update",
+          bytes: new TextEncoder().encode(ignore.text),
+          mode: await plannedFileMode(targetAbs),
+          bytesChanged: true,
+          modeChanged: false,
+        },
+        ["gitignore"],
+        ["gitignore"],
+        "gitignore",
+      );
+    }
+  } catch (error) {
+    errors.push({
+      message: `could not plan ${GITIGNORE_REL}: ${errText(error)}`,
+      boundary: "gitignore",
+      tracked: true,
+    });
+  }
+
   if (generatedMergeDriverRequired) {
     try {
       const driver = await planGeneratedMergeDriver(root, true);
@@ -662,7 +697,10 @@ function artifactGroup(effect: RefreshEffect): string {
     return "Clone-local Git configuration";
   }
   if (effect.artifacts.includes("adr_index")) return "Maintained ADR index";
-  if (effect.artifacts.includes("gitattributes")) return "Generated metadata";
+  if (
+    effect.artifacts.includes("gitattributes") ||
+    effect.artifacts.includes("gitignore")
+  ) return "Generated metadata";
   return "Provider integrations";
 }
 

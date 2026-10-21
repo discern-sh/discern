@@ -29,6 +29,7 @@ import {
   type TokenMap,
 } from "./template.ts";
 import {
+  gitignoreIntegrationPaths,
   nestedWorktreeIgnorePath,
   reconcileDiscernGitignore,
 } from "./agent_gitignore.ts";
@@ -383,6 +384,7 @@ export async function planGitignoreReconcile(
     config === undefined
       ? undefined
       : nestedWorktreeIgnorePath(destDir, config),
+    gitignoreIntegrationPaths(config),
   );
   const changed = reconciled.operations.length > 0;
 
