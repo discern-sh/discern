@@ -66,6 +66,14 @@ Provider-local state is ignored by exact registry path, leaving neighboring file
 
 The ignore reconciler owns only its marked block and exact standalone rules that the current provider-artifact registry declares. Similar broad or retired rules outside the block remain project-owned. When `[worktree].root` resolves inside the repository, the managed block also ignores that exact nested directory; the default sibling worktree root needs no repository rule.
 
+### Project rules that exclude tracked integration files
+
+Every shared file a provider declares is expected to be tracked; [`trackedSharedProviderPaths`](../../../src/lib/artifact_ownership.ts) derives that set from the registry, excluding skills directories and the agent files the setup agent commits itself. A project rule excluding one, common in tool-folder `.gitignore` templates, would make setup's machinery commit fail, and refresh would keep regenerating a copy only one checkout has. [`ignoredIntegrationFiles`](../../../src/lib/ignored_integration_files.ts) asks Git which of those paths a rule matches, independent of the index, and which Git tracks. Setup's preflight, `setup begin`, and `discern doctor` all read that one answer.
+
+An untracked match is an owner decision, never discern's ([ADR 0426](../_adr/0426-ignored-integration-files-are-an-owner-decision.md)). Committing anyway force-adds those files once. Keeping them local leaves them out of the machinery commit and records them in `[project].local_integration_files`, which doctor reads to tell a settled choice from a new match. Changing the rule happens before setup. discern never edits project ignore rules.
+
+Git stages a tracked file beneath an ignored folder but still exits 1, so the machinery commit and update's regeneration commit stage such paths with `--force`. Paths in the regeneration commit come from `git status`, which never lists an ignored untracked file, so the flag admits nothing new.
+
 ## Clone-local Git configuration
 
 [`DISCERN_GIT_CONFIG_FOOTPRINT`](../../../src/engine/git_footprint.ts) is the authority for every Git configuration entry discern writes.

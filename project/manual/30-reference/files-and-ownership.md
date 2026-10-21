@@ -23,16 +23,17 @@ Before you or your agent edit a file discern put in your project, this page tell
 
 Say you want every agent working on your recipe app to run the tests before it commits, so you open `AGENTS.md` to add that rule. `AGENTS.md` is a generated file: the next `discern refresh` rebuilds it from the project's instruction source, and your line would disappear. The rule belongs in `discern/instructions.md`, which is yours, and the refresh compiles it into every agent file.
 
-| Find                                | Go to                                                                   |
-| ----------------------------------- | ----------------------------------------------------------------------- |
-| Whether you can edit a file         | [The ownership contract](#the-ownership-contract)                       |
-| A particular file discern registers | [Registered project paths](#registered-project-paths)                   |
-| How Git treats discern's files      | [How Git treats registered paths](#how-git-treats-registered-paths)     |
-| Git settings discern writes         | [Clone-local Git configuration](#clone-local-git-configuration)         |
-| Records inside `.git`               | [Runtime state inside `.git`](#runtime-state-inside-git)                |
-| Refs discern creates                | [Git refs](#git-refs)                                                   |
-| Temporary files and crash reports   | [Temporary files and crash records](#temporary-files-and-crash-records) |
-| What uninstall removes and keeps    | [What uninstall removes and keeps](#what-uninstall-removes-and-keeps)   |
+| Find                                | Go to                                                                       |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| Whether you can edit a file         | [The ownership contract](#the-ownership-contract)                           |
+| A particular file discern registers | [Registered project paths](#registered-project-paths)                       |
+| How Git treats discern's files      | [How Git treats registered paths](#how-git-treats-registered-paths)         |
+| Files your own ignore rules exclude | [Integration files your rules ignore](#integration-files-your-rules-ignore) |
+| Git settings discern writes         | [Clone-local Git configuration](#clone-local-git-configuration)             |
+| Records inside `.git`               | [Runtime state inside `.git`](#runtime-state-inside-git)                    |
+| Refs discern creates                | [Git refs](#git-refs)                                                       |
+| Temporary files and crash reports   | [Temporary files and crash records](#temporary-files-and-crash-records)     |
+| What uninstall removes and keeps    | [What uninstall removes and keeps](#what-uninstall-removes-and-keeps)       |
 
 ## The ownership contract
 
@@ -158,6 +159,16 @@ discern ignores provider-local files by their exact registered paths, so neighbo
 You can add ignore rules for the agent files outside discern's block if you prefer, since the stale-copy check accepts a missing agent file.
 
 discern owns only its marked block, plus any standalone rule outside it that exactly matches one the current provider registry declares. Similar broad or retired rules outside the block stay yours. When `[worktree].root` resolves inside the repository, the block also ignores that exact directory. The default worktree location, beside the project, needs no rule.
+
+### Integration files your rules ignore
+
+The Shared provider files in the table above, such as `.mcp.json` or `.codex/config.toml`, are tracked, so a fresh clone loads discern's tools. Many `.gitignore` templates exclude whole editor and agent tool folders, which would keep these files out of Git. Before setup writes anything, its preflight asks Git, through `git check-ignore`, about each one the selected coding agents need, and you choose for any it excludes:
+
+- **Track anyway:** setup commits just those files, once, with `git add --force`. Ignore rules don't apply to tracked files, so your rule keeps ignoring everything else it matches.
+- **Keep local:** setup leaves them out of Git and lists them in `[project].local_integration_files`. Refresh and worktree setup still write them, but a fresh clone or cloud agent lacks them until discern runs there.
+- **Change the rule:** you narrow or remove your rule, and commit that, before setup begins.
+
+discern never edits your own ignore rules. `discern doctor` repeats the check under **integration files**: it warns about an excluded file that Git doesn't track and that isn't listed as kept local, and about a listed file that no longer needs its entry.
 
 ## Skills directories
 

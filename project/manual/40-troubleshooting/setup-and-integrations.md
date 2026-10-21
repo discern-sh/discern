@@ -21,6 +21,9 @@ aliases:
   - "schema_version_too_new"
   - "partial_refresh"
   - "unsupported platform"
+  - "awaiting_decision"
+  - "ignored integration files"
+  - "local_integration_files"
 ---
 
 # Setup and integrations
@@ -74,6 +77,26 @@ The result names the problem:
 | `no_repository`                                         | Setup needs a Git repository. Your agent asks before running `git init`.                         |
 | `missing_git_identity`: `No git identity is configured` | Set your Git name and email with `git config user.name` and `git config user.email`.             |
 | `write_denied`: `discern cannot write … at <path>`      | Nothing was written. Give discern write access to that path and retry.                           |
+
+## Your ignore rules exclude agent tool folders
+
+Many `.gitignore` templates exclude editor and agent tool folders. discern commits a few connection files into some of those folders, such as a coding tool's MCP settings, so every checkout of the project, including a cloud agent's, gets discern's tools. When one of your rules excludes such a file, `discern setup verify` names the file and the rule before anything is written:
+
+```text
+The project's ignore rules exclude integration files setup would commit: `.codex/config.toml`, `.codex/hooks.json`, `.codex/environments/environment.toml`, `.codex/rules/discern.rules` (.gitignore:1: .codex/).
+```
+
+Your agent then asks you to choose:
+
+| Choice                           | What happens                                                                                                                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Commit them anyway (recommended) | Setup commits only those files, once. Git keeps tracking them, and your rule still ignores everything else it matches.                                                                                        |
+| Keep them on this machine        | Setup leaves them out of Git and lists them in `[project].local_integration_files`. Refresh and new worktrees recreate them, but fresh clones and cloud agents lack discern's tools until discern runs there. |
+| Change the rule                  | You narrow or remove the rule and commit that change. Your agent then runs `discern setup verify` again, and setup asks nothing more.                                                                         |
+
+If your agent runs `discern setup begin` before you answer, it stops with `awaiting_decision` and writes nothing. discern never edits your own ignore rules.
+
+The same thing can happen later, when you add a coding agent whose folder you ignore. `discern doctor` then warns under **integration files** that `the project's ignore rules exclude` the file and `Git doesn't track` it, and offers the same three choices. It's settled when that check passes: each file is tracked, listed as kept local, or no longer excluded.
 
 ## Your discern is older than the project
 
