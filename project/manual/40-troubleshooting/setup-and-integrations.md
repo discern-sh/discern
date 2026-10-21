@@ -146,6 +146,27 @@ Refresh skips a settings file that isn't valid JSON and reports `malformed JSON`
 
 Refresh overwrites edits to these generated files, so change their source instead. [Files and ownership](../30-reference/files-and-ownership.md) shows which files are sources.
 
+## Another tool writes into an agent file
+
+An agent file is the instructions file a coding tool reads, such as `AGENTS.md` or `CLAUDE.md`. discern builds each one from its own instructions and your instruction sources. If another tool keeps a section of its own in that file, the two keep undoing each other: each refresh removes the section, and the tool adds it back the next time it runs. discern tells you when this happens instead of dropping the lines quietly.
+
+`discern done` stops with `agent file(s) hold lines no instruction source produces` and lists the lines. `discern refresh`, `discern prepare`, and every command that refreshes as it goes name each file that lost lines, with a count. `prepare` keeps refreshing while you decide, and its warning keeps every removed line, so none is lost.
+
+Your agent asks you where the lines belong:
+
+- **You wrote them.** Your agent moves them into a file listed in `[instructions].sources`, then refreshes.
+- **A tool maintains them.** Have the tool write into a file of its own. Your agent lists that file in `[instructions].sources` and declares it under [`[generated.<name>]`](../30-reference/config-reference.md#generatedname) with the command that rebuilds it. discern then reruns the tool and builds its output into every agent file.
+- **Neither.** Your agent refreshes, and the lines are gone.
+
+```toml
+[instructions]
+sources = ["discern/instructions.md", "docs/tool-notes.md"]
+
+[generated.tool-notes]
+paths = ["docs/tool-notes.md"]
+run = "tool write-notes --output docs/tool-notes.md"
+```
+
 ## The tools don't appear in the agent's session
 
 Coding agents load tools only when a session starts, so start a fresh session and ask your agent to call discern's status tool: `discern_status`, or `mcp__discern__discern_status` in Claude Code and Codex.

@@ -47,14 +47,15 @@ It's fixed when `discern done` ends with a Proof line for the new commit: `Gate 
 
 These results stop before any command runs:
 
-| What the result says                                                       | What your agent does                                                           |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `Completion requires a clean, committed tree — uncommitted:` and the files | Runs `discern prepare`, commits what belongs to the change, and retries.       |
-| `This branch is behind main.`                                              | Runs `discern update`, rereads files both changes touched, and retries.        |
-| `This change fired one checkpoint that requires your judgment`             | Answers it. See [A checkpoint needs an answer](#a-checkpoint-needs-an-answer). |
-| `Completion attempt <id> is still running for this worktree.`              | Reads that run back with `discern progress`.                                   |
-| `write_denied` and a path                                                  | Needs write access to that path, and asks you if its own permissions block it. |
-| `agent file(s) out of date` or `materialized skills out of date`           | Runs `discern refresh`, commits the result, and retries.                       |
+| What the result says                                                       | What your agent does                                                                                                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Completion requires a clean, committed tree — uncommitted:` and the files | Runs `discern prepare`, commits what belongs to the change, and retries.                                                                         |
+| `This branch is behind main.`                                              | Runs `discern update`, rereads files both changes touched, and retries.                                                                          |
+| `This change fired one checkpoint that requires your judgment`             | Answers it. See [A checkpoint needs an answer](#a-checkpoint-needs-an-answer).                                                                   |
+| `Completion attempt <id> is still running for this worktree.`              | Reads that run back with `discern progress`.                                                                                                     |
+| `write_denied` and a path                                                  | Needs write access to that path, and asks you if its own permissions block it.                                                                   |
+| `agent file(s) out of date` or `materialized skills out of date`           | Runs `discern refresh`, commits the result, and retries.                                                                                         |
+| `agent file(s) hold lines no instruction source produces`                  | Asks you where the lines belong. See [Another tool writes into an agent file](setup-and-integrations.md#another-tool-writes-into-an-agent-file). |
 
 `Current green Proof covers this exact tree; no gate job ran.` isn't a refusal: nothing changed since the last pass, so the Proof still applies.
 
