@@ -56,6 +56,15 @@ Do not edit a compiled file to fix its prose. The next refresh replaces that edi
 
 `discern done` runs the same currency check before the slower gate stages. A mismatch stops the gate early and names the generated files that need refreshing ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).
 
+## Lines no source produces
+
+Agent files stay whole-file generated outputs, so a refresh replaces every line no source produced. `agentFileDiscard` in [`instruction_render.ts`](../../../src/engine/instruction_render.ts) names those lines for the gate, status, and every refresh. It aligns the file with its recompiled body and sorts each lost line by where it stands:
+
+- **An edit** replaces a line the compile wrote, as a hand edit or a reflowing formatter does. The gate's remedy stays `discern refresh`.
+- **An added line** stands where the compiled body has nothing, as when another tool keeps its own block in the file. Here the gate's diagnostic and hint, and the status hint, offer the owner three choices: move lines they wrote into an instruction source; have the tool write into a file listed in `[instructions].sources`, declared under `[generated.<name>]` with the tool's regenerate command; or refresh and discard them.
+
+A line whose text survives elsewhere in the recompiled body counts as moved, never lost.
+
 ## Check each agent-copy source at its authority
 
 Operational procedures derive from the skill resolver and setup templates. A repository-only registry binds exact prose but never renders. Tests reject escaped metadata and apply generated `DiscernAgent` rules ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).
@@ -74,6 +83,7 @@ Operational procedures derive from the skill resolver and setup templates. A rep
 | Refresh plan and apply          | [`tracked_refresh.ts`](../../../src/engine/tracked_refresh.ts), [`instructions.ts`](../../../src/engine/instructions.ts) |
 | Canonical and pointer rendering | [`instruction_render.ts`](../../../src/engine/instruction_render.ts)                                                     |
 | Local Markdown link relocation  | [`markdown_links.ts`](../../../src/lib/markdown_links.ts)                                                                |
+| Lost-line alignment             | [`line_hunks.ts`](../../../src/lib/line_hunks.ts)                                                                        |
 | Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                                                                    |
 | Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                                                                          |
 | Operational-copy universe       | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)                                              |

@@ -12,6 +12,7 @@ import {
   defineHint,
   generatedDriftHint,
   restartSessionHint,
+  unsourcedAgentLineChoices,
 } from "./define.ts";
 
 /** The artifacts catalog, keyed by hint id. */
@@ -78,6 +79,21 @@ export const ARTIFACT_HINTS = {
         `Agent files are out of date (${paths}).`,
         "Make intended instructions changes in [instructions].sources. Refresh overwrites agent files.",
       ),
+  }),
+
+  /** Agent files hold lines a refresh would discard because no source makes them. */
+  "generated-agent-files-unsourced": defineHint<{ paths: string }>({
+    id: "generated-agent-files-unsourced",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A generated agent file holds lines that no instruction source produces.",
+    family: "generated-drift",
+    example: { paths: "AGENTS.md" },
+    template: ({ paths }): string =>
+      `Agent files hold lines that no instruction source produces (${paths}), and a refresh discards them. ${
+        unsourcedAgentLineChoices(`run ${CMD.refresh} to discard them.`)
+      }`,
   }),
 
   /** Missing materialized-skills context for the shared generated-drift remedy. */

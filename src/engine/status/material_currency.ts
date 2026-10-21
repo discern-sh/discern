@@ -151,9 +151,16 @@ function materialCurrencyHints(ctx: CurrencyEvidence): FiredHint[] {
     const allMissing = ctx.instructionDrift.every((d) =>
       d.reason === "missing"
     );
+    const unsourced = ctx.instructionDrift.filter((d) =>
+      (d.discard?.unsourced ?? 0) > 0
+    );
     hints.push(
       allMissing
         ? fire(HINTS["generated-agent-files-missing"], { paths })
+        : unsourced.length > 0
+        ? fire(HINTS["generated-agent-files-unsourced"], {
+          paths: unsourced.map((d) => d.path).join(", "),
+        })
         : fire(HINTS["generated-agent-files-stale"], { paths }),
     );
   }

@@ -1551,23 +1551,25 @@ Deno.test("status is pure observation: it mutates nothing and provisions no reso
   });
 });
 
-Deno.test("status: a drifted agent file is listed and hinted to refresh", async () => {
+Deno.test("status: a drifted agent file is listed and hinted to refresh, or to choose where added lines live", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]); // compile CLAUDE.md so it exists and is current
 
-    // Hand-edit the generated file → it no longer matches what `refresh` would write.
+    // Edit a compiled line → it no longer matches what `refresh` would write.
     const claudePath = join(dir, "CLAUDE.md");
+    const compiled = await Deno.readTextFile(claudePath);
+    const firstLine = compiled.split("\n")[0] ?? "";
     await Deno.writeTextFile(
       claudePath,
-      `${await Deno.readTextFile(claudePath)}\n<!-- a stray hand edit -->\n`,
+      compiled.replace(firstLine, `${firstLine} <!-- a stray hand edit -->`),
     );
 
-    const r = await runAgent(dir, ["status", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const obj = parseStatus(r.stdout);
-    assertHasHint(obj, HINTS["generated-agent-files-stale"], {
+    const edited = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    assertHasHint(edited, HINTS["generated-agent-files-stale"], {
       paths: "CLAUDE.md",
     });
     // status is read-only — it must NOT silently regenerate the drifted file.
@@ -1575,6 +1577,21 @@ Deno.test("status: a drifted agent file is listed and hinted to refresh", async 
       (await Deno.readTextFile(claudePath)).includes("a stray hand edit"),
       "status must not rewrite the generated file",
     );
+
+    // Lines no source produces leave the owner a choice, not just a refresh.
+    await Deno.writeTextFile(
+      claudePath,
+      `${compiled}\n<!-- a block another process keeps -->\n`,
+    );
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const added = parseStatus(r.stdout);
+    assertHasHint(added, HINTS["generated-agent-files-unsourced"], {
+      paths: "CLAUDE.md",
+    });
+    assertLacksHint(added, HINTS["generated-agent-files-stale"], {
+      paths: "CLAUDE.md",
+    });
   });
 });
 

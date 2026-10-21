@@ -217,7 +217,7 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
 });
 
 // These mutable integrity fixtures explicitly request transient diagnostics.
-Deno.test("done --standalone --json: a STALE agent file fails the instruction check; refresh fixes it", async () => {
+Deno.test("done --standalone --json: a STALE agent file fails the instruction check — added lines name the owner's choices, an edit the plain refresh; refresh fixes it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -229,17 +229,24 @@ Deno.test("done --standalone --json: a STALE agent file fails the instruction ch
       0,
     );
 
-    // Hand-edit the generated file → stale → the gate blocks.
+    // Another process adds lines of its own → stale → the gate blocks and
+    // names where such lines can live instead.
     const claudePath = join(dir, "CLAUDE.md");
+    const compiled = await Deno.readTextFile(claudePath);
     await Deno.writeTextFile(
       claudePath,
-      `${await Deno.readTextFile(claudePath)}\nstray hand edit\n`,
+      `${compiled}\n<!-- maintained block -->\nstray added line\n`,
     );
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "instructions");
+    const choices = assertHasHint(
+      obj,
+      HINTS["gate-failure-instructions-unsourced"],
+    );
+    assertLacksHint(obj, HINTS["gate-failure-instructions"]);
     const diag = diagFor(obj, "instructions");
     assert(
       diag !== undefined,
@@ -247,9 +254,27 @@ Deno.test("done --standalone --json: a STALE agent file fails the instruction ch
     );
     assert(diag.output !== undefined);
     assertEquals(diag.reproduce_cmd, "discern refresh");
-    assertStringIncludes(diag.output, "CLAUDE.md");
-    assertStringIncludes(diag.output, "[instructions].sources"); // the redirect
-    assertTerminalTextIncludes(diag.output, "stray hand edit"); // the diff shows the loss
+    assertEquals(
+      diag.message,
+      "agent file(s) hold lines no instruction source produces: CLAUDE.md",
+    );
+    assertTerminalTextIncludes(diag.output, choices);
+    assertTerminalTextIncludes(diag.output, "stray added line"); // the diff shows the loss
+
+    // An edit to a line the compile wrote is the ordinary drift: refresh it.
+    const firstLine = compiled.split("\n")[0] ?? "";
+    await Deno.writeTextFile(
+      claudePath,
+      compiled.replace(firstLine, `${firstLine} (edited)`),
+    );
+    const edited = decodeGateResult(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
+    );
+    assertHasHint(edited, HINTS["gate-failure-instructions"]);
+    assertLacksHint(edited, HINTS["gate-failure-instructions-unsourced"]);
+    const editDiag = diagFor(edited, "instructions");
+    assertEquals(editDiag?.message, "agent file(s) out of date: CLAUDE.md");
+    assertStringIncludes(editDiag?.output ?? "", "[instructions].sources"); // the redirect
 
     // Regenerating satisfies the check — the gate passes again.
     await runAgent(dir, ["refresh"]);

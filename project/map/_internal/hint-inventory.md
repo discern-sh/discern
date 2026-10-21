@@ -711,6 +711,17 @@ Rendered example:
 
 > Run `discern refresh`, then re-run the current discern command. If the instructions must change, edit `[instructions].sources`. Refresh overwrites agent files.
 
+## `gate-failure-instructions-unsourced`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: The gate finds agent-file lines that no instruction source produces.
+
+Rendered example:
+
+> Agent files hold lines that no instruction source produces, and a refresh discards them. If you wrote them, move them into a file listed in `[instructions].sources`. If a tool maintains them, configure that tool to write into a file listed in `[instructions].sources`, and declare that file under `[generated.<name>]` with the tool's regenerate command as `run`; `discern docs config-reference` describes both tables. Otherwise, run `discern refresh` to discard them. Then re-run the current discern command.
+
 ## `gate-failure-map-integrity`
 
 - Category: `next-step`
@@ -1051,6 +1062,17 @@ Rendered example:
 Rendered example:
 
 > Run `discern refresh` to restore discern-managed artifacts. Agent files are out of date (AGENTS.md, CLAUDE.md). Make intended instructions changes in [instructions].sources. Refresh overwrites agent files.
+
+## `generated-agent-files-unsourced`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `generated-drift`
+- Emitting context: A generated agent file holds lines that no instruction source produces.
+
+Rendered example:
+
+> Agent files hold lines that no instruction source produces (AGENTS.md), and a refresh discards them. If you wrote them, move them into a file listed in `[instructions].sources`. If a tool maintains them, configure that tool to write into a file listed in `[instructions].sources`, and declare that file under `[generated.<name>]` with the tool's regenerate command as `run`; `discern docs config-reference` describes both tables. Otherwise, run `discern refresh` to discard them.
 
 ## `gotchas-matcher-invalid`
 

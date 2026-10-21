@@ -186,7 +186,10 @@ import {
   type LandingAuthorityResolution,
 } from "../worktree/landing_authority.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
-import { checkInstructionCurrent } from "../instruction_render.ts";
+import {
+  checkInstructionCurrent,
+  hasUnsourcedAgentLines,
+} from "../instruction_render.ts";
 import { checkSkillsCurrent, checkSkillsWellformed } from "../../lib/skills.ts";
 import { trackedDiscernIgnoredArtifacts } from "../../lib/agent_gitignore.ts";
 import {
@@ -555,12 +558,18 @@ async function runCandidateGate(
   //     file only (a MISSING one is tolerated: a tree that has not built them yet, or a
   //     project that deliberately keeps them untracked — see ADR 0034/0128).
   let instructionDiag: Diagnostic | undefined;
+  // A failed stage whose remedy depends on what it found names it here; every
+  // other stage takes its registered remedy.
+  let failureRemedies: FiredHint[] | undefined;
   if (failedStage === null) {
     const stale = (await checkInstructionCurrent(root, cfg))
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
       failedStage = "instructions";
       instructionDiag = await instructionDiagnostic(root, stale);
+      if (hasUnsourcedAgentLines(stale)) {
+        failureRemedies = [fire(HINTS["gate-failure-instructions-unsourced"])];
+      }
     }
   }
 
@@ -717,7 +726,6 @@ async function runCandidateGate(
   let scopeDriftDiag: Diagnostic | undefined;
   let validationInputsDiag: Diagnostic | undefined;
   let generatedDiagnostics: Diagnostic[] = [];
-  let generatedFailureRemedies: FiredHint[] | undefined;
   if (failedStage === null) {
     const configured = await configuredValidation(cfg, changed);
     const generatedBoundary = createGeneratedBuildBoundary(
@@ -811,7 +819,7 @@ async function runCandidateGate(
     }
     if (validationRun !== undefined) {
       generatedDiagnostics = generatedBoundary.diagnostics;
-      generatedFailureRemedies = generatedBoundary.hints;
+      failureRemedies = generatedBoundary.hints;
       for (const [label, result] of validationRun.results) {
         results.set(label, result);
       }
@@ -883,7 +891,7 @@ async function runCandidateGate(
     plan,
     results,
     failedStage,
-    generatedFailureRemedies,
+    failureRemedies,
   );
   if (slots?.waitedMs !== undefined) {
     result.waitedMs = slots.waitedMs;

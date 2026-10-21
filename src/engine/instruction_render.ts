@@ -48,6 +48,7 @@ import { normalizeMapDir } from "../shared/map_path.ts";
 import { discoverDocs, docRegions } from "../lib/docs.ts";
 import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
 import { readTextIfExists } from "../shared/fs_presence.ts";
+import { lineHunks } from "../lib/line_hunks.ts";
 
 /** Opaque insertion point owned by the map instruction renderer, not the template
  * language. Keeping it outside `{{...}}` preserves the shared config-only
@@ -433,6 +434,46 @@ export function agentFilePaths(config: DiscernConfig): string[] {
   ];
 }
 
+/**
+ * What overwriting one agent file with its recompiled body throws away. Every
+ * writer and checker derives it through {@link agentFileDiscard}, so the gate's
+ * drift diagnostic and each refresh's discard report name the same lines.
+ */
+export interface AgentFileDiscard {
+  /** Every non-blank line on disk that the recompiled body lacks, in file order. */
+  readonly lines: readonly string[];
+  /**
+   * How many of {@link lines} stand where the recompiled body has nothing:
+   * content no configured source produces, as opposed to an edit to a line the
+   * compile wrote. Only this kind leaves the owner a choice about where it lives.
+   */
+  readonly unsourced: number;
+}
+
+/**
+ * The lines a refresh discards when it replaces `actual` with `expected`: the
+ * one comparison behind the gate's drift diagnostic and every writer's discard
+ * report. A line whose text survives elsewhere in the recompiled body moved
+ * rather than vanished, so it is never reported. PURE.
+ */
+export function agentFileDiscard(
+  expected: string,
+  actual: string,
+): AgentFileDiscard {
+  const kept = new Set(expected.split("\n"));
+  const lines: string[] = [];
+  let unsourced = 0;
+  for (const hunk of lineHunks(expected.split("\n"), actual.split("\n"))) {
+    const editsCompiledText = hunk.removed.some((line) => line.trim() !== "");
+    for (const line of hunk.added) {
+      if (line.trim() === "" || kept.has(line)) continue;
+      lines.push(line);
+      if (!editsCompiledText) unsourced++;
+    }
+  }
+  return { lines, unsourced };
+}
+
 /** One agent file that does not match what `refresh` would write. */
 export interface InstructionDriftEntry {
   /** Project-relative path of the generated file. */
@@ -440,14 +481,24 @@ export interface InstructionDriftEntry {
   /**
    * `missing` — absent on disk (tolerated: a tree that has not built them yet,
    * or a project that deliberately keeps them untracked); `stale` — present but
-   * its bytes differ from the recompiled body (a real drift: a hand-edit, or an
-   * un-refreshed source/config change).
+   * its bytes differ from the recompiled body (a real drift: a hand-edit, an
+   * un-refreshed source/config change, or another tool writing into the file).
    */
   reason: "missing" | "stale";
   /** What `refresh` would write. */
   expected: string;
   /** The current on-disk bytes — present only when `reason` is `stale`. */
   actual?: string;
+  /** What a refresh would throw away — present only when `reason` is `stale`. */
+  discard?: AgentFileDiscard;
+}
+
+/** Whether any drift holds lines that no instruction source produces: the case
+ * where the owner, not a refresh, decides where those lines belong. */
+export function hasUnsourcedAgentLines(
+  stale: readonly InstructionDriftEntry[],
+): boolean {
+  return stale.some((entry) => (entry.discard?.unsourced ?? 0) > 0);
 }
 
 /**
@@ -469,7 +520,13 @@ export async function checkInstructionCurrent(
       continue;
     }
     if (actual !== expected) {
-      drift.push({ path: rel, reason: "stale", expected, actual });
+      drift.push({
+        path: rel,
+        reason: "stale",
+        expected,
+        actual,
+        discard: agentFileDiscard(expected, actual),
+      });
     }
   }
   return drift;

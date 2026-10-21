@@ -17,23 +17,25 @@ import {
   type DocsIntegrityFinding,
   type DocsIntegrityRule,
 } from "../../lib/map_integrity.ts";
+import { fire, HINTS } from "../../shared/hints.ts";
 import type { Diagnostic } from "../../shared/result.ts";
-import type { InstructionDriftEntry } from "../instruction_render.ts";
+import {
+  hasUnsourcedAgentLines,
+  type InstructionDriftEntry,
+} from "../instruction_render.ts";
 import type { TrackedRefreshPlan } from "../tracked_refresh.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 
 /** A bounded summary of lines a tracked refresh would remove. */
 function driftDiff(entry: InstructionDriftEntry): string {
-  const expected = new Set(entry.expected.split("\n"));
-  const added = (entry.actual ?? "").split("\n")
-    .filter((line) => line.trim() !== "" && !expected.has(line));
-  const shown = added.slice(0, 12).map((line) => `  + ${line}`);
-  if (added.length > shown.length) {
-    shown.push(`  … and ${added.length - shown.length} more line(s)`);
+  const lost = entry.discard?.lines ?? [];
+  const shown = lost.slice(0, 12).map((line) => `  + ${line}`);
+  if (lost.length > shown.length) {
+    shown.push(`  … and ${lost.length - shown.length} more line(s)`);
   }
   const head =
     `${entry.path}: differs from what \`discern refresh\` would write.`;
-  return added.length > 0
+  return lost.length > 0
     ? `${head}\n  These lines are in the file but not the recompiled output (a refresh removes them):\n${
       shown.join("\n")
     }`
@@ -46,18 +48,23 @@ export async function instructionDiagnostic(
   stale: InstructionDriftEntry[],
 ): Promise<Diagnostic> {
   const files = stale.map((entry) => entry.path).join(", ");
+  const unsourced = hasUnsourcedAgentLines(stale);
+  const remedy = unsourced
+    ? fire(HINTS["gate-failure-instructions-unsourced"]).text
+    : "Run `discern refresh` to regenerate them. If you meant to change the " +
+      "instructions, edit your [instructions].sources (e.g. instructions.md) instead — a direct " +
+      "edit to a generated file is overwritten on the next refresh.";
   const outputFields = await diagnosticOutputFields(
     root,
-    `Agent files are out of date: ${files}.\n` +
-      "Run `discern refresh` to regenerate them. If you meant to change the " +
-      "instructions, edit your [instructions].sources (e.g. instructions.md) instead — a direct " +
-      "edit to a generated file is overwritten on the next refresh.\n\n" +
+    `Agent files are out of date: ${files}.\n${remedy}\n\n` +
       stale.map(driftDiff).join("\n\n"),
   );
   return {
     tool: "instructions",
     severity: "error",
-    message: `agent file(s) out of date: ${files}`,
+    message: unsourced
+      ? `agent file(s) hold lines no instruction source produces: ${files}`
+      : `agent file(s) out of date: ${files}`,
     reproduce_cmd: "discern refresh",
     ...outputFields,
   };

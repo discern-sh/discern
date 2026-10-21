@@ -34,6 +34,7 @@ import {
   OWNER_STATUS_VERBOSE,
   reasonSuffix,
   setupUnfinishedHint,
+  unsourcedAgentLineChoices,
 } from "./define.ts";
 
 /** The gate catalog, keyed by hint id. */
@@ -904,6 +905,22 @@ export const GATE_HINTS = {
     example: undefined,
     template: (): string =>
       `Run ${CMD.refresh}, then re-run the current discern command. If the instructions must change, edit \`[instructions].sources\`. Refresh overwrites agent files.`,
+  }),
+
+  /** Compiled agent files hold lines that no instruction source produces. */
+  "gate-failure-instructions-unsourced": defineHint({
+    id: "gate-failure-instructions-unsourced",
+    category: "next-step",
+    audience: "all",
+    when:
+      "The gate finds agent-file lines that no instruction source produces.",
+    family: "gate-failure-remedy",
+    example: undefined,
+    template: (): string =>
+      "Agent files hold lines that no instruction source produces, and a refresh discards them. " +
+      unsourcedAgentLineChoices(
+        `run ${CMD.refresh} to discard them. Then re-run the current discern command.`,
+      ),
   }),
 
   /** Materialized skills differ from the effective authored set. */

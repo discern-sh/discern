@@ -11,6 +11,7 @@ import {
   discernCommand,
   flag,
   ownerDiscernCommand,
+  positional,
 } from "../command_reference.ts";
 
 /**
@@ -224,6 +225,21 @@ export function generatedDriftHint(context: string, followUp?: string): string {
   return `${GENERATED_DRIFT_CORE} ${context}${
     followUp === undefined ? "" : ` ${followUp}`
   }`;
+}
+
+/**
+ * Where agent-file lines that no instruction source produces can live. The
+ * gate, status, refresh, and setup each meet such lines and offer the same
+ * three choices; `otherwise` completes the last one in the caller's tense.
+ */
+export function unsourcedAgentLineChoices(otherwise: string): string {
+  return "If you wrote them, move them into a file listed in " +
+    "`[instructions].sources`. If a tool maintains them, configure that tool " +
+    "to write into a file listed in `[instructions].sources`, and declare " +
+    "that file under `[generated.<name>]` with the tool's regenerate command " +
+    `as \`run\`; ${
+      discernCommand("docs", positional("target", "config-reference"))
+    } describes both tables. Otherwise, ${otherwise}`;
 }
 
 /** Shared lifecycle fact behind every restart-session action. */

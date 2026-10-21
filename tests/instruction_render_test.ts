@@ -9,6 +9,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { compileInstructions } from "../src/engine/instructions.ts";
 import {
+  agentFileDiscard,
   agentFileOwnershipPatterns,
   checkInstructionCurrent,
   instructionContext,
@@ -20,6 +21,7 @@ import { OPERATING_POLICIES } from "../src/shared/operating_policies.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import { defaultMapPath } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertNamedCases } from "./assert_cases.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
@@ -343,6 +345,72 @@ Deno.test("checkInstructionCurrent: clean after a compile; flags a hand-edit sta
     const missing = afterDelete[0];
     assert(missing !== undefined);
     assertEquals([missing.path, missing.reason], ["CLAUDE.md", "missing"]);
+  }, { prefix: "discern-render-test-" });
+});
+
+Deno.test("agentFileDiscard: separates content no source produces from edits to compiled lines", () => {
+  const compiled = "# Rules\n\nKeep tests green.\n\n## Map\n\nRead the map.\n";
+  assertNamedCases({
+    "a block another process appends is unsourced": () => {
+      assertEquals(
+        agentFileDiscard(
+          compiled,
+          `${compiled}\n## Notes kept elsewhere\n\n- Item one\n`,
+        ),
+        { lines: ["## Notes kept elsewhere", "- Item one"], unsourced: 2 },
+      );
+    },
+    "a block inserted between compiled sections is unsourced": () => {
+      assertEquals(
+        agentFileDiscard(
+          compiled,
+          compiled.replace("## Map", "Inserted line\n\n## Map"),
+        ),
+        { lines: ["Inserted line"], unsourced: 1 },
+      );
+    },
+    "an edit to a compiled line is lost but not unsourced": () => {
+      assertEquals(
+        agentFileDiscard(
+          compiled,
+          compiled.replace("Keep tests green.", "Keep every test green."),
+        ),
+        { lines: ["Keep every test green."], unsourced: 0 },
+      );
+    },
+    "a reflowed paragraph is an edit": () => {
+      assertEquals(
+        agentFileDiscard(
+          compiled,
+          compiled.replace("Read the map.", "Read\nthe map."),
+        ),
+        { lines: ["Read", "the map."], unsourced: 0 },
+      );
+    },
+    "missing compiled content and moved lines lose nothing": () => {
+      assertEquals(
+        agentFileDiscard(compiled, "# Rules\n\nRead the map.\n"),
+        { lines: [], unsourced: 0 },
+      );
+    },
+  });
+});
+
+Deno.test("checkInstructionCurrent: a stale entry carries what a refresh would discard", async () => {
+  await withTempDir(async (dir) => {
+    await scaffold(dir);
+    await compileInstructions(dir);
+    const agentsPath = join(dir, "AGENTS.md");
+    const original = await Deno.readTextFile(agentsPath);
+    await Deno.writeTextFile(
+      agentsPath,
+      `${original}\n<!-- block kept by another process -->\nA maintained line.\n`,
+    );
+    const [stale] = await checkInstructionCurrent(dir);
+    assertEquals(stale?.discard, {
+      lines: ["<!-- block kept by another process -->", "A maintained line."],
+      unsourced: 2,
+    });
   }, { prefix: "discern-render-test-" });
 });
 
