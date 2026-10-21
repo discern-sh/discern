@@ -286,4 +286,9 @@ Deno.test("doctor separates undecided, kept-local, and stale integration files",
   await withTempDir(async (dir) => {
     assertEquals(await integrationFileChecks(dir, config([])), []);
   });
+  await withTempDir(async (dir) => {
+    await ignoringRepo(dir, [...new Set(paths.map(excludingRule))]);
+    const noAgents = parseConfigOrThrow("[project]\nagents = []\n");
+    assertEquals(await integrationFileChecks(dir, noAgents), []);
+  });
 });

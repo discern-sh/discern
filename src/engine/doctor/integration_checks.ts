@@ -25,13 +25,15 @@ const INTEGRATION_FILES = "integration files";
 const KEPT_LOCAL_KEY = "[project].local_integration_files";
 
 /** One check comparing Git's ignore verdicts on the configured agents'
- * integration files with the recorded keep-local choice; empty outside a Git
- * repository, where Git cannot answer. */
+ * integration files with the recorded keep-local choice; empty when those
+ * agents write none, or outside a Git repository, where Git cannot answer. */
 export async function integrationFileChecks(
   root: string,
   config: DiscernConfig,
 ): Promise<DoctorDraftCheck[]> {
   const agents = resolveConfiguredAgents(config);
+  const total = trackedSharedProviderPaths(agents).length;
+  if (total === 0) return [];
   const matched = await ignoredIntegrationFiles(root, agents);
   if (matched === undefined) return [];
   const listed = new Set(config.project.local_integration_files);
@@ -81,7 +83,6 @@ export async function integrationFileChecks(
       fix: fixes.join("; "),
     }];
   }
-  const total = trackedSharedProviderPaths(agents).length;
   return [{
     name: INTEGRATION_FILES,
     ok: true,
