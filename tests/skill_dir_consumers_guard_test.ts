@@ -5,7 +5,8 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { dirname, join, normalize } from "@std/path";
-import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import { Node, SyntaxKind } from "ts-morph";
+import { accessorSites, parseSource } from "./call_site_scan.ts";
 import { allSkillsDirs } from "../src/lib/providers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -17,100 +18,15 @@ import {
 } from "./skill_dir_consumers.ts";
 
 const ACCESSORS = new Set(SKILL_DIR_ACCESSORS);
-const PROJECT = new Project({
-  compilerOptions: { noLib: true },
-  useInMemoryFileSystem: true,
-  skipAddingFilesFromTsConfig: true,
-});
-
-/** Parse one source into the shared in-memory project. */
-function parse(path: string, text: string): SourceFile {
-  return PROJECT.createSourceFile(path, text, { overwrite: true });
-}
-
-/** Whether an identifier names a declaration rather than reading the accessor. */
-function isDeclarationName(id: Node): boolean {
-  const parent = id.getParent();
-  if (parent === undefined) return true;
-  if (Node.isImportSpecifier(parent) || Node.isExportSpecifier(parent)) {
-    return true;
-  }
-  if (Node.isBindingElement(parent) && parent.getNameNode() === id) {
-    return true;
-  }
-  return (Node.isFunctionDeclaration(parent) ||
-    Node.isMethodDeclaration(parent) ||
-    Node.isPropertySignature(parent) ||
-    Node.isPropertyAssignment(parent) ||
-    Node.isVariableDeclaration(parent)) &&
-    parent.getNameNode() === id;
-}
-
-/** Name the function, or the top-level binding, a node sits in. */
-function enclosingName(node: Node, file: SourceFile): string {
-  for (let current = node.getParent(); current; current = current.getParent()) {
-    if (
-      Node.isFunctionDeclaration(current) || Node.isMethodDeclaration(current)
-    ) {
-      return current.getName() ?? "<anonymous>";
-    }
-    if (Node.isArrowFunction(current) || Node.isFunctionExpression(current)) {
-      const holder = current.getParent();
-      if (
-        holder !== undefined &&
-        (Node.isVariableDeclaration(holder) ||
-          Node.isPropertyAssignment(holder))
-      ) {
-        return holder.getName();
-      }
-    }
-    if (
-      Node.isVariableDeclaration(current) &&
-      current.getVariableStatement()?.getParent() === file
-    ) {
-      return current.getName();
-    }
-  }
-  return "<module>";
-}
-
-/** The accessor names plus every local alias a source binds to one, through an
- * aliased import or an aliased destructuring pattern. */
-function accessorNames(file: SourceFile): Set<string> {
-  const names = new Set(ACCESSORS);
-  for (const named of file.getDescendantsOfKind(SyntaxKind.ImportSpecifier)) {
-    const alias = named.getAliasNode();
-    if (alias !== undefined && ACCESSORS.has(named.getName())) {
-      names.add(alias.getText());
-    }
-  }
-  for (const binding of file.getDescendantsOfKind(SyntaxKind.BindingElement)) {
-    const property = binding.getPropertyNameNode();
-    if (property !== undefined && ACCESSORS.has(property.getText())) {
-      names.add(binding.getName());
-    }
-  }
-  return names;
-}
 
 /** The `<module>#<function>` sites that read a skills-directory accessor. */
-function accessorSites(path: string, text: string): string[] {
-  const file = parse(path, text);
-  const names = accessorNames(file);
-  const sites = new Set<string>();
-  for (const id of file.getDescendantsOfKind(SyntaxKind.Identifier)) {
-    if (!names.has(id.getText()) || isDeclarationName(id)) continue;
-    if (id.getFirstAncestor((node) => Node.isJSDoc(node)) !== undefined) {
-      continue;
-    }
-    sites.add(`${path}#${enclosingName(id, file)}`);
-  }
-  return [...sites].sort();
+function skillDirSites(path: string, text: string): string[] {
+  return accessorSites(path, text, ACCESSORS);
 }
 
 /** The names a source imports from the ownership module, or `undefined`. */
 function ownershipImports(path: string, text: string): string[] | undefined {
-  const file = parse(path, text);
+  const file = parseSource(path, text);
   let names: string[] | undefined;
   for (const declaration of file.getImportDeclarations()) {
     const specifier = declaration.getModuleSpecifierValue();
@@ -132,7 +48,7 @@ function skillDirLiterals(
   text: string,
   dirs: readonly string[],
 ): string[] {
-  const file = parse(path, text);
+  const file = parseSource(path, text);
   const found: string[] = [];
   const literals = [
     ...file.getDescendantsOfKind(SyntaxKind.StringLiteral),
@@ -171,7 +87,7 @@ Deno.test("every shipped skills-directory accessor use is an enrolled consumer, 
     })
   ) {
     for (
-      const site of accessorSites(
+      const site of skillDirSites(
         path,
         await Deno.readTextFile(join(REPO_ROOT, path)),
       )
@@ -296,7 +212,7 @@ Deno.test("the consumer scanners find uses, importers, and literals and skip dec
     "}",
   ].join("\n");
   const path = "src/commands/fixture.ts";
-  assertEquals(accessorSites(path, fixture), [
+  assertEquals(skillDirSites(path, fixture), [
     `${path}#aliased`,
     `${path}#lazy`,
     `${path}#list`,
