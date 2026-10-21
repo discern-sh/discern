@@ -554,7 +554,9 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     executeDeskOperation(
       ctx.cwd,
       { command: "worktree setup" },
-      () => worktreeSetup(ctx),
+      async () => {
+        await worktreeSetup(ctx);
+      },
     ),
   setupPlan: (ctx) => worktreeSetupPlan(ctx),
   drop: (ctx, target, opts) =>

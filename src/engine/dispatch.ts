@@ -1218,8 +1218,9 @@ export function attachEngineCommands(
         }
       }
       return await runWorktreeOp(
-        (ctx, lc) =>
-          lc.worktreeSetup(ctx, {
+        async (ctx, lc) => {
+          // The emitted setup result already carries every refresh report.
+          await lc.worktreeSetup(ctx, {
             json,
             dryRun: o.dryRun ?? false,
             ...(stepId === undefined ? {} : {
@@ -1231,7 +1232,8 @@ export function attachEngineCommands(
                 confirmed: o.confirmed ?? false,
               },
             }),
-          }),
+          });
+        },
         { json, verb: "worktree setup" },
       );
     }));
@@ -1267,6 +1269,17 @@ export function attachEngineCommands(
                 const reminder = await remindIfSetupUnfinished(ctx);
                 if (reminder !== undefined) hints.push(reminder);
                 const ensured = await lc.worktreeEnsure(ctx);
+                if (ensured.kind === "ran") {
+                  const { agentFilesDiscardedHint } = await loadModule(() =>
+                    import("./instructions.ts")
+                  );
+                  const discarded = agentFilesDiscardedHint(ensured.discarded);
+                  if (discarded !== undefined) {
+                    ctx.log.info(discarded.text);
+                    observeSupplementalHints([discarded]);
+                    hints.push(discarded.text);
+                  }
+                }
                 if (ensured.kind === "skipped") {
                   // Main-checkout side: the session hook injects this stdout
                   // as agent context, the only channel that can pre-empt a

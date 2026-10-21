@@ -504,6 +504,12 @@ Deno.test("accept: a trunk that moved after the Proof composes in an integration
     const wt = await addWorktree(dir, "unavailable");
     await commitBranchWork(wt);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
+    // The trunk also gained a block another process keeps in a compiled file.
+    const compiled = await Deno.readTextFile(join(dir, "CLAUDE.md"));
+    await Deno.writeTextFile(
+      join(dir, "CLAUDE.md"),
+      `${compiled}\n<!-- maintained block -->\n`,
+    );
     await advanceMain(dir, "notes.txt");
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
@@ -512,6 +518,11 @@ Deno.test("accept: a trunk that moved after the Proof composes in an integration
       result.message ?? "",
       "composed with main and proven as",
     );
+    // Composing regenerated that file, so what landed is reported missing it.
+    assertHasHint(result, HINTS["refresh-agent-files-discarded"], {
+      files: "CLAUDE.md (1 line, first `<!-- maintained block -->`)",
+    });
+    assertEquals(await Deno.readTextFile(join(dir, "CLAUDE.md")), compiled);
     // The combined check ran in the disposable copy, never in the author's
     // checkout: its own count still shows exactly the one done run. The
     // author's checkout is gone with the landing, so read what remains.

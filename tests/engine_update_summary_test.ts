@@ -113,6 +113,57 @@ Deno.test("update --json: reports the commits, files, and range anchors brought 
   });
 });
 
+Deno.test("start, update, and worktree ensure report agent-file lines their refresh discards", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]);
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "compile", "--no-gpg-sign");
+    const wt = await addWorktree(dir, "discards");
+    // Another process commits a block of its own into the compiled file.
+    const compiled = await Deno.readTextFile(join(dir, "CLAUDE.md"));
+    await commitOnMain(dir, "maintained block", {
+      "CLAUDE.md": `${compiled}\n<!-- maintained block -->\n`,
+    });
+    const files = "CLAUDE.md (1 line, first `<!-- maintained block -->`)";
+
+    const started = await runAgent(dir, [
+      "start",
+      "--name",
+      "fresh",
+      "--json",
+    ]);
+    assertEquals(started.code, 0, started.output);
+    assertHasHint(
+      decodeCliResult(started.stdout, "start"),
+      HINTS["refresh-agent-files-discarded"],
+      { files },
+    );
+
+    const updated = await runAgent(wt, ["update", "--json"]);
+    assertEquals(updated.code, 0, updated.output);
+    assertHasHint(
+      parse(updated.stdout),
+      HINTS["refresh-agent-files-discarded"],
+      {
+        files,
+      },
+    );
+    assertEquals(await Deno.readTextFile(join(wt, "CLAUDE.md")), compiled);
+
+    // A checkout made outside discern is set up at its first session start.
+    const plain = await addWorktree(dir, "plain");
+    const ensured = await runAgent(plain, ["worktree", "ensure", "--json"]);
+    assertEquals(ensured.code, 0, ensured.output);
+    assertHasHint(
+      decodeCliResult(ensured.stdout, "worktree ensure"),
+      HINTS["refresh-agent-files-discarded"],
+      { files },
+    );
+  });
+});
+
 Deno.test("update merges the observed incoming revision when its source ref moves", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainAndWorktree(dir, "moving-source");

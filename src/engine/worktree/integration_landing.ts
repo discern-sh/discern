@@ -39,6 +39,7 @@ import {
 import { emitCompletionProgress } from "../completion/events.ts";
 import type { SourceRevision } from "../completion/identity.ts";
 import { finishResult } from "../gate/finish.ts";
+import type { DiscardedAgentFile } from "../instructions.ts";
 import { withIntegrationCheckout } from "../operation_lock.ts";
 import {
   type AcceptanceCheckpointState,
@@ -146,6 +147,9 @@ export type IntegrationAttempt =
     /** The composition was adopted from a retained record rather than
      * freshly composed; receipt-bound decisions require the match. */
     readonly resumed: boolean;
+    /** Agent files composing this copy overwrote at the cost of lines no
+     * source produces: what lands without them. */
+    readonly discarded: readonly DiscardedAgentFile[];
   };
 
 /** Mint a free integration worktree identity beside the authoring worktrees:
@@ -477,7 +481,7 @@ export async function runIntegrationAttempt(input: {
     };
   }
   if (adoption.kind === "adopted") {
-    return await proveComposition(input, adoption.record, true);
+    return await proveComposition(input, adoption.record, true, []);
   }
   if (
     input.declarations !== undefined || input.compositionReceipt !== undefined
@@ -539,8 +543,9 @@ export async function runIntegrationAttempt(input: {
     title: `Integration landing for ${effort.branch}`,
     created_from: { ref: effort.branch, commit: submission.head },
   };
+  let setupDiscarded: readonly DiscardedAgentFile[];
   try {
-    await createAndSetupWorktree(
+    setupDiscarded = await createAndSetupWorktree(
       effort.mainRepo,
       minted.dir,
       minted.branch,
@@ -576,10 +581,15 @@ export async function runIntegrationAttempt(input: {
     phase: "ready",
   });
   await copyAuthorDecisionState(effort.path, minted.dir);
-  return await proveComposition(input, {
-    ...record,
-    phase: "ready",
-  }, false);
+  return await proveComposition(
+    input,
+    {
+      ...record,
+      phase: "ready",
+    },
+    false,
+    setupDiscarded,
+  );
 }
 
 /** Compose (unless resumed) and prove the copy: the update core brings the
@@ -597,8 +607,10 @@ async function proveComposition(
   },
   record: IntegrationLandingRecord,
   resumed: boolean,
+  setupDiscarded: readonly DiscardedAgentFile[],
 ): Promise<IntegrationAttempt> {
   const { effort, submission, log } = input;
+  const discarded = [...setupDiscarded];
   const dir = record.worktree.path;
   const author: SourceRevision = {
     effort_id: effort.id,
@@ -619,6 +631,7 @@ async function proveComposition(
         await buildUpdatePlan(intCtx),
         { route: "accept", effort: effort.branch },
       );
+      if (updated.kind === "applied") discarded.push(...updated.discarded);
       if (updated.kind !== "applied") {
         const status = await runGit(["status", "--porcelain", "-z"], {
           cwd: dir,
@@ -755,6 +768,7 @@ async function proveComposition(
       proofPointer: pointerIds,
       checkpointState: await inspectAcceptanceCheckpoints(dir, intCtx.config),
       resumed,
+      discarded,
     };
   });
 }

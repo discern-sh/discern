@@ -264,7 +264,9 @@ export { worktreeParkPlan } from "./park.ts";
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import { renderAgentFiles } from "../instruction_render.ts";
 import {
+  agentFilesDiscardedHint,
   compileInstructions,
+  type DiscardedAgentFile,
   instructionRefreshErrors,
   type InstructionsResult,
 } from "../instructions.ts";
@@ -794,6 +796,10 @@ interface LifecycleRefreshRun {
   readonly ok: boolean;
   readonly diagnostics: Diagnostic[];
   readonly hints: string[];
+  /** Agent files the refresh overwrote at the cost of lines no source
+   * produces, so a caller that composes this run into its own result can
+   * still report them. */
+  readonly discarded: readonly DiscardedAgentFile[];
 }
 
 /** Turn isolated refresh errors into diagnostics plus the registered retry hint. */
@@ -812,6 +818,7 @@ export function failedRefreshRun(
   return {
     ok: false,
     diagnostics,
+    discarded: [],
     hints: mergeHintTexts(
       existingHints,
       hintTexts(
@@ -830,8 +837,16 @@ export function instructionRefreshRun(
 ): LifecycleRefreshRun {
   const errors = instructionRefreshErrors(result);
   return errors.length === 0
-    ? { ok: true, diagnostics: [], hints: result.hints }
-    : failedRefreshRun(errors, cwd, result.hints);
+    ? {
+      ok: true,
+      diagnostics: [],
+      hints: result.hints,
+      discarded: result.agentFilesDiscarded,
+    }
+    : {
+      ...failedRefreshRun(errors, cwd, result.hints),
+      discarded: result.agentFilesDiscarded,
+    };
 }
 
 /**
@@ -873,8 +888,10 @@ async function refreshWorktreeArtifacts(
       },
     },
   );
+  // The checkout's own engine narrates its refresh, discards included, through
+  // the routed log; its structured report stays in that child process.
   return code === 0
-    ? { ok: true, diagnostics: [], hints: hintTexts([]) }
+    ? { ok: true, diagnostics: [], hints: hintTexts([]), discarded: [] }
     : failedRefreshRun(
       [`the checkout-owned refresh command exited ${code}`],
       ctx.root,
@@ -896,11 +913,15 @@ async function refreshWorktreeArtifacts(
  * convergent repository and worktree ensure buckets run on EVERY pass so a
  * re-fired `worktree create` hook or a re-run `discern worktree setup` re-converges the
  * worktree on the current tree.
+ *
+ * Returns the agent files its refresh overwrote at the cost of lines no source
+ * produces, so a caller that runs setup as one step of its own result reports
+ * them too (empty for a dry run).
  */
 export async function worktreeSetup(
   ctx: LifecycleContext,
   opts: WorktreeSetupOptions = {},
-): Promise<void> {
+): Promise<readonly DiscardedAgentFile[]> {
   // 1. must be inside a worktree
   await assertOpSide("worktree-setup", ctx.cwd);
 
@@ -919,7 +940,7 @@ export async function worktreeSetup(
       setupPlanToEngine(plan),
       opts.json ?? false,
     );
-    return;
+    return [];
   }
 
   // A ready sentinel predating the journal is migration evidence that every
@@ -1156,6 +1177,7 @@ export async function worktreeSetup(
   if ((opts.json ?? false) || (opts.humanApplySummary ?? true)) {
     emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
   }
+  return refresh.discarded;
 }
 
 /**
@@ -1193,7 +1215,7 @@ export async function createAndSetupWorktree(
     reproduceCmd: string;
     taskMetadata?: StoredTaskMetadata;
   } = { verb: "start", reproduceCmd: "discern start" },
-): Promise<void> {
+): Promise<readonly DiscardedAgentFile[]> {
   return await withWorktreeOwnership(dir, async () => {
     if (!(await hasAnyCommit(mainRepo))) {
       throw new WorktreeGitError(
@@ -1272,7 +1294,7 @@ export async function createAndSetupWorktree(
       if (invocation.taskMetadata !== undefined) {
         await writeStoredTaskMetadata(dir, invocation.taskMetadata);
       }
-      await worktreeSetup(ctx, { humanApplySummary: false });
+      return await worktreeSetup(ctx, { humanApplySummary: false });
     } catch (e) {
       if (!preExisting) {
         // Delete the branch only when the add above created it: a failed add
@@ -1387,8 +1409,9 @@ export type EnsureResult =
   | { kind: "skipped" }
   /** Already configured (the sentinel is present) → no-op. */
   | { kind: "already" }
-  /** Setup was not yet run; it has now been executed. */
-  | { kind: "ran" };
+  /** Setup was not yet run; it has now been executed, overwriting these agent
+   * files at the cost of lines no source produces. */
+  | { kind: "ran"; discarded: readonly DiscardedAgentFile[] };
 
 /**
  * The idempotent session-start check — the `worktree ensure` command. Runs
@@ -1419,8 +1442,10 @@ export async function worktreeEnsure(
   ctx.log.warn(
     "[discern] Worktree not configured yet; running 'discern worktree setup'…",
   );
-  await worktreeSetup(ctx, { humanApplySummary: false });
-  return { kind: "ran" };
+  return {
+    kind: "ran",
+    discarded: await worktreeSetup(ctx, { humanApplySummary: false }),
+  };
 }
 
 /**
@@ -2407,6 +2432,7 @@ async function runUpdateConvergence(
 ): Promise<{
   steps: StepResult[];
   refreshHints: string[];
+  discarded: readonly DiscardedAgentFile[];
   diagnostics: Diagnostic[];
   regenerated: string[];
 }> {
@@ -2503,6 +2529,7 @@ async function runUpdateConvergence(
   return {
     steps,
     refreshHints: convergenceHints,
+    discarded: refresh.discarded,
     diagnostics,
     regenerated: [
       ...generated.executed,
@@ -2530,6 +2557,9 @@ export type UpdateCoreOutcome =
     readonly kind: "applied";
     readonly result: DiscernResult<UpdateData>;
     readonly merged: boolean;
+    /** Agent files the convergence refresh overwrote at the cost of lines no
+     * source produces; `result.hints` already reports them. */
+    readonly discarded: readonly DiscardedAgentFile[];
   };
 
 /**
@@ -2671,7 +2701,12 @@ export async function applyUpdateCore(
       if (convergence.diagnostics.length > 0) {
         result.diagnostics = convergence.diagnostics;
       }
-      return { kind: "applied", result, merged: false };
+      return {
+        kind: "applied",
+        result,
+        merged: false,
+        discarded: convergence.discarded,
+      };
     }
     case "dirty":
       return { kind: "dirty" };
@@ -2772,7 +2807,12 @@ export async function applyUpdateCore(
       if (convergence.diagnostics.length > 0) {
         result.diagnostics = convergence.diagnostics;
       }
-      return { kind: "applied", result, merged: true };
+      return {
+        kind: "applied",
+        result,
+        merged: true,
+        discarded: convergence.discarded,
+      };
     }
   }
 }
@@ -3246,7 +3286,7 @@ export async function applyStartPlan(
 
     ctx.log.heading(`Starting a new worktree (${plan.id})…`);
     stepStarted(BUILT_IN_STEP_LABELS.addWorktree);
-    await createAndSetupWorktree(
+    const discarded = await createAndSetupWorktree(
       ctx.root,
       plan.worktreePath,
       plan.branch,
@@ -3375,6 +3415,9 @@ export async function applyStartPlan(
         : []),
       ...(submoduleNote !== undefined ? [submoduleNote] : []),
       ...(dirtyNote !== undefined ? [dirtyNote] : []),
+      ...[agentFilesDiscardedHint(discarded)].filter((hint) =>
+        hint !== undefined
+      ),
     ]);
     return result;
   });

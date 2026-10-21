@@ -18,6 +18,7 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
+import { agentFilesDiscardedHint } from "../instructions.ts";
 import { acceptProofNoteOwed } from "../../shared/proof_note_recovery.ts";
 import {
   BUILT_IN_STEP_LABELS,
@@ -808,6 +809,11 @@ export async function executeIntegrationLanding(
     progress.proofNote = recording.proofNote;
     recordSteps(progress.steps, ...recording.steps);
     progress.convergenceHints.push(...recording.hints);
+    // What composing the copy discarded is what landed without those lines.
+    const discarded = agentFilesDiscardedHint(composed.discarded);
+    if (discarded !== undefined) {
+      progress.convergenceHints.push(discarded.text);
+    }
 
     await convergeMainCheckout(effort, plan, progress, request.signal);
 
