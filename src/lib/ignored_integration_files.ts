@@ -79,18 +79,13 @@ export async function existingIntegrationFiles(
   return present.filter((path) => !tracked.has(path));
 }
 
-/** Whether a file says anything: a JSON value other than an empty object, or
- * any line that is neither blank nor a comment. Unparseable JSON counts. */
+/** Whether a file says anything: JSON other than an empty object, or any
+ * line that is neither blank nor a comment. Malformed JSON counts, since it
+ * cannot prove the file empty. */
 function holdsContent(path: string, text: string): boolean {
   if (path.endsWith(".json")) {
-    try {
-      const parsed: unknown = JSON.parse(text);
-      return !(parsed !== null && typeof parsed === "object" &&
-        !Array.isArray(parsed) && Object.keys(parsed).length === 0);
-    } catch {
-      // discern-best-effort: integration-file-content-probe
-      return true;
-    }
+    const compact = text.replace(/\s/gu, "");
+    return compact !== "" && compact !== "{}";
   }
   return text.split(/\r?\n/u).some((line) =>
     line.trim() !== "" && !line.trim().startsWith("#")

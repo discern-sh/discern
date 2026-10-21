@@ -752,16 +752,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Improvement retains every configuration-derived rule and treats unavailable local history as no earned recommendation rather than inventing evidence.",
   },
-  "integration-file-content-probe": {
-    path: "src/lib/ignored_integration_files.ts",
-    enclosingFunction: "holdsContent",
-    operation: "treat an unparseable JSON integration file as holding content",
-    kind: "direct",
-    shape: "sync",
-    observability: { kind: "unobservable" },
-    reason:
-      "Unreadable JSON cannot prove the file is empty, so setup leaves it for the coding agent like any file with content; the safe answer needs no report.",
-  },
   "job-output-observer-notify": {
     path: "src/engine/jobs/command.ts",
     enclosingFunction: "emit",
