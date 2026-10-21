@@ -56,6 +56,7 @@ import {
   toCommandList,
 } from "../shared/config_schema.ts";
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
+import { integrationFileChecks } from "../engine/doctor/integration_checks.ts";
 import {
   completionConfigurationChecks,
   completionRecordChecks,
@@ -1066,6 +1067,10 @@ export async function runChecks(
   // 8a. provider skills directories: Git's ignore rules must match entry
   // ownership, since other tools share these directories (ADR 0425).
   checks.push(...await skillsDirectoryChecks(destDir));
+
+  // 8a-bis. integration files the project's own ignore rules exclude: kept
+  // local only by the owner's recorded choice.
+  checks.push(...await integrationFileChecks(destDir, config));
 
   if (currencyUnavailable === undefined) {
     let renderedInstructionFiles = new Set<string>();

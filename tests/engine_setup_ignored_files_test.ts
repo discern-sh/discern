@@ -2,8 +2,8 @@
  * Setup in a project whose own ignore rules exclude the folders discern
  * writes tracked integration files into — the shape many editor and tool
  * `.gitignore` templates take. The preflight serves one owner decision,
- * and `begin` applies each answer without a failed machinery commit and
- * refuses before any write without one.
+ * `begin` applies each answer without a failed machinery commit and refuses
+ * before any write without one, and `doctor` reports the outcome.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -206,7 +206,7 @@ Deno.test("begin with track-anyway commits the excluded integration files", asyn
   });
 });
 
-Deno.test("begin with keep-local commits the wiring without them and records the choice", async () => {
+Deno.test("begin with keep-local commits the wiring without them and records the choice for doctor", async () => {
   await withTempDir(async (dir) => {
     await projectIgnoringToolFolders(dir);
     const run = await begin(dir, "--ignored-integration-files", "keep-local");
@@ -222,5 +222,16 @@ Deno.test("begin with keep-local commits the wiring without them and records the
       await gitOut(dir, "show", "HEAD:discern.toml"),
     );
     assertEquals(committed.project.local_integration_files, AGENT_PATHS);
+
+    const doctor = decodeCliResult(
+      (await runAgent(dir, ["doctor", "--json"])).stdout,
+      "doctor",
+    );
+    assertResultDataKey(doctor, "checks");
+    const check = doctor.data.checks.find((c) =>
+      c.name === "integration files"
+    );
+    assertEquals(check?.status, "ok", JSON.stringify(check));
+    assertStringIncludes(check?.detail ?? "", "kept out of Git");
   });
 });

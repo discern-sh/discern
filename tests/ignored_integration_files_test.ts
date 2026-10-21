@@ -1,9 +1,9 @@
 /**
  * Integration files a project's own ignore rules exclude. discern expects Git
  * to track every Shared integration file a provider declares; these cases
- * hold the probe to the whole provider registry, then drive the probe and the
- * machinery staging against real Git repositories, so "ignored" always means
- * what Git says.
+ * hold the probe to the whole provider registry, then drive the probe, the
+ * machinery staging, and doctor's check against real Git repositories, so
+ * "ignored" always means what Git says.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -15,13 +15,17 @@ import {
   trackedSharedProviderPaths,
 } from "../src/lib/artifact_ownership.ts";
 import { declaredFileOwnership } from "../src/shared/file_ownership.ts";
-import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import {
+  type DiscernConfig,
+  parseConfigOrThrow,
+} from "../src/shared/config_schema.ts";
 import { ignoredIntegrationFiles } from "../src/lib/ignored_integration_files.ts";
 import { describeIgnoredFiles } from "../src/shared/ignored_integration.ts";
 import {
   planIgnoredFiles,
   stageMachineryPaths,
 } from "../src/commands/setup_ignored_files.ts";
+import { integrationFileChecks } from "../src/engine/doctor/integration_checks.ts";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 
@@ -237,5 +241,49 @@ Deno.test("machinery staging applies each owner choice without a failed add", as
     const result = await stageMachineryPaths(dir, paths, planned.plan);
     assert("staged" in result, JSON.stringify(result));
     assertEquals(await staged(dir), [...paths].sort());
+  });
+});
+
+Deno.test("doctor separates undecided, kept-local, and stale integration files", async () => {
+  const paths = trackedSharedProviderPaths(["codex"]);
+  const [kept = "", ...undecided] = paths;
+  const config = (listed: readonly string[]): DiscernConfig =>
+    parseConfigOrThrow(
+      `[project]\nagents = ["codex"]\nlocal_integration_files = ${
+        JSON.stringify(listed)
+      }\n`,
+    );
+  await withTempDir(async (dir) => {
+    await ignoringRepo(dir, [...new Set(paths.map(excludingRule))]);
+
+    const [mixed] = await integrationFileChecks(
+      dir,
+      config([kept, "not-an-integration.json"]),
+    );
+    assertEquals(mixed?.warn, true);
+    for (const path of undecided) {
+      assertStringIncludes(mixed?.detail ?? "", path);
+    }
+    assert(
+      !(mixed?.detail ?? "").includes(kept),
+      "a kept-local file is decided",
+    );
+    assertStringIncludes(mixed?.detail ?? "", "not-an-integration.json");
+    assertStringIncludes(mixed?.fix ?? "", "git add --force --");
+    assertStringIncludes(mixed?.fix ?? "", "[project].local_integration_files");
+
+    const [decided] = await integrationFileChecks(dir, config(paths));
+    assertEquals(decided?.warn, undefined);
+    assertEquals(decided?.ok, true);
+    assertStringIncludes(decided?.detail ?? "", "kept out of Git");
+  });
+  await withTempDir(async (dir) => {
+    await ignoringRepo(dir, ["/build-output/"]);
+    const [clean] = await integrationFileChecks(dir, config([]));
+    assertEquals(clean?.warn, undefined);
+    assertStringIncludes(clean?.detail ?? "", "Git can track all");
+  });
+  await withTempDir(async (dir) => {
+    assertEquals(await integrationFileChecks(dir, config([])), []);
   });
 });
