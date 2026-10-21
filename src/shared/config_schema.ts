@@ -738,7 +738,7 @@ const projectSection = z.strictObject({
         "each path may appear only once, including aliases on a case-insensitive filesystem",
     },
   ).meta({ uniqueItems: true }).default([]).describe(
-    "Agent integration files this project keeps out of Git on purpose, because its own ignore rules exclude them. discern still writes them in every checkout, but fresh clones and cloud agents lack them until discern runs there. `discern doctor` warns about an ignored integration file that isn't listed here.",
+    "Agent integration files kept out of Git on purpose, because this project's own ignore rules exclude them. Fresh clones and cloud agents lack them until discern runs there.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.project.what);
 

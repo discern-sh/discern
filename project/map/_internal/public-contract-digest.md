@@ -118,7 +118,7 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 | `--reseed`                    | boolean           |         | Run setup again on a project that has it: add any missing starter files, without overwriting existing ones, and refresh discern's settings and generated files. |
 | `--allow-dirty`               | boolean           |         | For CI and advanced use: set up on the current branch as it is, even with uncommitted changes. discern skips the `discern-setup` branch and its own commit and… |
 | `--confirmed`                 | boolean           |         | Record that the owner agreed to setup in this conversation. A fresh setup needs it unless you use `--config`; without it, discern writes nothing and shows the… |
-| `--ignored-integration-files` | `<choice:string>` |         | What to do with integration files discern would commit that this project's own ignore rules exclude, as the owner chose: `track-anyway` commits just those…     |
+| `--ignored-integration-files` | `<choice:string>` |         | The owner's choice for integration files this project's ignore rules exclude: `track-anyway` commits just those files, and `keep-local` lists them in…          |
 
 **`discern setup step`**
 
@@ -1138,15 +1138,15 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 
 ### [project]
 
-| Key                       | Type       | Default             | Enum | Description                                                                                                                                |
-| ------------------------- | ---------- | ------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `name`                    | `string`   | `""`                |      | The project's display name, in any words. Compiled instruction files use it to refer to the project; when it's empty, they use the slug.   |
-| `slug`                    | `string`   | `""`                |      | A short id of lowercase letters, digits, and dashes. discern builds each worktree's site, database, and resource names from it.            |
-| `gotchas_doc`             | `string`   | `""`                |      | A doc of your project's known traps. When `discern done`, `prepare`, or `test` fails, discern points your agent to it, and quotes any…     |
-| `todo`                    | `string`   | `"discern/TODO.md"` |      | The TODO list of deferred work that your agents read and keep up to date, relative to the project root.                                    |
-| `record_logbook`          | `boolean`  | `true`              |      | When true, discern keeps a local logbook of each command it runs: timings, outcomes, and names, but no code or output. It stays inside…    |
-| `agents`                  | `enum[]`   |                     |      | Which coding agents discern sets up: claude_code, codex, gemini, cursor, copilot. Leave it out for the default (claude_code, codex); an…   |
-| `local_integration_files` | `string[]` | `[]`                |      | Agent integration files this project keeps out of Git on purpose, because its own ignore rules exclude them. discern still writes them in… |
+| Key                       | Type       | Default             | Enum | Description                                                                                                                              |
+| ------------------------- | ---------- | ------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                    | `string`   | `""`                |      | The project's display name, in any words. Compiled instruction files use it to refer to the project; when it's empty, they use the slug. |
+| `slug`                    | `string`   | `""`                |      | A short id of lowercase letters, digits, and dashes. discern builds each worktree's site, database, and resource names from it.          |
+| `gotchas_doc`             | `string`   | `""`                |      | A doc of your project's known traps. When `discern done`, `prepare`, or `test` fails, discern points your agent to it, and quotes any…   |
+| `todo`                    | `string`   | `"discern/TODO.md"` |      | The TODO list of deferred work that your agents read and keep up to date, relative to the project root.                                  |
+| `record_logbook`          | `boolean`  | `true`              |      | When true, discern keeps a local logbook of each command it runs: timings, outcomes, and names, but no code or output. It stays inside…  |
+| `agents`                  | `enum[]`   |                     |      | Which coding agents discern sets up: claude_code, codex, gemini, cursor, copilot. Leave it out for the default (claude_code, codex); an… |
+| `local_integration_files` | `string[]` | `[]`                |      | Agent integration files kept out of Git on purpose, because this project's own ignore rules exclude them. Fresh clones and cloud agents… |
 
 ### [repository]
 

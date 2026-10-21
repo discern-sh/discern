@@ -80,7 +80,7 @@ The result names the problem:
 
 ## Your ignore rules exclude agent tool folders
 
-Many `.gitignore` templates exclude editor and agent tool folders. discern commits a few of each coding agent's connection settings into those folders, so every checkout of the project, including a cloud agent's, gets discern's tools. When one of your rules excludes such a file, `discern setup verify` names the file and the rule before anything is written:
+Many `.gitignore` templates exclude editor and agent tool folders, where discern commits each coding agent's connection settings so every checkout, including a cloud agent's, gets discern's tools. Before setup writes anything, `discern setup verify` names each excluded file and its rule:
 
 ```text
 The project's ignore rules exclude integration files setup would commit: `.codex/config.toml`, `.codex/hooks.json`, `.codex/environments/environment.toml`, `.codex/rules/discern.rules` (.gitignore:1: .codex/).
@@ -94,9 +94,9 @@ Your agent then asks you to choose:
 | Keep them on this machine        | Setup leaves them out of Git and lists them in `[project].local_integration_files`. discern recreates them in each copy of the project it sets up, but fresh clones and cloud agents lack discern's tools until discern runs there. |
 | Change the rule                  | You narrow or remove the rule and commit that change. Your agent then runs `discern setup verify` again, and setup asks nothing more.                                                                                               |
 
-If your agent runs `discern setup begin` before you answer, it stops with `awaiting_decision` and writes nothing. discern never edits your own ignore rules. When the named rule's file is outside the project, such as your own global Git ignore file, it affects only your machine, so changing that rule is your call alone.
+If your agent runs `discern setup begin` before you answer, it stops with `awaiting_decision` and writes nothing. discern never edits your own ignore rules. A rule in your own global Git ignore file affects only your machine.
 
-The same thing can happen later, when you add a coding agent whose folder you ignore. `discern doctor` then warns under **integration files** that `the project's ignore rules exclude` the file and `Git doesn't track` it, and offers the same three choices. It's settled when that check passes: each file is tracked, listed as kept local, or no longer excluded.
+Adding a coding agent whose folder you ignore can cause this later. `discern doctor` then warns under **integration files** that `the project's ignore rules exclude` the file, with the same three choices. It's settled when that check passes.
 
 ## Your discern is older than the project
 

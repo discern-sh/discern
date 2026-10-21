@@ -542,7 +542,7 @@ export function buildCli(
     )
     .option(
       "--ignored-integration-files <choice:string>",
-      "What to do with integration files discern would commit that this project's own ignore rules exclude, as the owner chose: `track-anyway` commits just those files despite the rule, and `keep-local` keeps them out of Git and records them in `[project].local_integration_files`. A fresh setup that finds such files writes nothing without it. To change the rule instead, commit that change and run `discern setup verify` again.",
+      "The owner's choice for integration files this project's ignore rules exclude: `track-anyway` commits just those files, and `keep-local` lists them in `[project].local_integration_files` and keeps them out of Git. Without it, a fresh setup that finds such files writes nothing.",
     )
     .action(recordedExit("setup begin", async (options) => {
       const { json, noColor } = globalFlags(options);

@@ -160,15 +160,9 @@ You can add ignore rules for the agent files outside discern's block if you pref
 
 discern owns only its marked block, plus any standalone rule outside it that exactly matches one the current provider registry declares. Similar broad or retired rules outside the block stay yours. When `[worktree].root` resolves inside the repository, the block also ignores that exact directory. The default worktree location, beside the project, needs no rule.
 
-### Integration files your rules ignore
+## Integration files your rules ignore
 
-The Shared provider files in the table above, such as `.mcp.json` or `.codex/config.toml`, are tracked, so a fresh clone loads discern's tools. Many `.gitignore` templates exclude whole editor and agent tool folders, which would keep these files out of Git. Before setup writes anything, its preflight asks Git, through `git check-ignore`, about each one the selected coding agents need, and you choose for any it excludes:
-
-- **Track anyway:** setup commits just those files, once, with `git add --force`. Ignore rules don't apply to tracked files, so your rule keeps ignoring everything else it matches.
-- **Keep local:** setup leaves them out of Git and lists them in `[project].local_integration_files`, which is empty otherwise. Refresh and worktree setup still write them, but a fresh clone or cloud agent lacks them until discern runs there.
-- **Change the rule:** you narrow or remove your rule, and commit that, before setup begins.
-
-discern never edits your own ignore rules. `discern doctor` repeats the check under **integration files**: it warns about an excluded file that Git doesn't track and that isn't listed as kept local, and about a listed file that no longer needs its entry.
+The Shared provider files above, such as `.mcp.json`, are tracked so a fresh clone loads discern's tools. When your own ignore rules exclude one Git doesn't track yet, setup asks before it writes anything: commit the file anyway, keep it local, or change your rule. discern never edits your rules. A kept-local file is listed in `[project].local_integration_files`, empty otherwise, and discern still writes it in each checkout it sets up. `discern doctor` warns under **integration files** about an excluded file that's neither tracked nor listed, and about a listed file that no longer needs its entry. [Setup and integrations](../40-troubleshooting/setup-and-integrations.md#your-ignore-rules-exclude-agent-tool-folders) explains each choice.
 
 ## Skills directories
 

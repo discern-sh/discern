@@ -115,6 +115,12 @@ export const CONFIG_PROSE = {
           "session-start hook. Removing an agent leaves its files in place.",
         ],
       },
+      local_integration_files: {
+        detail: [
+          "discern still writes them in every checkout. `discern doctor` warns",
+          "about an ignored integration file that isn't listed here.",
+        ],
+      },
     },
   },
   repository: {
