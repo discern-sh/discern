@@ -30,13 +30,9 @@ import {
   worktreeBase,
   type WorktreeIdentity,
 } from "../src/engine/worktree/identity.ts";
-import {
-  upsertEnvLine,
-  WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
-  writeEnvVar,
-} from "../src/engine/worktree/env_file.ts";
-import { managedValuesMarker } from "../src/shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { upsertEnvLine, writeEnvVar } from "../src/engine/worktree/env_file.ts";
+import { artifactProvenanceMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import {
   createResources,
@@ -146,9 +142,8 @@ retries = 3
 
 Deno.test("upsertEnvLine: replace existing / append with + without trailing NL", () => {
   const env = fakeEnv();
-  const marker = managedValuesMarker(
-    WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
-    ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+  const marker = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.worktreeEnvironment,
     env,
   );
   // replace the first matching line, value only
@@ -171,14 +166,12 @@ Deno.test("upsertEnvLine: replace existing / append with + without trailing NL",
 Deno.test("upsertEnvLine replaces the opposite attribution mode", () => {
   const attributedEnv = fakeEnv();
   const sourceOnlyEnv = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
-  const attributed = managedValuesMarker(
-    WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
-    ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+  const attributed = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.worktreeEnvironment,
     attributedEnv,
   );
-  const sourceOnly = managedValuesMarker(
-    WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
-    ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+  const sourceOnly = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.worktreeEnvironment,
     sourceOnlyEnv,
   );
 

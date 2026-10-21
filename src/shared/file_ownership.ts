@@ -35,13 +35,24 @@ export const WRITTEN_ARTIFACT_CLASSES = [
 export type WrittenArtifactClass = (typeof WRITTEN_ARTIFACT_CLASSES)[number];
 
 /**
+ * Where one comment-capable artifact's discern-maintained content comes from,
+ * rendered into its provenance marker. A Shared artifact names the `scope` its
+ * marker claims for discern, because other content in the file is not
+ * discern's; Generated output has none, because its marker claims the whole file.
+ */
+export interface ArtifactProvenance {
+  readonly source: string;
+  readonly scope?: string;
+}
+
+/**
  * One written artifact's provenance declaration. Comment-capable output carries
- * the source description its producer renders into the marker.
+ * the provenance its producer renders into the marker.
  */
 export interface WrittenArtifactClassDeclaration {
   readonly "context-loaded"?: true;
   readonly "comment-incapable"?: true;
-  readonly "comment-capable-non-context"?: string;
+  readonly "comment-capable-non-context"?: ArtifactProvenance;
 }
 
 /** The minimum identity needed to validate a written-artifact declaration. */
@@ -50,18 +61,38 @@ export interface ClassifiableWrittenArtifact {
   readonly writtenArtifact: WrittenArtifactClassDeclaration;
 }
 
-/** Shared source descriptions used by registry declarations and producers. */
-export const ARTIFACT_PROVENANCE_SOURCES = {
-  config: "the bundled project configuration template",
-  gitattributes:
-    "discern.toml, the source-path registry, and the provider registry",
-  gitignore: "the bundled .gitignore fragment and provider registry",
-  skillsIgnore: "the materialized-skills record beside it",
-  worktreeEnvironment: "[worktree] in discern.toml",
-  codexConfig: "the Codex integration and discern.toml",
-  codexEnvironment: "the Codex worktree integration",
-  codexRules: "the bundled Codex project rules",
-} as const;
+/** Shared provenance used by registry declarations and producers. */
+export const ARTIFACT_PROVENANCE = {
+  config: {
+    source: "the bundled project configuration template",
+    scope: "Scaffold and banners",
+  },
+  gitattributes: {
+    source: "discern.toml, the source-path registry, and the provider registry",
+    scope: "This block",
+  },
+  gitignore: {
+    source: "the bundled .gitignore fragment and provider registry",
+    scope: "This block",
+  },
+  skillsIgnore: { source: "the materialized-skills record beside it" },
+  worktreeEnvironment: {
+    source: "[worktree] in discern.toml",
+    scope: "Worktree values",
+  },
+  codexConfig: {
+    source: "the Codex integration and discern.toml",
+    scope: "MCP server, writable-root, and doc-size entries",
+  },
+  codexEnvironment: {
+    source: "the Codex worktree integration",
+    scope: "Setup and cleanup scripts",
+  },
+  codexRules: {
+    source: "the bundled Codex project rules",
+    scope: "These rules",
+  },
+} as const satisfies Readonly<Record<string, ArtifactProvenance>>;
 
 /** Reusable declarations for the 2 classes that need no source description. */
 export const CONTEXT_LOADED_ARTIFACT = {
@@ -71,16 +102,17 @@ export const COMMENT_INCAPABLE_ARTIFACT = {
   "comment-incapable": true,
 } as const satisfies WrittenArtifactClassDeclaration;
 
-/** Declare comment-capable output and the source its marker names. */
+/** Declare comment-capable output and the provenance its marker names. */
 export function commentCapableNonContextArtifact(
-  source: string,
+  provenance: ArtifactProvenance,
 ): WrittenArtifactClassDeclaration {
-  return { "comment-capable-non-context": source };
+  return { "comment-capable-non-context": provenance };
 }
 
 /**
  * Resolve one written-artifact declaration to its single class, rejecting zero,
- * several, or a comment-capable class without a source description.
+ * several, or a comment-capable class without a source description or with a
+ * blank scope.
  */
 export function declaredWrittenArtifactClass(
   entry: ClassifiableWrittenArtifact,
@@ -101,13 +133,17 @@ export function declaredWrittenArtifactClass(
   if (artifactClass === undefined) {
     throw new Error(`${entry.id} has no written-artifact class`);
   }
+  const provenance = entry.writtenArtifact["comment-capable-non-context"];
   if (
     artifactClass === "comment-capable-non-context" &&
-    entry.writtenArtifact[artifactClass]?.trim() === ""
+    provenance?.source.trim() === ""
   ) {
     throw new Error(
       `${entry.id} must name the source for its provenance marker`,
     );
+  }
+  if (provenance?.scope?.trim() === "") {
+    throw new Error(`${entry.id} declares a blank provenance marker scope`);
   }
   return artifactClass;
 }

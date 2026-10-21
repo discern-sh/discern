@@ -24,25 +24,21 @@ import {
 } from "../src/lib/providers.ts";
 import { materializeSkills } from "../src/lib/skills.ts";
 import {
+  artifactProvenanceMarker,
+  artifactProvenanceMarkerBody,
   DISCERN_NAME,
   DISCERN_URL,
   GENERATED_ARTIFACT_MARKER_PREFIX,
-  generatedArtifactMarker,
-  generatedArtifactMarkerBody,
-  managedValuesMarker,
-  stripGeneratedArtifactMarker,
+  stripArtifactProvenanceMarker,
 } from "../src/shared/brand.ts";
 import {
   type DiscernConfig,
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
 import { renderAgentFiles } from "../src/engine/instruction_render.ts";
-import {
-  WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
-  writeEnvVar,
-} from "../src/engine/worktree/env_file.ts";
+import { writeEnvVar } from "../src/engine/worktree/env_file.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { declaredFileOwnership } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 
@@ -84,45 +80,65 @@ const ATTRIBUTION_CASES = [
   },
 ] as const;
 
-Deno.test("the generated-artifact marker has attributed and source-only forms", () => {
-  const source = "the source registry";
+Deno.test("provenance markers claim the whole file or a scope, with attributed and source-only forms", () => {
+  const generated = { source: "the source registry" };
+  const shared = { source: "the source registry", scope: "Its entries" };
+  const sourceOnly = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
   assertEquals(
-    generatedArtifactMarkerBody(source, fakeEnv()),
-    `Generated automatically by ${DISCERN_NAME} via ${source} | ${DISCERN_URL}`,
+    artifactProvenanceMarkerBody(generated, fakeEnv()),
+    `Generated automatically by ${DISCERN_NAME} via the source registry | ${DISCERN_URL}`,
   );
   assertEquals(
-    generatedArtifactMarkerBody(
-      source,
-      fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
-    ),
-    `Generated automatically via ${source}`,
+    artifactProvenanceMarkerBody(generated, sourceOnly),
+    "Generated automatically via the source registry",
   );
   assertEquals(
-    generatedArtifactMarkerBody(
-      source,
+    artifactProvenanceMarkerBody(
+      generated,
       fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "" }),
     ),
-    `Generated automatically by ${DISCERN_NAME} via ${source} | ${DISCERN_URL}`,
+    `Generated automatically by ${DISCERN_NAME} via the source registry | ${DISCERN_URL}`,
+  );
+  assertEquals(
+    artifactProvenanceMarkerBody(shared, fakeEnv()),
+    `Its entries managed by ${DISCERN_NAME} via the source registry | ${DISCERN_URL}`,
+  );
+  assertEquals(
+    artifactProvenanceMarkerBody(shared, sourceOnly),
+    "Its entries managed via the source registry",
   );
 });
 
-Deno.test("marker removal recognizes exactly the two current forms", () => {
-  const source = "the source registry";
-  const legacy = `# ${DISCERN_NAME} | generated from ${source} | ` +
+Deno.test("marker removal recognizes every current form for the source", () => {
+  const generated = { source: "the source registry" };
+  const shared = { ...generated, scope: "Its entries" };
+  const legacy = `# ${DISCERN_NAME} | generated from ${generated.source} | ` +
     `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
   const alternate =
-    `# Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`;
-  const attributed = generatedArtifactMarker(source, fakeEnv());
-  const sourceOnly = generatedArtifactMarker(
-    source,
-    fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
+    `# Generated automatically by ${DISCERN_NAME}. See: ${generated.source} | ${DISCERN_URL}`;
+  const otherSource = artifactProvenanceMarker(
+    { source: "another registry" },
+    fakeEnv(),
+  );
+  const markers = [generated, shared].flatMap((provenance) =>
+    ATTRIBUTION_CASES.map(({ env }) =>
+      artifactProvenanceMarker(provenance, env)
+    )
   );
   assertEquals(
-    stripGeneratedArtifactMarker(
-      `${legacy}\r\n${alternate}\r\n${attributed}\r\n${sourceOnly}\r\npayload\r\n`,
-      source,
+    stripArtifactProvenanceMarker(
+      [legacy, alternate, otherSource, ...markers, "payload", ""].join("\r\n"),
+      shared,
     ),
-    `${legacy}\r\n${alternate}\r\npayload\r\n`,
+    [legacy, alternate, otherSource, "payload", ""].join("\r\n"),
+  );
+  assertEquals(
+    stripArtifactProvenanceMarker(
+      [...markers, "payload"].join("\n"),
+      generated,
+    ),
+    [...markers.slice(2), "payload"].join("\n"),
+    "a Generated file's marker never claims a scope",
   );
 });
 
@@ -202,24 +218,26 @@ for (const attributionCase of ATTRIBUTION_CASES) {
       assert(entries.length > 0, "expected comment-capable output to inspect");
       for (const entry of entries) {
         assertEquals(entry.pathKind, "file");
-        const source = entry.writtenArtifact?.["comment-capable-non-context"];
+        const provenance = entry.writtenArtifact?.[
+          "comment-capable-non-context"
+        ];
+        assert(provenance !== undefined, `${entry.path} has no provenance`);
+        const lines = (await Deno.readTextFile(join(root, entry.path)))
+          .split(/\r?\n/);
         assert(
-          typeof source === "string" && source.length > 0,
-          `${entry.path} has no marker source`,
-        );
-        const text = await Deno.readTextFile(join(root, entry.path));
-        const marker = source ===
-            ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment
-          ? managedValuesMarker(
-            WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
-            source,
-            attributionCase.env,
-          )
-          : generatedArtifactMarker(source, attributionCase.env);
-        assert(
-          text.split(/\r?\n/).includes(marker),
+          lines.includes(
+            artifactProvenanceMarker(provenance, attributionCase.env),
+          ),
           `${entry.path} does not carry its registry-derived provenance marker`,
         );
+        if (declaredFileOwnership(entry) === "shared") {
+          assert(
+            !lines.some((line) =>
+              line.startsWith(GENERATED_ARTIFACT_MARKER_PREFIX)
+            ),
+            `${entry.path} is shared but claims the whole file as generated`,
+          );
+        }
       }
     });
   });

@@ -15,10 +15,10 @@ import { join } from "@std/path";
 import { allSkillsDirs } from "./providers.ts";
 import { readDirIfExists, readTextIfExists } from "../shared/fs_presence.ts";
 import {
-  generatedArtifactMarker,
-  isGeneratedArtifactMarker,
+  artifactProvenanceMarker,
+  isArtifactProvenanceMarker,
 } from "../shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
+import { ARTIFACT_PROVENANCE } from "../shared/file_ownership.ts";
 import type { EnvReader } from "../shared/env.ts";
 import { runGit } from "../shared/subprocess.ts";
 
@@ -41,7 +41,7 @@ export const SKILLS_CONTROL_FILES: readonly string[] = Object.freeze([
   MATERIALIZED_MANIFEST,
 ]);
 
-const IGNORE_SOURCE = ARTIFACT_PROVENANCE_SOURCES.skillsIgnore;
+const IGNORE_SOURCE = ARTIFACT_PROVENANCE.skillsIgnore;
 
 /**
  * The names discern materialized last run, or an empty set when the record is
@@ -108,7 +108,7 @@ export function renderSkillsIgnore(
   env: EnvReader = Deno.env,
 ): string {
   return [
-    generatedArtifactMarker(IGNORE_SOURCE, env),
+    artifactProvenanceMarker(IGNORE_SOURCE, env),
     "# Ignores only the skills discern materialized here. Other entries in",
     "# this directory stay visible to Git.",
     ...skillsIgnoreRuleLines(names),
@@ -119,7 +119,7 @@ export function renderSkillsIgnore(
 /** Whether `text` is an ignore file discern wrote: it opens with discern's marker. */
 export function isDiscernSkillsIgnore(text: string): boolean {
   const first = text.split(/\r?\n/, 1)[0]?.trim() ?? "";
-  return isGeneratedArtifactMarker(first, IGNORE_SOURCE);
+  return isArtifactProvenanceMarker(first, IGNORE_SOURCE);
 }
 
 /**

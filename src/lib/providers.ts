@@ -38,7 +38,8 @@ import {
   NATIVE_MCP_TIMEOUT_POLICY,
 } from "../shared/mcp_timeout_policy.ts";
 import {
-  ARTIFACT_PROVENANCE_SOURCES,
+  ARTIFACT_PROVENANCE,
+  type ArtifactProvenance,
   COMMENT_INCAPABLE_ARTIFACT,
   commentCapableNonContextArtifact,
   CONTEXT_LOADED_ARTIFACT,
@@ -46,9 +47,9 @@ import {
   type WrittenArtifactClassDeclaration,
 } from "../shared/file_ownership.ts";
 import {
-  generatedArtifactMarker,
-  isGeneratedArtifactMarker,
-  stripGeneratedArtifactMarker,
+  artifactProvenanceMarker,
+  isArtifactProvenanceMarker,
+  stripArtifactProvenanceMarker,
 } from "../shared/brand.ts";
 import { fire, HINTS } from "../shared/hints.ts";
 import type { EnvReader } from "../shared/env.ts";
@@ -1034,20 +1035,18 @@ const CODEX_ENV_CLEANUP_SCRIPT = "discern worktree teardown";
 const CODEX_PROJECT_DOC_MAX_BYTES = 65536;
 const CODEX_MCP_STARTUP_TIMEOUT_SEC = 30;
 const CODEX_CONFIG_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
-  ARTIFACT_PROVENANCE_SOURCES.codexConfig,
+  ARTIFACT_PROVENANCE.codexConfig,
 );
 const CODEX_ENV_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
-  ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+  ARTIFACT_PROVENANCE.codexEnvironment,
 );
 const CODEX_RULES_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
-  ARTIFACT_PROVENANCE_SOURCES.codexRules,
+  ARTIFACT_PROVENANCE.codexRules,
 );
 
 /** Render discern's Codex rules with the current attribution preference. */
 function codexDiscernRules(env: EnvReader = Deno.env): string {
-  return `${
-    generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules, env)
-  }
+  return `${artifactProvenanceMarker(ARTIFACT_PROVENANCE.codexRules, env)}
 # Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(
@@ -1272,7 +1271,7 @@ async function registerGeminiMcp(
 async function editTomlFile(
   root: string,
   rel: string,
-  provenanceSource: string,
+  provenance: ArtifactProvenance,
   edit: (editor: TomlEditor, existing: string | undefined) => void,
   env: EnvReader = Deno.env,
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
@@ -1287,8 +1286,8 @@ async function editTomlFile(
   }
   const editor = new TomlEditor(existing ?? "");
   edit(editor, existing);
-  let out = stripGeneratedArtifactMarker(editor.toString(), provenanceSource);
-  const marker = generatedArtifactMarker(provenanceSource, env);
+  let out = stripArtifactProvenanceMarker(editor.toString(), provenance);
+  const marker = artifactProvenanceMarker(provenance, env);
   const eol = out.includes("\r\n") ? "\r\n" : "\n";
   out = `${marker}${eol}${out}`;
   if (!out.endsWith("\n")) {
@@ -1366,7 +1365,7 @@ async function registerCodexProjectConfig(
   const wrote = await editTomlFile(
     root,
     CODEX_CONFIG_FILE,
-    ARTIFACT_PROVENANCE_SOURCES.codexConfig,
+    ARTIFACT_PROVENANCE.codexConfig,
     (editor, existing) => {
       const parsed = parseTomlObject(existing);
       const roots = appendUnique(
@@ -1438,7 +1437,7 @@ async function registerCodexEnvironment(
   const wrote = await editTomlFile(
     root,
     CODEX_ENV_FILE,
-    ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+    ARTIFACT_PROVENANCE.codexEnvironment,
     (editor, existing) => {
       const parsed = parseTomlObject(existing);
       // Codex rejects the file unless top-level `version`/`name` are present; seed
@@ -1535,9 +1534,9 @@ export async function stripDiscernFromCodexConfig(
     editor.deleteRootKey("project_doc_max_bytes");
   }
 
-  const out = stripGeneratedArtifactMarker(
+  const out = stripArtifactProvenanceMarker(
     editor.toString(),
-    ARTIFACT_PROVENANCE_SOURCES.codexConfig,
+    ARTIFACT_PROVENANCE.codexConfig,
   );
   return Object.keys(parseTomlObject(out)).length === 0 ? null : out;
 }
@@ -1554,9 +1553,9 @@ export async function stripDiscernFromCodexConfig(
  */
 export function stripDiscernFromCodexEnv(existingText: string): string | null {
   const hasDiscernMarker = existingText.split(/\r?\n/u).some((line) =>
-    isGeneratedArtifactMarker(
+    isArtifactProvenanceMarker(
       line,
-      ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+      ARTIFACT_PROVENANCE.codexEnvironment,
     )
   );
   const editor = new TomlEditor(existingText);
@@ -1575,9 +1574,9 @@ export function stripDiscernFromCodexEnv(existingText: string): string | null {
   dropScriptSection("setup", CODEX_ENV_SETUP_SCRIPT);
   dropScriptSection("cleanup", CODEX_ENV_CLEANUP_SCRIPT);
 
-  const withoutMarker = stripGeneratedArtifactMarker(
+  const withoutMarker = stripArtifactProvenanceMarker(
     editor.toString(),
-    ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+    ARTIFACT_PROVENANCE.codexEnvironment,
   );
   const remaining = parseTomlObject(withoutMarker);
   const keys = Object.keys(remaining);

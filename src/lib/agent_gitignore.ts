@@ -24,8 +24,8 @@ import type { EnvReader } from "../shared/env.ts";
 import { readTextIfExists } from "../shared/fs_presence.ts";
 import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
-import { generatedArtifactMarker } from "../shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
+import { artifactProvenanceMarker } from "../shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../shared/file_ownership.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
 import { resolveWorktreeRoot } from "./worktree_root.ts";
 import { DISCERN_MANAGED_BLOCK } from "../shared/git_conventions.ts";
@@ -113,8 +113,8 @@ export function canonicalDiscernGitignoreBlock(
   if ((withoutEnd[0] ?? "").trim() !== DISCERN_GITIGNORE_BEGIN) {
     withoutEnd.unshift(DISCERN_GITIGNORE_BEGIN);
   }
-  const provenanceMarker = generatedArtifactMarker(
-    ARTIFACT_PROVENANCE_SOURCES.gitignore,
+  const provenanceMarker = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.gitignore,
     env,
   );
   if (!withoutEnd.includes(provenanceMarker)) {

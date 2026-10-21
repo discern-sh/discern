@@ -66,7 +66,7 @@ Each shared or generated file also has a provenance class, which decides whether
 
 - **Context-loaded:** no marker. Agents load agent files and skills in full, so a marker would take up space in every session's context, and coding tools render comments differently. Instructions and drift checks enforce ownership instead.
 - **Comment-incapable:** no marker, because JSON doesn't allow comments.
-- **Comment-capable non-context:** the marker names the file's source, as the second line of the [`.gitignore` block](#gitignore) below does. By default it also names discern and links to [discern.sh](https://discern.sh). A non-empty `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product name and link.
+- **Comment-capable non-context:** the marker names the file's source, as the second line of the [`.gitignore` block](#gitignore) below does. In a shared file, it names only the part discern maintains, such as "This block". By default the marker also names discern and links to [discern.sh](https://discern.sh). A non-empty `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product name and link.
 
 A missing marker doesn't make a file project-owned, so look the file up in the inventory below before you edit it.
 
@@ -142,7 +142,7 @@ discern ignores provider-local files by their exact registered paths, so neighbo
 
 ```text
 # --- discern ---
-# Generated automatically by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
+# This block managed by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
 # discern's managed ignore rules: machine-local provider state only.
 # The skills discern materializes are ignored by an ignore file inside
 # each provider skills directory that lists just those entries, so
@@ -164,6 +164,7 @@ discern owns only its marked block, plus any standalone rule outside it that exa
 Coding tools' configuration files, such as `.mcp.json`, `.claude/settings.json`, and `.codex/config.toml`, often hold entries from several tools. discern changes only its own entries there, in a form the other tools don't have to undo:
 
 - **JSON files keep their layout.** discern writes its entry in the file's existing indentation, line endings, and final newline, so another tool that writes the same file sees only that entry change. Uninstalling removes the entry the same way. A new file, or an empty `{}`, gets two-space indentation.
+- **Markers claim only discern's part.** In a shared file that allows comments, discern's marker names the entries it maintains instead of calling the file generated. `.codex/config.toml`, for example, opens with `# MCP server, writable-root, and doc-size entries managed by discern via the Codex integration and discern.toml`, so the tables other tools write there stay visibly theirs.
 
 ## Skills directories
 

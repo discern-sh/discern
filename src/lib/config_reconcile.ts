@@ -24,10 +24,10 @@ import {
 } from "./config_template.ts";
 import { substituteTokens, type TokenMap } from "./template.ts";
 import {
-  generatedArtifactMarkerBody,
-  isGeneratedArtifactMarker,
+  artifactProvenanceMarkerBody,
+  isArtifactProvenanceMarker,
 } from "../shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
+import { ARTIFACT_PROVENANCE } from "../shared/file_ownership.ts";
 import {
   defaultDocumentationScopes,
   defaultInstructionScopes,
@@ -175,8 +175,8 @@ export function renderConfigTemplateForConfig(
     gotchas_doc: config.project.gotchas_doc,
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),
-    artifact_provenance_marker: generatedArtifactMarkerBody(
-      ARTIFACT_PROVENANCE_SOURCES.config,
+    artifact_provenance_marker: artifactProvenanceMarkerBody(
+      ARTIFACT_PROVENANCE.config,
       env,
     ),
     discern_version: DISCERN_VERSION,
@@ -197,7 +197,7 @@ function reconcileProvenanceMarker(
   renderedTemplate: string,
 ): { text: string; operations: ConfigReconcileOperation[] } {
   const marker = renderedTemplate.split(/\r?\n/u).find((line) =>
-    isGeneratedArtifactMarker(line, ARTIFACT_PROVENANCE_SOURCES.config)
+    isArtifactProvenanceMarker(line, ARTIFACT_PROVENANCE.config)
   );
   if (marker === undefined) {
     return { text: configText, operations: [] };
@@ -206,7 +206,7 @@ function reconcileProvenanceMarker(
   const newline = configText.includes("\r\n") ? "\r\n" : "\n";
   const lines = configText.split(newline).filter((line) =>
     line !== LEGACY_CONFIG_PROVENANCE_MARKER &&
-    !isGeneratedArtifactMarker(line, ARTIFACT_PROVENANCE_SOURCES.config)
+    !isArtifactProvenanceMarker(line, ARTIFACT_PROVENANCE.config)
   );
   const markerIndex = lines[0]?.startsWith("#:schema ") === true ? 1 : 0;
   lines.splice(markerIndex, 0, marker);

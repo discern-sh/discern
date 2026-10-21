@@ -25,11 +25,11 @@
 import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import {
-  isManagedValuesMarker,
-  managedValuesMarker,
+  artifactProvenanceMarker,
+  isArtifactProvenanceMarker,
 } from "../../shared/brand.ts";
 import type { EnvReader } from "../../shared/env.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../../shared/file_ownership.ts";
+import { ARTIFACT_PROVENANCE } from "../../shared/file_ownership.ts";
 import {
   resolveContainedProjectReadPath,
   resolveContainedProjectWritePath,
@@ -38,9 +38,6 @@ import { readTextIfExists } from "../../shared/fs_presence.ts";
 
 /** The default `[worktree].env_files` when a caller has no config in hand. */
 export const DEFAULT_ENV_FILES: readonly string[] = [".env", ".env.local"];
-
-/** The scoped subject of discern's one marker in a shared env file. */
-export const WORKTREE_ENVIRONMENT_MARKER_SUBJECT = "Worktree values";
 
 /**
  * Upsert `KEY=value` into `.env` text: replace the first existing `KEY=` line
@@ -76,19 +73,14 @@ export function upsertEnvLine(
       next.push(`${prefix}${value}`);
     }
   }
-  const marker = managedValuesMarker(
-    WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
-    ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+  const marker = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.worktreeEnvironment,
     env,
   );
   return [
     marker,
     ...next.filter((line) =>
-      !isManagedValuesMarker(
-        line,
-        WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
-        ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
-      )
+      !isArtifactProvenanceMarker(line, ARTIFACT_PROVENANCE.worktreeEnvironment)
     ),
   ].join("\n");
 }

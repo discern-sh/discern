@@ -20,11 +20,11 @@ import {
 import { scanRuledBanners } from "../src/lib/config_banners.ts";
 import { parseDiscernToml } from "../src/lib/toml_render.ts";
 import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
-import { isGeneratedArtifactMarker } from "../src/shared/brand.ts";
+import { isArtifactProvenanceMarker } from "../src/shared/brand.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { CONFIG_REL } from "../src/shared/env.ts";
 import {
-  ARTIFACT_PROVENANCE_SOURCES,
+  ARTIFACT_PROVENANCE,
   declaredFileOwnership,
 } from "../src/shared/file_ownership.ts";
 import { CAPTURE_COMMAND } from "../scripts/capture_install_fixture.ts";
@@ -85,7 +85,7 @@ function managedConfigState(text: string): ManagedConfigState {
   return {
     directive: first.startsWith("#:schema ") ? first : undefined,
     marker: lines.find((line) =>
-      isGeneratedArtifactMarker(line, ARTIFACT_PROVENANCE_SOURCES.config)
+      isArtifactProvenanceMarker(line, ARTIFACT_PROVENANCE.config)
     ),
     banners: scanRuledBanners(text).map((span) =>
       lines.slice(span.start, span.end + 1).join("\n")

@@ -44,9 +44,9 @@ Shared and generated artifacts also declare one provenance class:
 
 - **Context-loaded:** unmarked. Agent files and Skills load in full, so each marker would spend context tokens. Providers also render comments differently. Instructions and drift checks enforce ownership.
 - **Comment-incapable:** no marker because JSON forbids comments.
-- **Comment-capable non-context:** its marker identifies the source. By default, it also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product byline and link.
+- **Comment-capable non-context:** its marker identifies the source. A Generated file's marker claims the entire file ("Generated automatically by discern via …"). A Shared file's marker claims only its declared scope ("This block managed by discern via …"), because the rest is not discern's. By default, the marker also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the claim and source and removes the product byline and link.
 
-Registry tests enforce classification and both marker rules ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md)).
+Each comment-capable declaration carries an `ArtifactProvenance` from [`ARTIFACT_PROVENANCE`](../../../src/shared/file_ownership.ts), and `artifactProvenanceMarker` renders it. Registry tests enforce classification, the scope-ownership pairing, and both marker rules ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md), [ADR 0426](../_adr/0426-shared-file-markers-claim-only-discerns-part.md)).
 
 ## Registered project paths
 

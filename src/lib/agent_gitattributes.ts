@@ -16,14 +16,14 @@ import {
   type ResolvedGeneratedGroup,
   resolveGeneratedGroups,
 } from "../shared/generated_artifacts.ts";
-import { generatedArtifactMarker } from "../shared/brand.ts";
+import { artifactProvenanceMarker } from "../shared/brand.ts";
 import type { EnvReader } from "../shared/env.ts";
 import {
   fileExists,
   pathExists,
   readTextIfExists,
 } from "../shared/fs_presence.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
+import { ARTIFACT_PROVENANCE } from "../shared/file_ownership.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { resolveSourcePaths } from "../shared/source_path_resolution.ts";
@@ -317,8 +317,8 @@ export function canonicalDiscernGitattributesBlock(
       refused: refusedPatterns,
     };
   }
-  const marker = generatedArtifactMarker(
-    ARTIFACT_PROVENANCE_SOURCES.gitattributes,
+  const marker = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.gitattributes,
     env,
   );
   const body = [...attributesByPattern.entries()].map(

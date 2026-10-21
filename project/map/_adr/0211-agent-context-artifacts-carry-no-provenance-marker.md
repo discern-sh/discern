@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **[ADR 0203](0203-discern-co-authors-only-commits-it-composes.md) — attribution control:** Comment-capable artifacts outside agent context now carry a shorter generation-and-source marker. By default it names discern and links to `https://discern.sh`. When `DISCERN_NO_ATTRIBUTION` is non-empty, it omits the byline and URL while keeping the generation notice and source. The longer overwrite warning no longer appears in the marker. Context-loaded and comment-incapable artifact policy is unchanged.
+> - **[ADR 0426](0426-shared-file-markers-claim-only-discerns-part.md) — Shared-file claims:** a Shared file's marker names the scope discern maintains, such as "This block managed by discern via …", instead of presenting every line as generated. Generated files keep the file-wide wording.
 > - **[ADR 0259](0259-generated-groups-opt-in-to-review-metadata.md) — review metadata:** generated groups may now opt in to GitHub's `linguist-generated` attribute, and registered Markdown uses Git's built-in Markdown diff driver. Neither is an in-band provenance marker; the context-loaded artifact decision below is unchanged.
 
 **Status**: accepted

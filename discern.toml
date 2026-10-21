@@ -1,5 +1,5 @@
 #:schema https://discern.sh/schema/v1/discern-config.schema.json
-# Generated automatically by discern via the bundled project configuration template | https://discern.sh
+# Scaffold and banners managed by discern via the bundled project configuration template | https://discern.sh
 #
 # discern.toml configures discern for "discern".
 #

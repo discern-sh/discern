@@ -25,8 +25,8 @@ import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { withResultObserver } from "../src/shared/result_capture.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import { runConfigSet } from "../src/commands/config.ts";
-import { generatedArtifactMarker } from "../src/shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { artifactProvenanceMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { withPristineInstalls } from "./engine_surface_fixture.ts";
@@ -110,7 +110,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
         // A section comment from the template survives the edit.
         assertStringIncludes(
           toml,
-          generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.config),
+          artifactProvenanceMarker(ARTIFACT_PROVENANCE.config),
         );
         await assertDiscernTomlTidy(dir, "config set-job");
       },
