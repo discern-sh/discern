@@ -617,10 +617,10 @@ export async function planRefresh(
   }
 
   // discern's `.gitignore` block re-includes the integration files the
-  // project's own rules exclude, so it follows the configured agents.
+  // project's own rules exclude, so those rules follow the configured agents.
   try {
-    const ignore = await planDiscernGitignoreFile(root, config, env);
-    if (ignore !== undefined && ignore.operations.length > 0) {
+    const ignore = await planDiscernGitignoreFile(root, config);
+    if (ignore.operations.length > 0) {
       const targetAbs = join(root, GITIGNORE_REL);
       addFileEffect(
         effects,

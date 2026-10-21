@@ -123,7 +123,6 @@ export function canonicalDiscernGitignoreBlock(
   artifacts: AgentArtifactPosture = agentArtifactPosture(),
   env: EnvReader = Deno.env,
   nestedWorktreeRoot?: string,
-  reincluded: readonly string[] = [],
 ): string {
   const normalized = normalizeLineEndings(fragment).replace(/\n+$/, "");
   const lines = normalized === "" ? [] : normalized.split("\n");
@@ -164,9 +163,6 @@ export function canonicalDiscernGitignoreBlock(
       ...additions,
     );
   }
-  if (reincluded.length > 0) {
-    withoutEnd.push(REINCLUDE_HEADING, ...reincluded);
-  }
   return `${[...withoutEnd, DISCERN_GITIGNORE_END].join("\n")}\n`;
 }
 
@@ -185,7 +181,6 @@ export function reconcileDiscernGitignore(
   nestedWorktreeRoot?: string,
   integrationPaths: readonly string[] = [],
 ): GitignoreReconcileResult {
-  const eol = existing.includes("\r\n") ? "\r\n" : "\n";
   const normalized = normalizeLineEndings(existing);
   const owned = canonicalDiscernGitignoreBlock(
     fragment,
@@ -198,31 +193,88 @@ export function reconcileDiscernGitignore(
     owned,
     artifacts,
   );
-  const { before, after } = blockPlacement(stripped, integrationPaths);
-  const canonicalLines = trimFinalSplit(canonicalDiscernGitignoreBlock(
-    fragment,
-    artifacts,
-    env,
-    nestedWorktreeRoot,
-    reincludingRules(before, integrationPaths),
-  ));
+  return reconcileResult(
+    existing,
+    composeGitignore(stripped, blockBase(owned), integrationPaths),
+  );
+}
 
-  const combined: string[] = [];
-  combined.push(...before);
+/**
+ * Bring only the re-include rules of an existing discern block current, and
+ * the block's place with them, leaving its other lines and every project line
+ * as they are. Refresh uses this: the rest of the block, and a file without
+ * one, stay upgrade's to reconcile. In a canonical file it agrees with
+ * {@link reconcileDiscernGitignore} byte for byte.
+ */
+export function reconcileGitignoreExceptions(
+  existing: string,
+  integrationPaths: readonly string[],
+): GitignoreReconcileResult {
+  const lines = trimFinalSplit(normalizeLineEndings(existing));
+  const begin = lines.findIndex((line) =>
+    line.trim() === DISCERN_GITIGNORE_BEGIN
+  );
+  const end = begin === -1 ? -1 : findClosingMarker(lines, begin + 1);
+  if (end === -1) return { text: existing, operations: [] };
+  const block = lines.slice(begin, end);
+  const heading = block.indexOf(REINCLUDE_HEADING);
+  return reconcileResult(
+    existing,
+    composeGitignore(
+      {
+        lines: [...lines.slice(0, begin), ...lines.slice(end + 1)],
+        insertionIndex: begin,
+      },
+      heading === -1 ? block : block.slice(0, heading),
+      integrationPaths,
+    ),
+  );
+}
+
+/** A canonical block's lines without its end marker. */
+function blockBase(canonical: string): string[] {
+  return trimFinalSplit(canonical).filter((line) =>
+    line.trim() !== DISCERN_GITIGNORE_END
+  );
+}
+
+/**
+ * Place the block among the project's lines, with the re-include rules its
+ * position calls for, separated from neighbouring lines by one blank line.
+ */
+function composeGitignore(
+  stripped: StripResult,
+  base: readonly string[],
+  integrationPaths: readonly string[],
+): string {
+  const { before, after } = blockPlacement(stripped, integrationPaths);
+  const reincluded = reincludingRules(before, integrationPaths);
+  const combined: string[] = [...before];
   if (combined.length > 0 && !isBlank(combined[combined.length - 1] ?? "")) {
     combined.push("");
   }
-  combined.push(...canonicalLines);
+  combined.push(
+    ...base,
+    ...(reincluded.length === 0 ? [] : [REINCLUDE_HEADING, ...reincluded]),
+    DISCERN_GITIGNORE_END,
+  );
   if (after.length > 0 && !isBlank(after[0] ?? "")) {
     combined.push("");
   }
   combined.push(...after);
+  return `${combined.join("\n")}\n`;
+}
 
-  const reconciled = `${combined.join("\n")}\n`;
+/** Report a composed text against the existing one, keeping its line endings. */
+function reconcileResult(
+  existing: string,
+  reconciled: string,
+): GitignoreReconcileResult {
+  const normalized = normalizeLineEndings(existing);
   if (reconciled === normalized) {
     return { text: existing, operations: [] };
   }
-
+  const eol = existing.includes("\r\n") ? "\r\n" : "\n";
   const kind = normalized.trim() === "" ? "create-block" : "replace-block";
   return {
     text: eol === "\n" ? reconciled : reconciled.replaceAll("\n", eol),
@@ -352,14 +404,20 @@ async function reconcileGitignoreAt(
   };
 }
 
-/** Plan `.gitignore` reconciliation with its text, for refresh's file effect;
- * `undefined` when the shipped fragment is unavailable. */
+/** Plan refresh's update of the block's re-include rules, with the file's
+ * text; no operations when the file has no complete discern block. */
 export async function planDiscernGitignoreFile(
   destDir: string,
   config: DiscernConfig,
-  env: EnvReader = Deno.env,
-): Promise<GitignoreFilePlan | undefined> {
-  return await reconcileGitignoreAt(destDir, config, env);
+): Promise<GitignoreFilePlan> {
+  const existing = await readTextIfExists(join(destDir, TARGET_REL));
+  return {
+    ...reconcileGitignoreExceptions(
+      existing ?? "",
+      gitignoreIntegrationPaths(config),
+    ),
+    existing,
+  };
 }
 
 /** Project an in-memory reconciliation onto the file-level result. */

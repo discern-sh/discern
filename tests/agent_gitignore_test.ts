@@ -17,6 +17,7 @@ import {
   ignoreCovers,
   nestedWorktreeIgnorePath,
   reconcileDiscernGitignore,
+  reconcileGitignoreExceptions,
   trackedDiscernIgnoredArtifacts,
 } from "../src/lib/agent_gitignore.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
@@ -409,6 +410,34 @@ Deno.test("the block re-includes integration files the project's rules exclude, 
           moved,
         );
         assert(moved.trimEnd().endsWith(DISCERN_GITIGNORE_END), moved);
+      },
+    "refresh's exceptions-only pass agrees with the full reconcile":
+      (): undefined => {
+        const full = reconcile("node_modules/\n.codex/\n");
+        assertEquals(reconcileGitignoreExceptions(full, paths).operations, []);
+        const stale = full.replace(/^!\/\.codex\/hooks\.json\n/mu, "");
+        assert(stale !== full, "precondition: one exception removed");
+        assertEquals(reconcileGitignoreExceptions(stale, paths).text, full);
+      },
+    "refresh's exceptions-only pass leaves every other line alone":
+      (): undefined => {
+        assertEquals(
+          reconcileGitignoreExceptions(".codex/\n", paths).operations,
+          [],
+          "a file without discern's block is upgrade's",
+        );
+        const older = [
+          ".codex/",
+          "",
+          DISCERN_GITIGNORE_BEGIN,
+          "# an older fragment line",
+          "/.claude/settings.local.json",
+          DISCERN_GITIGNORE_END,
+          "",
+        ].join("\n");
+        const updated = reconcileGitignoreExceptions(older, paths).text;
+        assertStringIncludes(updated, "# an older fragment line\n");
+        assertStringIncludes(updated, "!/.codex/config.toml\n");
       },
     "the gate's owned-artifact rules never include an exception":
       (): undefined => {
