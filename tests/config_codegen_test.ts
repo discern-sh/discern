@@ -50,6 +50,7 @@ import {
   STABILITY_TIER_EVOLVING,
 } from "../src/shared/public_schemas.ts";
 import { withTempDir } from "./helpers.ts";
+import type { TokenMap } from "../src/lib/template.ts";
 import { scaffoldEngine } from "./engine_helpers.ts";
 import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
@@ -658,11 +659,12 @@ async function renderedTemplate(): Promise<string> {
   let t = await Deno.readTextFile(
     new URL("../templates/discern.toml.tmpl", import.meta.url),
   );
-  const fills: Record<string, string> = {
+  const fills: TokenMap = {
     project_slug: "demo",
     branch_prefix: "agent/",
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
+    local_integration_files_array: "",
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),

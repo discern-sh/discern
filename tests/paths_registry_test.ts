@@ -28,6 +28,7 @@ import {
   defaultInstructionScopes,
 } from "../src/lib/config.ts";
 import { normalizeMapDir } from "../src/shared/map_path.ts";
+import type { TokenMap } from "../src/lib/template.ts";
 
 Deno.test("registry defaults follow the namespace policy and classify gate-neutral sources", () => {
   for (const name of SOURCE_PATH_NAMES) {
@@ -113,11 +114,12 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
   );
   // The map dir arrives as a token whose default fill is the registry's
   // (DEFAULTS.mapDir); the other fills are irrelevant to the path keys.
-  const fills: Record<string, string> = {
+  const fills: TokenMap = {
     project_slug: "demo",
     branch_prefix: "agent/",
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
+    local_integration_files_array: "",
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),
