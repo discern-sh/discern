@@ -1,6 +1,6 @@
 # ADR 0428: The `.gitignore` block re-includes ignored integration files
 
-**Status**: accepted; amends [ADR 0093](0093-upgrade-reconciles-gitignore-block.md), since refresh now reconciles the block too
+**Status**: accepted; amends [ADR 0093](0093-upgrade-reconciles-gitignore-block.md), since refresh now keeps the block's exceptions current
 
 ## Context
 
@@ -21,7 +21,7 @@ Git also stages a tracked file beneath an ignored folder but still exits 1, whic
 
 **The exceptions follow from tracked content alone.** [`gitignore_patterns.ts`](../../../src/lib/gitignore_patterns.ts) evaluates the root `.gitignore` purely, so every checkout renders the same block. Git would also apply this machine's global and clone-local excludes, and a Git process in every refresh plan would cost `status` and the gate. A parity test holds the matcher, and the property that the exceptions admit nothing else, to Git's own `check-ignore`. The block keeps its place unless a project rule after it excludes an integration file; it then moves to the end, because the last matching rule wins.
 
-**Refresh keeps the block current.** The exceptions depend on the configured agents, so refresh, setup, and upgrade all reconcile the block, and the tracked-refresh plan reports a stale one. Adding a coding agent whose folder the project ignores is handled by the next refresh.
+**Refresh keeps the exceptions current.** They depend on the configured agents, so refresh updates them, and the block's place with them, inside an existing block; the tracked-refresh plan reports stale ones. The rest of the block, and a file without one, stay with setup and upgrade, which reconcile every line of the block through the same composition, so the two never disagree. Adding a coding agent whose folder the project ignores is handled by the next refresh.
 
 **Nobody is asked.** The consent footprint already lists the integration files setup commits; it now says when the project's rules exclude them and that the block re-includes just those files. discern never edits the project's own rules.
 
