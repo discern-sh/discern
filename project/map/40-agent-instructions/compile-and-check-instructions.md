@@ -60,10 +60,26 @@ Do not edit a compiled file to fix its prose. The next refresh replaces that edi
 
 Agent files stay whole-file generated outputs, so a refresh replaces every line no source produced. `agentFileDiscard` in [`instruction_render.ts`](../../../src/engine/instruction_render.ts) names those lines for the gate, status, and every refresh. It aligns the file with its recompiled body and sorts each lost line by where it stands:
 
-- **An edit** replaces a line the compile wrote, as a hand edit or a reflowing formatter does. The gate's remedy stays `discern refresh`.
-- **An added line** stands where the compiled body has nothing, as when another tool keeps its own block in the file. Here the gate's diagnostic and hint, and the status hint, offer the owner three choices: move lines they wrote into an instruction source; have the tool write into a file listed in `[instructions].sources`, declared under `[generated.<name>]` with the tool's regenerate command; or refresh and discard them.
+- **An edit** rewrites a line the compile wrote, as a hand edit, a reflowing formatter, or a stale source does. The two sides share at least a third of their words. The gate's remedy stays `discern refresh`.
+- **An added line** stands where the compiled body has nothing, or replaces compiled text with unrelated content, as when another tool keeps its own block in the file. Here the gate's diagnostic and hint, and the status hint, offer the owner three choices: move lines they wrote into an instruction source; have the tool write into a file listed in `[instructions].sources`, declared under `[generated.<name>]` with the tool's regenerate command; or refresh and discard them.
 
-A line whose text survives elsewhere in the recompiled body counts as moved, never lost.
+A line whose text survives elsewhere in the recompiled body, or in another agent file the same compile writes, counts as moved, never lost.
+
+### Every overwrite reports what it discards
+
+A refresh exists to replace edits, so only added lines count as discarded. The refresh planner attaches the comparison's verdict to each agent-file write, and `applyRefreshPlan`, which applies every such write, records each file that lost added lines. Each path that overwrites agent files carries that report to its caller:
+
+| Path                                                         | Report                                                                                                                            |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `discern refresh`                                            | `data.agent_files_discarded` (path, count, first lines) and a notice hint. A dry run lists the planned discards without the hint. |
+| `discern prepare`                                            | The notice, plus a warning diagnostic whose output keeps every discarded line.                                                    |
+| `discern start`, `discern update`, `discern worktree ensure` | The notice hint.                                                                                                                  |
+| `discern upgrade`, `discern setup begin`, `discern accept`   | The notice hint. For `accept`, the lines are missing from what landed.                                                            |
+| `discern setup done`                                         | A refusal at the refresh stage that names the files, plus the notice.                                                             |
+
+`prepare` warns instead of refusing. It is the inner loop: it converges agent files so `done` finds nothing left to rewrite, and the owner, not the loop, decides where added lines belong. The warning's retained output keeps every discarded line even when no commit held them, so the loss stays recoverable.
+
+[`agent_file_writers.ts`](../../../tests/agent_file_writers.ts) enrolls every call site that renders agent-file bytes or runs the writer, and each declares how its caller learns of a discard. Only the refresh planner may turn rendered bytes into writes. A new path fails the gate until it is declared ([`agent_file_writers_guard_test.ts`](../../../tests/agent_file_writers_guard_test.ts)).
 
 ## Check each agent-copy source at its authority
 

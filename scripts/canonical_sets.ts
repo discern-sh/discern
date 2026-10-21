@@ -3376,6 +3376,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "agent-file-writers",
+    title: "Agent-file writers",
+    what:
+      "Every shipped call site that renders compiled agent-file bytes or runs the refresh writer, with how each lets its caller learn which lines no instruction source produces an overwrite discarded.",
+    source: {
+      kind: "module",
+      module: "tests/agent_file_writers.ts",
+      exportName: "AGENT_FILE_WRITE_USES",
+    },
+    guards: ["tests/agent_file_writers_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the compile-and-check page explains discard reporting in context",
+      },
+      featureCanon: {
+        absent:
+          "the repository's contributor guard infrastructure owns this enrollment check",
+      },
+    },
+    members: async () => {
+      const writers = await import("../tests/agent_file_writers.ts");
+      return [
+        ...Object.keys(writers.AGENT_FILE_RENDER_USES),
+        ...Object.keys(writers.AGENT_FILE_WRITE_USES),
+      ];
+    },
+  },
+  {
     id: "distribution-vocabulary",
     title: "Distribution vocabulary",
     what:

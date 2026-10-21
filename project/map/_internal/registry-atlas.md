@@ -75,7 +75,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 20      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 5       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 206     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 207     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 49      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -120,6 +120,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 414     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 31      | "File ownership" | node `ownership-buckets`    |
 | [`skill-dir-consumers`](#skill-dir-consumers--skills-directory-consumers)                                             | `tests/skill_dir_consumers.ts#SKILL_DIR_CONSUMERS`                                | 22      | —                | —                           |
+| [`agent-file-writers`](#agent-file-writers--agent-file-writers)                                                       | `tests/agent_file_writers.ts#AGENT_FILE_WRITE_USES`                               | 38      | —                | —                           |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#DEAD_CONFIG_POSITIONS`                                  | 10      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 12      | —                | —                           |
@@ -151,9 +152,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 16      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 4       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 140     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 141     | —                | node `canonical-sets`       |
 
-140 sets · 202 guard tests · 75 committed artifacts.
+141 sets · 203 guard tests · 75 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -165,6 +166,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/adr_citations_test.ts`                      | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/adr_index_test.ts`                          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/adr_supersession_guard_test.ts`             | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/agent_file_writers_guard_test.ts`           | [`agent-file-writers`](#agent-file-writers--agent-file-writers)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/agent_gitattributes_test.ts`                | [`config-tables`](#config-tables--config-tables), [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/agent_integration_coverage_codegen_test.ts` | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/agent_parity_test.ts`                       | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -3059,7 +3061,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 206
+- Members: 207
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -3110,6 +3112,7 @@ The advisory hint registry: every hint string enters results through it.
   - `refresh-mcp-setup-deferred`
   - `refresh-commit-tracked-artifacts`
   - `refresh-artifact-failed`
+  - `refresh-agent-files-discarded`
   - `skills-eject-edit-override`
   - `skills-eject-finish-materialization`
   - `coupling-generated-exclusion`
@@ -5116,6 +5119,54 @@ Every shipped call site that reads a provider skills-directory path from the reg
 - Glossary: not enrolled — the files-and-ownership reference explains entry-level ownership of skills directories in context
 - Feature canon: not enrolled — the repository's contributor guard infrastructure owns this enrollment check
 
+## `agent-file-writers` — Agent-file writers
+
+Every shipped call site that renders compiled agent-file bytes or runs the refresh writer, with how each lets its caller learn which lines no instruction source produces an overwrite discarded.
+
+- Source: `tests/agent_file_writers.ts` — `AGENT_FILE_WRITE_USES`
+- Members: 38
+  - `src/commands/doctor.ts#runChecks > renderAgentFiles`
+  - `src/engine/instruction_render.ts#agentFileOwnershipPatterns > agentFileContents`
+  - `src/engine/instruction_render.ts#agentFilePaths > agentFileContents`
+  - `src/engine/instruction_render.ts#checkInstructionCurrent > renderAgentFiles`
+  - `src/engine/instruction_render.ts#renderAgentFiles > agentFileContents`
+  - `src/engine/tracked_refresh.ts#planRefresh > renderAgentFiles`
+  - `src/engine/worktree/lifecycle.ts#updateRefreshCompiledPaths > renderAgentFiles`
+  - `src/commands/setup.ts#proveFinalSetupTree > refreshSetupInstructions`
+  - `src/commands/setup.ts#refreshSetupInstructions > compileInstructions`
+  - `src/commands/setup.ts#runExistingSetupCompletion > proveFinalSetupTree`
+  - `src/commands/setup.ts#runSetupBegin > compileInstructions`
+  - `src/commands/setup.ts#runSetupBegin > scaffoldHarness`
+  - `src/commands/setup.ts#runSetupDone > proveFinalSetupTree`
+  - `src/commands/setup.ts#runSetupDone > refreshSetupInstructions`
+  - `src/commands/setup.ts#scaffoldHarness > compileInstructions`
+  - `src/commands/upgrade.ts#runUpgrade > compileInstructions`
+  - `src/engine/desk/desk.ts#setup > worktreeSetup`
+  - `src/engine/dispatch.ts#attachEngineCommands > refreshResult`
+  - `src/engine/dispatch.ts#attachEngineCommands > worktreeEnsure`
+  - `src/engine/dispatch.ts#attachEngineCommands > worktreeSetup`
+  - `src/engine/gate/prepare.ts#runPrepareRefresh > compileInstructions`
+  - `src/engine/instructions.ts#compileInstructions > applyRefreshPlan`
+  - `src/engine/instructions.ts#refreshResult > applyRefreshPlan`
+  - `src/engine/mcp/server.ts#run > refreshResult`
+  - `src/engine/worktree/accept_integration.ts#executeIntegrationLanding > runIntegrationAttempt`
+  - `src/engine/worktree/integration_landing.ts#proveComposition > applyUpdateCore`
+  - `src/engine/worktree/integration_landing.ts#runIntegrationAttempt > createAndSetupWorktree`
+  - `src/engine/worktree/integration_landing.ts#runIntegrationAttempt > proveComposition`
+  - `src/engine/worktree/lifecycle.ts#applyStartPlan > createAndSetupWorktree`
+  - `src/engine/worktree/lifecycle.ts#applyUpdateCore > runUpdateConvergence`
+  - `src/engine/worktree/lifecycle.ts#createAndSetupWorktree > worktreeSetup`
+  - `src/engine/worktree/lifecycle.ts#executeUpdatePlan > applyUpdateCore`
+  - `src/engine/worktree/lifecycle.ts#probeWorktreeViability > worktreeSetup`
+  - `src/engine/worktree/lifecycle.ts#refreshWorktreeArtifacts > compileInstructions`
+  - `src/engine/worktree/lifecycle.ts#runUpdateConvergence > compileInstructions`
+  - `src/engine/worktree/lifecycle.ts#worktreeEnsure > worktreeSetup`
+  - `src/engine/worktree/lifecycle.ts#worktreeSetup > refreshWorktreeArtifacts`
+  - `src/lib/worktree_hooks.ts#worktreeCreateHook > createAndSetupWorktree`
+- Guards: `tests/agent_file_writers_guard_test.ts`
+- Glossary: not enrolled — the compile-and-check page explains discard reporting in context
+- Feature canon: not enrolled — the repository's contributor guard infrastructure owns this enrollment check
+
 ## `distribution-vocabulary` — Distribution vocabulary
 
 Dead config positions, command suggestions, and grammatical command variants.
@@ -5945,7 +5996,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 140
+- Members: 141
   - `site-marketing-pages`
   - `site-endpoints`
   - `public-site-routes`
@@ -6054,6 +6105,7 @@ This meta-registry: the closed set of closed sets.
   - `adrs`
   - `project-artifacts`
   - `skill-dir-consumers`
+  - `agent-file-writers`
   - `distribution-vocabulary`
   - `voice-banned-moves`
   - `brand-vale-styles`
