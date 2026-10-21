@@ -41,6 +41,23 @@ async function scaffold(
   await Deno.writeTextFile(join(tmp, "instructions.md"), "# Mine\nA rule.\n");
 }
 
+Deno.test("agent files join instruction sources in configured order", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(
+      join(root, "discern.toml"),
+      '[project]\nagents = ["codex"]\n[instructions]\nsources = ["later.md", "earlier.md"]\n',
+    );
+    await Deno.writeTextFile(join(root, "later.md"), "Listed first.\n");
+    await Deno.writeTextFile(join(root, "earlier.md"), "Listed second.\n");
+    const body = (await renderAgentFiles(root)).get("AGENTS.md");
+    assert(body !== undefined);
+    const first = body.indexOf("Listed first.");
+    const second = body.indexOf("Listed second.");
+    assert(first >= 0 && second >= 0, body);
+    assert(first < second, "a later-sorting path listed first must lead");
+  });
+});
+
 Deno.test("queue instructions state the configured cap and disappear when uncapped", async () => {
   for (const cap of [0, 1, 7]) {
     await withTempDir(async (root) => {

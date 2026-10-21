@@ -233,6 +233,27 @@ Deno.test("resolveInstructionSources: a root whose path contains glob metacharac
   }
 });
 
+Deno.test("resolveInstructionSources: follows the configured pattern order, sorting only within one pattern", async () => {
+  await withTempDir(async (root) => {
+    await Deno.mkdir(join(root, "guides"));
+    for (const rel of ["z.md", "a.md", "guides/b.md", "guides/a.md"]) {
+      await Deno.writeTextFile(join(root, rel), `# ${rel}\n`);
+    }
+    const sources = await resolveInstructionSources(
+      root,
+      parseConfigOrThrow(
+        '[instructions]\nsources = ["z.md", "guides/*.md", "a.md", "guides/a.md", "absent.md"]\n',
+      ),
+    );
+    assertEquals(
+      sources,
+      ["z.md", "guides/a.md", "guides/b.md", "a.md"].map((rel) =>
+        join(root, rel)
+      ),
+    );
+  });
+});
+
 Deno.test("resolveInstructionSources: never admits an agent file, for any provider — glob or explicit", async () => {
   // The compiler's own OUTPUTS must never round-trip back in as sources: a
   // pattern like "*.md" that also matches the AGENTS.md discern just wrote

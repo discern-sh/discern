@@ -40,7 +40,7 @@ Keep instructions provider-neutral. Agent-specific setup, trust prompts, and fil
 ## Current state & gotchas
 
 - Built-in instructions are additive. A project source cannot replace or suppress them.
-- Compilation reads source files in configured order after the built-in sections.
+- Compilation reads source files in configured order after the built-in sections. One glob's matches join in path order, and a file several entries match keeps its first position ([ADR 0427](../_adr/0427-instruction-sources-compile-in-configured-order.md)).
 - Source discovery protects agent files, but a broad glob can still collect unrelated Markdown. Prefer narrow patterns with clear ownership.
 - You own the source. Edit it directly, then compile the generated files with `discern refresh`.
 
