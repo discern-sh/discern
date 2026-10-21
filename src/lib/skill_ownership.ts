@@ -20,7 +20,7 @@ import {
 } from "../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { runGit } from "../shared/subprocess.ts";
+import { ignoreRuleMatches } from "./git.ts";
 
 /**
  * discern's ownership record inside a skills directory: the entry names it
@@ -257,34 +257,11 @@ export async function skillsIgnorePosture(
       survey.foreign.map((entry) => `${survey.dirRel}/${entry.name}`)
     ),
   );
-  const paths = [...owned, ...foreign];
-  if (paths.length === 0) return { hiddenForeign: [], visibleOwned: [] };
-  const run = await runGit(
-    [
-      "check-ignore",
-      "--stdin",
-      "-z",
-      "--verbose",
-      "--non-matching",
-      "--no-index",
-    ],
-    { cwd: root, stdin: paths.map((path) => `${path}\0`).join("") },
-  );
-  // check-ignore exits 0 when some path matched and 1 when none did.
-  if (run.code !== 0 && run.code !== 1) return undefined;
-  const fields = run.stdout.split("\0");
+  const matched = await ignoreRuleMatches(root, [...owned, ...foreign]);
+  if (matched === undefined) return undefined;
   const hiddenForeign: HiddenForeignSkillEntry[] = [];
-  const matched = new Set<string>();
-  for (let index = 0; index + 3 < fields.length; index += 4) {
-    const [source = "", line = "", pattern = "", path = ""] = fields.slice(
-      index,
-      index + 4,
-    );
-    if (pattern === "" || pattern.startsWith("!")) continue;
-    matched.add(path);
-    if (foreign.has(path)) {
-      hiddenForeign.push({ path, rule: `${source}:${line}: ${pattern}` });
-    }
+  for (const [path, rule] of matched) {
+    if (foreign.has(path)) hiddenForeign.push({ path, rule });
   }
   return {
     hiddenForeign,

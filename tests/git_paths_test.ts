@@ -9,6 +9,7 @@
 import { assertEquals } from "@std/assert";
 import {
   parseCheckAttrZ,
+  parseCheckIgnoreZ,
   parsePorcelainZ,
   parseScopedGitConfigValueZ,
   splitNulRecords,
@@ -94,6 +95,22 @@ Deno.test("git paths: contracts", () => {
         ]);
         assertEquals(parseCheckAttrZ("\0merge\0value\0"), undefined);
       },
+    "parseCheckIgnoreZ: only a non-negated deciding rule is a match": () => {
+      assertEquals(
+        parseCheckIgnoreZ(
+          ".gitignore\x002\x00!.tool/keep.json\x00.tool/keep.json\x00" +
+            ".gitignore\x001\x00.tool/\x00.tool/drop.json\x00" +
+            "\x00\x00\x00root.json\x00",
+        ),
+        [{ path: ".tool/drop.json", rule: ".gitignore:1: .tool/" }],
+      );
+      assertEquals(parseCheckIgnoreZ(""), []);
+      assertEquals(parseCheckIgnoreZ(".gitignore\x001\x00.tool/"), undefined);
+      assertEquals(
+        parseCheckIgnoreZ(".gitignore\x001\x00.tool/\x00"),
+        undefined,
+      );
+    },
     "parseScopedGitConfigValueZ: effective config retains scope, origin, and value":
       () => {
         assertEquals(

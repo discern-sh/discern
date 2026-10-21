@@ -62,6 +62,39 @@ export function parseCheckAttrZ(
   return records;
 }
 
+/** One path an ignore rule matched, from `git check-ignore -z --verbose`. */
+export interface GitIgnoreMatch {
+  readonly path: string;
+  /** The deciding rule as `<file>:<line>: <pattern>`. */
+  readonly rule: string;
+}
+
+/**
+ * Parse `git check-ignore -z --verbose --non-matching` output: one
+ * `<source> <line> <pattern> <path>` quadruple per queried path, with empty
+ * rule fields for a path no rule matched. A negated (`!`) deciding pattern
+ * re-includes its path, so it is not a match.
+ */
+export function parseCheckIgnoreZ(
+  stdout: string,
+): GitIgnoreMatch[] | undefined {
+  const fields = stdout.split("\0");
+  if (fields.at(-1) !== "") return undefined;
+  fields.pop();
+  if (fields.length % 4 !== 0) return undefined;
+  const matches: GitIgnoreMatch[] = [];
+  for (let index = 0; index < fields.length; index += 4) {
+    const [source = "", line = "", pattern = "", path = ""] = fields.slice(
+      index,
+      index + 4,
+    );
+    if (path === "") return undefined;
+    if (pattern === "" || pattern.startsWith("!")) continue;
+    matches.push({ path, rule: `${source}:${line}: ${pattern}` });
+  }
+  return matches;
+}
+
 /** One effective `git config --null --show-origin --show-scope --get` record. */
 export interface ScopedGitConfigValue {
   readonly scope: string;
