@@ -438,6 +438,15 @@ Deno.test("the block re-includes integration files the project's rules exclude, 
         const updated = reconcileGitignoreExceptions(older, paths).text;
         assertStringIncludes(updated, "# an older fragment line\n");
         assertStringIncludes(updated, "!/.codex/config.toml\n");
+        const adjoining = reconcile("node_modules/\n").replace(
+          `${DISCERN_GITIGNORE_END}\n`,
+          `${DISCERN_GITIGNORE_END}\nscratch.log\n`,
+        );
+        assertEquals(
+          reconcileGitignoreExceptions(adjoining, paths).operations,
+          [],
+          "a line right after the block keeps its exact bytes",
+        );
       },
     "the gate's owned-artifact rules never include an exception":
       (): undefined => {

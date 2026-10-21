@@ -218,17 +218,41 @@ export function reconcileGitignoreExceptions(
   if (end === -1) return { text: existing, operations: [] };
   const block = lines.slice(begin, end);
   const heading = block.indexOf(REINCLUDE_HEADING);
+  const base = heading === -1 ? block : block.slice(0, heading);
+  const stripped = {
+    lines: [...lines.slice(0, begin), ...lines.slice(end + 1)],
+    insertionIndex: begin,
+  };
+  const { before } = blockPlacement(stripped, integrationPaths);
+  if (before.length !== begin) {
+    return reconcileResult(
+      existing,
+      composeGitignore(stripped, base, integrationPaths),
+    );
+  }
+  // The block stays put, so its neighbours keep their exact bytes.
   return reconcileResult(
     existing,
-    composeGitignore(
-      {
-        lines: [...lines.slice(0, begin), ...lines.slice(end + 1)],
-        insertionIndex: begin,
-      },
-      heading === -1 ? block : block.slice(0, heading),
-      integrationPaths,
-    ),
+    `${
+      [
+        ...lines.slice(0, begin),
+        ...renderBlock(base, reincludingRules(before, integrationPaths)),
+        ...lines.slice(end + 1),
+      ].join("\n")
+    }\n`,
   );
+}
+
+/** The block's lines: its base, any re-include rules, and the end marker. */
+function renderBlock(
+  base: readonly string[],
+  reincluded: readonly string[],
+): string[] {
+  return [
+    ...base,
+    ...(reincluded.length === 0 ? [] : [REINCLUDE_HEADING, ...reincluded]),
+    DISCERN_GITIGNORE_END,
+  ];
 }
 
 /** A canonical block's lines without its end marker. */
@@ -253,11 +277,7 @@ function composeGitignore(
   if (combined.length > 0 && !isBlank(combined[combined.length - 1] ?? "")) {
     combined.push("");
   }
-  combined.push(
-    ...base,
-    ...(reincluded.length === 0 ? [] : [REINCLUDE_HEADING, ...reincluded]),
-    DISCERN_GITIGNORE_END,
-  );
+  combined.push(...renderBlock(base, reincluded));
   if (after.length > 0 && !isBlank(after[0] ?? "")) {
     combined.push("");
   }
