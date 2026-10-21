@@ -42,6 +42,8 @@ import {
   type ProofNotesFetchPlan,
 } from "./gate/proof_notes.ts";
 import {
+  type AgentFileDiscard,
+  agentFileDiscard,
   agentFilePaths,
   instructionAgents,
   renderAgentFiles,
@@ -103,6 +105,9 @@ export type RefreshEffect =
   | (RefreshEffectFields & {
     readonly type: "file";
     readonly operation: RefreshFileOperation;
+    /** Agent files only: what this overwrite throws away, present only when
+     * that includes lines no source produces. */
+    readonly discard?: AgentFileDiscard | undefined;
   })
   | (RefreshEffectFields & {
     readonly type: "skill";
@@ -269,6 +274,7 @@ function addFileEffect(
   artifacts: readonly RefreshArtifactKind[],
   trackedKinds: readonly TrackedRefreshArtifactKind[],
   boundary: string,
+  discard?: AgentFileDiscard,
 ): void {
   effects.push({
     type: "file",
@@ -279,6 +285,9 @@ function addFileEffect(
     boundary,
     tree: false,
     operation,
+    ...(discard === undefined || discard.unsourced.length === 0
+      ? {}
+      : { discard }),
   });
 }
 
@@ -523,6 +532,11 @@ export async function planRefresh(
         const bytesChanged = actual !== expected;
         const modeChanged = info?.mode !== undefined && info.mode !== null &&
           (info.mode & 0o111) !== 0;
+        // The one place compiled agent-file bytes become a write, so every
+        // overwrite carries what it throws away to the executor's report.
+        const discard = actual === undefined || !bytesChanged
+          ? undefined
+          : agentFileDiscard(expected, actual, rendered.values());
         addFileEffect(
           effects,
           {
@@ -537,6 +551,7 @@ export async function planRefresh(
           ["agent_file"],
           bytesChanged || modeChanged ? ["agent_file"] : [],
           `agent-file:${path}`,
+          discard,
         );
       } catch (error) {
         errors.push({
@@ -677,7 +692,16 @@ function effectNote(effect: RefreshEffect): string {
 export function refreshPlanToEngine(plan: RefreshPlan): EnginePlan {
   return {
     title: "Refresh plan",
-    details: plan.errors.map((error) => `Planning error: ${error.message}`),
+    details: [
+      ...plan.errors.map((error) => `Planning error: ${error.message}`),
+      ...plan.effects.flatMap((effect) =>
+        effect.type === "file" && effect.discard !== undefined
+          ? [
+            `Discards from ${effect.target}: ${effect.discard.unsourced.length} line(s) no instruction source produces`,
+          ]
+          : []
+      ),
+    ],
     steps: plan.effects.map((effect) => ({
       kind: "refresh",
       label: verbatimStepLabel(effect.target),

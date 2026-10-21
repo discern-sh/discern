@@ -16235,6 +16235,33 @@
                     "type": "string"
                   }
                 },
+                "agent_files_discarded": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "lines": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "preview": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "lines",
+                      "preview"
+                    ]
+                  }
+                },
                 "mcp_wired": {
                   "type": "array",
                   "items": {

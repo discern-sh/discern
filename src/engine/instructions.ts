@@ -25,6 +25,7 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import type { EnvReader } from "../shared/env.ts";
 import {
   fire,
+  type FiredHint,
   HINTS,
   hintTexts,
   interactiveHintTexts,
@@ -35,9 +36,17 @@ import {
   renderPlan,
   type StepResult,
 } from "../shared/result.ts";
-import type { RefreshData } from "../shared/result_schemas.ts";
+import type {
+  AgentFileDiscarded,
+  RefreshData,
+} from "../shared/result_schemas.ts";
+import { markdownCodeSpan } from "../shared/markdown_code.ts";
 import { applyProofNotesFetchOperation } from "./gate/proof_notes.ts";
-import { instructionAgents } from "./instruction_render.ts";
+import {
+  type AgentFileDiscard,
+  agentFileDiscardReport,
+  instructionAgents,
+} from "./instruction_render.ts";
 import {
   planRefresh,
   type RefreshEffect,
@@ -47,12 +56,21 @@ import {
 } from "./tracked_refresh.ts";
 import { applyGeneratedMergeDriverOperation } from "./generated_merge_driver.ts";
 
+/** One agent file an overwrite cost lines that no source produces. */
+export interface DiscardedAgentFile {
+  readonly path: string;
+  readonly discard: AgentFileDiscard;
+}
+
 /** What one complete refresh apply accomplished. */
 export interface InstructionsResult {
   /** Every filesystem path the refresh executor wrote, linked, or removed. */
   writtenPaths: string[];
   /** Changed Agent-file paths, in plan order. */
   agentsWritten: string[];
+  /** Agent files this apply overwrote at the cost of lines no source
+   * produces, in plan order, each with every line it lost. */
+  agentFilesDiscarded: DiscardedAgentFile[];
   /** Tracked-capable Agent and Shared files whose bytes or mode changed. */
   trackedArtifactsChanged: string[];
   /** Managed attributes files whose discern-owned block changed. */
@@ -120,6 +138,7 @@ function emptySummary(errors: readonly string[] = []): InstructionsResult {
   return {
     writtenPaths: [],
     agentsWritten: [],
+    agentFilesDiscarded: [],
     trackedArtifactsChanged: [],
     gitattributesChanged: [],
     mcpWired: [],
@@ -151,6 +170,12 @@ function recordSuccessfulEffect(
   }
   if (effect.artifacts.includes("agent_file")) {
     pushUnique(summary.agentsWritten, effect.target);
+  }
+  if (effect.type === "file" && effect.discard !== undefined) {
+    summary.agentFilesDiscarded.push({
+      path: effect.target,
+      discard: effect.discard,
+    });
   }
   if (effect.artifacts.includes("gitattributes")) {
     pushUnique(summary.gitattributesChanged, effect.target);
@@ -275,10 +300,50 @@ function appliedVerb(effect: RefreshEffect): string {
     : "removed";
 }
 
-/** Add plan-derived hints after the actual successful set is known. */
+/**
+ * The notice every agent-file overwrite raises when it cost lines no source
+ * produces: each file with its count and first line, plus where such lines can
+ * live instead. `undefined` when nothing was discarded.
+ */
+export function agentFilesDiscardedHint(
+  discarded: readonly DiscardedAgentFile[],
+): FiredHint | undefined {
+  const files = discardedFilesSummary(discarded);
+  return files === undefined
+    ? undefined
+    : fire(HINTS["refresh-agent-files-discarded"], { files });
+}
+
+/** Each discarded file with its count and first line, for prose that names
+ * the loss; `undefined` when nothing was discarded. */
+export function discardedFilesSummary(
+  discarded: readonly DiscardedAgentFile[],
+): string | undefined {
+  const reports = discardedAgentFileReports(discarded);
+  if (reports.length === 0) return undefined;
+  return reports.map(({ path, lines, preview }) =>
+    `${path} (${lines} line${lines === 1 ? "" : "s"}${
+      preview[0] === undefined ? "" : `, first ${markdownCodeSpan(preview[0])}`
+    })`
+  ).join(", ");
+}
+
+/** The bounded wire reports for every discarded agent file, in order. */
+export function discardedAgentFileReports(
+  discarded: readonly DiscardedAgentFile[],
+): AgentFileDiscarded[] {
+  return discarded.flatMap(({ path, discard }) => {
+    const report = agentFileDiscardReport(path, discard);
+    return report === undefined ? [] : [report];
+  });
+}
+
+/** Add plan-derived hints after the actual successful set is known. A dry run
+ * reports planned discards through its data and plan, never as done. */
 function addRefreshHints(
   plan: RefreshPlan,
   summary: InstructionsResult,
+  applied: boolean,
 ): void {
   if (plan.mcpFirstInstall && summary.mcpWired.length > 0) {
     summary.hints.push(
@@ -289,6 +354,10 @@ function addRefreshHints(
       ).text,
     );
   }
+  const discarded = applied
+    ? agentFilesDiscardedHint(summary.agentFilesDiscarded)
+    : undefined;
+  if (discarded !== undefined) summary.hints.push(discarded.text);
   const errors = instructionRefreshErrors(summary);
   if (errors.length > 0) {
     summary.hints = mergeHintTexts(
@@ -369,7 +438,12 @@ export async function applyRefreshPlan(
         (changed.pruned > 0 ? ` (pruned ${changed.pruned} stale)` : ""),
     );
   }
-  addRefreshHints(plan, summary);
+  for (const { path, discard } of summary.agentFilesDiscarded) {
+    log.warn(
+      `refresh: removed ${discard.unsourced.length} line(s) that no instruction source produces from ${path}`,
+    );
+  }
+  addRefreshHints(plan, summary, true);
   if (summary.agentsWritten.length > 0) {
     log.ok(
       `refresh: compiled ${plan.sourceCount} source(s) + built-in instructions into ${summary.agentsWritten.length} changed agent file(s): ${
@@ -387,6 +461,11 @@ export async function applyRefreshPlan(
 function refreshData(result: InstructionsResult): RefreshData {
   return {
     agents_written: result.agentsWritten,
+    ...(result.agentFilesDiscarded.length === 0 ? {} : {
+      agent_files_discarded: discardedAgentFileReports(
+        result.agentFilesDiscarded,
+      ),
+    }),
     mcp_wired: result.mcpWired,
     hooks_wired: result.hooksWired,
     worktree_app_wired: result.worktreeAppWired,
@@ -431,7 +510,7 @@ export async function refreshResult(
   const plan = await planRefresh(root, options);
   if (options.dryRun === true) {
     const summary = plannedSummary(plan);
-    addRefreshHints(plan, summary);
+    addRefreshHints(plan, summary, false);
     const engine = refreshPlanToEngine(plan);
     logger.info("Dry run: nothing changed.");
     renderPlan(loggerSink(logger), engine);

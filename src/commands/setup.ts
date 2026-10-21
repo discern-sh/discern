@@ -75,7 +75,9 @@ import {
 } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan } from "../lib/plan_view.ts";
 import {
+  agentFilesDiscardedHint,
   compileInstructions,
+  discardedFilesSummary,
   instructionRefreshErrors,
   instructionRefreshSucceeded,
 } from "../engine/instructions.ts";
@@ -139,6 +141,7 @@ import {
   type FiredHint,
   HINTS,
   hintTexts,
+  interactiveHintTexts,
   mergeHintTexts,
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
@@ -3223,6 +3226,7 @@ async function runExistingSetupCompletion(
         nextAction: completion.nextAction,
         recovery: completion.recovery,
         diagnostics: completion.diagnostics,
+        hints: completion.hints,
       },
     );
   }
@@ -3339,7 +3343,8 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
       return emitDonePreMarkerFailure(
         opts.json,
         "refresh",
-        refreshFailure,
+        refreshFailure.detail,
+        refreshFailure.hints,
       );
     }
     const refreshChanges = await uncommittedSetupWork(root);
@@ -3364,7 +3369,12 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   if (opts.unproven) {
     const refreshFailure = await refreshSetupInstructions(root);
     if (refreshFailure !== undefined) {
-      return emitDonePreMarkerFailure(opts.json, "refresh", refreshFailure);
+      return emitDonePreMarkerFailure(
+        opts.json,
+        "refresh",
+        refreshFailure.detail,
+        refreshFailure.hints,
+      );
     }
   }
 
@@ -3470,6 +3480,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
           ? `${rollback.detail}. This attempt's adoption was retracted. Review and commit the retained changes, then run \`discern upgrade --dry-run\` and \`discern upgrade\` before retrying \`discern setup done\`. ${completion.recovery}`
           : completion.recovery,
         diagnostics: completion.diagnostics,
+        hints: completion.hints,
       },
     );
   }
@@ -3529,10 +3540,17 @@ async function finalSetupTreeDrift(
   return undefined;
 }
 
+/** Why setup's instruction refresh stopped completion, with any hint that
+ * tells the owner what to do about it. */
+interface SetupRefreshFailure {
+  readonly detail: string;
+  readonly hints?: string[];
+}
+
 /** Run setup's instruction refresh and return one bounded failure description. */
 async function refreshSetupInstructions(
   root: string,
-): Promise<string | undefined> {
+): Promise<SetupRefreshFailure | undefined> {
   try {
     // Setup owns activation guidance; generic refresh hints must not invite a
     // restart before setup has established its own completion/Proof boundary.
@@ -3541,11 +3559,26 @@ async function refreshSetupInstructions(
       new Logger({ json: true, noColor: false }),
     );
     const errors = instructionRefreshErrors(refreshed);
-    return errors.length === 0
-      ? undefined
-      : `instruction refresh did not fully complete: ${errors.join("; ")}`;
+    if (errors.length > 0) {
+      return {
+        detail: `instruction refresh did not fully complete: ${
+          errors.join("; ")
+        }`,
+      };
+    }
+    // The committed tree held these lines, so the overwrite is a change setup
+    // cannot prove past; name what it cost instead of a bare dirty path.
+    const files = discardedFilesSummary(refreshed.agentFilesDiscarded);
+    const notice = agentFilesDiscardedHint(refreshed.agentFilesDiscarded);
+    return files === undefined || notice === undefined ? undefined : {
+      detail:
+        `its refresh removed lines that no instruction source produces from ${files}`,
+      hints: hintTexts([notice]),
+    };
   } catch (error) {
-    return `could not compile the agent instructions: ${errMsg(error)}`;
+    return {
+      detail: `could not compile the agent instructions: ${errMsg(error)}`,
+    };
   }
 }
 
@@ -3566,7 +3599,8 @@ async function proveFinalSetupTree(
     return {
       ok: false,
       stage: "refresh",
-      detail: refreshFailure,
+      detail: refreshFailure.detail,
+      hints: refreshFailure.hints,
       nextAction: "discern refresh",
       recovery:
         "Correct the reported generated-integration or instruction source problem, run `discern refresh`, and retry `discern setup done`.",
@@ -3770,6 +3804,7 @@ function emitDonePreMarkerFailure(
   json: boolean,
   stage: SetupDoneCompletionStage,
   detail: string,
+  hints?: string[],
 ): number {
   const state =
     "No completion marker was written; existing Git and Proof state were retained.";
@@ -3784,6 +3819,7 @@ function emitDonePreMarkerFailure(
       verb: "setup done",
       error: "gate_failed",
       message,
+      ...(hints === undefined ? {} : { hints }),
       data: {
         stage,
         rollback: "not_needed",
@@ -3793,7 +3829,9 @@ function emitDonePreMarkerFailure(
       } satisfies SetupDoneFailureData,
     });
   } else {
-    new Logger({ json: false, noColor: false }).error(message);
+    const log = new Logger({ json: false, noColor: false });
+    log.error(message);
+    for (const hint of interactiveHintTexts(hints)) log.info(hint);
   }
   return 1;
 }
@@ -3835,6 +3873,7 @@ function emitDoneGateFailure(
     );
     log.group("recovery");
     log.item(projection.recovery);
+    for (const hint of interactiveHintTexts(projection.hints)) log.item(hint);
     for (const diagnostic of projection.diagnostics ?? []) {
       const location = diagnostic.file === undefined
         ? ""

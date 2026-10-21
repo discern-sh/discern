@@ -25,6 +25,8 @@ import {
   decodeWith,
 } from "./decode_cli_result.ts";
 import { git, gitInit } from "./engine_helpers.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 const McpConfigSchema = z.object({
   mcpServers: z.object({
@@ -167,13 +169,19 @@ Deno.test("setup re-run over a set-up install reports already_set_up (idempotent
   });
 });
 
-Deno.test("setup begin --reseed re-scaffolds an existing install without erroring", async () => {
+Deno.test("setup begin --reseed re-scaffolds an existing install without erroring, reporting what its compile discards", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "README.md"), "# CLI fixture\n");
     await gitInit(dir);
     await runCli(
       ["setup", "begin", "--confirmed", "--json", "--slug", "first"],
       dir,
+    );
+    // Another process keeps a block in the compiled file between the runs.
+    const agentsPath = join(dir, "AGENTS.md");
+    await Deno.writeTextFile(
+      agentsPath,
+      `${await Deno.readTextFile(agentsPath)}\n<!-- maintained block -->\n`,
     );
     const { code, stdout } = await runCli(
       [
@@ -200,6 +208,9 @@ Deno.test("setup begin --reseed re-scaffolds an existing install without errorin
     assertEquals(result.data.instruction_refresh.status, "complete");
     assert(result.data.instruction_refresh.compiled.includes("AGENTS.md"));
     assert(result.data.instruction_refresh.compiled.includes("CLAUDE.md"));
+    assertHasHint(result, HINTS["refresh-agent-files-discarded"], {
+      files: "AGENTS.md (1 line, first `<!-- maintained block -->`)",
+    });
   });
 });
 

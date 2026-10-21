@@ -275,6 +275,22 @@ export const ARTIFACT_HINTS = {
       `Fix the refresh error, then run ${CMD.refresh}: ${message}`,
   }),
 
+  /** A refresh overwrote agent files and discarded lines no source produces.
+   * The per-file counts and previews also ride the result's data. */
+  "refresh-agent-files-discarded": defineHint<{ files: string }>({
+    id: "refresh-agent-files-discarded",
+    category: "notice",
+    audience: "all",
+    when:
+      "A refresh overwrites agent-file lines that no instruction source produces.",
+    family: "refresh-result",
+    example: { files: "AGENTS.md (6 lines, first `## Tool notes`)" },
+    template: ({ files }): string =>
+      `Refresh removed lines that no instruction source produces from ${files}. ${
+        unsourcedAgentLineChoices("nothing more is needed.")
+      }`,
+  }),
+
   /** A successful skills eject leaves the authored override ready to edit. */
   "skills-eject-edit-override": defineHint({
     id: "skills-eject-edit-override",

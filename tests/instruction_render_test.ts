@@ -357,7 +357,10 @@ Deno.test("agentFileDiscard: separates content no source produces from edits to 
           compiled,
           `${compiled}\n## Notes kept elsewhere\n\n- Item one\n`,
         ),
-        { lines: ["## Notes kept elsewhere", "- Item one"], unsourced: 2 },
+        {
+          lines: ["## Notes kept elsewhere", "- Item one"],
+          unsourced: ["## Notes kept elsewhere", "- Item one"],
+        },
       );
     },
     "a block inserted between compiled sections is unsourced": () => {
@@ -366,7 +369,7 @@ Deno.test("agentFileDiscard: separates content no source produces from edits to 
           compiled,
           compiled.replace("## Map", "Inserted line\n\n## Map"),
         ),
-        { lines: ["Inserted line"], unsourced: 1 },
+        { lines: ["Inserted line"], unsourced: ["Inserted line"] },
       );
     },
     "an edit to a compiled line is lost but not unsourced": () => {
@@ -375,7 +378,31 @@ Deno.test("agentFileDiscard: separates content no source produces from edits to 
           compiled,
           compiled.replace("Keep tests green.", "Keep every test green."),
         ),
-        { lines: ["Keep every test green."], unsourced: 0 },
+        { lines: ["Keep every test green."], unsourced: [] },
+      );
+    },
+    "a body that replaces the whole compiled file is unsourced": () => {
+      assertEquals(
+        agentFileDiscard(compiled, "# Kept by another process\n\n- One\n"),
+        {
+          lines: ["# Kept by another process", "- One"],
+          unsourced: ["# Kept by another process", "- One"],
+        },
+      );
+    },
+    "a block that lands beside a rewritten compiled line is unsourced": () => {
+      assertEquals(
+        agentFileDiscard(
+          compiled,
+          compiled.replace(
+            "Keep tests green.",
+            "<!-- maintained block -->\nUnrelated guidance here.",
+          ),
+        ),
+        {
+          lines: ["<!-- maintained block -->", "Unrelated guidance here."],
+          unsourced: ["<!-- maintained block -->", "Unrelated guidance here."],
+        },
       );
     },
     "a reflowed paragraph is an edit": () => {
@@ -384,13 +411,21 @@ Deno.test("agentFileDiscard: separates content no source produces from edits to 
           compiled,
           compiled.replace("Read the map.", "Read\nthe map."),
         ),
-        { lines: ["Read", "the map."], unsourced: 0 },
+        { lines: ["Read", "the map."], unsourced: [] },
       );
     },
     "missing compiled content and moved lines lose nothing": () => {
       assertEquals(
         agentFileDiscard(compiled, "# Rules\n\nRead the map.\n"),
-        { lines: [], unsourced: 0 },
+        { lines: [], unsourced: [] },
+      );
+    },
+    "a line another compiled agent file keeps moved there": () => {
+      assertEquals(
+        agentFileDiscard("@AGENTS.md\n", "@AGENTS.md\n\nKeep tests green.\n", [
+          compiled,
+        ]),
+        { lines: [], unsourced: [] },
       );
     },
   });
@@ -407,10 +442,11 @@ Deno.test("checkInstructionCurrent: a stale entry carries what a refresh would d
       `${original}\n<!-- block kept by another process -->\nA maintained line.\n`,
     );
     const [stale] = await checkInstructionCurrent(dir);
-    assertEquals(stale?.discard, {
-      lines: ["<!-- block kept by another process -->", "A maintained line."],
-      unsourced: 2,
-    });
+    const lost = [
+      "<!-- block kept by another process -->",
+      "A maintained line.",
+    ];
+    assertEquals(stale?.discard, { lines: lost, unsourced: lost });
   }, { prefix: "discern-render-test-" });
 });
 

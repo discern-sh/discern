@@ -18,6 +18,7 @@ export interface FinalSetupFailure {
   readonly stage: SetupDoneCompletionStage;
   readonly detail: string;
   readonly diagnostics?: Diagnostic[] | undefined;
+  readonly hints?: string[] | undefined;
   readonly nextAction: string;
   readonly recovery: string;
   readonly error?: ErrorSlug;

@@ -50,6 +50,8 @@ import {
   readyForSetupDone,
 } from "./fixtures/setup_completion_harness.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const HIDE_CURSOR = `${CSI}?25l`;
@@ -154,11 +156,13 @@ realPtyTest({
   },
 });
 
-Deno.test("setup done blocks when the refresh proof only partially completes", async () => {
+Deno.test("setup done blocks when the refresh proof only partially completes, or when it discards agent-file lines", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
+    const mcpPath = join(dir, ".mcp.json");
+    const wiredMcp = await Deno.readTextFile(mcpPath);
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
-    await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
+    await Deno.writeTextFile(mcpPath, malformed);
     // Committed sabotage: the clean-tree precondition passes, so the failure
     // surfaces at the refresh stage of the proof, not as uncommitted work.
     await commitSetupAuthoring(dir);
@@ -179,6 +183,28 @@ Deno.test("setup done blocks when the refresh proof only partially completes", a
       "setup done must not record completion after a partial refresh",
     );
     await assertIncompleteWithoutProof(dir, "refresh failure");
+
+    // A committed block another process keeps in a compiled file: the proof's
+    // refresh discards it, and the refusal names what it cost.
+    await Deno.writeTextFile(mcpPath, wiredMcp);
+    const agentsPath = join(dir, "CLAUDE.md");
+    await Deno.writeTextFile(
+      agentsPath,
+      `${await Deno.readTextFile(agentsPath)}\n<!-- maintained block -->\n`,
+    );
+    await commitSetupAuthoring(dir);
+    const discarded = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(discarded.code, 1, discarded.output);
+    const refused = decodeCliResult(discarded.stdout, "setup done");
+    assertResultDataKey(refused, "stage");
+    assertEquals(refused.data.stage, "refresh");
+    const files = "CLAUDE.md (1 line, first `<!-- maintained block -->`)";
+    assertTerminalTextIncludes(
+      refused.message ?? "",
+      `Setup completion stopped because its refresh removed lines that no instruction source produces from ${files}.`,
+    );
+    assertHasHint(refused, HINTS["refresh-agent-files-discarded"], { files });
+    await assertIncompleteWithoutProof(dir, "discarding refresh");
   });
 });
 

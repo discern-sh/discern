@@ -4331,6 +4331,11 @@ export type DiscernRefreshResult = DiscernResultState & {
   verb: "refresh";
   data?: {
     agents_written: Array<string>;
+    agent_files_discarded?: Array<{
+      path: string;
+      lines: number;
+      preview: Array<string>;
+    }>;
     mcp_wired: Array<string>;
     hooks_wired: Array<string>;
     worktree_app_wired: Array<string>;

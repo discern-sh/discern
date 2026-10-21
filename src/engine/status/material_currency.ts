@@ -152,7 +152,7 @@ function materialCurrencyHints(ctx: CurrencyEvidence): FiredHint[] {
       d.reason === "missing"
     );
     const unsourced = ctx.instructionDrift.filter((d) =>
-      (d.discard?.unsourced ?? 0) > 0
+      (d.discard?.unsourced.length ?? 0) > 0
     );
     hints.push(
       allMissing

@@ -48,7 +48,8 @@ import { normalizeMapDir } from "../shared/map_path.ts";
 import { discoverDocs, docRegions } from "../lib/docs.ts";
 import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
 import { readTextIfExists } from "../shared/fs_presence.ts";
-import { lineHunks } from "../lib/line_hunks.ts";
+import { type LineHunk, lineHunks } from "../lib/line_hunks.ts";
+import type { AgentFileDiscarded } from "../shared/result_schemas.ts";
 
 /** Opaque insertion point owned by the map instruction renderer, not the template
  * language. Keeping it outside `{{...}}` preserves the shared config-only
@@ -443,32 +444,62 @@ export interface AgentFileDiscard {
   /** Every non-blank line on disk that the recompiled body lacks, in file order. */
   readonly lines: readonly string[];
   /**
-   * How many of {@link lines} stand where the recompiled body has nothing:
-   * content no configured source produces, as opposed to an edit to a line the
-   * compile wrote. Only this kind leaves the owner a choice about where it lives.
+   * The subset of {@link lines} that stands where the compile wrote nothing:
+   * content no configured source produces, as opposed to a rewrite of a line
+   * the compile wrote (a hand edit, a reflowing formatter, a stale source).
+   * Replacing rewrites is a refresh's ordinary job; only these leave the owner
+   * a choice about where they live, so only these are reported as discarded.
    */
-  readonly unsourced: number;
+  readonly unsourced: readonly string[];
+}
+
+/** The lowercase word set of some lines, for comparing what they say. */
+function vocabulary(lines: readonly string[]): Set<string> {
+  return new Set(
+    lines.join(" ").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [],
+  );
+}
+
+/** The share of their combined vocabulary a hunk's two sides hold in common
+ * before its added side counts as a rewrite of the compiled text it replaces. */
+const EDIT_VOCABULARY_OVERLAP = 1 / 3;
+
+/** Whether a hunk rewrites compiled text in place — a hand edit, a reflowing
+ * formatter, a stale source — rather than putting other content there. */
+function rewritesCompiledText(hunk: LineHunk): boolean {
+  const removed = vocabulary(hunk.removed);
+  if (removed.size === 0) return false;
+  const added = vocabulary(hunk.added);
+  let shared = 0;
+  for (const word of added) if (removed.has(word)) shared++;
+  const combined = removed.size + added.size - shared;
+  return shared / combined >= EDIT_VOCABULARY_OVERLAP;
 }
 
 /**
  * The lines a refresh discards when it replaces `actual` with `expected`: the
  * one comparison behind the gate's drift diagnostic and every writer's discard
- * report. A line whose text survives elsewhere in the recompiled body moved
- * rather than vanished, so it is never reported. PURE.
+ * report. A line whose text survives elsewhere in the recompiled body, or in
+ * any `sibling` agent file the same compile writes, moved rather than
+ * vanished, so it is never reported. PURE.
  */
 export function agentFileDiscard(
   expected: string,
   actual: string,
+  siblings: Iterable<string> = [],
 ): AgentFileDiscard {
   const kept = new Set(expected.split("\n"));
+  for (const body of siblings) {
+    for (const line of body.split("\n")) kept.add(line);
+  }
   const lines: string[] = [];
-  let unsourced = 0;
+  const unsourced: string[] = [];
   for (const hunk of lineHunks(expected.split("\n"), actual.split("\n"))) {
-    const editsCompiledText = hunk.removed.some((line) => line.trim() !== "");
+    const edit = rewritesCompiledText(hunk);
     for (const line of hunk.added) {
       if (line.trim() === "" || kept.has(line)) continue;
       lines.push(line);
-      if (!editsCompiledText) unsourced++;
+      if (!edit) unsourced.push(line);
     }
   }
   return { lines, unsourced };
@@ -493,12 +524,34 @@ export interface InstructionDriftEntry {
   discard?: AgentFileDiscard;
 }
 
+/** How many discarded lines a report previews, and how long each may run. */
+const DISCARD_PREVIEW_LINES = 3;
+const DISCARD_PREVIEW_WIDTH = 80;
+
+/** Project a discard's unsourced lines onto the bounded report every
+ * overwrite surface carries; `undefined` when it discards none. PURE. */
+export function agentFileDiscardReport(
+  path: string,
+  discard: AgentFileDiscard,
+): AgentFileDiscarded | undefined {
+  if (discard.unsourced.length === 0) return undefined;
+  return {
+    path,
+    lines: discard.unsourced.length,
+    preview: discard.unsourced.slice(0, DISCARD_PREVIEW_LINES).map((line) =>
+      line.length > DISCARD_PREVIEW_WIDTH
+        ? `${line.slice(0, DISCARD_PREVIEW_WIDTH - 1)}…`
+        : line
+    ),
+  };
+}
+
 /** Whether any drift holds lines that no instruction source produces: the case
  * where the owner, not a refresh, decides where those lines belong. */
 export function hasUnsourcedAgentLines(
   stale: readonly InstructionDriftEntry[],
 ): boolean {
-  return stale.some((entry) => (entry.discard?.unsourced ?? 0) > 0);
+  return stale.some((entry) => (entry.discard?.unsourced.length ?? 0) > 0);
 }
 
 /**
@@ -512,6 +565,7 @@ export async function checkInstructionCurrent(
   config?: DiscernConfig,
 ): Promise<InstructionDriftEntry[]> {
   const expectedFiles = await renderAgentFiles(root, config);
+  const compiled = [...expectedFiles.values()];
   const drift: InstructionDriftEntry[] = [];
   for (const [rel, expected] of expectedFiles) {
     const actual = await readTextIfExists(join(root, rel));
@@ -525,7 +579,7 @@ export async function checkInstructionCurrent(
         reason: "stale",
         expected,
         actual,
-        discard: agentFileDiscard(expected, actual),
+        discard: agentFileDiscard(expected, actual, compiled),
       });
     }
   }

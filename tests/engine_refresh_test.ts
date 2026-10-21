@@ -392,6 +392,83 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
   });
 });
 
+Deno.test("engine refresh: every agent-file overwrite reports the lines it discards — refresh, its dry run, and prepare", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    assertEquals((await runAgent(dir, ["refresh"])).code, 0);
+    const claudePath = join(dir, "CLAUDE.md");
+    const compiled = await Deno.readTextFile(claudePath);
+    const block = "<!-- maintained block -->\nA line no source produces.\n";
+    const expected = [{
+      path: "CLAUDE.md",
+      lines: 2,
+      preview: ["<!-- maintained block -->", "A line no source produces."],
+    }];
+
+    // A dry run names what an apply would discard, and claims nothing happened.
+    await Deno.writeTextFile(claudePath, `${compiled}\n${block}`);
+    const preview = await runAgent(dir, ["refresh", "--dry-run", "--json"]);
+    assertEquals(preview.code, 0, preview.output);
+    const planned = decodeCliResult(preview.stdout, "refresh");
+    assertResultDataKey(planned, "agents_written");
+    assertEquals(planned.data.agent_files_discarded, expected);
+    assertStringIncludes(
+      JSON.stringify(planned.plan),
+      "Discards from CLAUDE.md: 2 line(s) no instruction source produces",
+    );
+    assertEquals(
+      (planned.hints ?? []).some((hint) => hint.startsWith("Refresh removed")),
+      false,
+    );
+    assertStringIncludes(await Deno.readTextFile(claudePath), block);
+
+    // The apply overwrites the file and reports the cost in data and hints.
+    const applied = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(applied.code, 0, applied.output);
+    const envelope = decodeCliResult(applied.stdout, "refresh");
+    assertResultDataKey(envelope, "agents_written");
+    assertEquals(envelope.data.agent_files_discarded, expected);
+    assertHasHint(envelope, HINTS["refresh-agent-files-discarded"], {
+      files: "CLAUDE.md (2 lines, first `<!-- maintained block -->`)",
+    });
+    assertEquals(await Deno.readTextFile(claudePath), compiled);
+
+    // The terminal narration warns about the same loss.
+    await Deno.writeTextFile(claudePath, `${compiled}\n${block}`);
+    const human = await runAgent(dir, ["refresh"]);
+    assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(
+      human.output,
+      "refresh: removed 2 line(s) that no instruction source produces from CLAUDE.md",
+    );
+
+    // Prepare keeps converging, but its result carries a warning that keeps
+    // every discarded line.
+    await Deno.writeTextFile(claudePath, `${compiled}\n${block}`);
+    const prepared = await runAgent(dir, ["prepare", "--json"]);
+    assertEquals(prepared.code, 0, prepared.output);
+    const prepare = decodeCliResult(prepared.stdout, "prepare");
+    assertEquals(prepare.ok, true);
+    const warning = (prepare.diagnostics ?? []).find((diagnostic) =>
+      diagnostic.severity === "warning"
+    );
+    assertEquals(
+      warning?.message,
+      "refresh removed 2 line(s) that no instruction source produces from CLAUDE.md",
+    );
+    assertEquals(warning?.reproduce_cmd, "git diff -- CLAUDE.md");
+    assertTerminalTextIncludes(
+      warning?.output ?? "",
+      "A line no source produces.",
+    );
+    assertHasHint(prepare, HINTS["refresh-agent-files-discarded"], {
+      files: "CLAUDE.md (2 lines, first `<!-- maintained block -->`)",
+    });
+    assertEquals(await Deno.readTextFile(claudePath), compiled);
+  });
+});
+
 Deno.test("engine refresh: prunes the link of an authored skill removed from the source tree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

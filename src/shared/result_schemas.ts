@@ -1255,12 +1255,27 @@ const GateValidationWireSchema = z.strictObject({
   proof: GateProofWireSchema,
 });
 
+/** One agent file an overwrite cost lines that no instruction source produces:
+ * lines that stood where the compile writes nothing, never rewrites of
+ * compiled lines. `lines` counts them; `preview` holds the first few, each
+ * clipped. */
+export const AgentFileDiscardedSchema = z.strictObject({
+  path: z.string(),
+  lines: z.number().int().positive(),
+  preview: z.array(z.string()),
+});
+export type AgentFileDiscarded = z.infer<typeof AgentFileDiscardedSchema>;
+
 /** `refresh` — generated instructions, skills, provider integration artifacts, and
  * the maintained ADR index. `adr_index_written` names the ADR README whose
  * marker-delimited record lists this run regenerated (at most one path; empty
- * when the index is current or the project carries no index markers). */
+ * when the index is current or the project carries no index markers).
+ * `agent_files_discarded`, present only when non-empty, names each agent file
+ * the run overwrote at the cost of lines no source produces (a dry run names
+ * what an apply would discard). */
 export const RefreshDataSchema = z.strictObject({
   agents_written: z.array(z.string()),
+  agent_files_discarded: z.array(AgentFileDiscardedSchema).optional(),
   mcp_wired: z.array(z.string()),
   hooks_wired: z.array(z.string()),
   worktree_app_wired: z.array(z.string()),

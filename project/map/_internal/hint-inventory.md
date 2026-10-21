@@ -1393,6 +1393,17 @@ Rendered example:
 
 > Run `discern refresh` to restore discern-managed artifacts. Provider integration files need attention (.codex/config.toml). If refresh reports a malformed settings file, repair it and run `discern refresh` again.
 
+## `refresh-agent-files-discarded`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `refresh-result`
+- Emitting context: A refresh overwrites agent-file lines that no instruction source produces.
+
+Rendered example:
+
+> Refresh removed lines that no instruction source produces from AGENTS.md (6 lines, first `## Tool notes`). If you wrote them, move them into a file listed in `[instructions].sources`. If a tool maintains them, configure that tool to write into a file listed in `[instructions].sources`, and declare that file under `[generated.<name>]` with the tool's regenerate command as `run`; `discern docs config-reference` describes both tables. Otherwise, nothing more is needed.
+
 ## `refresh-artifact-failed`
 
 - Category: `next-step`

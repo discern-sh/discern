@@ -803,6 +803,13 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
 
     const skillsTarget = join(dir, ".claude/skills");
     assertEquals(await targetExists(skillsTarget), false);
+    // An agent file another process wrote: the preview names what an apply
+    // would discard from it, and the preview leaves it in place.
+    const foreignAgentFile = join(dir, "CLAUDE.md");
+    await Deno.writeTextFile(
+      foreignAgentFile,
+      "# Kept by another process\n\nA maintained line.\n",
+    );
     await mcp.send({
       jsonrpc: "2.0",
       id: 31,
@@ -810,6 +817,14 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       params: { name: "discern_refresh", arguments: { dry_run: true } },
     });
     const refreshPreview = await mcp.recvTool(RefreshOutputSchema);
+    const previewData = refreshPreview.result.structuredContent.data;
+    assert(previewData !== undefined && "agents_written" in previewData);
+    assertEquals(previewData.agent_files_discarded, [{
+      path: "CLAUDE.md",
+      lines: 2,
+      preview: ["# Kept by another process", "A maintained line."],
+    }]);
+    await Deno.remove(foreignAgentFile);
     assertEquals(refreshPreview.id, 31);
     assertEquals(refreshPreview.result.isError, false);
     assertEquals(refreshPreview.result.structuredContent.ok, true);

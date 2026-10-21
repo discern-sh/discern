@@ -47,6 +47,7 @@ import {
   runJobGroups,
 } from "./execute.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
+import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -67,7 +68,9 @@ import {
   renderGateTtyTable,
 } from "./gate_tty.ts";
 import {
+  agentFilesDiscardedHint,
   compileInstructions,
+  type DiscardedAgentFile,
   instructionRefreshErrors,
 } from "../instructions.ts";
 import { checkInstructionCurrent } from "../instruction_render.ts";
@@ -99,6 +102,35 @@ function skippedRefresh(step: PlanStep): PrepareRefreshRun {
 }
 
 /**
+ * Prepare is the inner loop: it keeps overwriting agent files so `done` meets
+ * nothing left to rewrite, because refusing would stall every iteration on a
+ * decision that belongs to the owner, not the loop. What an overwrite cost
+ * must still be impossible to miss, so each such file becomes a warning
+ * diagnostic whose output keeps every discarded line, recoverable in one
+ * place even when no commit ever held them.
+ */
+async function discardWarnings(
+  root: string,
+  discarded: readonly DiscardedAgentFile[],
+): Promise<Diagnostic[]> {
+  const notice = agentFilesDiscardedHint(discarded);
+  if (notice === undefined) return [];
+  return await Promise.all(discarded.map(async ({ path, discard }) => ({
+    tool: "instructions",
+    severity: "warning" as const,
+    message:
+      `refresh removed ${discard.unsourced.length} line(s) that no instruction source produces from ${path}`,
+    reproduce_cmd: `git diff -- ${path}`,
+    ...(await diagnosticOutputFields(
+      root,
+      `${notice.text}\n\nRemoved from ${path}:\n${
+        discard.unsourced.map((line) => `  - ${line}`).join("\n")
+      }`,
+    )),
+  })));
+}
+
+/**
  * Apply the shared refresh authority, then prove its instruction and skills
  * currency checks are already a fixpoint before read-only project checks run.
  */
@@ -110,6 +142,7 @@ async function runPrepareRefresh(
   const errors = new Set<string>();
   let hints: readonly string[] = [];
   let changed: readonly string[] = [];
+  let warnings: readonly Diagnostic[] = [];
   try {
     const refreshed = await compileInstructions(
       root,
@@ -118,6 +151,7 @@ async function runPrepareRefresh(
     for (const error of instructionRefreshErrors(refreshed)) errors.add(error);
     hints = refreshed.hints;
     changed = refreshed.trackedArtifactsChanged;
+    warnings = await discardWarnings(root, refreshed.agentFilesDiscarded);
 
     for (const drift of await checkInstructionCurrent(root, cfg)) {
       errors.add(
@@ -145,13 +179,16 @@ async function runPrepareRefresh(
       step: { ...planned, note },
       outcome: failures.length === 0 ? "ok" : "failed",
     },
-    diagnostics: failures.map((message) => ({
-      tool: "refresh",
-      severity: "error",
-      message:
-        `Refresh did not fully materialize the generated Agent surface: ${message}. Fix the named source or output, then run discern refresh again.`,
-      reproduce_cmd: "discern refresh",
-    })),
+    diagnostics: [
+      ...failures.map((message): Diagnostic => ({
+        tool: "refresh",
+        severity: "error",
+        message:
+          `Refresh did not fully materialize the generated Agent surface: ${message}. Fix the named source or output, then run discern refresh again.`,
+        reproduce_cmd: "discern refresh",
+      })),
+      ...warnings,
+    ],
     hints,
     changed,
   };
@@ -448,6 +485,13 @@ export async function runPrepare(
   }
   if (refreshChanged.length > 0) {
     out.info(`Refresh updated tracked artifacts: ${refreshChanged.join(", ")}`);
+  }
+  for (
+    const warning of (result.diagnostics ?? []).filter((diagnostic) =>
+      diagnostic.severity === "warning"
+    )
+  ) {
+    out.warn(`${warning.message}; review with \`${warning.reproduce_cmd}\``);
   }
   // The advisory tail (the co-change nudge / the setup-in-progress note) — same as finish.
   const hints = interactiveHintTexts(result.hints);

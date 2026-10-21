@@ -36,6 +36,8 @@ import {
   withTempDir,
 } from "./helpers.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { gitInit } from "./engine_helpers.ts";
 
@@ -223,7 +225,7 @@ Deno.test("upgrade refuses an absent templates dir before stamping (human)", asy
 
 // ---- agents-default fallback ----------------------------------------------
 
-Deno.test("upgrade fills agents from defaults when discern.toml carries no agents key", async () => {
+Deno.test("upgrade fills agents from defaults when discern.toml carries no agents key, reporting what its compile discards", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     // Strip the `agents = [...]` line so [project].agents is absent; the
@@ -234,7 +236,13 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
       .filter((l) => !/^\s*agents\s*=/.test(l))
       .join("\n");
     await Deno.writeTextFile(tomlPath, stripped);
-    await git(dir, "add", "discern.toml");
+    // Another process committed a block of its own into the compiled file.
+    const agentsPath = join(dir, "AGENTS.md");
+    await Deno.writeTextFile(
+      agentsPath,
+      `${await Deno.readTextFile(agentsPath)}\n<!-- maintained block -->\n`,
+    );
+    await git(dir, "add", "discern.toml", "AGENTS.md");
     await git(dir, "commit", "-m", "model install without agent selection");
     // The upgrade still succeeds and compiles the default agent files.
     const r = await runCli(["upgrade", "--json"], dir);
@@ -249,6 +257,9 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
       "CLAUDE.md",
       "AGENTS.md",
     ]);
+    assertHasHint(res, HINTS["refresh-agent-files-discarded"], {
+      files: "AGENTS.md (1 line, first `<!-- maintained block -->`)",
+    });
   });
 });
 
