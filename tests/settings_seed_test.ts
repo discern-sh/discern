@@ -65,12 +65,12 @@ Deno.test("settingsSeeds(): the registry yields Claude's settings file with its 
 });
 
 Deno.test("mergeJsonSettingsText: byte-identical to the JSON deep-merge it lifts", () => {
-  // The default strategy must be exactly parse → mergeSettings → 2-space JSON + "\n"
-  // (the pre-generalization Claude behaviour), so no install's settings churn.
+  // The default strategy is parse → mergeSettings → JSON in the existing layout,
+  // so a two-space settings file stays two-space JSON + "\n".
   const existing = { model: "opus", permissions: { deny: ["Read(./secret)"] } };
   const incoming = { permissions: { deny: ["Read(./.env)"] }, extra: true };
   const viaText = mergeJsonSettingsText(
-    JSON.stringify(existing),
+    `${JSON.stringify(existing, null, 2)}\n`,
     JSON.stringify(incoming),
   );
   const viaObject = `${

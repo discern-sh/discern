@@ -20,6 +20,7 @@
  */
 
 import { DISCERN_MCP_SERVER } from "./providers.ts";
+import { serializeSharedJson } from "./shared_json.ts";
 
 /** A JSON object map. */
 type JsonObject = Record<string, unknown>;
@@ -200,7 +201,7 @@ export interface JsonStripOptions {
 
 /**
  * Strip discern's contribution from a co-owned JSON settings file's text.
- * Returns the new canonical 2-space JSON (matching what the merge writes), or
+ * Returns the remaining JSON in the file's existing layout, or
  * `null` when the file is left with no user content — the signal to delete a
  * file discern created outright. Malformed JSON is returned unchanged (never
  * deleted): an unreadable user file is not discern's to remove.
@@ -242,5 +243,5 @@ export function stripDiscernFromJsonSettings(
   if (Object.keys(root).length === 0) {
     return null;
   }
-  return `${JSON.stringify(root, null, 2)}\n`;
+  return serializeSharedJson(root, existingText);
 }

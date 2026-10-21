@@ -27,6 +27,7 @@ import {
   mergeJsonHookSettingsText,
   type SettingsSeedMerge,
 } from "./settings_merge.ts";
+import { serializeSharedJson } from "./shared_json.ts";
 import { TomlEditor } from "./toml_edit.ts";
 import {
   agentLabelForNative,
@@ -530,7 +531,7 @@ export function renderProviderHookSeed(hooks: HooksIntegration): string {
     });
   }
   root.hooks = groups;
-  return `${JSON.stringify(root, null, 2)}\n`;
+  return serializeSharedJson(root, undefined);
 }
 
 /** Derive this provider's hook merge from the same format facts that render its
@@ -923,17 +924,24 @@ function appendUnique(base: readonly string[], addition: string): string[] {
   return base.includes(addition) ? [...base] : [...base, addition];
 }
 
+/** One JSON object file: its current text, and the parsed object. */
+interface JsonObjectFile {
+  /** The file's text, or undefined when it does not exist yet. */
+  readonly text: string | undefined;
+  readonly value: Record<string, unknown>;
+}
+
 /** Read a JSON object file. Absence starts empty; malformed existing JSON refuses. */
 async function readJsonObject(
   path: string,
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
-): Promise<Record<string, unknown>> {
+): Promise<JsonObjectFile> {
   let text: string;
   try {
     text = await files.readTextFile(path);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      return {};
+      return { text: undefined, value: {} };
     }
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`could not read JSON file ${path}: ${detail}`);
@@ -948,17 +956,18 @@ async function readJsonObject(
   if (!isObject(v)) {
     throw new Error(`JSON in ${path} must be an object`);
   }
-  return v;
+  return { text, value: v };
 }
 
-/** Write a pretty JSON object with a trailing newline (creating parent dirs). */
+/** Write a JSON object file's next value in its existing layout (creating parent dirs). */
 async function writeJsonObject(
   path: string,
+  file: JsonObjectFile,
   value: unknown,
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<void> {
   await files.ensureDir(dirname(path));
-  await files.writeTextFile(path, `${JSON.stringify(value, null, 2)}\n`);
+  await files.writeTextFile(path, serializeSharedJson(value, file.text));
 }
 
 /** Write text only when bytes differ, creating the parent directory. */
@@ -1130,7 +1139,8 @@ async function registerStdioMcpJson(
 ): Promise<McpWireResult> {
   const files = context.files ?? LIVE_REFRESH_FILE_OPS;
   const path = join(root, configFile);
-  const doc = await readJsonObject(path, files);
+  const file = await readJsonObject(path, files);
+  const doc = file.value;
   const servers = isObject(doc.mcpServers) ? doc.mcpServers : {};
   const firstInstall = !(server.name in servers);
   const desired = {
@@ -1152,8 +1162,12 @@ async function registerStdioMcpJson(
   if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
     return { written: [], firstInstall };
   }
-  doc.mcpServers = { ...servers, [server.name]: desired };
-  await writeJsonObject(path, doc, files);
+  await writeJsonObject(
+    path,
+    file,
+    { ...doc, mcpServers: { ...servers, [server.name]: desired } },
+    files,
+  );
   return { written: [configFile], firstInstall };
 }
 
@@ -1189,10 +1203,12 @@ async function registerClaudeCodeMcp(
   //    preserving every other setting (hooks, permissions) already written.
   const setPath = join(root, CLAUDE_SETTINGS_FILE);
   const settings = await readJsonObject(setPath, files);
-  const approved = asStringArray(settings.enabledMcpjsonServers);
+  const approved = asStringArray(settings.value.enabledMcpjsonServers);
   if (!approved.includes(server.name)) {
-    settings.enabledMcpjsonServers = [...approved, server.name];
-    await writeJsonObject(setPath, settings, files);
+    await writeJsonObject(setPath, settings, {
+      ...settings.value,
+      enabledMcpjsonServers: [...approved, server.name],
+    }, files);
     written.push(CLAUDE_SETTINGS_FILE);
   }
 
@@ -1220,7 +1236,9 @@ async function registerGeminiMcp(
   const files = context.files ?? LIVE_REFRESH_FILE_OPS;
   const path = join(root, GEMINI_SETTINGS_FILE);
   const settings = await readJsonObject(path, files);
-  const servers = isObject(settings.mcpServers) ? settings.mcpServers : {};
+  const servers = isObject(settings.value.mcpServers)
+    ? settings.value.mcpServers
+    : {};
   const firstInstall = !(server.name in servers);
   const desired = {
     command: server.command,
@@ -1230,8 +1248,12 @@ async function registerGeminiMcp(
   if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
     return { written: [], firstInstall };
   }
-  settings.mcpServers = { ...servers, [server.name]: desired };
-  await writeJsonObject(path, settings, files);
+  await writeJsonObject(
+    path,
+    settings,
+    { ...settings.value, mcpServers: { ...servers, [server.name]: desired } },
+    files,
+  );
   return { written: [GEMINI_SETTINGS_FILE], firstInstall };
 }
 

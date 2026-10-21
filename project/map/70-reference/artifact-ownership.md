@@ -28,6 +28,8 @@ File ownership is an operational term for edit and overwrite authority. It does 
 | [Shared](../00-orientation/glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                 | It may replace its region or entry and preserves the rest.          |
 | [Generated](../00-orientation/glossary.md#generated-file)         | No. Edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
 
+Every Shared JSON writer serializes through [`serializeSharedJson`](../../../src/lib/shared_json.ts). It keeps the file's indentation, line endings, and final newline, so a co-writing tool sees only discern's entry change; a new file uses two spaces. [`tests/shared_json_test.ts`](../../../tests/shared_json_test.ts) seeds every registered Shared JSON path in several layouts, then runs the MCP, hook, and uninstall writers over it.
+
 The coding agent creates and maintains provider-local files. discern only ignores their registered paths. Other untracked provider files have no entry.
 
 Within the shared `discern.toml`, `meta.managed_version` is maintained by successful setup and upgrade. The [adoption boundary](../50-engine-internals/managed-adoption.md) governs its version checks and protects the recorded value during landing.

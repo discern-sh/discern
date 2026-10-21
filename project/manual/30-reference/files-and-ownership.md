@@ -159,6 +159,12 @@ You can add ignore rules for the agent files outside discern's block if you pref
 
 discern owns only its marked block, plus any standalone rule outside it that exactly matches one the current provider registry declares. Similar broad or retired rules outside the block stay yours. When `[worktree].root` resolves inside the repository, the block also ignores that exact directory. The default worktree location, beside the project, needs no rule.
 
+## Shared provider configuration
+
+Coding tools' configuration files, such as `.mcp.json`, `.claude/settings.json`, and `.codex/config.toml`, often hold entries from several tools. discern changes only its own entries there, in a form the other tools don't have to undo:
+
+- **JSON files keep their layout.** discern writes its entry in the file's existing indentation, line endings, and final newline, so another tool that writes the same file sees only that entry change. Uninstalling removes the entry the same way. A new file, or an empty `{}`, gets two-space indentation.
+
 ## Skills directories
 
 A coding agent's skills directory, such as `.claude/skills/` or `.agents/skills/`, is shared with other tools. discern owns only the skills named in its `.discern-materialized.json` record there, and a `.gitignore` it writes beside them ignores exactly those. You can commit another tool's skills, so fresh clones and worktrees get them, and `discern uninstall` keeps them.

@@ -106,13 +106,6 @@ const BOUNDARY_EXCEPTIONS: readonly BoundaryException[] = [
       "The parser proves the root record and validates both fields before constructing a new branch-bound grant.",
   },
   {
-    path: "src/lib/providers.ts",
-    enclosingFunction: "readJsonObject",
-    rule: "declared-json-return",
-    reason:
-      "The isObject type predicate completely establishes the broad Record<string, unknown> return type before the return.",
-  },
-  {
     path: "src/lib/worktree_hooks.ts",
     enclosingFunction: "readJsonStdin",
     rule: "asserted-json-boundary",
