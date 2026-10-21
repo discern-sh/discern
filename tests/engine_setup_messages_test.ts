@@ -316,6 +316,40 @@ Deno.test("confirmedBeginCommand carries --confirmed and never a --map placehold
   assert(!confirmedBeginCommand().includes("--map"));
 });
 
+Deno.test("the consent message serves the ignored-files decision only while a rule excludes a file", () => {
+  const base = {
+    worktreePath: WT,
+    ...WORKTREE_ENV,
+    docsExists: false,
+    gitRepo: true,
+    agents: AGENTS,
+  };
+  const none = consentMessage(base);
+  assert(!none.includes("--ignored-integration-files"));
+  assert(!none.includes("ignore rules exclude"));
+
+  const excluded = consentMessage({
+    ...base,
+    ignoredIntegrationFiles: [
+      { path: ".tool/config.json", rule: ".gitignore:3: .tool/" },
+      { path: ".tool/hooks.json", rule: ".gitignore:3: .tool/" },
+    ],
+  });
+  assertStringIncludes(
+    excluded,
+    "exclude files setup would commit for your coding tools: `.tool/config.json`, `.tool/hooks.json` (.gitignore:3: .tool/)",
+  );
+  assertStringIncludes(
+    excluded,
+    "--ignored-integration-files track-anyway --model unreported --confirmed",
+  );
+  assertStringIncludes(
+    excluded,
+    "pass `--ignored-integration-files keep-local`",
+  );
+  assertStringIncludes(excluded, "run `discern setup verify` again");
+});
+
 // ── completionMessage ────────────────────────────────────────────────────────
 
 /** Build a {@link SetupAssurance} at a chosen verdict for the coverage-line branches. */

@@ -92,66 +92,69 @@ async function trackedAgentPaths(dir: string): Promise<string[]> {
     .split("\0").filter((path) => path !== "");
 }
 
-Deno.test("verify serves the ignored-files decision for every excluded integration file", async () => {
+Deno.test("verify serves the decision, begin refuses without a valid choice, then track-anyway commits the files", async () => {
   await withTempDir(async (dir) => {
     await projectIgnoringToolFolders(dir);
-    const result = decodeCliResult(
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    /** Assert a refusal consumed nothing: same commit, branch, and clean tree. */
+    const assertUntouched = async (): Promise<void> => {
+      assertEquals(await gitOut(dir, "rev-parse", "HEAD"), head);
+      assertEquals(
+        (await gitOut(dir, "branch", "--show-current")).trim(),
+        "main",
+      );
+      assertEquals(await gitOut(dir, "status", "--porcelain", "-z"), "");
+      assertEquals(await targetExists(join(dir, "discern.toml")), false);
+    };
+
+    const verify = decodeCliResult(
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
       "setup verify",
     );
-    assertResultDataKey(result, "phase");
-    const data = result.data;
-    assert(data.findings !== undefined);
-    const expected = trackedSharedProviderPaths(data.findings.agents_effective);
+    assertResultDataKey(verify, "phase");
+    const findings = verify.data.findings;
+    assert(findings !== undefined);
+    const expected = trackedSharedProviderPaths(findings.agents_effective);
     assert(
       expected.length > 0,
       "precondition: the effective agents write files",
     );
     assertEquals(
-      (data.findings.ignored_integration_files ?? []).map((file) => file.path),
+      (findings.ignored_integration_files ?? []).map((file) => file.path),
       expected,
     );
-    const conflict = data.conflicts?.find((c) =>
-      c.kind === "ignored_integration_files"
+    assert(
+      verify.data.conflicts?.some((c) =>
+        c.kind === "ignored_integration_files"
+      ),
+      JSON.stringify(verify.data.conflicts),
     );
-    assert(conflict !== undefined, JSON.stringify(data.conflicts));
-    assertStringIncludes(data.instructions ?? "", "commit just those files");
     assertStringIncludes(
-      data.next_action,
+      verify.data.instructions ?? "",
+      "commit just those files",
+    );
+    assertStringIncludes(
+      verify.data.next_action,
       "--ignored-integration-files track-anyway",
     );
-    assertStringIncludes(
-      data.instructions ?? "",
-      "--ignored-integration-files keep-local",
-    );
-  });
-});
 
-Deno.test("verify asks nothing when no ignore rule matches an integration file", async () => {
-  await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, ".gitignore"), "/build-output/\n");
-    await gitInit(dir);
-    const result = decodeCliResult(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
-      "setup verify",
+    const invalid = await begin(
+      dir,
+      "--ignored-integration-files",
+      "change-rule",
     );
-    assertResultDataKey(result, "phase");
-    assertEquals(result.data.findings?.ignored_integration_files, []);
-    assert(!result.data.next_action.includes("--ignored-integration-files"));
-  });
-});
+    assertEquals(invalid.code, 1, invalid.output);
+    assertEquals(
+      decodeCliResult(invalid.stdout, "setup begin").error,
+      "invalid_arguments",
+    );
+    await assertUntouched();
 
-Deno.test("begin without the owner's choice refuses before writing anything", async () => {
-  await withTempDir(async (dir) => {
-    await projectIgnoringToolFolders(dir);
-    const run = await begin(dir);
-    assertEquals(run.code, 1, run.output);
-    const result = decodeCliResult(run.stdout, "setup begin");
-    assertEquals(result.error, "awaiting_decision");
-    for (const path of AGENT_PATHS) {
-      assertStringIncludes(result.message ?? "", path);
-    }
-    assertHasHint(result, HINTS["setup-awaiting-ignored-files-choice"], {
+    const unanswered = await begin(dir);
+    assertEquals(unanswered.code, 1, unanswered.output);
+    const refusal = decodeCliResult(unanswered.stdout, "setup begin");
+    assertEquals(refusal.error, "awaiting_decision");
+    assertHasHint(refusal, HINTS["setup-awaiting-ignored-files-choice"], {
       files: describeIgnoredFiles(
         AGENT_PATHS.map((path) => ({ path, rule: fixtureRule(path) })),
       ),
@@ -164,34 +167,15 @@ Deno.test("begin without the owner's choice refuses before writing anything", as
         flag("ignored-integration-files", "keep-local"),
       ),
     });
-    assertEquals(await gitOut(dir, "status", "--porcelain", "-z"), "");
-    assertEquals(
-      (await gitOut(dir, "branch", "--show-current")).trim(),
-      "main",
-    );
-    assertEquals(await targetExists(join(dir, "discern.toml")), false);
-  });
-});
+    await assertUntouched();
 
-Deno.test("begin rejects an unknown ignored-files choice before writing anything", async () => {
-  await withTempDir(async (dir) => {
-    await projectIgnoringToolFolders(dir);
-    const run = await begin(dir, "--ignored-integration-files", "change-rule");
-    assertEquals(run.code, 1, run.output);
-    assertEquals(
-      decodeCliResult(run.stdout, "setup begin").error,
-      "invalid_arguments",
+    const tracked = await begin(
+      dir,
+      "--ignored-integration-files",
+      "track-anyway",
     );
-    assertEquals(await targetExists(join(dir, "discern.toml")), false);
-  });
-});
-
-Deno.test("begin with track-anyway commits the excluded integration files", async () => {
-  await withTempDir(async (dir) => {
-    await projectIgnoringToolFolders(dir);
-    const run = await begin(dir, "--ignored-integration-files", "track-anyway");
-    assertEquals(run.code, 0, run.output);
-    const data = beginData(run.stdout);
+    assertEquals(tracked.code, 0, tracked.output);
+    const data = beginData(tracked.stdout);
     assertEquals(data.machinery_committed, true, JSON.stringify(data));
     assertEquals(data.ignored_integration_files, {
       choice: "track-anyway",
