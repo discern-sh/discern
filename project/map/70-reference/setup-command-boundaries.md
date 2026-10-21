@@ -30,7 +30,7 @@ Before consent, setup recommends the strongest suitable model and records the ex
 
 A denial returns `write_denied` with the path and retry while preserving the phase. Successful probes leave no temporary entry; later effects retain their ordinary recovery.
 
-Before that probe, a fresh `setup begin` asks Git whether the project's ignore rules exclude an untracked integration file of the selected agents. Without the owner's `--ignored-integration-files` choice it refuses with `awaiting_decision` and writes nothing; [Files & ownership](artifact-ownership.md#project-rules-that-exclude-tracked-integration-files) explains how each choice reaches the machinery commit.
+`setup begin`'s machinery commit stages discern's wiring only. It leaves out an integration file that already held content discern didn't write, and names it in `data.existing_integration_files` for the coding agent to resolve ([Files & ownership](artifact-ownership.md#project-rules-that-exclude-tracked-integration-files)).
 
 Setup and upgrade treat generated agent instructions as a required late outcome. Their structured results use `data.instruction_refresh`: `status: "complete"` carries the compiled artifacts, including an empty list when everything was already current; `status: "partial"` carries completed artifacts, non-empty failure evidence, `effects_preserved: true`, and a safe-to-retry `discern refresh` recovery. A partial refresh makes top-level `ok` false and the CLI exit nonzero while preserving every earlier scaffold or migration effect. Callers do not infer completion from an empty list or warning prose ([ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
 

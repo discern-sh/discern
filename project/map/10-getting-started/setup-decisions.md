@@ -22,10 +22,6 @@ The agent reports its current provider/model identifier, or `unreported`, as adv
 
 Before writing the guide or instructions, setup proposes the strongest name supported by the README or project metadata; a checkout directory is a fallback. Confirm or correct it. When you have no preference, **“use your recommendation”** records your choice of the proposal.
 
-## Decide about files your ignore rules exclude
-
-discern commits a few integration files into each coding tool's folder so every checkout gets its tools. When the project's own ignore rules exclude any of them, the preflight names each file and rule and asks: commit them anyway, keep them on this machine, or change the rule first. Committing anyway is recommended, because the rule keeps ignoring everything else it matches. Keeping them local means fresh clones and cloud agents start without discern's tools until discern runs there. This choice decides what the repository shares, so **“use your recommendation”** doesn't apply.
-
 ## Know which choices remain yours
 
 The agent handles routine, reversible branch work. It waits for missing product intent, cost, credentials, new dependencies, broader access, destructive effects, shared or durable data, future-work policies, exceptions, and landing.

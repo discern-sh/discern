@@ -1,6 +1,6 @@
-# ADR 0428: Ignored integration files are an owner decision
+# ADR 0428: The `.gitignore` block re-includes ignored integration files
 
-**Status**: accepted
+**Status**: accepted; amends [ADR 0093](0093-upgrade-reconciles-gitignore-block.md), since refresh now reconciles the block too
 
 ## Context
 
@@ -13,38 +13,36 @@ A compatibility probe installed discern into a freshly generated project whose d
 - The tracked-refresh plan considers only tracked paths, so refresh went on regenerating copies only that checkout had, silently.
 - `discern doctor` had no such check.
 
-Git also stages a tracked file beneath an ignored folder but still exits 1. A project that had once force-added such a file therefore broke update's regeneration commit as well.
+Git also stages a tracked file beneath an ignored folder but still exits 1, which broke update's regeneration commit for any project that had once force-added such a file.
 
 ## Decision
 
-**One registry-derived set and one probe.** [`trackedSharedProviderPaths`](../../../src/lib/artifact_ownership.ts) is every Shared file a provider declares. It excludes skills directories, where Git ignores discern's own entries by design, and agent files, which the setup agent commits itself. [`ignoredIntegrationFiles`](../../../src/lib/ignored_integration_files.ts) asks Git, independent of the index, which of those paths an ignore rule matches and which Git already tracks. Setup's preflight, `setup begin`, and `discern doctor` read only that answer. A guard walks every provider declaration for Shared ownership, so a new provider or integration field enrolls without an edit.
+**discern's own block re-includes exactly its files.** [`trackedSharedProviderPaths`](../../../src/lib/artifact_ownership.ts) is every Shared file a provider declares. It excludes skills directories, where Git ignores discern's own entries by design, and agent files, which the setup agent commits itself. When the project's root `.gitignore` excludes one of the configured agents' files, the managed block appends the fewest rules that re-include it. For a folder rule, the block re-includes the folder, then ignores its contents again, then re-includes discern's files, because Git cannot re-include a file inside an excluded folder. Everything else the project's rule matched stays ignored. A project line that happens to match an exception stays the project's: ownership is judged against the block without its exceptions.
 
-**An untracked match is the owner's decision.** The preflight names each file and its rule, and serves one decision with three options:
+**The exceptions follow from tracked content alone.** [`gitignore_patterns.ts`](../../../src/lib/gitignore_patterns.ts) evaluates the root `.gitignore` purely, so every checkout renders the same block. Git would also apply this machine's global and clone-local excludes, and a Git process in every refresh plan would cost `status` and the gate. A parity test holds the matcher, and the property that the exceptions admit nothing else, to Git's own `check-ignore`. The block keeps its place unless a project rule after it excludes an integration file; it then moves to the end, because the last matching rule wins.
 
-- **Track anyway**, the recommendation: the machinery commit force-adds those files once. Git ignore rules don't apply to tracked files, so the rule keeps ignoring everything else it matches.
-- **Keep local:** the commit leaves them out, and setup records them in `[project].local_integration_files`. Refresh and worktree setup regenerate them; fresh clones and cloud agents lack them until discern runs there.
-- **Change the rule:** the owner edits and commits their rule before setup begins, so `begin` finds nothing.
+**Refresh keeps the block current.** The exceptions depend on the configured agents, so refresh, setup, and upgrade all reconcile the block, and the tracked-refresh plan reports a stale one. Adding a coding agent whose folder the project ignores is handled by the next refresh.
 
-The choice decides what the repository shares, so it is not delegable through "use your recommendation". `setup begin --ignored-integration-files track-anyway|keep-local` carries it. Without a choice, `begin` refuses with `awaiting_decision` before any write. discern never edits the project's own ignore rules.
+**Nobody is asked.** The consent footprint already lists the integration files setup commits; it now says when the project's rules exclude them and that the block re-includes just those files. discern never edits the project's own rules.
 
-**Doctor reports the state.** Its `integration files` check warns about an untracked, excluded file the record does not list, and about a listed file that no longer needs its entry. A recorded choice reads as settled.
+**A file with someone else's entries goes to the coding agent.** An integration file that already exists, untracked, holding content discern did not write, may carry personal settings or credentials. Setup adds discern's entries but leaves that file out of its machinery commit, names it in `setup verify` and `begin`, and the agent commits it if the other entries are safe to share or moves the personal ones to the tool's user-level settings first. It asks the owner only when the file does not settle it. This holds whether or not an ignore rule matched the file.
 
-**Tracked files beneath ignored folders are staged with `--force`.** The machinery commit forces exactly the decided and already-tracked paths. Update's regeneration commit forces its paths too: they come from `git status`, which never lists an ignored untracked file, so the flag admits nothing new.
+**What the block cannot override is forced once.** A nested `.gitignore` or this machine's excludes can still match. Setup stages those files with `--force`, since the project's rules allow them and no ignore rule applies to a tracked file. Update's regeneration commit forces its paths too: they come from `git status`, which never lists an ignored untracked file, so the flag admits nothing new. Doctor's `integration files` check warns about any untracked integration file Git still ignores, with `discern refresh` as the fix for a root rule and a one-time `git add --force` for any other.
 
 ## Alternatives considered
 
-- **Always force-add.** It silently overrides a rule the owner wrote, and can share files they meant to keep out.
-- **Always keep local, without a record.** That is the old failure without the error: cloud agents lose discern's wiring, and nobody decided it.
-- **Negation rules in discern's managed block.** Git cannot re-include a file whose parent folder is excluded. A working negation would rewrite the owner's folder rule, which is editing project rules.
+- **An owner decision at setup**, with a flag and a recorded keep-local list. It interrupted setup at its most sensitive point with a question most owners cannot answer, and added a configuration key for an edge case. The template rule it asked about was almost never a deliberate choice about discern's files.
+- **Always force-add.** Tracked files inside an ignored folder are invisible state: a plain `git add` exits 1 on them, and a coding agent added later is ignored again.
+- **Edit the project's own rule.** That is harder to review and undo than lines in discern's block, and needs knowledge of the owner's intent the block does not.
+- **Ask Git for the exceptions.** It would make the block depend on each machine's excludes, so checkouts would disagree about a tracked file.
 - **Recognize known templates.** discern is stack-neutral, and the next template would still fail.
-- **No record, and a permanent doctor warning for kept-local files.** A warning about a settled choice teaches people to ignore doctor.
 
 ## Consequences
 
-Setup in such a project costs one owner question and never fails its machinery commit on an ignore rule.
+Setup in such a project asks nothing and never fails its machinery commit on an ignore rule. The block grows only in projects whose rules exclude an integration file.
 
-`discern.toml` gains `[project].local_integration_files`. Fresh installs render it empty, and `discern upgrade` adds it to existing ones.
+A project cannot keep a configured agent's integration file out of Git with a rule after discern's block, because the block moves below it. Leaving the agent out of `[project].agents` is the way to keep its files untracked.
 
-A coding agent added after setup gets no preflight. Refresh writes its files; if a rule excludes them, doctor warns until the owner decides, applying a choice by hand.
+A file that held someone else's entries stays visible and uncommitted until the agent resolves it.
 
-Ignore rules that exclude an agent file, such as `AGENTS.md`, are outside this check: the setup agent commits those files itself, so this probe does not cover them.
+Ignore rules that exclude an agent file, such as `AGENTS.md`, are outside the block's exceptions: the setup agent commits those files itself.

@@ -21,9 +21,8 @@ aliases:
   - "schema_version_too_new"
   - "partial_refresh"
   - "unsupported platform"
-  - "awaiting_decision"
   - "ignored integration files"
-  - "local_integration_files"
+  - "existing integration files"
 ---
 
 # Setup and integrations
@@ -80,23 +79,17 @@ The result names the problem:
 
 ## Your ignore rules exclude agent tool folders
 
-Many `.gitignore` templates exclude editor and agent tool folders, where discern commits each coding agent's connection settings so every checkout, including a cloud agent's, gets discern's tools. Before setup writes anything, `discern setup verify` names each excluded file and its rule:
+Many `.gitignore` templates exclude editor and agent tool folders, where discern commits each coding agent's connection settings so every checkout, including a cloud agent's, gets discern's tools. You don't need to change your rules. discern's own block in `.gitignore` re-includes just its files there, and your rules keep ignoring everything else in those folders. Your agent mentions it when it explains what setup adds, and `discern refresh` keeps the block current when you add a coding agent later.
+
+If one of those files already existed with entries from another tool, such as another server's connection settings, setup adds discern's entries but leaves the file out of its commit:
 
 ```text
-The project's ignore rules exclude integration files setup would commit: `.codex/config.toml`, `.codex/hooks.json`, `.codex/environments/environment.toml`, `.codex/rules/discern.rules` (.gitignore:1: .codex/).
+Setup didn't commit the integration files that already held entries discern didn't write: `.mcp.json`.
 ```
 
-Your agent then asks you to choose:
+Those entries can be personal settings or credentials. Your agent reads the file and commits it if they're safe to share, or moves the personal ones to the coding tool's user-level settings first. It asks you only when the file doesn't make that clear.
 
-| Choice                           | What happens                                                                                                                                                                                                                        |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Commit them anyway (recommended) | Setup commits only those files, once. Git keeps tracking them, and your rule still ignores everything else it matches.                                                                                                              |
-| Keep them on this machine        | Setup leaves them out of Git and lists them in `[project].local_integration_files`. discern recreates them in each copy of the project it sets up, but fresh clones and cloud agents lack discern's tools until discern runs there. |
-| Change the rule                  | You narrow or remove the rule and commit that change. Your agent then runs `discern setup verify` again, and setup asks nothing more.                                                                                               |
-
-If your agent runs `discern setup begin` before you answer, it stops with `awaiting_decision` and writes nothing. discern never edits your own ignore rules. A rule in your own global Git ignore file affects only your machine.
-
-Adding a coding agent whose folder you ignore can cause this later. `discern doctor` then warns under **integration files** that `the project's ignore rules exclude` the file, with the same three choices. It's settled when that check passes.
+`discern doctor` warns under **integration files** when Git still ignores one of these files and doesn't track it. For a rule in your project's `.gitignore`, the fix is `discern refresh`. For a rule elsewhere, such as your own global Git ignore file, it's a one-time `git add --force`, because no ignore rule applies to a tracked file.
 
 ## Your discern is older than the project
 

@@ -69,7 +69,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`readiness-canon`](#readiness-canon--readiness-canon)                                                                | `scripts/brand/readiness.ts#READINESS_CANON`                                      | 72      | —                | —                           |
 | [`consequence-canon`](#consequence-canon--consequence-canon)                                                          | `scripts/brand/consequences.ts#CONSEQUENCE_CANON`                                 | 37      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
-| [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 19      | —                | node `setup`                |
+| [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 18      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 6       | —                | —                           |
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 20      | —                | —                           |
@@ -82,7 +82,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                               | `art/terminal/triangle.ts#DISCERN_PRODUCT_TRIANGLE_ART`                           | 2       | —                | —                           |
 | [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 19      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
-| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 70      | —                | node `hints`                |
+| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 69      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 6       | "Logbook"        | node `logbook`              |
 | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 9       | —                | node `logbook`              |
@@ -105,7 +105,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`contract-manifests`](#contract-manifests--frozen-contract-manifests)                                                | `scripts/contract_manifests.ts#CONTRACT_MANIFEST_ARTIFACTS`                       | 3       | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 8       | —                | node `published-contracts`  |
 | [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
-| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 70      | —                | node `published-contracts`  |
+| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 16      | —                | node `published-contracts`  |
 | [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 49      | —                | node `bundled-docs`         |
@@ -146,7 +146,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
 | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)    | `src/shared/entropy.ts#SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`                       | 2       | —                | —                           |
-| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 185     | —                | —                           |
+| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 186     | —                | —                           |
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 16      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
@@ -1381,8 +1381,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0426-shared-file-markers-claim-only-discerns-part.md`
   - `/docs/decisions/0427-instruction-sources-compile-in-configured-order`
   - `/docs/decisions/0427-instruction-sources-compile-in-configured-order.md`
-  - `/docs/decisions/0428-ignored-integration-files-are-an-owner-decision`
-  - `/docs/decisions/0428-ignored-integration-files-are-an-owner-decision.md`
+  - `/docs/decisions/0428-the-gitignore-block-re-includes-ignored-integration-files`
+  - `/docs/decisions/0428-the-gitignore-block-re-includes-ignored-integration-files.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -2944,12 +2944,11 @@ The staged-setup handshake's sub-verb sequence.
 The semantic contracts for setup's first-use explanations, owner decisions, progress relays, completion handoff, landing choice, and activation handoff.
 
 - Source: `src/shared/setup_experience.ts` — `SETUP_HUMAN_MOMENTS`
-- Members: 19
+- Members: 18
   - `first-use-value`
   - `model-selection`
   - `setup-started`
   - `project-name-confirmation`
-  - `ignored-integration-files`
   - `external-reference-inspection`
   - `project-intent-gap`
   - `gate-protection-change`
@@ -3246,7 +3245,7 @@ The advisory hint registry: every hint string enters results through it.
   - `ensure-main-worktree-first`
   - `setup-refresh-artifact-failed`
   - `setup-awaiting-confirmation`
-  - `setup-awaiting-ignored-files-choice`
+  - `setup-existing-integration-files`
   - `setup-finish-incomplete`
   - `setup-instructions-preserved`
   - `setup-instructions-own-render-skipped`
@@ -3438,12 +3437,11 @@ The result fields a generic recovery instruction may cite. A failure with neithe
 The audited recovery mode for every canonical error slug: use the generic floor only when the message or first diagnostic supplies the correction; otherwise require a tailored registered next step.
 
 - Source: `src/shared/hints.ts` — `ERROR_FAILURE_RECOVERY`
-- Members: 70
+- Members: 69
   - `active_worktrees: evidence`
   - `ambiguous: tailored`
   - `apply_failed: evidence`
   - `awaiting_consent: tailored`
-  - `awaiting_decision: tailored`
   - `awaiting_declaration: tailored`
   - `awaiting_variance: tailored`
   - `awaiting_standard_approval: tailored`
@@ -4244,12 +4242,11 @@ The public reporting channels, policy location, language, and bounded security.t
 The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.
 
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
-- Members: 70
+- Members: 69
   - `active_worktrees`
   - `ambiguous`
   - `apply_failed`
   - `awaiting_consent`
-  - `awaiting_decision`
   - `awaiting_declaration`
   - `awaiting_standard_approval`
   - `awaiting_variance`
@@ -5689,7 +5686,7 @@ Every direct WebCrypto UUID or byte-fill operation retained by the system secure
 Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
 
 - Source: `src/shared/best_effort.ts` — `BEST_EFFORT_BOUNDARIES`
-- Members: 185
+- Members: 186
   - `accept-post-convergence-clean-check-fallback`
   - `accept-post-landing-dirty-baseline-fallback`
   - `accept-post-landing-templates-fallback`
@@ -5758,6 +5755,7 @@ Every named production error discard, with its exact module, enclosing function,
   - `ignored-baseline-record`
   - `ignored-symlink-target-fallback`
   - `improve-checkpoint-observations-fallback`
+  - `integration-file-content-probe`
   - `job-output-observer-notify`
   - `job-output-reader-cancel`
   - `job-output-record-create-fallback`

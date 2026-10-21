@@ -124,7 +124,7 @@ Configuring a different path moves a file, but its ownership still decides who m
 
 The agent files `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are tracked, so an agent in a fresh clone, including a cloud agent, reads its instructions before discern has run. `discern done` blocks a stale copy, and accepts a missing one ([ADR 0034](https://discern.sh/docs/decisions/0034-agents-md-untracked-currency-check), [ADR 0128](https://discern.sh/docs/decisions/0128-enumerated-ownership-tracked-guidance)).
 
-The tracked-refresh plan, the changes an ordinary `discern refresh` would make to tracked files, also covers discern's portions of other tracked files: the generated attributes, the provider integrations, and the ADR index. `discern done` and `discern accept` require that plan to be empty before a change lands, so the landed commit already holds their current versions. After landing, acceptance materializes only ignored or local files ([ADR 0264](https://discern.sh/docs/decisions/0264-tracked-refresh-convergence-precedes-landing)).
+The tracked-refresh plan, the changes an ordinary `discern refresh` would make to tracked files, also covers discern's portions of other tracked files: the generated attributes, discern's `.gitignore` block, the provider integrations, and the ADR index. `discern done` and `discern accept` require that plan to be empty before a change lands, so the landed commit already holds their current versions. After landing, acceptance materializes only ignored or local files ([ADR 0264](https://discern.sh/docs/decisions/0264-tracked-refresh-convergence-precedes-landing)).
 
 Materialized skills and provider-local files stay out of Git: `discern done` fails at its `tracked_artifacts` stage if one of them has been force-added. Another tool's skills are never flagged.
 
@@ -162,7 +162,9 @@ discern owns only its marked block, plus any standalone rule outside it that exa
 
 ## Integration files your rules ignore
 
-The Shared provider files above, such as `.mcp.json`, are tracked so a fresh clone loads discern's tools. When your own ignore rules exclude one Git doesn't track yet, setup asks before it writes anything: commit the file anyway, keep it local, or change your rule. discern never edits your rules. A kept-local file is listed in `[project].local_integration_files`, empty otherwise, and discern still writes it in each checkout it sets up. `discern doctor` warns under **integration files** about an excluded file that's neither tracked nor listed, and about a listed file that no longer needs its entry. [Setup and integrations](../40-troubleshooting/setup-and-integrations.md#your-ignore-rules-exclude-agent-tool-folders) explains each choice.
+The Shared provider files above, such as `.mcp.json`, are tracked so a fresh clone loads discern's tools. When your own `.gitignore` excludes one, discern's block re-includes exactly that file. For a folder rule, the block re-includes the folder, ignores its contents again, then re-includes discern's files, so everything else the rule matched stays ignored. discern never edits your rules, and a line of yours that matches one of these exceptions stays yours. The block keeps its place unless a rule of yours after it excludes one of these files; it then moves to the end, because Git applies the last matching rule. `discern refresh`, setup, and upgrade keep it current, so adding a coding agent needs nothing more.
+
+Setup leaves out of its commit an integration file that already held another tool's entries, since those can be personal settings or credentials, and names it for your agent. `discern doctor` warns under **integration files** when Git still ignores one of these files and doesn't track it.
 
 ## Shared provider configuration
 
