@@ -13,8 +13,10 @@
  *                      otherwise keep the user's value (recursing into objects).
  *
  * Inputs are parsed JSON values (`unknown`); the result is a plain object ready
- * to be written back as 2-space JSON.
+ * to be written back in the existing file's layout.
  */
+
+import { serializeSharedJson } from "./shared_json.ts";
 
 /** A JSON object map. */
 type JsonObject = Record<string, unknown>;
@@ -161,8 +163,8 @@ function parseJsonSettingsText(text: string, label: string): unknown {
 
 /**
  * The default seed-merge strategy: the JSON deep-merge ({@link mergeSettings})
- * lifted to text. Parses both sides as JSON, merges, and re-serializes to 2-space
- * JSON with a trailing newline. This remains the generic settings merge; provider
+ * lifted to text. Parses both sides as JSON, merges, and re-serializes in the
+ * existing file's layout. This remains the generic settings merge; provider
  * hook seeds use {@link mergeJsonHookSettingsText} to reconcile owned commands too.
  */
 export function mergeJsonSettingsText(
@@ -173,7 +175,7 @@ export function mergeJsonSettingsText(
     ? {}
     : parseJsonSettingsText(existingText, "existing");
   const incoming: unknown = parseJsonSettingsText(incomingText, "incoming");
-  return `${JSON.stringify(mergeSettings(existing, incoming), null, 2)}\n`;
+  return serializeSharedJson(mergeSettings(existing, incoming), existingText);
 }
 
 /** The registry facts needed to reconcile discern-owned hook commands without
@@ -334,7 +336,7 @@ export function mergeJsonHookSettingsText(
   }
   const merged = mergeSettings(prepared, incoming);
   reconcileHookGroups(merged, incoming, policy);
-  return `${JSON.stringify(merged, null, 2)}\n`;
+  return serializeSharedJson(merged, existingText);
 }
 
 /**

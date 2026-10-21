@@ -191,9 +191,9 @@ Where the project map lives. The map is the documentation your agents keep about
 
 The instruction files discern compiles into each agent's file. You write your instructions once. `discern refresh` combines discern's built-in instructions with yours into one generated file per agent. Those files are committed, so every agent reads the same instructions, and the gate fails if one is edited by hand.
 
-| Key       | Type     | Default                       | Description                                                                                                                                                                                                       |
-| --------- | -------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sources` | string[] | `["discern/instructions.md"]` | Your instruction files, or patterns that match them, relative to the project root. discern joins the matching files in path order and skips any that don't exist. `discern setup begin` creates the default file. |
+| Key       | Type     | Default                       | Description                                                                                                                                                                                                          |
+| --------- | -------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sources` | string[] | `["discern/instructions.md"]` | Your instruction files or patterns, relative to the project root. discern joins them in the order listed, one pattern's files in path order, and skips missing ones. `discern setup begin` creates the default file. |
 
 ## `[skills]`
 

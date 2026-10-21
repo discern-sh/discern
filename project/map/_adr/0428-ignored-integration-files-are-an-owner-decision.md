@@ -1,4 +1,4 @@
-# ADR 0426: Ignored integration files are an owner decision
+# ADR 0428: Ignored integration files are an owner decision
 
 **Status**: accepted
 

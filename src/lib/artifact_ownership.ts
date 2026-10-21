@@ -11,7 +11,7 @@
 import { AGENT_NAMES, type DiscernConfig } from "../shared/config_schema.ts";
 import type { AgentName } from "./config.ts";
 import {
-  ARTIFACT_PROVENANCE_SOURCES,
+  ARTIFACT_PROVENANCE,
   COMMENT_INCAPABLE_ARTIFACT,
   commentCapableNonContextArtifact,
   declaredFileOwnership,
@@ -59,7 +59,7 @@ export const FIXED_PROJECT_ARTIFACTS: readonly WrittenArtifactPathEntry[] = [
     pathKind: "file",
     ownership: { shared: true },
     writtenArtifact: commentCapableNonContextArtifact(
-      ARTIFACT_PROVENANCE_SOURCES.config,
+      ARTIFACT_PROVENANCE.config,
     ),
     description:
       "Project configuration. discern maintains its fixed scaffold and ruled banners.",
@@ -70,7 +70,7 @@ export const FIXED_PROJECT_ARTIFACTS: readonly WrittenArtifactPathEntry[] = [
     pathKind: "file",
     ownership: { shared: true },
     writtenArtifact: commentCapableNonContextArtifact(
-      ARTIFACT_PROVENANCE_SOURCES.gitignore,
+      ARTIFACT_PROVENANCE.gitignore,
     ),
     description: "Project ignore rules. discern maintains its marked block.",
   },
@@ -80,7 +80,7 @@ export const FIXED_PROJECT_ARTIFACTS: readonly WrittenArtifactPathEntry[] = [
     pathKind: "file",
     ownership: { shared: true },
     writtenArtifact: commentCapableNonContextArtifact(
-      ARTIFACT_PROVENANCE_SOURCES.gitattributes,
+      ARTIFACT_PROVENANCE.gitattributes,
     ),
     description:
       "Project attributes. discern maintains its marked generated-artifact and Markdown-diff block.",
@@ -97,7 +97,7 @@ function environmentArtifacts(
     pathKind: "file",
     ownership: { shared: true },
     writtenArtifact: commentCapableNonContextArtifact(
-      ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+      ARTIFACT_PROVENANCE.worktreeEnvironment,
     ),
     description:
       "Worktree environment file. discern maintains inherited entries plus DISCERN_* identity and resource entries; inheritance may create the first configured file.",
@@ -159,7 +159,7 @@ function providerArtifacts(
         pathKind: "file",
         ownership: { generated: true },
         writtenArtifact: commentCapableNonContextArtifact(
-          ARTIFACT_PROVENANCE_SOURCES.skillsIgnore,
+          ARTIFACT_PROVENANCE.skillsIgnore,
         ),
         description:
           "Ignores only the skills discern placed in this directory.",
@@ -330,7 +330,8 @@ export function isDiscernWriteTarget(entry: ArtifactPathEntry): boolean {
 /**
  * The provenance class for an artifact discern continues to write or maintain.
  * Project-owned seeds and provider-local state return undefined and must not
- * carry a declaration.
+ * carry a declaration. A Shared comment-capable artifact must name the scope its
+ * marker claims; a Generated one must not, because its marker claims the file.
  */
 export function writtenArtifactClass(
   entry: ArtifactPathEntry,
@@ -345,16 +346,22 @@ export function writtenArtifactClass(
     }
     return undefined;
   }
-  if (entry.writtenArtifact === undefined) {
-    return declaredWrittenArtifactClass({
-      id: entry.id,
-      writtenArtifact: {},
-    });
-  }
-  return declaredWrittenArtifactClass({
+  const artifactClass = declaredWrittenArtifactClass({
     id: entry.id,
-    writtenArtifact: entry.writtenArtifact,
+    writtenArtifact: entry.writtenArtifact ?? {},
   });
+  const scope = entry.writtenArtifact?.["comment-capable-non-context"]?.scope;
+  if (
+    artifactClass === "comment-capable-non-context" &&
+    (ownership === "shared") !== (scope !== undefined)
+  ) {
+    throw new Error(
+      ownership === "shared"
+        ? `${entry.id} is shared and must name the scope its provenance marker claims`
+        : `${entry.id} is generated and its provenance marker must claim the whole file, not a scope`,
+    );
+  }
+  return artifactClass;
 }
 
 /** Marker delimiting the generated inventory within the development page. */

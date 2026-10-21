@@ -31,8 +31,8 @@ import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { instructionAgents } from "../src/engine/instruction_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
-import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
+import { artifactProvenanceMarker } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
@@ -221,13 +221,13 @@ Deno.test("init uses source-only markers when attribution is disabled", async ()
 
     for (
       const [path, source] of [
-        ["discern.toml", ARTIFACT_PROVENANCE_SOURCES.config],
-        [".gitignore", ARTIFACT_PROVENANCE_SOURCES.gitignore],
-        [".gitattributes", ARTIFACT_PROVENANCE_SOURCES.gitattributes],
+        ["discern.toml", ARTIFACT_PROVENANCE.config],
+        [".gitignore", ARTIFACT_PROVENANCE.gitignore],
+        [".gitattributes", ARTIFACT_PROVENANCE.gitattributes],
       ] as const
     ) {
       const text = await Deno.readTextFile(join(dir, path));
-      assertStringIncludes(text, generatedArtifactMarker(source, env));
+      assertStringIncludes(text, artifactProvenanceMarker(source, env));
       assert(!text.includes("Generated automatically by discern via"), path);
     }
   });

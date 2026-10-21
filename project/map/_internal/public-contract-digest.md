@@ -1167,7 +1167,7 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 
 | Key       | Type       | Default                       | Enum | Description                                                                                                                            |
 | --------- | ---------- | ----------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `sources` | `string[]` | `["discern/instructions.md"]` |      | Your instruction files, or patterns that match them, relative to the project root. discern joins the matching files in path order and… |
+| `sources` | `string[]` | `["discern/instructions.md"]` |      | Your instruction files or patterns, relative to the project root. discern joins them in the order listed, one pattern's files in path… |
 
 ### [skills]
 

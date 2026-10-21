@@ -28,6 +28,8 @@ File ownership is an operational term for edit and overwrite authority. It does 
 | [Shared](../00-orientation/glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                 | It may replace its region or entry and preserves the rest.          |
 | [Generated](../00-orientation/glossary.md#generated-file)         | No. Edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
 
+Every Shared JSON writer serializes through [`serializeSharedJson`](../../../src/lib/shared_json.ts). It keeps the file's indentation, line endings, and final newline, so a co-writing tool sees only discern's entry change; a new file uses two spaces. [`tests/shared_json_test.ts`](../../../tests/shared_json_test.ts) seeds every registered Shared JSON path in several layouts, then runs the MCP, hook, and uninstall writers over it.
+
 The coding agent creates and maintains provider-local files. discern only ignores their registered paths. Other untracked provider files have no entry.
 
 Within the shared `discern.toml`, `meta.managed_version` is maintained by successful setup and upgrade. The [adoption boundary](../50-engine-internals/managed-adoption.md) governs its version checks and protects the recorded value during landing.
@@ -42,9 +44,9 @@ Shared and generated artifacts also declare one provenance class:
 
 - **Context-loaded:** unmarked. Agent files and Skills load in full, so each marker would spend context tokens. Providers also render comments differently. Instructions and drift checks enforce ownership.
 - **Comment-incapable:** no marker because JSON forbids comments.
-- **Comment-capable non-context:** its marker identifies the source. By default, it also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product byline and link.
+- **Comment-capable non-context:** its marker identifies the source. A Generated file's marker claims the entire file ("Generated automatically by discern via …"). A Shared file's marker claims only its declared scope ("This block managed by discern via …"), because the rest is not discern's. By default, the marker also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the claim and source and removes the product byline and link.
 
-Registry tests enforce classification and both marker rules ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md)).
+Each comment-capable declaration carries an `ArtifactProvenance` from [`ARTIFACT_PROVENANCE`](../../../src/shared/file_ownership.ts), and `artifactProvenanceMarker` renders it. Registry tests enforce classification, the scope-ownership pairing, and both marker rules ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md), [ADR 0426](../_adr/0426-shared-file-markers-claim-only-discerns-part.md)).
 
 ## Registered project paths
 
@@ -70,7 +72,7 @@ The ignore reconciler owns only its marked block and exact standalone rules that
 
 Every shared file a provider declares is expected to be tracked; [`trackedSharedProviderPaths`](../../../src/lib/artifact_ownership.ts) derives that set from the registry, excluding skills directories and the agent files the setup agent commits itself. A project rule excluding one, common in tool-folder `.gitignore` templates, would make setup's machinery commit fail, and refresh would keep regenerating a copy only one checkout has. [`ignoredIntegrationFiles`](../../../src/lib/ignored_integration_files.ts) asks Git which of those paths a rule matches, independent of the index, and which Git tracks. Setup's preflight, `setup begin`, and `discern doctor` all read that one answer.
 
-An untracked match is an owner decision, never discern's ([ADR 0426](../_adr/0426-ignored-integration-files-are-an-owner-decision.md)). Committing anyway force-adds those files once. Keeping them local leaves them out of the machinery commit and records them in `[project].local_integration_files`, which doctor reads to tell a settled choice from a new match. Changing the rule happens before setup. discern never edits project ignore rules.
+An untracked match is an owner decision, never discern's ([ADR 0428](../_adr/0428-ignored-integration-files-are-an-owner-decision.md)). Committing anyway force-adds those files once. Keeping them local leaves them out of the machinery commit and records them in `[project].local_integration_files`, which doctor reads to tell a settled choice from a new match. Changing the rule happens before setup. discern never edits project ignore rules.
 
 Git stages a tracked file beneath an ignored folder but still exits 1, so the machinery commit and update's regeneration commit stage such paths with `--force`. Paths in the regeneration commit come from `git status`, which never lists an ignored untracked file, so the flag admits nothing new.
 

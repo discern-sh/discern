@@ -16,6 +16,7 @@ import {
 } from "../src/lib/artifact_ownership.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
+  commentCapableNonContextArtifact,
   declaredFileOwnership,
   declaredWrittenArtifactClass,
   discernProjectPayloadLicense,
@@ -250,10 +251,66 @@ Deno.test("artifact ownership: declaredWrittenArtifactClass cases", () => {
         () =>
           declaredWrittenArtifactClass({
             id: "synthetic:source",
-            writtenArtifact: { "comment-capable-non-context": "" },
+            writtenArtifact: {
+              "comment-capable-non-context": { source: "" },
+            },
           }),
         Error,
         "must name the source",
+      );
+    },
+    "provenance guard: a declared marker scope is not blank": () => {
+      assertThrows(
+        () =>
+          declaredWrittenArtifactClass({
+            id: "synthetic:scope",
+            writtenArtifact: {
+              "comment-capable-non-context": { source: "a source", scope: " " },
+            },
+          }),
+        Error,
+        "blank provenance marker scope",
+      );
+    },
+  });
+});
+
+Deno.test("artifact ownership: a marker's scope follows the file's ownership", () => {
+  const entry = (
+    ownership: { shared: true } | { generated: true },
+    scope: string | undefined,
+  ) => ({
+    id: "synthetic:marker",
+    path: "synthetic.conf",
+    pathKind: "file" as const,
+    ownership,
+    writtenArtifact: commentCapableNonContextArtifact({
+      source: "a source",
+      ...(scope === undefined ? {} : { scope }),
+    }),
+    description: "A synthetic comment-capable artifact.",
+  });
+  assertNamedCases({
+    "a shared file's marker claims a scope": () => {
+      assertThrows(
+        () => writtenArtifactClass(entry({ shared: true }, undefined)),
+        Error,
+        "must name the scope",
+      );
+      assertEquals(
+        writtenArtifactClass(entry({ shared: true }, "Its entries")),
+        "comment-capable-non-context",
+      );
+    },
+    "a generated file's marker claims the whole file": () => {
+      assertThrows(
+        () => writtenArtifactClass(entry({ generated: true }, "Its entries")),
+        Error,
+        "must claim the whole file",
+      );
+      assertEquals(
+        writtenArtifactClass(entry({ generated: true }, undefined)),
+        "comment-capable-non-context",
       );
     },
   });

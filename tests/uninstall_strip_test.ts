@@ -12,8 +12,8 @@ import { removeGitignoreBlock } from "../src/commands/uninstall.ts";
 import { stripDiscernFromJsonSettings } from "../src/lib/settings_strip.ts";
 import { stripDiscernFromCodexEnv } from "../src/lib/providers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
-import { generatedArtifactMarker } from "../src/shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { artifactProvenanceMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
 import { assertNamedCases } from "./assert_cases.ts";
@@ -184,8 +184,8 @@ Deno.test("uninstall strip: contracts", () => {
       },
     "stripDiscernFromCodexEnv deletes a discern-created shell, keeps an app-owned file":
       () => {
-        const marker = generatedArtifactMarker(
-          ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+        const marker = artifactProvenanceMarker(
+          ARTIFACT_PROVENANCE.codexEnvironment,
         );
         const discernShell = [
           marker,
