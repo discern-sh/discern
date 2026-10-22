@@ -183,6 +183,8 @@ paths = ["docs/tool-notes.md"]
 run = "tool write-notes --output docs/tool-notes.md"
 ```
 
+[Use discern alongside other agent tools](../20-guides/use-discern-alongside-other-agent-tools.md#route-a-tools-instructions-through-a-source) covers where the tool's rules sit among yours, and what to do with its skills and settings.
+
 ## The tools don't appear in the agent's session
 
 Coding agents load tools only when a session starts, so start a fresh session and ask your agent to call discern's status tool: `discern_status`, or `mcp__discern__discern_status` in Claude Code and Codex.

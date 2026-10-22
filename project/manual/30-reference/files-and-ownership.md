@@ -179,6 +179,8 @@ A coding agent's skills directory, such as `.claude/skills/` or `.agents/skills/
 
 If an entry discern didn't place holds the name of one of its skills, or the directory already has your own `.gitignore`, `discern refresh` leaves it alone and reports a conflict with its fix. `discern done` then fails until you free the name: rename either side, or list the skill in `[skills].exclude`. `discern doctor` warns when an ignore rule hides another tool's skill.
 
+To choose whether another tool's skills stay in these directories or reach every coding agent through discern, see [Use discern alongside other agent tools](../20-guides/use-discern-alongside-other-agent-tools.md#keep-another-tools-skills).
+
 ## Clone-local Git configuration
 
 discern writes only these Git configuration entries, all in the clone's own configuration:
@@ -336,4 +338,5 @@ Uninstall runs only from the command line, and makes no remote change. discern n
 - [Proof](../10-understand/proof.md): what passing checks establish, and why later edits make that evidence stale.
 - [Licenses](licenses.md): the authorship boundary, and what you're responsible for when you redistribute.
 - [Platforms and providers](platforms-and-providers.md): the exact files for each coding tool.
+- [Use discern alongside other agent tools](../20-guides/use-discern-alongside-other-agent-tools.md): the decisions to make when another tool writes into the same files.
 - [What stays on your machine](../10-understand/local-control.md): what discern runs, records, and writes, and what never leaves your computer.
