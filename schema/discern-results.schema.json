@@ -1514,6 +1514,12 @@
                 "machinery_commit_error": {
                   "type": "string"
                 },
+                "existing_integration_files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "discern_version": {
                   "type": "string"
                 },
@@ -2342,6 +2348,30 @@
                       ]
                     },
                     "existing_instructions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "ignored_integration_files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "rule"
+                        ]
+                      }
+                    },
+                    "existing_integration_files": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -34865,7 +34895,8 @@
     "existing_instructions",
     "dirty_worktree",
     "not_a_repo",
-    "missing_git_identity"
+    "missing_git_identity",
+    "existing_integration_files"
   ],
   "x-discern-setup-done-completions": [
     "created",

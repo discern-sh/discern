@@ -1507,6 +1507,17 @@ Rendered example:
 
 > Merge `feature/project-setup` into `main` your usual way when ready. `discern setup accept` only lands the `discern-setup` branch.
 
+## `setup-existing-integration-files`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `setup-integration-files`
+- Emitting context: `setup begin` finds integration files that already held content discern didn't write.
+
+Rendered example:
+
+> Setup didn't commit the integration files that already held entries discern didn't write: `.tool/config.json`. Those entries can include personal settings or credentials. Read each file: commit it with discern's entry if the other entries are safe to share; otherwise move the personal ones to the tool's user-level settings first, then commit. Ask the owner only when the file doesn't settle it.
+
 ## `setup-finish-incomplete`
 
 - Category: `next-step`
