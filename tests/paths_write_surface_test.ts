@@ -78,7 +78,11 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   [
     "src/commands/setup.ts",
-    "setup: the instructions seed, the docs/TODO skeletons (registry-resolved), config provenance",
+    "setup: the docs/TODO skeletons (registry-resolved), config provenance",
+  ],
+  [
+    "src/commands/setup_instruction_adoption.ts",
+    "setup adoption: the instructions seed, with owner-written agent files folded in (registry-resolved)",
   ],
   [
     "src/commands/setup_completion_git.ts",

@@ -58,8 +58,8 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
   },
   {
     file: "src/commands/setup.ts",
-    maxScore: 134.11,
-    maxCyclo: 401,
+    maxScore: 132.47,
+    maxCyclo: 388,
     owner: "setup lifecycle",
     reason:
       "Setup planning spans project discovery, configuration, and installation surfaces.",

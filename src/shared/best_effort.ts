@@ -1413,7 +1413,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "Only structurally valid seed content can prove ownership, while independent hook detection still removes discern-owned hook groups.",
   },
   "setup-agent-file-ownership-fallback": {
-    path: "src/commands/setup.ts",
+    path: "src/commands/setup_instruction_adoption.ts",
     enclosingFunction: "seedInstructions",
     operation: "proceed without prior generated-agent ownership patterns",
     kind: "direct",
