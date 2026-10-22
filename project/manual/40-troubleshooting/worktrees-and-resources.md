@@ -120,12 +120,13 @@ discern identity --resource <name>
 
 Fix the mismatch instead of creating another resource.
 
-| What you see                                                | What to do                                                                                                                             |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| A resource failed to start, or it's unclear whether it did. | Read the failing output. A retry first runs the remove command recorded before creation.                                               |
-| A value copied from the main checkout is missing.           | Check that its key is in `[worktree].inherit_env` and set in the main checkout's env files. An existing worktree value is kept.        |
-| The wrong value wins.                                       | Check the order of `[worktree].env_files`. The last file that sets a key wins, so by default `.env.local` beats `.env`.                |
-| A resource remains after its worktree is gone.              | Preview `discern worktree prune --dry-run`. Prune removes recorded resources it can. Remove one your configuration leaves out by hand. |
+| What you see                                                  | What to do                                                                                                                                    |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| A resource failed to start, or it's unclear whether it did.   | Read the failing output. A retry first runs the remove command recorded before creation.                                                      |
+| A value copied from the main checkout is missing.             | Check that its key is in `[worktree].inherit_env` and set in the main checkout's env files. An existing worktree value is kept.               |
+| The wrong value wins.                                         | Check the order of `[worktree].env_files`. The last file that sets a key wins, so by default `.env.local` beats `.env`.                       |
+| The app starts in another mode, or with other debug settings. | Add the env names that hold those settings to `[worktree].inherit_env`. Leave connection strings off, so the worktree keeps its own database. |
+| A resource remains after its worktree is gone.                | Preview `discern worktree prune --dry-run`. Prune removes recorded resources it can. Remove one your configuration leaves out by hand.        |
 
 Changing a value in the main checkout doesn't update existing worktrees, so fix it in the affected worktree. The [environment settings reference](../30-reference/worktrees-and-status.md#inherit-selected-env-values) has the exact rules. Keep discern's list of resources during recovery, because it holds each one's remove command, and `discern uninstall` refuses with `provisioned_resources` while any remain.
 
