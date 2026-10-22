@@ -55,6 +55,7 @@ New to discern? Start with [Install and set up discern](../00-start/installation
 ## Look after your setup
 
 - [Connect a coding agent](connect-a-coding-agent.md): add a coding tool and check its connection.
+- [Use discern alongside other agent tools](use-discern-alongside-other-agent-tools.md): keep another tool's rules, skills, and settings working beside discern's.
 - [Run the gate in CI](run-the-gate-in-ci.md): run your required commands in continuous integration.
 - [Maintain or remove discern](maintain-or-remove-discern.md): upgrade or remove discern, and keep your work.
 
