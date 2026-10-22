@@ -60,10 +60,10 @@ Do not edit a compiled file to fix its prose. The next refresh replaces that edi
 
 Agent files stay whole-file generated outputs, so a refresh replaces every line no source produced. `agentFileDiscard` in [`instruction_render.ts`](../../../src/engine/instruction_render.ts) names those lines for the gate, status, and every refresh. It aligns the file with its recompiled body and sorts each lost line by where it stands:
 
-- **An edit** rewrites a line the compile wrote, as a hand edit, a reflowing formatter, or a stale source does. The two sides share at least a third of their words. The gate's remedy stays `discern refresh`.
-- **An added line** stands where the compiled body has nothing, or replaces compiled text with unrelated content, as when another tool keeps its own block in the file. Here the gate's diagnostic and hint, and the status hint, offer the owner three choices: move lines they wrote into an instruction source; have the tool write into a file listed in `[instructions].sources`, declared under `[generated.<name>]` with the tool's regenerate command; or refresh and discard them.
+- **An edit** replaces lines the compile wrote, as a hand edit, a reflowing formatter, a stale source, or discern's own changed output does. The gate's remedy stays `discern refresh`.
+- **An added line** stands where the compiled body has nothing, as when another tool keeps its own block in the file. A file that keeps none of the compiled text, such as one another tool wrote whole, counts as added throughout. Here the gate's diagnostic and hint, and the status hint, offer the owner three choices: move lines they wrote into an instruction source; have the tool write into a file listed in `[instructions].sources`, declared under `[generated.<name>]` with the tool's regenerate command; or refresh and discard them.
 
-A line whose text survives elsewhere in the recompiled body, or in another agent file the same compile writes, counts as moved, never lost.
+A line whose text survives elsewhere in the recompiled body, or in another agent file the same compile writes, counts as moved, never lost. The comparison ignores Markdown link destinations, because the compile rewrites them.
 
 ### Every overwrite reports what it discards
 

@@ -48,7 +48,7 @@ import { normalizeMapDir } from "../shared/map_path.ts";
 import { discoverDocs, docRegions } from "../lib/docs.ts";
 import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
 import { readTextIfExists } from "../shared/fs_presence.ts";
-import { type LineHunk, lineHunks } from "../lib/line_hunks.ts";
+import { lineHunks } from "../lib/line_hunks.ts";
 import type { AgentFileDiscarded } from "../shared/result_schemas.ts";
 
 /** Opaque insertion point owned by the map instruction renderer, not the template
@@ -453,53 +453,55 @@ export interface AgentFileDiscard {
   readonly unsourced: readonly string[];
 }
 
-/** The lowercase word set of some lines, for comparing what they say. */
-function vocabulary(lines: readonly string[]): Set<string> {
-  return new Set(
-    lines.join(" ").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [],
-  );
+/** A line with its Markdown link destinations blanked. The compile rebases
+ * local destinations as it moves authored text into each agent file, so two
+ * lines that differ only there say the same thing. */
+function linkNeutral(line: string): string {
+  return line.replace(/\]\([^)]*\)/g, "]()");
 }
 
-/** The share of their combined vocabulary a hunk's two sides hold in common
- * before its added side counts as a rewrite of the compiled text it replaces. */
-const EDIT_VOCABULARY_OVERLAP = 1 / 3;
-
-/** Whether a hunk rewrites compiled text in place — a hand edit, a reflowing
- * formatter, a stale source — rather than putting other content there. */
-function rewritesCompiledText(hunk: LineHunk): boolean {
-  const removed = vocabulary(hunk.removed);
-  if (removed.size === 0) return false;
-  const added = vocabulary(hunk.added);
-  let shared = 0;
-  for (const word of added) if (removed.has(word)) shared++;
-  const combined = removed.size + added.size - shared;
-  return shared / combined >= EDIT_VOCABULARY_OVERLAP;
-}
+/** Whether a line has visible text. */
+const nonBlank = (line: string): boolean => line.trim() !== "";
 
 /**
  * The lines a refresh discards when it replaces `actual` with `expected`: the
  * one comparison behind the gate's drift diagnostic and every writer's discard
  * report. A line whose text survives elsewhere in the recompiled body, or in
  * any `sibling` agent file the same compile writes, moved rather than
- * vanished, so it is never reported. PURE.
+ * vanished, so it is never reported; link destinations are ignored, because
+ * the compile rebases them.
+ *
+ * A lost line is unsourced when it stands where the compile wrote nothing (its
+ * aligned run replaces no compiled line), or when the file keeps none of the
+ * compiled text at all, as a body another tool wrote whole does. Every other
+ * lost line rewrites compiled text in place: a hand edit, a reflowing
+ * formatter, a stale source, or the compile's own changed output. PURE.
  */
 export function agentFileDiscard(
   expected: string,
   actual: string,
   siblings: Iterable<string> = [],
 ): AgentFileDiscard {
-  const kept = new Set(expected.split("\n"));
+  const kept = new Set(expected.split("\n").map(linkNeutral));
   for (const body of siblings) {
-    for (const line of body.split("\n")) kept.add(line);
+    for (const line of body.split("\n")) kept.add(linkNeutral(line));
   }
+  const expectedLines = expected.split("\n");
+  const hunks = lineHunks(expectedLines, actual.split("\n"));
+  const compiledLines = expectedLines.filter(nonBlank).length;
+  const removedLines = hunks.reduce(
+    (total, hunk) => total + hunk.removed.filter(nonBlank).length,
+    0,
+  );
+  const foreign = compiledLines > 0 && removedLines === compiledLines;
   const lines: string[] = [];
   const unsourced: string[] = [];
-  for (const hunk of lineHunks(expected.split("\n"), actual.split("\n"))) {
-    const edit = rewritesCompiledText(hunk);
+  for (const hunk of hunks) {
+    const rewrite = !foreign && hunk.removed.some(nonBlank);
     for (const line of hunk.added) {
-      if (line.trim() === "" || kept.has(line)) continue;
+      if (!nonBlank(line) || kept.has(linkNeutral(line))) continue;
       lines.push(line);
-      if (!edit) unsourced.push(line);
+      if (!rewrite) unsourced.push(line);
     }
   }
   return { lines, unsourced };

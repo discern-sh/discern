@@ -407,19 +407,31 @@ Deno.test("agentFileDiscard: separates content no source produces from edits to 
         },
       );
     },
-    "a block that lands beside a rewritten compiled line is unsourced": () => {
+    "a block that replaces a compiled line rewrites it": () => {
       assertEquals(
         agentFileDiscard(
           compiled,
-          compiled.replace(
-            "Keep tests green.",
-            "<!-- maintained block -->\nUnrelated guidance here.",
-          ),
+          compiled.replace("Keep tests green.", "Replacement guidance."),
         ),
-        {
-          lines: ["<!-- maintained block -->", "Unrelated guidance here."],
-          unsourced: ["<!-- maintained block -->", "Unrelated guidance here."],
-        },
+        { lines: ["Replacement guidance."], unsourced: [] },
+      );
+    },
+    "a line that differs only in a link destination moved": () => {
+      assertEquals(
+        agentFileDiscard(
+          "# Rules\n\nSee [the guide](guide.md).\n",
+          "# Rules\n\nSee [the guide](./guide.md).\n",
+        ),
+        { lines: [], unsourced: [] },
+      );
+    },
+    "the compile's own changed output is a rewrite": () => {
+      assertEquals(
+        agentFileDiscard(
+          "## Map\n\n- `10-start` — Getting started\n",
+          "## Map\n\n- No regions are indexed yet.\n",
+        ),
+        { lines: ["- No regions are indexed yet."], unsourced: [] },
       );
     },
     "a reflowed paragraph is an edit": () => {
