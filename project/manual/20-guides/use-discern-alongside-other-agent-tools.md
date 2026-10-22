@@ -48,11 +48,11 @@ Your agent reads each existing agent file, such as `AGENTS.md`, and decides whet
 
 ## Route a tool's instructions through a source
 
-The kit's rules reach every agent file the way yours do. The kit writes them into a file of its own. Your agent lists that file in `[instructions].sources`, and declares it under `[generated.<name>]` with the command that rebuilds it. [Another tool writes into an agent file](../40-troubleshooting/setup-and-integrations.md#another-tool-writes-into-an-agent-file) shows the settings.
+The kit's rules reach every agent file the way yours do. The kit writes them into a file of its own. Your agent lists that file in `[instructions].sources`, and declares it under `[generated.<name>]` with its **generator**, the command that rebuilds it. [Another tool writes into an agent file](../40-troubleshooting/setup-and-integrations.md#another-tool-writes-into-an-agent-file) shows the settings.
 
 **You choose the order.** Each agent file starts with discern's own instructions, then your sources in the order you list them. Put the kit's file first if your rules build on it, or after yours if it should have the last word.
 
-**Fixers leave the kit's file alone.** `discern tidy` skips any file a generator owns, so it doesn't reformat the kit's output.
+**Formatting leaves the kit's file alone.** `discern tidy`, which formats Markdown and TOML files, skips any file a generator owns, so it doesn't reformat the kit's output.
 
 **The kit's command runs with every check.** `discern prepare` reruns it, then rebuilds the agent files. `discern done` runs the **gate**: your project's own commands, such as its linter and tests, which must all pass before a change counts as finished. The gate reruns the kit's command and fails at `generated_drift` if the committed file differs from its output, so no agent reads a stale copy.
 
