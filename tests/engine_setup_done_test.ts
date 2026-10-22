@@ -873,16 +873,25 @@ Deno.test("discern setup migrates EVERY provider's pre-existing instruction file
   });
 });
 
-Deno.test("instruction adoption reports the conflict, preserves policy links, and emits exact pointers", async () => {
+Deno.test("instruction adoption asks whose each file is, imports the owner's without pointer lines, leaves a tool's out, and emits exact pointers", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
     const paths = allInstructionFilePaths();
+    // One file imports the canonical file through a provider pointer, and one
+    // holds content another tool maintains.
+    const [pointerFile, toolFile] = paths.filter((path) =>
+      path !== "AGENTS.md"
+    );
+    assert(pointerFile !== undefined && toolFile !== undefined, `${paths}`);
+    const ownerPaths = paths.filter((path) => path !== toolFile);
     for (const rel of paths) {
       const guide = `${rel.toLowerCase().replaceAll(".", "-")}-guide.md`;
       await Deno.writeTextFile(
         join(dir, rel),
-        `# Existing ${rel}\n\nPOLICY FROM ${rel}: keep it.\n\n[Local guide](./${guide})\n`,
+        `${
+          rel === pointerFile ? "@AGENTS.md\n\n" : ""
+        }# Existing ${rel}\n\nPOLICY FROM ${rel}: keep it.\n\n[Local guide](./${guide})\n`,
       );
     }
 
@@ -892,31 +901,67 @@ Deno.test("instruction adoption reports the conflict, preserves policy links, an
     assertResultDataKey(verification, "phase");
     assert(verification.data.conflicts !== undefined);
     assert(verification.data.findings !== undefined);
-    assertEquals(
-      verification.data.conflicts.some((conflict) =>
-        conflict.kind === "existing_instructions"
-      ),
-      true,
-      verify.stdout,
+    const question = verification.data.conflicts.find((conflict) =>
+      conflict.kind === "existing_instructions"
     );
+    assert(question !== undefined, verify.stdout);
+    assertStringIncludes(
+      question.detail,
+      "the owner wrote it or another tool maintains it",
+    );
+    assertStringIncludes(question.detail, "--tool-maintained <file>");
     assertEquals(
       [...verification.data.findings.existing_instructions].sort(),
       [...paths].sort(),
     );
 
+    // A name that is no agent file is refused before anything is written.
+    const misnamed = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--tool-maintained",
+      "main.ts",
+    ]);
+    assertEquals(misnamed.code, 1, misnamed.output);
+    assertEquals(
+      decodeCliResult(misnamed.stdout, "setup begin").error,
+      "invalid_arguments",
+    );
+    assertEquals(await targetExists(join(dir, "discern.toml")), false);
+
     const begin = await runAgent(dir, [
       "setup",
       "begin",
       "--confirmed",
+      "--json",
       "--agents",
       AGENT_NAMES.join(","),
+      "--tool-maintained",
+      toolFile,
     ]);
     assertEquals(begin.code, 0, begin.output);
+    const began = decodeCliResult(begin.stdout, "setup begin");
+    assertResultDataKey(began, "tool_maintained_instructions");
+    assertEquals(began.data.tool_maintained_instructions, [toolFile]);
+    assertHasHint(began, HINTS["setup-instructions-tool-maintained"], {
+      paths: [toolFile],
+      instructionRel: SOURCE_PATHS.instructions.defaultPath,
+    });
+    assert(
+      (began.hints ?? []).some((hint) =>
+        hint.startsWith(
+          `Refresh removed lines that no instruction source produces from ${toolFile} (`,
+        )
+      ),
+      `the first compile reports what it replaced in ${toolFile}`,
+    );
     const instructions = await Deno.readTextFile(
       join(dir, SOURCE_PATHS.instructions.defaultPath),
     );
     const compiled = await Deno.readTextFile(join(dir, "AGENTS.md"));
-    for (const rel of paths) {
+    for (const rel of ownerPaths) {
       const guide = `${rel.toLowerCase().replaceAll(".", "-")}-guide.md`;
       assertStringIncludes(instructions, `POLICY FROM ${rel}: keep it.`);
       assertStringIncludes(
@@ -931,6 +976,13 @@ Deno.test("instruction adoption reports the conflict, preserves policy links, an
         `compiling the adopted ${rel} policy must restore its original target`,
       );
     }
+    assertEquals(
+      instructions.split("\n").some((line) => line.trim() === "@AGENTS.md"),
+      false,
+      `the import of ${pointerFile} must drop its provider pointer`,
+    );
+    assertEquals(instructions.includes(`POLICY FROM ${toolFile}`), false);
+    assertEquals(compiled.includes(`POLICY FROM ${toolFile}`), false);
     for (const rel of paths.filter((path) => path !== "AGENTS.md")) {
       assertEquals(
         await Deno.readTextFile(join(dir, rel)),

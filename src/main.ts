@@ -540,6 +540,11 @@ export function buildCli(
       "--confirmed",
       "Record that the owner agreed to setup in this conversation. A fresh setup needs it unless you use `--config`; without it, discern writes nothing and shows the consent checklist again.",
     )
+    .option(
+      "--tool-maintained <file:string>",
+      "An existing agent instructions file, such as `AGENTS.md`, whose content another tool maintains rather than the owner. Setup leaves that content out of the instruction source instead of importing it, and names how to route the tool through one. Repeat it for each such file.",
+      { collect: true },
+    )
     .action(recordedExit("setup begin", async (options) => {
       const { json, noColor } = globalFlags(options);
       const { beginOptsFrom, runSetupBegin } = await loadModule(() =>

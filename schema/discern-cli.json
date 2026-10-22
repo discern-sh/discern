@@ -518,6 +518,20 @@
           "default": null,
           "hidden": false,
           "global": false
+        },
+        {
+          "spellings": [
+            "--tool-maintained"
+          ],
+          "description": "An existing agent instructions file, such as `AGENTS.md`, whose content another tool maintains rather than the owner. Setup leaves that content out of the instruction source instead of importing it, and names how to route the tool through one. Repeat it for each such file.",
+          "type_definition": "<file:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
         }
       ]
     },

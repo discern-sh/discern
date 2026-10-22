@@ -228,18 +228,27 @@ export function generatedDriftHint(context: string, followUp?: string): string {
 }
 
 /**
+ * How content a tool maintains reaches every agent file: through a source the
+ * compile reads and a generator discern reruns. One sentence, completing "If a
+ * tool maintains them," or any lead-in that names the tool.
+ */
+export const TOOL_SOURCE_REDIRECT =
+  "configure that tool to write into a file listed in " +
+  "`[instructions].sources`, and declare that file under " +
+  "`[generated.<name>]` with the tool's regenerate command as `run`; " +
+  `${
+    discernCommand("docs", positional("target", "config-reference"))
+  } describes both tables.`;
+
+/**
  * Where agent-file lines that no instruction source produces can live. The
- * gate, status, refresh, and setup each meet such lines and offer the same
- * three choices; `otherwise` completes the last one in the caller's tense.
+ * gate, status, and refresh each meet such lines and offer the same three
+ * choices; `otherwise` completes the last one in the caller's tense.
  */
 export function unsourcedAgentLineChoices(otherwise: string): string {
   return "If you wrote them, move them into a file listed in " +
-    "`[instructions].sources`. If a tool maintains them, configure that tool " +
-    "to write into a file listed in `[instructions].sources`, and declare " +
-    "that file under `[generated.<name>]` with the tool's regenerate command " +
-    `as \`run\`; ${
-      discernCommand("docs", positional("target", "config-reference"))
-    } describes both tables. Otherwise, ${otherwise}`;
+    `\`[instructions].sources\`. If a tool maintains them, ${TOOL_SOURCE_REDIRECT} ` +
+    `Otherwise, ${otherwise}`;
 }
 
 /** Shared lifecycle fact behind every restart-session action. */

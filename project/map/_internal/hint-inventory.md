@@ -1562,6 +1562,17 @@ Rendered example:
 
 > Fold the instructions migrated from AGENTS.md, CLAUDE.md into your conventions, then delete the import note from discern/instructions.md. Setup preserved the existing instructions there.
 
+## `setup-instructions-tool-maintained`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `setup-instructions-migration`
+- Emitting context: `setup begin` leaves agent files a tool maintains out of the instruction source.
+
+Rendered example:
+
+> Setup left AGENTS.md out of discern/instructions.md because a tool maintains that content, so the first compile replaced it. To keep the tool's content in every agent file, configure that tool to write into a file listed in `[instructions].sources`, and declare that file under `[generated.<name>]` with the tool's regenerate command as `run`; `discern docs config-reference` describes both tables. If setup ends before that's done, record it as open work in the deferred-work ledger.
+
 ## `setup-reactivate-tools`
 
 - Category: `next-step`

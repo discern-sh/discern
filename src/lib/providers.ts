@@ -2373,6 +2373,22 @@ export function allInstructionFilePaths(): string[] {
   return emittedInstructionPaths(allInstructionFiles());
 }
 
+/** Every line a provider pointer can render, pointing at any instruction file
+ * the registry emits: the lines an adopted body drops, since the compile writes
+ * its own pointers and a body that imports another agent file would loop. */
+export function instructionPointerLines(): Set<string> {
+  const lines = new Set<string>();
+  for (const file of allInstructionFiles()) {
+    if (file.pointer === undefined) continue;
+    for (const target of allInstructionFilePaths()) {
+      for (const line of file.pointer(target).split("\n")) {
+        if (line.trim() !== "") lines.add(line.trim());
+      }
+    }
+  }
+  return lines;
+}
+
 /**
  * Every project-relative artifact discern may write for the selected providers,
  * derived from their registry entries. Setup's write plan and refresh consumers

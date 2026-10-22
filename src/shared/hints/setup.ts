@@ -17,6 +17,7 @@ import {
   restartSessionHint,
   rootSectionList,
   setupUnfinishedHint,
+  TOOL_SOURCE_REDIRECT,
 } from "./define.ts";
 
 /** The setup catalog, keyed by hint id. */
@@ -139,6 +140,31 @@ export const SETUP_HINTS = {
         paths.join(", ")
       } into ${instructionRel}. It matches discern's own compiled output from an ` +
       `earlier setup. ${instructionRel} remains the canonical authored source.`,
+  }),
+
+  /** The coding agent judged existing agent files to be a tool's, not the
+   * owner's, so setup left their content out of the instruction source. */
+  "setup-instructions-tool-maintained": defineHint<{
+    paths: readonly string[];
+    instructionRel: string;
+  }>({
+    id: "setup-instructions-tool-maintained",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`setup begin` leaves agent files a tool maintains out of the instruction source.",
+    family: "setup-instructions-migration",
+    example: {
+      paths: ["AGENTS.md"],
+      instructionRel: SOURCE_PATHS.instructions.defaultPath,
+    },
+    template: ({ paths, instructionRel }): string =>
+      `Setup left ${
+        paths.join(", ")
+      } out of ${instructionRel} because a tool ` +
+      "maintains that content, so the first compile replaced it. To keep the " +
+      `tool's content in every agent file, ${TOOL_SOURCE_REDIRECT} ` +
+      "If setup ends before that's done, record it as open work in the deferred-work ledger.",
   }),
 
   /** A completed setup on the dedicated setup branch is ready to land. */

@@ -1140,6 +1140,7 @@ export type DiscernSetupBeginResult = DiscernResultState & {
     machinery_committed?: boolean;
     machinery_commit_error?: string;
     existing_integration_files?: Array<string>;
+    tool_maintained_instructions?: Array<string>;
     discern_version?: string;
     written?: Array<string>;
     instruction_refresh?: {

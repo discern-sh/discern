@@ -194,6 +194,7 @@ must_do = [
   "Compare the begin result with the actual footprint and confirm skipped or imported files retained their prior content.",
   "Identify the authored instruction source and Map paths; treat provider agent files and generated references as outputs refreshed from those authorities.",
   "Remove no existing project content merely because the scaffold offers a replacement shape.",
+  "For an agent file begin left out because a tool maintains it, follow begin's next step: route that tool through an instruction source, or record the routing as open work in {{todo_path}}.",
 ]
 authority_boundaries = [
   "The configured authored sources own project knowledge; generated agent files are refreshed outputs and are never hand-edited.",

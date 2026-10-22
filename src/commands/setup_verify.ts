@@ -6,8 +6,9 @@
  * Grounded, not generic: it reports THIS repo's git state, whether the project has a
  * `docs/` folder of its own (the map lives at its own default home and never touches
  * it — the consent message reassures rather than offers to adopt it; ADR 0100, ADR
- * 0131), a pre-existing agent-instruction file `begin` will fold into the
- * instruction source, the agents detected as installed (ADR 0069), any of their
+ * 0131), each pre-existing agent-instruction file, which `begin` folds into the
+ * instruction source unless the coding agent judges another tool maintains it,
+ * the agents detected as installed (ADR 0069), any of their
  * integration files the project's own ignore rules exclude or that already hold
  * someone else's content, and the exact sibling
  * path the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `instructions`
@@ -254,9 +255,10 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
 }
 
 /** The agent-instruction files (CLAUDE.md / AGENTS.md / GEMINI.md) present on disk.
- * On a fresh install (no discern.toml) these are the USER's — `begin` folds them into
- * `instructions.md` (ADR 0065) — so naming them lets the agent reassure the human nothing
- * is lost. Drawn from {@link allInstructionFilePaths} — the SAME registry aggregator
+ * On a fresh install (no discern.toml) each is the owner's, which `begin` folds into
+ * `instructions.md` (ADR 0065), or another tool's, which the agent names with
+ * `--tool-maintained` — so naming them lets the agent judge each and reassure the
+ * human nothing is lost. Drawn from {@link allInstructionFilePaths} — the SAME registry aggregator
  * `begin`'s migration walks — so the set this preflight promises to preserve can
  * never name a file the migration would skip. */
 async function findExistingInstructions(destDir: string): Promise<string[]> {
@@ -308,7 +310,7 @@ function buildConflicts(
       kind: "existing_instructions",
       detail: `Found existing agent instructions (${
         existingInstructions.join(", ")
-      }). begin preserves them by folding their content into ${SOURCE_PATHS.instructions.defaultPath} — nothing is lost, and you reconcile any overlap with discern's instructions at the end of setup.`,
+      }). Read each and judge whether the owner wrote it or another tool maintains it; ask the owner only when the file doesn't settle it. begin folds what the owner wrote into ${SOURCE_PATHS.instructions.defaultPath} — nothing is lost, and you reconcile any overlap with discern's instructions at the end of setup. Pass \`--tool-maintained <file>\` to begin for each file a tool maintains: begin leaves that content out, because importing it would freeze a copy the tool keeps rewriting, and names how to route the tool through an instruction source.`,
     });
   }
   if (existingIntegration.length > 0) {
@@ -344,7 +346,7 @@ function printPreflight(p: {
   const instructions = p.existingInstructions.length > 0
     ? `found ${
       p.existingInstructions.join(", ")
-    } — begin preserves it (folded into ${SOURCE_PATHS.instructions.defaultPath})`
+    } — begin folds what the owner wrote into ${SOURCE_PATHS.instructions.defaultPath}; a file another tool maintains is left out with --tool-maintained`
     : `none yet — begin seeds ${SOURCE_PATHS.instructions.defaultPath}`;
   const agents = p.detected.length > 0
     ? `detected on this machine: ${p.detected.join(", ")}`

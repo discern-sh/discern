@@ -115,6 +115,7 @@ import {
 import {
   allInstructionFilePaths,
   allInstructionFiles,
+  instructionPointerLines,
   reactivationHandoff,
   writtenProviderArtifactPathsForAgents,
 } from "../lib/providers.ts";
@@ -305,6 +306,10 @@ export interface SetupOptions extends InitFlags {
    * consent conversation `verify` served. Required for a fresh, non-declarative
    * `begin`; its absence re-serves the consent message (ADR 0086). */
   confirmed: boolean;
+  /** Existing agent files (`--tool-maintained`) whose content the coding agent
+   * judged a tool's rather than the owner's: begin leaves them out of the
+   * instruction source instead of importing them. */
+  toolMaintained: readonly string[];
 }
 
 /** Options for `discern setup done`. */
@@ -333,6 +338,7 @@ export interface RawScaffoldCliOptions {
   reseed?: boolean | undefined;
   allowDirty?: boolean | undefined;
   confirmed?: boolean | undefined;
+  toolMaintained?: string[] | undefined;
 }
 
 /** Build {@link SetupOptions} for {@link runSetupBegin} from parsed Cliffy options
@@ -352,6 +358,7 @@ export function beginOptsFrom(
     reseed: o.reseed ?? false,
     allowDirty: o.allowDirty ?? false,
     confirmed: o.confirmed ?? false,
+    toolMaintained: o.toolMaintained ?? [],
     name: o.name,
     slug: o.slug,
     branchPrefix: o.branchPrefix,
@@ -668,6 +675,9 @@ interface ScaffoldOutcome {
   instructionsCompiled: boolean;
   /** Non-blank refresh artifact errors, trimmed for the JSON result. */
   instructionsErrors: string[];
+  /** Existing agent files left out of the instruction source because a tool
+   * maintains them. */
+  toolMaintained: string[];
   hints: string[];
 }
 
@@ -827,6 +837,7 @@ async function scaffoldHarness(
     instructionRel,
     config,
     freshInstall,
+    new Set(opts.toolMaintained),
   );
 
   // Compile instructions, materialize skills, and wire each agent's MCP server — all
@@ -896,6 +907,17 @@ async function scaffoldHarness(
       hints,
     );
   }
+  if (seeded.leftToTool.length > 0) {
+    hints = mergeHintTexts(
+      hintTexts([
+        fire(HINTS["setup-instructions-tool-maintained"], {
+          paths: seeded.leftToTool,
+          instructionRel,
+        }),
+      ]),
+      hints,
+    );
+  }
 
   const written = changed.map((op) => op.targetRel);
   if (seeded.instructionLaid) {
@@ -915,6 +937,7 @@ async function scaffoldHarness(
       projectRulesWired,
       instructionsCompiled,
       instructionsErrors,
+      toolMaintained: seeded.leftToTool,
       hints,
     },
   };
@@ -949,22 +972,32 @@ async function scaffoldHarness(
  * laid only when the source is absent, so a re-run never clobbers the agent's
  * work; on a `--reseed` run the user's content is already in the source from
  * the first run, so migration is skipped.
+ *
+ * A file the coding agent named in `toolMaintained` holds another tool's
+ * content, not the owner's: importing it would freeze a snapshot the tool keeps
+ * rewriting, so it is left out and reported instead. An imported body drops
+ * provider pointer lines, such as an import of `AGENTS.md`: the compile writes
+ * its own pointers, and the source would otherwise make the canonical file
+ * import itself.
  */
 async function seedInstructions(
   root: string,
   instructionRel: string,
   config: SetupConfig,
   freshInstall: boolean,
+  toolMaintained: ReadonlySet<string>,
 ): Promise<{
   instructionLaid: boolean;
   migrated: string[];
   skippedOwnRender: string[];
+  leftToTool: string[];
 }> {
   const instructionPath = join(root, instructionRel);
 
   // Capture pre-existing user agent files (fresh install only — see above).
   const migrated: { file: string; body: string }[] = [];
   const skippedOwnRender: string[] = [];
+  const leftToTool: string[] = [];
   if (freshInstall) {
     // Every body discern's own compile could have produced for ANY provider's
     // agent file — the full body and the pointer form — rendered from the
@@ -985,6 +1018,7 @@ async function seedInstructions(
       ownRenderPatterns = undefined;
     }
     const seen = new Set<string>();
+    const pointerLines = instructionPointerLines();
     for (const rel of allInstructionFilePaths()) {
       const existing = await readTextIfExists(join(root, rel));
       if (existing === undefined) continue;
@@ -1000,11 +1034,19 @@ async function seedInstructions(
         skippedOwnRender.push(rel);
         continue;
       }
+      if (toolMaintained.has(rel)) {
+        leftToTool.push(rel);
+        continue;
+      }
+      const ownerBody = body.split("\n")
+        .filter((line) => !pointerLines.has(line.trim()))
+        .join("\n").trim();
+      if (ownerBody.length === 0) continue;
       // The content moves from the provider file into the configured authored
       // source before compilation moves it back out. Rebase only real Markdown
       // destinations at each move so adoption cannot change what a local link
       // points at merely because the source lives in another directory.
-      const authoredBody = rebaseMarkdownLinks(body, rel, instructionRel);
+      const authoredBody = rebaseMarkdownLinks(ownerBody, rel, instructionRel);
       if (seen.has(authoredBody)) continue;
       seen.add(authoredBody);
       migrated.push({ file: rel, body: authoredBody });
@@ -1047,6 +1089,7 @@ async function seedInstructions(
     instructionLaid,
     migrated: migrated.map((m) => m.file),
     skippedOwnRender,
+    leftToTool,
   };
 }
 
@@ -1226,6 +1269,9 @@ function setupBeginRetryCommand(opts: SetupOptions): string {
   ];
   for (const [flag, value] of valueFlags) {
     if (value !== undefined) parts.push(flag, retryArg(value));
+  }
+  for (const path of opts.toolMaintained) {
+    parts.push("--tool-maintained", retryArg(path));
   }
   if (opts.reseed) parts.push("--reseed");
   if (opts.allowDirty) parts.push("--allow-dirty");
@@ -1491,6 +1537,23 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       opts,
       "invalid_arguments",
       `--map received a literal placeholder (${opts.map}) — substitute the real project-relative directory for the map (e.g. --map notes/map/), or omit the flag to keep discern's map at its default home.`,
+    );
+    return 1;
+  }
+  const agentFiles = allInstructionFilePaths();
+  const unknownToolFiles = opts.toolMaintained.filter((path) =>
+    !agentFiles.includes(path)
+  );
+  if (unknownToolFiles.length > 0) {
+    emitSetupError(
+      log,
+      opts,
+      "invalid_arguments",
+      `--tool-maintained names ${
+        unknownToolFiles.join(", ")
+      }, which is not an agent instructions file. Name one of ${
+        agentFiles.join(", ")
+      }, as \`setup verify\` lists them.`,
     );
     return 1;
   }
@@ -1910,6 +1973,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       ...(leaveOut.length === 0
         ? {}
         : { existing_integration_files: leaveOut }),
+      ...((scaffold?.toolMaintained ?? []).length === 0
+        ? {}
+        : { tool_maintained_instructions: scaffold?.toolMaintained }),
       next_action: "discern setup step 1",
       project: {
         slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",

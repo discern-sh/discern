@@ -3150,6 +3150,9 @@ export const SetupBeginDataSchema = z.strictObject({
   /** Integration files that already held content discern didn't write, left
    * out of the machinery commit for the coding agent to resolve. */
   existing_integration_files: z.array(z.string()).optional(),
+  /** Existing agent files named with `--tool-maintained`: their content stayed
+   * out of the instruction source, and the first compile replaced it. */
+  tool_maintained_instructions: z.array(z.string()).optional(),
   discern_version: z.string().optional(),
   written: z.array(z.string()).optional(),
   instruction_refresh: InstructionRefreshDataSchema.optional(),

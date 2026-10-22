@@ -1520,6 +1520,12 @@
                     "type": "string"
                   }
                 },
+                "tool_maintained_instructions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "discern_version": {
                   "type": "string"
                 },
