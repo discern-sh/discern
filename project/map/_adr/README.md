@@ -403,6 +403,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0426 — Shared-file markers claim only discern's part](0426-shared-file-markers-claim-only-discerns-part.md)
 - [0427 — Instruction sources compile in configured order](0427-instruction-sources-compile-in-configured-order.md)
 - [0428 — The `.gitignore` block re-includes ignored integration files](0428-the-gitignore-block-re-includes-ignored-integration-files.md)
+- [0429 — Agent-file overwrites name what they discard](0429-agent-file-overwrites-name-what-they-discard.md)
 
 <!-- END GENERATED: current ADR records -->
 
