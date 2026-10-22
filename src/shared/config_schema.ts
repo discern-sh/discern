@@ -753,7 +753,7 @@ const instructionSection = z.strictObject({
     SOURCE_PATHS.instructions.defaultPath,
   ])
     .describe(
-      "Your instruction files, or patterns that match them, relative to the project root. discern joins the matching files in path order and skips any that don't exist. `discern setup begin` creates the default file.",
+      "Your instruction files or patterns, relative to the project root. discern joins them in the order listed, one pattern's files in path order, and skips missing ones. `discern setup begin` creates the default file.",
     ),
 }).prefault({}).describe(CONFIG_PROSE.instructions.what);
 

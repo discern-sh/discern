@@ -47,8 +47,8 @@ import {
 } from "../src/shared/config_schema.ts";
 import { DISCERN_NO_ATTRIBUTION, type EnvReader } from "../src/shared/env.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
-import { generatedArtifactMarker } from "../src/shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { artifactProvenanceMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 const McpServerSchema = z.object({
   type: z.string().optional(),
@@ -996,8 +996,8 @@ Deno.test("wireProviderWorktreeApp preserves user-customized Codex environment s
     );
     assert(text.startsWith(
       `${
-        generatedArtifactMarker(
-          ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+        artifactProvenanceMarker(
+          ARTIFACT_PROVENANCE.codexEnvironment,
         )
       }\n`,
     ));
@@ -1151,17 +1151,17 @@ Deno.test("Codex integrations replace the opposite attribution mode", async () =
 
     for (
       const [path, source] of [
-        [".codex/config.toml", ARTIFACT_PROVENANCE_SOURCES.codexConfig],
+        [".codex/config.toml", ARTIFACT_PROVENANCE.codexConfig],
         [
           ".codex/environments/environment.toml",
-          ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+          ARTIFACT_PROVENANCE.codexEnvironment,
         ],
-        [".codex/rules/discern.rules", ARTIFACT_PROVENANCE_SOURCES.codexRules],
+        [".codex/rules/discern.rules", ARTIFACT_PROVENANCE.codexRules],
       ] as const
     ) {
       const text = await Deno.readTextFile(join(dir, path));
-      const attributed = generatedArtifactMarker(source, attributedEnv);
-      const sourceOnly = generatedArtifactMarker(source, sourceOnlyEnv);
+      const attributed = artifactProvenanceMarker(source, attributedEnv);
+      const sourceOnly = artifactProvenanceMarker(source, sourceOnlyEnv);
       assert(!text.includes(attributed), `${path} kept attributed marker`);
       assertEquals(
         text.split(/\r?\n/u).filter((line) => line === sourceOnly).length,
@@ -1559,9 +1559,7 @@ async function assertAbsent(path: string): Promise<void> {
 
 /** Render the exact generated Codex sandbox rules that linked-worktree Git operations require. */
 function expectedCodexDiscernRules(env: EnvReader = fakeEnv()): string {
-  return `${
-    generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules, env)
-  }
+  return `${artifactProvenanceMarker(ARTIFACT_PROVENANCE.codexRules, env)}
 # Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(

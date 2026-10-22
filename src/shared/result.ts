@@ -886,6 +886,7 @@ export const RESULT_OPEN_VOCABULARIES = {
       "dirty_worktree",
       "not_a_repo",
       "missing_git_identity",
+      "existing_integration_files",
     ],
   },
   "x-discern-setup-done-completions": {

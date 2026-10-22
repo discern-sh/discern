@@ -17,9 +17,11 @@ import {
   ignoreCovers,
   nestedWorktreeIgnorePath,
   reconcileDiscernGitignore,
+  reconcileGitignoreExceptions,
   trackedDiscernIgnoredArtifacts,
 } from "../src/lib/agent_gitignore.ts";
-import { withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
+import { trackedSharedProviderPaths } from "../src/lib/artifact_ownership.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 import { agentArtifactPosture } from "../src/lib/providers.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
@@ -364,3 +366,91 @@ function assertOneDiscernBlock(text: string): void {
   assertEquals(text.match(new RegExp(DISCERN_GITIGNORE_BEGIN, "g"))?.length, 1);
   assertEquals(text.match(new RegExp(DISCERN_GITIGNORE_END, "g"))?.length, 1);
 }
+
+Deno.test("the block re-includes integration files the project's rules exclude, without claiming the project's lines", () => {
+  const paths = trackedSharedProviderPaths(["codex"]);
+  const reconcile = (existing: string): string =>
+    reconcileDiscernGitignore(
+      existing,
+      FRAGMENT,
+      agentArtifactPosture(),
+      fakeEnv(),
+      undefined,
+      paths,
+    ).text;
+  assertNamedCases({
+    "a project line matching an exception stays the project's":
+      (): undefined => {
+        const existing = "node_modules/\n.codex/\n/.codex/*\n";
+        const once = reconcile(existing);
+        assert(once.startsWith(existing), once);
+        assertStringIncludes(
+          once,
+          "!/.codex/\n/.codex/*\n!/.codex/config.toml",
+        );
+        assertEquals(
+          reconcile(once),
+          once,
+          "reconciling again changes nothing",
+        );
+      },
+    "no excluding rule renders no exceptions": (): undefined => {
+      const text = reconcile("node_modules/\n");
+      assert(!text.includes("!/"), text);
+    },
+    "the block keeps its place unless a later rule excludes a file":
+      (): undefined => {
+        const placed = reconcile("node_modules/\n.codex/\n");
+        const kept = reconcile(`${placed}coverage/\n`);
+        assert(kept.endsWith("coverage/\n"), kept);
+        const moved = reconcile(`${placed}.codex/hooks.json\n`);
+        assert(
+          moved.indexOf(".codex/hooks.json\n") <
+            moved.indexOf(DISCERN_GITIGNORE_BEGIN),
+          moved,
+        );
+        assert(moved.trimEnd().endsWith(DISCERN_GITIGNORE_END), moved);
+      },
+    "refresh's exceptions-only pass agrees with the full reconcile":
+      (): undefined => {
+        const full = reconcile("node_modules/\n.codex/\n");
+        assertEquals(reconcileGitignoreExceptions(full, paths).operations, []);
+        const stale = full.replace(/^!\/\.codex\/hooks\.json\n/mu, "");
+        assert(stale !== full, "precondition: one exception removed");
+        assertEquals(reconcileGitignoreExceptions(stale, paths).text, full);
+      },
+    "refresh's exceptions-only pass leaves every other line alone":
+      (): undefined => {
+        assertEquals(
+          reconcileGitignoreExceptions(".codex/\n", paths).operations,
+          [],
+          "a file without discern's block is upgrade's",
+        );
+        const older = [
+          ".codex/",
+          "",
+          DISCERN_GITIGNORE_BEGIN,
+          "# an older fragment line",
+          "/.claude/settings.local.json",
+          DISCERN_GITIGNORE_END,
+          "",
+        ].join("\n");
+        const updated = reconcileGitignoreExceptions(older, paths).text;
+        assertStringIncludes(updated, "# an older fragment line\n");
+        assertStringIncludes(updated, "!/.codex/config.toml\n");
+        const adjoining = reconcile("node_modules/\n").replace(
+          `${DISCERN_GITIGNORE_END}\n`,
+          `${DISCERN_GITIGNORE_END}\nscratch.log\n`,
+        );
+        assertEquals(
+          reconcileGitignoreExceptions(adjoining, paths).operations,
+          [],
+          "a line right after the block keeps its exact bytes",
+        );
+      },
+    "the gate's owned-artifact rules never include an exception":
+      (): undefined => {
+        assert(!canonicalDiscernGitignoreBlock(FRAGMENT).includes("!/"));
+      },
+  });
+});

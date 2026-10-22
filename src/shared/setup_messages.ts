@@ -54,6 +54,10 @@ import {
   type SetupProjectNameEvidence,
   type SetupProjectNameRecommendation,
 } from "./setup_guidance.ts";
+import {
+  describeIgnoredFiles,
+  type IgnoredIntegrationFile,
+} from "./ignored_integration.ts";
 
 /** The conventional home of a project's own documentation, probed so the consent
  * message can reassure that discern never touches it — the map is a separate,
@@ -96,8 +100,10 @@ export interface ConsentAgentSet {
  * separate tree, never pointed at human docs; ADR 0100, ADR 0131), whether
  * the directory is a git work tree at all (so no surface promises the isolated
  * `discern-setup` branch, the undo story, or worktrees where git can't deliver
- * them — the non-git plan is `git init` first), and the agent set `begin` will
- * wire (a consent point of its own, with `--agents` as the mechanism). */
+ * them — the non-git plan is `git init` first), the agent set `begin` will
+ * wire (a consent point of its own, with `--agents` as the mechanism), and the
+ * integration files of that set the project's ignore rules exclude, which
+ * discern's `.gitignore` block re-includes (a footprint fact, not a question). */
 export interface ConsentContext {
   worktreePath: string;
   worktreeEnvFiles: readonly string[];
@@ -106,6 +112,9 @@ export interface ConsentContext {
   gitRepo: boolean;
   agents: ConsentAgentSet;
   projectName?: SetupProjectNameRecommendation | undefined;
+  ignoredIntegrationFiles?:
+    | readonly Pick<IgnoredIntegrationFile, "path" | "rule">[]
+    | undefined;
 }
 
 /**
@@ -120,6 +129,10 @@ export interface ConsentContext {
 export async function deriveConsentContext(
   destDir: string,
   agents: ConsentAgentSet,
+  ignoredIntegrationFiles: readonly Pick<
+    IgnoredIntegrationFile,
+    "path" | "rule"
+  >[] = [],
   config: DiscernConfig = parseConfigOrThrow(""),
 ): Promise<ConsentContext & { projectName: SetupProjectNameRecommendation }> {
   const docsExists = await pathExists(join(destDir, HUMAN_DOCS_REL));
@@ -144,6 +157,7 @@ export async function deriveConsentContext(
     gitRepo,
     agents,
     projectName,
+    ignoredIntegrationFiles,
   };
 }
 
@@ -368,6 +382,7 @@ export function consentRelayItems(
       agent.generatedSkillsDir === undefined ? [] : [agent.generatedSkillsDir]
     ),
   );
+  const ignored = ctx.ignoredIntegrationFiles ?? [];
   const integrationFiles = uniqueStrings(
     ctx.agents.wired.flatMap((agent) =>
       agent.writtenFiles.filter((path) =>
@@ -401,7 +416,13 @@ export function consentRelayItems(
           inlineSet(integrationFiles)
         }. discern's generated skills go into the provider skill directories ${
           inlineSet(skillsDirs)
-        }, where Git ignores only discern's own entries.`,
+        }, where Git ignores only discern's own entries.${
+          ignored.length === 0
+            ? ""
+            : ` This project's ignore rules exclude ${
+              describeIgnoredFiles(ignored)
+            }, so discern's \`.gitignore\` block re-includes just those files and the rules keep ignoring everything else.`
+        }`,
     },
     {
       key: "repository-boundary",

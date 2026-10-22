@@ -25,8 +25,11 @@ import { agentFilePaths } from "../src/engine/instruction_render.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import { canonicalDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
-import { generatedArtifactMarker } from "../src/shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import {
+  artifactProvenanceMarker,
+  GENERATED_ARTIFACT_MARKER_PREFIX,
+} from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { planTrackedRefresh } from "../src/engine/tracked_refresh.ts";
 import { compileInstructions } from "../src/engine/instructions.ts";
@@ -189,7 +192,7 @@ Deno.test("engine refresh: one pass enrolls every compiled Agent file before Git
   });
 });
 
-Deno.test("engine refresh: DISCERN_NO_ATTRIBUTION switches every refreshed marker without duplicates", async () => {
+Deno.test("engine refresh: every refreshed marker switches attribution and claim without duplicates", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: ["codex"] });
     const first = await runAgent(dir, ["refresh", "--json"]);
@@ -201,17 +204,18 @@ Deno.test("engine refresh: DISCERN_NO_ATTRIBUTION switches every refreshed marke
     assertEquals(sourceOnly.code, 0, sourceOnly.output);
 
     const artifacts = [
-      [".gitattributes", ARTIFACT_PROVENANCE_SOURCES.gitattributes],
-      [".codex/config.toml", ARTIFACT_PROVENANCE_SOURCES.codexConfig],
+      [".gitattributes", ARTIFACT_PROVENANCE.gitattributes],
+      [".codex/config.toml", ARTIFACT_PROVENANCE.codexConfig],
       [
         ".codex/environments/environment.toml",
-        ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+        ARTIFACT_PROVENANCE.codexEnvironment,
       ],
-      [".codex/rules/discern.rules", ARTIFACT_PROVENANCE_SOURCES.codexRules],
+      [".codex/rules/discern.rules", ARTIFACT_PROVENANCE.codexRules],
     ] as const;
-    for (const [path, source] of artifacts) {
+    const sourceOnlyEnv = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
+    for (const [path, provenance] of artifacts) {
       const text = await Deno.readTextFile(join(dir, path));
-      const marker = `# Generated automatically via ${source}`;
+      const marker = artifactProvenanceMarker(provenance, sourceOnlyEnv);
       assertEquals(
         text.split(/\r?\n/u).filter((line) => line === marker).length,
         1,
@@ -221,15 +225,44 @@ Deno.test("engine refresh: DISCERN_NO_ATTRIBUTION switches every refreshed marke
 
     const restored = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(restored.code, 0, restored.output);
-    for (const [path, source] of artifacts) {
+    for (const [path, provenance] of artifacts) {
       const text = await Deno.readTextFile(join(dir, path));
-      const marker = generatedArtifactMarker(source, fakeEnv());
+      const marker = artifactProvenanceMarker(provenance, fakeEnv());
       assertEquals(
         text.split(/\r?\n/u).filter((line) => line === marker).length,
         1,
         `${path} should restore one attributed marker`,
       );
-      assert(!text.includes("# Generated automatically via "), path);
+      assert(
+        !text.includes(artifactProvenanceMarker(provenance, sourceOnlyEnv)),
+        path,
+      );
+      // A whole-file claim, as a Generated file carries, gives way to the scope.
+      await Deno.writeTextFile(
+        join(dir, path),
+        text.replace(
+          marker,
+          artifactProvenanceMarker({ source: provenance.source }, fakeEnv()),
+        ),
+      );
+    }
+
+    const scoped = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(scoped.code, 0, scoped.output);
+    for (const [path, provenance] of artifacts) {
+      const lines = (await Deno.readTextFile(join(dir, path))).split(/\r?\n/u);
+      const marker = artifactProvenanceMarker(provenance, fakeEnv());
+      assertEquals(
+        lines.filter((line) => line === marker).length,
+        1,
+        `${path} should carry one scoped marker`,
+      );
+      assert(
+        !lines.some((line) =>
+          line.startsWith(GENERATED_ARTIFACT_MARKER_PREFIX)
+        ),
+        `${path} still claims the whole file`,
+      );
     }
   });
 });

@@ -27,6 +27,7 @@ import {
   mergeJsonHookSettingsText,
   type SettingsSeedMerge,
 } from "./settings_merge.ts";
+import { serializeSharedJson } from "./shared_json.ts";
 import { TomlEditor } from "./toml_edit.ts";
 import {
   agentLabelForNative,
@@ -37,7 +38,8 @@ import {
   NATIVE_MCP_TIMEOUT_POLICY,
 } from "../shared/mcp_timeout_policy.ts";
 import {
-  ARTIFACT_PROVENANCE_SOURCES,
+  ARTIFACT_PROVENANCE,
+  type ArtifactProvenance,
   COMMENT_INCAPABLE_ARTIFACT,
   commentCapableNonContextArtifact,
   CONTEXT_LOADED_ARTIFACT,
@@ -45,9 +47,9 @@ import {
   type WrittenArtifactClassDeclaration,
 } from "../shared/file_ownership.ts";
 import {
-  generatedArtifactMarker,
-  isGeneratedArtifactMarker,
-  stripGeneratedArtifactMarker,
+  artifactProvenanceMarker,
+  isArtifactProvenanceMarker,
+  stripArtifactProvenanceMarker,
 } from "../shared/brand.ts";
 import { fire, HINTS } from "../shared/hints.ts";
 import type { EnvReader } from "../shared/env.ts";
@@ -530,7 +532,7 @@ export function renderProviderHookSeed(hooks: HooksIntegration): string {
     });
   }
   root.hooks = groups;
-  return `${JSON.stringify(root, null, 2)}\n`;
+  return serializeSharedJson(root, undefined);
 }
 
 /** Derive this provider's hook merge from the same format facts that render its
@@ -923,17 +925,24 @@ function appendUnique(base: readonly string[], addition: string): string[] {
   return base.includes(addition) ? [...base] : [...base, addition];
 }
 
+/** One JSON object file: its current text, and the parsed object. */
+interface JsonObjectFile {
+  /** The file's text, or undefined when it does not exist yet. */
+  readonly text: string | undefined;
+  readonly value: Record<string, unknown>;
+}
+
 /** Read a JSON object file. Absence starts empty; malformed existing JSON refuses. */
 async function readJsonObject(
   path: string,
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
-): Promise<Record<string, unknown>> {
+): Promise<JsonObjectFile> {
   let text: string;
   try {
     text = await files.readTextFile(path);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      return {};
+      return { text: undefined, value: {} };
     }
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`could not read JSON file ${path}: ${detail}`);
@@ -948,17 +957,18 @@ async function readJsonObject(
   if (!isObject(v)) {
     throw new Error(`JSON in ${path} must be an object`);
   }
-  return v;
+  return { text, value: v };
 }
 
-/** Write a pretty JSON object with a trailing newline (creating parent dirs). */
+/** Write a JSON object file's next value in its existing layout (creating parent dirs). */
 async function writeJsonObject(
   path: string,
+  file: JsonObjectFile,
   value: unknown,
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<void> {
   await files.ensureDir(dirname(path));
-  await files.writeTextFile(path, `${JSON.stringify(value, null, 2)}\n`);
+  await files.writeTextFile(path, serializeSharedJson(value, file.text));
 }
 
 /** Write text only when bytes differ, creating the parent directory. */
@@ -1025,20 +1035,18 @@ const CODEX_ENV_CLEANUP_SCRIPT = "discern worktree teardown";
 const CODEX_PROJECT_DOC_MAX_BYTES = 65536;
 const CODEX_MCP_STARTUP_TIMEOUT_SEC = 30;
 const CODEX_CONFIG_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
-  ARTIFACT_PROVENANCE_SOURCES.codexConfig,
+  ARTIFACT_PROVENANCE.codexConfig,
 );
 const CODEX_ENV_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
-  ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+  ARTIFACT_PROVENANCE.codexEnvironment,
 );
 const CODEX_RULES_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
-  ARTIFACT_PROVENANCE_SOURCES.codexRules,
+  ARTIFACT_PROVENANCE.codexRules,
 );
 
 /** Render discern's Codex rules with the current attribution preference. */
 function codexDiscernRules(env: EnvReader = Deno.env): string {
-  return `${
-    generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules, env)
-  }
+  return `${artifactProvenanceMarker(ARTIFACT_PROVENANCE.codexRules, env)}
 # Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(
@@ -1130,7 +1138,8 @@ async function registerStdioMcpJson(
 ): Promise<McpWireResult> {
   const files = context.files ?? LIVE_REFRESH_FILE_OPS;
   const path = join(root, configFile);
-  const doc = await readJsonObject(path, files);
+  const file = await readJsonObject(path, files);
+  const doc = file.value;
   const servers = isObject(doc.mcpServers) ? doc.mcpServers : {};
   const firstInstall = !(server.name in servers);
   const desired = {
@@ -1152,8 +1161,12 @@ async function registerStdioMcpJson(
   if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
     return { written: [], firstInstall };
   }
-  doc.mcpServers = { ...servers, [server.name]: desired };
-  await writeJsonObject(path, doc, files);
+  await writeJsonObject(
+    path,
+    file,
+    { ...doc, mcpServers: { ...servers, [server.name]: desired } },
+    files,
+  );
   return { written: [configFile], firstInstall };
 }
 
@@ -1189,10 +1202,12 @@ async function registerClaudeCodeMcp(
   //    preserving every other setting (hooks, permissions) already written.
   const setPath = join(root, CLAUDE_SETTINGS_FILE);
   const settings = await readJsonObject(setPath, files);
-  const approved = asStringArray(settings.enabledMcpjsonServers);
+  const approved = asStringArray(settings.value.enabledMcpjsonServers);
   if (!approved.includes(server.name)) {
-    settings.enabledMcpjsonServers = [...approved, server.name];
-    await writeJsonObject(setPath, settings, files);
+    await writeJsonObject(setPath, settings, {
+      ...settings.value,
+      enabledMcpjsonServers: [...approved, server.name],
+    }, files);
     written.push(CLAUDE_SETTINGS_FILE);
   }
 
@@ -1220,7 +1235,9 @@ async function registerGeminiMcp(
   const files = context.files ?? LIVE_REFRESH_FILE_OPS;
   const path = join(root, GEMINI_SETTINGS_FILE);
   const settings = await readJsonObject(path, files);
-  const servers = isObject(settings.mcpServers) ? settings.mcpServers : {};
+  const servers = isObject(settings.value.mcpServers)
+    ? settings.value.mcpServers
+    : {};
   const firstInstall = !(server.name in servers);
   const desired = {
     command: server.command,
@@ -1230,8 +1247,12 @@ async function registerGeminiMcp(
   if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
     return { written: [], firstInstall };
   }
-  settings.mcpServers = { ...servers, [server.name]: desired };
-  await writeJsonObject(path, settings, files);
+  await writeJsonObject(
+    path,
+    settings,
+    { ...settings.value, mcpServers: { ...servers, [server.name]: desired } },
+    files,
+  );
   return { written: [GEMINI_SETTINGS_FILE], firstInstall };
 }
 
@@ -1250,7 +1271,7 @@ async function registerGeminiMcp(
 async function editTomlFile(
   root: string,
   rel: string,
-  provenanceSource: string,
+  provenance: ArtifactProvenance,
   edit: (editor: TomlEditor, existing: string | undefined) => void,
   env: EnvReader = Deno.env,
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
@@ -1265,8 +1286,8 @@ async function editTomlFile(
   }
   const editor = new TomlEditor(existing ?? "");
   edit(editor, existing);
-  let out = stripGeneratedArtifactMarker(editor.toString(), provenanceSource);
-  const marker = generatedArtifactMarker(provenanceSource, env);
+  let out = stripArtifactProvenanceMarker(editor.toString(), provenance);
+  const marker = artifactProvenanceMarker(provenance, env);
   const eol = out.includes("\r\n") ? "\r\n" : "\n";
   out = `${marker}${eol}${out}`;
   if (!out.endsWith("\n")) {
@@ -1344,7 +1365,7 @@ async function registerCodexProjectConfig(
   const wrote = await editTomlFile(
     root,
     CODEX_CONFIG_FILE,
-    ARTIFACT_PROVENANCE_SOURCES.codexConfig,
+    ARTIFACT_PROVENANCE.codexConfig,
     (editor, existing) => {
       const parsed = parseTomlObject(existing);
       const roots = appendUnique(
@@ -1416,7 +1437,7 @@ async function registerCodexEnvironment(
   const wrote = await editTomlFile(
     root,
     CODEX_ENV_FILE,
-    ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+    ARTIFACT_PROVENANCE.codexEnvironment,
     (editor, existing) => {
       const parsed = parseTomlObject(existing);
       // Codex rejects the file unless top-level `version`/`name` are present; seed
@@ -1513,9 +1534,9 @@ export async function stripDiscernFromCodexConfig(
     editor.deleteRootKey("project_doc_max_bytes");
   }
 
-  const out = stripGeneratedArtifactMarker(
+  const out = stripArtifactProvenanceMarker(
     editor.toString(),
-    ARTIFACT_PROVENANCE_SOURCES.codexConfig,
+    ARTIFACT_PROVENANCE.codexConfig,
   );
   return Object.keys(parseTomlObject(out)).length === 0 ? null : out;
 }
@@ -1532,9 +1553,9 @@ export async function stripDiscernFromCodexConfig(
  */
 export function stripDiscernFromCodexEnv(existingText: string): string | null {
   const hasDiscernMarker = existingText.split(/\r?\n/u).some((line) =>
-    isGeneratedArtifactMarker(
+    isArtifactProvenanceMarker(
       line,
-      ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+      ARTIFACT_PROVENANCE.codexEnvironment,
     )
   );
   const editor = new TomlEditor(existingText);
@@ -1553,9 +1574,9 @@ export function stripDiscernFromCodexEnv(existingText: string): string | null {
   dropScriptSection("setup", CODEX_ENV_SETUP_SCRIPT);
   dropScriptSection("cleanup", CODEX_ENV_CLEANUP_SCRIPT);
 
-  const withoutMarker = stripGeneratedArtifactMarker(
+  const withoutMarker = stripArtifactProvenanceMarker(
     editor.toString(),
-    ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+    ARTIFACT_PROVENANCE.codexEnvironment,
   );
   const remaining = parseTomlObject(withoutMarker);
   const keys = Object.keys(remaining);

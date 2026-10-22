@@ -17,7 +17,11 @@
 
 /** Whether a working tree is clean enough that an upgrade stays revertible. */
 import { runGit } from "../shared/subprocess.ts";
-import { parsePorcelainZ } from "../shared/git_paths.ts";
+import {
+  type GitIgnoreMatch,
+  parseCheckIgnoreZ,
+  parsePorcelainZ,
+} from "../shared/git_paths.ts";
 
 export type WorktreeState =
   | { kind: "clean" }
@@ -47,4 +51,33 @@ export async function worktreeState(
     .filter((entry) => !entry.status.startsWith("??"))
     .map((entry) => `${entry.status} ${entry.path}`);
   return changes.length === 0 ? { kind: "clean" } : { kind: "dirty", changes };
+}
+
+/**
+ * Ask Git which of `paths` (relative to `root`) its ignore rules match,
+ * independent of the index: a tracked path is still reported, since its rule
+ * keeps applying to everything Git does not already track. `undefined` when
+ * Git cannot answer (not a repository, or Git failed).
+ */
+export async function ignoreRuleMatches(
+  root: string,
+  paths: readonly string[],
+): Promise<Map<string, GitIgnoreMatch> | undefined> {
+  if (paths.length === 0) return new Map();
+  const run = await runGit(
+    [
+      "check-ignore",
+      "--stdin",
+      "-z",
+      "--verbose",
+      "--non-matching",
+      "--no-index",
+    ],
+    { cwd: root, stdin: paths.map((path) => `${path}\0`).join("") },
+  );
+  // check-ignore exits 0 when some path matched and 1 when none did.
+  if (run.code !== 0 && run.code !== 1) return undefined;
+  const matches = parseCheckIgnoreZ(run.stdout);
+  if (matches === undefined) return undefined;
+  return new Map(matches.map((match) => [match.path, match]));
 }

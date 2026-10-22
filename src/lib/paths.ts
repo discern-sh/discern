@@ -128,8 +128,9 @@ export function resolveInstructionSeedRel(config: DiscernConfig): string {
  * nothing simply contributes nothing. Globs are supported in the pattern; the
  * `root` itself is always treated literally (never parsed as glob syntax), so a
  * project living at a path containing glob metacharacters still compiles. Results
- * are de-duplicated and sorted for a stable concatenation order regardless of
- * match order.
+ * follow the configured pattern order, so the owner controls precedence: one
+ * pattern's matches sort by path, and a file several patterns match keeps the
+ * position of the first.
  *
  * The compile pipeline's own OUTPUTS — the agent files the provider
  * registry emits at the project root (`AGENTS.md`, `CLAUDE.md`, …) — are never
@@ -158,6 +159,7 @@ export async function resolveInstructionSources(
   );
   const matched = new Set<string>();
   for (const pattern of patterns) {
+    const patternMatches = new Set<string>();
     // A relative pattern resolves against `root` via expandGlob's `root` option —
     // which treats `root` as a LITERAL directory, never as glob syntax. Building
     // the glob string as `join(root, pattern)` would instead feed the absolute
@@ -170,11 +172,14 @@ export async function resolveInstructionSources(
       : [pattern, { includeDirs: false, root } as const];
     for await (const entry of expandGlob(glob, opts)) {
       if (entry.isFile && !outputs.has(entry.path)) {
-        matched.add(entry.path);
+        patternMatches.add(entry.path);
       }
     }
+    for (const path of [...patternMatches].sort()) {
+      matched.add(path);
+    }
   }
-  return [...matched].sort();
+  return [...matched];
 }
 
 /** The bundled-skills directory inside an explicit or resolved `templates/` tree. */

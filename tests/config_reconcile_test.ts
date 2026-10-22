@@ -7,8 +7,8 @@ import {
   renderConfigTemplateForConfig,
 } from "../src/lib/config_reconcile.ts";
 import { sectionBlockFromTemplate } from "../src/lib/config_template.ts";
-import { generatedArtifactMarker } from "../src/shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { artifactProvenanceMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
 import { formatTomlText } from "../src/lib/tidy_format.ts";
 import { DISCERN_NO_ATTRIBUTION, type EnvReader } from "../src/shared/env.ts";
 import { fakeEnv } from "./helpers.ts";
@@ -37,8 +37,8 @@ function withoutSection(text: string, section: string): string {
 
 Deno.test("config reconciliation replaces the legacy provenance marker and is idempotent", async () => {
   const template = await renderedTemplate();
-  const marker = generatedArtifactMarker(
-    ARTIFACT_PROVENANCE_SOURCES.config,
+  const marker = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.config,
     fakeEnv(),
   );
   const drifted = template.replace(
@@ -67,12 +67,12 @@ Deno.test("config reconciliation switches attribution modes without duplicate ma
   const sourceOnlyEnv = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
   const attributed = await renderedTemplate(attributedEnv);
   const sourceOnlyTemplate = await renderedTemplate(sourceOnlyEnv);
-  const attributedMarker = generatedArtifactMarker(
-    ARTIFACT_PROVENANCE_SOURCES.config,
+  const attributedMarker = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.config,
     attributedEnv,
   );
-  const sourceOnlyMarker = generatedArtifactMarker(
-    ARTIFACT_PROVENANCE_SOURCES.config,
+  const sourceOnlyMarker = artifactProvenanceMarker(
+    ARTIFACT_PROVENANCE.config,
     sourceOnlyEnv,
   );
 

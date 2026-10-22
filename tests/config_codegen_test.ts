@@ -50,6 +50,7 @@ import {
   STABILITY_TIER_EVOLVING,
 } from "../src/shared/public_schemas.ts";
 import { withTempDir } from "./helpers.ts";
+import type { TokenMap } from "../src/lib/template.ts";
 import { scaffoldEngine } from "./engine_helpers.ts";
 import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
@@ -60,8 +61,8 @@ import {
 } from "../src/lib/config.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
-import { generatedArtifactMarkerBody } from "../src/shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { artifactProvenanceMarkerBody } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import {
   DISCERN_WRITTEN_META,
@@ -658,7 +659,7 @@ async function renderedTemplate(): Promise<string> {
   let t = await Deno.readTextFile(
     new URL("../templates/discern.toml.tmpl", import.meta.url),
   );
-  const fills: Record<string, string> = {
+  const fills: TokenMap = {
     project_slug: "demo",
     branch_prefix: "agent/",
     gotchas_doc: "",
@@ -666,8 +667,8 @@ async function renderedTemplate(): Promise<string> {
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),
-    artifact_provenance_marker: generatedArtifactMarkerBody(
-      ARTIFACT_PROVENANCE_SOURCES.config,
+    artifact_provenance_marker: artifactProvenanceMarkerBody(
+      ARTIFACT_PROVENANCE.config,
     ),
     discern_version: DISCERN_VERSION,
     project_name: "Demo",

@@ -400,6 +400,9 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0423 — Social cards render on request from the design system's fonts](0423-social-cards-render-on-request-from-design-system-fonts.md)
 - [0424 — Generator-owned paths have one writer](0424-generator-owned-paths-have-one-writer.md)
 - [0425 — Skills directories are owned entry by entry](0425-skills-directories-are-owned-entry-by-entry.md)
+- [0426 — Shared-file markers claim only discern's part](0426-shared-file-markers-claim-only-discerns-part.md)
+- [0427 — Instruction sources compile in configured order](0427-instruction-sources-compile-in-configured-order.md)
+- [0428 — The `.gitignore` block re-includes ignored integration files](0428-the-gitignore-block-re-includes-ignored-integration-files.md)
 
 <!-- END GENERATED: current ADR records -->
 

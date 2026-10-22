@@ -50,8 +50,8 @@ import {
   canonicalDiscernGitignoreBlock,
   ignoreCovers,
 } from "../src/lib/agent_gitignore.ts";
-import { stripGeneratedArtifactMarker } from "../src/shared/brand.ts";
-import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { stripArtifactProvenanceMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE } from "../src/shared/file_ownership.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { assertNamedCases } from "./assert_cases.ts";
@@ -178,9 +178,9 @@ Deno.test("every landing provider mark has a backgroundless silhouette", async (
 
 Deno.test("the shipped .gitignore fragment becomes the canonical marked block upgrade writes", () => {
   assertEquals(
-    stripGeneratedArtifactMarker(
+    stripArtifactProvenanceMarker(
       CANONICAL_GITIGNORE_BLOCK,
-      ARTIFACT_PROVENANCE_SOURCES.gitignore,
+      ARTIFACT_PROVENANCE.gitignore,
     ),
     FRAGMENT.endsWith("\n") ? FRAGMENT : `${FRAGMENT}\n`,
   );

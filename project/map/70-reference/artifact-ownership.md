@@ -28,6 +28,8 @@ File ownership is an operational term for edit and overwrite authority. It does 
 | [Shared](../00-orientation/glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                 | It may replace its region or entry and preserves the rest.          |
 | [Generated](../00-orientation/glossary.md#generated-file)         | No. Edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
 
+Every Shared JSON writer serializes through [`serializeSharedJson`](../../../src/lib/shared_json.ts). It keeps the file's indentation, line endings, and final newline, so a co-writing tool sees only discern's entry change; a new file uses two spaces. [`tests/shared_json_test.ts`](../../../tests/shared_json_test.ts) seeds every registered Shared JSON path in several layouts, then runs the MCP, hook, and uninstall writers over it.
+
 The coding agent creates and maintains provider-local files. discern only ignores their registered paths. Other untracked provider files have no entry.
 
 Within the shared `discern.toml`, `meta.managed_version` is maintained by successful setup and upgrade. The [adoption boundary](../50-engine-internals/managed-adoption.md) governs its version checks and protects the recorded value during landing.
@@ -42,9 +44,9 @@ Shared and generated artifacts also declare one provenance class:
 
 - **Context-loaded:** unmarked. Agent files and Skills load in full, so each marker would spend context tokens. Providers also render comments differently. Instructions and drift checks enforce ownership.
 - **Comment-incapable:** no marker because JSON forbids comments.
-- **Comment-capable non-context:** its marker identifies the source. By default, it also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product byline and link.
+- **Comment-capable non-context:** its marker identifies the source. A Generated file's marker claims the entire file ("Generated automatically by discern via …"). A Shared file's marker claims only its declared scope ("This block managed by discern via …"), because the rest is not discern's. By default, the marker also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the claim and source and removes the product byline and link.
 
-Registry tests enforce classification and both marker rules ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md)).
+Each comment-capable declaration carries an `ArtifactProvenance` from [`ARTIFACT_PROVENANCE`](../../../src/shared/file_ownership.ts), and `artifactProvenanceMarker` renders it. Registry tests enforce classification, the scope-ownership pairing, and both marker rules ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md), [ADR 0426](../_adr/0426-shared-file-markers-claim-only-discerns-part.md)).
 
 ## Registered project paths
 
@@ -54,7 +56,7 @@ Path overrides change placement. The ownership bucket still determines edit and 
 
 ## How Git treats registered paths
 
-Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). The tracked-refresh plan also covers discern's managed portions of tracked shared files, including generated attributes and provider integrations. `done` and `accept` require an empty plan before landing. After landing, acceptance materializes only ignored or local artifacts ([ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md)).
+Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). The tracked-refresh plan also covers discern's managed portions of tracked shared files, including generated attributes, the `.gitignore` block's exceptions, and provider integrations. `done` and `accept` require an empty plan before landing. After landing, acceptance materializes only ignored or local artifacts ([ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md)).
 
 Project rules outside `.gitattributes`' discern markers remain unchanged, including nested and Git-local attributes. `setup`, `refresh`, and `upgrade` rebuild the block from `discern.toml`, the source-path registry, and the active agent registry. A rebuild replaces hand edits inside the block ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0259](../_adr/0259-generated-groups-opt-in-to-review-metadata.md)).
 
@@ -65,6 +67,16 @@ Markdown inside discern's registered surfaces uses Git's built-in `markdown` dif
 Provider-local state is ignored by exact registry path, leaving neighboring files unchanged. A skills directory is shared, so the managed block never names one. Materialization writes an ignore file inside each skills directory that lists only the entries discern placed there; skills other tools install beside them stay visible to Git ([ADR 0425](../_adr/0425-skills-directories-are-owned-entry-by-entry.md)). Add agent-file ignores outside the managed block if preferred. The currency check accepts a missing copy.
 
 The ignore reconciler owns only its marked block and exact standalone rules that the current provider-artifact registry declares. Similar broad or retired rules outside the block remain project-owned. When `[worktree].root` resolves inside the repository, the managed block also ignores that exact nested directory; the default sibling worktree root needs no repository rule.
+
+### Project rules that exclude tracked integration files
+
+Every shared file a provider declares is expected to be tracked; [`trackedSharedProviderPaths`](../../../src/lib/artifact_ownership.ts) derives that set from the registry, excluding skills directories and the agent files the setup agent commits itself. Tool-folder `.gitignore` templates often exclude them. When the project's root `.gitignore` does, discern's block appends the fewest rules that re-include just those files: for a folder rule it re-includes the folder, ignores its contents again, then re-includes each file ([ADR 0428](../_adr/0428-the-gitignore-block-re-includes-ignored-integration-files.md)). Ownership is judged against the block without these rules, so a project's own matching line is never claimed.
+
+[`gitignore_patterns.ts`](../../../src/lib/gitignore_patterns.ts) computes the rules from the root `.gitignore` and the configured agents alone, without a Git process, so every checkout renders the same block. [`gitignore_patterns_test.ts`](../../../tests/gitignore_patterns_test.ts) holds the matcher, and the rule that the exceptions admit nothing else, to `git check-ignore`. The block keeps its place unless a project rule after it excludes an integration file; it then moves to the end. Setup and upgrade reconcile every line of the block; refresh updates only these exceptions and the block's place, through the same composition, and the tracked-refresh plan reports stale ones.
+
+Rules the block cannot override, such as a nested `.gitignore` or this machine's excludes, still apply. [`ignoredIntegrationFiles`](../../../src/lib/ignored_integration_files.ts) asks Git which integration files remain ignored and which it tracks. Setup's machinery commit stages those with `--force`, and doctor's `integration files` check warns about any that remain untracked. Setup leaves out an integration file that already held content discern didn't write, since it may carry credentials, and names it for the coding agent.
+
+Git stages a tracked file beneath an ignored folder but still exits 1, so update's regeneration commit stages its paths with `--force`. They come from `git status`, which never lists an ignored untracked file, so the flag admits nothing new.
 
 ## Clone-local Git configuration
 

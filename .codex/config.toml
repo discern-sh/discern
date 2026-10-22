@@ -1,4 +1,4 @@
-# Generated automatically by discern via the Codex integration and discern.toml | https://discern.sh
+# MCP server, writable-root, and doc-size entries managed by discern via the Codex integration and discern.toml | https://discern.sh
 project_doc_max_bytes = 65536
 
 [sandbox_workspace_write]

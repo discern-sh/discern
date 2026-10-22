@@ -42,7 +42,7 @@
 /site/pages/v2.html
 
 # --- discern ---
-# Generated automatically by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
+# This block managed by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
 # discern's managed ignore rules: machine-local provider state only.
 # The skills discern materializes are ignored by an ignore file inside
 # each provider skills directory that lists just those entries, so

@@ -8,7 +8,7 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { artifactProvenanceMarker } from "../src/shared/brand.ts";
 import {
   DISCERN_AUTHORED_COMMIT_SITES,
   discernCommitMessage,
@@ -287,7 +287,10 @@ Deno.test("DISCERN_NO_ATTRIBUTION couples trailer, marker, and note author witho
       values: undefined,
     }, env);
     assertEquals(message.includes("done@discern.sh"), attributed);
-    const marker = generatedArtifactMarker("the source registry", env);
+    const marker = artifactProvenanceMarker(
+      { source: "the source registry" },
+      env,
+    );
     assertEquals(marker.includes("discern.sh"), attributed);
     assertEquals(
       proofNoteAuthorEnvironment(env),

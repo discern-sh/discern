@@ -7,7 +7,9 @@
  * `docs/` folder of its own (the map lives at its own default home and never touches
  * it — the consent message reassures rather than offers to adopt it; ADR 0100, ADR
  * 0131), a pre-existing agent-instruction file `begin` will fold into the
- * instruction source, the agents detected as installed (ADR 0069), and the exact sibling
+ * instruction source, the agents detected as installed (ADR 0069), any of their
+ * integration files the project's own ignore rules exclude or that already hold
+ * someone else's content, and the exact sibling
  * path the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `instructions`
  * block (the pre-composed "message to your human": what discern adds, what it will do
  * and cost, the model question, the worktree location) it relays and
@@ -27,6 +29,9 @@ import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import { consentAgentSet } from "../lib/detect_agents.ts";
 import { allInstructionFilePaths } from "../lib/providers.ts";
+import { existingIntegrationFiles } from "../lib/ignored_integration_files.ts";
+import { reincludedIntegrationFiles } from "../lib/agent_gitignore.ts";
+import { describePaths } from "../shared/ignored_integration.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import { pathExists } from "../shared/fs_presence.ts";
@@ -137,6 +142,13 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   const agents = await consentAgentSet();
   const detected = agents.detected;
   const effectiveAgents = agents.set.wired.map((a) => a.name);
+  // Integration files of that set the project's own rules exclude, which
+  // discern's `.gitignore` block will re-include, and those that already hold
+  // someone else's content, which setup leaves for the agent to resolve.
+  const ignored = await reincludedIntegrationFiles(destDir, effectiveAgents);
+  const existing = git.kind === "not-a-repo"
+    ? []
+    : await existingIntegrationFiles(destDir, effectiveAgents) ?? [];
   // The grounded facts the consent message is built from — the exact sibling
   // worktree path, whether a docs/ folder already exists, whether git is here at
   // all, and the agent set `begin` will wire — derived once in the shared module
@@ -151,10 +163,16 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   } = await deriveConsentContext(
     destDir,
     agents.set,
+    ignored,
   );
   const existingInstructions = await findExistingInstructions(destDir);
 
-  const conflicts = buildConflicts(git, identity, existingInstructions);
+  const conflicts = buildConflicts(
+    git,
+    identity,
+    existingInstructions,
+    existing,
+  );
   // The consent conversation as ONE ready-to-relay prose block, built once and rendered
   // identically in every result representation — never split into fields, which agents
   // summarize and weaken (ADR 0078). discern ships the script, not stage directions
@@ -169,6 +187,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     gitRepo,
     agents: agents.set,
     projectName,
+    ignoredIntegrationFiles: ignored,
   });
   // Without git the funnel's next action is to CREATE the repository setup's
   // isolation needs (then re-run the preflight) — never straight to `begin`,
@@ -192,6 +211,8 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
           exists: docsExists,
         },
         existing_instructions: existingInstructions,
+        ignored_integration_files: ignored,
+        existing_integration_files: existing,
         agents_detected: detected,
         agents_effective: effectiveAgents,
         worktree_path: worktreePath,
@@ -257,6 +278,7 @@ function buildConflicts(
   git: Awaited<ReturnType<typeof worktreeState>>,
   identity: boolean,
   existingInstructions: string[],
+  existingIntegration: readonly string[],
 ): SetupVerifyConflict[] {
   const conflicts: SetupVerifyConflict[] = [];
   if (git.kind === "not-a-repo") {
@@ -287,6 +309,15 @@ function buildConflicts(
       detail: `Found existing agent instructions (${
         existingInstructions.join(", ")
       }). begin preserves them by folding their content into ${SOURCE_PATHS.instructions.defaultPath} — nothing is lost, and you reconcile any overlap with discern's instructions at the end of setup.`,
+    });
+  }
+  if (existingIntegration.length > 0) {
+    conflicts.push({
+      kind: "existing_integration_files",
+      detail:
+        `These integration files already hold entries discern didn't write, which can include personal settings or credentials: ${
+          describePaths(existingIntegration)
+        }. begin adds discern's entries but leaves them out of its commit. Read each: commit it if the other entries are safe to share, or move the personal ones to the tool's user-level settings first.`,
     });
   }
   return conflicts;

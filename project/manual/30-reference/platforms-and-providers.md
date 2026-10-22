@@ -426,10 +426,10 @@ This file is for worktrees the Codex app manages. discern's own worktrees still 
 
 Codex loads this rules file after you trust the project. Each rule allows a command that begins with the listed words, wherever Codex runs it, so Codex lets your agent stage and commit its work without asking you first. discern writes its own file and leaves project files such as `.codex/rules/default.rules` unchanged.
 
-The generated file allows only these prefixes. Its first line is discern's marker comment, which `DISCERN_NO_ATTRIBUTION` shortens:
+discern's rules file allows only these prefixes. Its first line is discern's marker comment, which `DISCERN_NO_ATTRIBUTION` shortens:
 
 ```text
-# Generated automatically by discern via the bundled Codex project rules | https://discern.sh
+# These rules managed by discern via the bundled Codex project rules | https://discern.sh
 # Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(

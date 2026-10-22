@@ -1236,13 +1236,18 @@ async function resolveGeneratedConflicts(
   };
 }
 
-/** Commit the exact regenerated paths after an update has merged its source. */
+/**
+ * Commit the exact regenerated paths after an update has merged its source.
+ * Every path comes from `git status`, which never lists an ignored untracked
+ * file, so `--force` admits nothing new: it only stops Git exiting 1 after
+ * staging a tracked file beneath a folder the project's ignore rules exclude.
+ */
 export async function commitUpdateRegeneration(
   cwd: string,
   paths: readonly string[],
 ): Promise<GitResult> {
   const staged = await git(
-    ["add", "-A", "--", ...paths.map(literalPathspec)],
+    ["add", "-A", "--force", "--", ...paths.map(literalPathspec)],
     cwd,
   );
   if (!staged.success) {

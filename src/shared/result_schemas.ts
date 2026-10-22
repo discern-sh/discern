@@ -2748,6 +2748,16 @@ export const SetupVerifyFindingsSchema = z.strictObject({
     exists: z.boolean(),
   }),
   existing_instructions: z.array(z.string()),
+  /** Integration files of the effective agent set that the project's own root
+   * rules exclude, each with the deciding rule: discern's `.gitignore` block
+   * re-includes exactly these. */
+  ignored_integration_files: z.array(z.strictObject({
+    path: z.string(),
+    rule: z.string(),
+  })).optional(),
+  /** Integration files that already exist untracked with content discern
+   * didn't write; setup leaves them out of its commit for the agent. */
+  existing_integration_files: z.array(z.string()).optional(),
   agents_detected: z.array(z.string()),
   agents_effective: z.array(z.string()),
   worktree_path: z.string(),
@@ -3137,6 +3147,9 @@ export const SetupBeginDataSchema = z.strictObject({
   /** The git stderr line explaining a FAILED machinery auto-commit (absent when
    * committed, or when the skip was deliberate). */
   machinery_commit_error: z.string().optional(),
+  /** Integration files that already held content discern didn't write, left
+   * out of the machinery commit for the coding agent to resolve. */
+  existing_integration_files: z.array(z.string()).optional(),
   discern_version: z.string().optional(),
   written: z.array(z.string()).optional(),
   instruction_refresh: InstructionRefreshDataSchema.optional(),

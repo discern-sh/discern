@@ -23,16 +23,17 @@ Before you or your agent edit a file discern put in your project, this page tell
 
 Say you want every agent working on your recipe app to run the tests before it commits, so you open `AGENTS.md` to add that rule. `AGENTS.md` is a generated file: the next `discern refresh` rebuilds it from the project's instruction source, and your line would disappear. The rule belongs in `discern/instructions.md`, which is yours, and the refresh compiles it into every agent file.
 
-| Find                                | Go to                                                                   |
-| ----------------------------------- | ----------------------------------------------------------------------- |
-| Whether you can edit a file         | [The ownership contract](#the-ownership-contract)                       |
-| A particular file discern registers | [Registered project paths](#registered-project-paths)                   |
-| How Git treats discern's files      | [How Git treats registered paths](#how-git-treats-registered-paths)     |
-| Git settings discern writes         | [Clone-local Git configuration](#clone-local-git-configuration)         |
-| Records inside `.git`               | [Runtime state inside `.git`](#runtime-state-inside-git)                |
-| Refs discern creates                | [Git refs](#git-refs)                                                   |
-| Temporary files and crash reports   | [Temporary files and crash records](#temporary-files-and-crash-records) |
-| What uninstall removes and keeps    | [What uninstall removes and keeps](#what-uninstall-removes-and-keeps)   |
+| Find                                | Go to                                                                       |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| Whether you can edit a file         | [The ownership contract](#the-ownership-contract)                           |
+| A particular file discern registers | [Registered project paths](#registered-project-paths)                       |
+| How Git treats discern's files      | [How Git treats registered paths](#how-git-treats-registered-paths)         |
+| Files your own ignore rules exclude | [Integration files your rules ignore](#integration-files-your-rules-ignore) |
+| Git settings discern writes         | [Clone-local Git configuration](#clone-local-git-configuration)             |
+| Records inside `.git`               | [Runtime state inside `.git`](#runtime-state-inside-git)                    |
+| Refs discern creates                | [Git refs](#git-refs)                                                       |
+| Temporary files and crash reports   | [Temporary files and crash records](#temporary-files-and-crash-records)     |
+| What uninstall removes and keeps    | [What uninstall removes and keeps](#what-uninstall-removes-and-keeps)       |
 
 ## The ownership contract
 
@@ -66,7 +67,7 @@ Each shared or generated file also has a provenance class, which decides whether
 
 - **Context-loaded:** no marker. Agents load agent files and skills in full, so a marker would take up space in every session's context, and coding tools render comments differently. Instructions and drift checks enforce ownership instead.
 - **Comment-incapable:** no marker, because JSON doesn't allow comments.
-- **Comment-capable non-context:** the marker names the file's source, as the second line of the [`.gitignore` block](#gitignore) below does. By default it also names discern and links to [discern.sh](https://discern.sh). A non-empty `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product name and link.
+- **Comment-capable non-context:** the marker names the file's source, as the second line of the [`.gitignore` block](#gitignore) below does. In a shared file, it names only the part discern maintains, such as "This block". By default the marker also names discern and links to [discern.sh](https://discern.sh). A non-empty `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product name and link.
 
 A missing marker doesn't make a file project-owned, so look the file up in the inventory below before you edit it.
 
@@ -123,7 +124,7 @@ Configuring a different path moves a file, but its ownership still decides who m
 
 The agent files `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are tracked, so an agent in a fresh clone, including a cloud agent, reads its instructions before discern has run. `discern done` blocks a stale copy, and accepts a missing one ([ADR 0034](https://discern.sh/docs/decisions/0034-agents-md-untracked-currency-check), [ADR 0128](https://discern.sh/docs/decisions/0128-enumerated-ownership-tracked-guidance)).
 
-The tracked-refresh plan, the changes an ordinary `discern refresh` would make to tracked files, also covers discern's portions of other tracked files: the generated attributes, the provider integrations, and the ADR index. `discern done` and `discern accept` require that plan to be empty before a change lands, so the landed commit already holds their current versions. After landing, acceptance materializes only ignored or local files ([ADR 0264](https://discern.sh/docs/decisions/0264-tracked-refresh-convergence-precedes-landing)).
+The tracked-refresh plan, the changes an ordinary `discern refresh` would make to tracked files, also covers discern's portions of other tracked files: the generated attributes, the exceptions in discern's `.gitignore` block, the provider integrations, and the ADR index. `discern done` and `discern accept` require that plan to be empty before a change lands, so the landed commit already holds their current versions. After landing, acceptance materializes only ignored or local files ([ADR 0264](https://discern.sh/docs/decisions/0264-tracked-refresh-convergence-precedes-landing)).
 
 Materialized skills and provider-local files stay out of Git: `discern done` fails at its `tracked_artifacts` stage if one of them has been force-added. Another tool's skills are never flagged.
 
@@ -142,7 +143,7 @@ discern ignores provider-local files by their exact registered paths, so neighbo
 
 ```text
 # --- discern ---
-# Generated automatically by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
+# This block managed by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
 # discern's managed ignore rules: machine-local provider state only.
 # The skills discern materializes are ignored by an ignore file inside
 # each provider skills directory that lists just those entries, so
@@ -158,6 +159,19 @@ discern ignores provider-local files by their exact registered paths, so neighbo
 You can add ignore rules for the agent files outside discern's block if you prefer, since the stale-copy check accepts a missing agent file.
 
 discern owns only its marked block, plus any standalone rule outside it that exactly matches one the current provider registry declares. Similar broad or retired rules outside the block stay yours. When `[worktree].root` resolves inside the repository, the block also ignores that exact directory. The default worktree location, beside the project, needs no rule.
+
+## Integration files your rules ignore
+
+The Shared provider files above, such as `.mcp.json`, are tracked so a fresh clone loads discern's tools. When your own `.gitignore` excludes one, discern's block re-includes exactly that file. For a folder rule, the block re-includes the folder, ignores its contents again, then re-includes discern's files, so everything else the rule matched stays ignored. discern never edits your rules, and a line of yours that matches one of these exceptions stays yours. The block keeps its place unless a rule of yours after it excludes one of these files; it then moves to the end, because Git applies the last matching rule. `discern refresh` keeps these exceptions current, so adding a coding agent needs nothing more.
+
+Setup leaves out of its commit an integration file that already held another tool's entries, since those can be personal settings or credentials, and names it for your agent. `discern doctor` warns under **integration files** when Git still ignores one of these files and doesn't track it.
+
+## Shared provider configuration
+
+Coding tools' configuration files, such as `.mcp.json`, `.claude/settings.json`, and `.codex/config.toml`, often hold entries from several tools. discern changes only its own entries there, in a form the other tools don't have to undo:
+
+- **JSON files keep their layout.** discern writes its entry in the file's existing indentation, line endings, and final newline, so another tool that writes the same file sees only that entry change. Uninstalling removes the entry the same way. A new file, or an empty `{}`, gets two-space indentation.
+- **Markers claim only discern's part.** In a shared file that allows comments, discern's marker names the entries it maintains instead of calling the file generated. `.codex/config.toml`, for example, opens with `# MCP server, writable-root, and doc-size entries managed by discern via the Codex integration and discern.toml`, so the tables other tools write there stay visibly theirs.
 
 ## Skills directories
 

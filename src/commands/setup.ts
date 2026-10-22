@@ -199,6 +199,14 @@ import {
   landingSummary,
 } from "./setup_accept.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
+import { describePaths } from "../shared/ignored_integration.ts";
+import {
+  integrationFilesToLeaveOut,
+  type IntegrationStaging,
+  integrationStaging,
+  PLAIN_STAGING,
+  stageMachineryPaths,
+} from "./setup_ignored_files.ts";
 import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
 import { instructionSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 import {
@@ -1580,6 +1588,13 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     scaffoldInput = resolved.input;
   }
 
+  // An integration file that already holds someone else's content may carry
+  // personal settings or credentials, so its state is read before setup writes
+  // its own entries, and the machinery commit leaves it to the coding agent.
+  const leaveOut = freshInstall && !opts.dryRun && scaffoldInput !== undefined
+    ? await integrationFilesToLeaveOut(destDir, scaffoldInput.config.agents)
+    : [];
+
   // Detect the repo's real integration branch BEFORE the `discern-setup` checkout
   // below (the last detection probe reads the currently checked-out branch), so the
   // scaffold stamps `[repository].trunk` with the truth rather than assuming
@@ -1718,7 +1733,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   let machineryCommit: AutoCommitOutcome | undefined;
   if (setupBranch !== undefined) {
     machineryCommit = scaffold !== undefined
-      ? await commitScaffoldedMachinery(destDir, scaffold)
+      ? await commitScaffoldedMachinery(destDir, scaffold, leaveOut)
       : await commitPendingMachinery(destDir);
   }
   const machineryCommitted = machineryCommit?.state === "committed";
@@ -1769,6 +1784,16 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   let instructionsCompiled = scaffold?.instructionsCompiled ?? true;
   let instructionsErrors = scaffold?.instructionsErrors ?? [];
   let setupHints = scaffold?.hints ?? [];
+  if (leaveOut.length > 0) {
+    setupHints = mergeHintTexts(
+      setupHints,
+      hintTexts([
+        fire(HINTS["setup-existing-integration-files"], {
+          files: describePaths(leaveOut),
+        }),
+      ]),
+    );
+  }
   if (laid.includes(normalizeMapDir(mapDir))) {
     try {
       const refreshed = await compileInstructions(
@@ -1882,6 +1907,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       ...(machineryCommit?.state === "failed"
         ? { machinery_commit_error: machineryCommit.detail }
         : {}),
+      ...(leaveOut.length === 0
+        ? {}
+        : { existing_integration_files: leaveOut }),
       next_action: "discern setup step 1",
       project: {
         slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
@@ -1959,6 +1987,13 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   } else if (machineryCommit?.state === "failed") {
     scaffoldLines.push(
       `Could not auto-commit discern's wiring — commit the scaffolded files yourself once it's fixed. Git said: ${machineryCommit.detail}`,
+    );
+  }
+  if (leaveOut.length > 0) {
+    scaffoldLines.push(
+      `Didn't commit the integration files that already held entries discern didn't write: ${
+        describePaths(leaveOut)
+      }. Resolve them before setup finishes, as the hint below explains.`,
     );
   }
   if (laid.length > 0) {
@@ -2213,6 +2248,7 @@ function authoredContentSeeds(instructionRel: string): ReadonlySet<string> {
 async function commitScaffoldedMachinery(
   root: string,
   scaffold: ScaffoldOutcome,
+  leaveOut: readonly string[],
 ): Promise<AutoCommitOutcome> {
   const paths = [
     ...new Set([
@@ -2225,7 +2261,11 @@ async function commitScaffoldedMachinery(
   ]
     .filter((p) => !authoredContentSeeds(scaffold.instructionRel).has(p))
     .sort();
-  return await commitMachineryPaths(root, paths);
+  return await commitMachineryPaths(
+    root,
+    paths,
+    await integrationStaging(root, scaffold.config.agents, leaveOut),
+  );
 }
 
 /**
@@ -2257,23 +2297,25 @@ async function commitPendingMachinery(
  * evidence before attempting its commit. If Git rejects the commit, that record is
  * the only authority a later resume may use. Evidence capture also refuses any
  * unrelated staged path. Best-effort and fail-open: an unprovable diff is left for
- * the agent to commit by hand.
+ * the agent to commit by hand. `staging` forces integration files an ignore rule
+ * still matches and leaves out the ones that already held other content.
  */
 async function commitMachineryPaths(
   root: string,
   paths: string[],
+  staging: IntegrationStaging = PLAIN_STAGING,
 ): Promise<AutoCommitOutcome> {
-  if (paths.length === 0) {
+  const stage = await stageMachineryPaths(root, paths, staging);
+  if ("stderr" in stage) {
+    return { state: "failed", detail: gitFailureLine(stage.stderr) };
+  }
+  if (stage.staged.length === 0) {
     // Nothing to commit (e.g. a fully-idempotent re-run).
     return { state: "skipped" };
   }
-  const add = await runGit(["add", "--", ...paths], { cwd: root });
-  if (!add.success) {
-    return { state: "failed", detail: gitFailureLine(add.stderr) };
-  }
   let evidence: SetupMachineryCommitEvidence | undefined;
   try {
-    evidence = await recordSetupMachineryCommitEvidence(root, paths);
+    evidence = await recordSetupMachineryCommitEvidence(root, stage.staged);
   } catch {
     return { state: "skipped" };
   }
