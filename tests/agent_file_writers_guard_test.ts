@@ -26,20 +26,14 @@ const SHIPPED_ONLY = {
   include: (path: string): boolean => path.startsWith("src/"),
 };
 
-/** Every shipped use of `names`, keyed `<module>#<function> > <name>`. */
-async function shippedUses(
-  guard: string,
+/** Every use of `names` in `paths`, keyed `<module>#<function> > <name>`. */
+async function usesIn(
+  paths: readonly string[],
   names: readonly string[],
 ): Promise<Set<string>> {
   const accessors = new Set(names);
   const uses = new Set<string>();
-  for (
-    const path of await structuralGuardScope({
-      guard,
-      universe: "authored-ts",
-      narrow: SHIPPED_ONLY,
-    })
-  ) {
+  for (const path of paths) {
     const text = await Deno.readTextFile(join(REPO_ROOT, path));
     for (const use of accessorUses(path, text, accessors)) uses.add(use);
   }
@@ -72,8 +66,12 @@ function enclosingFunction(use: string): string {
 
 Deno.test("every use of the compiled agent-file render is enrolled, and only the refresh planner writes it", async () => {
   assertEnrolled(
-    await shippedUses(
-      "tests/agent_file_writers_guard_test.ts#render-uses",
+    await usesIn(
+      await structuralGuardScope({
+        guard: "tests/agent_file_writers_guard_test.ts#render-uses",
+        universe: "authored-ts",
+        narrow: SHIPPED_ONLY,
+      }),
       AGENT_FILE_RENDERERS,
     ),
     AGENT_FILE_RENDER_USES,
@@ -90,8 +88,12 @@ Deno.test("every use of the compiled agent-file render is enrolled, and only the
 
 Deno.test("every agent-file write path is enrolled and declares how its caller learns what it discarded", async () => {
   assertEnrolled(
-    await shippedUses(
-      "tests/agent_file_writers_guard_test.ts#write-uses",
+    await usesIn(
+      await structuralGuardScope({
+        guard: "tests/agent_file_writers_guard_test.ts#write-uses",
+        universe: "authored-ts",
+        narrow: SHIPPED_ONLY,
+      }),
       AGENT_FILE_WRITE_CHAIN,
     ),
     AGENT_FILE_WRITE_USES,
