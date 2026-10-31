@@ -20,7 +20,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { type CliRun, decodeCliResult } from "./decode_cli_result.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const QUESTION =
@@ -48,17 +48,20 @@ const CONFIG_CHECKPOINT = [
 
 /** Decode the accept envelope's emergency payload, requiring its presence. */
 function emergencyData(
-  stdout: string,
+  run: CliRun,
 ): NonNullable<
   Extract<
     NonNullable<ReturnType<typeof decodeCliResult<"accept">>["data"]>,
     { emergency?: unknown }
   >["emergency"]
 > {
-  const envelope = decodeCliResult(stdout, "accept");
-  assert(envelope.data !== undefined && "emergency" in envelope.data, stdout);
+  const envelope = decodeCliResult(run, "accept");
+  assert(
+    envelope.data !== undefined && "emergency" in envelope.data,
+    run.stdout,
+  );
   const emergency = envelope.data.emergency;
-  assert(emergency !== undefined, stdout);
+  assert(emergency !== undefined, run.stdout);
   return emergency;
 }
 
@@ -66,7 +69,7 @@ function emergencyData(
 async function emergency(
   cwd: string,
   ...args: string[]
-): Promise<{ code: number; output: string; stdout: string }> {
+): Promise<{ code: number; output: string; stdout: string; stderr: string }> {
   return await runAgent(cwd, ["accept", "emergency", ...args, "--json"]);
 }
 
@@ -91,7 +94,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     const unprepared = await emergency(wt, "--reason", reason);
     assertEquals(unprepared.code, 1, unprepared.output);
     assertTerminalTextIncludes(
-      decodeCliResult(unprepared.stdout, "accept").message ?? "",
+      decodeCliResult(unprepared, "accept").message ?? "",
       "Checkpoint judgment or its evidence is outstanding. Run accept emergency --prepare --reason <text> to settle checkpoint triggers and answer the served questions. The plan then asks the owner to approve each unmet answer as a variance.",
     );
 
@@ -104,7 +107,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       "--dry-run",
     );
     assertEquals(dry.code, 0, dry.output);
-    const dryEnvelope = decodeCliResult(dry.stdout, "accept");
+    const dryEnvelope = decodeCliResult(dry, "accept");
     assertEquals(dryEnvelope.dry_run, true);
     assertEquals(
       dryEnvelope.message,
@@ -114,7 +117,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     // Preparation serves the outstanding question and stops there.
     const served = await emergency(wt, "--prepare", "--reason", reason);
     assertEquals(served.code, 1, served.output);
-    const servedEnvelope = decodeCliResult(served.stdout, "accept");
+    const servedEnvelope = decodeCliResult(served, "accept");
     assertEquals(servedEnvelope.error, "awaiting_declaration");
     assertStringIncludes(
       servedEnvelope.message ?? "",
@@ -144,7 +147,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       "bogus",
     );
     assertEquals(bogus.code, 1, bogus.output);
-    const bogusEnvelope = decodeCliResult(bogus.stdout, "accept");
+    const bogusEnvelope = decodeCliResult(bogus, "accept");
     assertEquals(bogusEnvelope.error, "invalid_arguments");
     assertStringIncludes(
       bogusEnvelope.message ?? "",
@@ -167,7 +170,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     const unmetPrepared = await emergency(wt, "--prepare", "--reason", reason);
     assertEquals(unmetPrepared.code, 0, unmetPrepared.output);
     assertTerminalTextIncludes(
-      decodeCliResult(unmetPrepared.stdout, "accept").message ?? "",
+      decodeCliResult(unmetPrepared, "accept").message ?? "",
       "for the exact owner-review plan, which asks the owner to approve each unmet answer as a variance. This receipt grants no landing authority.",
     );
 
@@ -181,11 +184,11 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       "api-review",
     );
     assertEquals(prepared.code, 0, prepared.output);
-    const receipt = emergencyData(prepared.stdout).preparation;
+    const receipt = emergencyData(prepared).preparation;
     assert(receipt !== undefined && receipt.startsWith("emergency-review-v1."));
-    assertEquals(emergencyData(prepared.stdout).outcome, "prepared");
+    assertEquals(emergencyData(prepared).outcome, "prepared");
     assertEquals(
-      decodeCliResult(prepared.stdout, "accept").message,
+      decodeCliResult(prepared, "accept").message,
       `Checkpoint preparation is complete. No validation jobs, passing Proof, or integration were produced. Run accept emergency --reason <text> --preparation-receipt ${receipt} for the exact owner-review plan. This receipt grants no landing authority.`,
     );
 
@@ -199,7 +202,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     );
     assertEquals(garbage.code, 1, garbage.output);
     assertTerminalTextIncludes(
-      decodeCliResult(garbage.stdout, "accept").message ?? "",
+      decodeCliResult(garbage, "accept").message ?? "",
       "Use the preparation receipt returned by accept emergency --prepare.",
     );
 
@@ -213,7 +216,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       receipt,
     );
     assertEquals(preview.code, 1, preview.output);
-    const previewEnvelope = decodeCliResult(preview.stdout, "accept");
+    const previewEnvelope = decodeCliResult(preview, "accept");
     assertEquals(previewEnvelope.error, "awaiting_consent");
     assertStringIncludes(
       previewEnvelope.message ?? "",
@@ -240,7 +243,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     );
     assertEquals(changed.code, 1, changed.output);
     assertTerminalTextIncludes(
-      decodeCliResult(changed.stdout, "accept").message ?? "",
+      decodeCliResult(changed, "accept").message ?? "",
       "Checkpoint declarations changed after preparation. Prepare the current repair again.",
     );
 
@@ -257,7 +260,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
     );
     assertEquals(stale.code, 1, stale.output);
     assertTerminalTextIncludes(
-      decodeCliResult(stale.stdout, "accept").message ?? "",
+      decodeCliResult(stale, "accept").message ?? "",
       "Emergency preparation belongs to another candidate. Prepare the current repair again.",
     );
 
@@ -272,7 +275,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       "api-review",
     );
     assertEquals(final.code, 0, final.output);
-    const receipt3 = emergencyData(final.stdout).preparation;
+    const receipt3 = emergencyData(final).preparation;
     assert(receipt3 !== undefined);
     const plan = await emergency(
       wt,
@@ -282,7 +285,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       receipt3,
     );
     assertEquals(plan.code, 1, plan.output);
-    const token = emergencyData(plan.stdout).confirmation;
+    const token = emergencyData(plan).confirmation;
     assert(token !== undefined, plan.output);
     const landed = await emergency(
       wt,
@@ -295,7 +298,7 @@ Deno.test("checkpoint preparation serves the question, records --met, and its re
       token,
     );
     assertEquals(landed.code, 0, landed.output);
-    const landedEmergency = emergencyData(landed.stdout);
+    const landedEmergency = emergencyData(landed);
     assertEquals(landedEmergency.outcome, "landed");
     assert(landedEmergency.landing_id !== undefined);
     const record = await readCompletionRecord(dir, {
@@ -344,7 +347,7 @@ Deno.test("an unmet emergency answer lands only under the owner's exact variance
       why,
     );
     assertEquals(prepared.code, 0, prepared.output);
-    const receipt = emergencyData(prepared.stdout).preparation;
+    const receipt = emergencyData(prepared).preparation;
     assert(receipt !== undefined, prepared.output);
     const plan = (...args: string[]) =>
       emergency(
@@ -360,7 +363,7 @@ Deno.test("an unmet emergency answer lands only under the owner's exact variance
     // its confirmation must carry.
     const preview = await plan();
     assertEquals(preview.code, 1, preview.output);
-    const previewEnvelope = decodeCliResult(preview.stdout, "accept");
+    const previewEnvelope = decodeCliResult(preview, "accept");
     assertEquals(previewEnvelope.error, "awaiting_consent");
     assertStringIncludes(
       previewEnvelope.message ?? "",
@@ -375,12 +378,12 @@ Deno.test("an unmet emergency answer lands only under the owner's exact variance
       previewEnvelope.message ?? "",
       "--variance api-review.",
     );
-    const variances = emergencyData(preview.stdout).variances;
+    const variances = emergencyData(preview).variances;
     assertEquals(
       variances?.map((variance) => [variance.checkpoint, variance.why]),
       [["api-review", why]],
     );
-    const token = emergencyData(preview.stdout).confirmation;
+    const token = emergencyData(preview).confirmation;
     assert(token !== undefined, preview.output);
 
     // A confirmation without the variance serves the plan again, and a
@@ -388,7 +391,7 @@ Deno.test("an unmet emergency answer lands only under the owner's exact variance
     const unvaried = await plan("--confirmed", "--approval-token", token);
     assertEquals(unvaried.code, 1, unvaried.output);
     assertTerminalTextIncludes(
-      decodeCliResult(unvaried.stdout, "accept").message ?? "",
+      decodeCliResult(unvaried, "accept").message ?? "",
       "missing: `api-review`.",
     );
     const other = await plan(
@@ -400,7 +403,7 @@ Deno.test("an unmet emergency answer lands only under the owner's exact variance
     );
     assertEquals(other.code, 1, other.output);
     assertEquals(
-      decodeCliResult(other.stdout, "accept").error,
+      decodeCliResult(other, "accept").error,
       "invalid_value",
       other.output,
     );
@@ -415,7 +418,7 @@ Deno.test("an unmet emergency answer lands only under the owner's exact variance
       "api-review",
     );
     assertEquals(landed.code, 0, landed.output);
-    const landedEmergency = emergencyData(landed.stdout);
+    const landedEmergency = emergencyData(landed);
     assertEquals(landedEmergency.variances, variances);
     assert(landedEmergency.landing_id !== undefined);
     const record = await readCompletionRecord(dir, {

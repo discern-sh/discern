@@ -74,14 +74,14 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
 
         const welcome = await harness.run(["setup", "--json"]);
         assertEquals(welcome.code, 0, welcome.output);
-        const welcomeResult = decodeCliResult(welcome.stdout, "setup");
+        const welcomeResult = decodeCliResult(welcome, "setup");
         assertResultDataKey(welcomeResult, "phase");
         assertEquals(welcomeResult.data.phase, "fresh");
         assertEquals(await harness.snapshot(), initial);
 
         const verify = await harness.run(["setup", "verify", "--json"]);
         assertEquals(verify.code, 0, verify.output);
-        const verifyResult = decodeCliResult(verify.stdout, "setup verify");
+        const verifyResult = decodeCliResult(verify, "setup verify");
         assertResultDataKey(verifyResult, "phase");
         assertEquals(verifyResult.data.phase, "fresh");
         assertEquals(
@@ -109,7 +109,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         ]);
         assertEquals(unconfirmed.code, 1, unconfirmed.output);
         assertEquals(
-          decodeCliResult(unconfirmed.stdout, "setup begin").error,
+          decodeCliResult(unconfirmed, "setup begin").error,
           "awaiting_consent",
         );
         assertEquals(await harness.snapshot(), initial);
@@ -127,7 +127,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
           "--json",
         ]);
         assertEquals(begun.code, 0, begun.output);
-        const beginResult = decodeCliResult(begun.stdout, "setup begin");
+        const beginResult = decodeCliResult(begun, "setup begin");
         assertResultDataKey(beginResult, "complete");
         assertEquals(beginResult.data.complete, false);
         assertEquals(beginResult.data.branch, SETUP_BRANCH);
@@ -150,7 +150,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
             "--json",
           ]);
           assertEquals(step.code, 0, step.output);
-          const result = decodeCliResult(step.stdout, "setup step");
+          const result = decodeCliResult(step, "setup step");
           assertResultDataKey(result, "step");
           assertEquals(result.data.step, page.step);
           assertEquals(result.data.spine.next_action, page.nextCommand);
@@ -331,7 +331,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         const beforeDone = await harness.snapshot();
         const done = await harness.run(["setup", "done", "--json"]);
         assertEquals(done.code, 0, done.output);
-        const doneResult = decodeCliResult(done.stdout, "setup done");
+        const doneResult = decodeCliResult(done, "setup done");
         assertResultDataKey(doneResult, "bootstrapped");
         assertEquals(doneResult.data.completion, "created");
         assertExists(doneResult.data.proof_line);
@@ -367,13 +367,17 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
 
         const deliberatelyTruncated = done.stdout.slice(0, 160);
         assertThrows(
-          () => decodeCliResult(deliberatelyTruncated, "setup done"),
+          () =>
+            decodeCliResult(
+              { ...done, stdout: deliberatelyTruncated },
+              "setup done",
+            ),
           Error,
           "Could not decode",
         );
         const replay = await harness.run(["setup", "done", "--json"]);
         assertEquals(replay.code, 0, replay.output);
-        const replayResult = decodeCliResult(replay.stdout, "setup done");
+        const replayResult = decodeCliResult(replay, "setup done");
         assertResultDataKey(replayResult, "bootstrapped");
         assertEquals(replayResult.data.completion, "replayed");
         assertEquals(replayResult.data.effects_performed, false);
@@ -385,7 +389,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
 
         const accepted = await harness.run(["setup", "accept", "--json"]);
         assertEquals(accepted.code, 0, accepted.output);
-        const acceptedResult = decodeCliResult(accepted.stdout, "setup accept");
+        const acceptedResult = decodeCliResult(accepted, "setup accept");
         assertResultDataKey(acceptedResult, "landed");
         assertEquals(acceptedResult.data.landed, true);
         assertEquals(
@@ -419,7 +423,7 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
 
         const status = await harness.run(["status", "--json"]);
         assertEquals(status.code, 0, status.output);
-        const statusResult = decodeCliResult(status.stdout, "status");
+        const statusResult = decodeCliResult(status, "status");
         assertResultDataKey(statusResult, "location");
         assertEquals(statusResult.data.pending_tracked_refresh, undefined);
         assertEquals(
@@ -471,13 +475,13 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
           "--json",
         ]);
         assertEquals(started.code, 0, started.output);
-        const startedResult = decodeCliResult(started.stdout, "start");
+        const startedResult = decodeCliResult(started, "start");
         assertResultDataKey(startedResult, "path");
         const effortPath = startedResult.data.path;
         assert(await targetExists(effortPath));
         const effortDone = await harness.runAt(effortPath, ["done", "--json"]);
         assertEquals(effortDone.code, 0, effortDone.output);
-        const effortDoneResult = decodeCliResult(effortDone.stdout, "done");
+        const effortDoneResult = decodeCliResult(effortDone, "done");
         assertEquals(effortDoneResult.ok, true);
         assertResultDataKey(effortDoneResult, "failed_stage");
         assertEquals(effortDoneResult.data.failed_stage, null);

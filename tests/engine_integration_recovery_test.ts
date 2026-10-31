@@ -204,7 +204,7 @@ Deno.test("integration recovery scenarios use independent copies of one converge
 
         const retried = await runAgent(beta, ["accept", "--json"]);
         assertEquals(retried.code, 0, retried.output);
-        const retriedResult = decodeCliResult(retried.stdout, "accept");
+        const retriedResult = decodeCliResult(retried, "accept");
         assertStringIncludes(
           retriedResult.message ?? "",
           "resumed the recorded landing",
@@ -260,7 +260,7 @@ Deno.test("integration recovery scenarios use independent copies of one converge
           },
         );
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         const composed = await gitOut(dir, "rev-parse", "main");
         assertResultDataKey(result, "landings");
         assertEquals(result.data.landings?.[0]?.integrated, true);
@@ -282,7 +282,7 @@ Deno.test("integration recovery scenarios use independent copies of one converge
 
         const retried = await runAgent(retryFrom, ["accept", "--json"]);
         assertEquals(retried.code, 0, retried.output);
-        const settled = decodeCliResult(retried.stdout, "accept");
+        const settled = decodeCliResult(retried, "accept");
         assertResultDataKey(settled, "proof_note");
         assertEquals(settled.data.proof_note?.write.status, "recorded");
         assert(
@@ -351,7 +351,7 @@ Deno.test("integration recovery scenarios use independent copies of one converge
 
         const retried = await runAgent(beta, ["accept", "--json"]);
         assertEquals(retried.code, 0, retried.output);
-        const retriedResult = decodeCliResult(retried.stdout, "accept");
+        const retriedResult = decodeCliResult(retried, "accept");
         assertStringIncludes(
           retriedResult.message ?? "",
           "resumed the recorded landing",
@@ -531,7 +531,7 @@ Deno.test("integration recovery scenarios use independent copies of one converge
         assert(waiting !== undefined);
         const settled = await waiting;
         assertEquals(settled.code, 0, settled.output);
-        const settledResult = decodeCliResult(settled.stdout, "accept");
+        const settledResult = decodeCliResult(settled, "accept");
         assertStringIncludes(
           settledResult.message ?? "",
           "already landed on main through a preceding landing",
@@ -577,7 +577,7 @@ Deno.test("integration recovery scenarios use independent copies of one converge
         assert(pending !== undefined);
         const landed = await pending;
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
 
         // The waiting request kept its identity: exactly the entered submission
         // landed, the later commit stayed on the branch, and the kept checkout
@@ -624,7 +624,7 @@ Deno.test("integration recovery scenarios use independent copies of one converge
         assert(pending !== undefined);
         const landed = await pending;
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assertEquals(await gitOut(dir, "rev-parse", "main"), entered);
         assertStringIncludes(result.message ?? "", "holds later commits");
         assert(await targetExists(betaPath));
@@ -700,7 +700,7 @@ Deno.test("a running done in the author checkout is never deadlocked by acceptan
             "--json",
           ]);
           assertEquals(refused.code, 1, refused.output);
-          const result = decodeCliResult(refused.stdout, "accept");
+          const result = decodeCliResult(refused, "accept");
           assertStringIncludes(result.message ?? "", "checkout boundary");
           assertStringIncludes(result.message ?? "", "Retry");
           assertEquals(await gitOut(dir, "rev-parse", "main"), tip);

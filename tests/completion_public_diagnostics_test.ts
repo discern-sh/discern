@@ -98,7 +98,7 @@ Deno.test("E11 dirty deletion and rename retain public diagnostics without compl
       assertEquals(result.code, 0, result.output);
       assertEquals((await observeCompletionRecords(path)).records, records);
       if (args[0] === "done") {
-        const decoded = decodeCliResult(result.stdout, "done");
+        const decoded = decodeCliResult(result, "done");
         assert(decoded.data !== undefined && "completion" in decoded.data);
         assertEquals(decoded.data.completion?.kind, "diagnostic");
         assertEquals(decoded.data.proof, undefined);
@@ -125,7 +125,7 @@ Deno.test("E12 detached standards measure their exact checkout without source cl
     ) {
       const checked = await runAgent(path, args);
       assertEquals(checked.code, 0, checked.output);
-      const decoded = decodeCliResult(checked.stdout, "standards");
+      const decoded = decodeCliResult(checked, "standards");
       assert(
         decoded.data !== undefined && "producer_executions" in decoded.data,
       );

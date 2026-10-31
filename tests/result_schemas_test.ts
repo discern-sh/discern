@@ -878,7 +878,7 @@ const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
         : testCase.id === "worktreeEnsure"
         ? "worktree ensure"
         : testCase.id;
-      const envelope = decodeCliResult(result.stdout, command);
+      const envelope = decodeCliResult(result, command);
       expectSerializedFaithful(
         testCase.id,
         envelope,
@@ -895,7 +895,7 @@ const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
     assertEquals(identity.code, 0, identity.output);
     expectSerializedFaithful(
       "identity",
-      decodeCliResult(identity.stdout, "identity"),
+      decodeCliResult(identity, "identity"),
       "identity --port --json",
     );
   });
@@ -990,7 +990,7 @@ const SETUP_MAINTENANCE_FAITHFULNESS_CASE = defineFaithfulnessCase(
       const result = await runAgent(dir, [...testCase.args]);
       expectSerializedFaithful(
         testCase.id,
-        decodeCliResult(result.stdout, testCase.command),
+        decodeCliResult(result, testCase.command),
         testCase.args.join(" "),
       );
     }
@@ -2171,7 +2171,7 @@ const WORKTREE_PARK_FAITHFULNESS_CASE = defineFaithfulnessCase(
     assertEquals(preview.code, 0, preview.output);
     expectSerializedFaithful(
       "worktreePark",
-      decodeCliResult(preview.stdout, "worktree park"),
+      decodeCliResult(preview, "worktree park"),
       "worktree park dry-run",
     );
 
@@ -2184,7 +2184,7 @@ const WORKTREE_PARK_FAITHFULNESS_CASE = defineFaithfulnessCase(
     assertEquals(applied.code, 0, applied.output);
     expectSerializedFaithful(
       "worktreePark",
-      decodeCliResult(applied.stdout, "worktree park"),
+      decodeCliResult(applied, "worktree park"),
       "worktree park applied",
     );
   });

@@ -140,7 +140,7 @@ Deno.test("every version-reporting surface derives from DISCERN_VERSION", async 
 
     const cliVersion = await runCli(["--version"], dir);
     const doctorJson = decodeCliResult(
-      (await runCli(["doctor", "--json"], dir)).stdout,
+      await runCli(["doctor", "--json"], dir),
       "doctor",
     );
     assertResultDataKey(doctorJson, "discern_version");

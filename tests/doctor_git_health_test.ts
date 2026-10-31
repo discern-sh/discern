@@ -54,7 +54,7 @@ async function doctor(
   env: Record<string, string> = {},
 ): Promise<{ code: number; payload: DoctorPayload }> {
   const result = await runCli(["doctor", "--json"], dir, env);
-  const payload = decodeCliResult(result.stdout, "doctor");
+  const payload = decodeCliResult(result, "doctor");
   assert(payload.data !== undefined && "checks" in payload.data);
   return {
     code: result.code,

@@ -151,7 +151,7 @@ Deno.test("Gemini: the registry-rendered SessionStart seed and MCP registration 
     // refresh wires the MCP server INTO the same file (deep-merge, no clobber).
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
+    const refreshed = decodeCliResult(r, "refresh");
     assertResultDataKey(refreshed, "mcp_wired");
     const data = refreshed.data;
     assert(
@@ -187,7 +187,7 @@ Deno.test("Gemini: the registry-rendered SessionStart seed and MCP registration 
 
     // Idempotent: a second refresh re-wires nothing for Gemini.
     const r2 = await runAgent(dir, ["refresh", "--json"]);
-    const unchanged = decodeCliResult(r2.stdout, "refresh");
+    const unchanged = decodeCliResult(r2, "refresh");
     assertResultDataKey(unchanged, "mcp_wired");
     assertEquals(
       unchanged.data.mcp_wired.includes(".gemini/settings.json"),
@@ -218,7 +218,7 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     // refresh wires the MCP server (TOML) and the app worktree-lifecycle file.
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
+    const refreshed = decodeCliResult(r, "refresh");
     assertResultDataKey(refreshed, "mcp_wired");
     const data = refreshed.data;
     assert(
@@ -291,7 +291,7 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
 
     // Idempotent: a second refresh re-wires neither the MCP nor the env file.
     const r2 = await runAgent(dir, ["refresh", "--json"]);
-    const unchanged = decodeCliResult(r2.stdout, "refresh");
+    const unchanged = decodeCliResult(r2, "refresh");
     assertResultDataKey(unchanged, "mcp_wired");
     const data2 = unchanged.data;
     assertEquals(data2.mcp_wired.includes(".codex/config.toml"), false);
@@ -319,7 +319,7 @@ Deno.test("refresh re-seeds missing provider hook files for every configured hoo
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
+    const refreshed = decodeCliResult(r, "refresh");
     assertResultDataKey(refreshed, "hooks_wired");
     const data = refreshed.data;
     assertEquals([...data.hooks_wired].sort(), hookFiles);
@@ -333,7 +333,7 @@ Deno.test("refresh re-seeds missing provider hook files for every configured hoo
 
     const second = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(second.code, 0, second.output);
-    const unchanged = decodeCliResult(second.stdout, "refresh");
+    const unchanged = decodeCliResult(second, "refresh");
     assertResultDataKey(unchanged, "hooks_wired");
     assertEquals(unchanged.data.hooks_wired, []);
   });
@@ -367,7 +367,7 @@ Deno.test("refresh re-seeds provider hooks without clobbering user settings", as
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
+    const refreshed = decodeCliResult(r, "refresh");
     assertResultDataKey(refreshed, "hooks_wired");
     const data = refreshed.data;
     assertEquals([...data.hooks_wired].sort(), hookFiles);
@@ -413,7 +413,7 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
     // refresh wires Cursor's own .cursor/mcp.json and Copilot's co-owned .mcp.json.
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
+    const refreshed = decodeCliResult(r, "refresh");
     assertResultDataKey(refreshed, "mcp_wired");
     const data = refreshed.data;
     assert(
@@ -454,7 +454,7 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
 
     // Idempotent: a second refresh re-wires neither file.
     const r2 = await runAgent(dir, ["refresh", "--json"]);
-    const unchanged = decodeCliResult(r2.stdout, "refresh");
+    const unchanged = decodeCliResult(r2, "refresh");
     assertResultDataKey(unchanged, "mcp_wired");
     const data2 = unchanged.data;
     assertEquals(data2.mcp_wired.includes(".cursor/mcp.json"), false);
@@ -468,7 +468,7 @@ Deno.test("Cursor-only refresh emits AGENTS.md with the compiled instruction bod
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
+    const refreshed = decodeCliResult(r, "refresh");
     assertResultDataKey(refreshed, "agents_written");
     const data = refreshed.data;
     assertEquals(data.agents_written, ["AGENTS.md"]);
@@ -513,7 +513,7 @@ Deno.test("Cursor + Claude refresh emits AGENTS.md and points CLAUDE.md at it", 
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
+    const refreshed = decodeCliResult(r, "refresh");
     assertResultDataKey(refreshed, "agents_written");
     const data = refreshed.data;
     assertEquals(data.agents_written, ["AGENTS.md", "CLAUDE.md"]);
@@ -533,7 +533,7 @@ Deno.test("a default (Claude-only) refresh declares no worktree-app file — the
     await scaffoldEngine(dir); // agents = ["claude_code"]
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const refreshed = decodeCliResult(r.stdout, "refresh");
+    const refreshed = decodeCliResult(r, "refresh");
     assertResultDataKey(refreshed, "worktree_app_wired");
     assertEquals(refreshed.data.worktree_app_wired, []);
     assert(

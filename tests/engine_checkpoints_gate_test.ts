@@ -60,7 +60,7 @@ Deno.test("done: a fired stop checkpoint refuses until its conclusion is recorde
       async () => {
         const r = await runAgent(wt, ["done", "--json"]);
         assertEquals(r.code, 1, r.output);
-        const env = parseCheckpointGateJson(r.stdout);
+        const env = parseCheckpointGateJson(r);
         assertEquals(env.ok, false);
         assertEquals(env.verb, "done");
         assertEquals(env.error, AWAITING_DECLARATION_SLUG);
@@ -108,7 +108,7 @@ Deno.test("done: a fired stop checkpoint refuses until its conclusion is recorde
           "--json",
         ]);
         assertEquals(r.code, 1);
-        const env = parseJson(r.stdout);
+        const env = parseJson(r);
         assertEquals(env.error, "invalid_value");
         assert(typeof env.message === "string");
         assertStringIncludes(env.message, "no-such-checkpoint");
@@ -149,7 +149,7 @@ Deno.test("done: a fired stop checkpoint refuses until its conclusion is recorde
           1,
           `rationale ${JSON.stringify(invalid)}\n${r.output}`,
         );
-        const env = parseJson(r.stdout);
+        const env = parseJson(r);
         assert(
           env.error === "invalid_value" || env.error === "invalid_arguments",
           env.error,
@@ -171,7 +171,7 @@ Deno.test("done: a fired stop checkpoint refuses until its conclusion is recorde
           "--json",
         ]);
         assertEquals(noWhy.code, 1);
-        assertEquals(parseJson(noWhy.stdout).error, "invalid_arguments");
+        assertEquals(parseJson(noWhy).error, "invalid_arguments");
         const noUnmet = await runAgent(wt, [
           "done",
           "--why",
@@ -179,7 +179,7 @@ Deno.test("done: a fired stop checkpoint refuses until its conclusion is recorde
           "--json",
         ]);
         assertEquals(noUnmet.code, 1);
-        assertEquals(parseJson(noUnmet.stdout).error, "invalid_arguments");
+        assertEquals(parseJson(noUnmet).error, "invalid_arguments");
         // Every refusal above preceded the gate: the check job still never ran.
         assertEquals(await sidecarMarker(wt, "gate-ran.log"), "");
       },
@@ -191,7 +191,7 @@ Deno.test("done: a fired stop checkpoint refuses until its conclusion is recorde
         // Declare met: the same invocation runs the gate to green.
         const r = await runAgent(wt, ["done", "--met", "api-review", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const env = parseCheckpointGateJson(r.stdout);
+        const env = parseCheckpointGateJson(r);
         assertEquals(env.ok, true);
         assertEquals(env.data.checkpoints.declared_met?.length, 1);
         assertEquals(env.data.checkpoints.declared_met?.[0]?.id, "api-review");
@@ -257,7 +257,7 @@ Deno.test("done: a corrupt open-question store fails open into a clean re-ask", 
     await Deno.writeTextFile(path, "corrupted, not json\n");
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseJson(r);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     // The conservative direction: the fresh declaration restores the exact
     // claim the green run recorded, so the rerun guard recognises the
@@ -270,7 +270,7 @@ Deno.test("done: a corrupt open-question store fails open into a clean re-ask", 
     ]);
     assertEquals(redeclared.code, 1, redeclared.output);
     assertEquals(
-      parseJson(redeclared.stdout).error,
+      parseJson(redeclared).error,
       UNCHANGED_TREE_RERUN_SLUG,
       "an identical restored claim is the same run, not new evidence",
     );
@@ -300,7 +300,7 @@ Deno.test("done: declarations replace conclusions, a true green rerun reuses Pro
         // A literal strict call on the unchanged tree reuses exact current Proof.
         const rerun = await runAgent(wt, ["done", "--json"]);
         assertEquals(rerun.code, 0, rerun.output);
-        assertEquals(parseGateJson(rerun.stdout).data.gate_ran, false);
+        assertEquals(parseGateJson(rerun).data.gate_ran, false);
 
         // Replacing the conclusion is NEW evidence: it proceeds through
         // reconciliation into a fresh gate run with no --confirmed, and the new
@@ -314,7 +314,7 @@ Deno.test("done: declarations replace conclusions, a true green rerun reuses Pro
           "--json",
         ]);
         assertEquals(flipped.code, 0, flipped.output);
-        const env = parseCheckpointGateJson(flipped.stdout);
+        const env = parseCheckpointGateJson(flipped);
         assertEquals(env.data.checkpoints.declared_unmet?.length, 1);
         assertStringIncludes(
           env.data.checkpoints.declared_unmet?.[0]?.why ?? "",
@@ -358,7 +358,7 @@ Deno.test("done: declarations replace conclusions, a true green rerun reuses Pro
           "--json",
         ]);
         assertEquals(r.code, 0, r.output);
-        const env = parseCheckpointGateJson(r.stdout);
+        const env = parseCheckpointGateJson(r);
         // The exact bytes survive into the envelope (JSON escaping only)…
         assertEquals(env.data.checkpoints.declared_unmet?.[0]?.why, hostile);
         // …and the store holds them verbatim, uninterpreted — no interpolation
@@ -414,7 +414,7 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
 
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 1);
-    const env = parseCheckpointGateJson(r.stdout);
+    const env = parseCheckpointGateJson(r);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assert(typeof env.message === "string");
     assertEquals(
@@ -432,7 +432,7 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
       "--json",
     ]);
     assertEquals(partial.code, 1, partial.output);
-    const remaining = parseCheckpointGateJson(partial.stdout);
+    const remaining = parseCheckpointGateJson(partial);
     assertEquals(remaining.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       remaining.data.checkpoints.outstanding?.map((c) => c.id),
@@ -441,7 +441,7 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
     // The already-recorded conclusion survives and the whole set completes.
     const done = await runAgent(wt, ["done", "--met", "risk-notes", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const final = parseCheckpointGateJson(done.stdout);
+    const final = parseCheckpointGateJson(done);
     assertEquals(
       final.data.checkpoints.declared_met?.map((c) => c.id).sort(),
       ["api-review", "risk-notes"],

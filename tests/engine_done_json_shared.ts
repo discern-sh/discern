@@ -10,6 +10,7 @@ import { assert } from "@std/assert";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import {
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
@@ -30,8 +31,8 @@ function hasGateData(result: DoneEnvelope): result is DoneGateEnvelope {
 }
 
 /** Validate `done --json` stdout and require its completed Gate data variant. */
-export function decodeGateResult(stdout: string): DoneGateEnvelope {
-  const result = decodeCliResult(stdout, "done");
+export function decodeGateResult(run: CliRun): DoneGateEnvelope {
+  const result = decodeCliResult(run, "done");
   assert(
     hasGateData(result),
     `expected done Gate data, got ${JSON.stringify(result.data)}`,

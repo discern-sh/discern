@@ -42,7 +42,7 @@ Deno.test("upgrade proceeds on a clean tree", async () => {
     await initCommittedRepo(dir);
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
+    assertEquals(decodeCliResult(r, "upgrade").ok, true);
   });
 });
 
@@ -53,7 +53,7 @@ Deno.test("upgrade refuses a tree with uncommitted tracked changes", async () =>
     await dirtyConfig(dir);
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "dirty_worktree");
     assertResultDataKey(res, "changes");
@@ -71,7 +71,7 @@ Deno.test("upgrade --allow-dirty overrides the guard", async () => {
     await dirtyConfig(dir);
     const r = await runCli(["upgrade", "--allow-dirty", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
+    assertEquals(decodeCliResult(r, "upgrade").ok, true);
   });
 });
 
@@ -82,7 +82,7 @@ Deno.test("upgrade ignores untracked files (they don't block recovery)", async (
     await Deno.writeTextFile(join(dir, "scratch.txt"), "notes\n");
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
+    assertEquals(decodeCliResult(r, "upgrade").ok, true);
   });
 });
 
@@ -94,6 +94,6 @@ Deno.test("upgrade --check is never blocked by a dirty tree", async () => {
     // --check writes nothing, so the guard does not apply: it reports sync state.
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
+    assertEquals(decodeCliResult(r, "upgrade").ok, true);
   });
 });

@@ -9,16 +9,23 @@ import {
 import { z } from "@zod/zod";
 import {
   assertResultDataKey,
+  type CliRun,
   decodeCliResult,
+  decodeResultText,
   decodeWith,
 } from "./decode_cli_result.ts";
 import { assertNamedCases } from "./assert_cases.ts";
+
+/** A finished run that printed `stdout`, with the given exit code and stderr. */
+function runPrinting(stdout: string, code = 0, stderr = ""): CliRun {
+  return { code, stdout, stderr };
+}
 
 Deno.test("decode cli result: decodeCliResult cases", () => {
   assertNamedCases({
     "decodeCliResult returns the registered schema's inferred envelope": () => {
       const result = decodeCliResult(
-        '{"ok":true,"verb":"skills list","data":{"skills":[]}}',
+        runPrinting('{"ok":true,"verb":"skills list","data":{"skills":[]}}'),
         "skills list",
       );
 
@@ -29,7 +36,7 @@ Deno.test("decode cli result: decodeCliResult cases", () => {
     },
     "assertResultDataKey rejects the shared config-issue alternative": () => {
       const result = decodeCliResult(
-        '{"ok":false,"verb":"skills list","data":{"issues":[]}}',
+        runPrinting('{"ok":false,"verb":"skills list","data":{"issues":[]}}'),
         "skills list",
       );
 
@@ -49,7 +56,7 @@ Deno.test("decode cli result: decodeCliResult cases", () => {
         });
 
         const error = assertThrows(
-          () => decodeCliResult(stdout, "prepare"),
+          () => decodeCliResult(runPrinting(stdout), "prepare"),
           Error,
         );
         assertStringIncludes(error.message, 'command "prepare"');
@@ -60,7 +67,7 @@ Deno.test("decode cli result: decodeCliResult cases", () => {
     "decodeCliResult contextualizes malformed JSON before schema validation":
       () => {
         const error = assertThrows(
-          () => decodeCliResult('{"ok":', "prepare"),
+          () => decodeCliResult(runPrinting('{"ok":'), "prepare"),
           Error,
         );
 
@@ -68,10 +75,31 @@ Deno.test("decode cli result: decodeCliResult cases", () => {
         assertStringIncludes(error.message, "invalid JSON");
         assertStringIncludes(error.message, 'stdout excerpt: "{\\"ok\\":"');
       },
+    "decodeCliResult reports a failed run's exit code and bounded stderr":
+      () => {
+        const tail = "must-not-escape-the-bounded-excerpt";
+        const crash = `error: Uncaught (in promise) boom\n${
+          "x".repeat(800)
+        }${tail}`;
+
+        const error = assertThrows(
+          () => decodeCliResult(runPrinting("", 70, crash), "docs"),
+          Error,
+        );
+
+        assertStringIncludes(error.message, 'command "docs"');
+        assertStringIncludes(error.message, "exit code: 70");
+        assertStringIncludes(error.message, 'stdout excerpt: ""');
+        assertStringIncludes(
+          error.message,
+          'stderr excerpt: "error: Uncaught (in promise) boom',
+        );
+        assert(!error.message.includes(tail), error.message);
+      },
     "decodeCliResult contextualizes an unregistered runtime command": () => {
       const command: string = "future verb";
       const error = assertThrows(
-        () => decodeCliResult("{}", command),
+        () => decodeCliResult(runPrinting("{}", 0, "warned"), command),
         Error,
       );
 
@@ -80,8 +108,25 @@ Deno.test("decode cli result: decodeCliResult cases", () => {
         error.message,
         "no registered CLI JSON result contract",
       );
+      assertStringIncludes(error.message, 'stderr excerpt: "warned"');
     },
   });
+});
+
+Deno.test("decodeResultText decodes result JSON that no process printed", () => {
+  const result = decodeResultText(
+    '{"ok":true,"verb":"skills list","data":{"skills":[]}}',
+    "skills list",
+  );
+  assertResultDataKey(result, "skills");
+  assertEquals(result.data.skills, []);
+
+  const error = assertThrows(
+    () => decodeResultText('{"ok":', "skills list"),
+    Error,
+  );
+  assertStringIncludes(error.message, 'result text for command "skills list"');
+  assertStringIncludes(error.message, 'text excerpt: "{\\"ok\\":"');
 });
 Deno.test("assertResultDataKey makes a declared optional key present", () => {
   const result: {

@@ -26,6 +26,7 @@ import {
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -41,8 +42,8 @@ const GENERATED_PATH = "generated/bundle.txt";
 const GROUP_NAME = "bundle";
 
 /** Validate update output against its registered public result contract. */
-function parse(stdout: string): CliResultForCommand<"update"> {
-  return decodeCliResult(stdout, "update");
+function parse(run: CliRun): CliResultForCommand<"update"> {
+  return decodeCliResult(run, "update");
 }
 
 /** Create parent directories before materializing a generated-update fixture file. */
@@ -166,7 +167,7 @@ Deno.test("update regenerates a declared artifact instead of merging its conflic
     const configured = await configuredGroupNames(wt);
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assertResultDataKey(parsed, "behind");
     const { data } = parsed;
 
@@ -211,7 +212,7 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
       "--json",
     ]);
     assertEquals(previewRun.code, 0, previewRun.output);
-    const preview = parse(previewRun.stdout);
+    const preview = parse(previewRun);
     assertResultDataKey(preview, "behind");
     assertEquals(preview.dry_run, true);
     assert(
@@ -237,7 +238,7 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
 
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assertResultDataKey(parsed, "behind");
     const { data } = parsed;
     assertEquals(data.auto_resolved ?? [], []);
@@ -306,7 +307,7 @@ Deno.test("update commits a regenerated attributes block after generated config 
 
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assert(
       parsed.steps?.some((step) =>
         step.label === BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts &&
@@ -334,7 +335,7 @@ Deno.test("update commits every tracked refresh output changed after a merge", a
     const result = await runAgent(wt, ["update", "--json"]);
 
     assertEquals(result.code, 0, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assert(
       parsed.steps?.some((step) =>
         step.label === BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts &&
@@ -362,7 +363,7 @@ Deno.test("an up-to-date update reports rather than commits tracked refresh outp
     const result = await runAgent(wt, ["update", "--json"]);
 
     assertEquals(result.code, 1, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assertEquals(parsed.ok, false, result.stdout);
     assertEquals(parsed.error, "apply_failed", result.stdout);
     assert(
@@ -407,7 +408,7 @@ Deno.test("update never treats project-owned attributes lines as generated confl
 
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 1, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assertEquals(parsed.error, "precondition_failed");
     assertStringIncludes(parsed.message ?? "", ".gitattributes");
     assertEquals(await gitOut(wt, "status", "--porcelain"), "");
@@ -433,7 +434,7 @@ Deno.test("update refuses an authored conflict without presenting driver-owned g
 
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 1, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assertEquals(parsed.error, "precondition_failed");
     assert(parsed.message !== undefined, result.stdout);
     assertStringIncludes(
@@ -472,7 +473,7 @@ Deno.test("update records a failed declared generator without undoing the merge"
     const configured = await configuredGroupNames(wt);
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 1, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assertEquals(parsed.ok, false, result.stdout);
     assertEquals(parsed.error, "apply_failed", result.stdout);
     assertEquals(
@@ -511,7 +512,7 @@ Deno.test("update resolves a refresh-owned agent-file conflict without generated
 
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const parsed = parse(result.stdout);
+    const parsed = parse(result);
     assertResultDataKey(parsed, "behind");
     const { data } = parsed;
     assertEquals(data.auto_resolved ?? [], []);

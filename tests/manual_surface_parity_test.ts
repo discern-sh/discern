@@ -307,7 +307,7 @@ This published fixture must join every complete delivery projection while the au
       DISCERN_DOCS_DIR: manualDir,
     });
     assertEquals(cli.code, 0, cli.stdout + cli.stderr);
-    const decoded = decodeCliResult(cli.stdout, "docs");
+    const decoded = decodeCliResult(cli, "docs");
     assertEquals(decoded.ok, true);
     assertResultDataKey(decoded, "docs");
     const cliDocs = decoded.data.docs;

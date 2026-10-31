@@ -124,7 +124,7 @@ Deno.test("upgrade with no discern.toml fails as no_project (--json)", async () 
     // A bare dir is not an install: there is no discern.toml to refresh.
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "no_project");
     assertExists(res.message);
@@ -150,7 +150,7 @@ Deno.test("upgrade with an unparseable discern.toml fails as invalid_toml (--jso
     );
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "invalid_toml");
     assertEquals((await inspectReleaseCheck(dir)).status, "missing");
@@ -180,7 +180,7 @@ Deno.test("upgrade refuses a config from a newer schema (--json)", async () => {
 
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "schema_version_too_new");
     assertExists(res.message);
@@ -200,7 +200,7 @@ Deno.test("upgrade refuses an absent templates dir before stamping (--json)", as
       DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
     assertEquals(r.code, 1, r.stderr);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "config_template_unavailable");
     assertExists(res.message);
@@ -247,7 +247,7 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
     // The upgrade still succeeds and compiles the default agent files.
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, true);
     assertResultDataKey(res, "instruction_refresh");
     const refresh = res.data.instruction_refresh;
@@ -273,7 +273,7 @@ Deno.test("upgrade --json reports a partial refresh as top-level not-ok while ke
 
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
     assertEquals((await inspectReleaseCheck(dir)).status, "missing");
@@ -324,7 +324,7 @@ Deno.test("upgrade --dry-run --json previews pending migrations and writes nothi
     await setup(dir);
     const r = await runCli(["upgrade", "--dry-run", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, true);
     assertEquals(res.dry_run, true);
     assertResultDataKey(res, "pending_migrations");
@@ -365,7 +365,7 @@ Deno.test("upgrade truncates the dirty-change list past ten entries", async () =
     }
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.error, "dirty_worktree");
     assertResultDataKey(res, "changes");
     assertExists(res.data.changes);

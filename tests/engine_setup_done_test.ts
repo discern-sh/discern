@@ -97,7 +97,7 @@ Deno.test("setup done refuses denied planned writes before refresh, commit, work
     try {
       const denied = await runAgent(dir, ["setup", "done", "--json"]);
       assertEquals(denied.code, 1, denied.output);
-      const envelope = decodeCliResult(denied.stdout, "setup done");
+      const envelope = decodeCliResult(denied, "setup done");
       assert(envelope.message !== undefined);
       assertEquals(envelope.error, "write_denied");
       assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
@@ -169,7 +169,7 @@ Deno.test("setup done blocks when the refresh proof only partially completes, or
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
+    const res = decodeCliResult(done, "setup done");
     assertResultDataKey(res, "stage");
     assert(res.message !== undefined);
     assertEquals(res.ok, false);
@@ -195,7 +195,7 @@ Deno.test("setup done blocks when the refresh proof only partially completes, or
     await commitSetupAuthoring(dir);
     const discarded = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(discarded.code, 1, discarded.output);
-    const refused = decodeCliResult(discarded.stdout, "setup done");
+    const refused = decodeCliResult(discarded, "setup done");
     assertResultDataKey(refused, "stage");
     assertEquals(refused.data.stage, "refresh");
     const files = "CLAUDE.md (1 line, first `<!-- maintained block -->`)";
@@ -216,7 +216,7 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const result = decodeCliResult(done.stdout, "setup done");
+    const result = decodeCliResult(done, "setup done");
     assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "doctor");
     assertEquals(result.data.rollback, "owned_commit_removed");
@@ -235,7 +235,7 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const result = decodeCliResult(done.stdout, "setup done");
+    const result = decodeCliResult(done, "setup done");
     assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "marker_commit");
     assertEquals(result.data.rollback, "not_needed");
@@ -257,7 +257,7 @@ Deno.test("setup done rollback bypasses commit hooks and leaves no transaction h
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const result = decodeCliResult(done.stdout, "setup done");
+    const result = decodeCliResult(done, "setup done");
     assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "worktree_probe");
     assertEquals(result.data.rollback, "owned_commit_removed");
@@ -310,7 +310,7 @@ Deno.test("setup done --json: one green completion refuses uncommitted authoring
         // authored — but nothing committed since scaffold
         const done = await runAgent(dir, ["setup", "done", "--json"]);
         assertEquals(done.code, 1, done.output);
-        const res = decodeCliResult(done.stdout, "setup done");
+        const res = decodeCliResult(done, "setup done");
         assertResultDataKey(res, "uncommitted");
         assert(res.message !== undefined);
         assertEquals(res.ok, false);
@@ -360,7 +360,7 @@ Deno.test("setup done --json: one green completion refuses uncommitted authoring
     // The same `done` now proceeds to the proof and passes.
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
+    const res = decodeCliResult(done, "setup done");
     assertResultDataKey(res, "bootstrapped");
     const completedHead = await gitOut(dir, "rev-parse", "HEAD");
     const config = await Deno.readTextFile(join(dir, "discern.toml"));
@@ -586,7 +586,7 @@ Deno.test("setup done catches an untracked footprint file whose path git quotes 
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
+    const res = decodeCliResult(done, "setup done");
     assertResultDataKey(res, "uncommitted");
     assertEquals(res.ok, false);
     assertEquals(
@@ -636,7 +636,7 @@ Deno.test("setup done blocks when the gate is green here but red in a worktree �
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
+    const res = decodeCliResult(done, "setup done");
     assertResultDataKey(res, "stage");
     assertEquals(res.ok, false);
     assertEquals(res.error, "gate_failed");
@@ -682,7 +682,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --unproven still
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const refused = decodeCliResult(done.stdout, "setup done");
+    const refused = decodeCliResult(done, "setup done");
     assertResultDataKey(refused, "uncommitted");
     assertEquals(refused.error, "dirty_worktree");
     assert(
@@ -699,7 +699,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --unproven still
       "--json",
     ]);
     assertEquals(forced.code, 0, forced.output);
-    const res = decodeCliResult(forced.stdout, "setup done");
+    const res = decodeCliResult(forced, "setup done");
     assertResultDataKey(res, "bootstrapped");
     assertEquals(res.data.bootstrapped, true);
     assertEquals(res.data.marker_committed, true);
@@ -744,7 +744,7 @@ Deno.test("a forced done fails open when discern.toml carries an extra uncommitt
 
     const done = await runAgent(dir, ["setup", "done", "--unproven", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
+    const res = decodeCliResult(done, "setup done");
     assertResultDataKey(res, "bootstrapped");
     assertEquals(res.data.bootstrapped, true);
     assertEquals(res.data.marker_committed, false);
@@ -765,7 +765,7 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --unprove
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
+    const res = decodeCliResult(done, "setup done");
     assertResultDataKey(res, "stage");
     assertEquals(res.error, "gate_failed");
     assertEquals(res.data.stage, "done");
@@ -897,7 +897,7 @@ Deno.test("instruction adoption asks whose each file is, imports the owner's wit
 
     const verify = await runAgent(dir, ["setup", "verify", "--json"]);
     assertEquals(verify.code, 0, verify.output);
-    const verification = decodeCliResult(verify.stdout, "setup verify");
+    const verification = decodeCliResult(verify, "setup verify");
     assertResultDataKey(verification, "phase");
     assert(verification.data.conflicts !== undefined);
     assert(verification.data.findings !== undefined);
@@ -926,7 +926,7 @@ Deno.test("instruction adoption asks whose each file is, imports the owner's wit
     ]);
     assertEquals(misnamed.code, 1, misnamed.output);
     assertEquals(
-      decodeCliResult(misnamed.stdout, "setup begin").error,
+      decodeCliResult(misnamed, "setup begin").error,
       "invalid_arguments",
     );
     assertEquals(await targetExists(join(dir, "discern.toml")), false);
@@ -942,7 +942,7 @@ Deno.test("instruction adoption asks whose each file is, imports the owner's wit
       toolFile,
     ]);
     assertEquals(begin.code, 0, begin.output);
-    const began = decodeCliResult(begin.stdout, "setup begin");
+    const began = decodeCliResult(begin, "setup begin");
     assertResultDataKey(began, "tool_maintained_instructions");
     assertEquals(began.data.tool_maintained_instructions, [toolFile]);
     assertHasHint(began, HINTS["setup-instructions-tool-maintained"], {
@@ -1206,7 +1206,7 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
       await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
       "discern-setup",
     );
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertResultDataKey(result, "branch");
     assertEquals(result.data.branch, "discern-setup");
     assert(await targetExists(join(dir, "discern.toml")));
@@ -1238,7 +1238,7 @@ Deno.test("discern setup begin refuses to start from a feature branch when the t
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
     assertEquals(
-      decodeCliResult(r.stdout, "setup begin").error,
+      decodeCliResult(r, "setup begin").error,
       "not_on_trunk",
     );
 
@@ -1271,7 +1271,7 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving Map, in
       "claude_code",
     ]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertResultDataKey(result, "machinery_committed");
     assertEquals(result.data.machinery_committed, true);
 
@@ -1346,7 +1346,7 @@ Deno.test("discern setup begin commits EVERY registry-listed agent's scaffoldabl
       AGENT_NAMES.join(","),
     ]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertResultDataKey(result, "machinery_committed");
     assertEquals(result.data.machinery_committed, true);
 
@@ -1403,7 +1403,7 @@ Deno.test("discern setup begin commits nothing without a setup branch and refuse
       "claude_code",
     ]);
     assertEquals(r.code, 0, r.output);
-    const res = decodeCliResult(r.stdout, "setup begin");
+    const res = decodeCliResult(r, "setup begin");
     assertResultDataKey(res, "branch");
     assertEquals(res.data.branch, null); // no isolated branch was created
     assertEquals(res.data.machinery_committed, false);
@@ -1433,7 +1433,7 @@ Deno.test("discern setup begin commits nothing without a setup branch and refuse
       "claude_code",
     ]);
     assertEquals(r.code, 1, r.output);
-    const res = decodeCliResult(r.stdout, "setup begin");
+    const res = decodeCliResult(r, "setup begin");
     assertResultDataKey(res, "complete");
     assertEquals(res.error, "no_repository");
     assertEquals(res.data.next_action, "git init");
@@ -1462,7 +1462,7 @@ Deno.test("discern setup begin fails open (no error) when the machinery commit i
       "claude_code",
     ]);
     assertEquals(r.code, 0, r.output); // begin did not error
-    const res = decodeCliResult(r.stdout, "setup begin");
+    const res = decodeCliResult(r, "setup begin");
     assertResultDataKey(res, "branch");
     assertEquals(res.data.branch, "discern-setup"); // the branch was still created
     assertEquals(res.data.machinery_committed, false); // but the commit fell open
@@ -1514,7 +1514,7 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     // it, begin refuses BEFORE writing anything — the error path is the teaching path.
     const blocked = await runAgent(dir, ["setup", "begin", "--json"]);
     assertEquals(blocked.code, 1, blocked.output);
-    const res = decodeCliResult(blocked.stdout, "setup begin");
+    const res = decodeCliResult(blocked, "setup begin");
     assertResultDataKey(res, "command");
     assert(res.data.command !== undefined);
     assertEquals(res.ok, false);
@@ -1529,7 +1529,7 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     // Single source: the refusal's instructions are byte-identical to what `verify` serves,
     // so an agent that skipped verify is handed the very same conversation (ADR 0086).
     const verification = decodeCliResult(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
       "setup verify",
     );
     assertResultDataKey(verification, "phase");
@@ -1574,7 +1574,7 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     ]);
     assertEquals(preview.code, 0, preview.output);
     assertEquals(
-      decodeCliResult(preview.stdout, "setup begin").dry_run,
+      decodeCliResult(preview, "setup begin").dry_run,
       true,
     );
     assert(
@@ -1599,7 +1599,7 @@ Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty
     ]);
     assertEquals(blocked.code, 1, blocked.output);
     assertEquals(
-      decodeCliResult(blocked.stdout, "setup begin").error,
+      decodeCliResult(blocked, "setup begin").error,
       "dirty_worktree",
     );
     assert(
@@ -1643,7 +1643,7 @@ Deno.test("setup begin refuses denied Git branch authority before checkout or sc
         "--json",
       ]);
       assertEquals(denied.code, 1, denied.output);
-      const envelope = decodeCliResult(denied.stdout, "setup begin");
+      const envelope = decodeCliResult(denied, "setup begin");
       assertEquals(envelope.error, "write_denied");
       assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
@@ -1755,7 +1755,7 @@ Deno.test("discern setup begin --json emits the DiscernResult envelope", async (
     await gitInit(dir);
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const res = decodeCliResult(r.stdout, "setup begin");
+    const res = decodeCliResult(r, "setup begin");
     assertResultDataKey(res, "skeletons");
     assert(res.data.skeletons !== undefined);
     assertEquals(res.ok, true);

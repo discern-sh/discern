@@ -193,7 +193,7 @@ Deno.test("doctor refuses to interpret a record written by a newer discern and r
     // Upgrade refuses to touch an install whose records it cannot read.
     const upgrade = await runAgent(dir, ["upgrade", "--json"]);
     assertEquals(upgrade.code, 1, upgrade.output);
-    const refused = decodeCliResult(upgrade.stdout, "upgrade");
+    const refused = decodeCliResult(upgrade, "upgrade");
     assertEquals(refused.error, "schema_version_too_new");
     assertStringIncludes(refused.message ?? "", "written by a newer discern");
     assertEquals(

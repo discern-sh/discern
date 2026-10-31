@@ -36,6 +36,7 @@ import {
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 import type { GateWireData } from "../src/shared/result_schemas.ts";
@@ -89,9 +90,9 @@ const STANDING_CONFIG = [
 
 /** Decode one done envelope, requiring its gate payload. */
 function parseGateJson(
-  stdout: string,
+  run: CliRun,
 ): CliResultForCommand<"done"> & { data: GateWireData } {
-  const result = decodeCliResult(stdout, "done");
+  const result = decodeCliResult(run, "done");
   assertResultDataKey(result, "failed_stage");
   return result;
 }
@@ -136,7 +137,7 @@ Deno.test("a genuinely failed rerun supersedes the green Proof for landing, keep
       await Deno.writeTextFile(marker, "fail now\n");
       const red = await runAgent(wt, ["done", "--rerun", "--json"]);
       assertEquals(red.code, 1, red.output);
-      assertEquals(parseGateJson(red.stdout).data.failed_stage, "check");
+      assertEquals(parseGateJson(red).data.failed_stage, "check");
 
       // The earlier green is superseded for every landing surface: the
       // marker inspection, the queue row, and the owner's --target refusal
@@ -169,7 +170,7 @@ Deno.test("a genuinely failed rerun supersedes the green Proof for landing, keep
         "--json",
       ]);
       assertEquals(refused.code, 1, refused.output);
-      const refusal = decodeCliResult(refused.stdout, "accept");
+      const refusal = decodeCliResult(refused, "accept");
       assertEquals(refusal.error, "precondition_failed");
       assertStringIncludes(
         refusal.message ?? "",
@@ -206,7 +207,7 @@ Deno.test("a genuinely failed rerun supersedes the green Proof for landing, keep
         "--json",
       ]);
       assertEquals(landed.code, 0, landed.output);
-      const result = decodeCliResult(landed.stdout, "accept");
+      const result = decodeCliResult(landed, "accept");
       assert(result.data !== undefined && !("issues" in result.data));
       assertEquals(result.data.consent, { source: "effort-grant" });
       assertEquals(await gitOut(dir, "rev-parse", "main"), a);
@@ -240,7 +241,7 @@ Deno.test("an effort grant covers only the recorded submission: an unsubmitted l
       "--json",
     ]);
     assertEquals(refused.code, 1, refused.output);
-    const refusal = decodeCliResult(refused.stdout, "accept");
+    const refusal = decodeCliResult(refused, "accept");
     assertEquals(refusal.error, "awaiting_consent");
     assertStringIncludes(
       refusal.message ?? "",
@@ -261,7 +262,7 @@ Deno.test("an effort grant covers only the recorded submission: an unsubmitted l
       "--json",
     ]);
     assertEquals(landed.code, 0, landed.output);
-    const result = decodeCliResult(landed.stdout, "accept");
+    const result = decodeCliResult(landed, "accept");
     assert(result.data !== undefined && !("issues" in result.data));
     assertEquals(result.data.consent, { source: "conversation" });
     assertEquals(await gitOut(dir, "rev-parse", "main"), b);
@@ -300,7 +301,7 @@ Deno.test("a standing scope grant covers only the recorded submission until the 
       "--json",
     ]);
     assertEquals(refused.code, 1, refused.output);
-    const refusal = decodeCliResult(refused.stdout, "accept");
+    const refusal = decodeCliResult(refused, "accept");
     assertEquals(refusal.error, "awaiting_consent");
     assertStringIncludes(
       refusal.message ?? "",
@@ -317,7 +318,7 @@ Deno.test("a standing scope grant covers only the recorded submission until the 
     // pre-recorded-submission divergence.
     const landed = await runAgent(wt, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
-    const result = decodeCliResult(landed.stdout, "accept");
+    const result = decodeCliResult(landed, "accept");
     assert(result.data !== undefined && !("issues" in result.data));
     assertEquals(result.data.consent, {
       source: "standing-grant",
@@ -343,7 +344,7 @@ Deno.test("green Proof reuse requires the trunk's exact tip as predecessor, so d
     // With the trunk unmoved, the exact green Proof still reuses.
     const reused = await runAgent(wt, ["done", "--json"]);
     assertEquals(reused.code, 0, reused.output);
-    const reuse = parseGateJson(reused.stdout);
+    const reuse = parseGateJson(reused);
     assertEquals(reuse.data.gate_ran, false);
     assertEquals(
       reuse.message,
@@ -357,7 +358,7 @@ Deno.test("green Proof reuse requires the trunk's exact tip as predecessor, so d
 
     const reproved = await runAgent(wt, ["done", "--json"]);
     assertEquals(reproved.code, 0, reproved.output);
-    const rerun = parseGateJson(reproved.stdout);
+    const rerun = parseGateJson(reproved);
     assertEquals(rerun.data.gate_ran, true, reproved.output);
 
     const landed = await runAgent(wt, ["accept", "--confirmed", "--json"]);

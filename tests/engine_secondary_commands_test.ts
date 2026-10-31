@@ -49,17 +49,17 @@ Deno.test("prepare/test/refresh --json: stdout is a pure DiscernResult, never hu
     // "Fixing code…"/"Checking…" headings (which would break JSON.parse).
     const prep = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(prep.code, 0, prep.output);
-    const prepObj = decodeCliResult(prep.stdout, "prepare");
+    const prepObj = decodeCliResult(prep, "prepare");
     assertEquals(prepObj.ok, true);
     assertEquals(prepObj.verb, "prepare");
 
     const test = await runAgent(dir, ["test", "--json"]);
     assertEquals(test.code, 0, test.output);
-    assertEquals(decodeCliResult(test.stdout, "test").verb, "test");
+    assertEquals(decodeCliResult(test, "test").verb, "test");
 
     const refresh = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(refresh.code, 0, refresh.output);
-    const refreshObj = decodeCliResult(refresh.stdout, "refresh");
+    const refreshObj = decodeCliResult(refresh, "refresh");
     assertResultDataKey(refreshObj, "agents_written");
     assertEquals(refreshObj.ok, true);
     assertEquals(refreshObj.verb, "refresh");
@@ -84,7 +84,7 @@ Deno.test("prepare --json: a failing check carries steps[] + diagnostics[] as th
     await gitInit(dir);
     const r = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeCliResult(r.stdout, "prepare"); // stdout is STILL pure JSON on failure
+    const obj = decodeCliResult(r, "prepare"); // stdout is STILL pure JSON on failure
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "prepare");
     // prepare now runs through the job runner, so a failure carries the same
@@ -126,7 +126,7 @@ Deno.test("test --json: a failing test carries steps[] + diagnostics[] (and noth
     await gitInit(dir);
     const r = await runAgent(dir, ["test", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeCliResult(r.stdout, "test");
+    const obj = decodeCliResult(r, "test");
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "test");
     // `discern test` runs through the same job runner as the gate, so a failing test

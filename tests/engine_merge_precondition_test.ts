@@ -72,7 +72,7 @@ Deno.test("done behind trunk stops before the capability", async () => {
     // The tree is unchanged, so the deliberate rerun is explicit.
     const json = await runAgent(wt, ["done", "--rerun", "--json"]);
     assertEquals(json.code, 1, json.output);
-    const result = decodeCliResult(json.stdout, "done");
+    const result = decodeCliResult(json, "done");
     assertHasHint(result, HINTS["completion-pending"], {
       action: "Resolve the reported condition, then run discern done again.",
     });
@@ -95,7 +95,7 @@ Deno.test("done --json behind trunk reports the behind-trunk refusal without run
     const r = await runAgent(wt, ["done", "--json"]);
 
     assertEquals(r.code, 1, r.output);
-    const obj = decodeCliResult(r.stdout, "done");
+    const obj = decodeCliResult(r, "done");
     assertEquals(obj.ok, false);
     assert(obj.data !== undefined && "failed_stage" in obj.data, r.stdout);
     assertEquals(obj.data.failed_stage, null);
@@ -157,7 +157,7 @@ Deno.test("strict done and done --ci fail closed when local trunk is unreadable"
 
     const json = await runAgent(wt, ["done", "--ci", "--json"]);
     assertEquals(json.code, 1, json.output);
-    const obj = decodeCliResult(json.stdout, "done");
+    const obj = decodeCliResult(json, "done");
     assertResultDataKey(obj, "failed_stage");
     assertEquals(obj.data?.failed_stage, "standards");
     const expected = assertHasHint(

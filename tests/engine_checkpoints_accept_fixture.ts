@@ -7,6 +7,7 @@ import { ProofNotePayloadSchema } from "../src/shared/result_schemas.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -41,25 +42,25 @@ type AppliedAcceptEnvelope = Omit<AcceptEnvelope, "data"> & {
 const DSSE_ENVELOPE_SCHEMA = z.object({ payload: z.string() }).passthrough();
 
 /** Decode one accept envelope without requiring review or landing data. */
-export function parseAcceptJson(stdout: string): AcceptEnvelope {
-  return decodeCliResult(stdout, "accept");
+export function parseAcceptJson(run: CliRun): AcceptEnvelope {
+  return decodeCliResult(run, "accept");
 }
 
 /** Decode an accept refusal whose assertions consume its authored message. */
-export function parseAcceptMessageJson(stdout: string): AcceptMessageEnvelope {
-  const result = parseAcceptJson(stdout);
+export function parseAcceptMessageJson(run: CliRun): AcceptMessageEnvelope {
+  const result = parseAcceptJson(run);
   assert(typeof result.message === "string");
   return { ...result, message: result.message };
 }
 
 /** Decode an acceptance that crossed the landing boundary. */
-export function parseAppliedAcceptJson(stdout: string): AppliedAcceptEnvelope {
-  const result = parseAcceptJson(stdout);
+export function parseAppliedAcceptJson(run: CliRun): AppliedAcceptEnvelope {
+  const result = parseAcceptJson(run);
   assertResultDataKey(result, "root");
   assert(typeof result.data.root === "string");
   const { consent, landing } = result.data;
-  assert(consent !== undefined && landing !== undefined, stdout);
-  assert(landing.trunk_landed, stdout);
+  assert(consent !== undefined && landing !== undefined, run.stdout);
+  assert(landing.trunk_landed, run.stdout);
   return {
     ...result,
     data: { ...result.data, root: result.data.root, consent, landing },

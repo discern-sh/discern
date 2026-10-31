@@ -53,6 +53,7 @@ import { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import {
   type CliResultEnvelope,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -76,20 +77,20 @@ import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
 const DRY_RUN_LEAD = "**Dry run: nothing changed.**";
 
 /** Decode a lifecycle envelope before reducing its planned or applied steps. */
-function parse(stdout: string, command: string): CliResultEnvelope {
-  return decodeCliResult(stdout, command);
+function parse(run: CliRun, command: string): CliResultEnvelope {
+  return decodeCliResult(run, command);
 }
 
 /** Every step listed in a `--dry-run --json` plan, as a `kind:label` set. */
-function plannedSet(dryStdout: string, command: string): Set<string> {
-  const obj = parse(dryStdout, command);
+function plannedSet(dry: CliRun, command: string): Set<string> {
+  const obj = parse(dry, command);
   const steps = obj.plan?.steps ?? [];
   return new Set(steps.map((s) => `${s.kind}:${s.label}`));
 }
 
 /** Every step the apply `--json` actually executed (outcome ≠ skipped), as `kind:label`. */
-function appliedSet(applyStdout: string, command: string): Set<string> {
-  const obj = parse(applyStdout, command);
+function appliedSet(apply: CliRun, command: string): Set<string> {
+  const obj = parse(apply, command);
   const steps = obj.steps ?? [];
   return new Set(
     steps.filter((s) => s.outcome !== "skipped").map((s) =>
@@ -117,13 +118,13 @@ function assertAppliedStepSubset(
 
 /** Assert the apply executed nothing the dry-run plan did not list. */
 function assertAppliedSubsetOfPlanned(
-  dryStdout: string,
-  applyStdout: string,
+  dry: CliRun,
+  apply: CliRun,
   command: string,
 ): void {
   assertAppliedStepSubset(
-    plannedSet(dryStdout, command),
-    appliedSet(applyStdout, command),
+    plannedSet(dry, command),
+    appliedSet(apply, command),
     command,
   );
 }
@@ -934,7 +935,7 @@ async function probeMember(
   assertTreeUnchanged(before, after, verb);
 
   // 2. The envelope carries the uniform preview marker.
-  const envelope = parse(dry.stdout, verb);
+  const envelope = parse(dry, verb);
   probe.assertPreview?.(envelope);
   assertEquals(
     envelope.dry_run,
@@ -978,17 +979,17 @@ async function probeMember(
       `${verb}: apply failed\n${apply.output}`,
     );
     assert(
-      appliedSet(apply.stdout, verb).size > 0,
+      appliedSet(apply, verb).size > 0,
       `${verb}: fixture applied nothing\n${apply.output}`,
     );
-    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, verb);
+    assertAppliedSubsetOfPlanned(dry, apply, verb);
     if ((envelope.plan?.steps ?? []).length > 0) {
       assert(
         /Would (?:run|skip|check) `/.test(dryMarkdown),
         `${verb}: Markdown plan uses applied grammar\n${dryMarkdown}`,
       );
     }
-    const appliedEnvelope = parse(apply.stdout, verb);
+    const appliedEnvelope = parse(apply, verb);
     const appliedContract = resultContractForVerb(
       appliedEnvelope.verb,
     );

@@ -2,7 +2,7 @@
  * the accept envelope's emergency payload. */
 
 import { assert } from "@std/assert";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { type CliRun, decodeCliResult } from "./decode_cli_result.ts";
 
 /** The exact scope sentence every emergency surface repeats verbatim. */
 export const BOUNDARY =
@@ -10,16 +10,19 @@ export const BOUNDARY =
 
 /** Decode the accept envelope's emergency payload, requiring its presence. */
 export function emergencyData(
-  stdout: string,
+  run: CliRun,
 ): NonNullable<
   Extract<
     NonNullable<ReturnType<typeof decodeCliResult<"accept">>["data"]>,
     { emergency?: unknown }
   >["emergency"]
 > {
-  const envelope = decodeCliResult(stdout, "accept");
-  assert(envelope.data !== undefined && "emergency" in envelope.data, stdout);
+  const envelope = decodeCliResult(run, "accept");
+  assert(
+    envelope.data !== undefined && "emergency" in envelope.data,
+    run.stdout,
+  );
   const emergency = envelope.data.emergency;
-  assert(emergency !== undefined, stdout);
+  assert(emergency !== undefined, run.stdout);
   return emergency;
 }

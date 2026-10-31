@@ -84,7 +84,7 @@ async function preview(
 }> {
   const run = await runAgent(wt, ["accept", "--dry-run", "--json"]);
   assertEquals(run.code, 0, run.output);
-  const result = decodeCliResult(run.stdout, "accept");
+  const result = decodeCliResult(run, "accept");
   const facts = result.data !== undefined && "preview" in result.data
     ? result.data.preview
     : undefined;

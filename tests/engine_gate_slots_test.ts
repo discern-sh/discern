@@ -65,6 +65,7 @@ import {
 import {
   assertResultDataKey,
   type CliResultEnvelope,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -81,14 +82,14 @@ const LogbookEventProbeSchema = z.object({
 
 /** Decode a slot-probe envelope and retain its command context in parse failures. */
 function parseEnvelope(
-  stdout: string,
+  run: CliRun,
   command: string,
   context = command,
 ): CliResultEnvelope {
   try {
-    return decodeCliResult(stdout, command);
+    return decodeCliResult(run, command);
   } catch (error) {
-    throw new Error(`unparseable ${context} envelope: ${stdout}`, {
+    throw new Error(`unparseable ${context} envelope: ${run.stdout}`, {
       cause: error,
     });
   }
@@ -567,8 +568,8 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins befo
         );
         release();
         const [a, b] = await runs;
-        const envelopeA = parseEnvelope(a.stdout, "test", "run A");
-        const envelopeB = parseEnvelope(b.stdout, "test", "run B");
+        const envelopeA = parseEnvelope(a, "test", "run A");
+        const envelopeB = parseEnvelope(b, "test", "run B");
         assertEquals(a.code, 0, a.output);
         assertEquals(b.code, 0, b.output);
         assertEquals(envelopeA.ok, true);
@@ -743,8 +744,8 @@ Deno.test("gate slots: cap=2 lets two test runs overlap", async () => {
         0,
         `run B failed — did cap=2 serialize?\n${b.output}`,
       );
-      assertEquals(parseEnvelope(a.stdout, "test", "cap=2 run A").waited_ms, 0);
-      assertEquals(parseEnvelope(b.stdout, "test", "cap=2 run B").waited_ms, 0);
+      assertEquals(parseEnvelope(a, "test", "cap=2 run A").waited_ms, 0);
+      assertEquals(parseEnvelope(b, "test", "cap=2 run B").waited_ms, 0);
     }, { prefix: "discern-slots-aux-" });
   });
 });
@@ -783,7 +784,7 @@ Deno.test("gate slots: a check failure cancels queued tests while the slot remai
           "a failing check to return while test capacity remains held",
           { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
         );
-        const envelope = parseEnvelope(r.stdout, "done");
+        const envelope = parseEnvelope(r, "done");
         assertEquals(r.code, 1, r.output);
         assertEquals(envelope.ok, false);
         // A queued test does not hide the failing check or start after it.
@@ -830,7 +831,7 @@ Deno.test("gate slots: prepare never draws a slot", async () => {
       // prepare runs fix + check only; with the only slot held it must still
       // complete green, proving it never queues for the cap.
       const r = await runAgent(dir, ["prepare", "--json"]);
-      const envelope = parseEnvelope(r.stdout, "prepare");
+      const envelope = parseEnvelope(r, "prepare");
       assertEquals(r.code, 0, r.output);
       assertEquals(envelope.ok, true);
       assertEquals(hasQueuedHint(envelope), false);
@@ -891,8 +892,8 @@ Deno.test("gate slots: standards' measurement pass enrols like a test run", asyn
         );
         release();
         const [a, b] = await runs;
-        const envelopeA = parseEnvelope(a.stdout, "standards", "standards A");
-        const envelopeB = parseEnvelope(b.stdout, "standards", "standards B");
+        const envelopeA = parseEnvelope(a, "standards", "standards A");
+        const envelopeB = parseEnvelope(b, "standards", "standards B");
         assertEquals(a.code, 0, a.output);
         assertEquals(b.code, 0, b.output);
         assertEquals(envelopeA.ok, true);
@@ -932,7 +933,7 @@ Deno.test("gate slots: explicit 0 remains uncapped and leaves no slot files behi
     const r = await runAgent(dir, ["test", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
-      parseEnvelope(r.stdout, "test", "uncapped test").waited_ms,
+      parseEnvelope(r, "test", "uncapped test").waited_ms,
       undefined,
     );
     let exists = true;

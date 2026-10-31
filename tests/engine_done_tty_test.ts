@@ -270,7 +270,7 @@ realPtyTest({
       const json = await runAgent(dir, ["done", "--rerun", "--json"]);
       assertEquals(json.code, 1, json.output);
       assertEquals(json.stderr, "", json.output);
-      const envelope = decodeCliResult(json.stdout, "done");
+      const envelope = decodeCliResult(json, "done");
       assertEquals(envelope.ok, false);
       assertEquals(envelope.verb, "done");
       assertResultDataKey(envelope, "failed_stage");

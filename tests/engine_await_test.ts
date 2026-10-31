@@ -717,7 +717,7 @@ Deno.test("await handles persist across CLI processes and sibling worktrees", as
       "--json",
     ]);
     assertEquals(first.code, AWAIT_TIMEOUT_EXIT_CODE, first.output);
-    const firstEnvelope = decodeCliResult(first.stdout, "await");
+    const firstEnvelope = decodeCliResult(first, "await");
     assertResultDataKey(firstEnvelope, "resume");
     const resume = firstEnvelope.data.resume;
     assert(typeof resume === "string" && AWAIT_HANDLE_PATTERN.test(resume));
@@ -740,7 +740,7 @@ Deno.test("await handles persist across CLI processes and sibling worktrees", as
       "--json",
     ]);
     assertEquals(resumed.code, 0, resumed.output);
-    const resumedEnvelope = decodeCliResult(resumed.stdout, "await");
+    const resumedEnvelope = decodeCliResult(resumed, "await");
     assertResultDataKey(resumedEnvelope, "met");
     assertEquals(resumedEnvelope.data.met, true);
   });
@@ -1034,7 +1034,7 @@ Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
       "--json",
     ]);
     assertEquals(notYet.code, AWAIT_TIMEOUT_EXIT_CODE);
-    const envelope = decodeCliResult(notYet.stdout, "await");
+    const envelope = decodeCliResult(notYet, "await");
     assertResultDataKey(envelope, "met");
     assertEquals(
       envelope.ok,
@@ -1065,7 +1065,7 @@ Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
       "--json",
     ]);
     assertEquals(refused.code, 1);
-    const refusal = decodeCliResult(refused.stdout, "await");
+    const refusal = decodeCliResult(refused, "await");
     assertEquals(refusal.ok, false);
     assertEquals(refusal.error, "unknown_target");
   });
@@ -1101,7 +1101,7 @@ Deno.test("await human refusals make hostile branch facts inert while JSON stays
       "--json",
     ]);
     assertEquals(machine.code, 1, machine.output);
-    const result = decodeCliResult(machine.stdout, "await");
+    const result = decodeCliResult(machine, "await");
     assertStringIncludes(result.message ?? "", branch);
   });
 });

@@ -125,7 +125,7 @@ Deno.test("default integration landing scenarios use independent copies of one c
           "--json",
         ]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.ok, landed.output);
         assert(result.message !== undefined);
         assertStringIncludes(
@@ -197,7 +197,7 @@ Deno.test("default integration landing scenarios use independent copies of one c
           "--json",
         ]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.message !== undefined);
         // The direct sentence: landed at its own commit, no composition.
         assertStringIncludes(result.message, "Landed agent/one at");
@@ -229,7 +229,7 @@ Deno.test("default integration landing scenarios use independent copies of one c
           "--json",
         ]);
         assertEquals(refused.code, 1);
-        const result = decodeCliResult(refused.stdout, "accept");
+        const result = decodeCliResult(refused, "accept");
         assert(result.message !== undefined);
         assertStringIncludes(
           result.message,
@@ -283,7 +283,7 @@ Deno.test("default integration landing scenarios use independent copies of one c
           "--json",
         ]);
         assertEquals(refused.code, 1, refused.output);
-        const result = decodeCliResult(refused.stdout, "accept");
+        const result = decodeCliResult(refused, "accept");
         assert(result.message !== undefined);
         assertStringIncludes(result.message, "The combined check for");
         assertStringIncludes(result.message, "failed");
@@ -334,7 +334,7 @@ Deno.test("default integration landing scenarios use independent copies of one c
           "--json",
         ]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.message !== undefined);
         assertStringIncludes(
           result.message,
@@ -424,7 +424,7 @@ Deno.test("default integration landing scenarios use independent copies of one c
 
         const landed = await runAgent(wt, ["accept", "--confirmed", "--json"]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.data !== undefined && !("issues" in result.data));
         // Ancestry selects the direct fast path: the exact submitted commit
         // lands with no composition and no integration worktree ever created.
@@ -624,7 +624,7 @@ Deno.test("a trunk that keeps moving stops the landing after one bounded recompo
     );
     const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const result = decodeCliResult(refused.stdout, "accept");
+    const result = decodeCliResult(refused, "accept");
     assertStringIncludes(
       result.message ?? "",
       "moved again while this landing recomposed",
@@ -680,7 +680,7 @@ Deno.test("a main checkout that turns dirty during the combined check refuses at
 
     const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const result = decodeCliResult(refused.stdout, "accept");
+    const result = decodeCliResult(refused, "accept");
     assertStringIncludes(
       result.message ?? "",
       "could not be proved clean at the landing boundary",
@@ -751,7 +751,7 @@ Deno.test("an integration setup failure cleans up its branch and record under in
 
     const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const result = decodeCliResult(refused.stdout, "accept");
+    const result = decodeCliResult(refused, "accept");
     assertStringIncludes(result.message ?? "", "could not be prepared");
     assertStringIncludes(
       result.message ?? "",
@@ -796,7 +796,7 @@ Deno.test("an ancestry-direct landing re-verifies never-loosen against the trunk
     // would loosen 90 to 60 without a proposal, and the recheck refuses.
     const refused = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const result = decodeCliResult(refused.stdout, "accept");
+    const result = decodeCliResult(refused, "accept");
     assertStringIncludes(
       result.message ?? "",
       "The trunk's standards policy moved past this Proof",

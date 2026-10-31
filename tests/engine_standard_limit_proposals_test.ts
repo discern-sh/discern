@@ -35,7 +35,11 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
+import {
+  type CliRun,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const MutableProposalStoreFixtureSchema = z.object({
@@ -164,8 +168,8 @@ interface ApprovalChallenge {
 }
 
 /** Read the exact structured approval challenge from an accept refusal. */
-function approvalChallenge(stdout: string): ApprovalChallenge {
-  const result = decodeCliResult(stdout, "accept");
+function approvalChallenge(run: CliRun): ApprovalChallenge {
+  const result = decodeCliResult(run, "accept");
   assert(
     result.data !== undefined && "standard_approvals_required" in result.data,
   );
@@ -210,8 +214,8 @@ interface ProposalResult {
 }
 
 /** Decode the proposal payload of a `standards propose` envelope. */
-function proposalOf(stdout: string): ProposalResult {
-  return (decodeCliResult(stdout, "standards propose").data as {
+function proposalOf(run: CliRun): ProposalResult {
+  return (decodeCliResult(run, "standards propose").data as {
     proposal: ProposalResult;
   }).proposal;
 }
@@ -518,9 +522,9 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
 
     const proposed = await propose(worktree, reasonA);
     assertEquals(proposed.code, 0, proposed.output);
-    const envelope = decodeCliResult(proposed.stdout, "standards propose");
+    const envelope = decodeCliResult(proposed, "standards propose");
     assertEquals(envelope.verb, "standards propose");
-    const proposalResult = proposalOf(proposed.stdout);
+    const proposalResult = proposalOf(proposed);
     const commit = await gitOut(worktree, "rev-parse", "HEAD");
 
     await t.step(
@@ -591,7 +595,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
 
         const repeated = await propose(worktree, reasonA);
         assertEquals(repeated.code, 0, repeated.output);
-        assertEquals(proposalOf(repeated.stdout), {
+        assertEquals(proposalOf(repeated), {
           status: "unchanged",
           proposal: {
             ...proposalResult.proposal,
@@ -602,7 +606,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
 
         const replaced = await propose(worktree, reasonB);
         assertEquals(replaced.code, 0, replaced.output);
-        const replacement = proposalOf(replaced.stdout);
+        const replacement = proposalOf(replaced);
         assertEquals(replacement.status, "replaced");
         assertEquals(replacement.proposal.reason, reasonB);
         assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), commit);
@@ -624,18 +628,18 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
       "--json",
     ]);
     assertEquals(queueStop.code, 1, queueStop.output);
-    const queueRefusal = decodeCliResult(queueStop.stdout, "accept");
+    const queueRefusal = decodeCliResult(queueStop, "accept");
     assertEquals(queueRefusal.error, "awaiting_standard_approval");
     assertStringIncludes(queueRefusal.message ?? "", "Approval token:");
     assertEquals((await readSubmission(worktree)).status, "missing");
     const firstStop = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(firstStop.code, 1, firstStop.output);
-    const firstToken = approvalChallenge(firstStop.stdout).token;
+    const firstToken = approvalChallenge(firstStop).token;
 
     await t.step(
       "proposal-bearing Gate Proof is green and prominent while accept needs exact approval",
       async () => {
-        const doneData = decodeCliResult(done.stdout, "done").data as {
+        const doneData = decodeCliResult(done, "done").data as {
           proof?: {
             line: string;
             standard_proposals?: { standard: string; reason: string }[];
@@ -652,9 +656,9 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         assertEquals(doneData.standards?.[0]?.measurement, "measured");
         assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), commit);
 
-        const refusal = decodeCliResult(firstStop.stdout, "accept");
+        const refusal = decodeCliResult(firstStop, "accept");
         assertEquals(refusal.error, "awaiting_standard_approval");
-        const approval = approvalChallenge(firstStop.stdout);
+        const approval = approvalChallenge(firstStop);
         assertMatch(approval.token, /^[0-9a-f]{64}$/u);
         assertEquals(approval.proposal.standard, "sources");
         assertEquals(approval.proposal.proposed_limit, 2);
@@ -677,7 +681,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         ]);
         assertEquals(wrong.code, 1, wrong.output);
         assertEquals(
-          decodeCliResult(wrong.stdout, "accept").error,
+          decodeCliResult(wrong, "accept").error,
           "invalid_value",
         );
         assertStringIncludes(
@@ -715,12 +719,12 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         ]);
         assertEquals(staleApproval.code, 1, staleApproval.output);
         assertEquals(
-          decodeCliResult(staleApproval.stdout, "accept").error,
+          decodeCliResult(staleApproval, "accept").error,
           "invalid_value",
         );
         const secondStop = await runAgent(worktree, ["accept", "--json"]);
         assertEquals(secondStop.code, 1, secondStop.output);
-        const secondToken = approvalChallenge(secondStop.stdout).token;
+        const secondToken = approvalChallenge(secondStop).token;
         assert(firstToken !== secondToken);
 
         const store = await Deno.readTextFile(proposalPath);
@@ -734,7 +738,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         ]);
         assertEquals(revoked.code, 1, revoked.output);
         assertEquals(
-          decodeCliResult(revoked.stdout, "accept").error,
+          decodeCliResult(revoked, "accept").error,
           "proposal_stale",
         );
         assertEquals(
@@ -754,7 +758,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         await git(dir, "commit", "-m", "Move trunk without changing Standards");
         const stale = await runAgent(worktree, ["standards", "--json"]);
         assertEquals(stale.code, 1, stale.output);
-        const diagnostics = decodeCliResult(stale.stdout, "standards")
+        const diagnostics = decodeCliResult(stale, "standards")
           .diagnostics as {
             message: string;
           }[];
@@ -768,7 +772,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         const behind = await propose(worktree, reasonC);
         assertEquals(behind.code, 1, behind.output);
         assertEquals(
-          decodeCliResult(behind.stdout, "standards propose").error,
+          decodeCliResult(behind, "standards propose").error,
           "proposal_stale",
         );
         assertTerminalTextIncludes(behind.stdout, "discern update");
@@ -789,7 +793,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         const preview = await propose(worktree, reasonC, "--dry-run");
         assertEquals(preview.code, 0, preview.output);
         assertEquals(
-          decodeCliResult(preview.stdout, "standards propose").plan?.steps.map(
+          decodeCliResult(preview, "standards propose").plan?.steps.map(
             (step) => step.label,
           ),
           ["sources", "rebind-sources"],
@@ -799,7 +803,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
 
         const rebound = await propose(worktree, reasonC);
         assertEquals(rebound.code, 0, rebound.output);
-        reboundResult = proposalOf(rebound.stdout);
+        reboundResult = proposalOf(rebound);
         assertEquals(reboundResult.status, "rebound");
         assertEquals(
           reboundResult.proposal.commit,
@@ -819,7 +823,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
 
         const repeated = await propose(worktree, reasonC);
         assertEquals(repeated.code, 0, repeated.output);
-        assertEquals(proposalOf(repeated.stdout).status, "unchanged");
+        assertEquals(proposalOf(repeated).status, "unchanged");
         assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), descendant);
       },
     );
@@ -831,7 +835,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
     await t.step(
       "the Gate Proof carries the rebound proposal at the descendant",
       () => {
-        const proofProposal = (decodeCliResult(proved.stdout, "done").data as {
+        const proofProposal = (decodeCliResult(proved, "done").data as {
           proof?: {
             standard_proposals?: {
               commit: string;
@@ -852,7 +856,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
       async () => {
         const awaiting = await runAgent(worktree, ["accept", "--json"]);
         assertEquals(awaiting.code, 1, awaiting.output);
-        const approvalToken = approvalChallenge(awaiting.stdout).token;
+        const approvalToken = approvalChallenge(awaiting).token;
 
         const accepted = await runAgent(worktree, [
           "accept",
@@ -862,7 +866,7 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
           "--json",
         ]);
         assertEquals(accepted.code, 0, accepted.output);
-        const result = decodeCliResult(accepted.stdout, "accept");
+        const result = decodeCliResult(accepted, "accept");
         assert(result.data !== undefined && "consent" in result.data);
         const data = result.data;
         assertEquals(data.landing?.trunk_landed, true, accepted.stdout);
@@ -902,7 +906,7 @@ Deno.test("standards propose refuses trunk, unknown, dirty and deleted states re
       );
       assertEquals(trunk.code, 1, trunk.output);
       assertTerminalTextIncludes(
-        String(decodeCliResult(trunk.stdout, "standards propose").message),
+        String(decodeCliResult(trunk, "standards propose").message),
         "never edits the trunk",
       );
     });
@@ -926,7 +930,7 @@ Deno.test("standards propose refuses trunk, unknown, dirty and deleted states re
         ]);
         assertEquals(unknown.code, 1, unknown.output);
         assertEquals(
-          decodeCliResult(unknown.stdout, "standards propose").error,
+          decodeCliResult(unknown, "standards propose").error,
           "unknown_standard",
         );
 
@@ -937,7 +941,7 @@ Deno.test("standards propose refuses trunk, unknown, dirty and deleted states re
         );
         assertEquals(dirty.code, 1, dirty.output);
         assertEquals(
-          decodeCliResult(dirty.stdout, "standards propose").error,
+          decodeCliResult(dirty, "standards propose").error,
           "dirty_worktree",
         );
         assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), head);
@@ -969,7 +973,7 @@ Deno.test("standards propose refuses trunk, unknown, dirty and deleted states re
       );
       assertEquals(deleted.code, 1, deleted.output);
       assertEquals(
-        decodeCliResult(deleted.stdout, "standards propose").error,
+        decodeCliResult(deleted, "standards propose").error,
         "unknown_standard",
       );
     });
@@ -989,7 +993,7 @@ Deno.test("standards propose refuses failed measurements", async () => {
     );
     assertEquals(failed.code, 1, failed.output);
     assertTerminalTextIncludes(
-      String(decodeCliResult(failed.stdout, "standards propose").message),
+      String(decodeCliResult(failed, "standards propose").message),
       "could not complete",
     );
   });
@@ -1044,7 +1048,7 @@ Deno.test("an unproposed simultaneous breach remains an ordinary failure", async
     assertEquals(proposed.code, 0, proposed.output);
     const done = await runAgent(worktree, ["done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const diagnostics = decodeCliResult(done.stdout, "done").diagnostics as {
+    const diagnostics = decodeCliResult(done, "done").diagnostics as {
       tool: string;
       message: string;
     }[];
@@ -1100,7 +1104,7 @@ Deno.test("a changed fresh measurement stales a proposal", async () => {
     );
     assertEquals(reproposed.code, 1, reproposed.output);
     assertEquals(
-      decodeCliResult(reproposed.stdout, "standards propose").error,
+      decodeCliResult(reproposed, "standards propose").error,
       "proposal_stale",
     );
     assertTerminalTextIncludes(
@@ -1174,7 +1178,7 @@ Deno.test("proposal state from a newer discern refuses replacement, and recovery
 
         const resumed = await propose(worktree, reason);
         assertEquals(resumed.code, 0, resumed.output);
-        const resumedProposal = proposalOf(resumed.stdout);
+        const resumedProposal = proposalOf(resumed);
         assertEquals(resumedProposal.status, "recorded");
         assertEquals(resumedProposal.proposal.measured_commit, measuredCommit);
         await assertRejectsNotFound(transactionPath);
@@ -1200,7 +1204,7 @@ Deno.test("proposal state from a newer discern refuses replacement, and recovery
 
         const finalized = await propose(worktree, reason);
         assertEquals(finalized.code, 0, finalized.output);
-        const finalizedProposal = proposalOf(finalized.stdout);
+        const finalizedProposal = proposalOf(finalized);
         assertEquals(finalizedProposal.status, "recovered");
         assertEquals(
           finalizedProposal.proposal.commit,

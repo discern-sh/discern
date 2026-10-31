@@ -238,7 +238,7 @@ interface ObservedTask {
 async function onlyTask(root: string): Promise<ObservedTask> {
   const status = await runAgent(root, ["status", "--verbose", "--json"]);
   assertEquals(status.code, 0, status.output);
-  const decoded = decodeCliResult(status.stdout, "status");
+  const decoded = decodeCliResult(status, "status");
   assert(decoded.data !== undefined && "fleet" in decoded.data);
   const task = decoded.data.fleet?.find((entry) => !entry.is_main);
   assert(task !== undefined, status.stdout);
@@ -665,7 +665,7 @@ Deno.test("Desk PTY fleet builders materialise later-wave state through real aut
       env: { ...project.env },
     });
     assertEquals(status.code, 0, status.output);
-    const result = decodeCliResult(status.stdout, "status");
+    const result = decodeCliResult(status, "status");
     assert(result.data !== undefined && "fleet" in result.data);
     const ready = result.data.fleet?.find((entry) =>
       entry.branch === "agent/ready-task-a1b2c3"

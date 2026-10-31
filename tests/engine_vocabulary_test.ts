@@ -63,7 +63,7 @@ Deno.test("a uniquely matching trailing-s variant only suggests the canonical co
     await scaffoldEngine(dir);
     const refused = await runAgent(dir, [variant, "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const result = decodeCliResult(refused.stdout, "discern");
+    const result = decodeCliResult(refused, "discern");
     assertEquals(result.error, "unknown_command");
     assertHasHint(result, HINTS["unknown-command-suggestion"], {
       command: canonical,
@@ -77,7 +77,7 @@ Deno.test("standard suggests standards without becoming an input alias", async (
     await scaffoldEngine(dir);
     const refused = await runAgent(dir, ["standard", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const result = decodeCliResult(refused.stdout, "discern");
+    const result = decodeCliResult(refused, "discern");
     assertEquals(result.error, "unknown_command");
     assertHasHint(result, HINTS["unknown-command-suggestion"], {
       command: "standards",
@@ -108,7 +108,7 @@ Deno.test("every command synonym suggests its canonical verb on both surfaces", 
       const json = await runAgent(dir, [synonym, "--json"]);
       assertEquals(json.code, 1, json.output);
       assertEquals(json.stderr, "", "the --json stream must stay pure");
-      const res = decodeCliResult(json.stdout, "discern");
+      const res = decodeCliResult(json, "discern");
       assertEquals(res.ok, false);
       assertEquals(res.verb, "discern");
       assertEquals(res.error, "unknown_command");
@@ -140,7 +140,7 @@ Deno.test("an unknown word with no suggestion still refuses with a hint under --
     const json = await runAgent(dir, [word, "--json"]);
     assertEquals(json.code, 1, json.output);
     assertEquals(json.stderr, "", "the --json stream must stay pure");
-    const res = decodeCliResult(json.stdout, "discern");
+    const res = decodeCliResult(json, "discern");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "discern");
     assertEquals(res.error, "unknown_command");
@@ -158,7 +158,7 @@ Deno.test("the unknown-command lesson shows even outside a project", async () =>
     ) {
       const json = await runAgent(dir, [synonym, "--json"]);
       const suggestion = assertHasHint(
-        decodeCliResult(json.stdout, "discern"),
+        decodeCliResult(json, "discern"),
         HINTS["unknown-command-suggestion"],
         { command: canonical },
       );
@@ -181,7 +181,7 @@ Deno.test("a flag-first unknown command keeps the root discriminator with malfor
       "zzzz-nothing-like-a-verb",
     ]);
     assertEquals(result.code, 1, result.output);
-    const envelope = decodeCliResult(result.stdout, "discern");
+    const envelope = decodeCliResult(result, "discern");
     assertEquals(envelope.verb, "discern");
     assertEquals(envelope.error, "unknown_command");
     assertExists(envelope.message);

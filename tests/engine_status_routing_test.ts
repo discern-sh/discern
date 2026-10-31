@@ -97,7 +97,7 @@ async function behindFixture(
 async function statusHints(wt: string): Promise<string[]> {
   const status = await runAgent(wt, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
-  return [...(decodeCliResult(status.stdout, "status").hints ?? [])];
+  return [...(decodeCliResult(status, "status").hints ?? [])];
 }
 
 Deno.test("behind-trunk status follows proven, dirty, and committed-unproven transitions", async () => {

@@ -45,6 +45,7 @@ import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 import {
@@ -70,29 +71,29 @@ type StatusData = Exclude<
 >;
 
 /** Decode the normal status payload, excluding configuration refusals. */
-function decodeStatusData(stdout: string): StatusData {
-  const result = decodeCliResult(stdout, "status");
+function decodeStatusData(run: CliRun): StatusData {
+  const result = decodeCliResult(run, "status");
   assertResultDataKey(result, "location");
   return result.data;
 }
 
 /** Decode the normal setup welcome payload, excluding configuration refusals. */
-function decodeSetupData(stdout: string): SetupData {
-  const result = decodeCliResult(stdout, "setup");
+function decodeSetupData(run: CliRun): SetupData {
+  const result = decodeCliResult(run, "setup");
   assertResultDataKey(result, "phase");
   return result.data;
 }
 
 /** Decode setup-begin effect accounting, excluding configuration refusals. */
-function decodeSetupBeginData(stdout: string): SetupBeginData {
-  const result = decodeCliResult(stdout, "setup begin");
+function decodeSetupBeginData(run: CliRun): SetupBeginData {
+  const result = decodeCliResult(run, "setup begin");
   assertResultDataKey(result, "complete");
   return result.data;
 }
 
 /** Decode setup verification findings, excluding configuration refusals. */
-function decodeSetupVerifyData(stdout: string): SetupVerifyData {
-  const result = decodeCliResult(stdout, "setup verify");
+function decodeSetupVerifyData(run: CliRun): SetupVerifyData {
+  const result = decodeCliResult(run, "setup verify");
   assertResultDataKey(result, "phase");
   return result.data;
 }
@@ -189,7 +190,7 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     // message rides the JSON surface an agent reads.
     const refused = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const res = decodeCliResult(refused.stdout, "setup accept");
+    const res = decodeCliResult(refused, "setup accept");
     assertEquals(res.error, "no_trunk");
     assertExists(res.message);
     assertStringIncludes(
@@ -219,7 +220,7 @@ Deno.test("verify in a non-git directory serves git-init-first and promises no i
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     const d = decodeSetupVerifyData(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
     );
     assertExists(d.findings);
     assertEquals(d.findings.git.repo, false);
@@ -271,7 +272,7 @@ Deno.test("verify from a repo subdirectory previews the ROOT's sibling worktree 
     await Deno.mkdir(sub, { recursive: true });
 
     const d = decodeSetupVerifyData(
-      (await runAgent(dir, ["setup", "verify", "--json"], { cwd: sub })).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"], { cwd: sub }),
     );
     assertExists(d.findings);
     // The preview must describe the tree `begin` will operate on — the repo
@@ -312,7 +313,7 @@ Deno.test("the fresh welcome carries the git-init note only in a non-git directo
     const nonGit = await runAgent(dir, ["setup"]);
     assertTerminalTextIncludes(nonGit.stdout, "isn't a git repository yet");
     const nonGitJson = decodeSetupData(
-      (await runAgent(dir, ["setup", "--json"])).stdout,
+      await runAgent(dir, ["setup", "--json"]),
     );
     assertExists(nonGitJson.human_framing);
     assertStringIncludes(nonGitJson.human_framing, "git init");
@@ -322,7 +323,7 @@ Deno.test("the fresh welcome carries the git-init note only in a non-git directo
     const withGit = await runAgent(dir, ["setup"]);
     assert(!withGit.stdout.includes("isn't a git repository yet"));
     const withGitJson = decodeSetupData(
-      (await runAgent(dir, ["setup", "--json"])).stdout,
+      await runAgent(dir, ["setup", "--json"]),
     );
     assertExists(withGitJson.human_framing);
     assert(!withGitJson.human_framing.includes("git init"));
@@ -363,7 +364,7 @@ Deno.test("begin rejects a verbatim --map placeholder instead of scaffolding a l
       "<their-docs-path>",
     ]);
     assertEquals(r.code, 1, r.output);
-    const res = decodeCliResult(r.stdout, "setup begin");
+    const res = decodeCliResult(r, "setup begin");
     assertEquals(res.error, "invalid_arguments");
     assertExists(res.message);
     assertStringIncludes(res.message, "placeholder");
@@ -405,7 +406,7 @@ Deno.test("verify names a missing git identity with the exact commands, and begi
 
     // The preflight names the gap BEFORE the agent burns a session hitting it.
     const v = decodeSetupVerifyData(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
     );
     assertExists(v.findings);
     assertEquals(v.findings.git.identity, false);
@@ -431,7 +432,7 @@ Deno.test("verify names a missing git identity with the exact commands, and begi
       "claude_code",
     ]);
     assertEquals(begin.code, 0, begin.output);
-    const d = decodeSetupBeginData(begin.stdout);
+    const d = decodeSetupBeginData(begin);
     assertEquals(d.machinery_committed, false);
     assert(
       typeof d.machinery_commit_error === "string" &&
@@ -467,7 +468,7 @@ Deno.test("a failed completion-marker commit explains itself instead of misattri
     // auto-commit fails on the missing identity. The old output misattributed
     // this as "could not prove that was the only discern.toml change".
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
       "setup done",
     );
     assertResultDataKey(res, "marker_committed");
@@ -524,7 +525,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
 
     // The welcome routes to the resume, not the FRESH funnel.
     const w = decodeSetupData(
-      (await runAgent(dir, ["setup", "--json"])).stdout,
+      await runAgent(dir, ["setup", "--json"]),
     );
     assertEquals(w.phase, "in_progress");
     assertExists(w.next_action);
@@ -541,7 +542,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
 
     // verify routes the same way.
     const v = decodeSetupVerifyData(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
     );
     assertEquals(v.phase, "in_progress");
     assertEquals(v.next_action, "discern setup begin --confirmed");
@@ -558,7 +559,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
       "claude_code",
     ]);
     assertEquals(re.code, 0, re.output);
-    const reData = decodeSetupBeginData(re.stdout);
+    const reData = decodeSetupBeginData(re);
     assertEquals(reData.written, [], "a resume must not re-scaffold");
     const instructions = await Deno.readTextFile(
       join(dir, SOURCE_PATHS.instructions.defaultPath),
@@ -629,7 +630,7 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
     );
     // …and the skip is reported, not silent.
     assertHasHint(
-      decodeCliResult(re.stdout, "setup begin"),
+      decodeCliResult(re, "setup begin"),
       HINTS["setup-instructions-own-render-skipped"],
       {
         paths: ["CLAUDE.md"],
@@ -787,7 +788,7 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
     ]);
     assertEquals(first.code, 0, first.output);
     assertEquals(
-      decodeSetupBeginData(first.stdout).machinery_committed,
+      decodeSetupBeginData(first).machinery_committed,
       false,
       "precondition: the first commit must have failed",
     );
@@ -818,7 +819,7 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
 
     // Convergence: the re-run reports the wiring committed, and it truly is — the resume
     // re-attempted the commit it skipped before, rather than leaving it uncommitted forever.
-    const data = decodeSetupBeginData(re.stdout);
+    const data = decodeSetupBeginData(re);
     assertEquals(data.branch, "discern-setup");
     assertEquals(
       data.machinery_committed,
@@ -895,7 +896,7 @@ async function beginWithRejectedMachineryCommit(
   ]);
   assertEquals(first.code, 0, first.output);
   assertEquals(
-    decodeSetupBeginData(first.stdout).machinery_committed,
+    decodeSetupBeginData(first).machinery_committed,
     false,
     "precondition: the first machinery commit must fail",
   );
@@ -955,7 +956,7 @@ async function retrySetup(dir: string): Promise<SetupBeginData> {
     AGENT_NAMES.join(","),
   ]);
   assertEquals(retried.code, 0, retried.output);
-  return decodeSetupBeginData(retried.stdout);
+  return decodeSetupBeginData(retried);
 }
 
 /** Prove a changed retry authored no commit and claimed no prior setup provenance. */
@@ -1314,7 +1315,7 @@ Deno.test("re-entry (B47): setup that starts on discern-setup stamps the real in
     // The merge check is armed against the stamped branch: status reports it as
     // the integration branch (and it exists locally, so nothing self-skips).
     const status = decodeStatusData(
-      (await runAgent(dir, ["status", "--json"])).stdout,
+      await runAgent(dir, ["status", "--json"]),
     );
     assertExists(status.git);
     assertEquals(status.git.trunk, "master");

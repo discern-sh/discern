@@ -71,7 +71,9 @@ import type { DoctorData } from "../src/shared/result_schemas.ts";
 import { z } from "@zod/zod";
 import {
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
+  decodeResultText,
   decodeWith,
 } from "./decode_cli_result.ts";
 import { withPristineInstalls } from "./engine_surface_fixture.ts";
@@ -135,9 +137,8 @@ type DoctorPayload = Omit<CliResultForCommand<"doctor">, "data"> & {
   data: DoctorData;
 };
 
-/** Decode doctor stdout and require the command's normal diagnostic payload. */
-function decodeDoctor(stdout: string): DoctorPayload {
-  const result = decodeCliResult(stdout, "doctor");
+/** Require a decoded doctor result to carry its normal diagnostic payload. */
+function doctorPayload(result: CliResultForCommand<"doctor">): DoctorPayload {
   assert(
     result.data !== undefined &&
       "checks" in result.data &&
@@ -145,6 +146,11 @@ function decodeDoctor(stdout: string): DoctorPayload {
     "doctor must return its diagnostic data payload",
   );
   return { ...result, data: result.data };
+}
+
+/** Decode a doctor run and require its normal diagnostic payload. */
+function decodeDoctor(run: CliRun): DoctorPayload {
+  return doctorPayload(decodeCliResult(run, "doctor"));
 }
 
 Deno.test("doctor terminal Components make dynamic facts inert without mutating result data", () => {
@@ -290,7 +296,9 @@ async function runDoctorJson(
   });
   return {
     code: result.ok ? 0 : 1,
-    payload: decodeDoctor(JSON.stringify(serializeResult(result))),
+    payload: doctorPayload(
+      decodeResultText(JSON.stringify(serializeResult(result)), "doctor"),
+    ),
   };
 }
 
@@ -302,12 +310,12 @@ async function runDoctorJson(
 async function runDoctorJsonCli(
   dir: string,
 ): Promise<{ code: number; payload: DoctorPayload }> {
-  const { code, stdout } = await runCli([
+  const run = await runCli([
     "doctor",
     "--verbose",
     "--json",
   ], dir);
-  return { code, payload: decodeDoctor(stdout) };
+  return { code: run.code, payload: decodeDoctor(run) };
 }
 
 Deno.test("doctor output surfaces and config health run over pristine copies of one scaffolded install", async (t) => {
@@ -321,7 +329,7 @@ Deno.test("doctor output surfaces and config health run over pristine copies of 
           routine.stdout.length <= DOCTOR_ORIENTATION_MAX_CHARS,
           `routine doctor used ${routine.stdout.length} characters`,
         );
-        const bounded = decodeDoctor(routine.stdout);
+        const bounded = decodeDoctor(routine);
         assertEquals(bounded.data.execution_model, undefined);
         assert(
           bounded.hints?.some((hint) =>
@@ -394,7 +402,7 @@ Deno.test("doctor output surfaces and config health run over pristine copies of 
 
         const json = await runCli(["doctor", "--json"], dir, env);
         assertEquals(json.code, 0);
-        const payload = decodeDoctor(json.stdout);
+        const payload = decodeDoctor(json);
         assertEquals(payload.data.environment.desk_session, true);
 
         const human = await runCli(["doctor"], dir, env);
@@ -444,10 +452,14 @@ Deno.test("doctor output surfaces and config health run over pristine copies of 
       async (dir) => {
         // Point GIT_BIN at a name that does not resolve, so the git probe fails the
         // same way a machine with no git would — without touching the real PATH.
-        const { code, stdout } = await runCli(["doctor", "--json"], dir, {
-          GIT_BIN: "definitely-not-git-12345",
-        });
-        const payload = decodeDoctor(stdout);
+        const { code, stdout, stderr } = await runCli(
+          ["doctor", "--json"],
+          dir,
+          {
+            GIT_BIN: "definitely-not-git-12345",
+          },
+        );
+        const payload = decodeDoctor({ code, stdout, stderr });
         assertEquals(code, 1);
         const git = check(payload, "git");
         assertEquals(git.ok, false);
@@ -466,10 +478,14 @@ Deno.test("doctor output surfaces and config health run over pristine copies of 
         );
         await Deno.chmod(fakeGit, 0o755);
 
-        const { code, stdout } = await runCli(["doctor", "--json"], dir, {
-          GIT_BIN: fakeGit,
-        });
-        const payload = decodeDoctor(stdout);
+        const { code, stdout, stderr } = await runCli(
+          ["doctor", "--json"],
+          dir,
+          {
+            GIT_BIN: fakeGit,
+          },
+        );
+        const payload = decodeDoctor({ code, stdout, stderr });
         assertEquals(code, 1);
         const git = check(payload, "git");
         assertEquals(git.status, "fail");
@@ -1038,8 +1054,8 @@ for (const { label, segments } of SUBDIR_DEPTHS) {
 
       // Run doctor with the cwd set to the subdirectory. It must find the real
       // discern.toml at the root, not report the install missing/broken.
-      const { code, stdout } = await runCli(["doctor", "--json"], sub);
-      const payload = decodeDoctor(stdout);
+      const { code, stdout, stderr } = await runCli(["doctor", "--json"], sub);
+      const payload = decodeDoctor({ code, stdout, stderr });
       assertEquals(
         code,
         0,
@@ -1108,7 +1124,7 @@ Deno.test("doctor schema, job, and command-probe checks run over pristine copies
         const up = await runCli(["upgrade", "--json"], dir);
         assertEquals(up.code, 1);
         assertEquals(
-          decodeCliResult(up.stdout, "upgrade").error,
+          decodeCliResult(up, "upgrade").error,
           "schema_version_too_new",
           "upgrade must refuse a newer-than-binary schema — the state doctor's fix must route around",
         );
@@ -2623,9 +2639,12 @@ Deno.test("doctor execution-model, logbook, and nested-repository checks run ove
 
         // From inside the nested repo, root discovery walks up to the outer
         // project — the crossing is disclosed as advice, exit stays 0.
-        const { code, stdout } = await runCli(["doctor", "--json"], child);
+        const { code, stdout, stderr } = await runCli(
+          ["doctor", "--json"],
+          child,
+        );
         assertEquals(code, 0);
-        const payload = decodeDoctor(stdout);
+        const payload = decodeDoctor({ code, stdout, stderr });
         const boundary = check(payload, "root discovery");
         assertEquals(boundary.status, "warn");
         assertStringIncludes(boundary.detail, "childrepo");

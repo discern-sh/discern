@@ -161,7 +161,7 @@ Deno.test("update --from an ambiguous name refuses — it must not merge the tag
 
     const r = await runAgent(wt, ["update", "--json", "--from", "dual"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assertEquals(result.error, "precondition_failed");
     assertExists(result.message);
     assertStringIncludes(result.message, "ambiguous");
@@ -180,7 +180,7 @@ Deno.test("start --from an ambiguous name refuses cleanly — no worktree debris
 
     const r = await runAgent(dir, ["start", "--json", "--from", "dual"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assertEquals(result.error, "precondition_failed");
     assertExists(result.message);
     assertStringIncludes(result.message, "ambiguous");
@@ -207,7 +207,7 @@ Deno.test("update --from an annotated tag anchors range.main at the peeled commi
 
     const r = await runAgent(wt, ["update", "--json", "--from", "phase-1"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assertResultDataKey(result, "range");
     assertEquals(
       result.data.range.main,

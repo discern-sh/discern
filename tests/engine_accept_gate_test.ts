@@ -52,6 +52,7 @@ import { z } from "@zod/zod";
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -155,13 +156,13 @@ const CHECK_NO_TABOO = [
 ].join("\n");
 
 /** Decode an acceptance that crossed the landing boundary. */
-function parseAppliedAcceptJson(stdout: string): AppliedAcceptEnvelope {
-  const result = decodeCliResult(stdout, "accept");
+function parseAppliedAcceptJson(run: CliRun): AppliedAcceptEnvelope {
+  const result = decodeCliResult(run, "accept");
   assertResultDataKey(result, "root");
   assert(typeof result.data.root === "string");
   const { consent, landing } = result.data;
-  assert(consent !== undefined && landing !== undefined, stdout);
-  assert(landing.trunk_landed, stdout);
+  assert(consent !== undefined && landing !== undefined, run.stdout);
+  assert(landing.trunk_landed, run.stdout);
   return {
     ...result,
     data: { ...result.data, root: result.data.root, consent, landing },
@@ -444,7 +445,7 @@ Deno.test("accept: a fresh complete candidate lands without running a producer t
     assertEquals(await Deno.readTextFile(join(wt, ".check-count")), "x");
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
-    const result = parseAppliedAcceptJson(accepted.stdout);
+    const result = parseAppliedAcceptJson(accepted);
     assertEquals(result.data.consent, { source: "conversation" });
     assertEquals(result.data.landing, {
       recovery_performed: false,
@@ -482,7 +483,7 @@ for (const legacy of [false, true]) {
           ...(preview ? ["--dry-run"] : []),
         ]);
         assertEquals(accepted.code, 1, accepted.output);
-        const result = decodeCliResult(accepted.stdout, "accept");
+        const result = decodeCliResult(accepted, "accept");
         assertEquals(result.error, "precondition_failed", accepted.output);
         assertStringIncludes(
           result.message ?? "",
@@ -513,7 +514,7 @@ Deno.test("accept: a trunk that moved after the Proof composes in an integration
     await advanceMain(dir, "notes.txt");
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
-    const result = decodeCliResult(accepted.stdout, "accept");
+    const result = decodeCliResult(accepted, "accept");
     assertStringIncludes(
       result.message ?? "",
       "composed with main and proven as",
@@ -545,7 +546,7 @@ Deno.test("accept: a new authored commit stales the Proof and routes back to don
     const refused = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(refused.code, 1, refused.output);
     assertEquals(
-      decodeCliResult(refused.stdout, "accept").error,
+      decodeCliResult(refused, "accept").error,
       "precondition_failed",
     );
     assertEquals(await targetExists(join(dir, "more.txt")), false);
@@ -575,7 +576,7 @@ Deno.test("accept: the stale-finish hole stays closed — a gate-breaking merge 
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 1, accepted.output);
     assertTerminalTextIncludes(
-      decodeCliResult(accepted.stdout, "accept").message ?? "",
+      decodeCliResult(accepted, "accept").message ?? "",
       "The combined check for agent/composed's submission",
     );
     // The route the refusal names: update merges the trunk in, done fails on

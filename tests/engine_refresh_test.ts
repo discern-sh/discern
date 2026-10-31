@@ -279,7 +279,7 @@ Deno.test("engine refresh: a skills-dir failure is isolated — agent files and 
     const r = await runAgent(dir, ["refresh", "--json"]);
     // Partial success: a non-zero exit and a structured partial_refresh result...
     assertEquals(r.code, 1, r.output);
-    const res = decodeCliResult(r.stdout, "refresh");
+    const res = decodeCliResult(r, "refresh");
     assertResultDataKey(res, "errors");
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
@@ -358,7 +358,7 @@ Deno.test("engine refresh refuses malformed co-owned MCP JSON without clobbering
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const res = decodeCliResult(r.stdout, "refresh");
+    const res = decodeCliResult(r, "refresh");
     assertResultDataKey(res, "errors");
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
@@ -386,7 +386,7 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
 
     const first = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(first.code, 0, first.output);
-    const firstEnvelope = decodeCliResult(first.stdout, "refresh");
+    const firstEnvelope = decodeCliResult(first, "refresh");
     assertResultDataKey(firstEnvelope, "mcp_wired");
     assert(firstEnvelope.data.mcp_wired.includes(".mcp.json"), first.stdout);
     const mcp = decodeWith(
@@ -401,7 +401,7 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
     // but it changed no tracked artifact and must not repeat the commit advice.
     const unchanged = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(unchanged.code, 0, unchanged.output);
-    const unchangedEnvelope = decodeCliResult(unchanged.stdout, "refresh");
+    const unchangedEnvelope = decodeCliResult(unchanged, "refresh");
     assertResultDataKey(unchangedEnvelope, "mcp_wired");
     assertEquals(unchangedEnvelope.data.mcp_wired, []);
     assertLacksHint(unchangedEnvelope, HINTS["refresh-mcp-first-install"]);
@@ -419,7 +419,7 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
     );
     const changed = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(changed.code, 0, changed.output);
-    const envelope = decodeCliResult(changed.stdout, "refresh");
+    const envelope = decodeCliResult(changed, "refresh");
     assertHasHint(envelope, HINTS["refresh-commit-tracked-artifacts"]);
     assertLacksHint(envelope, HINTS["refresh-mcp-first-install"]);
   });
@@ -443,7 +443,7 @@ Deno.test("engine refresh: every agent-file overwrite reports the lines it disca
     await Deno.writeTextFile(claudePath, `${compiled}\n${block}`);
     const preview = await runAgent(dir, ["refresh", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
-    const planned = decodeCliResult(preview.stdout, "refresh");
+    const planned = decodeCliResult(preview, "refresh");
     assertResultDataKey(planned, "agents_written");
     assertEquals(planned.data.agent_files_discarded, expected);
     assertStringIncludes(
@@ -459,7 +459,7 @@ Deno.test("engine refresh: every agent-file overwrite reports the lines it disca
     // The apply overwrites the file and reports the cost in data and hints.
     const applied = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(applied.code, 0, applied.output);
-    const envelope = decodeCliResult(applied.stdout, "refresh");
+    const envelope = decodeCliResult(applied, "refresh");
     assertResultDataKey(envelope, "agents_written");
     assertEquals(envelope.data.agent_files_discarded, expected);
     assertHasHint(envelope, HINTS["refresh-agent-files-discarded"], {
@@ -481,7 +481,7 @@ Deno.test("engine refresh: every agent-file overwrite reports the lines it disca
     await Deno.writeTextFile(claudePath, `${compiled}\n${block}`);
     const prepared = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(prepared.code, 0, prepared.output);
-    const prepare = decodeCliResult(prepared.stdout, "prepare");
+    const prepare = decodeCliResult(prepared, "prepare");
     assertEquals(prepare.ok, true);
     const warning = (prepare.diagnostics ?? []).find((diagnostic) =>
       diagnostic.severity === "warning"

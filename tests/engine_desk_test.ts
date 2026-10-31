@@ -30,7 +30,7 @@ Deno.test("desk --json: refuses — the desk has no JSON form", async () => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["desk", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const envelope = decodeCliResult(r.stdout, "desk");
+    const envelope = decodeCliResult(r, "desk");
     assertEquals(envelope.ok, false);
     assertEquals(envelope.verb, "desk");
     assertEquals(envelope.error, "invalid_arguments");
@@ -50,7 +50,7 @@ Deno.test("desk --json: a desk-owned child reports the active desk", async () =>
       env: DESK_SESSION,
     });
     assertEquals(r.code, 1, r.output);
-    const envelope = decodeCliResult(r.stdout, "desk");
+    const envelope = decodeCliResult(r, "desk");
     assertEquals(envelope.ok, false);
     assertEquals(envelope.verb, "desk");
     assertEquals(envelope.error, "desk_already_active");
@@ -116,7 +116,7 @@ Deno.test("desk pre-setup: the setup redirect fires before the surface", async (
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["desk", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const envelope = decodeCliResult(r.stdout, "desk");
+    const envelope = decodeCliResult(r, "desk");
     assertEquals(envelope.error, "setup_unfinished");
   });
 });

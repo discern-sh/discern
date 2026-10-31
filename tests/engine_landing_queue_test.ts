@@ -87,7 +87,7 @@ Deno.test("an unauthorized accept records the submission, refuses read-only, and
     // read-only: the revision waits in the landing queue for the owner.
     const refused = await runAgent(alpha, ["accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const refusal = decodeCliResult(refused.stdout, "accept");
+    const refusal = decodeCliResult(refused, "accept");
     assertEquals(refusal.error, "awaiting_consent");
     assertStringIncludes(
       refusal.message ?? "",
@@ -141,7 +141,7 @@ Deno.test("an unauthorized accept records the submission, refuses read-only, and
     // the same positions.
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusResult = decodeCliResult(status.stdout, "status");
+    const statusResult = decodeCliResult(status, "status");
     assert(statusResult.data !== undefined && "queue" in statusResult.data);
     assertEquals(
       queueSummary(statusResult.data.queue ?? []),
@@ -151,7 +151,7 @@ Deno.test("an unauthorized accept records the submission, refuses read-only, and
     // `accept --dry-run` previews the same order, one sentence per row.
     const preview = await runAgent(alpha, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
-    const previewResult = decodeCliResult(preview.stdout, "accept");
+    const previewResult = decodeCliResult(preview, "accept");
     const details = (previewResult.plan?.details ?? []).join("\n");
     assertStringIncludes(details, "Landing queue:");
     const alphaHead = alphaSubmission.submission.head.slice(0, 12);
@@ -211,7 +211,7 @@ Deno.test("a pre-authorized effort lands its later green done with the grant con
 
       const landed = await runAgent(beta, ["accept", "--json"]);
       assertEquals(landed.code, 0, landed.output);
-      const result = decodeCliResult(landed.stdout, "accept");
+      const result = decodeCliResult(landed, "accept");
       assertEquals(
         result.message,
         `Landed ${betaBranch} at ${betaHead.slice(0, 12)} on main; its ` +
@@ -269,7 +269,7 @@ Deno.test("an owner lands a never-submitted green run only with --target and --c
       "--json",
     ]);
     assertEquals(unconfirmed.code, 1, unconfirmed.output);
-    const refusal = decodeCliResult(unconfirmed.stdout, "accept");
+    const refusal = decodeCliResult(unconfirmed, "accept");
     assertEquals(refusal.error, "awaiting_consent");
     assertStringIncludes(
       refusal.message ?? "",
@@ -289,7 +289,7 @@ Deno.test("an owner lands a never-submitted green run only with --target and --c
       "--json",
     ]);
     assertEquals(landed.code, 0, landed.output);
-    const result = decodeCliResult(landed.stdout, "accept");
+    const result = decodeCliResult(landed, "accept");
     assert(result.data !== undefined && !("issues" in result.data));
     assertEquals(result.data.consent, { source: "conversation" });
     assertEquals(await gitOut(dir, "rev-parse", "main"), gammaHead);
@@ -329,7 +329,7 @@ Deno.test("a branch that moved on lands exactly its proven submission and keeps 
       "--json",
     ]);
     assertEquals(landed.code, 0, landed.output);
-    const result = decodeCliResult(landed.stdout, "accept");
+    const result = decodeCliResult(landed, "accept");
     assertEquals(
       result.message,
       `Landed ${deltaBranch} at ${provenHead.slice(0, 12)} on main; the ` +
@@ -465,13 +465,13 @@ Deno.test("an effort grant never covers a declared-unmet variance", async () => 
 
     const queueStop = await runAgent(wt, ["accept", "queue", "--json"]);
     assertEquals(queueStop.code, 1, queueStop.output);
-    const queueRefusal = decodeCliResult(queueStop.stdout, "accept");
+    const queueRefusal = decodeCliResult(queueStop, "accept");
     assertEquals(queueRefusal.error, "awaiting_variance");
     assertStringIncludes(queueRefusal.message ?? "", "api-review");
     assertEquals((await readSubmission(wt)).status, "missing");
     const refused = await runAgent(wt, ["accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const refusal = decodeCliResult(refused.stdout, "accept");
+    const refusal = decodeCliResult(refused, "accept");
     assertEquals(refusal.error, "awaiting_variance", refused.output);
     assertStringIncludes(
       refusal.message ?? "",

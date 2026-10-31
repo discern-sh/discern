@@ -50,7 +50,7 @@ limit = 90
     await git(path, "commit", "-m", "Change source");
     const checked = await runAgent(path, ["standards", "--json"]);
     assertEquals(checked.code, 0, checked.output);
-    const result = decodeCliResult(checked.stdout, "standards");
+    const result = decodeCliResult(checked, "standards");
     assert(
       result.data !== undefined && "producer_executions" in result.data,
       checked.output,
@@ -76,7 +76,7 @@ limit = 90
     );
     const pin = await runAgent(path, ["standards", "--pin", "--json"]);
     assertEquals(pin.code, 0, pin.output);
-    const pinned = decodeCliResult(pin.stdout, "standards");
+    const pinned = decodeCliResult(pin, "standards");
     assert(pinned.data !== undefined && "producer_executions" in pinned.data);
     assertEquals(pinned.data.producer_executions, {});
     // S07: a pin that reuses readings names the producer whose evidence stood in.
@@ -135,7 +135,7 @@ limit = 1
     const measured = await Deno.readTextFile(lightCounter);
     const accepted = await runAgent(path, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
-    const result = decodeCliResult(accepted.stdout, "accept");
+    const result = decodeCliResult(accepted, "accept");
     assert(result.data !== undefined && "landing" in result.data);
     assertEquals(result.data.landing, {
       recovery_performed: false,

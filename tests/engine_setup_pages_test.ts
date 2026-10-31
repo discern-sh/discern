@@ -139,7 +139,7 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose inst
     const r = await runAgent(dir, ["setup", "step", "4", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const res = decodeCliResult(r.stdout, "setup step");
+    const res = decodeCliResult(r, "setup step");
     assertEquals(res.verb, "setup step");
     assert(res.data !== undefined && "step" in res.data, r.stdout);
     const d = res.data;
@@ -179,7 +179,7 @@ Deno.test("setup step 2 renders every supported diagnostic format", async () => 
     const r = await runAgent(dir, ["setup", "step", "2", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const result = decodeCliResult(r.stdout, "setup step");
+    const result = decodeCliResult(r, "setup step");
     assert(result.data !== undefined && "instructions" in result.data);
     const instructions = result.data.instructions;
     assert(
@@ -217,7 +217,7 @@ Deno.test("setup step on a non-existent step is a structured unknown_step", asyn
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "step", "99", "--json"]);
     assertEquals(r.code, 1, r.output);
-    assertEquals(decodeCliResult(r.stdout, "setup step").error, "unknown_step");
+    assertEquals(decodeCliResult(r, "setup step").error, "unknown_step");
   });
 });
 
@@ -251,7 +251,7 @@ Deno.test("setup begin emits the operating contract + the first page only, never
     await unfinishedSetupRepo(dir);
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assert(result.data !== undefined && "page" in result.data, r.stdout);
     const d = result.data;
     assert(typeof d.instructions === "string");
@@ -350,7 +350,7 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
 
     const blocked = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(blocked.code, 1, blocked.output);
-    const res = decodeCliResult(blocked.stdout, "setup done");
+    const res = decodeCliResult(blocked, "setup done");
     assertEquals(res.ok, false);
     assertEquals(res.error, "incomplete");
     assert(res.data !== undefined && "unmet" in res.data, blocked.stdout);
@@ -428,7 +428,7 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
     assert(done.stdout.length <= SETUP_RESULT_MAX_CHARS);
-    const res = decodeCliResult(done.stdout, "setup done");
+    const res = decodeCliResult(done, "setup done");
     assert(res.data !== undefined && "bootstrapped" in res.data, done.stdout);
     assertEquals(res.data.bootstrapped, true);
     assertEquals(res.data.gate_proven, true);

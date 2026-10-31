@@ -280,7 +280,7 @@ Deno.test("pre-setup: the redirect fires for every global flag before every gate
           assert(!r.stdout.trimStart().startsWith("{"), r.stdout);
           continue;
         }
-        const res = decodeCliResult(r.stdout, verb);
+        const res = decodeCliResult(r, verb);
         assertEquals(
           res.error,
           "setup_unfinished",
@@ -297,7 +297,7 @@ Deno.test("pre-setup: a flags-only JSON invocation returns the root refusal", as
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["--json"]);
     assertEquals(r.code, 2, r.output);
-    const res = decodeCliResult(r.stdout, "discern");
+    const res = decodeCliResult(r, "discern");
     assertEquals(res.ok, false, r.output);
     assertEquals(res.verb, "discern", r.output);
     assertEquals(res.error, "invalid_arguments", r.output);
@@ -341,7 +341,7 @@ Deno.test("result output modes are mutually exclusive", async () => {
       const r = await runAgent(dir, ["status", ...flags]);
       assertEquals(r.code, 1, `${flags.join(" ")}: ${r.output}`);
       if (flags.includes("--json")) {
-        const result = decodeCliResult(r.stdout, "discern");
+        const result = decodeCliResult(r, "discern");
         assertEquals(result.error, "invalid_arguments");
         assert(result.message !== undefined);
         assertStringIncludes(result.message, "cannot be combined");
@@ -418,7 +418,7 @@ Deno.test("an unsupported theme value uses the selected result-format refusal", 
       "--json",
     ]);
     assertEquals(result.code, 2, result.output);
-    const parsed = decodeCliResult(result.stdout, "status");
+    const parsed = decodeCliResult(result, "status");
     assertEquals(parsed.error, "invalid_arguments");
     assert(parsed.message !== undefined);
     assertStringIncludes(parsed.message, "--theme accepts");

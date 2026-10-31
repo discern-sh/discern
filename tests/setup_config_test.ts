@@ -109,7 +109,7 @@ Deno.test("setup begin --config scaffolds from a JSON answers file", async () =>
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertResultDataKey(result, "project");
     assert(result.data.project !== undefined);
     assertEquals(result.ok, true);
@@ -171,7 +171,7 @@ Deno.test("setup begin --config - reads the answers file from stdin", async () =
       ANSWERS,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertResultDataKey(result, "project");
     assert(result.data.project !== undefined);
     assertEquals(result.data.project.slug, "my-app");
@@ -199,7 +199,7 @@ Deno.test("setup begin --config: an explicit flag overrides the file value", asy
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertResultDataKey(result, "project");
     assert(result.data.project !== undefined);
     assertEquals(result.data.project.slug, "flag-wins");
@@ -215,7 +215,7 @@ Deno.test("setup begin --config --dry-run writes nothing", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertEquals(result.dry_run, true);
     assertResultDataKey(result, "config_fills");
     const configFills = result.data.config_fills;
@@ -238,7 +238,7 @@ Deno.test("setup begin --config rejects invalid JSON", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_config_file");
   });
@@ -256,7 +256,7 @@ Deno.test("setup begin --config rejects an unsupported document version", async 
       dir,
     );
     assertEquals(r.code, 1);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertEquals(result.error, "invalid_config_file");
     assert(result.message !== undefined);
     assertStringIncludes(result.message, "version");
@@ -275,7 +275,7 @@ Deno.test("setup begin rejects the removed source-glob input surfaces", async ()
       dir,
     );
     assertEquals(document.code, 1);
-    const result = decodeCliResult(document.stdout, "setup begin");
+    const result = decodeCliResult(document, "setup begin");
     assertEquals(result.error, "invalid_config_file");
     assertStringIncludes(result.message ?? "", "source_globs");
 
@@ -303,7 +303,7 @@ Deno.test("setup begin --config rejects an invalid fill (bad check stage)", asyn
       dir,
     );
     assertEquals(r.code, 1);
-    const result = decodeCliResult(r.stdout, "setup begin");
+    const result = decodeCliResult(r, "setup begin");
     assertEquals(result.error, "invalid_config_file");
     assert(result.message !== undefined);
     assertStringIncludes(result.message, "stage");

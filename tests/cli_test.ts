@@ -51,7 +51,7 @@ Deno.test("setup begin --json scaffolds and reports JSON", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "README.md"), "# CLI fixture\n");
     await gitInit(dir);
-    const { code, stdout } = await runCli(
+    const { code, stdout, stderr } = await runCli(
       [
         "setup",
         "begin",
@@ -65,7 +65,7 @@ Deno.test("setup begin --json scaffolds and reports JSON", async () => {
       dir,
     );
     assertEquals(code, 0);
-    const result = decodeCliResult(stdout, "setup begin");
+    const result = decodeCliResult({ code, stdout, stderr }, "setup begin");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "setup begin");
     assertResultDataKey(result, "project");
@@ -119,7 +119,7 @@ Deno.test("setup begin --dry-run --json writes nothing", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "README.md"), "# CLI fixture\n");
     await gitInit(dir);
-    const { code, stdout } = await runCli(
+    const { code, stdout, stderr } = await runCli(
       [
         "setup",
         "begin",
@@ -132,7 +132,7 @@ Deno.test("setup begin --dry-run --json writes nothing", async () => {
       dir,
     );
     assertEquals(code, 0);
-    const result = decodeCliResult(stdout, "setup begin");
+    const result = decodeCliResult({ code, stdout, stderr }, "setup begin");
     assertEquals(result.dry_run, true);
     assertResultDataKey(result, "plan");
     assertExists(result.data.plan);
@@ -160,9 +160,12 @@ Deno.test("setup re-run over a set-up install reports already_set_up (idempotent
     await runCli(["setup", "done", "--unproven"], dir);
     // `begin` on a recorded install is idempotent — it reports already_set_up rather
     // than re-scaffolding (the welcome's `phase: done` is the parent's equivalent).
-    const { code, stdout } = await runCli(["setup", "begin", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(
+      ["setup", "begin", "--json"],
+      dir,
+    );
     assertEquals(code, 0);
-    const result = decodeCliResult(stdout, "setup begin");
+    const result = decodeCliResult({ code, stdout, stderr }, "setup begin");
     assertEquals(result.ok, true);
     assertResultDataKey(result, "already_set_up");
     assertEquals(result.data.already_set_up, true);
@@ -183,7 +186,7 @@ Deno.test("setup begin --reseed re-scaffolds an existing install without errorin
       agentsPath,
       `${await Deno.readTextFile(agentsPath)}\n<!-- maintained block -->\n`,
     );
-    const { code, stdout } = await runCli(
+    const { code, stdout, stderr } = await runCli(
       [
         "setup",
         "begin",
@@ -196,7 +199,7 @@ Deno.test("setup begin --reseed re-scaffolds an existing install without errorin
       dir,
     );
     assertEquals(code, 0);
-    const result = decodeCliResult(stdout, "setup begin");
+    const result = decodeCliResult({ code, stdout, stderr }, "setup begin");
     assertEquals(result.ok, true);
     assertResultDataKey(result, "written");
     assertExists(result.data.written);
@@ -251,9 +254,9 @@ Deno.test("setup rejects an invalid --slug", async () => {
 
 Deno.test("doctor --json reports invalid result when not initialized", async () => {
   await withTempDir(async (dir) => {
-    const { code, stdout } = await runCli(["doctor", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(["doctor", "--json"], dir);
     assertEquals(code, 1);
-    const result = decodeCliResult(stdout, "doctor");
+    const result = decodeCliResult({ code, stdout, stderr }, "doctor");
     assertEquals(result.ok, false);
     assertResultDataKey(result, "checks");
     const toml = result.data.checks.find((c) => c.name === "discern.toml");
@@ -272,8 +275,8 @@ Deno.test("doctor reports the schema version is current on a fresh install", asy
         .code,
       0,
     );
-    const { stdout } = await runCli(["doctor", "--json"], dir);
-    const result = decodeCliResult(stdout, "doctor");
+    const { stdout, code, stderr } = await runCli(["doctor", "--json"], dir);
+    const result = decodeCliResult({ code, stdout, stderr }, "doctor");
     assertResultDataKey(result, "checks");
     const schema = result.data.checks.find((c) => c.name === "schema version");
     assert(
@@ -285,12 +288,12 @@ Deno.test("doctor reports the schema version is current on a fresh install", asy
 
 Deno.test("the retired preset command is an ordinary unknown command", async () => {
   await withTempDir(async (dir) => {
-    const { code, stdout } = await runCli(
+    const { code, stdout, stderr } = await runCli(
       ["preset", "node", "--json"],
       dir,
     );
     assertEquals(code, 1);
-    const result = decodeCliResult(stdout, "discern");
+    const result = decodeCliResult({ code, stdout, stderr }, "discern");
     assertEquals(result.ok, false);
     assertEquals(result.error, "unknown_command");
     assertStringIncludes(result.message ?? "", '"preset node"');
@@ -315,7 +318,7 @@ Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and
     // JSON mode: a structured error on stdout (a CI/agent consumer parses it).
     const json = await runCli(["done", "--standalone", "--json"], dir);
     assertEquals(json.code, 1);
-    const result = decodeCliResult(json.stdout, "done");
+    const result = decodeCliResult(json, "done");
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_toml");
   });

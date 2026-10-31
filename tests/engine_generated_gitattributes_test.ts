@@ -196,7 +196,7 @@ Deno.test("done refuses a tracked refresh artifact made stale by config", async 
 
     const status = await runAgent(dir, ["status", "--local", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusResult = decodeCliResult(status.stdout, "status");
+    const statusResult = decodeCliResult(status, "status");
     assertResultDataKey(statusResult, "pending_tracked_refresh");
     assertEquals(statusResult.data.pending_tracked_refresh, [
       ".gitattributes",
@@ -205,7 +205,7 @@ Deno.test("done refuses a tracked refresh artifact made stale by config", async 
     const done = await runAgent(dir, ["done", "--json"]);
 
     assertEquals(done.code, 1, done.output);
-    const result = decodeCliResult(done.stdout, "done");
+    const result = decodeCliResult(done, "done");
     assertResultDataKey(result, "failed_stage");
     assertExists(result.diagnostics);
     assertEquals(result.data.failed_stage, "refresh_drift");
@@ -235,7 +235,7 @@ Deno.test("done refuses mode-only drift in a tracked refresh artifact", async ()
     const done = await runAgent(dir, ["done", "--json"]);
 
     assertEquals(done.code, 1, done.output);
-    const result = decodeCliResult(done.stdout, "done");
+    const result = decodeCliResult(done, "done");
     assertResultDataKey(result, "failed_stage");
     assertExists(result.diagnostics);
     assertEquals(result.data.failed_stage, "refresh_drift");
@@ -321,7 +321,7 @@ Deno.test("a provisioned worktree raw-merges generated conflicts and the gate re
 
     const gate = await runAgent(worktree, ["done", "--json"]);
     assertEquals(gate.code, 1, gate.output);
-    const gateResult = decodeCliResult(gate.stdout, "done");
+    const gateResult = decodeCliResult(gate, "done");
     assertResultDataKey(gateResult, "failed_stage");
     assertEquals(
       gateResult.data.failed_stage,

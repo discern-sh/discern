@@ -716,7 +716,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
     await gitInit(dir);
     const done = await runAgent(dir, ["setup", "done", "--unproven", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const envelope = decodeCliResult(done.stdout, "setup done");
+    const envelope = decodeCliResult(done, "setup done");
     const data = SetupDoneDataSchema.parse(envelope.data);
     const inventory = data.inventory;
     assert(done.stdout.length <= SETUP_RESULT_MAX_CHARS);

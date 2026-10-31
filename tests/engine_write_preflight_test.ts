@@ -37,15 +37,16 @@ import {
   assertResultDataKey,
   type CliJsonResultCommand,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
 /** Decode a preflight refusal envelope before asserting that no later effect ran. */
 function parseJson<Command extends CliJsonResultCommand>(
-  stdout: string,
+  run: CliRun,
   command: Command,
 ): CliResultForCommand<Command> {
-  return decodeCliResult(stdout, command);
+  return decodeCliResult(run, command);
 }
 
 /** Read directory members in stable order when asserting a refusal left no debris. */
@@ -142,7 +143,7 @@ Deno.test("done fails before any gate job when its later Git-admin write is unav
     await withUnwritableGitAdmin(dir, async () => {
       const r = await runAgent(dir, ["done", "--json"]);
       assertEquals(r.code, 1, r.output);
-      const obj = parseJson(r.stdout, "done");
+      const obj = parseJson(r, "done");
       assertResultDataKey(obj, "failed_stage");
       assertEquals(obj.data.failed_stage, "write_denied");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
@@ -178,7 +179,7 @@ Deno.test("start proves its complete write plan before Git creates a branch or w
         "--json",
       ]);
       assertEquals(run.code, 1, run.output);
-      const envelope = parseJson(run.stdout, "start");
+      const envelope = parseJson(run, "start");
       assertEquals(envelope.error, "write_denied");
       assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
@@ -224,7 +225,7 @@ Deno.test("start proves the dynamic destination tree before creating its branch"
         "--json",
       ]);
       assertEquals(run.code, 1, run.output);
-      const envelope = parseJson(run.stdout, "start");
+      const envelope = parseJson(run, "start");
       assertEquals(envelope.error, "write_denied");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,
@@ -258,7 +259,7 @@ Deno.test("a Git repository without discern keeps the command's not-initialized 
     await withUnwritableDirectory(gitAdmin, async () => {
       const run = await runAgent(dir, ["update", "--json"]);
       assertEquals(run.code, 1, run.output);
-      const envelope = parseJson(run.stdout, "update");
+      const envelope = parseJson(run, "update");
       assertEquals(envelope.error, "no_project");
     });
   });
@@ -278,7 +279,7 @@ Deno.test("the CLI Git boundary preserves the invoked retry and omits presentati
         "--json",
       ]);
       assertEquals(run.code, 1, run.output);
-      const envelope = parseJson(run.stdout, "update");
+      const envelope = parseJson(run, "update");
       assertEquals(envelope.error, "write_denied");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,
@@ -305,7 +306,7 @@ for (
       await withUnwritableGitAdmin(dir, async () => {
         const r = await runAgent(dir, args);
         assertEquals(r.code, 1, r.output);
-        const obj = parseJson(r.stdout, "standards");
+        const obj = parseJson(r, "standards");
         assertEquals(obj.error, "write_denied");
         assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
         assertStringIncludes(obj.message ?? "", ".git");
@@ -328,7 +329,7 @@ Deno.test("standards --pin fails before measuring when discern.toml cannot be re
     try {
       const r = await runAgent(dir, ["standards", "--pin", "--json"]);
       assertEquals(r.code, 1, r.output);
-      const obj = parseJson(r.stdout, "standards");
+      const obj = parseJson(r, "standards");
       assertEquals(obj.error, "write_denied");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertStringIncludes(obj.message ?? "", "discern.toml");
@@ -354,7 +355,7 @@ Deno.test("standards --pin probes the common Git directory before measuring in a
     try {
       const r = await runAgent(wt, ["standards", "--pin", "--json"]);
       assertEquals(r.code, 1, r.output);
-      const obj = parseJson(r.stdout, "standards");
+      const obj = parseJson(r, "standards");
       assertEquals(obj.error, "write_denied");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertEquals(

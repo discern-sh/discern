@@ -145,7 +145,7 @@ Deno.test("nested root: committed and pending changes classify into their scope"
 
     const r = await runAgent(app, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = decodeCliResult(r.stdout, "impact").data;
+    const data = decodeCliResult(r, "impact").data;
     assert(data !== undefined && "scopes" in data);
     const scopes = data.scopes;
     assert(scopes.includes("widget"), `widget must classify: ${r.stdout}`);
@@ -162,7 +162,7 @@ Deno.test("nested root: a sibling project's changes are not this project's code"
 
     const r = await runAgent(app, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = decodeCliResult(r.stdout, "impact").data;
+    const data = decodeCliResult(r, "impact").data;
     assert(data !== undefined && "scopes" in data);
     const scopes = data.scopes;
     assertEquals(scopes, [], `sibling dirt must not classify: ${r.stdout}`);
@@ -182,7 +182,7 @@ Deno.test("nested root: whitespace in the project prefix remains Git path data",
 
     const r = await runAgent(app, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = decodeCliResult(r.stdout, "impact").data;
+    const data = decodeCliResult(r, "impact").data;
     assert(data !== undefined && "scopes" in data);
     assertEquals(
       data.scopes,
@@ -430,7 +430,7 @@ Deno.test("nested root: doctor's repository-shape check names the layout and the
     );
     const r = await runAgent(app, ["doctor", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const payload = decodeCliResult(r.stdout, "doctor");
+    const payload = decodeCliResult(r, "doctor");
     assert(payload.data !== undefined && "checks" in payload.data);
     const shape = payload.data.checks.find((c) =>
       c.name === "repository shape"

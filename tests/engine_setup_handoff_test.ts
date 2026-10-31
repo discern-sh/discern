@@ -106,7 +106,7 @@ Deno.test("setup begin --json carries an explicit incomplete signal", async () =
     await unfinishedSetupRepo(dir);
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = decodeCliResult(r.stdout, "setup begin");
+    const obj = decodeCliResult(r, "setup begin");
     assertEquals(obj.ok, true);
     assertResultDataKey(obj, "complete");
     assertExists(obj.data.next_action);
@@ -141,7 +141,7 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
 
     // Machine view: the same qualifier rides the hints.
     const j = decodeCliResult(
-      (await runAgent(dir, ["doctor", "--json"])).stdout,
+      await runAgent(dir, ["doctor", "--json"]),
       "doctor",
     );
     assertHasHint(j, HINTS["setup-unfinished-doctor"]);
@@ -155,7 +155,7 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
       "a recorded setup must not re-raise the mid-setup banner",
     );
     const j = decodeCliResult(
-      (await runAgent(dir, ["doctor", "--json"])).stdout,
+      await runAgent(dir, ["doctor", "--json"]),
       "doctor",
     );
     assertLacksHint(j, HINTS["setup-unfinished-doctor"]);
@@ -275,7 +275,7 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
 
     // Machine view: structured evidence + a lead hint.
     const j = decodeCliResult(
-      (await runAgent(dir, ["status", "--json"])).stdout,
+      await runAgent(dir, ["status", "--json"]),
       "status",
     );
     assertResultDataKey(j, "location");
@@ -295,7 +295,7 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
     // Once setup is recorded, the signal is gone — and the marker walk is skipped.
     await runAgent(dir, ["setup", "done", "--unproven"]);
     const done = decodeCliResult(
-      (await runAgent(dir, ["status", "--json"])).stdout,
+      await runAgent(dir, ["status", "--json"]),
       "status",
     );
     assertResultDataKey(done, "location");
@@ -316,7 +316,7 @@ Deno.test("status surfaces unfinished setup from a worktree too, not just the ma
     const wt = await addWorktree(dir, "midsetup");
 
     const j = decodeCliResult(
-      (await runAgent(wt, ["status", "--json"])).stdout,
+      await runAgent(wt, ["status", "--json"]),
       "status",
     );
     assertResultDataKey(j, "location");

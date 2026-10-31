@@ -661,7 +661,7 @@ Deno.test("a capped gate exports the marker after its slots fail open", async ()
     assertEquals(result.code, 0, result.output);
     assertEquals(await Deno.readTextFile(gateObserved), "1");
     assertEquals(await Deno.readTextFile(nestedObserved), "1");
-    const envelope = decodeCliResult(result.stdout, "test");
+    const envelope = decodeCliResult(result, "test");
     assertEquals(
       envelope.hints?.filter((hint) => hint.includes(UNAVAILABLE_TEXT)).length,
       1,

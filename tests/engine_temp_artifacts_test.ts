@@ -464,7 +464,7 @@ Deno.test("engine suite: spawned-engine artifacts land in the suite temp home, n
     await gitInit(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const envelope = decodeCliResult(r.stdout, "done");
+    const envelope = decodeCliResult(r, "done");
     const outputPath = envelope.steps?.find((step) => step.label === "lint")
       ?.output_path;
     assert(typeof outputPath === "string", r.stdout);

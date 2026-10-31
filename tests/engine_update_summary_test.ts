@@ -29,6 +29,7 @@ import type { UpdateData } from "../src/shared/result_schemas.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
@@ -37,8 +38,8 @@ type UpdateJson = Omit<CliResultForCommand<"update">, "data"> & {
 };
 
 /** Parse an `update --json` run's stdout. */
-function parse(stdout: string): UpdateJson {
-  const result = decodeCliResult(stdout, "update");
+function parse(run: CliRun): UpdateJson {
+  const result = decodeCliResult(run, "update");
   assertResultDataKey(result, "commits");
   return result;
 }
@@ -76,7 +77,7 @@ Deno.test("update --json: reports the commits, files, and range anchors brought 
 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const { data } = parse(r.stdout);
+    const { data } = parse(r);
     assert(data !== undefined, `update must carry data\n${r.stdout}`);
 
     assertEquals(data.behind, 2);
@@ -136,7 +137,7 @@ Deno.test("start, update, and worktree ensure report agent-file lines their refr
     ]);
     assertEquals(started.code, 0, started.output);
     assertHasHint(
-      decodeCliResult(started.stdout, "start"),
+      decodeCliResult(started, "start"),
       HINTS["refresh-agent-files-discarded"],
       { files },
     );
@@ -144,7 +145,7 @@ Deno.test("start, update, and worktree ensure report agent-file lines their refr
     const updated = await runAgent(wt, ["update", "--json"]);
     assertEquals(updated.code, 0, updated.output);
     assertHasHint(
-      parse(updated.stdout),
+      parse(updated),
       HINTS["refresh-agent-files-discarded"],
       {
         files,
@@ -157,7 +158,7 @@ Deno.test("start, update, and worktree ensure report agent-file lines their refr
     const ensured = await runAgent(plain, ["worktree", "ensure", "--json"]);
     assertEquals(ensured.code, 0, ensured.output);
     assertHasHint(
-      decodeCliResult(ensured.stdout, "worktree ensure"),
+      decodeCliResult(ensured, "worktree ensure"),
       HINTS["refresh-agent-files-discarded"],
       { files },
     );
@@ -194,7 +195,7 @@ Deno.test("update merges the observed incoming revision when its source ref move
       env: { GIT_BIN: wrapper, MERGE_SOURCE_NEXT: next },
     });
     assertEquals(result.code, 0, result.output);
-    assertEquals(parse(result.stdout).data.range.main, observed);
+    assertEquals(parse(result).data.range.main, observed);
     await git(wt, "merge-base", "--is-ancestor", observed, "HEAD");
     assertEquals(await targetExists(join(wt, "next.txt")), false);
     assertEquals(await gitOut(dir, "rev-parse", "incoming"), next);
@@ -299,7 +300,7 @@ Deno.test("update: overlap names the files you AND main both changed (clean merg
 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = parse(r.stdout);
+    const result = parse(r);
     const { data } = result;
     assert(data !== undefined, r.stdout);
 
@@ -346,7 +347,7 @@ Deno.test("update: a large merge caps the lists and hands back a git escape-hatc
 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = parse(r.stdout);
+    const result = parse(r);
     const { data } = result;
     assert(data !== undefined, r.stdout);
 
@@ -405,7 +406,7 @@ Deno.test("update: scopes_incoming classifies the merge's files through the proj
 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const { data } = parse(r.stdout);
+    const { data } = parse(r);
     assert(data !== undefined, r.stdout);
     assert(
       data.scopes_incoming.includes("engine"),
@@ -423,7 +424,7 @@ Deno.test("update --dry-run --json: predicts the same summary read-only — no `
 
     const r = await runAgent(wt, ["update", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parse(r.stdout);
+    const obj = parse(r);
 
     assertEquals(obj.dry_run, true);
     assert(

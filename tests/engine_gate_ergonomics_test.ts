@@ -82,7 +82,7 @@ for (const failFast of [true, undefined]) {
         const r = await runAgent(dir, ["done", "--json"]);
         assertEquals(r.code, 1, r.output);
         assertEquals(await Deno.readTextFile(ready), "started\n");
-        const result = decodeCliResult(r.stdout, "done");
+        const result = decodeCliResult(r, "done");
         assertEquals(
           result.steps?.find((step) => step.label === "sibling")?.outcome,
           "cancelled",

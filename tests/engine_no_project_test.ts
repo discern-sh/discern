@@ -196,7 +196,7 @@ Deno.test("every verb answers `--json` outside a project with a structured envel
           const label = `${name} (${spec.run.join(" ")}) outside a project`;
           let result: CliResultEnvelope;
           try {
-            result = decodeCliResult(r.stdout, spec.verb);
+            result = decodeCliResult(r, spec.verb);
           } catch {
             throw new Error(
               `${label} printed no parseable --json envelope on stdout — an ` +

@@ -44,15 +44,16 @@ import {
   type CliJsonResultCommand,
   type CliResultEnvelope,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
 /** Decode consent-gated lifecycle output for authority and no-effect assertions. */
 function parseJson<Command extends CliJsonResultCommand>(
-  stdout: string,
+  run: CliRun,
   command: Command,
 ): CliResultForCommand<Command> {
-  return decodeCliResult(stdout, command);
+  return decodeCliResult(run, command);
 }
 
 /** A gate whose only check passes iff `taboo.txt` is absent — mirrors the proven
@@ -136,7 +137,7 @@ function acceptFollowOn(
       async () => {
         const r = await runAgent(wt, ["accept", "--json"]);
         assertEquals(r.code, 1, r.output);
-        const env = parseJson(r.stdout, "accept");
+        const env = parseJson(r, "accept");
         assert(typeof env.message === "string");
         assertEquals(env.ok, false);
         assertEquals(env.verb, "accept");
@@ -168,7 +169,7 @@ function acceptFollowOn(
       async () => {
         const r = await runAgent(wt, ["accept", "--dry-run", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const env = parseJson(r.stdout, "accept");
+        const env = parseJson(r, "accept");
         assertEquals(env.ok, true);
         assertEquals(env.dry_run, true);
         // A preview lands nothing — the worktree and trunk are untouched.
@@ -182,7 +183,7 @@ function acceptFollowOn(
       async () => {
         const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const env = parseJson(r.stdout, "accept");
+        const env = parseJson(r, "accept");
         assert(env.data !== undefined && !("issues" in env.data));
         assert(typeof env.data.proof_line === "string");
         assertEquals(env.ok, true);
@@ -219,7 +220,7 @@ const PROBES = {
     const before = await gitOut(dir, "rev-parse", "main");
     const argv = ["accept", "emergency", "--reason", "Restore service"];
     const json = await runAgent(wt, [...argv, "--json"]);
-    const env = parseJson(json.stdout, "accept");
+    const env = parseJson(json, "accept");
     const markdown = await runAgent(wt, [...argv, "--markdown"]);
     const terminal = await runAgent(wt, argv);
     const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
@@ -252,7 +253,7 @@ const PROBES = {
     ]);
     assertEquals(mixedCli.code, 1, mixedCli.output);
     assertEquals(
-      parseJson(mixedCli.stdout, "accept").error,
+      parseJson(mixedCli, "accept").error,
       "invalid_arguments",
     );
     return {
@@ -278,7 +279,7 @@ const PROBES = {
   "setup-begin": async (dir) => {
     await freshRepo(dir);
     const json = await runAgent(dir, ["setup", "begin", "--json"]);
-    const env = parseJson(json.stdout, "setup begin");
+    const env = parseJson(json, "setup begin");
     assert(env.data !== undefined && "command" in env.data);
     assert(typeof env.message === "string");
     assert(typeof env.data.command === "string");
@@ -316,7 +317,7 @@ const PROBES = {
   "accept": async (dir) => {
     const wt = await worktreeReadyToLand(dir);
     const json = await runAgent(wt, ["accept", "--json"]);
-    const env = parseJson(json.stdout, "accept");
+    const env = parseJson(json, "accept");
     assert(typeof env.message === "string");
     const markdown = await runAgent(wt, ["accept", "--markdown"]);
     const terminal = await runAgent(wt, ["accept"]);

@@ -84,7 +84,7 @@ async function approvedExchange(
     "--json",
   ]);
   assertEquals(preview.code, 1, preview.output);
-  const token = emergencyData(preview.stdout).confirmation;
+  const token = emergencyData(preview).confirmation;
   assert(token !== undefined, preview.output);
   return await runAgent(wt, [
     "accept",
@@ -114,9 +114,9 @@ Deno.test("a failed convergence outlives the repair checkout: the landing names 
     // not a generic failed-step count — and routes to --recover.
     const landed = await approvedExchange(wt, "Restore service");
     assertEquals(landed.code, 1, landed.output);
-    const landedEnvelope = decodeCliResult(landed.stdout, "accept");
+    const landedEnvelope = decodeCliResult(landed, "accept");
     assertEquals(landedEnvelope.error, "partial_acceptance", landed.output);
-    const landedEmergency = emergencyData(landed.stdout);
+    const landedEmergency = emergencyData(landed);
     const landingId = landedEmergency.landing_id;
     assert(landingId !== undefined, landed.output);
     assertEquals(landedEmergency.outcome, "landed");
@@ -164,7 +164,7 @@ Deno.test("a failed convergence outlives the repair checkout: the landing names 
       "--json",
     ]);
     assertEquals(broken.code, 1, broken.output);
-    const brokenEnvelope = decodeCliResult(broken.stdout, "accept");
+    const brokenEnvelope = decodeCliResult(broken, "accept");
     assertEquals(brokenEnvelope.error, "partial_acceptance", broken.output);
     assertStringIncludes(
       brokenEnvelope.message ?? "",
@@ -196,7 +196,7 @@ Deno.test("a failed convergence outlives the repair checkout: the landing names 
       "--json",
     ]);
     assertEquals(recovered.code, 0, recovered.output);
-    const recoveredEnvelope = decodeCliResult(recovered.stdout, "accept");
+    const recoveredEnvelope = decodeCliResult(recovered, "accept");
     assertEquals(recoveredEnvelope.ok, true, recovered.output);
     assertStringIncludes(
       recoveredEnvelope.message ?? "",
@@ -206,7 +206,7 @@ Deno.test("a failed convergence outlives the repair checkout: the landing names 
       step.kind === "repository-ensure"
     );
     assertEquals(convergedEnsure?.outcome, "ok", recovered.output);
-    const recoveredEmergency = emergencyData(recovered.stdout);
+    const recoveredEmergency = emergencyData(recovered);
     assertEquals(recoveredEmergency.outcome, "landed");
     assertEquals(recoveredEmergency.note, "published");
     assertEquals(recoveredEmergency.cleanup, "removed");
@@ -238,7 +238,7 @@ Deno.test("an ordinary landing with a failed resource destroy states the incompl
 
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
-    const envelope = decodeCliResult(accepted.stdout, "accept");
+    const envelope = decodeCliResult(accepted, "accept");
     assertEquals(envelope.ok, true, accepted.output);
     const message = envelope.message ?? "";
     // The whole first paragraph, verbatim: the landing stands, and the
@@ -298,9 +298,9 @@ Deno.test("an emergency landing with a failed resource destroy reports incomplet
 
     const landed = await approvedExchange(wt, "Restore service");
     assertEquals(landed.code, 1, landed.output);
-    const envelope = decodeCliResult(landed.stdout, "accept");
+    const envelope = decodeCliResult(landed, "accept");
     assertEquals(envelope.error, "partial_acceptance", landed.output);
-    const emergency = emergencyData(landed.stdout);
+    const emergency = emergencyData(landed);
     assertEquals(emergency.outcome, "landed");
     assertEquals(emergency.note, "published");
     assertEquals(emergency.cleanup, "failed");

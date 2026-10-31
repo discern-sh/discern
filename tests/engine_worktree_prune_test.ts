@@ -422,7 +422,7 @@ Deno.test("removed worktree paths stay observable and reclaimable when unrelated
 
       const status = await runAgent(dir, ["status", "--json"]);
       assertEquals(status.code, 0, status.output);
-      const statusResult = decodeCliResult(status.stdout, "status");
+      const statusResult = decodeCliResult(status, "status");
       assert(
         statusResult.data !== undefined && "location" in statusResult.data,
         status.stdout,
@@ -440,7 +440,7 @@ Deno.test("removed worktree paths stay observable and reclaimable when unrelated
         "--json",
       ]);
       assertEquals(dry.code, 0, dry.output);
-      const plan = decodeCliResult(dry.stdout, "worktree prune");
+      const plan = decodeCliResult(dry, "worktree prune");
       assert(plan.plan !== undefined, dry.stdout);
       const candidate = plan.plan.steps.find((step) =>
         step.label === canonicalWt &&
@@ -535,7 +535,7 @@ Deno.test("worktree prune finishes recorded landed-branch deletions and clears s
       "--json",
     ]);
     assertEquals(dry.code, 0, dry.output);
-    const plan = decodeCliResult(dry.stdout, "worktree prune");
+    const plan = decodeCliResult(dry, "worktree prune");
     assert(plan.plan !== undefined, dry.stdout);
     assertEquals(
       plan.plan.steps
@@ -551,7 +551,7 @@ Deno.test("worktree prune finishes recorded landed-branch deletions and clears s
 
     const prune = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
     assertEquals(prune.code, 0, prune.output);
-    const result = decodeCliResult(prune.stdout, "worktree prune");
+    const result = decodeCliResult(prune, "worktree prune");
     assert(result.steps !== undefined, prune.stdout);
     const branchSteps = result.steps.filter((step) =>
       step.group === "Branches"
@@ -826,7 +826,7 @@ Deno.test("worktree prune offers only positively identified discern work, never 
       "--json",
     ]);
     assertEquals(dry.code, 0, dry.output);
-    const dryPlan = decodeCliResult(dry.stdout, "worktree prune");
+    const dryPlan = decodeCliResult(dry, "worktree prune");
     assert(dryPlan.plan !== undefined, dry.stdout);
     const destructiveText = dryPlan.plan.steps
       .map((step) => `${step.label} ${step.note ?? ""}`)
@@ -930,7 +930,7 @@ Deno.test("worktree prune --dry-run lists what the real run removes, and acts on
       "--dry-run",
       "--json",
     ]);
-    const plan = decodeCliResult(dryJson.stdout, "worktree prune");
+    const plan = decodeCliResult(dryJson, "worktree prune");
     assert(plan.plan !== undefined, dryJson.stdout);
     const labels: string[] = plan.plan.steps.map((s: { label: string }) =>
       s.label
@@ -1011,7 +1011,7 @@ Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that
       "--json",
     ]);
     assertEquals(dryJson.code, 0, dryJson.output);
-    const plan = decodeCliResult(dryJson.stdout, "worktree prune");
+    const plan = decodeCliResult(dryJson, "worktree prune");
     assert(plan.plan !== undefined, dryJson.stdout);
     const stalePlanSteps = plan.plan.steps.filter((s) =>
       s.group === "Stale metadata"
@@ -1024,7 +1024,7 @@ Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that
 
     const real = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
     assertEquals(real.code, 0, real.output);
-    const result = decodeCliResult(real.stdout, "worktree prune");
+    const result = decodeCliResult(real, "worktree prune");
     assert(result.steps !== undefined, real.stdout);
     const staleResultSteps = result.steps.filter((s) =>
       s.group === "Stale metadata"

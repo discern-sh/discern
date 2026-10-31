@@ -155,7 +155,7 @@ Deno.test("parallel completions that each move their own brief into _done land c
       );
       const landed = await runAgent(beta, ["accept", "--confirmed", "--json"]);
       assertEquals(landed.code, 0, landed.output);
-      const result = decodeCliResult(landed.stdout, "accept");
+      const result = decodeCliResult(landed, "accept");
       assert(result.ok, landed.output);
       assert(result.message !== undefined);
       assertStringIncludes(result.message, "composed with main");
@@ -243,7 +243,7 @@ Deno.test("the shared-index convention the pattern replaces really is the confli
       );
       const refused = await runAgent(beta, ["accept", "--confirmed", "--json"]);
       assertEquals(refused.code, 1, refused.output);
-      const result = decodeCliResult(refused.stdout, "accept");
+      const result = decodeCliResult(refused, "accept");
       assert(result.message !== undefined);
       assertStringIncludes(result.message, "conflicts with main in:");
       assertStringIncludes(result.message, "planning/README.md");

@@ -15,7 +15,11 @@ import { join } from "@std/path";
 import { KNOWN_ENGINE_VERBS } from "../src/shared/verbs.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { git, gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  type CliRun,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 import { withTempDir } from "./temp_dir.ts";
 
 /** Ceiling on git processes per journey verb: measured cost plus a small margin. */
@@ -99,8 +103,8 @@ function histogram(lines: readonly string[]): string {
 }
 
 /** The worktree path a successful `start --json` reports. */
-function startedPath(stdout: string): string {
-  const result = decodeCliResult(stdout, "start");
+function startedPath(run: CliRun): string {
+  const result = decodeCliResult(run, "start");
   assertResultDataKey(result, "path");
   return result.data.path;
 }
@@ -116,12 +120,12 @@ Deno.test("the proven-worktree journey stays within its git command budget", asy
       verb: string,
       cwd: string,
       args: string[],
-    ): Promise<string> => {
+    ): Promise<CliRun> => {
       const before = (await recordedSpawns(log)).length;
       const run = await runAgent(cwd, args, { env });
       assertEquals(run.code, 0, run.output);
       measured[verb] = (await recordedSpawns(log)).length - before;
-      return run.stdout;
+      return run;
     };
 
     const worktree = startedPath(

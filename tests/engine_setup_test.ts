@@ -100,7 +100,7 @@ Deno.test("setup begin refuses malformed existing settings JSON and names the fi
       "claude_code",
     ]);
     assertEquals(r.code, 1, r.output);
-    const res = decodeCliResult(r.stdout, "setup begin");
+    const res = decodeCliResult(r, "setup begin");
     assertEquals(res.ok, false);
     assert(typeof res.message === "string");
     assertStringIncludes(res.message, ".claude/settings.json");
@@ -133,7 +133,7 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
       AGENT_NAMES.join(","),
     ]);
     assertEquals(blocked.code, 1, blocked.output);
-    const failure = decodeCliResult(blocked.stdout, "setup begin");
+    const failure = decodeCliResult(blocked, "setup begin");
     assertEquals(failure.ok, false);
     assert(typeof failure.message === "string");
     assertStringIncludes(failure.message, ".gemini/settings.json");
@@ -198,7 +198,7 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
       AGENT_NAMES.join(","),
     ]);
     assertEquals(r.code, 0, r.output);
-    const data = decodeCliResult(r.stdout, "setup begin").data;
+    const data = decodeCliResult(r, "setup begin").data;
     assert(data !== undefined && "written" in data);
     assert(data.written !== undefined);
     assert(data.mcp_wired !== undefined);
@@ -500,7 +500,7 @@ for (const mode of DONE_MODES) {
       // refusal path (gate proof or the --unproven config-parse floor) it takes.
       const json = await runAgent(dir, [...mode.args, "--json"]);
       assertEquals(json.code, 1, json.output);
-      assertEquals(decodeCliResult(json.stdout, "setup done").ok, false);
+      assertEquals(decodeCliResult(json, "setup done").ok, false);
       assert(
         !(await broken()).includes("bootstrapped = true"),
         `setup done (${mode.label}) recorded completion over an unparseable config`,
@@ -532,7 +532,7 @@ Deno.test("setup done --unproven is refused by the config-parse floor it cannot 
     );
 
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
       "setup done",
     );
     assertEquals(res.ok, false);
@@ -646,7 +646,7 @@ Deno.test("map is gated pre-setup but docs and help are not", async () => {
     // There is no project map to browse until setup seeds and fills it.
     const map = await runAgent(dir, ["map", "--json"]);
     assertEquals(map.code, 1, map.output);
-    assertEquals(decodeCliResult(map.stdout, "map").error, "setup_unfinished");
+    assertEquals(decodeCliResult(map, "map").error, "setup_unfinished");
 
     // `docs` stays open because it serves discern's bundled manual, not the
     // project's map.
@@ -666,7 +666,7 @@ Deno.test("the map gate is a structured setup_unfinished result under --json", a
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["map", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const res = decodeCliResult(r.stdout, "map");
+    const res = decodeCliResult(r, "map");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "map");
     assertEquals(res.error, "setup_unfinished");
@@ -686,7 +686,7 @@ Deno.test("done/prepare/test/standards run before setup is recorded, carrying th
         ...(verb === "done" ? ["--standalone"] : []),
         "--json",
       ]);
-      const res = decodeCliResult(r.stdout, verb);
+      const res = decodeCliResult(r, verb);
       assertEquals(res.verb, verb, r.output);
       assert(
         res.error !== "setup_unfinished",

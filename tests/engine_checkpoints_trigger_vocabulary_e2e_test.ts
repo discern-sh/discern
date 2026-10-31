@@ -48,6 +48,7 @@ import {
 } from "../src/engine/checkpoints/open_questions.ts";
 import {
   assertResultDataKey,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -99,18 +100,18 @@ async function optionalText(path: string): Promise<string | undefined> {
 }
 
 /** Validate and narrow one black-box `checkpoints --json` envelope. */
-function parseCheckpoints(stdout: string): CheckpointsData {
-  const envelope = decodeCliResult(stdout, "checkpoints");
+function parseCheckpoints(run: CliRun): CheckpointsData {
+  const envelope = decodeCliResult(run, "checkpoints");
   assertResultDataKey(envelope, "checkpoints");
   return envelope.data;
 }
 
 /** Validate and narrow one black-box `done --json` envelope. */
-function parseDone(stdout: string): {
+function parseDone(run: CliRun): {
   readonly error?: string;
   readonly data: GateWireData;
 } {
-  const envelope = decodeCliResult(stdout, "done");
+  const envelope = decodeCliResult(run, "done");
   assertResultDataKey(envelope, "scopes_changed");
   return {
     ...(envelope.error === undefined ? {} : { error: envelope.error }),
@@ -210,13 +211,13 @@ exit 0
 
     const checkpoints = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(checkpoints.code, 0, checkpoints.output);
-    decodeCliResult(checkpoints.stdout, "checkpoints");
+    decodeCliResult(checkpoints, "checkpoints");
     const status = await runAgent(wt, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    decodeCliResult(status.stdout, "status");
+    decodeCliResult(status, "status");
     const dryRun = await runAgent(wt, ["done", "--dry-run", "--json"]);
     assertEquals(dryRun.code, 0, dryRun.output);
-    decodeCliResult(dryRun.stdout, "done");
+    decodeCliResult(dryRun, "done");
     assertEquals(await optionalText(invocations), undefined);
     assertEquals(await optionalText(capture), undefined);
     assertEquals(await optionalText(capturedPath), undefined);
@@ -224,7 +225,7 @@ exit 0
 
     const strict = await runAgent(wt, ["done", "--json"]);
     assertEquals(strict.code, 1, strict.output);
-    const strictEnvelope = decodeCliResult(strict.stdout, "done");
+    const strictEnvelope = decodeCliResult(strict, "done");
     assertEquals(strictEnvelope.error, AWAITING_DECLARATION_SLUG);
     assertEquals(await optionalText(invocations), "invoked\n");
 
@@ -308,7 +309,7 @@ question = "The source change has been reviewed."
 
     const opened = await runAgent(wt, ["done", "--json"]);
     assertEquals(opened.code, 1, opened.output);
-    const openedEnvelope = parseDone(opened.stdout);
+    const openedEnvelope = parseDone(opened);
     assertEquals(openedEnvelope.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       openedEnvelope.data.checkpoints?.outstanding?.map((entry) => entry.id)
@@ -325,14 +326,14 @@ question = "The source change has been reviewed."
     ]);
     assertEquals(declared.code, 0, declared.output);
     assertEquals(
-      parseDone(declared.stdout).data.checkpoints?.declared_met?.map((entry) =>
+      parseDone(declared).data.checkpoints?.declared_met?.map((entry) =>
         entry.id
       ).sort(),
       ["history-sensitive", "ordinary"],
     );
 
     const initialReport = parseCheckpoints(
-      (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+      await runAgent(wt, ["checkpoints", "--json"]),
     );
     const initialHistory = checkpointRow(initialReport, "history-sensitive")
       .open_question;
@@ -380,7 +381,7 @@ question = "The source change has been reviewed."
 
     const afterAmend = await runAgent(wt, ["done", "--json"]);
     assertEquals(afterAmend.code, 1, afterAmend.output);
-    const amendEnvelope = parseDone(afterAmend.stdout);
+    const amendEnvelope = parseDone(afterAmend);
     assertEquals(amendEnvelope.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       amendEnvelope.data.checkpoints?.outstanding?.map((entry) => entry.id),
@@ -391,7 +392,7 @@ question = "The source change has been reviewed."
       ["ordinary"],
     );
     const amendedReport = parseCheckpoints(
-      (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+      await runAgent(wt, ["checkpoints", "--json"]),
     );
     const amendedHistory = checkpointRow(amendedReport, "history-sensitive")
       .open_question;
@@ -424,7 +425,7 @@ question = "The source change has been reviewed."
       "--json",
     ]);
     assertEquals(redeclared.code, 0, redeclared.output);
-    parseDone(redeclared.stdout);
+    parseDone(redeclared);
 
     // The trunk commit cannot affect either checkpoint's matched path. Rebasing
     // onto it nevertheless changes the branch commit's parent, and therefore
@@ -456,7 +457,7 @@ question = "The source change has been reviewed."
 
     const afterRebase = await runAgent(wt, ["done", "--json"]);
     assertEquals(afterRebase.code, 1, afterRebase.output);
-    const rebaseEnvelope = parseDone(afterRebase.stdout);
+    const rebaseEnvelope = parseDone(afterRebase);
     assertEquals(rebaseEnvelope.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       rebaseEnvelope.data.checkpoints?.outstanding?.map((entry) => entry.id),
@@ -467,7 +468,7 @@ question = "The source change has been reviewed."
       ["ordinary"],
     );
     const rebasedReport = parseCheckpoints(
-      (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+      await runAgent(wt, ["checkpoints", "--json"]),
     );
     const rebasedHistory = checkpointRow(rebasedReport, "history-sensitive")
       .open_question;

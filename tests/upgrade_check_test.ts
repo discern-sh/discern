@@ -52,7 +52,7 @@ Deno.test("upgrade --check reports pending adoption on a byte-current unfinished
     await setup(dir);
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertResultDataKey(res, "check");
     assert(res.data.schema !== undefined);
     assertEquals(res.ok, false);
@@ -102,7 +102,7 @@ Deno.test("upgrade detects and reconciles a stale generated-merge block", async 
 
     const check = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(check.code, 1, check.stderr);
-    const pending = decodeCliResult(check.stdout, "upgrade");
+    const pending = decodeCliResult(check, "upgrade");
     assertResultDataKey(pending, "pending_gitattributes_reconciliation");
     assertEquals(pending.ok, false);
     assertEquals(
@@ -138,7 +138,7 @@ Deno.test("upgrade --check refuses a config from a newer schema", async () => {
 
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);
-    const res = decodeCliResult(r.stdout, "upgrade");
+    const res = decodeCliResult(r, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "schema_version_too_new");
     assert(res.message !== undefined);
@@ -175,7 +175,7 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     // JSON surface: the same facts ride the envelope.
     const json = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(json.code, 0, json.stderr);
-    const res = decodeCliResult(json.stdout, "upgrade");
+    const res = decodeCliResult(json, "upgrade");
     assertResultDataKey(res, "discern_version");
     assertEquals(res.data.discern_version, DISCERN_VERSION);
     const expected = assertHasHint(res, HINTS["upgrade-newer-discern"], {

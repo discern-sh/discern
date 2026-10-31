@@ -64,7 +64,7 @@ Deno.test("identity preserves bare output and publishes structured JSON values",
     ]);
     assertEquals(field.code, 0, field.output);
     assertEquals(field.stderr, "");
-    const fieldEnvelope = decodeCliResult(field.stdout, "identity");
+    const fieldEnvelope = decodeCliResult(field, "identity");
     assertResultDataKey(fieldEnvelope, "kind");
     assertEquals(fieldEnvelope.ok, true);
     assertEquals(fieldEnvelope.verb, "identity");
@@ -82,7 +82,7 @@ Deno.test("identity preserves bare output and publishes structured JSON values",
       "--json",
     ]);
     assertEquals(resource.code, 0, resource.output);
-    const resourceEnvelope = decodeCliResult(resource.stdout, "identity");
+    const resourceEnvelope = decodeCliResult(resource, "identity");
     assertResultDataKey(resourceEnvelope, "kind");
     assert(resourceEnvelope.data.kind === "resource");
     assertEquals(resourceEnvelope.data.name, "cache");
@@ -94,7 +94,7 @@ Deno.test("identity preserves bare output and publishes structured JSON values",
       "--json",
     ]);
     assertEquals(resources.code, 0, resources.output);
-    const resourcesEnvelope = decodeCliResult(resources.stdout, "identity");
+    const resourcesEnvelope = decodeCliResult(resources, "identity");
     assertResultDataKey(resourcesEnvelope, "kind");
     assert(resourcesEnvelope.data.kind === "resources");
     assertEquals(resourcesEnvelope.data.resources, {
@@ -130,7 +130,7 @@ Deno.test("identity refuses undeclared resource names on bare and JSON surfaces"
     ]);
     assertEquals(json.code, 1, json.output);
     assertEquals(json.stderr, "");
-    const envelope = decodeCliResult(json.stdout, "identity");
+    const envelope = decodeCliResult(json, "identity");
     assertEquals(envelope.ok, false);
     assertEquals(envelope.error, "identity_failed");
     assertEquals(envelope.message?.includes("Declared resources: cache"), true);
@@ -152,7 +152,7 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     const resolution = await runAgent(dir, ["identity", "--json"]);
     assert(resolution.code !== 0, resolution.output);
     assertEquals(resolution.stderr, "");
-    const resolutionEnvelope = decodeCliResult(resolution.stdout, "identity");
+    const resolutionEnvelope = decodeCliResult(resolution, "identity");
     assertEquals(resolutionEnvelope.ok, false);
     assertEquals(resolutionEnvelope.verb, "identity");
     assertEquals(resolutionEnvelope.error, "identity_failed");
@@ -181,7 +181,7 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     ]);
     assertEquals(malformed.code, 1, malformed.output);
     assertEquals(malformed.stderr, "");
-    const malformedEnvelope = decodeCliResult(malformed.stdout, "identity");
+    const malformedEnvelope = decodeCliResult(malformed, "identity");
     assertEquals(malformedEnvelope.ok, false);
     assertEquals(malformedEnvelope.verb, "identity");
     assertEquals(malformedEnvelope.error, "invalid_arguments");

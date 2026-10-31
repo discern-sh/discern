@@ -27,7 +27,7 @@ for (const shape of PATH_SHAPES) {
         "--json",
       ]);
       assertEquals(started.code, 0, started.output);
-      const startResult = decodeCliResult(started.stdout, "start");
+      const startResult = decodeCliResult(started, "start");
       assertResultDataKey(startResult, "path");
       const worktree = startResult.data.path;
       await Deno.writeTextFile(

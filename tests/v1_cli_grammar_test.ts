@@ -214,7 +214,7 @@ Deno.test("nested help has one typed result in every JSON flag position", async 
       const result = await runCli(args, dir);
       assertEquals(result.code, 0, result.stdout + result.stderr);
       assertEquals(result.stderr, "");
-      const envelope = decodeCliResult(result.stdout, "help");
+      const envelope = decodeCliResult(result, "help");
       assertEquals(envelope.ok, true);
       assert(
         envelope.data !== undefined && "command" in envelope.data,
@@ -247,14 +247,14 @@ Deno.test("version, usage, option ownership, and the top-level boundary use cano
     const bare = await runCli(["--json"], dir);
     assertEquals(bare.code, 2);
     assertEquals(
-      decodeCliResult(bare.stdout, "discern").error,
+      decodeCliResult(bare, "discern").error,
       "invalid_arguments",
     );
 
     const boundary = await runCli(["--", "--json"], dir);
     assertEquals(boundary.code, 2);
     assertTerminalTextIncludes(
-      decodeCliResult(boundary.stdout, "discern").message ?? "",
+      decodeCliResult(boundary, "discern").message ?? "",
       "only valid after `discern queue`",
     );
 
@@ -263,7 +263,7 @@ Deno.test("version, usage, option ownership, and the top-level boundary use cano
       dir,
     );
     assertEquals(parentOption.code, 2);
-    const refusal = decodeCliResult(parentOption.stdout, "setup");
+    const refusal = decodeCliResult(parentOption, "setup");
     assertEquals(refusal.error, "invalid_arguments");
     assertStringIncludes(refusal.message ?? "", "setup begin --help");
 
@@ -282,7 +282,7 @@ Deno.test("version, usage, option ownership, and the top-level boundary use cano
       dir,
     );
     assertEquals(begin.code, 0, begin.stdout + begin.stderr);
-    const beginResult = decodeCliResult(begin.stdout, "setup begin");
+    const beginResult = decodeCliResult(begin, "setup begin");
     assertEquals(beginResult.verb, "setup begin");
     assertEquals(beginResult.dry_run, true);
   });
@@ -301,7 +301,7 @@ Deno.test("retired commands receive no alias while generic suggestions use the l
     ) {
       const result = await runCli([retired, "--json"], dir);
       assertEquals(result.code, 1, result.stdout + result.stderr);
-      const envelope = decodeCliResult(result.stdout, "discern");
+      const envelope = decodeCliResult(result, "discern");
       assertEquals(envelope.error, "unknown_command");
     }
 
@@ -311,7 +311,7 @@ Deno.test("retired commands receive no alias while generic suggestions use the l
     );
     assertEquals(oldAction.code, 2, oldAction.stdout + oldAction.stderr);
     assertEquals(
-      decodeCliResult(oldAction.stdout, "patterns").error,
+      decodeCliResult(oldAction, "patterns").error,
       "invalid_arguments",
     );
 
@@ -320,7 +320,7 @@ Deno.test("retired commands receive no alias while generic suggestions use the l
       dir,
     );
     assertEquals(
-      decodeCliResult(unknownAcceptAction.stdout, "accept").error,
+      decodeCliResult(unknownAcceptAction, "accept").error,
       "invalid_arguments",
     );
 
@@ -333,11 +333,11 @@ Deno.test("retired commands receive no alias while generic suggestions use the l
     ];
     for (const { args, expected } of suggestions) {
       const result = await runCli([...args, "--json"], dir);
-      const envelope = decodeCliResult(result.stdout, "discern");
+      const envelope = decodeCliResult(result, "discern");
       assertStringIncludes(envelope.hints?.join("\n") ?? "", expected);
     }
     const tiny = decodeCliResult(
-      (await runCli(["a", "--json"], dir)).stdout,
+      await runCli(["a", "--json"], dir),
       "discern",
     );
     assertEquals(
@@ -354,13 +354,13 @@ Deno.test("worktree ensure is a pure registered JSON result and triangle remains
 
     const ensure = await runAgent(dir, ["worktree", "ensure", "--json"]);
     assertEquals(ensure.code, 0, ensure.output);
-    const ensured = decodeCliResult(ensure.stdout, "worktree ensure");
+    const ensured = decodeCliResult(ensure, "worktree ensure");
     assertEquals(ensured.ok, true);
     assertEquals(ensured.data, undefined);
 
     const triangle = await runAgent(dir, ["triangle", "--json"]);
     assertEquals(triangle.code, 0, triangle.output);
-    const triangleResult = decodeCliResult(triangle.stdout, "triangle");
+    const triangleResult = decodeCliResult(triangle, "triangle");
     assertEquals(triangleResult.ok, true);
     assert(triangleResult.data !== undefined);
   });
@@ -376,7 +376,7 @@ Deno.test("config get distinguishes a missing value from an empty value", async 
       "--json",
     ]);
     assertEquals(result.code, 1, result.output);
-    const envelope = decodeCliResult(result.stdout, "config");
+    const envelope = decodeCliResult(result, "config");
     assertEquals(envelope.error, "unknown_key");
     assertStringIncludes(envelope.message ?? "", "discern config has");
   });

@@ -302,7 +302,7 @@ Deno.test("pin: refusals, a named check, then three pins tighten every variant o
           const result = await runAgent(dir, args);
           assertEquals(result.code, 1, result.output);
           assertEquals(
-            decodeCliResult(result.stdout, "standards").error,
+            decodeCliResult(result, "standards").error,
             "invalid_value",
           );
         }
@@ -336,9 +336,7 @@ Deno.test("pin: refusals, a named check, then three pins tighten every variant o
         const r = await runAgent(dir, ["standards", "coverage", "--json"]);
         assertEquals(r.code, 0, r.output);
         assertEquals(
-          decodeCliResult(r.stdout, "standards").steps?.map((step) =>
-            step.label
-          ),
+          decodeCliResult(r, "standards").steps?.map((step) => step.label),
           ["coverage"],
         );
         assertEquals(
@@ -358,7 +356,7 @@ Deno.test("pin: refusals, a named check, then three pins tighten every variant o
         // silent about the ones already at their limit or within their margin.
         const r = await runAgent(dir, ["standards", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const obj = decodeCliResult(r.stdout, "standards");
+        const obj = decodeCliResult(r, "standards");
         assertEquals(obj.ok, true);
         assertHasHint(obj, HINTS["standards-pinnable-slack"], {
           standards: [
@@ -532,7 +530,7 @@ Deno.test("pin: refusals, a named check, then three pins tighten every variant o
       env: { [DISCERN_NO_ATTRIBUTION]: "1" },
     });
     assertEquals(rest.code, 0, rest.output);
-    const restObj = decodeCliResult(rest.stdout, "standards");
+    const restObj = decodeCliResult(rest, "standards");
     const restConfig = await readConfig(dir);
 
     await t.step("pin --json: reports pinned steps and ok", () => {
@@ -604,7 +602,7 @@ Deno.test("pin: refusals, a named check, then three pins tighten every variant o
     const settled = await gitOut(dir, "rev-parse", "HEAD");
     const again = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(again.code, 0, again.output);
-    const againObj = decodeCliResult(again.stdout, "standards");
+    const againObj = decodeCliResult(again, "standards");
     assertHasHint(againObj, HINTS["standards-pin-no-slack"]);
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), settled, "no commit");
 
@@ -655,7 +653,7 @@ Deno.test("pin: a behind-trunk worktree succeeds with an update hint", async () 
     const r = await runAgent(wt, ["standards", "--pin", "--json"]);
 
     assertEquals(r.code, 0, r.output);
-    const obj = decodeCliResult(r.stdout, "standards");
+    const obj = decodeCliResult(r, "standards");
     assertEquals(obj.ok, true);
     assertHasHint(obj, HINTS["standards-pin-behind"], {
       behind: 1,
@@ -889,7 +887,7 @@ Deno.test("pin: without Gate Proof, target selection reuses same-commit values, 
       async () => {
         assertEquals(preview.code, 0, preview.output);
         assertEquals(
-          decodeCliResult(preview.stdout, "standards").plan?.steps.map((step) =>
+          decodeCliResult(preview, "standards").plan?.steps.map((step) =>
             step.label
           ),
           ["already_measured", "missing_target", "unrelated", "red_sibling"],
@@ -913,7 +911,7 @@ Deno.test("pin: without Gate Proof, target selection reuses same-commit values, 
       async () => {
         // It names the failing standard and points at `discern standards` for the detail.
         assertHasHint(
-          decodeCliResult(refused.stdout, "standards"),
+          decodeCliResult(refused, "standards"),
           HINTS["standards-pin-blocked"],
           { failingNames: ["red_sibling"] },
         );
@@ -982,7 +980,7 @@ Deno.test("pin: honored Gate Proof narrows a named pin, the pinned commit passes
         ]);
         assertEquals(preview.code, 0, preview.output);
         assertEquals(
-          decodeCliResult(preview.stdout, "standards").plan?.steps.map((step) =>
+          decodeCliResult(preview, "standards").plan?.steps.map((step) =>
             step.label
           ),
           ["selected"],
@@ -1015,7 +1013,7 @@ Deno.test("pin: honored Gate Proof narrows a named pin, the pinned commit passes
         const after = await runAgent(dir, ["done", "--json"]);
 
         assertEquals(after.code, 0, after.output);
-        const obj = decodeCliResult(after.stdout, "done");
+        const obj = decodeCliResult(after, "done");
         assertResultDataKey(obj, "standards_limits");
         assert(obj.data.standards_limits !== undefined);
         assert(obj.data.standards !== undefined);
@@ -1058,7 +1056,7 @@ Deno.test("pin: honored Gate Proof narrows a named pin, the pinned commit passes
           "--json",
         ]);
         assertEquals(pin.code, 1, pin.output);
-        const result = decodeCliResult(pin.stdout, "standards");
+        const result = decodeCliResult(pin, "standards");
         assertHasHint(result, HINTS["standards-pin-blocked"], {
           failingNames: ["unselected_guard"],
         });
@@ -1172,7 +1170,7 @@ Deno.test("proof: the measurement evidence lifecycle — recorded by a green che
         const before = await gitOut(dir, "rev-parse", "HEAD");
         const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
         assertEquals(pin.code, 1, pin.output);
-        const obj = decodeCliResult(pin.stdout, "standards");
+        const obj = decodeCliResult(pin, "standards");
         assertEquals(obj.ok, false);
         assert(obj.steps !== undefined);
         assert(obj.diagnostics !== undefined);
@@ -1245,7 +1243,7 @@ Deno.test("proof: the measurement evidence lifecycle — recorded by a green che
       "pin: does NOT forge a proof when none was honored beforehand",
       async () => {
         assertHasHint(
-          decodeCliResult(pinAfterCommit.stdout, "standards"),
+          decodeCliResult(pinAfterCommit, "standards"),
           HINTS["standards-pin-no-proof"],
         );
         // Fail-closed: no proof was written, so accept will re-run the gate.
@@ -1311,7 +1309,7 @@ Deno.test("proof: the measurement evidence lifecycle — recorded by a green che
       "pin: a STALE prior proof is not carried (fail-closed)",
       async () => {
         assertHasHint(
-          decodeCliResult(fresh.stdout, "standards"),
+          decodeCliResult(fresh, "standards"),
           HINTS["standards-pin-no-proof"],
         );
         // The stale marker is left untouched (still ≠ HEAD) — accept re-validates.

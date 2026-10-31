@@ -62,7 +62,7 @@ const RESOLVED_ACTION =
 async function statusValidation(dir: string): Promise<EmergencyValidation[]> {
   const status = await runAgent(dir, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
-  const data = decodeCliResult(status.stdout, "status").data;
+  const data = decodeCliResult(status, "status").data;
   assert(data !== undefined && "location" in data, status.output);
   return [...data.emergency_validation ?? []];
 }
@@ -91,7 +91,7 @@ Deno.test("a later strict done on the integrated trunk resolves outstanding vali
       "--json",
     ]);
     assertEquals(preview.code, 1, preview.output);
-    const previewEnvelope = decodeCliResult(preview.stdout, "accept");
+    const previewEnvelope = decodeCliResult(preview, "accept");
     assert(
       previewEnvelope.data !== undefined && "emergency" in previewEnvelope.data,
     );
@@ -108,7 +108,7 @@ Deno.test("a later strict done on the integrated trunk resolves outstanding vali
       "--json",
     ]);
     assertEquals(landed.code, 0, landed.output);
-    const landedEnvelope = decodeCliResult(landed.stdout, "accept");
+    const landedEnvelope = decodeCliResult(landed, "accept");
     assert(
       landedEnvelope.data !== undefined && "emergency" in landedEnvelope.data,
     );
@@ -140,7 +140,7 @@ Deno.test("a later strict done on the integrated trunk resolves outstanding vali
     );
     const done = await runAgent(dir, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const doneData = decodeCliResult(done.stdout, "done").data;
+    const doneData = decodeCliResult(done, "done").data;
     assert(doneData !== undefined, done.output);
     assertEquals(
       "emergency_validation" in doneData

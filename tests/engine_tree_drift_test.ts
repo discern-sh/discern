@@ -182,7 +182,7 @@ Deno.test("done: a fixer that reformats a COMMITTED-clean file fails with tree_d
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "tree_drift");
     const diag = diagFor(obj, "tree-drift");
@@ -271,7 +271,7 @@ for (const stage of MUTATING_STAGES) {
       const r = await runAgent(dir, ["done", "--json"]);
       assertEquals(r.code, 1, r.output);
 
-      const obj = decodeGateResult(r.stdout);
+      const obj = decodeGateResult(r);
       assertEquals(obj.ok, false);
       assertEquals(obj.data.failed_stage, "tree_drift");
       const diag = diagFor(obj, "tree-drift");
@@ -323,7 +323,7 @@ Deno.test("done: a scope gate that dirties a COMMITTED-clean tracked file fails 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assert(obj.data.scopes_changed.includes("widget"), r.stdout);
     assertEquals(obj.data.failed_stage, "tree_drift");
@@ -350,7 +350,7 @@ Deno.test("done --standalone: a fixer reworking the agent's OWN uncommitted edit
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
     // The fixer DID reformat the WIP file (so this isn't a vacuous pass) — it was
@@ -433,7 +433,7 @@ for (const mutator of PRE_CHECKPOINT_MUTATORS) {
       const r = await runAgent(dir, ["done", "--json"]);
       assertEquals(r.code, 1, r.output);
 
-      const obj = decodeGateResult(r.stdout);
+      const obj = decodeGateResult(r);
       assertEquals(obj.ok, false);
       assertEquals(obj.data.failed_stage, "tree_drift");
       const diag = diagFor(obj, "tree-drift");
@@ -467,7 +467,7 @@ Deno.test("done --standalone: a tracked-dirty start skips the checkpoint — lat
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.data.failed_stage, "tree_drift");
     const diag = diagFor(obj, "tree-drift");
     assert(
@@ -493,7 +493,7 @@ Deno.test("done --standalone: an untracked-dirty start is not proof-eligible —
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.data.failed_stage, "tree_drift");
     const diag = diagFor(obj, "tree-drift");
     assert(diag !== undefined);
@@ -541,7 +541,7 @@ Deno.test("prepare permits fixer/regeneration convergence; clean completion stop
 
     const prepared = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(prepared.code, 0, prepared.output);
-    const preparation = decodeCliResult(prepared.stdout, "prepare");
+    const preparation = decodeCliResult(prepared, "prepare");
     assertEquals(
       preparation.steps?.find((step) => step.label === "format")?.outcome,
       "ok",
@@ -567,7 +567,7 @@ Deno.test("prepare permits fixer/regeneration convergence; clean completion stop
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.data.failed_stage, "tree_drift", r.stdout);
     assertEquals(stepFor(obj, "format").outcome, "ok", r.stdout);
     assertEquals(
@@ -603,7 +603,7 @@ Deno.test("done: a pre-group command failure outranks the checkpoint — failed_
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.data.failed_stage, "fix");
     assertEquals(diagFor(obj, "tree-drift"), undefined);
   });
@@ -637,7 +637,7 @@ Deno.test("done: generated drift outranks the checkpoint — the owning group is
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.data.failed_stage, "generated_drift");
     assertEquals(diagFor(obj, "tree-drift"), undefined);
   });
@@ -663,7 +663,7 @@ Deno.test("done: the producer boundary fails closed when a fixer corrupts the in
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "check/test");
     assertEquals(stepFor(obj, "format").outcome, "ok");
@@ -723,7 +723,7 @@ Deno.test("done: unreadable strand snapshots stay visible and cannot mint reusab
       env: { GIT_BIN: gitWrapper },
     });
     assertEquals(first.code, 1, first.output);
-    const envelope = decodeGateResult(first.stdout);
+    const envelope = decodeGateResult(first);
     assertEquals(envelope.data.failed_stage, "tree_drift");
     assertEquals(envelope.data.gate_proof?.status, "pending");
     assertTerminalTextIncludes(
@@ -739,7 +739,7 @@ Deno.test("done: unreadable strand snapshots stay visible and cannot mint reusab
       env: { GIT_BIN: gitWrapper },
     });
     assertEquals(second.code, 1, second.output);
-    const retried = decodeGateResult(second.stdout);
+    const retried = decodeGateResult(second);
     assert(
       retried.data.completion?.pending?.some((item) =>
         item.kind === "validation-failed"
@@ -799,7 +799,7 @@ Deno.test("done: the checkpoint keeps post-pre-group scope classification — th
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.data.failed_stage, "tree_drift");
     // Classification still happened after the pre-groups ran…
     assert(obj.data.scopes_changed.includes("widget"), r.stdout);

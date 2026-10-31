@@ -15,6 +15,7 @@ import {
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
@@ -22,8 +23,8 @@ export type GateJson = CliResultForCommand<"done">;
 export type GateJsonDiagnostic = NonNullable<GateJson["diagnostics"]>[number];
 
 /** Decode a done envelope for shared map-integrity failure assertions. */
-export function parseJson(stdout: string): GateJson {
-  return decodeCliResult(stdout, "done");
+export function parseJson(run: CliRun): GateJson {
+  return decodeCliResult(run, "done");
 }
 
 /** Select the diagnostic emitted by one map-integrity subtool from a gate envelope. */
@@ -54,7 +55,7 @@ export async function writeMapPage(
 export async function expectMapIntegrityFailure(dir: string): Promise<string> {
   const r = await runAgent(dir, ["done", "--standalone", "--json"]);
   assertEquals(r.code, 1, r.output);
-  const obj = parseJson(r.stdout);
+  const obj = parseJson(r);
   assertEquals(obj.ok, false);
   assertResultDataKey(obj, "failed_stage");
   assertEquals(obj.data.failed_stage, "map_integrity");

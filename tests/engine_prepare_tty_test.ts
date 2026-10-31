@@ -157,7 +157,7 @@ Deno.test("prepare pipe and JSON surfaces keep their non-interactive contracts",
 
     const json = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const envelope = decodeCliResult(json.stdout, "prepare");
+    const envelope = decodeCliResult(json, "prepare");
     assertEquals(envelope.ok, true);
     assertEquals(envelope.verb, "prepare");
     assertEquals(json.stderr, "");

@@ -65,12 +65,12 @@ Deno.test("an unknown historical worktree key cannot wedge governing standards o
 
     const prepared = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(prepared.code, 0, prepared.output);
-    const prepareResult = decodeCliResult(prepared.stdout, "prepare");
+    const prepareResult = decodeCliResult(prepared, "prepare");
     assertIgnoredKey(prepareResult, "worktree.old_spelling");
 
     const finished = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(finished.code, 0, finished.output);
-    const doneResult = decodeCliResult(finished.stdout, "done");
+    const doneResult = decodeCliResult(finished, "done");
     assertIgnoredKey(doneResult, "worktree.old_spelling");
     assert(
       doneResult.data !== undefined && "failed_stage" in doneResult.data,

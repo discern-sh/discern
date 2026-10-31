@@ -138,7 +138,7 @@ Deno.test("fleet rows derive id and port when the project has no env file", asyn
 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "status");
+    const result = decodeCliResult(r, "status");
     assertResultDataKey(result, "fleet");
     assert(result.data.fleet !== undefined);
     const row = result.data.fleet.find((e) => e.path.endsWith("no-env-here"));
@@ -164,7 +164,7 @@ Deno.test("status keeps a stale fleet row instead of crashing on its missing roo
 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "status");
+    const result = decodeCliResult(r, "status");
     assertResultDataKey(result, "fleet");
     assert(result.data.fleet !== undefined);
     const row = result.data.fleet.find((entry) =>
@@ -189,7 +189,7 @@ Deno.test("status reads a contained symlinked env file in a fleet member", async
 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "status");
+    const result = decodeCliResult(r, "status");
     assertResultDataKey(result, "fleet");
     assert(result.data.fleet !== undefined);
     const row = result.data.fleet.find((entry) =>
@@ -391,7 +391,7 @@ async function statusView(
 ): Promise<{ data: StatusWireData; hints?: string[] }> {
   const run = await runAgent(cwd, ["status", ...flags, "--json"]);
   assertEquals(run.code, 0, run.output);
-  const result = decodeCliResult(run.stdout, "status");
+  const result = decodeCliResult(run, "status");
   const data = result.data;
   assert(data !== undefined && "location" in data, run.stdout);
   return result.hints === undefined ? { data } : { data, hints: result.hints };
@@ -538,7 +538,7 @@ Deno.test("identity and env inheritance refuse an unreadable env file by name", 
           const run = await runAgent(worktree, [...command]);
           assertEquals(run.code, 1, run.output);
           const refusal = decodeCliResult(
-            run.stdout,
+            run,
             command.filter((word) => word !== "--json").join(" "),
           );
           assertEquals(refusal.ok, false, run.stdout);
@@ -564,7 +564,7 @@ Deno.test("worktree setup reports a symlinked env write refusal as a result", as
 
     const setup = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(setup.code, 1, setup.output);
-    const result = decodeCliResult(setup.stdout, "worktree setup");
+    const result = decodeCliResult(setup, "worktree setup");
     assertEquals(result.ok, false);
     assertEquals(result.error, "precondition_failed");
     assertStringIncludes(result.message ?? "", "remove the symbolic link");

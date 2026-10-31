@@ -31,7 +31,7 @@ Deno.test("discern skills list shows the built-ins, and --json emits structured 
 
     const json = await runAgent(dir, ["skills", "list", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const obj = decodeCliResult(json.stdout, "skills list");
+    const obj = decodeCliResult(json, "skills list");
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "skills list");
     assertResultDataKey(obj, "skills");
@@ -80,7 +80,7 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
     ]);
     assertEquals(r.code, 0, r.output);
     assertEquals(r.stderr, "");
-    const obj = decodeCliResult(r.stdout, "skills eject");
+    const obj = decodeCliResult(r, "skills eject");
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "skills eject");
     assertResultDataKey(obj, "materialized");
@@ -122,7 +122,7 @@ Deno.test("discern skills eject --dry-run plans every owned target and writes no
       "--json",
     ]);
     assertEquals(result.code, 0, result.output);
-    const envelope = decodeCliResult(result.stdout, "skills eject");
+    const envelope = decodeCliResult(result, "skills eject");
     assertEquals(envelope.dry_run, true);
     assertEquals(envelope.steps, undefined);
     assert(envelope.plan !== undefined);
@@ -173,7 +173,7 @@ Deno.test("discern skills eject partial materialization carries the registered r
       "discern-write-adr",
     ]);
     assertEquals(result.code, 1, result.output);
-    const envelope = decodeCliResult(result.stdout, "skills eject");
+    const envelope = decodeCliResult(result, "skills eject");
     assertEquals(envelope.error, "partial_materialization");
     assertResultDataKey(envelope, "materialized");
     assert(envelope.data.materialized.errors.length > 0, result.output);
@@ -198,7 +198,7 @@ Deno.test("skills eject persists an omitted skills.dir in tidy-canonical TOML", 
       "discern-write-adr",
     ]);
     assertEquals(result.code, 0, result.output);
-    const output = decodeCliResult(result.stdout, "skills eject");
+    const output = decodeCliResult(result, "skills eject");
     assertResultDataKey(output, "skills_dir_persisted");
     assertEquals(output.data.skills_dir_persisted, true);
     await assertDiscernTomlTidy(dir, "skills eject");
@@ -228,7 +228,7 @@ Deno.test("discern skills eject --json reports errors in the envelope", async ()
     ]);
     assertEquals(r.code, 1, r.output);
     assertEquals(r.stderr, "");
-    const obj = decodeCliResult(r.stdout, "skills eject");
+    const obj = decodeCliResult(r, "skills eject");
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "skills eject");
     assertEquals(obj.error, "skills_eject_failed");
@@ -258,7 +258,7 @@ Deno.test("[skills].exclude drops a named skill end-to-end: list flags it, refre
     // The listing shows the whole known set with the excluded row flagged.
     const list = await runAgent(dir, ["skills", "list", "--json"]);
     assertEquals(list.code, 0, list.output);
-    const listResult = decodeCliResult(list.stdout, "skills list");
+    const listResult = decodeCliResult(list, "skills list");
     assertResultDataKey(listResult, "skills");
     const rows = listResult.data.skills;
     const excluded = rows.find((r) => r.name === "discern-write-adr");

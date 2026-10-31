@@ -41,6 +41,7 @@ import {
   assertResultDataKey,
   type CliJsonResultCommand,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 import {
@@ -73,10 +74,10 @@ import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** Decode one JSON envelope while preserving its command-specific contract. */
 function parseHinted<Command extends CliJsonResultCommand>(
-  stdout: string,
+  run: CliRun,
   command: Command,
 ): CliResultForCommand<Command> {
-  return decodeCliResult(stdout, command);
+  return decodeCliResult(run, command);
 }
 
 const WHY = "The docs lag the new surface; a follow-up covers them.";
@@ -350,7 +351,7 @@ Deno.test("checkpoints: a checkpoint-free effort reports an empty governing set 
       async () => {
         const r = await runAgent(wt, ["checkpoints", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const env = parseCheckpointsJson(r.stdout);
+        const env = parseCheckpointsJson(r);
         assertEquals(env.ok, true);
         assertEquals(env.verb, "checkpoints");
         assertEquals(env.data.checkpoints, []);
@@ -363,7 +364,7 @@ Deno.test("checkpoints: a checkpoint-free effort reports an empty governing set 
       async () => {
         for (const command of ["prepare", "status"] as const) {
           const argv = [command, "--json"];
-          const env = parseHinted((await runAgent(wt, argv)).stdout, command);
+          const env = parseHinted(await runAgent(wt, argv), command);
           for (const hint of env.hints ?? []) {
             assert(
               !hint.startsWith("Checkpoint"),
@@ -387,7 +388,7 @@ Deno.test("checkpoints: a checkpoint-free effort reports an empty governing set 
 
         const report = await runAgent(wt, ["checkpoints", "--json"]);
         assertEquals(report.code, 0, report.output);
-        const data = parseCheckpointsJson(report.stdout).data;
+        const data = parseCheckpointsJson(report).data;
         assertEquals(data.checkpoints, []);
         assertEquals(data.drops?.[0]?.scope, "policy");
         assertEquals(data.drops?.[0]?.reason, "open_question_store_corrupt");
@@ -413,7 +414,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
         const observationsBefore = await checkpointObservationEvents(dir);
         const r = await runAgent(wt, ["checkpoints", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const env = parseCheckpointsJson(r.stdout);
+        const env = parseCheckpointsJson(r);
         assert(
           env.data.policy !== undefined,
           "the policy identity must resolve",
@@ -465,7 +466,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
         };
 
         const prepare = parseHinted(
-          (await runAgent(wt, ["prepare", "--json"])).stdout,
+          await runAgent(wt, ["prepare", "--json"]),
           "prepare",
         );
         const served = assertHasHint(
@@ -475,7 +476,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
         );
 
         const status = parseHinted(
-          (await runAgent(wt, ["status", "--json"])).stdout,
+          await runAgent(wt, ["status", "--json"]),
           "status",
         );
         const servedByStatus = assertHasHint(
@@ -493,7 +494,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
         await restoreCommittedTree(wt);
         const r = await runAgent(wt, ["done", "--dry-run", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const dryRun = parseJson(r.stdout);
+        const dryRun = parseJson(r);
         assertEquals(dryRun.ok, true);
         assertEquals(dryRun.dry_run, true);
         const details: string[] = dryRun.plan?.details ?? [];
@@ -528,7 +529,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
     await projectObligationRow(t, visit, "will_open", async () => {
       const r = await runAgent(wt, ["done", "--json"]);
       assertEquals(r.code, 1, r.output);
-      return parseJson(r.stdout);
+      return parseJson(r);
     });
 
     await t.step(
@@ -538,7 +539,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
         // recorded — the spec's session-restart claim, named.
         const read = await runAgent(wt, ["checkpoints", "--json"]);
         assertEquals(read.code, 0, read.output);
-        const env = parseCheckpointsJson(read.stdout);
+        const env = parseCheckpointsJson(read);
         assertEquals(
           env.data.checkpoints[0]?.open_question?.state,
           "awaiting_declaration",
@@ -575,7 +576,7 @@ Deno.test("checkpoints: the read surfaces follow one open question through decla
       "the report follows the open question: declared met stands with its binding and no routing hint, read by a fresh engine process",
       async () => {
         const env = parseCheckpointsJson(
-          (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+          await runAgent(wt, ["checkpoints", "--json"]),
         );
         const met = env.data.checkpoints[0]?.open_question;
         assertEquals(met?.state, "declared_met");
@@ -631,7 +632,7 @@ Deno.test("checkpoints: the read surfaces follow one open question through decla
           0,
         );
         const env = parseCheckpointsJson(
-          (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+          await runAgent(wt, ["checkpoints", "--json"]),
         );
         const unmet = env.data.checkpoints[0]?.open_question;
         assertEquals(unmet?.state, "declared_unmet");
@@ -691,7 +692,7 @@ Deno.test("checkpoints: the read surfaces follow one open question through decla
         );
         const storeBefore = await adminMarker(wt, "checkpointOpenQuestions");
         const env = parseCheckpointsJson(
-          (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+          await runAgent(wt, ["checkpoints", "--json"]),
         );
         const reopened = env.data.checkpoints[0]?.open_question;
         assertEquals(reopened?.state, "reopened");
@@ -736,7 +737,7 @@ Deno.test("checkpoints: an advise checkpoint previews without interlock routing,
       "an advise checkpoint previews without interlock routing",
       async () => {
         const env = parseCheckpointsJson(
-          (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+          await runAgent(wt, ["checkpoints", "--json"]),
         );
         const row = env.data.checkpoints[0];
         assertEquals(row?.mode, "advise");
@@ -752,12 +753,12 @@ Deno.test("checkpoints: an advise checkpoint previews without interlock routing,
       "previews: an advise checkpoint rides the advisory channel on prepare and status",
       async () => {
         const prepare = parseHinted(
-          (await runAgent(wt, ["prepare", "--json"])).stdout,
+          await runAgent(wt, ["prepare", "--json"]),
           "prepare",
         );
         assertHasHint(prepare, HINTS["checkpoint-advise"], params);
         const status = parseHinted(
-          (await runAgent(wt, ["status", "--json"])).stdout,
+          await runAgent(wt, ["status", "--json"]),
           "status",
         );
         assertHasHint(status, HINTS["checkpoint-advise"], params);
@@ -772,7 +773,7 @@ Deno.test("checkpoints: an advise checkpoint previews without interlock routing,
       async () => {
         const r = await runAgent(wt, ["done", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const env = parseCheckpointGateJson(r.stdout);
+        const env = parseCheckpointGateJson(r);
         assertEquals(env.ok, true);
         assertHasHint(env, HINTS["checkpoint-advise"], params);
         assertEquals(env.data.checkpoints.advise?.length, 1);
@@ -802,7 +803,7 @@ Deno.test("checkpoints: an advise checkpoint previews without interlock routing,
         // bounded economics row, counts beside their denominators.
         const report = await runAgent(wt, ["checkpoints", "--json"]);
         assertEquals(report.code, 0, report.output);
-        const envelope = parseCheckpointsJson(report.stdout);
+        const envelope = parseCheckpointsJson(report);
         const economics = envelope.data.economics;
         assert(economics !== undefined, "observed history must reach the verb");
         assertEquals(economics.efforts, 1);
@@ -827,7 +828,7 @@ Deno.test("checkpoints: a when condition is reported as undecided and never run 
       "a when condition is reported as undecided and never run",
       async () => {
         const env = parseCheckpointsJson(
-          (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+          await runAgent(wt, ["checkpoints", "--json"]),
         );
         const row = env.data.checkpoints[0];
         assertEquals(row?.preview?.holds, true);
@@ -850,7 +851,7 @@ Deno.test("checkpoints: a when condition is reported as undecided and never run 
       "previews: a when-pending stop checkpoint is served as may-require",
       async () => {
         const prepare = parseHinted(
-          (await runAgent(wt, ["prepare", "--json"])).stdout,
+          await runAgent(wt, ["prepare", "--json"]),
           "prepare",
         );
         const text = assertHasHint(prepare, HINTS["checkpoint-preview"], {
@@ -895,7 +896,7 @@ Deno.test("checkpoints: an open question outside the governing policy stays visi
     });
     assert(planted.ok, "the fixture open question must record");
     const env = parseCheckpointsJson(
-      (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+      await runAgent(wt, ["checkpoints", "--json"]),
     );
     assertEquals(env.data.ungoverned?.length, 1);
     assertEquals(env.data.ungoverned?.[0]?.id, "ghost");
@@ -919,7 +920,7 @@ Deno.test("checkpoints: a corrupt open-question store fails open into an advisor
     await Deno.writeTextFile(path, "not json\n");
     const r = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const env = parseCheckpointsJson(r.stdout);
+    const env = parseCheckpointsJson(r);
     assertEquals(env.ok, true);
     assert(
       env.data.advisories?.some((a) => a.includes("did not parse")),
@@ -980,7 +981,7 @@ Deno.test("checkpoint obligations: an idle structural trigger opens nothing, and
         });
         const stillAwaiting = await runAgent(wt, ["done", "--json"]);
         assertEquals(stillAwaiting.code, 1, stillAwaiting.output);
-        const done = parseHinted(stillAwaiting.stdout, "done");
+        const done = parseHinted(stillAwaiting, "done");
         assertResultDataKey(done, "checkpoints");
         assertExists(done.data.checkpoints);
 
@@ -1014,7 +1015,7 @@ Deno.test("checkpoint obligations: an idle structural trigger opens nothing, and
           done: true,
         });
         // The served question still names the evidence that opened it.
-        const awaiting = parseCheckpointGateJson(stillAwaiting.stdout);
+        const awaiting = parseCheckpointGateJson(stillAwaiting);
         assertEquals(awaiting.error, AWAITING_DECLARATION_SLUG);
         assertEquals(awaiting.data.checkpoints.outstanding?.[0]?.matched, [
           "api/surface.txt",
@@ -1036,7 +1037,7 @@ Deno.test("checkpoint obligations: an idle structural trigger opens nothing, and
           "--json",
         ]);
         assertEquals(concluded.code, 0, concluded.output);
-        const env = parseCheckpointGateJson(concluded.stdout);
+        const env = parseCheckpointGateJson(concluded);
         assertEquals(
           env.data.checkpoints.declared_unmet?.[0]?.id,
           "api-review",

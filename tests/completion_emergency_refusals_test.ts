@@ -50,7 +50,7 @@ const CONFIRMATION_DECISIONS_ONLY =
 async function refusal(cwd: string, ...args: string[]): Promise<string> {
   const run = await runAgent(cwd, ["accept", "emergency", ...args, "--json"]);
   assertEquals(run.code, 1, run.output);
-  return decodeCliResult(run.stdout, "accept").message ?? "";
+  return decodeCliResult(run, "accept").message ?? "";
 }
 
 Deno.test("each emergency precondition refuses with its own recovery sentence and lands nothing", async () => {
@@ -231,7 +231,7 @@ Deno.test("an emergency lands a recorded limit proposal only with the owner's ap
     // The plan serves the proposal and its approval token for the owner.
     const preview = await emergency();
     assertEquals(preview.code, 1, preview.output);
-    const envelope = decodeCliResult(preview.stdout, "accept");
+    const envelope = decodeCliResult(preview, "accept");
     assertEquals(envelope.error, "awaiting_consent", preview.output);
     assertResultDataKey(envelope, "standard_approvals_required");
     const required = envelope.data.standard_approvals_required ?? [];
@@ -244,7 +244,7 @@ Deno.test("an emergency lands a recorded limit proposal only with the owner's ap
       [["hotspots", 5, 7]],
     );
     const approval = required[0]?.token;
-    const token = emergencyData(preview.stdout).confirmation;
+    const token = emergencyData(preview).confirmation;
     assert(approval !== undefined && token !== undefined, preview.output);
     assertStringIncludes(
       envelope.message ?? "",
@@ -270,7 +270,7 @@ Deno.test("an emergency lands a recorded limit proposal only with the owner's ap
       token,
     );
     assertEquals(unapproved.code, 1, unapproved.output);
-    const again = decodeCliResult(unapproved.stdout, "accept");
+    const again = decodeCliResult(unapproved, "accept");
     assertEquals(again.error, "awaiting_consent", unapproved.output);
     assertStringIncludes(again.message ?? "", "missing: `hotspots`.");
 
@@ -284,7 +284,7 @@ Deno.test("an emergency lands a recorded limit proposal only with the owner's ap
     );
     assertEquals(unknown.code, 1, unknown.output);
     assertEquals(
-      decodeCliResult(unknown.stdout, "accept").error,
+      decodeCliResult(unknown, "accept").error,
       "invalid_value",
       unknown.output,
     );
@@ -305,7 +305,7 @@ Deno.test("an emergency lands a recorded limit proposal only with the owner's ap
     );
     assertEquals(landed.code, 0, landed.output);
     const approved = required.map(({ proposal }) => proposal);
-    assertEquals(emergencyData(landed.stdout).standard_approvals, approved);
+    assertEquals(emergencyData(landed).standard_approvals, approved);
     assertStringIncludes(
       await gitOut(dir, "show", "main:discern.toml"),
       "limit = 7",
@@ -379,7 +379,7 @@ async function refuseOnEverySurface(
     "--json",
   ]);
   assertEquals(run.code, 1, run.output);
-  const envelope = decodeCliResult(run.stdout, "accept");
+  const envelope = decodeCliResult(run, "accept");
   assertEquals(envelope.error, "invalid_arguments", run.output);
   assertStringIncludes(envelope.message ?? "", expected);
   const result = await runTool(

@@ -38,7 +38,11 @@ import {
   WorktreeGitError,
 } from "../src/engine/worktree/lifecycle.ts";
 import { withTempDir } from "./helpers.ts";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  type CliRun,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 import {
   addWorktree,
   git,
@@ -50,15 +54,15 @@ import {
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 /** Decode one successful start result. */
-function startedData(stdout: string): StartData {
-  const result = decodeCliResult(stdout, "start");
+function startedData(run: CliRun): StartData {
+  const result = decodeCliResult(run, "start");
   assertResultDataKey(result, "path");
   return result.data;
 }
 
 /** Decode one successful task-title change. */
-function renamedData(stdout: string): TaskRenameData {
-  const result = decodeCliResult(stdout, "worktree rename");
+function renamedData(run: CliRun): TaskRenameData {
+  const result = decodeCliResult(run, "worktree rename");
   assertResultDataKey(result, "previous_title");
   return result.data;
 }
@@ -70,7 +74,7 @@ async function fleetRow(
 ): Promise<NonNullable<StatusWireData["fleet"]>[number]> {
   const status = await runAgent(main, ["status", "--verbose", "--json"]);
   assertEquals(status.code, 0, status.output);
-  const result = decodeCliResult(status.stdout, "status");
+  const result = decodeCliResult(status, "status");
   assertResultDataKey(result, "location");
   const row = result.data.fleet?.find((entry) => entry.branch === branch);
   assertExists(row, `status must include ${branch}\n${status.stdout}`);
@@ -146,7 +150,7 @@ Deno.test("start, status, and rename round-trip human wording without changing G
       "--json",
     ]);
     assertEquals(started.code, 0, started.output);
-    const data = startedData(started.stdout);
+    const data = startedData(started);
     assertEquals(data.task.title, title);
     assertEquals(data.task.brief, brief);
     assertEquals(data.task.title_source, "recorded");
@@ -174,7 +178,7 @@ Deno.test("start, status, and rename round-trip human wording without changing G
       "--json",
     ]);
     assertEquals(renamed.code, 0, renamed.output);
-    const renamedTask = renamedData(renamed.stdout);
+    const renamedTask = renamedData(renamed);
     assertEquals(renamedTask.previous_title, title);
     assertEquals(renamedTask.path, data.path);
     assertEquals(renamedTask.task.title, renamedTitle);
@@ -291,7 +295,7 @@ Deno.test("legacy and malformed task records have distinct status fallbacks", as
       "--json",
     ]);
     assertEquals(refused.code, 1, refused.output);
-    const result = decodeCliResult(refused.stdout, "worktree rename");
+    const result = decodeCliResult(refused, "worktree rename");
     assertEquals(result.ok, false);
     assertStringIncludes(result.message ?? "", "not valid JSON");
   });
@@ -312,7 +316,7 @@ Deno.test("rename enrolls a legacy worktree and rejects invalid titles without c
       "--json",
     ]);
     assertEquals(enrolled.code, 0, enrolled.output);
-    assertEquals(renamedData(enrolled.stdout).task.title_source, "recorded");
+    assertEquals(renamedData(enrolled).task.title_source, "recorded");
 
     for (
       const invalid of [
@@ -329,7 +333,7 @@ Deno.test("rename enrolls a legacy worktree and rejects invalid titles without c
         "--json",
       ]);
       assertEquals(refused.code, 1, refused.output);
-      const result = decodeCliResult(refused.stdout, "worktree rename");
+      const result = decodeCliResult(refused, "worktree rename");
       assertEquals(result.ok, false);
       assertStringIncludes(result.message ?? "", "Task title");
     }
@@ -357,7 +361,7 @@ Deno.test("creation source records trunk, a live task, and an unlanded branch", 
       "--json",
     ]);
     assertEquals(followUp.code, 0, followUp.output);
-    const followUpData = startedData(followUp.stdout);
+    const followUpData = startedData(followUp);
     assertEquals(followUpData.from, "agent/live-base");
     assertEquals(followUpData.task.created_from, {
       ref: "agent/live-base",
@@ -394,7 +398,7 @@ Deno.test("creation source records trunk, a live task, and an unlanded branch", 
       "--json",
     ]);
     assertEquals(resumed.code, 0, resumed.output);
-    const resumedData = startedData(resumed.stdout);
+    const resumedData = startedData(resumed);
     assertEquals(resumedData.from, "agent/orphan-base");
     assertEquals(resumedData.task.created_from, {
       ref: "agent/orphan-base",
@@ -422,7 +426,7 @@ Deno.test("task metadata follows a worktree move and is removed with its registr
       "--json",
     ]);
     assertEquals(started.code, 0, started.output);
-    const data = startedData(started.stdout);
+    const data = startedData(started);
     const recordBefore = await taskMetadataPath(data.path);
     assertExists(recordBefore);
     assert(await targetExists(recordBefore));

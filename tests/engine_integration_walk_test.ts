@@ -145,7 +145,7 @@ Deno.test("walk scenarios own pristine repositories and reset their counted prod
           "--json",
         ]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.ok, landed.output);
         assert(result.message !== undefined);
         assertStringIncludes(result.message, "Landed agent/one at");
@@ -223,7 +223,7 @@ Deno.test("walk scenarios own pristine repositories and reset their counted prod
           "--json",
         ]);
         assertEquals(landed.code, 1, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assertEquals(result.ok, false);
         assertEquals(result.error, "partial_acceptance");
         assert(result.message !== undefined);
@@ -267,7 +267,7 @@ Deno.test("walk scenarios own pristine repositories and reset their counted prod
           "--json",
         ]);
         assertEquals(retried.code, 1);
-        const retriedResult = decodeCliResult(retried.stdout, "accept");
+        const retriedResult = decodeCliResult(retried, "accept");
         assertStringIncludes(
           retriedResult.message ?? "",
           "No worktree matches 'agent/alpha'",
@@ -306,7 +306,7 @@ Deno.test("walk scenarios own pristine repositories and reset their counted prod
         // the recorded grant — no further agent or owner decision.
         const landed = await runAgent(beta, ["accept", "--json"]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.data !== undefined && !("issues" in result.data));
         assertEquals(result.data.consent, { source: "effort-grant" });
         assertEquals(result.data.landings?.[0]?.integrated, true);
@@ -336,7 +336,7 @@ Deno.test("walk scenarios own pristine repositories and reset their counted prod
           "--json",
         ]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.data !== undefined && !("issues" in result.data));
         assertEquals(result.data.landings?.length, 1);
         assertEquals(result.data.landings?.[0]?.branch, "agent/alpha");

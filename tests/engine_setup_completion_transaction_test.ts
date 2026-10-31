@@ -56,7 +56,7 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
 
     const first = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(first.code, 0, first.output);
-    const firstResult = decodeCliResult(first.stdout, "setup done");
+    const firstResult = decodeCliResult(first, "setup done");
     assertResultDataKey(firstResult, "bootstrapped");
     const completed = await setupCompletionSnapshot(dir);
     assertExists(
@@ -68,7 +68,7 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
     await t.step(
       "an unproven marker converges only after the ordinary proven path succeeds",
       async () => {
-        const forcedResult = decodeCliResult(forced.stdout, "setup done");
+        const forcedResult = decodeCliResult(forced, "setup done");
         assertResultDataKey(forcedResult, "bootstrapped");
         assertEquals(forcedResult.data.completion, "unproven");
         assertEquals(forcedResult.data.setup_completion, "unproven");
@@ -103,7 +103,7 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
     // ── replay ──────────────────────────────────────────────────────────────
     const replay = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(replay.code, 0, replay.output);
-    const replayResult = decodeCliResult(replay.stdout, "setup done");
+    const replayResult = decodeCliResult(replay, "setup done");
     assertResultDataKey(replayResult, "bootstrapped");
 
     await t.step(
@@ -173,7 +173,7 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
 
         const validated = await runAgent(dir, ["setup", "done", "--json"]);
         assertEquals(validated.code, 0, validated.output);
-        const validatedResult = decodeCliResult(validated.stdout, "setup done");
+        const validatedResult = decodeCliResult(validated, "setup done");
         assertResultDataKey(validatedResult, "bootstrapped");
         assertEquals(
           validatedResult.data.proof_line,
@@ -210,7 +210,7 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
 
         const validated = await runAgent(dir, ["setup", "done", "--json"]);
         assertEquals(validated.code, 0, validated.output);
-        const result = decodeCliResult(validated.stdout, "setup done");
+        const result = decodeCliResult(validated, "setup done");
         assertResultDataKey(result, "bootstrapped");
         assertEquals(result.data.completion, "validated");
         assertEquals(result.data.effects_performed, true);
@@ -238,7 +238,7 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
       async () => {
         const accepted = await runAgent(dir, ["setup", "accept", "--json"]);
         assertEquals(accepted.code, 0, accepted.output);
-        const acceptance = decodeCliResult(accepted.stdout, "setup accept");
+        const acceptance = decodeCliResult(accepted, "setup accept");
         assertResultDataKey(acceptance, "landed");
         assertEquals(acceptance.data.proof_line, firstResult.data.proof_line);
       },
@@ -258,7 +258,7 @@ Deno.test("a red Gate rolls setup completion back to the committed state, first 
 
         const failed = await runAgent(dir, ["setup", "done", "--json"]);
         assertEquals(failed.code, 1, failed.output);
-        const result = decodeCliResult(failed.stdout, "setup done");
+        const result = decodeCliResult(failed, "setup done");
         assertResultDataKey(result, "stage");
         assertEquals(result.data.stage, "worktree_probe");
         const failureData = result.data as Record<string, unknown>;
@@ -297,7 +297,7 @@ Deno.test("a red Gate rolls setup completion back to the committed state, first 
 
         const replay = await runAgent(dir, ["setup", "done", "--json"]);
         assertEquals(replay.code, 1, replay.output);
-        const result = decodeCliResult(replay.stdout, "setup done");
+        const result = decodeCliResult(replay, "setup done");
         assertEquals(result.error, "gate_failed");
         assertResultDataKey(result, "stage");
         assertEquals(result.data.stage, "worktree_probe");
@@ -337,7 +337,7 @@ Deno.test("nested Map content diagnostics survive setup completion projection", 
 
     const failed = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(failed.code, 1, failed.output);
-    const result = decodeCliResult(failed.stdout, "setup done");
+    const result = decodeCliResult(failed, "setup done");
     assertResultDataKey(result, "stage");
     assertEquals(result.data.stage, "worktree_probe");
     const diagnostic = result.diagnostics?.find((entry) =>
@@ -417,7 +417,7 @@ Deno.test("worktree resource failures retain resource-specific diagnostics on ev
 
     const failed = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(failed.code, 1, failed.output);
-    const result = decodeCliResult(failed.stdout, "setup done");
+    const result = decodeCliResult(failed, "setup done");
     assertResultDataKey(result, "stage");
     assertEquals(result.data.stage, "worktree_probe");
     const diagnostic = result.diagnostics?.find((entry) =>

@@ -32,13 +32,13 @@ Deno.test("setup reports templates_not_found in JSON when the override dir is mi
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "README.md"), "# Setup edge fixture\n");
     await gitInit(dir);
-    const { code, stdout } = await runCli(
+    const { code, stdout, stderr } = await runCli(
       ["setup", "begin", "--confirmed", "--json", "--slug", "demo"],
       dir,
       { DISCERN_TEMPLATES_DIR: join(dir, "does-not-exist") },
     );
     assertEquals(code, 1);
-    const result = decodeCliResult(stdout, "setup begin");
+    const result = decodeCliResult({ code, stdout, stderr }, "setup begin");
     assertEquals(result.ok, false);
     assertEquals(result.error, "templates_not_found");
     assertExists(result.message);
@@ -54,12 +54,12 @@ Deno.test("setup begin --json reports a partial refresh as top-level not-ok whil
     await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
     await gitInit(dir);
 
-    const { code, stdout } = await runCli(
+    const { code, stdout, stderr } = await runCli(
       ["setup", "begin", "--confirmed", "--json", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 1);
-    const result = decodeCliResult(stdout, "setup begin");
+    const result = decodeCliResult({ code, stdout, stderr }, "setup begin");
     assertResultDataKey(result, "instruction_refresh");
     assertEquals(result.ok, false);
     assertEquals(result.error, "partial_refresh");
@@ -221,7 +221,7 @@ Deno.test("setup begin --reseed --config leaves an existing discern.toml untouch
       dir,
     );
     assertEquals(run.code, 0, run.stderr);
-    assertEquals(decodeCliResult(run.stdout, "setup begin").ok, true);
+    assertEquals(decodeCliResult(run, "setup begin").ok, true);
 
     // The seed is byte-for-byte unchanged: the fills did not land.
     const after = await Deno.readTextFile(join(dir, "discern.toml"));

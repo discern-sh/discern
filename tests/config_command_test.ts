@@ -97,7 +97,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertEquals(r.code, 0, r.stderr);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, true);
         assertEquals(result.verb, "config");
         assertResultDataKey(result, "edits");
@@ -125,7 +125,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertEquals(r.code, 0, r.stderr);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, true);
         assertResultDataKey(result, "edits");
         const expected = assertHasHint(
@@ -144,7 +144,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertLacksHint(
-          decodeCliResult(wired.stdout, "config"),
+          decodeCliResult(wired, "config"),
           HINTS["config-job-deferred"],
           { name: "test" },
         );
@@ -163,7 +163,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertEquals(r.code, 0, r.stderr);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, true);
         assertResultDataKey(result, "edits");
         assert(
@@ -174,7 +174,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
         assertStringIncludes(await readToml(dir), 'smoke = "true"');
         // The install still loads cleanly with smoke wired.
         const doctor = await runCli(["doctor", "--json"], dir);
-        assertEquals(decodeCliResult(doctor.stdout, "doctor").ok, true);
+        assertEquals(decodeCliResult(doctor, "doctor").ok, true);
       },
     ],
     [
@@ -278,7 +278,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertEquals(result.code, 0, result.stderr);
-        const envelope = decodeCliResult(result.stdout, "config");
+        const envelope = decodeCliResult(result, "config");
         assertEquals(envelope.dry_run, true);
         assertResultDataKey(envelope, "edits");
         assertEquals(envelope.data.edits, [{
@@ -350,7 +350,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
             1,
             `${testCase.args.join(" ")}: ${result.stdout}${result.stderr}`,
           );
-          const envelope = decodeCliResult(result.stdout, "config");
+          const envelope = decodeCliResult(result, "config");
           assertStringIncludes(resultMessage(envelope), testCase.includes);
           assertStringIncludes(
             resultMessage(envelope),
@@ -379,7 +379,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           const before = await readToml(dir);
           const result = await runCli(args, dir);
           assert(result.code !== 0, `${args.join(" ")} unexpectedly succeeded`);
-          const envelope = decodeCliResult(result.stdout, "config");
+          const envelope = decodeCliResult(result, "config");
           assertEquals(envelope.error, "invalid_arguments");
           assertStringIncludes(
             resultMessage(envelope),
@@ -408,7 +408,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           );
           assertEquals(result.code, 1);
           assertTerminalTextIncludes(
-            resultMessage(decodeCliResult(result.stdout, "config")),
+            resultMessage(decodeCliResult(result, "config")),
             "discern config set-job build --not-applicable",
           );
           assertEquals(await readToml(dir), before);
@@ -575,7 +575,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertEquals(preview.code, 0, preview.stderr);
-        const previewResult = decodeCliResult(preview.stdout, "config");
+        const previewResult = decodeCliResult(preview, "config");
         assertResultDataKey(previewResult, "edits");
         assertEquals(previewResult.data.edits, [
           { key: "jobs.build", literal: '["deno task build"]' },
@@ -599,7 +599,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
         );
         assertEquals(contradiction.code, 1);
         assertStringIncludes(
-          resultMessage(decodeCliResult(contradiction.stdout, "config")),
+          resultMessage(decodeCliResult(contradiction, "config")),
           "configured",
         );
         assertEquals(await readToml(dir), beforeConfiguredMark);
@@ -610,7 +610,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
         );
         assertEquals(custom.code, 1);
         assertTerminalTextIncludes(
-          resultMessage(decodeCliResult(custom.stdout, "config")),
+          resultMessage(decodeCliResult(custom, "config")),
           "known job",
         );
         assertEquals(await readToml(dir), beforeConfiguredMark);
@@ -624,7 +624,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertEquals(r.code, 1);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, false);
         assertStringIncludes(resultMessage(result), "table form");
         assertStringIncludes(resultMessage(result), "--stage");
@@ -649,7 +649,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertEquals(r.code, 0, r.stderr);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, true);
         assertResultDataKey(result, "edits");
         assert(
@@ -692,7 +692,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
           dir,
         );
         assertEquals(r.code, 1);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, false);
         assertStringIncludes(resultMessage(result), "unknown stage");
       },
@@ -715,7 +715,7 @@ Deno.test("config set-job cases run over pristine copies of one scaffolded insta
         );
         assertEquals(r.code, 1);
         assertTerminalTextIncludes(
-          resultMessage(decodeCliResult(r.stdout, "config")),
+          resultMessage(decodeCliResult(r, "config")),
           "derives stage",
         );
       },
@@ -857,7 +857,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           dir,
         );
         assertEquals(r.code, 1);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, false);
         assertEquals(result.error, "unknown_key");
         assertStringIncludes(resultMessage(result), "unknown config key");
@@ -865,7 +865,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
         assertEquals(await readToml(dir), before);
         // And the install still loads cleanly.
         const doctor = await runCli(["doctor", "--json"], dir);
-        assertEquals(decodeCliResult(doctor.stdout, "doctor").ok, true);
+        assertEquals(decodeCliResult(doctor, "doctor").ok, true);
       },
     ],
     [
@@ -968,7 +968,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
         // The install still loads cleanly after every one of those writes.
         const doctor = await runCli(["doctor", "--json"], dir);
         assertEquals(
-          decodeCliResult(doctor.stdout, "doctor").ok,
+          decodeCliResult(doctor, "doctor").ok,
           true,
           doctor.stdout,
         );
@@ -1018,7 +1018,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
             1,
             `${c.args.join(" ")}: ${r.stdout}${r.stderr}`,
           );
-          const result = decodeCliResult(r.stdout, "config");
+          const result = decodeCliResult(r, "config");
           assertEquals(result.ok, false);
           assertStringIncludes(resultMessage(result), c.includes);
           if (c.error !== undefined) {
@@ -1045,7 +1045,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           "--json",
         ], dir);
         assertEquals(result.code, 1);
-        const decoded = decodeCliResult(result.stdout, "config");
+        const decoded = decodeCliResult(result, "config");
         assertEquals(decoded.ok, false);
         assertStringIncludes(resultMessage(decoded), "slug must be");
         assertEquals(await readToml(dir), before);
@@ -1100,7 +1100,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           dir,
         );
         assertEquals(r.code, 0, r.stderr);
-        assertEquals(decodeCliResult(r.stdout, "config").dry_run, true);
+        assertEquals(decodeCliResult(r, "config").dry_run, true);
         assertEquals(await readToml(dir), before); // unchanged
       },
     ],
@@ -1109,7 +1109,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
       async (dir) => {
         const r = await runCli(["config", "set", "slug", "x", "--json"], dir);
         assertEquals(r.code, 1);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, false);
         assertStringIncludes(resultMessage(result), "key must be section.key");
       },
@@ -1130,7 +1130,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           dir,
         );
         assertEquals(r.code, 1);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, false);
         assertStringIncludes(resultMessage(result), "at most one of");
       },
@@ -1152,7 +1152,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           dir,
         );
         assertEquals(bad.code, 1);
-        const result = decodeCliResult(bad.stdout, "config");
+        const result = decodeCliResult(bad, "config");
         assertEquals(result.ok, false);
         assertStringIncludes(resultMessage(result), "holds a boolean");
       },
@@ -1181,7 +1181,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           dir,
         );
         assertEquals(bad.code, 1);
-        assertEquals(decodeCliResult(bad.stdout, "config").ok, false);
+        assertEquals(decodeCliResult(bad, "config").ok, false);
       },
     ],
     [
@@ -1223,7 +1223,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           dir,
         );
         assertEquals(r.code, 0, r.stderr);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.dry_run, true);
         assertResultDataKey(result, "edits");
         assertEquals(result.data.operation, "edit");
@@ -1305,7 +1305,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           );
           assertEquals(result.stderr, "");
           assertEquals(result.stdout.trim().includes("\n"), false);
-          const envelope = decodeCliResult(result.stdout, "config");
+          const envelope = decodeCliResult(result, "config");
           assertEquals(envelope.ok, true);
           assertEquals(envelope.verb, "config");
           assertResultDataKey(envelope, "operation");
@@ -1332,7 +1332,7 @@ Deno.test("config set, dry-run, and read cases run over pristine copies of one s
           );
           assertEquals(result.stderr, "");
           assertEquals(result.stdout.trim().includes("\n"), false);
-          const envelope = decodeCliResult(result.stdout, "config");
+          const envelope = decodeCliResult(result, "config");
           assertEquals(envelope.ok, false);
           assertEquals(envelope.verb, "config");
           assertEquals(envelope.error, "invalid_arguments");
@@ -1526,7 +1526,7 @@ Deno.test("config set-scope and set-standard cases run over pristine copies of o
           dir,
         );
         assertEquals(r.code, 1);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, false);
         assertStringIncludes(
           resultMessage(result),
@@ -1553,7 +1553,7 @@ Deno.test("config set-scope and set-standard cases run over pristine copies of o
           dir,
         );
         assertEquals(r.code, 1);
-        const result = decodeCliResult(r.stdout, "config");
+        const result = decodeCliResult(r, "config");
         assertEquals(result.ok, false);
         assertStringIncludes(resultMessage(result), "--limit must be a number");
       },
@@ -1580,12 +1580,12 @@ Deno.test("config set-scope and set-standard cases run over pristine copies of o
           dir,
         );
         assertEquals(r.code, 0, r.stderr);
-        assertEquals(decodeCliResult(r.stdout, "config").ok, true);
+        assertEquals(decodeCliResult(r, "config").ok, true);
         assertStringIncludes(await readToml(dir), "limit = 0.5");
         // The install still loads cleanly — the file cannot have been bricked.
         const doctor = await runCli(["doctor", "--json"], dir);
         assertEquals(
-          decodeCliResult(doctor.stdout, "doctor").ok,
+          decodeCliResult(doctor, "doctor").ok,
           true,
           doctor.stdout,
         );
@@ -1625,7 +1625,7 @@ Deno.test("config errors cleanly when not initialized", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    assertEquals(decodeCliResult(r.stdout, "config").error, "no_project");
+    assertEquals(decodeCliResult(r, "config").error, "no_project");
   });
 });
 
@@ -1686,7 +1686,7 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
             dir,
           );
           assertEquals(r.code, 1, r.stderr);
-          const result = decodeCliResult(r.stdout, "config");
+          const result = decodeCliResult(r, "config");
           assertEquals(result.ok, false);
           assertEquals(result.error, "invalid_arguments");
           assertStringIncludes(resultMessage(result), `${kind} name must be`);

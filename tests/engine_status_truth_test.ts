@@ -47,7 +47,7 @@ async function statusJson(
 ): Promise<StatusJson> {
   const r = await runAgent(dir, ["status", "--json"], { env });
   assertEquals(r.code, 0, r.output);
-  const result = decodeCliResult(r.stdout, "status");
+  const result = decodeCliResult(r, "status");
   const data = result.data;
   assert(
     data !== undefined && "location" in data,
@@ -587,7 +587,7 @@ Deno.test("a pristine worktree beside a dirty main checkout raises the divergenc
 
     // …and finish carries the same warning in its hints.
     const fin = await runAgent(wt, ["done", "--json"]);
-    const gate = decodeCliResult(fin.stdout, "done");
+    const gate = decodeCliResult(fin, "done");
     assertHasHint(gate, HINTS["silent-worktree-divergence"], params);
 
     // Real work in the worktree clears the signature.

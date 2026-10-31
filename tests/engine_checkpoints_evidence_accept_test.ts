@@ -4,7 +4,11 @@ import { AWAITING_CONSENT_SLUG } from "../src/shared/consent.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  type CliRun,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 import {
   type AcceptEnvelope,
   type AcceptWireData,
@@ -26,9 +30,9 @@ type CheckpointDropAcceptEnvelope = Omit<AcceptEnvelope, "data"> & {
 
 /** Decode an accept review whose assertions consume checkpoint-drop evidence. */
 function parseCheckpointDropAcceptJson(
-  stdout: string,
+  run: CliRun,
 ): CheckpointDropAcceptEnvelope {
-  const result = parseAcceptJson(stdout);
+  const result = parseAcceptJson(run);
   assertResultDataKey(result, "checkpoint_drops");
   assert(result.data.checkpoint_drops !== undefined);
   return {
@@ -56,13 +60,13 @@ Deno.test("accept: unreadable checkpoint evidence refuses before landing — a r
 
         const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
         assertEquals(preview.code, 1, preview.output);
-        const previewResult = parseAcceptJson(preview.stdout);
+        const previewResult = parseAcceptJson(preview);
         assertEquals(previewResult.error, "report_only_proof", preview.stdout);
 
         const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
         assertEquals(apply.code, 1, apply.output);
         assertEquals(
-          parseAcceptJson(apply.stdout).error,
+          parseAcceptJson(apply).error,
           "report_only_proof",
         );
         assert(await targetExists(wt), "report-mode Proof must land nothing");
@@ -99,14 +103,14 @@ Deno.test("accept: unreadable checkpoint evidence refuses before landing — a r
         const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
         assertEquals(preview.code, 0, preview.output);
         assertEquals(
-          liveDrop(parseCheckpointDropAcceptJson(preview.stdout))
+          liveDrop(parseCheckpointDropAcceptJson(preview))
             ?.policy_commit,
           policyCommit,
         );
 
         const review = await runAgent(wt, ["accept", "--json"]);
         assertEquals(review.code, 1, review.output);
-        const reviewEnv = parseCheckpointDropAcceptJson(review.stdout);
+        const reviewEnv = parseCheckpointDropAcceptJson(review);
         assertEquals(reviewEnv.error, "checkpoint_evidence_unavailable");
         assertStringIncludes(
           declarationDrop(reviewEnv)?.account ?? "",
@@ -116,11 +120,11 @@ Deno.test("accept: unreadable checkpoint evidence refuses before landing — a r
         const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
         assertEquals(apply.code, 1, apply.output);
         assertEquals(
-          parseAcceptJson(apply.stdout).error,
+          parseAcceptJson(apply).error,
           "checkpoint_evidence_unavailable",
         );
         assert(
-          parseCheckpointDropAcceptJson(apply.stdout).data.checkpoint_drops
+          parseCheckpointDropAcceptJson(apply).data.checkpoint_drops
             .some(
               (drop) => drop.reason === "declaration_evidence_unavailable",
             ),
@@ -143,7 +147,7 @@ Deno.test("accept: an indeterminate stop serves full evidence and excludes recor
     const wt = await checkpointedWorktree(dir, config);
     const served = await runAgent(wt, ["done", "--json"]);
     assertEquals(served.code, 1, served.output);
-    const servedResult = decodeCliResult(served.stdout, "done");
+    const servedResult = decodeCliResult(served, "done");
     assertEquals(servedResult.error, AWAITING_DECLARATION_SLUG);
     assertStringIncludes(servedResult.message ?? "", "api/surface.txt");
 
@@ -158,7 +162,7 @@ Deno.test("accept: an indeterminate stop serves full evidence and excludes recor
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
     assertEquals(
-      parseCheckpointDropAcceptJson(preview.stdout).data.checkpoint_drops[0]
+      parseCheckpointDropAcceptJson(preview).data.checkpoint_drops[0]
         ?.reason,
       "when_invalid_exit",
     );
@@ -167,7 +171,7 @@ Deno.test("accept: an indeterminate stop serves full evidence and excludes recor
     // evidence deliberately requires this conversation's boolean attestation.
     const review = await runAgent(wt, ["accept", "--json"]);
     assertEquals(review.code, 1, review.output);
-    const reviewEnv = parseCheckpointDropAcceptJson(review.stdout);
+    const reviewEnv = parseCheckpointDropAcceptJson(review);
     assertEquals(reviewEnv.error, AWAITING_CONSENT_SLUG);
     assertEquals(
       reviewEnv.data.checkpoint_drops?.[0]?.reason,
@@ -177,7 +181,7 @@ Deno.test("accept: an indeterminate stop serves full evidence and excludes recor
     const landedSha = await gitOut(wt, "rev-parse", "HEAD");
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 0, apply.output);
-    const applied = parseAppliedAcceptJson(apply.stdout);
+    const applied = parseAppliedAcceptJson(apply);
     assertEquals(applied.data.root, await Deno.realPath(dir));
     assertEquals(applied.data.consent, { source: "conversation" });
     assertEquals(

@@ -24,6 +24,7 @@ import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
 import {
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
@@ -46,15 +47,15 @@ interface RelatedEvidence {
 const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
 
 /** Parse and validate one checkpoint-report envelope from CLI JSON. */
-function parseCheckpoints(stdout: string): CheckpointsEnvelope {
-  const envelope = decodeCliResult(stdout, "checkpoints");
+function parseCheckpoints(run: CliRun): CheckpointsEnvelope {
+  const envelope = decodeCliResult(run, "checkpoints");
   assert(envelope.data !== undefined && "checkpoints" in envelope.data);
   return { ...envelope, data: envelope.data };
 }
 
 /** Parse one Gate completion envelope from CLI JSON. */
-function parseDone(stdout: string): DoneEnvelope {
-  const envelope = decodeCliResult(stdout, "done");
+function parseDone(run: CliRun): DoneEnvelope {
+  const envelope = decodeCliResult(run, "done");
   assert(envelope.data !== undefined && "failed_stage" in envelope.data);
   return { ...envelope, data: envelope.data };
 }
@@ -176,7 +177,7 @@ question = "Only admitted authored evidence reaches judgment."
 
     const result = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const envelope = parseCheckpoints(result.stdout);
+    const envelope = parseCheckpoints(result);
     assertEquals(row(envelope, "generated-only").preview, {
       holds: false,
       vetoed_by: "generated_only",
@@ -224,7 +225,7 @@ question = "Only admitted authored evidence reaches judgment."
     );
     const refused = await runAgent(wt, ["done", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const outstanding = parseDone(refused.stdout).data.checkpoints
+    const outstanding = parseDone(refused).data.checkpoints
       ?.outstanding;
     assertEquals(outstanding?.map((entry) => entry.id), ["authored-when"]);
     assertEquals(outstanding?.[0]?.matched, ["authored/new.txt"]);
@@ -237,7 +238,7 @@ question = "Only admitted authored evidence reaches judgment."
     ]);
     assertEquals(met.code, 0, met.output);
     assertEquals(
-      parseDone(met.stdout).data.checkpoints?.declared_met?.[0]?.matched,
+      parseDone(met).data.checkpoints?.declared_met?.[0]?.matched,
       ["authored/new.txt"],
     );
     const proof = await proofMarker(wt);
@@ -302,7 +303,7 @@ question = "The generated API result has been judged."
     );
 
     const preview = parseCheckpoints(
-      (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+      await runAgent(wt, ["checkpoints", "--json"]),
     );
     assertEquals(row(preview, "generated-api").preview, {
       holds: true,
@@ -312,7 +313,7 @@ question = "The generated API result has been judged."
 
     const refused = await runAgent(wt, ["done", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const refusedEnvelope = parseDone(refused.stdout);
+    const refusedEnvelope = parseDone(refused);
     assertEquals(refusedEnvelope.error, AWAITING_DECLARATION_SLUG);
     assertEquals(refusedEnvelope.data.checkpoints?.outstanding?.[0], {
       id: "generated-api",
@@ -328,7 +329,7 @@ question = "The generated API result has been judged."
       "--json",
     ]);
     assertEquals(completed.code, 0, completed.output);
-    const completedEnvelope = parseDone(completed.stdout);
+    const completedEnvelope = parseDone(completed);
     assertEquals(
       completedEnvelope.data.checkpoints?.declared_met?.[0]?.matched,
       ["api/generated/output.txt"],
@@ -378,7 +379,7 @@ question = "The parallel sibling is necessary."
     await git(wt, "commit", "-q", "-m", "add sibling", "--no-gpg-sign");
 
     const preview = parseCheckpoints(
-      (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+      await runAgent(wt, ["checkpoints", "--json"]),
     );
     assertEquals(row(preview, "parallel").preview, {
       holds: true,
@@ -387,7 +388,7 @@ question = "The parallel sibling is necessary."
     });
     const status = await runAgent(wt, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusHints = decodeCliResult(status.stdout, "status").hints ?? [];
+    const statusHints = decodeCliResult(status, "status").hints ?? [];
     assertStringIncludes(
       statusHints.join("\n"),
       "Related existing: ``api/weird`name.ts`` resembles ``api/weird`name2.ts``",
@@ -396,7 +397,7 @@ question = "The parallel sibling is necessary."
     const refused = await runAgent(wt, ["done", "--json"]);
     assertEquals(refused.code, 1, refused.output);
     assertEquals(
-      parseDone(refused.stdout).data.checkpoints?.outstanding?.[0]?.related,
+      parseDone(refused).data.checkpoints?.outstanding?.[0]?.related,
       related,
     );
     const markdown = await runAgent(wt, ["done", "--markdown"]);
@@ -409,7 +410,7 @@ question = "The parallel sibling is necessary."
     const met = await runAgent(wt, ["done", "--met", "parallel", "--json"]);
     assertEquals(met.code, 0, met.output);
     assertEquals(
-      parseDone(met.stdout).data.checkpoints?.declared_met?.[0]?.related,
+      parseDone(met).data.checkpoints?.declared_met?.[0]?.related,
       related,
     );
     const proof = await proofMarker(wt);
@@ -427,9 +428,9 @@ question = "The parallel sibling is necessary."
     await git(wt, "commit", "-q", "-m", "change sibling", "--no-gpg-sign");
     const changed = await runAgent(wt, ["done", "--json"]);
     assertEquals(changed.code, 1, changed.output);
-    assertEquals(parseDone(changed.stdout).error, AWAITING_DECLARATION_SLUG);
+    assertEquals(parseDone(changed).error, AWAITING_DECLARATION_SLUG);
     assertEquals(
-      parseDone(changed.stdout).data.checkpoints?.outstanding?.[0]?.related,
+      parseDone(changed).data.checkpoints?.outstanding?.[0]?.related,
       related,
     );
     assertEquals(
@@ -442,7 +443,7 @@ question = "The parallel sibling is necessary."
     await git(wt, "commit", "-q", "-m", "remove sibling", "--no-gpg-sign");
     const removed = await runAgent(wt, ["done", "--json"]);
     assertEquals(removed.code, 1, removed.output);
-    const removedEnvelope = parseDone(removed.stdout);
+    const removedEnvelope = parseDone(removed);
     assertEquals(removedEnvelope.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       removedEnvelope.data.checkpoints?.outstanding?.[0]?.related,

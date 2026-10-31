@@ -41,6 +41,7 @@ import { git, gitInit } from "./engine_helpers.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
@@ -63,10 +64,10 @@ function assertMapDataKey<Key extends keyof MapData>(
 
 /** Decode map stdout and require the payload field this assertion consumes. */
 function decodeMapData<Key extends keyof MapData>(
-  stdout: string,
+  run: CliRun,
   key: Key,
 ): PresentMapDataKey<Key> {
-  const result = decodeCliResult(stdout, "map");
+  const result = decodeCliResult(run, "map");
   assertMapDataKey(result, key);
   return result.data;
 }
@@ -506,9 +507,9 @@ Deno.test("resolveDoc honours frontmatter aliases, case-insensitively", async ()
 Deno.test("map --json emits the index", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["map", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(["map", "--json"], dir);
     assertEquals(code, 0);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(res.ok, true);
     assertEquals(res.verb, "map");
     assertMapDataKey(res, "regions");
@@ -549,13 +550,13 @@ Deno.test("top-level map regions are registry-driven exact targets", async () =>
 Deno.test("map region targets return a filtered compact index", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli([
+    const { code, stdout, stderr } = await runCli([
       "map",
       "00-intro",
       "--json",
     ], dir);
     assertEquals(code, 0);
-    const result = decodeCliResult(stdout, "map");
+    const result = decodeCliResult({ code, stdout, stderr }, "map");
     assertMapDataKey(result, "docs");
     assertExists(result.data.scope);
     assertExists(result.data.count);
@@ -571,14 +572,14 @@ Deno.test("map region targets return a filtered compact index", async () => {
 Deno.test("map search returns ranked context and canonical reusable targets", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli([
+    const { code, stdout, stderr } = await runCli([
       "map",
       "--search",
       "alpha body",
       "--json",
     ], dir);
     assertEquals(code, 0);
-    const result = decodeCliResult(stdout, "map");
+    const result = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(result.ok, true);
     assertMapDataKey(result, "results");
     assertExists(result.data.query);
@@ -602,7 +603,7 @@ Deno.test("map search returns ranked context and canonical reusable targets", as
     ], dir);
     assertEquals(followUp.code, 0);
     assertStringIncludes(
-      decodeMapData(followUp.stdout, "doc").doc.content,
+      decodeMapData(followUp, "doc").doc.content,
       "alpha",
     );
   });
@@ -634,7 +635,7 @@ Deno.test("map search labels strong partials that fill unused result slots", asy
       "--json",
     ], dir);
     assertEquals(json.code, 0);
-    const data = decodeMapData(json.stdout, "results");
+    const data = decodeMapData(json, "results");
     assertEquals(
       data.results.slice(0, 2).map(
         (result: { match: string }) => result.match,
@@ -686,7 +687,7 @@ Deno.test("map search does not turn a short lexical miss into a fuzzy match", as
     ], dir);
 
     assertEquals(result.code, 0);
-    assertEquals(decodeMapData(result.stdout, "results").results, []);
+    assertEquals(decodeMapData(result, "results").results, []);
   });
 });
 
@@ -701,7 +702,7 @@ Deno.test("map search scopes to a region and treats no matches as a successful r
       "--json",
     ], dir);
     assertEquals(hit.code, 0);
-    const hitData = decodeMapData(hit.stdout, "results");
+    const hitData = decodeMapData(hit, "results");
     assertExists(hitData.scope);
     const hitResult = hitData.results[0];
     assertExists(hitResult);
@@ -716,7 +717,7 @@ Deno.test("map search scopes to a region and treats no matches as a successful r
       "--json",
     ], dir);
     assertEquals(miss.code, 0);
-    const missData = decodeMapData(miss.stdout, "results");
+    const missData = decodeMapData(miss, "results");
     assertExists(missData.scope);
     assertExists(missData.count);
     assertEquals(missData.scope, "00-intro");
@@ -732,7 +733,7 @@ Deno.test("map search scopes to a region and treats no matches as a successful r
     ], dir);
     assertEquals(page.code, 0);
     assertEquals(
-      decodeMapData(page.stdout, "scope").scope,
+      decodeMapData(page, "scope").scope,
       "00-intro/alpha",
     );
   });
@@ -752,7 +753,7 @@ Deno.test("map search keeps agent-visible pages withheld from publication", asyn
       "--json",
     ], dir);
     assertEquals(result.code, 0);
-    const searchResult = decodeMapData(result.stdout, "results").results[0];
+    const searchResult = decodeMapData(result, "results").results[0];
     assertExists(searchResult);
     assertEquals(searchResult.target, "00-intro/private");
   });
@@ -761,14 +762,14 @@ Deno.test("map search keeps agent-visible pages withheld from publication", asyn
 Deno.test("map search falls back to typo-tolerant metadata matching", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli([
+    const { code, stdout, stderr } = await runCli([
       "map",
       "--search",
       "alhpa",
       "--json",
     ], dir);
     assertEquals(code, 0);
-    const data = decodeMapData(stdout, "results");
+    const data = decodeMapData({ code, stdout, stderr }, "results");
     const result = data.results[0];
     assertExists(result);
     assertEquals(result.target, "00-intro/alpha");
@@ -793,7 +794,7 @@ Deno.test("map search caps returned documents while reporting the full match cou
       "--json",
     ], dir);
     assertEquals(result.code, 0);
-    const data = decodeMapData(result.stdout, "results");
+    const data = decodeMapData(result, "results");
     assertExists(data.count);
     assertExists(data.truncated);
     assertEquals(data.count, 7);
@@ -808,7 +809,7 @@ Deno.test("map search rejects an empty query and incompatible read modes", async
     const empty = await runCli(["map", "--search", " ", "--json"], dir);
     assertEquals(empty.code, 1);
     assertEquals(
-      decodeCliResult(empty.stdout, "map").error,
+      decodeCliResult(empty, "map").error,
       "invalid_arguments",
     );
 
@@ -897,7 +898,7 @@ Deno.test("bare map renders README descriptions and Git freshness facts per regi
     );
 
     const json = await runCli(["map", "--json"], dir);
-    const payload = decodeCliResult(json.stdout, "map");
+    const payload = decodeCliResult(json, "map");
     assertMapDataKey(payload, "regions");
     const region = payload.data.regions[0];
     assertExists(region);
@@ -938,7 +939,7 @@ Deno.test("bare map reports unknown freshness when pages link only a directory",
     assertTerminalTextIncludes(human.stdout, "freshness unknown");
 
     const json = await runCli(["map", "--json"], dir);
-    const region = decodeMapData(json.stdout, "regions").regions[0];
+    const region = decodeMapData(json, "regions").regions[0];
     assertExists(region);
     assertFactOnlyRegion(region);
     assertEquals("pages_changed_at" in region, false);
@@ -957,7 +958,7 @@ Deno.test("bare map reports unknown freshness without tracked file links", async
     assertTerminalTextIncludes(human.stdout, "freshness unknown");
 
     const json = await runCli(["map", "--json"], dir);
-    const region = decodeMapData(json.stdout, "regions").regions[0];
+    const region = decodeMapData(json, "regions").regions[0];
     assertExists(region);
     assertFactOnlyRegion(region);
     assertEquals("pages_changed_at" in region, false);
@@ -968,9 +969,12 @@ Deno.test("bare map reports unknown freshness without tracked file links", async
 Deno.test("map <slug> --json returns the single doc with its content", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["map", "alpha", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(
+      ["map", "alpha", "--json"],
+      dir,
+    );
     assertEquals(code, 0);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(res.ok, true);
     assertMapDataKey(res, "doc");
     assertEquals(res.data.doc.path, "docs/00-intro/alpha.md");
@@ -1000,7 +1004,7 @@ Deno.test("map projections: frontmatter never reaches content, agents keep every
     // STAY in map content (its readers are agents, who navigate by them).
     const doc = await runCli(["map", "rich", "--json"], dir);
     assertEquals(doc.code, 0);
-    const record = decodeMapData(doc.stdout, "doc").doc;
+    const record = decodeMapData(doc, "doc").doc;
     assertEquals(record.title, "Short label");
     assertEquals(record.order, 1);
     assertEquals(record.aliases, ["synonyms"]);
@@ -1028,7 +1032,7 @@ Deno.test("map projections: frontmatter never reaches content, agents keep every
     // The index keeps the withheld doc — agents keep everything — and marks
     // the withholding as a structured field.
     const index = await runCli(["map", "--json"], dir);
-    const indexResult = decodeCliResult(index.stdout, "map");
+    const indexResult = decodeCliResult(index, "map");
     assertResultDataKey(indexResult, "docs");
     assertExists(indexResult.data.docs);
     const docs = indexResult.data.docs;
@@ -1328,7 +1332,7 @@ Deno.test("map export validates scope and incompatible flags", async () => {
     );
     assertEquals(json.code, 1);
     assertEquals(
-      decodeCliResult(json.stdout, "map").error,
+      decodeCliResult(json, "map").error,
       "invalid_arguments",
     );
     assertEquals(json.stderr, "");
@@ -1468,12 +1472,12 @@ Deno.test("map reports an ambiguous target with candidates", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     await addAmbiguousDocs(dir);
-    const { code, stdout } = await runCli(
+    const { code, stdout, stderr } = await runCli(
       ["map", "shared", "--json"],
       dir,
     );
     assertEquals(code, 1);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(res.error, "ambiguous");
     assertMapDataKey(res, "candidates");
     assert(res.data.candidates.length >= 2);
@@ -1482,9 +1486,9 @@ Deno.test("map reports an ambiguous target with candidates", async () => {
 
 Deno.test("map --json reports no_map when there is no map tree", async () => {
   await withTempDir(async (dir) => {
-    const { code, stdout } = await runCli(["map", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(["map", "--json"], dir);
     assertEquals(code, 1);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(res.ok, false);
     assertEquals(res.error, "no_map");
   });
@@ -1494,12 +1498,12 @@ Deno.test("map --dir can target an internal subtree directly", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     // Point --dir straight at it: it becomes the root, no longer underscored.
-    const { code, stdout } = await runCli(
+    const { code, stdout, stderr } = await runCli(
       ["map", "--dir", "docs/_adr", "--json"],
       dir,
     );
     assertEquals(code, 0);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(res.ok, true);
     assertMapDataKey(res, "docs");
     assert(
@@ -1521,9 +1525,9 @@ Deno.test("map defaults to the configured [map].dir", async () => {
     );
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# Human docs\n");
 
-    const { code, stdout } = await runCli(["map", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(["map", "--json"], dir);
     assertEquals(code, 0);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertMapDataKey(res, "docs");
     assertExists(res.data.map_dir);
     assertEquals(res.data.map_dir, "docs/discern");
@@ -1536,9 +1540,12 @@ Deno.test("map defaults to the configured [map].dir", async () => {
 Deno.test("map <unknown> --json reports unknown_target, exit 1", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["map", "nonesuch", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(
+      ["map", "nonesuch", "--json"],
+      dir,
+    );
     assertEquals(code, 1);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(res.ok, false);
     assertEquals(res.error, "unknown_target");
     assertExists(res.message);
@@ -1549,9 +1556,12 @@ Deno.test("map <unknown> --json reports unknown_target, exit 1", async () => {
 Deno.test("map <near miss> --json suggests valid doc targets", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["map", "alph", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(
+      ["map", "alph", "--json"],
+      dir,
+    );
     assertEquals(code, 1);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(res.ok, false);
     assertEquals(res.error, "unknown_target");
     assertExists(res.message);
@@ -1590,9 +1600,9 @@ Deno.test("map --json reports an empty tree as count 0 (only internal docs prese
     await Deno.mkdir(join(dir, "docs/_adr"), { recursive: true });
     await Deno.writeTextFile(join(dir, "docs/_adr/0001-first.md"), "# ADR\n");
 
-    const { code, stdout } = await runCli(["map", "--json"], dir);
+    const { code, stdout, stderr } = await runCli(["map", "--json"], dir);
     assertEquals(code, 0);
-    const res = decodeCliResult(stdout, "map");
+    const res = decodeCliResult({ code, stdout, stderr }, "map");
     assertEquals(res.ok, true);
     assertMapDataKey(res, "docs");
     assertExists(res.data.count);
@@ -1611,7 +1621,7 @@ Deno.test("searching an empty map succeeds unless an absent scope was requested"
 
     const all = await runCli(["map", "--search", "anything", "--json"], dir);
     assertEquals(all.code, 0);
-    assertEquals(decodeMapData(all.stdout, "results").results, []);
+    assertEquals(decodeMapData(all, "results").results, []);
 
     const scoped = await runCli([
       "map",
@@ -1621,7 +1631,7 @@ Deno.test("searching an empty map succeeds unless an absent scope was requested"
       "--json",
     ], dir);
     assertEquals(scoped.code, 1);
-    assertEquals(decodeCliResult(scoped.stdout, "map").error, "unknown_target");
+    assertEquals(decodeCliResult(scoped, "map").error, "unknown_target");
   });
 });
 
@@ -1760,8 +1770,7 @@ Deno.test("map finds current supporting pages while history and private pages re
       );
     }
     const search = decodeMapData(
-      (await runCli(["map", "--search", "uniqueconstraint", "--json"], dir))
-        .stdout,
+      await runCli(["map", "--search", "uniqueconstraint", "--json"], dir),
       "results",
     );
     assertEquals(search.results.length, 2);

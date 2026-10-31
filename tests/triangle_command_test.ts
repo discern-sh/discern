@@ -23,7 +23,7 @@ import {
 import type { TerminalAnimationEnvironment } from "../src/lib/terminal_animation.ts";
 import { runAgentPty } from "./engine_helpers.ts";
 import { fromFileUrl } from "@std/path";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { assertResultDataKey, decodeResultText } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
 import { assertNamedCases } from "./assert_cases.ts";
 
@@ -145,7 +145,7 @@ Deno.test("triangle --json emits one faithful result envelope and exits 0", asyn
     console.log = original;
   }
   assertEquals(code, 0);
-  const envelope = decodeCliResult(lines.join("\n"), "triangle");
+  const envelope = decodeResultText(lines.join("\n"), "triangle");
   assertResultDataKey(envelope, "mark");
   assertEquals(envelope.ok, true);
   assertEquals(envelope.verb, "triangle");

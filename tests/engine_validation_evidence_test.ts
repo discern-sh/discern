@@ -62,7 +62,7 @@ Deno.test("standalone test records pass/fail outcomes and concurrent execution w
       await gitInit(dir);
       const run = await runAgent(dir, ["test", "--json"]);
       assertEquals(run.code, fails ? 1 : 0, run.output);
-      const publicResult = decodeCliResult(run.stdout, "test");
+      const publicResult = decodeCliResult(run, "test");
       assertEquals(
         "validation" in publicResult ? publicResult.validation : undefined,
         undefined,
@@ -167,7 +167,7 @@ limit = 0
 
     const run = await runAgent(dir, ["done", "--json"]);
     assertEquals(run.code, 1, run.output);
-    const result = decodeCliResult(run.stdout, "done");
+    const result = decodeCliResult(run, "done");
     assert(result.data !== undefined && "standards" in result.data, run.output);
     const reading = result.data.standards?.find((entry) =>
       entry.name === "sibling_metric"

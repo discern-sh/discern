@@ -183,7 +183,7 @@ Deno.test("script (singular) folds silently to the scripts dispatch", async () =
     // canonical verb — folding rewrites the spelling before dispatch.
     const list = await runAgent(dir, ["script", "--json"]);
     assertEquals(list.code, 0, list.output);
-    const envelope = decodeCliResult(list.stdout, "scripts");
+    const envelope = decodeCliResult(list, "scripts");
     assertResultDataKey(envelope, "scripts");
     assertEquals(envelope.verb, "scripts");
     assertEquals(envelope.data.scripts, [{
@@ -203,7 +203,7 @@ Deno.test("scripts: --json lists project scripts as one structured result", asyn
     for (const args of [["--json", "scripts"], ["scripts", "--json"]]) {
       const r = await runAgent(dir, args);
       assertEquals(r.code, 0, r.output);
-      const result = decodeCliResult(r.stdout, "scripts");
+      const result = decodeCliResult(r, "scripts");
       assertResultDataKey(result, "scripts");
       assertEquals(result.ok, true);
       assertEquals(result.verb, "scripts");
@@ -348,7 +348,7 @@ Deno.test("scripts: a missing project script keeps the scripts JSON contract", a
     await scaffoldEngine(dir);
     const result = await runAgent(dir, ["--json", "scripts", "missing"]);
     assertEquals(result.code, 1, result.output);
-    const envelope = decodeCliResult(result.stdout, "scripts");
+    const envelope = decodeCliResult(result, "scripts");
     assertEquals(envelope.verb, "scripts");
     assertEquals(envelope.error, "unknown_command");
     assertEquals(envelope.message, 'unknown command "scripts missing".');
@@ -374,7 +374,7 @@ Deno.test("scripts: an existing non-executable file is reported, not run", async
 
     const json = await runAgent(dir, ["--json", "scripts", "deploy"]);
     assertEquals(json.code, 1, json.output);
-    const refusal = decodeCliResult(json.stdout, "scripts");
+    const refusal = decodeCliResult(json, "scripts");
     assertEquals(refusal.error, "script_not_executable");
   });
 });
@@ -402,7 +402,7 @@ Deno.test("scripts: a file that names no interpreter is not offered the executab
 
     const json = await runAgent(dir, ["--json", "scripts", "matcher.ts"]);
     assertEquals(json.code, 1, json.output);
-    const refusal = decodeCliResult(json.stdout, "scripts");
+    const refusal = decodeCliResult(json, "scripts");
     assertEquals(refusal.error, "script_not_a_command");
   });
 });

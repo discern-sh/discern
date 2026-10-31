@@ -26,7 +26,7 @@ question = 'Does this source meet its requirement?'
     );
     const done = await runAgent(path, ["done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const result = decodeCliResult(done.stdout, "done");
+    const result = decodeCliResult(done, "done");
     assertEquals(result.error, "awaiting_declaration");
     assert(result.message?.includes("Does this source meet its requirement?"));
     assertEquals(

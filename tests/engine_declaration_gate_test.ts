@@ -56,7 +56,7 @@ const PROBES = {
   done: async (dir: string): Promise<DeclarationProbeResult> => {
     const wt = await checkpointedWorktree(dir);
     const json = await runAgent(wt, ["done", "--json"]);
-    const env = decodeCliResult(json.stdout, "done");
+    const env = decodeCliResult(json, "done");
     const terminal = await runAgent(wt, ["done"]);
     const mcp = await runMcp("discern_done", wt, {});
     // Mutated iff a gate job ran or the project tree changed; the open question

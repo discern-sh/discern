@@ -411,7 +411,7 @@ Deno.test("CLI crash in --json mode: stdout is one uniform internal_error envelo
     });
 
     assertEquals(run.code, CRASH_EXIT_CODE, run.output);
-    const envelope = decodeCliResult(run.stdout, "status");
+    const envelope = decodeCliResult(run, "status");
     assertEquals(envelope.ok, false);
     assertEquals(envelope.verb, "status");
     assertEquals(envelope.error, "internal_error");

@@ -19,6 +19,7 @@ import { assertHasHint } from "./hint_asserts.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 import {
@@ -39,18 +40,18 @@ async function registeredWorktrees(dir: string): Promise<string[]> {
 
 /** Decode a successful start and require its worktree path payload. */
 function decodeStarted(
-  stdout: string,
+  run: CliRun,
 ): CliResultForCommand<"start"> & { data: StartData } {
-  const result = decodeCliResult(stdout, "start");
+  const result = decodeCliResult(run, "start");
   assertResultDataKey(result, "path");
   return result;
 }
 
 /** Decode doctor output and require its diagnostic rows. */
 function decodeDoctor(
-  stdout: string,
+  run: CliRun,
 ): CliResultForCommand<"doctor"> & { data: DoctorData } {
-  const result = decodeCliResult(stdout, "doctor");
+  const result = decodeCliResult(run, "doctor");
   assertResultDataKey(result, "checks");
   return result;
 }
@@ -101,7 +102,7 @@ Deno.test("start: one positional name serves --name syntax and changes nothing o
         "discern start --name setup-probe",
       );
       if (format === "--json") {
-        const envelope = decodeCliResult(result.stdout, "start");
+        const envelope = decodeCliResult(result, "start");
         assertEquals(envelope.error, "invalid_arguments");
         assertStringIncludes(
           envelope.message ?? "",
@@ -158,7 +159,7 @@ for (const state of BAD_STATES) {
       const project = await state.arrange(dir);
       const r = await runAgent(project, ["start", "--json"]);
       assertEquals(r.code, 1, r.output);
-      const result = decodeCliResult(r.stdout, "start");
+      const result = decodeCliResult(r, "start");
       assertEquals(result.ok, false);
       assertEquals(result.error, "precondition_failed", r.output);
       assert(typeof result.message === "string");
@@ -180,7 +181,7 @@ for (const state of BAD_STATES) {
     await withTempDir(async (dir) => {
       const project = await state.arrange(dir);
       const r = await runAgent(project, ["doctor", "--json"]);
-      const result = decodeDoctor(r.stdout);
+      const result = decodeDoctor(r);
       const shape = result.data.checks.find((c) =>
         c.name === "repository shape"
       );
@@ -206,7 +207,7 @@ Deno.test("start works from a main checkout parked on an ORPHAN branch — the t
       !r.output.includes("no commits"),
       `an orphan HEAD beside a live trunk has commits\n${r.output}`,
     );
-    const result = decodeStarted(r.stdout);
+    const result = decodeStarted(r);
     // The worktree carries the trunk's content (gitInit committed the scaffold).
     assert(
       await targetExists(join(result.data.path, "discern.toml")),
@@ -215,7 +216,7 @@ Deno.test("start works from a main checkout parked on an ORPHAN branch — the t
 
     // doctor agrees: this repository has commits, so its shape check passes.
     const doc = await runAgent(dir, ["doctor", "--json"]);
-    const parsed = decodeDoctor(doc.stdout);
+    const parsed = decodeDoctor(doc);
     const shape = parsed.data.checks.find((c) => c.name === "repository shape");
     assert(shape !== undefined, doc.stdout);
     assertEquals(shape.ok, true, JSON.stringify(shape));
@@ -227,7 +228,7 @@ Deno.test("doctor's repository shape check passes on a healthy repo", async () =
     await scaffoldEngine(dir);
     await gitInit(dir);
     const r = await runAgent(dir, ["doctor", "--json"]);
-    const result = decodeDoctor(r.stdout);
+    const result = decodeDoctor(r);
     const shape = result.data.checks.find((c) => c.name === "repository shape");
     assert(shape !== undefined, r.stdout);
     assertEquals(shape.ok, true, r.stdout);
@@ -248,7 +249,7 @@ Deno.test("start branches from the trunk even when the main checkout is parked e
 
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeStarted(r.stdout);
+    const result = decodeStarted(r);
     assertEquals(result.data.from, "main");
     assertEquals(
       await targetExists(join(result.data.path, "poison.txt")),
@@ -283,7 +284,7 @@ Deno.test("start --from <branch> forks the worktree from that ref", async () => 
 
     const r = await runAgent(dir, ["start", "--json", "--from", "experiment"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeStarted(r.stdout);
+    const result = decodeStarted(r);
     assertEquals(result.data.from, "experiment");
     assert(
       await targetExists(join(result.data.path, "experiment.txt")),
@@ -339,7 +340,7 @@ Deno.test("start --from preserves every resolved base and reports only positive 
         "selected-base",
       ]);
       assertEquals(run.code, 0, run.output);
-      const result = decodeStarted(run.stdout);
+      const result = decodeStarted(run);
       assertEquals(
         result.data.behind_trunk,
         testCase.expectedBehind,
@@ -372,7 +373,7 @@ Deno.test("start --from refuses an unknown ref in plain language", async () => {
     await gitInit(dir);
     const r = await runAgent(dir, ["start", "--json", "--from", "no-such-ref"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assert(typeof result.message === "string");
     assertStringIncludes(result.message, "Unknown ref 'no-such-ref'");
     await assertNoStartDebris(dir, r.output);
@@ -391,7 +392,7 @@ Deno.test("a start whose setup fails discards the partial worktree (no debris)",
     await gitInit(dir);
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assert(typeof result.message === "string");
     assertStringIncludes(result.message, "worktree setup step failed");
     await assertNoStartDebris(dir, r.output);
@@ -427,7 +428,7 @@ Deno.test("a Git add failure before creation skips impossible resource teardown"
       { env: { GIT_BIN: gitWrapper } },
     );
     assertEquals(run.code, 1, run.output);
-    const result = decodeCliResult(run.stdout, "start");
+    const result = decodeCliResult(run, "start");
     assertStringIncludes(
       result.message ?? "",
       "synthetic worktree-add failure",
@@ -453,7 +454,7 @@ Deno.test("start on a dirty main checkout says the changes stay behind", async (
     await Deno.writeTextFile(join(dir, "wip.txt"), "uncommitted\n");
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeStarted(r.stdout);
+    const result = decodeStarted(r);
     assertHasHint(result, HINTS["start-main-changes-stay"], {
       changes: 1,
       startPoint: "main",

@@ -44,7 +44,7 @@ Deno.test("done --json: a fresh gate runs only its embedded format job", async (
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = decodeGateResult(r.stdout); // stdout must be ONLY the JSON object
+    const obj = decodeGateResult(r); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "done");
     assertEquals(obj.data.failed_stage, null);
@@ -107,7 +107,7 @@ Deno.test("done --json: a trunk advancing during validation stays bound to the o
     // its start. A trunk that advances mid-run does not invalidate this run's
     // Proof; acceptance re-checks the trunk and refuses with the update route.
     assertEquals(r.code, 0, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.completion?.kind, "complete");
     assert(
@@ -201,7 +201,7 @@ Deno.test("done --json: one red gate carries each failing check's own diagnostic
     await refreshScaffold(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
 
     await t.step(
       "done --json: a failing check reports ok:false, a failed step, and a diagnostic with captured output",
@@ -340,7 +340,7 @@ Deno.test("done --json: one green gate reports a loud passing job's advisory art
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, true);
 
     await t.step(
@@ -406,7 +406,7 @@ Deno.test("done --json: stream-enabled failures capture output into the diagnost
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "check");
     const diag = diagFor(obj, "lint");
@@ -446,7 +446,7 @@ Deno.test("done --json: a fix-stage failure skips later check/test jobs and scop
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "fix");
     assert(obj.data.scopes_changed.includes("widget"), r.stdout);
@@ -502,7 +502,7 @@ Deno.test("done --json: a failing scope-gate reports ok:false at the scope_gates
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "scope_gates");
     const widget = stepFor(obj, "scope:widget");
@@ -578,7 +578,7 @@ Deno.test("done --json: one red gate yields Tier-1 diagnostics from a SARIF-emit
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
 
     await t.step(

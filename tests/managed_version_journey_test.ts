@@ -48,7 +48,7 @@ Deno.test("only applied successful upgrade adopts; preview and same-version reru
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     for (const flag of ["--dry-run", "--check"]) {
       const run = await runCli(["upgrade", flag, "--json"], dir);
-      const result = decodeCliResult(run.stdout, "upgrade");
+      const result = decodeCliResult(run, "upgrade");
       assertResultDataKey(result, "managed_version");
       assertEquals(result.data.managed_version, {
         previous: null,
@@ -118,7 +118,7 @@ Deno.test("newer project adoption guards every registered writer and Proof, incl
     ) {
       const run = await runCli([...command.split(" "), "--json"], dir);
       assertEquals(run.code, 1, run.stdout + run.stderr);
-      const result = decodeCliResult(run.stdout, command);
+      const result = decodeCliResult(run, command);
       assertResultDataKey(result, "next_action");
       assertEquals(result.data.next_action, "discern releases");
     }
@@ -147,7 +147,7 @@ Deno.test("newer project adoption guards every registered writer and Proof, incl
     );
     const schema = await runCli(["upgrade", "--dry-run", "--json"], dir);
     assertEquals(
-      decodeCliResult(schema.stdout, "upgrade").error,
+      decodeCliResult(schema, "upgrade").error,
       "schema_version_too_new",
     );
     await Deno.writeTextFile(join(dir, "discern.toml"), config);
@@ -261,7 +261,7 @@ Deno.test("failed setup retracts adoption when a commit hook prevents wider roll
     );
     const failed = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(failed.code, 1, failed.output);
-    const result = decodeCliResult(failed.stdout, "setup done");
+    const result = decodeCliResult(failed, "setup done");
     assertResultDataKey(result, "rollback");
     assertEquals(result.data.rollback, "retained");
     assertEquals((await loadConfig(dir)).meta.managed_version, undefined);

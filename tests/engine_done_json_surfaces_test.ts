@@ -67,7 +67,7 @@ Deno.test("done --dry-run --json: emits a preview envelope (plan, no steps)", as
     const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = decodeCliResult(r.stdout, "done");
+    const obj = decodeCliResult(r, "done");
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "done");
     assertEquals(obj.dry_run, true); // the uniform "is this a preview?" signal
@@ -150,7 +150,7 @@ Deno.test("done: one green gate carries next-step hints on --json and prints the
     await t.step(
       "done --json: a passing gate carries next-step hints, and the human tail prints the SAME strings",
       async () => {
-        const obj = decodeGateResult(r.stdout);
+        const obj = decodeGateResult(r);
         assertEquals(obj.ok, true);
         assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
         assertHasHint(obj, HINTS["gate-update-docs"]);
@@ -175,7 +175,7 @@ Deno.test("done: one green gate carries next-step hints on --json and prints the
       () => {
         let parsed = true;
         try {
-          decodeCliResult(human.stdout, "done");
+          decodeCliResult(human, "done");
         } catch {
           parsed = false;
         }
@@ -207,7 +207,7 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
     await refreshScaffold(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
     assertHasHint(obj, HINTS["gate-failure-gotchas"], {
@@ -239,7 +239,7 @@ Deno.test("done --standalone --json: a STALE agent file fails the instruction ch
     );
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "instructions");
     const choices = assertHasHint(
@@ -268,7 +268,7 @@ Deno.test("done --standalone --json: a STALE agent file fails the instruction ch
       compiled.replace(firstLine, `${firstLine} (edited)`),
     );
     const edited = decodeGateResult(
-      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
+      await runAgent(dir, ["done", "--standalone", "--json"]),
     );
     assertHasHint(edited, HINTS["gate-failure-instructions"]);
     assertLacksHint(edited, HINTS["gate-failure-instructions-unsourced"]);
@@ -332,7 +332,7 @@ Deno.test("done --standalone --json: a malformed authored SKILL.md fails the ski
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "skill_frontmatter");
     const diag = diagFor(obj, "skill-frontmatter");
@@ -379,7 +379,7 @@ Deno.test("done --standalone --json: two ADR records claiming one number fail th
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "adr_numbers");
     const diag = diagFor(obj, "adr-numbers");
@@ -432,7 +432,7 @@ Deno.test("done --standalone --json: a stale generated file fails FAST — the c
 
     // Baseline: current artifacts → the currency checks pass and the capability runs.
     const ok = decodeGateResult(
-      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
+      await runAgent(dir, ["done", "--standalone", "--json"]),
     );
     assertEquals(ok.data.failed_stage, null);
     assert(ok.steps !== undefined);
@@ -453,7 +453,7 @@ Deno.test("done --standalone --json: a stale generated file fails FAST — the c
     );
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.data.failed_stage, "instructions");
     assert(obj.steps !== undefined);
     // Fail-fast (ADR 0056): the expensive stage never ran — every planned step is
@@ -482,7 +482,7 @@ Deno.test("done --standalone --json: a MISSING agent file does NOT block (absent
     // project that keeps the compiled files untracked would otherwise
     // red-light first-run CI on every fresh checkout.
     assertEquals(r.code, 0, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
     assertEquals(diagFor(obj, "instructions"), undefined);
@@ -520,7 +520,7 @@ Deno.test("done --standalone --json: tracked discern-managed ignored artifacts f
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeGateResult(r);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "tracked_artifacts");
     assert(obj.steps !== undefined);
@@ -556,7 +556,7 @@ Deno.test("done --standalone --json: a hand-edited materialized skill blocks (sk
     /** Run the standalone gate and return its failed stage and skills diagnostic. */
     const gate = async () => {
       const obj = decodeGateResult(
-        (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
+        await runAgent(dir, ["done", "--standalone", "--json"]),
       );
       return { stage: obj.data.failed_stage, skills: diagFor(obj, "skills") };
     };
@@ -638,7 +638,7 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
       "done --json: the trunk can prove its candidate — a clean trunk has its own immutable candidate and complete evidence",
       async () => {
         const onMain = decodeGateResult(
-          (await runAgent(dir, ["done", "--json"])).stdout,
+          await runAgent(dir, ["done", "--json"]),
         );
         assertEquals(onMain.ok, true);
         assert(onMain.data.proof?.completion !== undefined);
@@ -655,7 +655,7 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
 
         const r = await runAgent(wt, ["done", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const obj = decodeGateResult(r.stdout);
+        const obj = decodeGateResult(r);
         assertEquals(obj.ok, true);
 
         // Compact data keeps the claim and omits the review-page rendering.
@@ -699,7 +699,7 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
         // Deterministic: the same tree emits the same compact Proof. The unchanged
         // tree makes this a rerun, so it uses the Gate-specific spelling.
         const again = decodeGateResult(
-          (await runAgent(wt, ["done", "--rerun", "--json"])).stdout,
+          await runAgent(wt, ["done", "--rerun", "--json"]),
         );
         assertEquals(again.data.proof?.line, proof.line);
         assertEquals(
@@ -724,7 +724,7 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
         await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
         // A clean standalone run states the rule first, and only the rule.
         const clean = decodeGateResult(
-          (await runAgent(wt, ["done", "--standalone", "--json"])).stdout,
+          await runAgent(wt, ["done", "--standalone", "--json"]),
         );
         assertEquals(clean.data.gate_proof?.status, "diagnostic");
         assert(
@@ -735,7 +735,7 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
         );
         await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
         const dirty = decodeGateResult(
-          (await runAgent(wt, ["done", "--standalone", "--json"])).stdout,
+          await runAgent(wt, ["done", "--standalone", "--json"]),
         );
         assertEquals(dirty.ok, true);
         assertEquals(dirty.data.proof, undefined);

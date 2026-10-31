@@ -36,7 +36,7 @@ Deno.test("done reports configured preview actions without executing them", asyn
 
     const result = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const parsed = decodeCliResult(result.stdout, "done");
+    const parsed = decodeCliResult(result, "done");
     assertResultDataKey(parsed, "preview_actions");
     assertEquals(parsed.data.preview_actions, [{
       scope: "web",

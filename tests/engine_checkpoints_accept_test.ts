@@ -66,7 +66,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
         // bare consent refusal.
         const bare = await runAgent(wt, ["accept", "--json"]);
         assertEquals(bare.code, 1, bare.output);
-        const env = parseAcceptMessageJson(bare.stdout);
+        const env = parseAcceptMessageJson(bare);
         assertEquals(env.ok, false);
         assertEquals(env.verb, "accept");
         assertEquals(env.error, AWAITING_VARIANCE_SLUG);
@@ -105,7 +105,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
           "--json",
         ]);
         assertEquals(confirmedOnly.code, 1, confirmedOnly.output);
-        const confirmedEnv = parseAcceptMessageJson(confirmedOnly.stdout);
+        const confirmedEnv = parseAcceptMessageJson(confirmedOnly);
         assertEquals(confirmedEnv.error, AWAITING_VARIANCE_SLUG);
         assertStringIncludes(confirmedEnv.message, "missing: api-review");
 
@@ -118,7 +118,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
         ]);
         assertEquals(varianceOnly.code, 1, varianceOnly.output);
         assertEquals(
-          parseAcceptJson(varianceOnly.stdout).error,
+          parseAcceptJson(varianceOnly).error,
           AWAITING_VARIANCE_SLUG,
         );
         assert(await targetExists(wt), "no refusal may touch the worktree");
@@ -212,7 +212,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
           "--json",
         ]);
         assertEquals(unknown.code, 1, unknown.output);
-        const unknownEnv = parseAcceptMessageJson(unknown.stdout);
+        const unknownEnv = parseAcceptMessageJson(unknown);
         assertEquals(unknownEnv.error, "invalid_value");
         assertStringIncludes(unknownEnv.message, "no-such-checkpoint");
         assertStringIncludes(unknownEnv.message, "api-review");
@@ -274,7 +274,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
           "--json",
         ]);
         assertEquals(met.code, 1, met.output);
-        const metEnv = parseAcceptMessageJson(met.stdout);
+        const metEnv = parseAcceptMessageJson(met);
         assertEquals(metEnv.error, "invalid_value");
         assertStringIncludes(metEnv.message, "declared met");
         assert(
@@ -301,12 +301,12 @@ Deno.test("accept: declared-met work needs no variance and keeps the ordinary co
     // No variance in play: the ordinary awaiting-consent contract leads.
     const bare = await runAgent(wt, ["accept", "--json"]);
     assertEquals(bare.code, 1, bare.output);
-    assertEquals(parseAcceptJson(bare.stdout).error, AWAITING_CONSENT_SLUG);
+    assertEquals(parseAcceptJson(bare).error, AWAITING_CONSENT_SLUG);
 
     // The clean decision lands, with no variance evidence anywhere.
     const landed = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(landed.code, 0, landed.output);
-    const env = parseAppliedAcceptJson(landed.stdout);
+    const env = parseAppliedAcceptJson(landed);
     assertEquals(env.data.variances ?? [], []);
     const landedSha = await gitOut(dir, "rev-parse", "main");
     const payload = await landedNotePayload(dir, landedSha);
@@ -337,7 +337,7 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
         // Reconcile the open question to the new subject (and get served again).
         const reserved = await runAgent(wt, ["done", "--json"]);
         assertEquals(reserved.code, 1, reserved.output);
-        const reservedResult = decodeCliResult(reserved.stdout, "done");
+        const reservedResult = decodeCliResult(reserved, "done");
         assertEquals(reservedResult.verb, "done");
         assertEquals(reservedResult.error, AWAITING_DECLARATION_SLUG);
 
@@ -349,7 +349,7 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
           "--json",
         ]);
         assertEquals(r.code, 1, r.output);
-        const env = parseAcceptMessageJson(r.stdout);
+        const env = parseAcceptMessageJson(r);
         assertEquals(env.error, "precondition_failed", r.stdout);
         assertStringIncludes(
           env.message,
@@ -389,7 +389,7 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
         ]);
         assertEquals(r.code, 0, r.output);
         landed = r.stdout;
-        const env = parseAppliedAcceptJson(r.stdout);
+        const env = parseAppliedAcceptJson(r);
         assertEquals(env.ok, true);
         assertEquals(env.data.consent, { source: "conversation" });
         // The authorized variance is distinct evidence in the result…
@@ -476,7 +476,7 @@ Deno.test("accept: a stale conclusion routes back to done, and the owner's compl
         const retry = await runAgent(dir, ["accept", "--json"]);
         assertEquals(retry.code, 1, retry.output);
         assertTerminalTextIncludes(
-          parseAcceptMessageJson(retry.stdout).message,
+          parseAcceptMessageJson(retry).message,
           "No effort has submitted a revision for landing.",
         );
         const repeated = await readLogbook(dir);
@@ -504,7 +504,7 @@ Deno.test("accept: standing grants land declared-met work but never authorize a 
     const granted = await runAgent(wt, ["accept", "--json"]);
     assertEquals(granted.code, 1, granted.output);
     assertEquals(
-      parseAcceptJson(granted.stdout).error,
+      parseAcceptJson(granted).error,
       AWAITING_VARIANCE_SLUG,
     );
     assert(await targetExists(wt));
@@ -518,7 +518,7 @@ Deno.test("accept: standing grants land declared-met work but never authorize a 
     );
     const landed = await runAgent(wt, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
-    const env = parseAppliedAcceptJson(landed.stdout);
+    const env = parseAppliedAcceptJson(landed);
     assertEquals(env.data.consent.source, "standing-grant");
     assertEquals(env.data.variances ?? [], []);
     assertEquals(await targetExists(wt), false);

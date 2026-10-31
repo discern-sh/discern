@@ -36,6 +36,7 @@ import {
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 import {
@@ -63,22 +64,22 @@ type SetupDoneData = DataWithKey<
 >;
 
 /** Decode normal welcome state while excluding shared configuration failures. */
-function decodeSetupData(stdout: string): SetupData {
-  const result = decodeCliResult(stdout, "setup");
+function decodeSetupData(run: CliRun): SetupData {
+  const result = decodeCliResult(run, "setup");
   assertResultDataKey(result, "phase");
   return result.data;
 }
 
 /** Decode normal preflight state while excluding shared configuration failures. */
-function decodeSetupVerifyData(stdout: string): SetupVerifyData {
-  const result = decodeCliResult(stdout, "setup verify");
+function decodeSetupVerifyData(run: CliRun): SetupVerifyData {
+  const result = decodeCliResult(run, "setup verify");
   assertResultDataKey(result, "phase");
   return result.data;
 }
 
 /** Decode the completion payload that carries the authored handoff. */
-function decodeSetupDoneData(stdout: string): SetupDoneData {
-  const result = decodeCliResult(stdout, "setup done");
+function decodeSetupDoneData(run: CliRun): SetupDoneData {
+  const result = decodeCliResult(run, "setup done");
   assertResultDataKey(result, "instructions");
   return result.data;
 }
@@ -288,7 +289,7 @@ Deno.test("the in-progress welcome shows derived progress and reprints the curre
     assertTerminalTextIncludes(human.stdout, "discern setup done");
 
     const d = decodeSetupData(
-      (await runAgent(dir, ["setup", "--json"])).stdout,
+      await runAgent(dir, ["setup", "--json"]),
     );
     assertEquals(d.phase, "in_progress");
     assertExists(d.agent_instructions);
@@ -317,7 +318,7 @@ Deno.test("bare `discern setup` reports already-set-up once recorded (phase done
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir); // bootstrapped by default
     const d = decodeSetupData(
-      (await runAgent(dir, ["setup", "--json"])).stdout,
+      await runAgent(dir, ["setup", "--json"]),
     );
     assertEquals(d.phase, "done");
     assertEquals(d.complete, true);
@@ -346,7 +347,7 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
     );
     const jsonResult = await runAgent(dir, ["setup", "--json"]);
     assertEquals(jsonResult.code, 0, jsonResult.output);
-    const d = decodeSetupData(jsonResult.stdout);
+    const d = decodeSetupData(jsonResult);
     assertEquals(d.phase, "fresh");
     assertEquals(d.complete, false);
     assertExists(d.next_action);
@@ -387,7 +388,7 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
     await Deno.writeTextFile(join(dir, "README.md"), "# Atlas\n");
     await freshRepo(dir);
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
       "setup verify",
     );
     assertResultDataKey(res, "phase");
@@ -448,7 +449,7 @@ Deno.test("verify's consent instructions are identical and faithful across the h
     await freshRepo(dir);
     const human = (await runAgent(dir, ["setup", "verify"])).stdout;
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
       "setup verify",
     );
     assertResultDataKey(res, "phase");
@@ -509,7 +510,7 @@ Deno.test("verify reassures about existing docs, and surfaces agent instructions
     await Deno.writeTextFile(join(dir, "CLAUDE.md"), "# my rules\n");
 
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
       "setup verify",
     );
     assertResultDataKey(res, "phase");
@@ -549,7 +550,7 @@ Deno.test("verify asks no docs question when the project has no docs folder", as
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const d = decodeSetupVerifyData(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
     );
     assertExists(d.findings);
     assertExists(d.instructions);
@@ -566,7 +567,7 @@ Deno.test("verify redirects once setup is recorded (the preflight is moot)", asy
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir); // bootstrapped
     const d = decodeSetupVerifyData(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
     );
     assertEquals(d.phase, "done");
   });
@@ -585,7 +586,7 @@ Deno.test("unproven setup completion withholds activation and improvement withou
     assert(!done.stdout.includes("discern improvement"));
     await commitSetupAuthoring(dir);
     const d = decodeSetupDoneData(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
     );
     assertExists(d.instructions);
     assertEquals(d.reactivation, undefined);
@@ -607,7 +608,7 @@ Deno.test("setup done serves the completion message at parity across the human r
     const human = (await runAgent(dir, ["setup", "done", "--unproven"])).stdout;
     await commitSetupAuthoring(dir);
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
       "setup done",
     );
     assertResultDataKey(res, "instructions");

@@ -144,7 +144,7 @@ Deno.test("fixture knobs produce real behind, idle, queue, park, and overlap sta
     );
     const run = await runAgent(project.root, ["status", "--json", "--verbose"]);
     assertEquals(run.code, 0, run.output);
-    const result = decodeCliResult(run.stdout, "status");
+    const result = decodeCliResult(run, "status");
     assertResultDataKey(result, "location");
     const status = result.data;
     const row = (branch: string) => {

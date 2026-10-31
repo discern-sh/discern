@@ -116,7 +116,7 @@ Deno.test("worktree drop --force preserves an unlanded detached HEAD", async () 
     assertEquals(await targetExists(wt), false, run.output);
     const refs = await recoveryRefs(dir);
     assertEquals(refs[0]?.commit, head, run.output);
-    const result = decodeCliResult(run.stdout, "worktree drop");
+    const result = decodeCliResult(run, "worktree drop");
     assert(
       result.steps?.some((step) =>
         step.label === "preserve-branch-tip" &&
@@ -654,7 +654,7 @@ Deno.test("worktree drop: tears down the worktree's recorded resources", async (
       await targetExists(join(dir, "destroyed.marker")),
       `the resource destroy must run\n${r.output}`,
     );
-    const result = decodeCliResult(r.stdout, "worktree drop");
+    const result = decodeCliResult(r, "worktree drop");
     assert(result.steps !== undefined);
     const destroy = result.steps.find((s) => s.kind === "resource-destroy");
     assertEquals(destroy?.label, "lifecycle-probe", r.stdout);

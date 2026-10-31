@@ -38,7 +38,7 @@ Deno.test("ordinary completion refuses all uncommitted paths before producers; e
     for (const flags of [[], ["--rerun"], ["--ci"], ["--dry-run"]]) {
       const refused = await runAgent(path, ["done", ...flags, "--json"]);
       assertEquals(refused.code, 1, refused.output);
-      const result = decodeCliResult(refused.stdout, "done");
+      const result = decodeCliResult(refused, "done");
       assertEquals(result.error, "dirty_worktree", refused.output);
       for (
         const name of [

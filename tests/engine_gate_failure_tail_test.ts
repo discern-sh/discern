@@ -26,7 +26,7 @@ import { makeOut } from "../src/engine/output.ts";
 import { terminalMultiline } from "../src/lib/terminal.ts";
 import { readerVisibleMarkdown } from "../src/lib/markdown.ts";
 import type { Diagnostic } from "../src/shared/result.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { type CliRun, decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
 
 import { EXIT_127_TITLE, PROJECT_GOTCHAS } from "./fixtures/project_gotchas.ts";
@@ -35,8 +35,8 @@ const GATE_FAILURE_HELP_COMMAND = "discern docs guide-fix-a-red-gate";
 
 /** The reproduce commands the --json envelope reports — the machine SSOT a human tail
  * must mirror. */
-function reprosOf(stdout: string, command: string): string[] {
-  const obj = decodeCliResult(stdout, command);
+function reprosOf(run: CliRun, command: string): string[] {
+  const obj = decodeCliResult(run, command);
   const commands = (obj.diagnostics ?? []).map((diagnostic) =>
     diagnostic.reproduce_cmd
   );
@@ -50,24 +50,27 @@ function reprosOf(stdout: string, command: string): string[] {
 }
 
 /** The matched gotchas hint, as carried by a failed result envelope. */
-function matchedGotchasHintOf(stdout: string, command: string): string {
-  const obj = decodeCliResult(stdout, command);
+function matchedGotchasHintOf(run: CliRun, command: string): string {
+  const obj = decodeCliResult(run, command);
   const hint = obj.hints?.find((text) =>
     text.includes(`This failure matches "${EXIT_127_TITLE}"`)
   );
-  assert(hint !== undefined, `expected the matched gotchas hint in ${stdout}`);
+  assert(
+    hint !== undefined,
+    `expected the matched gotchas hint in ${run.stdout}`,
+  );
   return hint;
 }
 
 /** A malformed-matcher warning carried beside the matched hint. */
-function matcherWarningOf(stdout: string, command: string): string {
-  const obj = decodeCliResult(stdout, command);
+function matcherWarningOf(run: CliRun, command: string): string {
+  const obj = decodeCliResult(run, command);
   const warning = obj.hints?.find((text) =>
     text.includes(
       'Fix the `gotcha-match` block in the gotchas entry "Broken matcher"',
     )
   );
-  assert(warning !== undefined, `expected a matcher warning in ${stdout}`);
+  assert(warning !== undefined, `expected a matcher warning in ${run.stdout}`);
   return warning;
 }
 
@@ -132,7 +135,7 @@ async function assertActionableFailureTail(
   // --json is the machine SSOT for what failed and how to reproduce it.
   const j = await runAgent(dir, [...argv, "--json"]);
   assertEquals(j.code, 1, j.output);
-  const repros = reprosOf(j.stdout, verb);
+  const repros = reprosOf(j, verb);
   assert(repros.length > 0, `${verb}: fixture must produce a diagnostic`);
 
   // The real time-interleaved stream an agent captures with `<verb> 2>&1 | …`.
@@ -317,20 +320,20 @@ Deno.test("gate failure: an authored matched trap reaches every result surface f
     const doneJson = await runGate(["done", "--json"]);
     assertEquals(doneJson.code, 1, doneJson.output);
     const expectedCommand = `discern map '${target}' --json`;
-    const envelopeHint = matchedGotchasHintOf(doneJson.stdout, "done");
-    const envelopeWarning = matcherWarningOf(doneJson.stdout, "done");
+    const envelopeHint = matchedGotchasHintOf(doneJson, "done");
+    const envelopeWarning = matcherWarningOf(doneJson, "done");
     assertStringIncludes(envelopeHint, "[repository].ensure");
     assertStringIncludes(envelopeHint, `\`${expectedCommand}\``);
     for (const verb of ["prepare", "test"]) {
       const result = await runGate([verb, "--json"]);
       assertEquals(result.code, 1, result.output);
       assertEquals(
-        matchedGotchasHintOf(result.stdout, verb),
+        matchedGotchasHintOf(result, verb),
         envelopeHint,
         `${verb}'s matched trap must match done's`,
       );
       assertEquals(
-        matcherWarningOf(result.stdout, verb),
+        matcherWarningOf(result, verb),
         envelopeWarning,
         `${verb}'s matcher warning must match done's`,
       );
@@ -362,7 +365,7 @@ Deno.test("gate failure: an authored matched trap reaches every result surface f
     // return the structured page, using the map verb's canonical target.
     const fetched = await runPrintedCommand(dir, printed.command);
     assertEquals(fetched.code, 0, fetched.stderr);
-    const result = decodeCliResult(fetched.stdout, "map");
+    const result = decodeCliResult(fetched, "map");
     assert(result.data !== undefined && "doc" in result.data);
     assertEquals(result.ok, true);
     assert(result.data.doc !== undefined);

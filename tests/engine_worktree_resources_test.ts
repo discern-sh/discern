@@ -138,7 +138,7 @@ Deno.test("a required create failure aborts setup; required = false does not", a
     );
     const setup = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(setup.code, 0, setup.output);
-    const envelope = decodeCliResult(setup.stdout, "worktree setup");
+    const envelope = decodeCliResult(setup, "worktree setup");
     assertEquals(envelope.ok, true);
     assertEquals(envelope.advisories?.map((advisory) => advisory.kind), [
       "optional-resource-unavailable",
@@ -208,7 +208,7 @@ Deno.test("accept retains failed resource teardown separately from its completed
       "--json",
     ]);
     assertEquals(accepted.code, 0, accepted.output);
-    const envelope = decodeCliResult(accepted.stdout, "accept");
+    const envelope = decodeCliResult(accepted, "accept");
     assertEquals(envelope.ok, true);
     // The landing completed and the checkout is gone; only the resource
     // teardown failure is retained, as an advisory naming the recovery verb.
@@ -422,7 +422,7 @@ Deno.test("worktree prune tears down every removed worktree resource in the same
       "--json",
     ]);
     assertEquals(prune.code, 0, prune.output);
-    const result = decodeCliResult(prune.stdout, "worktree prune");
+    const result = decodeCliResult(prune, "worktree prune");
     assertEquals(
       result.steps?.filter((step) => step.kind === "resource-destroy").map(
         (step) => [step.label, step.outcome],

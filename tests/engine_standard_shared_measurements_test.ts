@@ -190,7 +190,7 @@ Deno.test("shared Standard measurement: the coverage trio shares one run in Stan
         const second = await runAgent(dir, ["done", "--json"]);
         assertEquals(second.code, 0, second.output);
         assertEquals(await invocationCount(dir), 5);
-        const result = decodeCliResult(second.stdout, "done");
+        const result = decodeCliResult(second, "done");
         assertResultDataKey(result, "standards");
         const readings = (result.data?.standards ?? []).filter((reading) =>
           reading.name.endsWith("_metric")
@@ -310,7 +310,7 @@ Deno.test("shared Standard measurement: one standalone run keeps separate verdic
     const json = await runAgent(dir, ["standards", "--json"]);
     assertEquals(json.code, 1, json.output);
     const boundedFirstRun = await invocationCount(dir, "bounded-runs");
-    const result = decodeCliResult(json.stdout, "standards");
+    const result = decodeCliResult(json, "standards");
     assertResultDataKey(result, "standards");
     const steps = result.steps ?? [];
     const outcomeOf = (label: string): string | undefined =>
@@ -424,7 +424,7 @@ Deno.test("shared Standard measurement: pin keeps independent limits after one r
     const run = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(run.code, 0, run.output);
     assertEquals(await invocationCount(dir), 1);
-    const result = decodeCliResult(run.stdout, "standards");
+    const result = decodeCliResult(run, "standards");
     assertResultDataKey(result, "pinned");
     assertEquals(result.data.pinned, [
       { name: "floor", from: 1, to: 5, measured: 5 },
@@ -521,7 +521,7 @@ Deno.test("shared Standard measurement: a timeout fans out naming each member's 
 
     const run = await runAgent(dir, ["standards", "--json"]);
     assertEquals(run.code, 1, run.output);
-    const result = decodeCliResult(run.stdout, "standards");
+    const result = decodeCliResult(run, "standards");
     const byTool = new Map(
       (result.diagnostics ?? []).map((diagnostic) => [
         diagnostic.tool,

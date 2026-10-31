@@ -26,6 +26,7 @@ import type {
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -75,25 +76,25 @@ const GateProofMarkerSchema = z.strictObject({
 });
 
 /** Decode one done envelope without requiring a gate payload on refusals or previews. */
-export function parseJson(stdout: string): DoneEnvelope {
-  return decodeCliResult(stdout, "done");
+export function parseJson(run: CliRun): DoneEnvelope {
+  return decodeCliResult(run, "done");
 }
 
 /** Decode a done result whose assertions consume gate data but no checkpoint state. */
-export function parseGateJson(stdout: string): GateDoneEnvelope {
-  const result = parseJson(stdout);
+export function parseGateJson(run: CliRun): GateDoneEnvelope {
+  const result = parseJson(run);
   assertResultDataKey(result, "failed_stage");
   return result;
 }
 
 /** Decode a done result whose assertions consume checkpoint gate data. */
 export function parseCheckpointGateJson(
-  stdout: string,
+  run: CliRun,
 ): CheckpointDoneEnvelope {
-  const result = parseGateJson(stdout);
+  const result = parseGateJson(run);
   assert(
     result.data.checkpoints !== undefined,
-    `done result must carry checkpoint data: ${stdout}`,
+    `done result must carry checkpoint data: ${run.stdout}`,
   );
   return {
     ...result,
@@ -102,11 +103,11 @@ export function parseCheckpointGateJson(
 }
 
 /** Decode a checkpoints read result with its command-owned data present. */
-export function parseCheckpointsJson(stdout: string): CheckpointsEnvelope {
-  const result = decodeCliResult(stdout, "checkpoints");
+export function parseCheckpointsJson(run: CliRun): CheckpointsEnvelope {
+  const result = decodeCliResult(run, "checkpoints");
   assert(
     result.data !== undefined && "checkpoints" in result.data,
-    `checkpoints result must carry report data: ${stdout}`,
+    `checkpoints result must carry report data: ${run.stdout}`,
   );
   return { ...result, data: result.data };
 }

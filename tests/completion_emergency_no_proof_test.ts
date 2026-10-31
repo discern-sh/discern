@@ -89,7 +89,7 @@ Deno.test("an emergency landing supplies no Proof, whatever the owner approves w
       "--json",
     ]);
     assertEquals(started.code, 0, started.output);
-    const start = decodeCliResult(started.stdout, "start");
+    const start = decodeCliResult(started, "start");
     assertResultDataKey(start, "path");
     const repair = start.data.path;
 
@@ -125,17 +125,17 @@ Deno.test("an emergency landing supplies no Proof, whatever the owner approves w
       "The docs trail the fix; the follow-up task updates them.",
     );
     assertEquals(prepared.code, 0, prepared.output);
-    const receipt = emergencyData(prepared.stdout).preparation;
+    const receipt = emergencyData(prepared).preparation;
     assert(receipt !== undefined, prepared.output);
 
     // The plan carries every kind of owner decision at once.
     const carried = await gitOut(feature, "rev-parse", "HEAD");
     const preview = await emergency("--preparation-receipt", receipt);
     assertEquals(preview.code, 1, preview.output);
-    const planned = decodeCliResult(preview.stdout, "accept");
+    const planned = decodeCliResult(preview, "accept");
     assertResultDataKey(planned, "standard_approvals_required");
     const approval = planned.data.standard_approvals_required?.[0]?.token;
-    const token = emergencyData(preview.stdout).confirmation;
+    const token = emergencyData(preview).confirmation;
     assert(approval !== undefined && token !== undefined, preview.output);
     const landed = await emergency(
       "--preparation-receipt",
@@ -150,8 +150,8 @@ Deno.test("an emergency landing supplies no Proof, whatever the owner approves w
     );
     assertEquals(landed.code, 0, landed.output);
     const head = await gitOut(dir, "rev-parse", "main");
-    const reviewed = emergencyData(preview.stdout);
-    const recorded = emergencyData(landed.stdout);
+    const reviewed = emergencyData(preview);
+    const recorded = emergencyData(landed);
     assertEquals(recorded.outcome, "landed");
     assertEquals(recorded.carried, [
       { effort: "feature", branch: "agent/feature", revision: carried },
@@ -190,7 +190,7 @@ Deno.test("an emergency landing supplies no Proof, whatever the owner approves w
 
     // Nothing reads the landing as Proof: no Proof record, no proof line,
     // and the landed commit's note is an exception.
-    const result = decodeCliResult(landed.stdout, "accept");
+    const result = decodeCliResult(landed, "accept");
     assertResultDataKey(result, "emergency");
     assertEquals(result.data.proof_line, undefined);
     assertEquals(result.data.proof_note, undefined);
@@ -202,7 +202,7 @@ Deno.test("an emergency landing supplies no Proof, whatever the owner approves w
     assertEquals((await readProofNoteAt(dir, head)).status, "exception");
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const survey = decodeCliResult(status.stdout, "status");
+    const survey = decodeCliResult(status, "status");
     assertResultDataKey(survey, "landed_exception");
     assertEquals(survey.data.landed_exception?.commit, head);
   });

@@ -55,6 +55,7 @@ import { assertHasHint } from "./hint_asserts.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 import {
@@ -75,8 +76,8 @@ type StartData = Exclude<
 >;
 
 /** Decode successful start data and exclude shared configuration refusals. */
-function decodeStartData(stdout: string): StartData {
-  const result = decodeCliResult(stdout, "start");
+function decodeStartData(run: CliRun): StartData {
+  const result = decodeCliResult(run, "start");
   assertResultDataKey(result, "path");
   return result.data;
 }
@@ -212,7 +213,7 @@ async function assertLandedInstructionCurrent(
   );
   const status = await runAgent(dir, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
-  const result = decodeCliResult(status.stdout, "status");
+  const result = decodeCliResult(status, "status");
   assertResultDataKey(result, "location");
   assertEquals(result.data.pending_tracked_refresh, undefined);
 }
@@ -256,7 +257,7 @@ Deno.test("worktree lands in a sibling dir (never nested), and status + identity
     // …and status from the main checkout surveys the sibling as a line of work.
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusResult = decodeCliResult(status.stdout, "status");
+    const statusResult = decodeCliResult(status, "status");
     assertResultDataKey(statusResult, "location");
     const fleet = statusResult.data.fleet ?? [];
     assert(
@@ -636,7 +637,7 @@ Deno.test("accept: materializes only checkout-local artifacts after landing", as
     assertEquals(done.code, 0, done.output);
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "accept");
+    const result = decodeCliResult(r, "accept");
     assertEquals(result.ok, true);
     assertExists(result.steps);
     assert(
@@ -737,7 +738,7 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
         `accept reruns smoke in the converged trunk checkout: ${smokeCwds}`,
       );
 
-      const result = decodeCliResult(run.stdout, "accept");
+      const result = decodeCliResult(run, "accept");
       assertEquals(result.error, "partial_acceptance", run.stdout);
       assertExists(result.steps);
       const repositorySteps = result.steps.filter((step) =>
@@ -801,7 +802,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
       "cleanup deletes the landed branch",
     );
 
-    const result = decodeCliResult(run.stdout, "accept");
+    const result = decodeCliResult(run, "accept");
     assertEquals(result.ok, false);
     assertEquals(result.error, "partial_acceptance", run.stdout);
     assertExists(result.steps);
@@ -922,7 +923,7 @@ Deno.test("accept: refuses a locked worktree read-only until it is unlocked", as
 
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "accept");
+    const result = decodeCliResult(r, "accept");
     assertEquals(result.ok, false);
     assertStringIncludes(
       result.message ?? "",
@@ -1035,7 +1036,7 @@ Deno.test("completion: main moving during validation prevents admission and acce
     );
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const refused = decodeCliResult(r.stdout, "accept");
+    const refused = decodeCliResult(r, "accept");
     assertEquals(refused.ok, false);
     assertStringIncludes(
       refused.message ?? "",
@@ -1095,7 +1096,7 @@ Deno.test("accept reports ignored files changed since worktree setup at the top 
 
     const applied = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(applied.code, 0, applied.output);
-    const obj = decodeCliResult(applied.stdout, "accept");
+    const obj = decodeCliResult(applied, "accept");
     assertResultDataKey(obj, "ignored_file_changes");
     const ignored = obj.data.ignored_file_changes;
     assertExists(ignored);
@@ -1190,7 +1191,7 @@ Deno.test("every CLI-reachable side-restricted op maps a wrong-side refusal to e
       const from = c.side === "worktree" ? dir : wt;
       const r = await runAgent(from, [...c.argv, "--json"]);
       assertEquals(r.code, 1, `${c.op} from the wrong side: ${r.output}`);
-      const result = decodeCliResult(r.stdout, c.verb);
+      const result = decodeCliResult(r, c.verb);
       assertEquals(result.ok, false, c.op);
       assertEquals(result.verb, c.verb, c.op);
       assertEquals(
@@ -1530,7 +1531,7 @@ Deno.test("status and worktree prune keep a fully-merged worktree with uncommitt
 
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusResult = decodeCliResult(status.stdout, "status");
+    const statusResult = decodeCliResult(status, "status");
     assertResultDataKey(statusResult, "location");
     const row = statusResult.data.fleet?.find(
       (e) => e.branch === "agent/dirty-merged",
@@ -1608,7 +1609,7 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
 
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "start");
     assertResultDataKey(result, "path");
@@ -1686,7 +1687,7 @@ Deno.test("start --from: branch-owned instructions are refreshed by the new work
       "--json",
     ]);
     assertEquals(started.code, 0, started.output);
-    const result = decodeCliResult(started.stdout, "start");
+    const result = decodeCliResult(started, "start");
     assertResultDataKey(result, "path");
 
     const events = await readLogbookEvents(dir);
@@ -1709,7 +1710,7 @@ Deno.test("start --from: branch-owned instructions are refreshed by the new work
 
     const patterns = await runAgent(result.data.path, ["patterns", "--json"]);
     assertEquals(patterns.code, 0, patterns.output);
-    const report = decodeCliResult(patterns.stdout, "patterns");
+    const report = decodeCliResult(patterns, "patterns");
     assertResultDataKey(report, "population");
     assert(report.data.population.automation >= 1);
 
@@ -1740,7 +1741,7 @@ Deno.test("start --name: derives the branch from the name and reports the normal
       "--json",
     ]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assertEquals(result.ok, true);
     assertResultDataKey(result, "path");
     assertExists(result.hints);
@@ -1767,7 +1768,7 @@ Deno.test("start: refuses from inside a worktree (main-checkout-only)", async ()
     const wt = await mainWithWorktree(dir, "alpha");
     const r = await runAgent(wt, ["start", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assertEquals(result.ok, false);
     assertEquals(result.verb, "start");
     // Mapped to the same precondition slug accept/update use from the main checkout.
@@ -1787,10 +1788,10 @@ Deno.test("start: mints a fresh, unique id on each call (never re-mints a live w
     await gitInit(dir);
 
     const first = decodeStartData(
-      (await runAgent(dir, ["start", "--json"])).stdout,
+      await runAgent(dir, ["start", "--json"]),
     );
     const second = decodeStartData(
-      (await runAgent(dir, ["start", "--json"])).stdout,
+      await runAgent(dir, ["start", "--json"]),
     );
 
     assert(first.id !== second.id, `ids must differ across calls: ${first.id}`);
@@ -1832,7 +1833,7 @@ Deno.test("start --dry-run: previews creating a worktree and touches nothing", a
 
     const r = await runAgent(dir, ["start", "--json", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assertEquals(result.dry_run, true);
     assertExists(result.plan);
     assertEquals(result.plan.title, "Start plan");
@@ -1959,7 +1960,7 @@ Deno.test("worktree setup recovery marks an observed command complete without re
 
       const automatic = await runAgent(wt, ["worktree", "setup", "--json"]);
       assertEquals(automatic.code, 1, automatic.output);
-      const refusal = decodeCliResult(automatic.stdout, "worktree setup");
+      const refusal = decodeCliResult(automatic, "worktree setup");
       assertEquals(refusal.ok, false);
       assertStringIncludes(refusal.message ?? "", "cannot prove");
       assertStringIncludes(
@@ -1981,7 +1982,7 @@ Deno.test("worktree setup recovery marks an observed command complete without re
       ]);
       assertEquals(unconfirmed.code, 1, unconfirmed.output);
       assertTerminalTextIncludes(
-        decodeCliResult(unconfirmed.stdout, "worktree setup").message ?? "",
+        decodeCliResult(unconfirmed, "worktree setup").message ?? "",
         "requires --confirmed",
       );
       const stillRunning = await readSetupStepJournal(wt);
@@ -1999,7 +2000,7 @@ Deno.test("worktree setup recovery marks an observed command complete without re
         "--confirmed",
       ]);
       assertEquals(recovered.code, 0, recovered.output);
-      const result = decodeCliResult(recovered.stdout, "worktree setup");
+      const result = decodeCliResult(recovered, "worktree setup");
       assertEquals(
         result.steps?.find((step) =>
           step.label === BUILT_IN_STEP_LABELS.recoverSetupStep
@@ -2022,7 +2023,7 @@ Deno.test("worktree setup recovery marks an observed command complete without re
       ]);
       assertEquals(replay.code, 0, replay.output);
       assertEquals(
-        decodeCliResult(replay.stdout, "worktree setup").steps?.find((step) =>
+        decodeCliResult(replay, "worktree setup").steps?.find((step) =>
           step.label === BUILT_IN_STEP_LABELS.recoverSetupStep
         )?.outcome,
         "skipped",
@@ -2052,7 +2053,7 @@ Deno.test("worktree setup recovery retries an ambiguous command exactly once", a
         "--confirmed",
       ]);
       assertEquals(recovered.code, 0, recovered.output);
-      const result = decodeCliResult(recovered.stdout, "worktree setup");
+      const result = decodeCliResult(recovered, "worktree setup");
       assertEquals(
         result.steps?.find((step) =>
           step.label === BUILT_IN_STEP_LABELS.recoverSetupStep
@@ -2075,7 +2076,7 @@ Deno.test("worktree setup recovery retries an ambiguous command exactly once", a
       ]);
       assertEquals(replay.code, 0, replay.output);
       assertEquals(
-        decodeCliResult(replay.stdout, "worktree setup").steps?.find((step) =>
+        decodeCliResult(replay, "worktree setup").steps?.find((step) =>
           step.label === BUILT_IN_STEP_LABELS.recoverSetupStep
         )?.outcome,
         "skipped",
@@ -2099,7 +2100,7 @@ Deno.test("worktree setup: shared repository convergence precedes worktree-only 
         (await Deno.readTextFile(order)).trim().split("\n"),
         ["repository", "worktree"],
       );
-      const result = decodeCliResult(run.stdout, "worktree setup");
+      const result = decodeCliResult(run, "worktree setup");
       assertExists(result.steps);
       assert(
         result.steps.some((step) =>
@@ -2166,7 +2167,7 @@ Deno.test("worktree setup re-entry: a failed convergence command keeps recovery 
 
     const run = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(run.code, 1, run.output);
-    const result = decodeCliResult(run.stdout, "worktree setup");
+    const result = decodeCliResult(run, "worktree setup");
     assertEquals(result.ok, false, run.stdout);
     assertEquals(result.error, "apply_failed", run.stdout);
     assertEquals(
@@ -2319,7 +2320,7 @@ Deno.test("update: a successful no-op convergence remains successful", async () 
 
     const run = await runAgent(wt, ["update", "--json"]);
     assertEquals(run.code, 0, run.output);
-    const result = decodeCliResult(run.stdout, "update");
+    const result = decodeCliResult(run, "update");
     assertEquals(result.ok, true, run.stdout);
     assertExists(result.steps);
     assertEquals(
@@ -2341,7 +2342,7 @@ Deno.test("update: a failing no-op convergence serializes its command and recove
 
     const run = await runAgent(wt, ["update", "--json"]);
     assertEquals(run.code, 1, run.output);
-    const result = decodeCliResult(run.stdout, "update");
+    const result = decodeCliResult(run, "update");
     assertEquals(result.ok, false, run.stdout);
     assertEquals(result.error, "apply_failed", run.stdout);
     assertExists(result.steps);
@@ -2404,7 +2405,7 @@ Deno.test("update: a failing ensure is recorded but never undoes the merge", asy
       await targetExists(join(wt, "upstream.txt")),
       "the merge must be kept",
     );
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assertExists(result.steps);
     const mergeStep = result.steps.find((s) =>
       s.kind === "git" && s.label === "merge"
@@ -2461,7 +2462,7 @@ Deno.test("update: a partial refresh is recorded but never undoes the merge", as
       await targetExists(join(wt, "upstream.txt")),
       "the merge must be kept",
     );
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assertExists(result.steps);
     const mergeStep = result.steps.find((s) =>
       s.kind === "git" && s.label === "merge"
@@ -2497,7 +2498,7 @@ Deno.test("update: a partial refresh serializes on the already-current path", as
 
     const run = await runAgent(wt, ["update", "--json"]);
     assertEquals(run.code, 1, run.output);
-    const result = decodeCliResult(run.stdout, "update");
+    const result = decodeCliResult(run, "update");
     assertEquals(result.ok, false, run.stdout);
     assertEquals(result.error, "apply_failed", run.stdout);
     assertExists(result.steps);
@@ -2541,7 +2542,7 @@ Deno.test("start: hints when the fresh worktree carries .gitmodules and nothing 
 
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assertHasHint(result, HINTS["start-submodules-empty"]);
   });
 });
@@ -2567,7 +2568,7 @@ Deno.test("start: no submodule hint once a configured command mentions submodule
 
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "start");
+    const result = decodeCliResult(r, "start");
     assert(result.ok, "start succeeds with the ensure command wired");
     assertExists(result.hints);
     assert(

@@ -39,6 +39,7 @@ import { targetExists } from "../src/shared/fs_presence.ts";
 import type { GateWireData } from "../src/shared/result_schemas.ts";
 import {
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
@@ -47,8 +48,8 @@ type GateJson = Omit<CliResultForCommand<"done">, "data"> & {
 };
 
 /** Decode a gate envelope and assert the fixture actually exercised the done verb. */
-function parseGateJson(stdout: string): GateJson {
-  const obj = decodeCliResult(stdout, "done");
+function parseGateJson(run: CliRun): GateJson {
+  const obj = decodeCliResult(run, "done");
   assertEquals(obj.verb, "done");
   assert(
     obj.data === undefined || "failed_stage" in obj.data,
@@ -95,7 +96,7 @@ Deno.test("tier 1: a loosened limit fails the gate, naming the standard and both
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     assertEquals(obj.data?.failed_stage, "standards");
     assertEquals(obj.data?.standards_limits?.status, "loosened");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "standard:cov");
@@ -130,7 +131,7 @@ Deno.test("tier 1: a deleted standard is the ultimate loosening and fails the ga
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     assertEquals(obj.data?.failed_stage, "standards");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "standard:cov");
     assert(diag !== undefined, r.stdout);
@@ -158,7 +159,7 @@ Deno.test("tier 1: a standard new on the branch passes vacuously; a tightened li
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     assertEquals(obj.data?.standards_limits?.status, "verified");
   });
 });
@@ -173,7 +174,7 @@ Deno.test("tier 1: an unreadable local trunk fails closed with the disclosure an
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     assertEquals(obj.data?.failed_stage, "standards");
     assertEquals(obj.data?.standards_limits?.status, "unverified");
     const reason = obj.data?.standards_limits?.reason;
@@ -198,7 +199,7 @@ Deno.test("tier 1: a trunk config that was fetched but does not parse fails hard
 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     assertEquals(obj.data?.failed_stage, "standards");
     assertEquals(obj.data?.standards_limits?.status, "parse_failed");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "standards");
@@ -220,7 +221,7 @@ Deno.test("tier 2: a holding standard is measured inside the check/test group, v
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     const step = (obj.steps ?? []).find((s) => s.label === "standard:cov");
     assert(step !== undefined, r.stdout);
     assertEquals(step.kind, "standard");
@@ -253,7 +254,7 @@ Deno.test("tier 2: a regressed metric fails the gate with the standard diagnosti
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     assertEquals(obj.data?.failed_stage, "test");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "standard:cov");
     assert(diag !== undefined, r.stdout);
@@ -276,7 +277,7 @@ Deno.test("tier 2: a failed producer cannot supply passing standard evidence", a
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     const step = (obj.steps ?? []).find((s) => s.label === "standard:cov");
     assertEquals(step?.outcome, "failed", r.stdout);
     assertEquals(obj.data?.gate_proof?.status, "pending");
@@ -323,7 +324,7 @@ Deno.test("tier 2: hint variants — no standards configured means no standards 
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseGateJson(r.stdout);
+    const obj = parseGateJson(r);
     assertEquals(obj.data?.standards, undefined);
     assertEquals(obj.data?.standards_limits, undefined);
   });
@@ -346,7 +347,7 @@ Deno.test("tier 2: the dry-run plan lists the standards inside the check/test gr
 
     const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = decodeCliResult(r.stdout, "done");
+    const obj = decodeCliResult(r, "done");
     const cov = obj.plan?.steps.find((s) => s.label === "standard:cov");
     assertEquals(cov?.disposition, "run");
     assertEquals(cov?.group, "Test & standards");
@@ -400,7 +401,7 @@ Deno.test("a green gate over a clean committed branch renders the standards sect
 
         const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
         assertEquals(pin.code, 0, pin.output);
-        const pinObj = decodeCliResult(pin.stdout, "standards");
+        const pinObj = decodeCliResult(pin, "standards");
         assertHasHint(pinObj, HINTS["standards-pin-reused-measurements"]);
         // No second measurement ran.
         const runsAfterPin =
@@ -465,7 +466,7 @@ Deno.test("prepare never measures a standard", async () => {
       false,
       "prepare must not run a standard's measurement",
     );
-    const obj = decodeCliResult(r.stdout, "prepare");
+    const obj = decodeCliResult(r, "prepare");
     const step = (obj.steps ?? []).find((s) => s.label.startsWith("standard:"));
     assertEquals(step, undefined, r.stdout);
   });

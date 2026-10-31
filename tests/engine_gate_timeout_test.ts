@@ -279,7 +279,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
     );
 
     assertEquals(r.code, 1, r.output);
-    const obj = decodeCliResult(r.stdout, "done");
+    const obj = decodeCliResult(r, "done");
     assertResultDataKey(obj, "failed_stage");
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "test");
@@ -366,7 +366,7 @@ async function assertStageKindTimesOut(opts: {
     );
 
     assertEquals(r.code, 1, r.output);
-    const obj = decodeCliResult(r.stdout, "done");
+    const obj = decodeCliResult(r, "done");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === opts.jobLabel);
     assert(
       diag !== undefined,
@@ -560,7 +560,7 @@ async function assertOverrideBoundsOwnJob(opts: {
     );
 
     assertEquals(r.code, 1, r.output);
-    const obj = decodeCliResult(r.stdout, "done");
+    const obj = decodeCliResult(r, "done");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === opts.jobLabel);
     assert(
       diag !== undefined,
@@ -649,7 +649,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
     );
 
     assertEquals(r.code, 1, r.output);
-    const obj = decodeCliResult(r.stdout, "done");
+    const obj = decodeCliResult(r, "done");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "scope:widget");
     assert(diag !== undefined, `expected a timeout diagnostic: ${r.stdout}`);
     assertStringIncludes(diag.message, "timed out after 1s");

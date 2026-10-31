@@ -120,7 +120,7 @@ Deno.test("gate: a job invoking `discern` succeeds with no discern on PATH", asy
       })
     );
     assertEquals(r.code, 0, r.output);
-    const envelope = decodeCliResult(r.stdout, "prepare");
+    const envelope = decodeCliResult(r, "prepare");
     assert(envelope.ok === true, r.output);
   });
 });

@@ -871,7 +871,7 @@ Deno.test("logbook: an unwritable logbook directory changes no verb's outcome", 
     try {
       const r = await runAgent(dir, ["status", "--json"]);
       assertEquals(r.code, 0, r.output);
-      const parsed = decodeCliResult(r.stdout, "status");
+      const parsed = decodeCliResult(r, "status");
       assertEquals(parsed.ok, true);
     } finally {
       await Deno.chmod(logDir, 0o755);

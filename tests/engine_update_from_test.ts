@@ -66,7 +66,7 @@ Deno.test("update --from <branch>: that branch's commits arrive in the worktree"
       await targetExists(join(wt, "phase-one.txt")),
       `the named ref's commits must arrive\n${r.output}`,
     );
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assertResultDataKey(result, "range");
     assert(result.data.range !== undefined);
     // The change summary is computed against the resolved ref: `range.main` is the
@@ -119,7 +119,7 @@ Deno.test("update --from: a conflicting ref aborts to a clean tree and names the
 
     const r = await runAgent(wt, ["update", "--json", "--from", "clashing"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assert(result.message !== undefined);
     assertStringIncludes(result.message, "clash.txt");
     // The recovery converges: re-run update (with the same --from), not finish.
@@ -151,7 +151,7 @@ Deno.test("update --from: a non-conflict merge failure surfaces git's real reaso
 
     const r = await runAgent(wt, ["update", "--json", "--from", "island"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assert(result.message !== undefined);
     assertEquals(result.error, "precondition_failed");
     // The message is the failure taxonomy's, carrying git's own reason — not the
@@ -172,7 +172,7 @@ Deno.test("update --from refuses an unknown ref in plain language", async () => 
     const wt = await mainWithWorktree(dir, "unknown-pull");
     const r = await runAgent(wt, ["update", "--json", "--from", "nope"]);
     assertEquals(r.code, 1, r.output);
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assert(result.message !== undefined);
     assertEquals(result.error, "precondition_failed");
     assertStringIncludes(result.message, "Unknown ref 'nope'");
@@ -206,7 +206,7 @@ Deno.test("a no-op update still re-converges: refresh + ensure run with nothing 
       await targetExists(join(wt, "converged.marker")),
       `ensure must re-run on a no-op update\n${r.output}`,
     );
-    const result = decodeCliResult(r.stdout, "update");
+    const result = decodeCliResult(r, "update");
     assert(Array.isArray(result.steps));
     const merge = result.steps.find((s) => s.label === "merge");
     assertEquals(merge?.outcome, "skipped", r.stdout);

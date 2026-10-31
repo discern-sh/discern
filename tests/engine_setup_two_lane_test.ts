@@ -131,7 +131,7 @@ for (const [id, driver] of Object.entries(DRIVERS)) {
         const json = await runAgent(dir, [...driver.argv, "--json"]);
         assertEquals(json.code, driver.code, json.output);
         const result = decodeCliResult(
-          json.stdout,
+          json,
           driver.argv.slice(0, 2).join(" "),
         );
         assertResultDataKey(result, "instructions");

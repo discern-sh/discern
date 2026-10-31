@@ -404,7 +404,7 @@ Deno.test("setup done --json carries the per-capability assurance block + verdic
     await gitInit(dir);
 
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
       "setup done",
     );
     assertEquals(res.verb, "setup done");
@@ -464,7 +464,7 @@ Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denom
     // Review and commit the newly adopted managed output before clean replay.
     await commitSetupAuthoring(dir);
     const result = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
       "setup done",
     );
     assertResultDataKey(result, "assurance");
@@ -504,7 +504,7 @@ Deno.test("unproven setup done carries a mechanical inventory and recovery", asy
     await git(dir, "checkout", "-b", "discern-setup");
 
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
       "setup done",
     );
     assertResultDataKey(res, "assurance");
@@ -567,7 +567,7 @@ Deno.test("setup done reports an absent test capability honestly, not as a false
     );
     await gitInit(dir);
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
       "setup done",
     );
     assertResultDataKey(res, "assurance");
@@ -593,7 +593,7 @@ Deno.test("setup done on the seeded config alone is honest: minimal, with the no
     );
     await gitInit(dir);
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
+      await runAgent(dir, ["setup", "done", "--unproven", "--json"]),
       "setup done",
     );
     assertResultDataKey(res, "assurance");

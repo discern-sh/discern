@@ -52,7 +52,7 @@ Deno.test("impact --json: emits the DiscernResult envelope, not a bare array", a
     await scaffoldWithWidget(dir);
     const r = await runAgent(dir, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = decodeCliResult(r.stdout, "impact");
+    const obj = decodeCliResult(r, "impact");
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "impact");
     assertResultDataKey(obj, "scopes");
@@ -93,7 +93,7 @@ Deno.test("impact projects each changed scope's configured preview action", asyn
 
     const result = await runAgent(dir, ["impact", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const parsed = decodeCliResult(result.stdout, "impact");
+    const parsed = decodeCliResult(result, "impact");
     assertResultDataKey(parsed, "preview_actions");
     assertEquals(parsed.data.preview_actions, [{
       scope: "web",
@@ -330,7 +330,7 @@ Deno.test("impact fails open when git cannot diff against the main branch", asyn
 
     const r = await runAgent(dir, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = decodeCliResult(r.stdout, "impact");
+    const obj = decodeCliResult(r, "impact");
     assertResultDataKey(obj, "scopes");
     assertEquals(obj.data.scopes, [
       CODE_MARKER,

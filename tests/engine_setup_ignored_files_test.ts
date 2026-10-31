@@ -19,6 +19,7 @@ import { assertHasHint } from "./hint_asserts.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
@@ -52,8 +53,8 @@ const RULES = [
 const [HELD = ""] = AGENT_PATHS.filter((path) => !path.includes("/"));
 
 /** Decode setup-begin effect accounting, excluding configuration refusals. */
-function beginData(stdout: string): SetupBeginData {
-  const result = decodeCliResult(stdout, "setup begin");
+function beginData(run: CliRun): SetupBeginData {
+  const result = decodeCliResult(run, "setup begin");
   assertResultDataKey(result, "complete");
   return result.data;
 }
@@ -70,7 +71,7 @@ Deno.test("setup re-includes ignored integration files without asking and leaves
     await gitInit(dir);
 
     const verify = decodeCliResult(
-      (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
+      await runAgent(dir, ["setup", "verify", "--json"]),
       "setup verify",
     );
     assertResultDataKey(verify, "phase");
@@ -108,8 +109,8 @@ Deno.test("setup re-includes ignored integration files without asking and leaves
       "--json",
     ]);
     assertEquals(run.code, 0, run.output);
-    const result = decodeCliResult(run.stdout, "setup begin");
-    const data = beginData(run.stdout);
+    const result = decodeCliResult(run, "setup begin");
+    const data = beginData(run);
     assertEquals(data.machinery_committed, true, JSON.stringify(data));
     assertEquals(data.existing_integration_files, [HELD]);
     assertHasHint(result, HINTS["setup-existing-integration-files"], {
@@ -136,7 +137,7 @@ Deno.test("setup re-includes ignored integration files without asking and leaves
     );
 
     const doctor = decodeCliResult(
-      (await runAgent(dir, ["doctor", "--json"])).stdout,
+      await runAgent(dir, ["doctor", "--json"]),
       "doctor",
     );
     assertResultDataKey(doctor, "checks");

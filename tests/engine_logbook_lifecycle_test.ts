@@ -53,25 +53,29 @@ import { runPatternsLifecycle } from "../src/engine/logbook/patterns.ts";
 import { logbookLifecycleConfirmation } from "../src/engine/dispatch.ts";
 import { InteractionCancelled } from "../src/lib/terminal_interaction.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  type CliRun,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
 
 /** Decode a patterns report whose successful payload is required by the test. */
-function patternsData(stdout: string): PatternsData {
-  const result = decodeCliResult(stdout, "patterns");
+function patternsData(run: CliRun): PatternsData {
+  const result = decodeCliResult(run, "patterns");
   assert(
     result.data !== undefined && "logbook" in result.data,
-    `patterns result must carry report data: ${stdout}`,
+    `patterns result must carry report data: ${run.stdout}`,
   );
   return result.data;
 }
 
 /** Decode an archive listing whose successful payload is required by the test. */
-function patternsArchivesData(stdout: string): PatternsArchivesData {
-  const result = decodeCliResult(stdout, "patterns archives");
+function patternsArchivesData(run: CliRun): PatternsArchivesData {
+  const result = decodeCliResult(run, "patterns archives");
   assert(
     result.data !== undefined && "archives" in result.data,
-    `patterns archives result must carry listing data: ${stdout}`,
+    `patterns archives result must carry listing data: ${run.stdout}`,
   );
   return result.data;
 }
@@ -213,7 +217,7 @@ Deno.test("Logbook lifecycle apply refuses machine mode without changing active 
         "--json",
       ]);
       assertEquals(result.code, 1, `${action}\n${result.output}`);
-      const parsed = decodeCliResult(result.stdout, `patterns ${action}`);
+      const parsed = decodeCliResult(result, `patterns ${action}`);
       assertEquals(parsed.ok, false, `${action}\n${result.output}`);
       assertEquals(parsed.verb, `patterns ${action}`);
       assertEquals(parsed.error, "confirmation_required");
@@ -278,7 +282,7 @@ realPtyTest({
           assertEquals(result.code, 0, label);
           if (testCase.name === "JSON pipe") {
             const parsed = decodeCliResult(
-              result.stdout,
+              result,
               `patterns ${action}`,
             );
             assertEquals(parsed.dry_run, true, label);
@@ -450,7 +454,7 @@ Deno.test("Logbook lifecycle exposes no unattended confirmation bypass", async (
           "--json",
         ]);
         assertEquals(result.code, 2, result.output);
-        const parsed = decodeCliResult(result.stdout, `patterns ${action}`);
+        const parsed = decodeCliResult(result, `patterns ${action}`);
         assertEquals(parsed.ok, false);
         assertEquals(parsed.error, "invalid_arguments");
         assertEquals(await Deno.readTextFile(active), before);
@@ -532,7 +536,7 @@ realPtyTest({
         "--json",
       ]);
       assertEquals(listing.code, 0, listing.output);
-      const listingData = patternsArchivesData(listing.stdout);
+      const listingData = patternsArchivesData(listing);
       assertEquals(listingData.archives, [{
         filename,
         events: 3,
@@ -559,7 +563,7 @@ realPtyTest({
         "--json",
       ]);
       assertEquals(historical.code, 0, historical.output);
-      const historicalData = patternsData(historical.stdout);
+      const historicalData = patternsData(historical);
       assertEquals(historicalData.logbook.source, {
         kind: "archive",
         filename,
@@ -575,7 +579,7 @@ realPtyTest({
         "--json",
       ]);
       assertEquals(stats.code, 0, stats.output);
-      const statsData = patternsData(stats.stdout);
+      const statsData = patternsData(stats);
       assert(statsData.stats !== undefined, "historical stats must be present");
       assertEquals(statsData.logbook.source, {
         kind: "archive",
@@ -714,7 +718,7 @@ Deno.test("historical Logbook selection accepts only regular registered archive 
         "--json",
       ]);
       assertEquals(result.code, 1, `${selected}\n${result.output}`);
-      const parsed = decodeCliResult(result.stdout, "patterns");
+      const parsed = decodeCliResult(result, "patterns");
       assertEquals(parsed.ok, false);
       assertEquals(parsed.error, "invalid_arguments", selected);
       assertEquals(await Deno.readFile(archivePath), before);
@@ -728,7 +732,7 @@ Deno.test("historical Logbook selection accepts only regular registered archive 
     ]);
     assertEquals(missing.code, 1, missing.output);
     assertEquals(
-      decodeCliResult(missing.stdout, "patterns").error,
+      decodeCliResult(missing, "patterns").error,
       "unknown_target",
     );
     assertEquals(await Deno.readFile(archivePath), before);

@@ -149,7 +149,7 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
     assertEquals(await gitOut(dir, "rev-parse", branch), landedSha);
     const prune = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
     assertEquals(prune.code, 0, prune.output);
-    const pruned = decodeCliResult(prune.stdout, "worktree prune");
+    const pruned = decodeCliResult(prune, "worktree prune");
     assert(pruned.steps !== undefined, prune.output);
     assertEquals(
       pruned.steps

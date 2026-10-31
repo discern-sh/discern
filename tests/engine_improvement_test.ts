@@ -89,12 +89,12 @@ async function improvementJson(
   dir: string,
   args: string[] = [],
 ): Promise<{ code: number; payload: ImprovementPayload }> {
-  const { code, stdout } = await runAgent(dir, [
+  const { code, stdout, stderr } = await runAgent(dir, [
     "improvement",
     "--json",
     ...args,
   ]);
-  const payload = decodeCliResult(stdout, "improvement");
+  const payload = decodeCliResult({ code, stdout, stderr }, "improvement");
   return { code, payload };
 }
 

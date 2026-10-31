@@ -67,7 +67,7 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
     // handle explicitly, and as sentences for a person.
     const byDefault = await runAgent(path, ["progress", "--json"]);
     assertEquals(byDefault.code, 0, byDefault.output);
-    const decoded = decodeCliResult(byDefault.stdout, "progress");
+    const decoded = decodeCliResult(byDefault, "progress");
     assert(
       decoded.ok && decoded.data !== undefined && "handle" in decoded.data,
     );
@@ -124,7 +124,7 @@ Deno.test("losing a read-only observer leaves the executing gate running", async
         // its handle instead of telling the owner to start another run.
         const orientation = await runAgent(path, ["status", "--json"]);
         assertEquals(orientation.code, 0, orientation.output);
-        const oriented = decodeCliResult(orientation.stdout, "status");
+        const oriented = decodeCliResult(orientation, "status");
         assert(oriented.data !== undefined, orientation.output);
         assertEquals(
           "operation" in oriented.data

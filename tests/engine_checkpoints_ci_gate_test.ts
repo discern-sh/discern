@@ -49,7 +49,7 @@ Deno.test("done --ci: report mode reports a fired stop without recording review,
         for (const args of invocations) {
           const result = await runAgent(wt, args);
           assertEquals(result.code, 1, result.output);
-          assertEquals(parseJson(result.stdout).error, "invalid_arguments");
+          assertEquals(parseJson(result).error, "invalid_arguments");
         }
         assertEquals(
           await adminMarker(wt, "checkpointOpenQuestions"),
@@ -69,7 +69,7 @@ Deno.test("done --ci: report mode reports a fired stop without recording review,
         const observationsBefore = await checkpointObservationEvents(dir);
         const r = await runAgent(wt, ["done", "--ci", "--json"]);
         assertEquals(r.code, 0, r.output);
-        const env = parseCheckpointGateJson(r.stdout);
+        const env = parseCheckpointGateJson(r);
         assertEquals(env.ok, true);
         assertEquals(env.data.checkpoints.review?.enforcement, "reported");
         assertEquals(
@@ -108,7 +108,7 @@ Deno.test("done --ci: report mode reports a fired stop without recording review,
           env: { CI: "true" },
         });
         assertEquals(ci.code, 1, ci.output);
-        const envelope = parseCheckpointGateJson(ci.stdout);
+        const envelope = parseCheckpointGateJson(ci);
         assertEquals(envelope.error, AWAITING_DECLARATION_SLUG);
         assertEquals(
           envelope.data.checkpoints.review,
@@ -124,7 +124,7 @@ Deno.test("done --ci: report mode reports a fired stop without recording review,
 
         const local = await runAgent(wt, ["done", "--json"]);
         assertEquals(local.code, 1, local.output);
-        const localEnvelope = parseJson(local.stdout);
+        const localEnvelope = parseJson(local);
         const ciHint = (localEnvelope.hints ?? []).filter((hint) =>
           hint.includes("--ci")
         );
@@ -143,7 +143,7 @@ Deno.test("done --ci: red jobs remain red; advise questions are reported without
     const red = await worktreeWithApiChange(dir, CONFIG_ADVISE, CHECK_RED);
     const result = await runAgent(red, ["done", "--ci", "--json"]);
     assertEquals(result.code, 1, result.output);
-    const env = parseCheckpointGateJson(result.stdout);
+    const env = parseCheckpointGateJson(result);
     assertEquals(env.ok, false);
     assertEquals(env.data.checkpoints.review?.enforcement, "reported");
     assertEquals(env.data.checkpoints.review?.unreviewed, undefined);
@@ -166,7 +166,7 @@ Deno.test("done --dry-run --ci: previews report mode without running when or wri
 
     const result = await runAgent(wt, ["done", "--dry-run", "--ci", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const env = parseJson(result.stdout);
+    const env = parseJson(result);
     assertEquals(env.dry_run, true);
     assert(env.plan?.details?.includes("mode: report"));
     assertEquals(await sidecarMarker(wt, "probe-ran.log"), "");

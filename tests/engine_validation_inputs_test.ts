@@ -29,7 +29,7 @@ Deno.test("done proves a committed tree holding an input above the bounded-captu
     await git(path, "commit", "-m", "Track a large input");
     const done = await runAgent(path, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    assertEquals(decodeCliResult(done.stdout, "done").ok, true);
+    assertEquals(decodeCliResult(done, "done").ok, true);
     assertEquals(await crashReports(root), []);
   });
 });
@@ -59,13 +59,13 @@ Deno.test("done and test refuse an unobservable input by name instead of crashin
     await git(`${path}/module`, "checkout", "--quiet", moduleHead);
     const done = await runAgent(path, ["done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const doneEnvelope = decodeCliResult(done.stdout, "done");
+    const doneEnvelope = decodeCliResult(done, "done");
     assertEquals(doneEnvelope.ok, false);
     assertResultDataKey(doneEnvelope, "failed_stage");
     assertEquals(doneEnvelope.data.failed_stage, "validation_inputs");
     const test = await runAgent(path, ["test", "--json"]);
     assertEquals(test.code, 1, test.output);
-    const testEnvelope = decodeCliResult(test.stdout, "test");
+    const testEnvelope = decodeCliResult(test, "test");
     assertEquals(testEnvelope.ok, false);
     for (const envelope of [doneEnvelope, testEnvelope]) {
       const diagnostic = envelope.diagnostics?.find((entry) =>

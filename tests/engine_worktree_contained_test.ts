@@ -289,7 +289,7 @@ Deno.test("containment: an in-flight verb (a fresh unmatched begin) withholds th
     await appendLogbookLines(dir, [beginEvent("agent/a")]);
     const r = await runAgent(dir, ["worktree", "prune", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const plan = decodeCliResult(r.stdout, "worktree prune");
+    const plan = decodeCliResult(r, "worktree prune");
     assert(plan.plan !== undefined, r.stdout);
     const contained = plan.plan.steps.filter(
       (s) => s.group === "Contained worktrees",
@@ -328,7 +328,7 @@ Deno.test("worktree prune leaves contained worktrees untouched by default and ke
 
     const json = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const result = decodeCliResult(json.stdout, "worktree prune");
+    const result = decodeCliResult(json, "worktree prune");
     assert(result.steps !== undefined, json.stdout);
     const contained = result.steps.filter(
       (s) => s.group === "Contained worktrees",
@@ -421,7 +421,7 @@ Deno.test("worktree prune --contained reclaims the checkout through the resource
       "--json",
     ]);
     assertEquals(r.code, 0, r.output);
-    const result = decodeCliResult(r.stdout, "worktree prune");
+    const result = decodeCliResult(r, "worktree prune");
     assert(result.steps !== undefined, r.stdout);
     const reclaimed = result.steps.filter(
       (s) => s.group === "Contained worktrees" && s.outcome === "ok",
@@ -731,7 +731,7 @@ Deno.test("a reclaimed stage's kept ref reports as contained, never as abandoned
     // live tip.
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const result = decodeCliResult(status.stdout, "status");
+    const result = decodeCliResult(status, "status");
     assert(result.data !== undefined && "location" in result.data);
     const refs = new Map(
       (result.data.contained_refs ?? []).map((
@@ -763,7 +763,7 @@ Deno.test("a reclaimed stage's kept ref reports as contained, never as abandoned
     await commitFile(dir, "ghost.txt", "unlanded\n", "ghost work");
     await git(dir, "switch", "-q", "main");
     const again = await runAgent(dir, ["status", "--json"]);
-    const split = decodeCliResult(again.stdout, "status");
+    const split = decodeCliResult(again, "status");
     assert(split.data !== undefined && "location" in split.data);
     assertEquals(split.data.unlanded_branches, ["agent/ghost"]);
     assertEquals(

@@ -175,7 +175,7 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
       assertEquals(refused.code, 1, `${format}\n${refused.output}`);
       if (format === "--json") {
         assertEquals(
-          decodeCliResult(refused.stdout, "uninstall").error,
+          decodeCliResult(refused, "uninstall").error,
           "confirmation_required",
         );
       }
@@ -200,7 +200,7 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
 
     const result = await runAgent(dir, ["uninstall", "--json", "--yes"]);
     assertEquals(result.code, 0, result.output);
-    const envelope = decodeCliResult(result.stdout, "uninstall");
+    const envelope = decodeCliResult(result, "uninstall");
     assertResultDataKey(envelope, "removed_runtime_state");
     assertResultDataKey(envelope, "kept");
     assert(envelope.ok, result.output);
@@ -290,7 +290,7 @@ Deno.test("uninstall strips registry-owned provider hooks without resolving temp
       env: { DISCERN_TEMPLATES_DIR: bogus },
     });
     assertEquals(result.code, 0, result.output);
-    const envelope = decodeCliResult(result.stdout, "uninstall");
+    const envelope = decodeCliResult(result, "uninstall");
     assertResultDataKey(envelope, "templates_available");
     assert(envelope.ok, result.output);
 
@@ -326,7 +326,7 @@ Deno.test("uninstall --dry-run reports the plan and changes nothing", async () =
 
     const dry = await runAgent(dir, ["uninstall", "--dry-run", "--json"]);
     assertEquals(dry.code, 0, dry.output);
-    const envelope = decodeCliResult(dry.stdout, "uninstall");
+    const envelope = decodeCliResult(dry, "uninstall");
     assertResultDataKey(envelope, "removed");
     assert(envelope.dry_run === true, dry.output);
     assert(Array.isArray(envelope.data.removed));
@@ -416,7 +416,7 @@ Deno.test("uninstall removes only owned Git config and retains every ref", async
 
       const result = await runAgent(dir, ["uninstall", "--json", "--yes"]);
       assertEquals(result.code, 0, result.output);
-      const envelope = decodeCliResult(result.stdout, "uninstall");
+      const envelope = decodeCliResult(result, "uninstall");
       assertResultDataKey(envelope, "retained_refs");
       assertEquals(envelope.data.retained_refs, privateRefs.sort());
       assertEquals(
@@ -537,7 +537,7 @@ Deno.test("uninstall refuses while the resource ledger records provisioned resou
 
     const refused = await runAgent(dir, ["uninstall", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const envelope = decodeCliResult(refused.stdout, "uninstall");
+    const envelope = decodeCliResult(refused, "uninstall");
     assertResultDataKey(envelope, "resources");
     assert(envelope.data.resources !== undefined);
     assertEquals(envelope.error, "provisioned_resources");
@@ -598,7 +598,7 @@ Deno.test("uninstall refuses while a linked worktree is still active", async () 
 
     const result = await runAgent(dir, ["uninstall", "--json"]);
     assertEquals(result.code, 1, result.output);
-    const envelope = decodeCliResult(result.stdout, "uninstall");
+    const envelope = decodeCliResult(result, "uninstall");
     assertEquals(envelope.error, "active_worktrees");
 
     // Nothing was removed — the refusal is total.
@@ -612,7 +612,7 @@ Deno.test("uninstall outside a discern install reports no_project", async () => 
     await gitInit(dir);
     const result = await runAgent(dir, ["uninstall", "--json"]);
     assertEquals(result.code, 1, result.output);
-    const envelope = decodeCliResult(result.stdout, "uninstall");
+    const envelope = decodeCliResult(result, "uninstall");
     assertEquals(envelope.error, "no_project");
   });
 });

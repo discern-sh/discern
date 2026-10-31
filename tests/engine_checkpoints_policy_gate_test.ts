@@ -103,7 +103,7 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
 
     const report = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(report.code, 0, report.output);
-    const reportEnvelope = parseCheckpointsJson(report.stdout);
+    const reportEnvelope = parseCheckpointsJson(report);
     assertEquals(reportEnvelope.data.checkpoints[0]?.question, FILE_QUESTION);
     assertEquals(
       reportEnvelope.data.checkpoints[0]?.question_file,
@@ -131,7 +131,7 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
 
     const refusal = await runAgent(wt, ["done", "--json"]);
     assertEquals(refusal.code, 1, refusal.output);
-    const refused = parseJson(refusal.stdout);
+    const refused = parseJson(refusal);
     assert(typeof refused.message === "string");
     assertStringIncludes(refused.message, "## Governing review");
     assertStringIncludes(
@@ -149,7 +149,7 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
 
     const ci = await runAgent(wt, ["done", "--ci", "--json"]);
     assertEquals(ci.code, 0, ci.output);
-    const ciQuestion = parseCheckpointGateJson(ci.stdout).data.checkpoints
+    const ciQuestion = parseCheckpointGateJson(ci).data.checkpoints
       .review
       ?.unreviewed?.[0];
     assertEquals(ciQuestion?.question, FILE_QUESTION);
@@ -181,13 +181,13 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     assertEquals(met.code, 0, met.output);
     assertEquals(
       Object.values(
-        parseCheckpointGateJson(met.stdout).data.producer_executions ?? {},
+        parseCheckpointGateJson(met).data.producer_executions ?? {},
       )
         .reduce((sum, count) => sum + count, 0),
       1,
       "strict completion must execute after a report-only run",
     );
-    const conclusion = parseCheckpointGateJson(met.stdout).data.checkpoints
+    const conclusion = parseCheckpointGateJson(met).data.checkpoints
       .declared_met?.[0];
     assertEquals(conclusion?.question, FILE_QUESTION);
     assertEquals(conclusion?.question_file, FILE_QUESTION_PATH);
@@ -220,7 +220,7 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     assertEquals(unmet.code, 0, unmet.output);
     const acceptance = await runAgent(wt, ["accept", "--json"]);
     assertEquals(acceptance.code, 1, acceptance.output);
-    const acceptanceEnvelope = decodeCliResult(acceptance.stdout, "accept");
+    const acceptanceEnvelope = decodeCliResult(acceptance, "accept");
     assert(typeof acceptanceEnvelope.message === "string");
     // The declared-unmet conclusion serves the owner's variance decision with
     // the file-sourced question, its source, and its reference verbatim.
@@ -265,7 +265,7 @@ Deno.test("a bad historical question source fails open into durable Proof eviden
 
     const done = await runAgent(wt, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const env = parseCheckpointGateJson(done.stdout);
+    const env = parseCheckpointGateJson(done);
     const drop = env.data.checkpoints.drops?.find((entry) =>
       entry.checkpoint === "api-review"
     );
@@ -289,7 +289,7 @@ Deno.test("done: the branch cannot edit its own governing policy — the merge-b
     await git(wt, "commit", "-q", "-m", "drop the checkpoint", "--no-gpg-sign");
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    assertEquals(parseJson(r.stdout).error, AWAITING_DECLARATION_SLUG);
+    assertEquals(parseJson(r).error, AWAITING_DECLARATION_SLUG);
   });
 });
 
@@ -321,7 +321,7 @@ Deno.test("done: unavailable history never reopens or interlocks a declared min_
       env: { PATH: `${shim}:${Deno.env.get("PATH") ?? ""}` },
     });
     assertEquals(unavailable.code, 0, unavailable.output);
-    const envelope = parseCheckpointGateJson(unavailable.stdout);
+    const envelope = parseCheckpointGateJson(unavailable);
     assertEquals(envelope.data.checkpoints.outstanding, undefined);
     assertEquals(
       envelope.data.checkpoints.drops?.[0]?.reason,
@@ -384,7 +384,7 @@ Deno.test("done: trunk advances — an unrelated update preserves a conclusion, 
         // still binds: no fresh declaration is demanded.
         const after = await runAgent(wt, ["done", "--json"]);
         assertEquals(after.code, 0, after.output);
-        const env = parseCheckpointGateJson(after.stdout);
+        const env = parseCheckpointGateJson(after);
         assertEquals(env.data.checkpoints.declared_met?.[0]?.id, "api-review");
 
         // Matched-base trunk advance: main edits the far end of the SAME matched
@@ -408,7 +408,7 @@ Deno.test("done: trunk advances — an unrelated update preserves a conclusion, 
         const reopened = await runAgent(wt, ["done", "--json"]);
         assertEquals(reopened.code, 1, reopened.output);
         assertEquals(
-          parseJson(reopened.stdout).error,
+          parseJson(reopened).error,
           AWAITING_DECLARATION_SLUG,
         );
       },
@@ -426,7 +426,7 @@ Deno.test("done: trunk advances — an unrelated update preserves a conclusion, 
           "--json",
         ]);
         assertEquals(met.code, 0, met.output);
-        const governed = parseCheckpointGateJson(met.stdout).data.checkpoints
+        const governed = parseCheckpointGateJson(met).data.checkpoints
           .policy;
 
         // The trunk lands a SECOND stop checkpoint on the same paths. The effort's
@@ -455,24 +455,24 @@ question = "${QUESTION_NOTES}"
         const before = await runAgent(wt, ["done", "--json"]);
         assertEquals(before.code, 1, before.output);
         assertEquals(
-          parseJson(before.stdout).error,
+          parseJson(before).error,
           "incomplete",
           before.output,
         );
         assertEquals(
-          parseGateJson(before.stdout).data.completion?.pending?.[0]?.kind,
+          parseGateJson(before).data.completion?.pending?.[0]?.kind,
           "unavailable",
           before.output,
         );
         assertTerminalTextIncludes(
-          parseJson(before.stdout).message ?? "",
+          parseJson(before).message ?? "",
           "This branch is behind main. Run discern update, then discern done.",
         );
         assert(!before.output.includes("risk-notes"), before.output);
         const forced = await runAgent(wt, ["done", "--rerun", "--json"]);
         assertEquals(forced.code, 1, forced.output);
         assertEquals(
-          parseGateJson(forced.stdout).data.completion?.pending?.[0]?.kind,
+          parseGateJson(forced).data.completion?.pending?.[0]?.kind,
           "unavailable",
         );
         const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
@@ -487,7 +487,7 @@ question = "${QUESTION_NOTES}"
         assertEquals(updated.code, 0, updated.output);
         const after = await runAgent(wt, ["done", "--json"]);
         assertEquals(after.code, 1, after.output);
-        const afterEnv = parseCheckpointGateJson(after.stdout);
+        const afterEnv = parseCheckpointGateJson(after);
         assertEquals(afterEnv.error, AWAITING_DECLARATION_SLUG);
         assertEquals(
           afterEnv.data.checkpoints.outstanding?.map((entry) => entry.id),
@@ -523,7 +523,7 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
 
     const refused = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const env = parseCheckpointGateJson(refused.stdout);
+    const env = parseCheckpointGateJson(refused);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assertEquals(env.data.checkpoints.outstanding?.length, 1);
     assertEquals(
@@ -539,7 +539,7 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
       dir,
       ["done", "--standalone", "--met", "instruction-economy", "--json"],
     );
-    const after = parseCheckpointGateJson(declared.stdout);
+    const after = parseCheckpointGateJson(declared);
     assertEquals(after.data.checkpoints.declared_met?.length, 1);
     assertEquals(
       after.data.checkpoints.declared_met?.[0]?.id,

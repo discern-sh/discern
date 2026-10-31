@@ -51,6 +51,7 @@ function observedRecords(
 import type { GateWireData } from "../src/shared/result_schemas.ts";
 import {
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
 } from "./decode_cli_result.ts";
 
@@ -123,8 +124,8 @@ async function commitDocsChange(dir: string): Promise<void> {
 }
 
 /** Decode the done envelope used to inspect replay source and measurement facts. */
-function parseGate(stdout: string): GateJson {
-  const result = decodeCliResult(stdout, "done");
+function parseGate(run: CliRun): GateJson {
+  const result = decodeCliResult(run, "done");
   assert(result.data !== undefined && "failed_stage" in result.data);
   return { ...result, data: result.data };
 }
@@ -152,7 +153,7 @@ Deno.test("replay: untouched inputs replay the recorded value; a changed definit
           1,
           "an untouched-inputs run must not re-measure",
         );
-        const obj = parseGate(replayed.stdout);
+        const obj = parseGate(replayed);
         const step = (obj.steps ?? []).find((s) => s.label === "standard:cov");
         assertEquals(step?.outcome, "ok");
         assertStringIncludes(step?.note ?? "", "replayed from");
@@ -225,7 +226,7 @@ Deno.test("replay: untouched inputs replay the recorded value; a changed definit
           "x\n",
           "the worktree needs its own declared execution conditions",
         );
-        const entry = parseGate(r.stdout).data?.standards?.find(
+        const entry = parseGate(r).data?.standards?.find(
           (s) => s.name === "cov",
         );
         assertEquals(entry?.measurement, "measured");
@@ -253,7 +254,7 @@ Deno.test("replay: untouched inputs replay the recorded value; a changed definit
           "a changed definition must measure even when declared inputs are untouched",
         );
         assertEquals(
-          parseGate(result.stdout).data.standards?.[0]?.measurement,
+          parseGate(result).data.standards?.[0]?.measurement,
           "measured",
         );
       },
@@ -278,7 +279,7 @@ Deno.test("replay: untouched inputs replay the recorded value; a changed definit
           4,
           "the changed policy invalidates the previous applicability",
         );
-        const obj = parseGate(r.stdout);
+        const obj = parseGate(r);
         assertEquals(obj.data?.failed_stage, "test");
         const diag = (obj.diagnostics ?? []).find((d) =>
           d.tool === "standard:cov"
@@ -306,7 +307,7 @@ Deno.test("replay: a touched, dirty or renamed input measures fresh, on both sid
         2,
         "a touched input must measure",
       );
-      const entry = parseGate(r.stdout).data?.standards?.find(
+      const entry = parseGate(r).data?.standards?.find(
         (s) => s.name === "cov",
       );
       assertEquals(entry?.measurement, "measured");
@@ -336,7 +337,7 @@ Deno.test("replay: a touched, dirty or renamed input measures fresh, on both sid
           "dirty diagnostic runs measure their current working tree",
         );
         assertEquals(
-          parseGate(replay.stdout).data.gate_proof?.status,
+          parseGate(replay).data.gate_proof?.status,
           "skipped_dirty",
         );
         await Deno.remove(join(dir, "scratch.txt"));
@@ -438,7 +439,7 @@ Deno.test("a standard's own `timeout` bounds its gate measurement job while sibl
     const r = await runAgent(dir, ["done", "--json"]);
 
     assertEquals(r.code, 1, r.output);
-    const obj = parseGate(r.stdout);
+    const obj = parseGate(r);
     const diag = (obj.diagnostics ?? []).find(
       (d) => d.tool === "standard:slow",
     );

@@ -203,7 +203,7 @@ Deno.test("worktree park keeps committed work and metadata while removing the ch
     const parked = await readParkedTaskMetadata(dir, "agent/parked");
     assertEquals(parked?.task.title, "Recover the parser");
     assertEquals(parked?.head, head);
-    const result = decodeCliResult(applied.stdout, "worktree park");
+    const result = decodeCliResult(applied, "worktree park");
     assertEquals(result.ok, true);
   });
 });
@@ -320,7 +320,7 @@ Deno.test("start from a parked branch transfers retained wording and consumes th
       "--json",
     ]);
     assertEquals(resumed.code, 0, resumed.output);
-    const result = decodeCliResult(resumed.stdout, "start");
+    const result = decodeCliResult(resumed, "start");
     assertResultDataKey(result, "task");
     assertEquals(result.data.task.title, "Resume this task");
     assertEquals(result.data.task.brief, "Retained Park brief");

@@ -71,7 +71,7 @@ function assertEnvelopeOnly(
     combined.length > 0 && !combined.includes("\n"),
     `${context} --json must emit exactly one line (the envelope), nothing else on stdout OR stderr.\n--- got ---\n${r.output}\n-----------`,
   );
-  const obj = decodeCliResult(combined, verb);
+  const obj = decodeCliResult(r, verb);
   assertEquals(
     typeof obj.ok,
     "boolean",
@@ -900,7 +900,7 @@ Deno.test("worktree lifecycle commands emit only their JSON envelope", async () 
     // envelope; its data names the worktree the rest of the sweep drives.
     const started = await runAgent(dir, [...START_CASE.args, "--json"]);
     assertEnvelopeOnly(started, START_CASE.envelopeVerb);
-    const envelope = decodeCliResult(started.stdout, "start");
+    const envelope = decodeCliResult(started, "start");
     assert(envelope.data !== undefined && "id" in envelope.data);
     const id = envelope.data?.id;
     const worktree = envelope.data?.path;
@@ -941,7 +941,7 @@ Deno.test("done --json: a FAILING gate captures output INTO the envelope, never 
     assertEquals(r.code, 1, r.output);
     // Single envelope line, despite the failing command's multi-line output…
     assertEnvelopeOnly(r, "done");
-    const obj = decodeCliResult(r.stdout, "done");
+    const obj = decodeCliResult(r, "done");
     assertEquals(obj.ok, false);
     // …and that output rode INTO the envelope as a diagnostic (newlines escaped),
     // which is exactly why it didn't leak as a real stream line.
@@ -962,7 +962,7 @@ Deno.test("bare discern --json is one controlled result before and after setup",
       const result = await runAgent(dir, ["--json"]);
       assertEquals(result.code, 2, `${phase}: ${result.output}`);
       assertEnvelopeOnly(result, "discern", phase);
-      const envelope = decodeCliResult(result.stdout, "discern");
+      const envelope = decodeCliResult(result, "discern");
       assertEquals(envelope.error, "invalid_arguments", phase);
       assert(
         Array.isArray(envelope.hints) && envelope.hints.length > 0,
@@ -983,7 +983,7 @@ Deno.test("a pre-verb config error is still the uniform envelope (verb + single 
     const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     assertEnvelopeOnly(r, "done"); // carries the attempted verb, single line
-    assertEquals(decodeCliResult(r.stdout, "done").error, "invalid_toml");
+    assertEquals(decodeCliResult(r, "done").error, "invalid_toml");
   });
 });
 

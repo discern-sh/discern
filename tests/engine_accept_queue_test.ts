@@ -97,7 +97,7 @@ Deno.test("accept queue plans, queues idempotently, and rejects changed or unpro
     ]);
     assertEquals(cliPreview.code, 0, cliPreview.output);
     assertEquals(
-      decodeCliResult(cliPreview.stdout, "accept").data,
+      decodeCliResult(cliPreview, "accept").data,
       AcceptOutputSchema.parse(serializeResult(preview)).data,
     );
     assertEquals(await readSubmission(path), { status: "missing" });
@@ -136,14 +136,14 @@ Deno.test("accept queue plans, queues idempotently, and rejects changed or unpro
       "--json",
     ]);
     assertEquals(cliQueued.code, 0, cliQueued.output);
-    assertEquals(decodeCliResult(cliQueued.stdout, "accept").data, queued.data);
+    assertEquals(decodeCliResult(cliQueued, "accept").data, queued.data);
     const retired = await runAgent(path, [
       "accept",
       "--queue-only",
       "--json",
     ]);
     assertEquals(
-      decodeCliResult(retired.stdout, "accept").error,
+      decodeCliResult(retired, "accept").error,
       "invalid_arguments",
     );
     const renewed = await runAgent(path, ["done", "--json"]);

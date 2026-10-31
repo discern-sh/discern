@@ -129,7 +129,7 @@ toolchain = ['unrelated-toolchain']
         "Preserve the exact measurement failure before proposing a limit.",
         "--json",
       ]);
-      const failure = decodeCliResult(failed.stdout, "standards propose");
+      const failure = decodeCliResult(failed, "standards propose");
       assertEquals(failed.code, 1, failed.output);
       assertStringIncludes(failure.message ?? "", '"unrelated-toolchain"');
       assertStringIncludes(failure.message ?? "", "cannot be read");

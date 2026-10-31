@@ -41,7 +41,7 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
     const path = await project(root);
     const done = await runAgent(path, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const result = decodeCliResult(done.stdout, "done");
+    const result = decodeCliResult(done, "done");
     assert(
       result.data !== undefined && "completion" in result.data,
       done.output,
@@ -110,7 +110,7 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
     // An unchanged committed tree is covered by its honored Proof marker.
     const reused = await runAgent(path, ["done", "--json"]);
     assertEquals(reused.code, 0, reused.output);
-    const covered = decodeCliResult(reused.stdout, "done");
+    const covered = decodeCliResult(reused, "done");
     assert(covered.data !== undefined && "gate_ran" in covered.data);
     assertEquals(covered.data.gate_ran, false, reused.output);
     assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
@@ -135,7 +135,7 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
       await Deno.writeTextFile(recordPath, raw);
       const refused = await runAgent(path, ["done", "--json"]);
       assertEquals(refused.code, 1, refused.output);
-      const refusal = decodeCliResult(refused.stdout, "done");
+      const refusal = decodeCliResult(refused, "done");
       assert(refusal.data !== undefined && "completion" in refusal.data);
       assertEquals(
         refusal.data.completion?.pending?.[0]?.kind,
@@ -150,7 +150,7 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
     const records = (await observeCompletionRecords(path)).records;
     const standalone = await runAgent(path, ["done", "--standalone", "--json"]);
     assertEquals(standalone.code, 0, standalone.output);
-    const diagnostic = decodeCliResult(standalone.stdout, "done");
+    const diagnostic = decodeCliResult(standalone, "done");
     assert(diagnostic.data !== undefined && "completion" in diagnostic.data);
     assertEquals(diagnostic.data.completion?.kind, "diagnostic");
     assertEquals(diagnostic.data.proof, undefined);
@@ -245,7 +245,7 @@ Deno.test("a completion claim reports one live owner, then replaces an expired l
 
     const blocked = await runAgent(path, ["done", "--json"]);
     assertEquals(blocked.code, 1, blocked.output);
-    const blockedResult = decodeCliResult(blocked.stdout, "done");
+    const blockedResult = decodeCliResult(blocked, "done");
     assertEquals(blockedResult.error, "incomplete");
     assert(
       blockedResult.data !== undefined && "completion" in blockedResult.data,
@@ -303,7 +303,7 @@ Deno.test("a completion claim reports one live owner, then replaces an expired l
 
     const recovered = await runAgent(path, ["done", "--json"]);
     assertEquals(recovered.code, 0, recovered.output);
-    const recoveredResult = decodeCliResult(recovered.stdout, "done");
+    const recoveredResult = decodeCliResult(recovered, "done");
     assertEquals(recoveredResult.ok, true);
     assert(
       recoveredResult.data !== undefined &&
@@ -335,7 +335,7 @@ Deno.test("E10 public done retries unchanged subjects across candidate edits", a
     await Deno.writeTextFile(`${path}/fail`, "fail this attempt");
     const red = await runAgent(path, ["done", "--json"]);
     assertEquals(red.code, 1, red.output);
-    const failed = decodeCliResult(red.stdout, "done");
+    const failed = decodeCliResult(red, "done");
     assert(failed.data !== undefined && "completion" in failed.data);
     const blocked = failed.data.completion?.pending?.filter((item) =>
       item.kind === "validation-failed"
@@ -362,7 +362,7 @@ Deno.test("E10 public done retries unchanged subjects across candidate edits", a
     const edited = await runAgent(path, ["done", "--json"]);
     assertEquals(edited.code, 1, edited.output);
     assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
-    const pending = decodeCliResult(edited.stdout, "done");
+    const pending = decodeCliResult(edited, "done");
     const detail = JSON.stringify(pending.data);
     assert(
       detail.includes("coverage") && detail.includes("attempt") &&
@@ -385,7 +385,7 @@ Deno.test("public completion keeps unexpected producer output out of evidence wi
     );
     const result = await runAgent(path, ["done", "--json"]);
     assertEquals(result.code, 1, result.output);
-    const decoded = decodeCliResult(result.stdout, "done");
+    const decoded = decodeCliResult(result, "done");
     assert(
       decoded.data !== undefined && "completion" in decoded.data,
       result.output,

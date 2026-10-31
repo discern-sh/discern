@@ -348,7 +348,7 @@ Deno.test("every captured installation upgraded by this build converges with a f
         const upgraded = await restoreFixture(fixture, snapshot, upgradeTemp);
         const upgrade = await runAgent(upgraded, ["upgrade", "--json"]);
         assertEquals(upgrade.code, 0, upgrade.output);
-        const result = decodeCliResult(upgrade.stdout, "upgrade");
+        const result = decodeCliResult(upgrade, "upgrade");
         assertResultDataKey(result, "migrations_applied");
         assertEquals(result.data.schema, {
           from: fixture.manifest.schema,

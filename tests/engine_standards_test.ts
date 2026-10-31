@@ -34,6 +34,7 @@ import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { z } from "@zod/zod";
 import {
   type CliResultForCommand,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -52,8 +53,8 @@ const StandardMeasurementsSchema = z.object({
 }).passthrough();
 
 /** Decode a standards envelope and assert the standalone verb produced it. */
-function parseStandardsJson(stdout: string): StandardsJson {
-  const obj = decodeCliResult(stdout, "standards");
+function parseStandardsJson(run: CliRun): StandardsJson {
+  const obj = decodeCliResult(run, "standards");
   assertEquals(obj.verb, "standards");
   return obj;
 }
@@ -392,7 +393,7 @@ Deno.test("standards: every holding verdict, rate and extent measures in one run
 
         const blockedJson = await runAgent(dir, ["standards", "--json"]);
         assertEquals(blockedJson.code, 1, blockedJson.output);
-        const obj = parseStandardsJson(blockedJson.stdout);
+        const obj = parseStandardsJson(blockedJson);
         assertEquals(obj.ok, false);
         assertEquals(obj.error, "dirty_worktree");
         assertStringIncludes(obj.message ?? "", "clean worktree");
@@ -514,7 +515,7 @@ Deno.test("standards: every failing verdict, unreadable metric and timeout is re
     // verdicts beyond the inline sample, without rerunning the measurement.
     const json = await runAgent(dir, ["standards", "--json"]);
     assertEquals(json.code, 1, json.output);
-    const obj = parseStandardsJson(json.stdout);
+    const obj = parseStandardsJson(json);
     const evidence = obj.diagnostic_evidence;
     assert(evidence !== undefined);
     assertEquals(obj.diagnostics?.length, evidence.shown);
@@ -795,7 +796,7 @@ Deno.test("standards: a limit may only tighten vs main — loosening, deleting a
       // diagnostic names the loosened limit and both values, and the reproduce is
       // the verb (a structural failure — re-running the measurement proves nothing).
       const json = await runAgent(dir, ["standards", "--json"]);
-      const obj = parseStandardsJson(json.stdout);
+      const obj = parseStandardsJson(json);
       const diag = (obj.diagnostics ?? [])[0];
       assertEquals(diag?.tool, "coverage", json.stdout);
       assertStringIncludes(diag?.message ?? "", "floor 80 -> 70");
@@ -823,7 +824,7 @@ Deno.test("standards: a limit may only tighten vs main — loosening, deleting a
 
         const run = await runAgent(dir, ["standards", "--json"]);
         assertEquals(run.code, 1, run.output);
-        const result = parseStandardsJson(run.stdout);
+        const result = parseStandardsJson(run);
         const diagnostic = (result.diagnostics ?? [])[0];
         assertEquals(diagnostic?.tool, "coverage", run.stdout);
         assertStringIncludes(

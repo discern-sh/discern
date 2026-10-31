@@ -105,7 +105,7 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     // The full gate passes on the repointed layout exactly as on the default one.
     let r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(decodeCliResult(r.stdout, "done").ok, true, r.output);
+    assertEquals(decodeCliResult(r, "done").ok, true, r.output);
 
     // Repoint the map tree AGAIN (a user moving a convention): the rendered
     // skills go stale, status reports it, and `done` refuses until refresh.
@@ -117,7 +117,7 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
 
     r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const status = decodeCliResult(r.stdout, "status");
+    const status = decodeCliResult(r, "status");
     assert(status.data !== undefined && "location" in status.data, r.stdout);
     assert(
       (status.hints ?? []).some((hint) =>

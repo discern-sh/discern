@@ -124,7 +124,7 @@ async function land(
   const target = await gitOut(worktree, "rev-parse", "HEAD");
   const done = await runAgent(worktree, ["done", "--json"], { env });
   assertEquals(done.code, 0, done.output);
-  const doneResult = decodeCliResult(done.stdout, "done");
+  const doneResult = decodeCliResult(done, "done");
   assertResultDataKey(doneResult, "proof");
   assert(doneResult.data.proof !== undefined);
   const proofSummary = ProofSummarySchema.parse(doneResult.data.proof);
@@ -137,7 +137,7 @@ async function land(
     { env },
   );
   assertEquals(accepted.code, 0, accepted.output);
-  const result = decodeCliResult(accepted.stdout, "accept");
+  const result = decodeCliResult(accepted, "accept");
   assertResultDataKey(result, "proof_note");
   assert(result.data.proof_note !== undefined);
   assertEquals(result.ok, true, accepted.output);
@@ -268,7 +268,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
     const orientedStatus = await runAgent(dir, ["status", "--json"]);
     assertEquals(orientedStatus.code, 0, orientedStatus.output);
     const orientedStatusResult = decodeCliResult(
-      orientedStatus.stdout,
+      orientedStatus,
       "status",
     );
     assertResultDataKey(orientedStatusResult, "location");
@@ -278,7 +278,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
 
     const status = await runAgent(dir, ["status", "--verbose", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusResult = decodeCliResult(status.stdout, "status");
+    const statusResult = decodeCliResult(status, "status");
     assertResultDataKey(statusResult, "location");
     assertEquals(statusResult.data.projection.mode, "full");
     assertEquals(statusResult.data.landed_proof, {
@@ -323,7 +323,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
       "--json",
     ]);
     assertEquals(unreadStatus.code, 0, unreadStatus.output);
-    const unreadResult = decodeCliResult(unreadStatus.stdout, "status");
+    const unreadResult = decodeCliResult(unreadStatus, "status");
     assertResultDataKey(unreadResult, "location");
     assertEquals(unreadResult.data.landed_proof, undefined);
     assertEquals(unreadResult.data.landed_proof_unsupported, {
@@ -504,7 +504,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
       "--json",
     ]);
     assertEquals(fetchedStatus.code, 0, fetchedStatus.output);
-    const fetchedStatusResult = decodeCliResult(fetchedStatus.stdout, "status");
+    const fetchedStatusResult = decodeCliResult(fetchedStatus, "status");
     assertResultDataKey(fetchedStatusResult, "landed_proof");
     assert(fetchedStatusResult.data.landed_proof !== undefined);
     assertEquals(
@@ -524,7 +524,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
     ]);
     assertEquals(siblingOnlyStatus.code, 0, siblingOnlyStatus.output);
     const siblingOnlyResult = decodeCliResult(
-      siblingOnlyStatus.stdout,
+      siblingOnlyStatus,
       "status",
     );
     assertResultDataKey(siblingOnlyResult, "location");
@@ -623,7 +623,7 @@ Deno.test("proof-note fetch reconciliation leaves unrecognized refspecs untouche
 
     const reconciled = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(reconciled.code, 0, reconciled.output);
-    const result = decodeCliResult(reconciled.stdout, "refresh");
+    const result = decodeCliResult(reconciled, "refresh");
     assertResultDataKey(result, "proof_notes_fetch_changed");
     assert(result.data.proof_notes_fetch_changed !== undefined);
     assertEquals(result.ok, true);
@@ -1473,7 +1473,7 @@ async function assertOwedNoteKept(
   run: Awaited<ReturnType<typeof runAgent>>,
 ): Promise<string> {
   assertEquals(run.code, 0, run.output);
-  const result = decodeCliResult(run.stdout, "accept");
+  const result = decodeCliResult(run, "accept");
   assertEquals(result.ok, true);
   assertResultDataKey(result, "proof_note");
   assert(result.data.proof_note !== undefined);
@@ -1521,7 +1521,7 @@ async function followNoteRetry(
     env: NO_ATTRIBUTION,
   });
   assertEquals(retried.code, 0, retried.output);
-  const settled = decodeCliResult(retried.stdout, "accept");
+  const settled = decodeCliResult(retried, "accept");
   assertResultDataKey(settled, "proof_note");
   assertEquals(settled.data.proof_note?.write.status, "recorded");
   assertResultDataKey(settled, "landing");

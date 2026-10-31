@@ -496,7 +496,7 @@ Deno.test("declared outputs are excluded before every coupling statistic while a
       "--json",
     ]);
     assertEquals(json.code, 0, json.output);
-    const parsed = decodeCliResult(json.stdout, "coupling");
+    const parsed = decodeCliResult(json, "coupling");
     assert(parsed.data !== undefined && "mode" in parsed.data, json.stdout);
     assertEquals(parsed.data, {
       mode: "query",
@@ -846,7 +846,7 @@ Deno.test("coupling --json works black-box in both modes (query and diff-aware)"
 
     const q = await runAgent(dir, ["coupling", "a.ts", "--json"]);
     assertEquals(q.code, 0, q.output);
-    const qObj = decodeCliResult(q.stdout, "coupling");
+    const qObj = decodeCliResult(q, "coupling");
     assert(qObj.data !== undefined && "mode" in qObj.data, q.stdout);
     assertEquals(qObj.ok, true);
     assertEquals(qObj.verb, "coupling");
@@ -867,7 +867,7 @@ Deno.test("coupling --json works black-box in both modes (query and diff-aware)"
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
     const d = await runAgent(dir, ["coupling", "--json"]);
     assertEquals(d.code, 0, d.output);
-    const dObj = decodeCliResult(d.stdout, "coupling");
+    const dObj = decodeCliResult(d, "coupling");
     assert(dObj.data !== undefined && "mode" in dObj.data, d.stdout);
     assertEquals(dObj.data.mode, "diff");
     assert(
@@ -1076,7 +1076,7 @@ Deno.test("coupling A B works black-box on the CLI (evidence mode, --json and hu
     // --json: the evidence payload reaches the wire intact.
     const j = await runAgent(dir, ["coupling", "a.ts", "b.ts", "--json"]);
     assertEquals(j.code, 0, j.output);
-    const obj = decodeCliResult(j.stdout, "coupling");
+    const obj = decodeCliResult(j, "coupling");
     assert(obj.data !== undefined && "mode" in obj.data, j.stdout);
     assertEquals(obj.data.mode, "evidence");
     assertEquals(obj.data.together, 2);

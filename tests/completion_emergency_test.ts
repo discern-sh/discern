@@ -59,6 +59,7 @@ import {
 } from "./engine_helpers.ts";
 import {
   assertResultDataKey,
+  type CliRun,
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
@@ -120,7 +121,7 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
     const ordinary = await runAgent(wt, ["accept", "--json"]);
     assertEquals(ordinary.code, 1, ordinary.output);
     assertEquals(
-      decodeCliResult(ordinary.stdout, "accept").error,
+      decodeCliResult(ordinary, "accept").error,
       "precondition_failed",
       ordinary.output,
     );
@@ -135,9 +136,9 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
       "--json",
     ]);
     assertEquals(preview.code, 1, preview.output);
-    const previewEnvelope = decodeCliResult(preview.stdout, "accept");
+    const previewEnvelope = decodeCliResult(preview, "accept");
     assertEquals(previewEnvelope.error, "awaiting_consent");
-    const previewEmergency = emergencyData(preview.stdout);
+    const previewEmergency = emergencyData(preview);
     assertEquals(previewEmergency.outcome, "preview");
     assert(previewEmergency.confirmation !== undefined, preview.output);
     assert((previewEmergency.exceptions?.length ?? 0) > 0, preview.output);
@@ -175,7 +176,7 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
     ]);
     assertEquals(flagOnly.code, 1, flagOnly.output);
     assertEquals(
-      decodeCliResult(flagOnly.stdout, "accept").error,
+      decodeCliResult(flagOnly, "accept").error,
       "awaiting_consent",
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
@@ -194,9 +195,9 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
       "--json",
     ]);
     assertEquals(landed.code, 0, landed.output);
-    const landedEnvelope = decodeCliResult(landed.stdout, "accept");
+    const landedEnvelope = decodeCliResult(landed, "accept");
     assertEquals(landedEnvelope.ok, true);
-    const landedEmergency = emergencyData(landed.stdout);
+    const landedEmergency = emergencyData(landed);
     assertEquals(landedEmergency.outcome, "landed");
     assertEquals(landedEmergency.note, "published");
     assertEquals(landedEmergency.cleanup, "removed");
@@ -257,7 +258,7 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
     ]);
     assertEquals(recoverPreview.code, 0, recoverPreview.output);
     assertTerminalTextIncludes(
-      decodeCliResult(recoverPreview.stdout, "accept").message ?? "",
+      decodeCliResult(recoverPreview, "accept").message ?? "",
       "Recover only this recorded emergency transition and its cleanup. No new integration or authorization is created.",
     );
     const recovered = await runAgent(dir, [
@@ -268,7 +269,7 @@ Deno.test("emergency serves an exact confirmation, excludes recorded grants, and
       "--json",
     ]);
     assertEquals(recovered.code, 0, recovered.output);
-    const recoveredEmergency = emergencyData(recovered.stdout);
+    const recoveredEmergency = emergencyData(recovered);
     assertEquals(recoveredEmergency.outcome, "landed");
     assertEquals(recoveredEmergency.note, "published");
     assertEquals(await gitOut(dir, "rev-parse", "main"), repairHead);
@@ -288,7 +289,7 @@ Deno.test("emergency refuses a changed subject and a replayed confirmation witho
       "--json",
     ]);
     assertEquals(preview.code, 1, preview.output);
-    const token = emergencyData(preview.stdout).confirmation;
+    const token = emergencyData(preview).confirmation;
     assert(token !== undefined);
 
     // The approved subject changes: the old confirmation covers nothing, and
@@ -307,9 +308,9 @@ Deno.test("emergency refuses a changed subject and a replayed confirmation witho
       "--json",
     ]);
     assertEquals(replay.code, 1, replay.output);
-    const replayEnvelope = decodeCliResult(replay.stdout, "accept");
+    const replayEnvelope = decodeCliResult(replay, "accept");
     assertEquals(replayEnvelope.error, "awaiting_consent");
-    const replayEmergency = emergencyData(replay.stdout);
+    const replayEmergency = emergencyData(replay);
     assertEquals(replayEmergency.outcome, "preview");
     assert(
       replayEmergency.confirmation !== undefined &&
@@ -332,7 +333,7 @@ Deno.test("emergency refuses a changed subject and a replayed confirmation witho
     ]);
     assertEquals(changedReason.code, 1, changedReason.output);
     assertEquals(
-      decodeCliResult(changedReason.stdout, "accept").error,
+      decodeCliResult(changedReason, "accept").error,
       "awaiting_consent",
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
@@ -378,14 +379,14 @@ async function startTask(
     "--json",
   ]);
   assertEquals(started.code, 0, started.output);
-  const result = decodeCliResult(started.stdout, "start");
+  const result = decodeCliResult(started, "start");
   assertResultDataKey(result, "path");
   return result.data.path;
 }
 
 /** Request an emergency plan from the repair; neither a preview nor a refusal
  * exits zero. Returns the JSON result. */
-async function requestEmergency(repair: string): Promise<string> {
+async function requestEmergency(repair: string): Promise<CliRun> {
   const run = await runAgent(repair, [
     "accept",
     "emergency",
@@ -394,7 +395,7 @@ async function requestEmergency(repair: string): Promise<string> {
     "--json",
   ]);
   assertEquals(run.code, 1, run.output);
-  return run.stdout;
+  return run;
 }
 
 /** The exception records in the common store. */
@@ -542,7 +543,7 @@ Deno.test("emergency names no carried work when a sibling builds on the repair a
     assertEquals(
       decodeCliResult(preview, "accept").error,
       "awaiting_consent",
-      preview,
+      preview.stdout,
     );
     assertEquals(emergencyData(preview).outcome, "preview");
     assertEquals(emergencyData(preview).carried, undefined);
@@ -804,7 +805,7 @@ Deno.test("a recorded authorization refuses confirmation replay, and recovery se
       "--json",
     ]);
     assertEquals(preview.code, 1, preview.output);
-    const served = emergencyData(preview.stdout);
+    const served = emergencyData(preview);
     const token = served.confirmation;
     assert(token !== undefined);
 
@@ -818,9 +819,9 @@ Deno.test("a recorded authorization refuses confirmation replay, and recovery se
       "--json",
     ]);
     assertEquals(dry.code, 0, dry.output);
-    const dryEnvelope = decodeCliResult(dry.stdout, "accept");
+    const dryEnvelope = decodeCliResult(dry, "accept");
     assertEquals(dryEnvelope.dry_run, true);
-    assertEquals(emergencyData(dry.stdout).outcome, "preview");
+    assertEquals(emergencyData(dry).outcome, "preview");
     assertStringIncludes(dryEnvelope.message ?? "", BOUNDARY);
     assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
 
@@ -844,7 +845,7 @@ Deno.test("a recorded authorization refuses confirmation replay, and recovery se
       "--json",
     ]);
     assertEquals(replay.code, 1, replay.output);
-    const replayEnvelope = decodeCliResult(replay.stdout, "accept");
+    const replayEnvelope = decodeCliResult(replay, "accept");
     assertEquals(replayEnvelope.error, "precondition_failed");
     assertStringIncludes(
       replayEnvelope.message ?? "",
@@ -869,7 +870,7 @@ Deno.test("a recorded authorization refuses confirmation replay, and recovery se
       "--json",
     ]);
     assertEquals(recovered.code, 1, recovered.output);
-    const recoveredEnvelope = decodeCliResult(recovered.stdout, "accept");
+    const recoveredEnvelope = decodeCliResult(recovered, "accept");
     assertEquals(recoveredEnvelope.error, "precondition_failed");
     assertStringIncludes(
       recoveredEnvelope.message ?? "",
@@ -879,7 +880,7 @@ Deno.test("a recorded authorization refuses confirmation replay, and recovery se
       recoveredEnvelope.message ?? "",
       "The unlanded outcome is settled. Return to the repair worktree and prepare a new emergency plan for fresh owner review.",
     );
-    assertEquals(emergencyData(recovered.stdout).outcome, "not-landed");
+    assertEquals(emergencyData(recovered).outcome, "not-landed");
     assert(
       (recoveredEnvelope.hints ?? []).some((hint) =>
         hint.includes(
@@ -910,7 +911,7 @@ Deno.test("a recorded authorization refuses confirmation replay, and recovery se
       "--json",
     ]);
     assertEquals(again.code, 1, again.output);
-    assertEquals(emergencyData(again.stdout).outcome, "not-landed");
+    assertEquals(emergencyData(again).outcome, "not-landed");
 
     // An unknown landing id names no record.
     const unknown = await runAgent(dir, [
@@ -922,7 +923,7 @@ Deno.test("a recorded authorization refuses confirmation replay, and recovery se
     ]);
     assertEquals(unknown.code, 1, unknown.output);
     assertTerminalTextIncludes(
-      decodeCliResult(unknown.stdout, "accept").message ?? "",
+      decodeCliResult(unknown, "accept").message ?? "",
       "No readable emergency landing exists at that id. Preserve the records and inspect status.",
     );
   });
@@ -944,7 +945,7 @@ Deno.test("recovery completes an advanced-but-unsettled transition: note collisi
     const id = crypto.randomUUID();
     const written = await writeCompletionRecord(
       dir,
-      plannedExceptionRecord(emergencyData(preview.stdout), id, reason),
+      plannedExceptionRecord(emergencyData(preview), id, reason),
       null,
     );
     assertEquals(written.kind, "written", JSON.stringify(written));
@@ -972,9 +973,9 @@ Deno.test("recovery completes an advanced-but-unsettled transition: note collisi
       "--json",
     ]);
     assertEquals(first.code, 1, first.output);
-    const firstEnvelope = decodeCliResult(first.stdout, "accept");
+    const firstEnvelope = decodeCliResult(first, "accept");
     assertEquals(firstEnvelope.error, "partial_acceptance");
-    const firstEmergency = emergencyData(first.stdout);
+    const firstEmergency = emergencyData(first);
     assertEquals(firstEmergency.outcome, "landed");
     assertEquals(firstEmergency.note, "failed");
     assertEquals(firstEmergency.cleanup, "kept");
@@ -1008,11 +1009,11 @@ Deno.test("recovery completes an advanced-but-unsettled transition: note collisi
       "--json",
     ]);
     assertEquals(second.code, 0, second.output);
-    const secondEmergency = emergencyData(second.stdout);
+    const secondEmergency = emergencyData(second);
     assertEquals(secondEmergency.note, "published");
     assertEquals(secondEmergency.cleanup, "removed");
     assertTerminalTextIncludes(
-      decodeCliResult(second.stdout, "accept").message ?? "",
+      decodeCliResult(second, "accept").message ?? "",
       "Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation.",
     );
     assertEquals(await targetExists(wt), false, second.output);
@@ -1049,7 +1050,7 @@ Deno.test("emergency argument combinations refuse before any plan is read", asyn
       "--json",
     ]);
     assertEquals(withoutAction.code, 1, withoutAction.output);
-    const refusal = decodeCliResult(withoutAction.stdout, "accept");
+    const refusal = decodeCliResult(withoutAction, "accept");
     assertEquals(refusal.error, "invalid_arguments");
     assertStringIncludes(
       refusal.message ?? "",
@@ -1067,7 +1068,7 @@ Deno.test("emergency argument combinations refuse before any plan is read", asyn
     ]);
     assertEquals(mixed.code, 1, mixed.output);
     assertTerminalTextIncludes(
-      decodeCliResult(mixed.stdout, "accept").message ?? "",
+      decodeCliResult(mixed, "accept").message ?? "",
       "Emergency preparation cannot be combined with a receipt, confirmation, or transition recovery.",
     );
   });

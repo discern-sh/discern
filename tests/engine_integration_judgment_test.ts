@@ -123,7 +123,7 @@ async function retainedLandingJudgment(
   branch: string,
 ): Promise<unknown> {
   const run = await runAgent(dir, ["status", "--json", "--verbose"]);
-  const status = decodeCliResult(run.stdout, "status");
+  const status = decodeCliResult(run, "status");
   assertResultDataKey(status, "fleet");
   return (status.data.fleet ?? []).find((entry) =>
     entry.integration?.for_branch === branch
@@ -202,7 +202,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
             "--json",
           ]);
           assertEquals(
-            decodeCliResult(first.stdout, "accept").error,
+            decodeCliResult(first, "accept").error,
             "awaiting_variance",
             first.output,
           );
@@ -222,7 +222,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           ]);
           assertEquals(stale.code, 1, stale.output);
           assertEquals(
-            decodeCliResult(stale.stdout, "accept").error,
+            decodeCliResult(stale, "accept").error,
             "precondition_failed",
           );
           assertEquals(await gitOut(dir, "rev-parse", "main"), trunk);
@@ -237,7 +237,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
             "--json",
           ]);
           assertEquals(
-            decodeCliResult(fresh.stdout, "accept").error,
+            decodeCliResult(fresh, "accept").error,
             "awaiting_variance",
             fresh.output,
           );
@@ -283,7 +283,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           ], { env: { GIT_BIN: shim } });
           assertEquals(raced.code, 1, raced.output);
           assertEquals(
-            decodeCliResult(raced.stdout, "accept").error,
+            decodeCliResult(raced, "accept").error,
             "precondition_failed",
           );
           assert(await targetExists(moved), "the trunk moved at publication");
@@ -299,7 +299,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
             "--json",
           ]);
           assertEquals(
-            decodeCliResult(reServed.stdout, "accept").error,
+            decodeCliResult(reServed, "accept").error,
             "awaiting_variance",
             reServed.output,
           );
@@ -352,7 +352,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(refused.code, 1, refused.output);
-        const directResult = decodeCliResult(refused.stdout, "accept");
+        const directResult = decodeCliResult(refused, "accept");
         assertEquals(directResult.error, "invalid_value");
         assert(directResult.message !== undefined);
         assertStringIncludes(directResult.message, "no integration judgment");
@@ -394,7 +394,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
         ]);
         assertEquals(dangling.code, 1, dangling.output);
         assertEquals(
-          decodeCliResult(dangling.stdout, "accept").error,
+          decodeCliResult(dangling, "accept").error,
           "invalid_arguments",
         );
         await assertDirectState();
@@ -415,7 +415,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(served.code, 1, served.output);
-        const refusal = decodeCliResult(served.stdout, "accept");
+        const refusal = decodeCliResult(served, "accept");
         assertEquals(refusal.error, "awaiting_declaration", served.output);
         assert(refusal.message !== undefined);
         assertStringIncludes(refusal.message, QUESTION);
@@ -484,7 +484,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(unbound.code, 1, unbound.output);
-        const unboundResult = decodeCliResult(unbound.stdout, "accept");
+        const unboundResult = decodeCliResult(unbound, "accept");
         assertEquals(unboundResult.error, "invalid_value");
         assert(unboundResult.message !== undefined);
         assertStringIncludes(unboundResult.message, "--composition-receipt");
@@ -502,7 +502,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.ok, landed.output);
         assert(result.message !== undefined);
         assertStringIncludes(
@@ -573,7 +573,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(declared.code, 1, declared.output);
-        const varianceStop = decodeCliResult(declared.stdout, "accept");
+        const varianceStop = decodeCliResult(declared, "accept");
         assertEquals(varianceStop.error, "awaiting_variance", declared.output);
         assert(varianceStop.message !== undefined);
         assertStringIncludes(varianceStop.message, "record-review");
@@ -610,7 +610,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(unbound.code, 1, unbound.output);
-        const unboundResult = decodeCliResult(unbound.stdout, "accept");
+        const unboundResult = decodeCliResult(unbound, "accept");
         assertEquals(unboundResult.error, "awaiting_variance");
         assert(unboundResult.message !== undefined);
         assertStringIncludes(unboundResult.message, "--composition-receipt");
@@ -627,7 +627,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.ok, landed.output);
         assert(result.data !== undefined && !("issues" in result.data));
         const variances = result.data.variances;
@@ -669,7 +669,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
         // contained stage because of it.
         const kept = await runAgent(dir, ["worktree", "prune", "--json"]);
         assertEquals(kept.code, 0, kept.output);
-        const keptResult = decodeCliResult(kept.stdout, "worktree prune");
+        const keptResult = decodeCliResult(kept, "worktree prune");
         assert(
           (keptResult.steps ?? []).every((step) =>
             !(step.note ?? "").includes("contained in integration/")
@@ -753,7 +753,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(landed.code, 0, landed.output);
-        const result = decodeCliResult(landed.stdout, "accept");
+        const result = decodeCliResult(landed, "accept");
         assert(result.ok, landed.output);
         assertEquals(await targetExists(retained.worktreePath), false);
         await assertNoIntegrationRemains(dir);
@@ -853,7 +853,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
         ]);
         assertEquals(stale.code, 1, stale.output);
         assertEquals(
-          decodeCliResult(stale.stdout, "accept").error,
+          decodeCliResult(stale, "accept").error,
           "precondition_failed",
         );
         await assertReplacementPreserved();
@@ -866,7 +866,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
         ]);
         assertEquals(unreceipted.code, 1, unreceipted.output);
         assertEquals(
-          decodeCliResult(unreceipted.stdout, "accept").error,
+          decodeCliResult(unreceipted, "accept").error,
           "invalid_value",
         );
         await assertReplacementPreserved();
@@ -899,7 +899,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(early.code, 1, early.output);
-        const earlyResult = decodeCliResult(early.stdout, "accept");
+        const earlyResult = decodeCliResult(early, "accept");
         assertEquals(earlyResult.error, "precondition_failed");
         assert(earlyResult.message !== undefined);
         assertStringIncludes(earlyResult.message, "discern accept");
@@ -919,7 +919,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(reserved.code, 1, reserved.output);
-        const reservedResult = decodeCliResult(reserved.stdout, "accept");
+        const reservedResult = decodeCliResult(reserved, "accept");
         assertEquals(reservedResult.error, "awaiting_declaration");
         const fresh = await retainedRecord(dir);
         assert(fresh !== undefined);
@@ -940,7 +940,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           "--json",
         ]);
         assertEquals(transferred.code, 1, transferred.output);
-        const transferredResult = decodeCliResult(transferred.stdout, "accept");
+        const transferredResult = decodeCliResult(transferred, "accept");
         assertEquals(transferredResult.error, "precondition_failed");
         assert(transferredResult.message !== undefined);
         assertStringIncludes(transferredResult.message, "no longer retained");
@@ -1044,7 +1044,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
             "--json",
           ]);
           assertEquals(blocked.code, 1, blocked.output);
-          const blockedResult = decodeCliResult(blocked.stdout, "accept");
+          const blockedResult = decodeCliResult(blocked, "accept");
           assertEquals(
             blockedResult.error,
             "precondition_failed",
@@ -1091,7 +1091,7 @@ Deno.test("judgment scenarios own pristine repositories and reset their counted 
           ]);
           assertEquals(reserved.code, 1, reserved.output);
           assertEquals(
-            decodeCliResult(reserved.stdout, "accept").error,
+            decodeCliResult(reserved, "accept").error,
             "awaiting_declaration",
           );
           const fresh = await retainedRecord(dir);

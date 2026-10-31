@@ -215,7 +215,7 @@ Deno.test("config explain runs inside an install with the current value, and out
       dir,
     );
     assertEquals(inside.code, 0, inside.stderr);
-    const result = decodeCliResult(inside.stdout, "config");
+    const result = decodeCliResult(inside, "config");
     assert(result.ok);
     const data = result.data as { operation: string; value?: string };
     assertEquals(data.operation, "explain");
@@ -238,7 +238,7 @@ Deno.test("config explain runs inside an install with the current value, and out
       dir,
     );
     assertEquals(outside.code, 0, outside.stderr);
-    const result = decodeCliResult(outside.stdout, "config");
+    const result = decodeCliResult(outside, "config");
     assert(result.ok);
     const data = result.data as { kind: string; value?: string };
     assertEquals(data.kind, "family");

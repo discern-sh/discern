@@ -96,7 +96,7 @@ Deno.test("conflict evidence and prevention advice survive CLI, MCP, retries, an
 
     const retry = await runAgent(gamma, ["accept", "--confirmed", "--json"]);
     assertEquals(retry.code, 1, retry.output);
-    const refused = decodeCliResult(retry.stdout, "accept");
+    const refused = decodeCliResult(retry, "accept");
     assertEquals(refused.error, "precondition_failed");
     assertStringIncludes((refused.hints ?? []).join("\n"), "3 of 4");
     assertStringIncludes(refused.message ?? "", "Nothing has been landed");

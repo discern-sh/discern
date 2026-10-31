@@ -424,7 +424,7 @@ Deno.test("tidy CLI previews both types, applies selectors, and rejects an unkno
 
     const preview = await runAgent(root, ["tidy", "--dry-run", "--json"]);
     assertEquals(preview.code, 0);
-    const previewJson = decodeCliResult(preview.stdout, "tidy");
+    const previewJson = decodeCliResult(preview, "tidy");
     assertEquals(previewJson.dry_run, true);
     assertExists(previewJson.plan);
     assert(
@@ -445,7 +445,7 @@ Deno.test("tidy CLI previews both types, applies selectors, and rejects an unkno
 
     const invalid = await runAgent(root, ["tidy", "yaml", "--json"]);
     assertEquals(invalid.code, 1);
-    const invalidJson = decodeCliResult(invalid.stdout, "tidy");
+    const invalidJson = decodeCliResult(invalid, "tidy");
     assertEquals(invalidJson.error, "invalid_arguments");
     assertExists(invalidJson.message);
     assertMatch(invalidJson.message, /discern tidy toml/);
@@ -461,7 +461,7 @@ Deno.test("a parse failure aborts bare tidy before any Markdown write", async ()
 
     const result = await runAgent(root, ["tidy", "--json"]);
     assertEquals(result.code, 1);
-    const json = decodeCliResult(result.stdout, "tidy");
+    const json = decodeCliResult(result, "tidy");
     assertEquals(json.error, "invalid_toml");
     assertEquals(await Deno.readTextFile(mapPath), before);
   });
@@ -626,7 +626,7 @@ Deno.test("unparseable frontmatter aborts tidy md before any write", async () =>
 
     const result = await runAgent(root, ["tidy", "--json"]);
     assertEquals(result.code, 1);
-    const json = decodeCliResult(result.stdout, "tidy");
+    const json = decodeCliResult(result, "tidy");
     assertEquals(json.error, "tidy_parse_failed");
     assertExists(json.diagnostics);
     const diagnostic = json.diagnostics[0];

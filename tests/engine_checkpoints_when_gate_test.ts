@@ -53,7 +53,7 @@ Deno.test("done: an indeterminate stop serves full evidence — an unpreparable 
         const result = await runAgent(wt, ["done", "--json"], {
           env: { TMPDIR: absent, TMP: absent, TEMP: absent },
         });
-        const envelope = parseCheckpointGateJson(result.stdout);
+        const envelope = parseCheckpointGateJson(result);
         const drop = envelope.data.checkpoints.drops?.find((entry) =>
           entry.reason === "when_input_failed"
         );
@@ -86,7 +86,7 @@ Deno.test("done: an indeterminate stop serves full evidence — an unpreparable 
       async () => {
         const r = await runAgent(wt, ["done", "--json"]);
         assertEquals(r.code, 1, r.output);
-        const env = parseCheckpointGateJson(r.stdout);
+        const env = parseCheckpointGateJson(r);
         assertEquals(env.error, AWAITING_DECLARATION_SLUG);
         assertEquals(
           env.data.checkpoints.drops?.[0]?.reason,
@@ -123,7 +123,7 @@ Deno.test("done: an indeterminate advise predicate stays non-blocking over full 
 
     const result = await runAgent(wt, ["done", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const envelope = parseCheckpointGateJson(result.stdout);
+    const envelope = parseCheckpointGateJson(result);
     assertEquals(envelope.data.checkpoints.outstanding, undefined);
     assertEquals(envelope.data.checkpoints.advise?.[0]?.matched, [
       "api/surface.txt",
@@ -236,7 +236,7 @@ question = "${QUESTION_API}"
     await git(wt, "commit", "-q", "-m", "probe fires", "--no-gpg-sign");
     const fired = await runAgent(wt, ["done", "--json"]);
     assertEquals(fired.code, 1, fired.output);
-    const env = parseCheckpointGateJson(fired.stdout);
+    const env = parseCheckpointGateJson(fired);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assertEquals(env.data.checkpoints.outstanding?.[0]?.id, "spec-drift");
 
@@ -250,7 +250,7 @@ question = "${QUESTION_API}"
     await git(wt, "commit", "-q", "-m", "probe passes", "--no-gpg-sign");
     const inactive = await runAgent(wt, ["done", "--json"]);
     assertEquals(inactive.code, 1, inactive.output);
-    const inactiveEnv = parseCheckpointGateJson(inactive.stdout);
+    const inactiveEnv = parseCheckpointGateJson(inactive);
     assertEquals(inactiveEnv.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       inactiveEnv.data.checkpoints.outstanding?.[0]?.id,
@@ -296,7 +296,7 @@ question = "${QUESTION_API}"
 
     const opened = await runAgent(wt, ["done", "--json"]);
     assertEquals(opened.code, 1, opened.output);
-    const openedEnv = parseCheckpointGateJson(opened.stdout);
+    const openedEnv = parseCheckpointGateJson(opened);
     assertEquals(openedEnv.data.checkpoints.outstanding?.[0]?.matched, [
       "api/surface.txt",
     ]);
@@ -312,6 +312,6 @@ question = "${QUESTION_API}"
     await git(wt, "commit", "-q", "-m", "revise api", "--no-gpg-sign");
     const reopened = await runAgent(wt, ["done", "--json"]);
     assertEquals(reopened.code, 1, reopened.output);
-    assertEquals(parseJson(reopened.stdout).error, AWAITING_DECLARATION_SLUG);
+    assertEquals(parseJson(reopened).error, AWAITING_DECLARATION_SLUG);
   });
 });

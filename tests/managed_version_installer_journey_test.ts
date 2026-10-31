@@ -92,7 +92,7 @@ Deno.test("verified replacement leaves adoption unchanged until a restarted CLI 
       "--json",
     ]);
     assertEquals(preview.code, 0, preview.stdout + preview.stderr);
-    const planned = decodeCliResult(preview.stdout, "upgrade");
+    const planned = decodeCliResult(preview, "upgrade");
     assertResultDataKey(planned, "managed_version");
     assertEquals(planned.data.managed_version, {
       previous,
@@ -110,7 +110,7 @@ Deno.test("verified replacement leaves adoption unchanged until a restarted CLI 
     ]);
     assertEquals(failed.code, 1, failed.stdout + failed.stderr);
     assertEquals(
-      decodeCliResult(failed.stdout, "upgrade").error,
+      decodeCliResult(failed, "upgrade").error,
       "partial_refresh",
     );
     assertEquals(
@@ -125,7 +125,7 @@ Deno.test("verified replacement leaves adoption unchanged until a restarted CLI 
       "--json",
     ]);
     assertEquals(applied.code, 0, applied.stdout + applied.stderr);
-    const result = decodeCliResult(applied.stdout, "upgrade");
+    const result = decodeCliResult(applied, "upgrade");
     assertResultDataKey(result, "managed_version");
     assertEquals(result.data.managed_version, {
       previous,
