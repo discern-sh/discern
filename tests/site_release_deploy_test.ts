@@ -52,14 +52,8 @@ Deno.test("release and manual site publication share the verified publisher", as
     assert(next > position, `${step} must follow its preconditions`);
     position = next;
   }
-  const pinned = /deno run -A jsr:@deno\/deploy@(\d+\.\d+\.\d+) --prod/u.exec(
-    workflow,
-  )?.[1];
-  assert(pinned !== undefined);
-  const lock = await Deno.readTextFile(
-    new URL("../deno.lock", import.meta.url),
-  );
-  assertStringIncludes(lock, `"jsr:@deno/deploy@${pinned}"`);
+  assertStringIncludes(workflow, "run: deno deploy --prod");
+  assert(!workflow.includes("jsr:@deno/deploy"));
   assertStringIncludes(
     workflow,
     "DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}",
@@ -168,4 +162,34 @@ Deno.test("ephemeral publication input stays ignored and untracked", async () =>
     stderr: "null",
   }).output();
   assert(!tracked.success, `${path} must not enter version control`);
+});
+
+Deno.test("Deno deploy and sandbox forward every argument exactly once", async () => {
+  const args = [
+    "--prod",
+    "--org",
+    "fixture org",
+    "--prod",
+    "--",
+    "--allow-net",
+    "-A",
+  ];
+  for (const command of ["deploy", "sandbox"]) {
+    const result = await new Deno.Command(Deno.execPath(), {
+      args: [command, ...args],
+      env: {
+        // Replace the networked CLI with an inert argument observer.
+        DENO_DEPLOY_CLI_SPECIFIER:
+          "data:application/typescript,console.log(JSON.stringify(Deno.args))",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(result.success, new TextDecoder().decode(result.stderr));
+    assertEquals(
+      decodeWith(z.array(z.string()), new TextDecoder().decode(result.stdout)),
+      args,
+      command,
+    );
+  }
 });

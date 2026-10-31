@@ -65,9 +65,9 @@ jobs:
           retention-days: 90
 
       # The production app remains local-source. Credentials reach only upload.
-      # Invoke the locked tool directly; the pinned Deno wrapper repeats flags.
+      # Deno resolves the deploy CLI; deno.json supplies the application config.
       - name: Deploy the verified snapshot
         working-directory: ${{ runner.temp }}/site-deployment
         env:
           DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
-        run: deno run -A jsr:@deno/deploy@0.0.9904 --prod
+        run: deno deploy --prod

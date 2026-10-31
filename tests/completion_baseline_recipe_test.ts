@@ -52,7 +52,7 @@ import {
   CONDITIONS,
   snapshot,
 } from "./completion_producers_fixtures.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
@@ -698,4 +698,72 @@ Deno.test("coverage producer drains active processing before failure or cancella
     assertEquals(await pathExists(raw), false);
     assertEquals(await pathExists(dirname(raw)), false);
   }
+});
+
+Deno.test("warmed V8 code cache preserves uncovered top-level branches through coverage reduction", async () => {
+  await withTempDir(async (directory) => {
+    const root = await Deno.realPath(directory);
+    await Deno.mkdir(join(root, "src"));
+    await Deno.writeTextFile(
+      join(root, "src/branch.ts"),
+      "if (Deno.args.length > 0) {\n  console.log('unvisited');\n}\nconsole.log('visited');\n",
+    );
+    await Deno.writeTextFile(
+      join(root, "branch_test.ts"),
+      "import './src/branch.ts';\nDeno.test('top-level branch', () => {});\n",
+    );
+    const deno = async (
+      args: string[],
+      env: Record<string, string> = {},
+      inherited: Readonly<Record<string, string>> = Deno.env.toObject(),
+    ): Promise<Deno.CommandOutput> => {
+      // Each case owns its instrumentation; warming must run without coverage.
+      const environment = { ...inherited };
+      delete environment.DENO_COVERAGE_DIR;
+      const result = await new Deno.Command(Deno.execPath(), {
+        args,
+        cwd: root,
+        clearEnv: true,
+        env: { ...environment, ...env },
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      assert(result.success, new TextDecoder().decode(result.stderr));
+      return result;
+    };
+    const warm = [
+      "run",
+      "--no-config",
+      "--no-lock",
+      "-Ldebug",
+      "src/branch.ts",
+    ];
+    await deno(warm);
+    const cached = await deno(warm);
+    assertTerminalTextIncludes(
+      new TextDecoder().decode(cached.stderr),
+      "V8 code cache hit for ES module:",
+    );
+    for (const mode of ["test", "run", "env"]) {
+      const lcov = await produceCoverage(root, async (profile) => {
+        const args = [
+          mode === "test" ? "test" : "run",
+          "--no-config",
+          "--no-lock",
+        ];
+        if (mode !== "env") args.push(`--coverage=${profile}`);
+        if (mode === "test") args.push("--coverage-raw-data-only");
+        args.push(mode === "test" ? "branch_test.ts" : "src/branch.ts");
+        await deno(args, mode === "env" ? { DENO_COVERAGE_DIR: profile } : {});
+      });
+      assertStringIncludes(lcov, "DA:2,0");
+      const measured = srcLineCoverage(lcov, root, [{
+        path: "src/branch.ts",
+        kind: "executable",
+      }]);
+      assertEquals(measured.issues, [], mode);
+      assertEquals(measured.hit, 2, mode);
+      assertEquals(measured.found, 4, mode);
+    }
+  });
 });

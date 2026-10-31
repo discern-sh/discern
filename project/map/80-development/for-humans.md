@@ -18,7 +18,7 @@ An install puts `discern.toml` at the root and keeps the map, instructions, Skil
 
 ## Prerequisites
 
-- **[Deno](https://deno.com)** runs the source CLI, build, tests, and Project Scripts.
+- **[Deno](https://deno.com)** runs the source CLI, build, tests, and Project Scripts. Use the exact version in [`.dvmrc`](../../../.dvmrc), which also selects the compiler for every hosted workflow.
 - **Git** with worktree support runs the worktree workflow, Standards, and `status` subprocesses.
 - **[Vale](https://vale.sh)** runs the `prose` check over the Map during the Gate. The repository provisions its exact binary; do not manage it as a separate prerequisite.
 
