@@ -101,6 +101,16 @@ body {
 
 /* ── Chapter nav (left rail) ───────────────────────────────────────────── */
 
+.docs-nav-section-heading {
+  display: inline-flex;
+  gap: var(--discern-space-2);
+  align-items: baseline;
+}
+
+.docs-nav-section-mark {
+  color: var(--discern-color-accent-600);
+}
+
 .docs-page-kind {
   max-width: var(--docs-content-width);
   margin: 0 0 var(--discern-space-2);

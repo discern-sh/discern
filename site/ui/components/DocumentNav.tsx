@@ -1,6 +1,11 @@
 /** The rooted corpus navigation: every published section, README first. */
 import type { ReactElement } from "react";
-import { DocsNav, type DocsNavSection } from "discern-design-system/react";
+import {
+  DocsNav,
+  type DocsNavSection,
+  Logo,
+} from "discern-design-system/react";
+import { DISCERN_MARK } from "../../brand.ts";
 import type { DocsPage, DocsSection, DocumentLink } from "../../docs.tsx";
 
 /** The layout's navigation column, which the header's drawer toggle controls. */
@@ -17,13 +22,24 @@ export interface DocumentNavProps {
   readonly footLinks: readonly DocumentLink[];
 }
 
-/** Section landings read as "Overview"; the section name stays in the accessible name. */
+/**
+ * Each section name follows a decorative brand mark that sets it apart from
+ * its pages. Section landings read as "Overview"; the section name stays in
+ * the accessible name.
+ */
 function navigationSections(
   sections: readonly DocsSection[],
   current: DocsPage | null,
 ): readonly DocsNavSection[] {
   return sections.map((section) => ({
-    title: <span className="docs-nav-chapter-title">{section.title}</span>,
+    title: (
+      <span className="docs-nav-section-heading">
+        <Logo className="docs-nav-section-mark" size="sm">
+          {DISCERN_MARK}
+        </Logo>
+        <span className="docs-nav-chapter-title">{section.title}</span>
+      </span>
+    ),
     items: section.pages.map((page) => ({
       href: page.route,
       current: page.route === current?.route,
