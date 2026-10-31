@@ -6,7 +6,7 @@
     "jsr:@cliffy/internal@1.2.1": "1.2.1",
     "jsr:@cliffy/table@1.2.1": "1.2.1",
     "jsr:@david/code-block-writer@13": "13.0.3",
-    "jsr:@discern-sh/design-system@0.39.0": "0.39.0",
+    "jsr:@discern-sh/design-system@0.40.0": "0.40.0",
     "jsr:@std/assert@^1.0.10": "1.0.19",
     "jsr:@std/async@^1.5.0": "1.5.0",
     "jsr:@std/collections@^1.1.3": "1.2.0",
@@ -86,8 +86,8 @@
     "@david/code-block-writer@13.0.3": {
       "integrity": "f98c77d320f5957899a61bfb7a9bead7c6d83ad1515daee92dbacc861e13bb7f"
     },
-    "@discern-sh/design-system@0.39.0": {
-      "integrity": "82ae576cb43e92c6c6c82ac6eb2505c658c4da97ea6d56083b219e7ac6cbf66f",
+    "@discern-sh/design-system@0.40.0": {
+      "integrity": "66e6f3b05b1a55462c00de8ded85625878124a8247f134dd62e681a97a180582",
       "dependencies": [
         "npm:@types/mdast",
         "npm:@types/react",
@@ -1489,7 +1489,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
-      "jsr:@discern-sh/design-system@0.39.0",
+      "jsr:@discern-sh/design-system@0.40.0",
       "jsr:@std/assert@^1.0.10",
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/fmt@^1.0.10",

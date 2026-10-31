@@ -15,7 +15,7 @@ discern uses one exact `@discern-sh/design-system` alias. It resolves to an immu
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.39.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.40.0"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer Proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the release integrity and its transitive dependencies. Those public exports are the complete consumer application programming interface (API); source paths, registry addresses, cache internals and distribution files never appear in consumer imports. Committed local dependency overrides are rejected.
@@ -47,6 +47,10 @@ Pass an absolute checkout path after the script name to override the sibling che
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. [`terminal.ts`](../../../src/lib/terminal.ts) binds the shared product-blue hue as an explicit terminal Appearance independently from its light/dark ground; [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) carries the same immutable facts into effectful requests. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern at those boundaries.
 
 Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves inside the selected release’s registry origin; an external npm root must be declared by the package and resolve to an exact node in `deno.lock`. Mixed origins, local overrides, source imports, unlocked parsers and testing modules in ordinary graphs cannot satisfy the guards. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+
+## Release 0.40.0 browser presentation
+
+Release 0.40.0 restyles the browser Components and changes some of their markup, classes, and custom properties; terminal renderers and their output are unchanged. The site renders every affected Component through the package's React exports and receives its CSS and behavior from the runtime emitter, so no page writes the changed markup by hand. Selecting `theme-toggle` now also emits Icon button and Icon, which both bundles already carry.
 
 ## Release 0.39.0 application contracts
 
