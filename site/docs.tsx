@@ -903,11 +903,6 @@ export async function renderDoc(
 
 // ── Wayfinding facts ───────────────────────────────────────────────────────
 
-/** Reading-order tier number of a section (`20-quality-gate` → `20`). */
-export function sectionIndexOf(dir: string): string {
-  return /^(\d+)-/.exec(dir)?.[1] ?? "§";
-}
-
 /** Human label for a page's editorial purpose. */
 export function pageKindLabel(page: DocsPage): string {
   return page.manualKind.replace(/^./, (character) => character.toUpperCase());

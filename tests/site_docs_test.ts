@@ -198,7 +198,8 @@ Deno.test("the manual front door preserves browse guidance, raw contracts, and s
     .map((link) => link.getAttribute("href") ?? "");
   assertEquals(
     childRoutes,
-    site.sections.map((section) => section.index.route),
+    site.sections.flatMap((section) => section.pages.map((page) => page.route)),
+    "the cover's rail lists every page beneath its section",
   );
   assertEquals(new Set(childRoutes).size, childRoutes.length);
   assertEquals(

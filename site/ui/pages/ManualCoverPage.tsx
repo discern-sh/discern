@@ -6,7 +6,6 @@ import {
   type DocsSite,
   manualLandingParts,
   type RenderedDoc,
-  sectionIndexOf,
 } from "../../docs.tsx";
 import { authoredHeadingNumberClass } from "../../document_toc.ts";
 import {
@@ -33,9 +32,6 @@ function Chapter({ section }: { readonly section: DocsSection }): ReactElement {
   const id = `chapter-${section.slug}`;
   return (
     <section className="docs-chapter" aria-labelledby={id}>
-      <span className="docs-chapter-index" aria-hidden="true">
-        {sectionIndexOf(section.dir)}
-      </span>
       <div className="docs-chapter-body">
         <DocumentHeading id={id} text={section.title}>
           <a href={section.index.route}>{section.title}</a>
@@ -68,8 +64,7 @@ function CompleteBrowse({ site }: { readonly site: DocsSite }): ReactElement {
 
 /**
  * The authored introduction leads; the promoted journeys follow it; the
- * remaining authored orientation and the complete directory close. The rail
- * lists only section landings, keeping the cover's wayfinding small.
+ * remaining authored orientation and the complete directory close.
  */
 export function ManualCoverPage(
   { site, rendered }: {
@@ -82,7 +77,6 @@ export function ManualCoverPage(
     <DocumentLayout
       site={site}
       current={null}
-      compactNavigation
       breadcrumb={null}
     >
       <article

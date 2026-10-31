@@ -30,7 +30,7 @@ Manual prose addresses the human directing the project. The shared `manual-publi
 
 [`MANUAL_SECTION_REGISTRY`](../../../src/shared/manual.ts) owns the five sections and their order. Strict publication validation requires one index per section and makes every published page reachable. A page's kind drives labels while the canonical sequence drives breadcrumbs and previous/next movement.
 
-The manual root contains the central front-door authority. `DocsSite.frontDoors` adapts those marked links to the browser landing; the site never copies the promotion set. The compact root rail shows section landings. The browser projection keeps the authored introduction and durable reader orientation, removes the authored maintenance lists and section table, then renders the promoted journeys and complete published tree directly from the model. Raw Markdown remains unchanged. Leaf pages use the complete rooted manual navigation.
+The manual root contains the central front-door authority. `DocsSite.frontDoors` adapts those marked links to the browser landing; the site never copies the promotion set. The browser projection keeps the authored introduction and durable reader orientation, removes the authored maintenance lists and section table, then renders the promoted journeys and complete published tree directly from the model. Raw Markdown remains unchanged. The root and every leaf page use the complete rooted manual navigation.
 
 A moved page keeps its old address working. It lists the old page route in `redirect_from`, and the site derives the matching `.md` redirect; declaring the `.md` route as well is rejected as a conflict. Validation resolves each old address directly to its live successor and rejects chains and generic root fallbacks.
 

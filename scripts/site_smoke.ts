@@ -154,7 +154,7 @@ function navigationItems(document: Document): InstructionItem[] {
     )
   ) {
     const sectionTitle = section.querySelector(".docs-nav-chapter-title")
-      ?.textContent?.replace(/^\s*\d+\s*/, "").trim() ?? "";
+      ?.textContent?.trim() ?? "";
     for (
       const [index, link] of [...section.querySelectorAll("ul a")].entries()
     ) {
@@ -571,22 +571,11 @@ export async function runSiteSmoke(
   if (docs === undefined) {
     fail("/docs: unavailable for surface parity");
   } else {
-    const compactNav: InstructionItem[] = [
+    const nav: InstructionItem[] = [
       instructions[0] as InstructionItem,
       ...navigationItems(docs),
     ];
-    sameItems(
-      "/docs compact nav",
-      compactNav,
-      [
-        instructions[0] as InstructionItem,
-        ...site.sections.map((section) => ({
-          route: section.index.route,
-          title: section.index.entry.title,
-        })),
-      ],
-      fail,
-    );
+    sameItems("/docs nav", nav, instructions, fail);
     sameSequence(
       "/docs authored front doors",
       [...docs.querySelectorAll(".docs-front-doors .docs-chapter-leaves a")]

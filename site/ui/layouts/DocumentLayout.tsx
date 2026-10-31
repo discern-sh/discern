@@ -37,8 +37,6 @@ export interface DocumentLayoutProps {
   readonly site: DocsSite;
   /** The page the navigation highlights; null on the manual cover and decisions. */
   readonly current: DocsPage | null;
-  /** List only section landings, for the cover's deliberately small rail. */
-  readonly compactNavigation?: boolean;
   /** The page family represented in the breadcrumb trail. */
   readonly breadcrumb: BreadcrumbTarget;
   /** The contents rail; empty when the page has no headings. */
@@ -57,7 +55,6 @@ export function DocumentLayout(
   {
     site,
     current,
-    compactNavigation = false,
     breadcrumb,
     contents = [],
     children,
@@ -84,7 +81,6 @@ export function DocumentLayout(
           <DocumentNav
             sections={site.sections}
             current={current}
-            compact={compactNavigation}
             footLinks={NAVIGATION_FOOT_LINKS}
           />
         }

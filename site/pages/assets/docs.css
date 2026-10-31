@@ -101,18 +101,6 @@ body {
 
 /* ── Chapter nav (left rail) ───────────────────────────────────────────── */
 
-.docs-nav-chapter-title {
-  display: inline-flex;
-  gap: var(--discern-space-2);
-  align-items: baseline;
-}
-
-.docs-nav-section-index {
-  color: var(--discern-color-accent-600);
-  font-family: var(--discern-font-mono);
-  font-size: 0.6875rem;
-}
-
 .docs-page-kind {
   max-width: var(--docs-content-width);
   margin: 0 0 var(--discern-space-2);
@@ -702,23 +690,11 @@ body {
 }
 
 .docs-chapter {
-  display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  gap: var(--discern-space-6);
   padding-block: var(--discern-space-8);
 }
 
 .docs-chapter + .docs-chapter {
   border-top: 1px solid var(--discern-color-border);
-}
-
-/* Tier numerals as chapter watermarks — the map's own reading order. */
-.docs-chapter-index {
-  color: var(--discern-color-accent-300);
-  font: italic var(--discern-font-weight-display) 2.5rem
-    var(--discern-font-display);
-  letter-spacing: -0.02em;
-  line-height: 1;
 }
 
 .docs-chapter-body h2 {
