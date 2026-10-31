@@ -2627,6 +2627,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/result_codegen_test.ts",
       "tests/engine_json_purity_test.ts",
       "tests/raw_json_parse_guard_test.ts",
+      "tests/cli_run_decode_guard_test.ts",
     ],
     artifacts: [
       {
