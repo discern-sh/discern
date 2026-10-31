@@ -1,7 +1,7 @@
 /* discern.sh document routes — shared manual and public-Map consumer styles.
    Composition only: every design value is a design-system token from
    /assets/design-system/discern.css, and no component-owned .discern-* selector is
-   redefined here. The vocabulary: serif headlines, mono wayfinding, hairline
+   redefined here. The vocabulary: UI-face headlines, mono wayfinding, hairline
    rules, hard-offset shadows. */
 
 /* ── Page scaffold ─────────────────────────────────────────────────────── */
@@ -146,6 +146,13 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* Document headings take the UI face at the marketing weight, in place of the
+   package's display serif. */
+:is(.doc-body, .docs-related-decisions) :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--discern-font-ui);
+  font-weight: var(--discern-font-weight-marketing);
+}
+
 .doc-body :is(h1, h2, h3, h4)[id] {
   scroll-margin-top: calc(
     var(--discern-docs-layout-sticky-offset) + var(--discern-space-4)
@@ -157,14 +164,14 @@ body {
   font-size: var(--discern-font-size-display-lg);
 }
 
-/* The dek: a doc's italic lead paragraph, set as an editorial standfirst. */
+/* The dek: a doc's lead paragraph, set as a larger standfirst. */
 .doc-body h1 + p {
   max-width: none;
   padding-bottom: var(--discern-space-6);
   border-bottom: 1px solid var(--discern-color-border);
   margin-bottom: var(--discern-space-6);
   color: var(--discern-color-ink-muted);
-  font-family: var(--discern-font-display);
+  font-family: var(--discern-font-ui);
   font-size: 1.3125rem;
   line-height: var(--discern-leading-snug);
 }
@@ -457,7 +464,6 @@ body {
 
 .docs-related-decisions h2 {
   margin: 0 0 var(--discern-space-3);
-  font-family: var(--discern-font-display);
   font-size: var(--discern-font-size-display-sm);
 }
 
