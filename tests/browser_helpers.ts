@@ -67,12 +67,15 @@ export interface AxeFinding {
  * Audit the page against the WCAG 2.2 AA tag set once every finite animation
  * and transition has finished: contrast sampled mid-transition, such as just
  * after a theme change, measures colours the reader never settles on.
- * Infinite decorative animations never finish and are not waited for.
+ * Only clock-driven, finite motion is waited for: infinite decorative
+ * animations never finish, and scroll- or view-driven animations follow the
+ * reader's scroll position rather than the clock, so they stay running.
  */
 export async function axeFindings(page: Page): Promise<AxeFinding[]> {
   await page.waitForFunction(() =>
     document.getAnimations().every((animation) =>
       animation.playState !== "running" ||
+      !(animation.timeline instanceof DocumentTimeline) ||
       animation.effect?.getTiming().iterations === Infinity
     )
   );
