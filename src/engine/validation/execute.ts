@@ -266,17 +266,26 @@ async function executeProducerGraph(
   await runtime.verify(execution);
   const physical = new Map<string, Promise<ProducerCapture>>();
   const captures = new Map<string, Promise<ProducerCapture>>();
-  // A pre-check that finds the claim retired is the cancellation the
-  // coordinator has not delivered yet, not a producer failure.
-  const failure = (error: unknown): ProducerCapture => ({
-    outcome: execution.signal.aborted || foundRetirement(error)
-      ? "cancelled"
-      : "failed",
+  /** A capture for a producer that did not finish, with no output. */
+  const unfinished = (
+    outcome: ProducerCapture["outcome"],
+    reason: string,
+  ): ProducerCapture => ({
+    outcome,
     complete: false,
     output: new Uint8Array(),
     artifacts: [],
-    reason: errorText(error),
+    reason,
   });
+  // A pre-check that finds the claim retired is the cancellation the
+  // coordinator has not delivered yet, not a producer failure.
+  const failure = (error: unknown): ProducerCapture =>
+    unfinished(
+      execution.signal.aborted || foundRetirement(error)
+        ? "cancelled"
+        : "failed",
+      errorText(error),
+    );
   const run = (producer: ProducerDemand): Promise<ProducerCapture> => {
     const existing = captures.get(producer.selector);
     if (existing !== undefined) return existing;
@@ -309,14 +318,10 @@ async function executeProducerGraph(
           }),
         );
         if (dependencies.some((d) => d.outcome !== "passed" || !d.complete)) {
-          return {
-            outcome: "unrun",
-            complete: false,
-            output: new Uint8Array(),
-            artifacts: [],
-            reason:
-              "Required producer dependencies did not complete successfully.",
-          };
+          return unfinished(
+            "unrun",
+            "Required producer dependencies did not complete successfully.",
+          );
         }
         if (execution.signal.aborted) {
           throw new Error(
@@ -337,6 +342,27 @@ async function executeProducerGraph(
   };
   const evidence: ComponentEvidence[] = [];
   const blockers: ValidationExecution["blockers"][number][] = [];
+  /** Whether an artifact belongs to this attempt and candidate. */
+  const owned = (artifact: ComponentEvidence["artifacts"][number]): boolean =>
+    artifact.attempt_id === execution.attempt.identity.id &&
+    artifact.candidate_id === execution.candidate_id;
+  /** Record this attempt's receipt for one obligation. */
+  const receipt = (
+    obligation: ResolvedObligation,
+    artifacts: readonly ComponentEvidence["artifacts"][number][],
+    outcome: ComponentEvidence["outcome"],
+  ): number =>
+    evidence.push(EvidenceSchema.parse({
+      attempt_id: execution.attempt.identity.id,
+      candidate_id: execution.candidate_id,
+      sequence: execution.attempt.identity.sequence,
+      purpose: execution.attempt.purpose,
+      mode: plan.demand.mode,
+      applicability: obligation.applicability,
+      finished_at: clock.wallNow(),
+      artifacts,
+      outcome,
+    }));
   const consume = async (
     producer: ProducerDemand,
     obligation: ResolvedObligation,
@@ -348,12 +374,9 @@ async function executeProducerGraph(
           capture.reason ?? "required producer failed or capture is incomplete",
         );
       }
-      if (
-        capture.artifacts.some((artifact) =>
-          artifact.attempt_id !== execution.attempt.identity.id ||
-          artifact.candidate_id !== execution.candidate_id
-        )
-      ) throw new Error("artifact names another attempt or candidate");
+      if (capture.artifacts.some((artifact) => !owned(artifact))) {
+        throw new Error("artifact names another attempt or candidate");
+      }
       if (obligation.input.extraction !== null) {
         await runtime.verify(execution);
         capture = await runtime.extract(obligation, capture, execution);
@@ -370,17 +393,11 @@ async function executeProducerGraph(
       const reading = obligation.standard === null
         ? null
         : standardReading(obligation.standard, metrics, obligation.extent);
-      evidence.push(EvidenceSchema.parse({
-        attempt_id: execution.attempt.identity.id,
-        candidate_id: execution.candidate_id,
-        sequence: execution.attempt.identity.sequence,
-        purpose: execution.attempt.purpose,
-        mode: plan.demand.mode,
-        applicability: obligation.applicability,
-        finished_at: clock.wallNow(),
-        artifacts: capture.artifacts,
-        outcome: { kind: "passed", capture_complete: true, metrics },
-      }));
+      receipt(obligation, capture.artifacts, {
+        kind: "passed",
+        capture_complete: true,
+        metrics,
+      });
       if (
         obligation.standard !== null && reading !== null &&
         !standardHeld(obligation.standard, reading) &&
@@ -388,25 +405,12 @@ async function executeProducerGraph(
         plan.demand.kind !== "test"
       ) blockers.push({ kind: "validation-failed", evidence_ids: [] });
     } catch (error) {
-      evidence.push(EvidenceSchema.parse({
-        attempt_id: execution.attempt.identity.id,
-        candidate_id: execution.candidate_id,
-        sequence: execution.attempt.identity.sequence,
-        purpose: execution.attempt.purpose,
-        mode: plan.demand.mode,
-        applicability: obligation.applicability,
-        finished_at: clock.wallNow(),
-        artifacts: capture.artifacts.filter((a) =>
-          a.attempt_id === execution.attempt.identity.id &&
-          a.candidate_id === execution.candidate_id
-        ),
-        outcome: {
-          kind: capture.outcome === "cancelled" || capture.outcome === "unrun"
-            ? capture.outcome
-            : "failed",
-          reason: errorText(error),
-        },
-      }));
+      receipt(obligation, capture.artifacts.filter(owned), {
+        kind: capture.outcome === "cancelled" || capture.outcome === "unrun"
+          ? capture.outcome
+          : "failed",
+        reason: errorText(error),
+      });
       blockers.push(
         capture.outcome === "cancelled"
           ? {
