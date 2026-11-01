@@ -2,6 +2,7 @@ import { assert, assertEquals, assertRejects } from "@std/assert";
 import { executeValidation } from "../src/engine/validation/execute.ts";
 import { planValidation } from "../src/engine/validation/plan.ts";
 import type { ProducerDeclaration } from "../src/shared/config_schema.ts";
+import { SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
 import { assembleCandidate } from "../src/engine/validation/selection.ts";
 import {
   assemblyRecord,
@@ -356,4 +357,108 @@ Deno.test("claim mismatch is rejected before effects and candidate mutation stal
   );
   assert(result.evidence.every((e) => e.outcome.kind === "stale"));
   assertEquals(result.evidence.length, 3);
+});
+
+/** Two sibling job producers, optionally released by one shared dependency. */
+async function siblingSnapshot(
+  shared: boolean,
+): Promise<Awaited<ReturnType<typeof snapshot>>> {
+  const needs = shared ? { needs: ["jobs.base"] } : {};
+  return await snapshot({
+    producers: recipes({
+      ...(shared ? { "jobs.base": { run: "base" } } : {}),
+      "jobs.writer": { run: "write", ...needs },
+      "jobs.sibling": { run: "sibling", ...needs },
+    }),
+    obligations: ["writer", "sibling"].map((id) => ({
+      requirement: { id, kind: "job", definition: "d".repeat(64) },
+      input: { producer: `jobs.${id}` },
+    })),
+  });
+}
+
+/** Each later verification takes one more event-loop turn, so siblings finish verifying apart. */
+async function staggeredVerification(call: number): Promise<void> {
+  for (let turn = 0; turn < call; turn++) {
+    await new Promise<void>((resolve) =>
+      SYSTEM_SCHEDULER.scheduleTimeout(resolve, 0)
+    );
+  }
+}
+
+for (const shared of [false, true]) {
+  Deno.test(
+    `producers released together all verify before any of them runs (${
+      shared ? "shared dependency" : "no dependency"
+    })`,
+    async () => {
+      const snap = await siblingSnapshot(shared);
+      const plan = planValidation(snap, observation(), {
+        kind: "done",
+        mode: "strict",
+        requirements: snap.requirements,
+      });
+      const events: string[] = [];
+      let calls = 0;
+      const { runtime } = countedRuntime({
+        verify: async (_execution, verification) => {
+          if (verification?.allowCancelled === true) return;
+          await staggeredVerification(++calls);
+          events.push("verified");
+        },
+        produce: (producer) => {
+          events.push(producer.selector);
+          return Promise.resolve(captured());
+        },
+      });
+      const result = await executeValidation(
+        snap,
+        plan,
+        claimed(snap, plan),
+        runtime,
+        COMPLETION_CLOCK,
+      );
+      assertEquals(result.blockers, []);
+      const firstSibling = Math.min(
+        events.indexOf("jobs.writer"),
+        events.indexOf("jobs.sibling"),
+      );
+      assert(firstSibling >= 0, events.join(", "));
+      assertEquals(
+        events.lastIndexOf("verified") < firstSibling,
+        true,
+        events.join(", "),
+      );
+    },
+  );
+}
+
+Deno.test("a sibling whose verification refuses releases the producers waiting on it", async () => {
+  const snap = await siblingSnapshot(false);
+  const plan = planValidation(snap, observation(), {
+    kind: "done",
+    mode: "strict",
+    requirements: snap.requirements,
+  });
+  let calls = 0;
+  const { runtime, counts } = countedRuntime({
+    verify: async (_execution, verification) => {
+      if (verification?.allowCancelled === true) return;
+      const call = ++calls;
+      await staggeredVerification(call);
+      if (call === 3) throw new Error("checkout changed");
+    },
+  });
+  const result = await executeValidation(
+    snap,
+    plan,
+    claimed(snap, plan),
+    runtime,
+    COMPLETION_CLOCK,
+  );
+  assertEquals(counts.size, 1);
+  assertEquals(
+    result.evidence.map((e) => e.outcome.kind).sort(),
+    ["failed", "passed"],
+  );
 });

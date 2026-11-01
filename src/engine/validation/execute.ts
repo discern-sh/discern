@@ -266,6 +266,11 @@ async function executeProducerGraph(
   await runtime.verify(execution);
   const physical = new Map<string, Promise<ProducerCapture>>();
   const captures = new Map<string, Promise<ProducerCapture>>();
+  // Producers released by the same dependency captures all verify the subject
+  // before any of them starts, so one sibling's writes cannot refuse another's
+  // verification. Every member joins while the graph is built, before any
+  // verification can settle.
+  const cohorts: Record<string, Promise<void>[]> = {};
   /** A capture for a producer that did not finish, with no output. */
   const unfinished = (
     outcome: ProducerCapture["outcome"],
@@ -295,40 +300,51 @@ async function executeProducerGraph(
       work = (async (): Promise<ProducerCapture> => {
         const node = snapshot.producers.get(producer.selector);
         if (node === undefined) throw new Error("producer disappeared");
-        const dependencies = await Promise.all(
-          [
-            ...new Set([
-              ...node.dependencies,
-              ...(snapshot.ordering?.get(producer.selector) ?? []).filter((
-                selector,
-              ) =>
-                plan.producers.some((producer) =>
-                  producer.selector === selector
-                )
-              ),
-            ]),
-          ].map((selector) => {
-            const dependency = plan.producers.find((p) =>
-              p.selector === selector
-            );
-            if (dependency === undefined) {
-              throw new Error("dependency was not demanded");
-            }
-            return run(dependency);
-          }),
+        const prerequisites = [
+          ...new Set([
+            ...node.dependencies,
+            ...(snapshot.ordering?.get(producer.selector) ?? []).filter((
+              selector,
+            ) =>
+              plan.producers.some((producer) => producer.selector === selector)
+            ),
+          ]),
+        ].map((selector) => {
+          const dependency = plan.producers.find((p) =>
+            p.selector === selector
+          );
+          if (dependency === undefined) {
+            throw new Error("dependency was not demanded");
+          }
+          return dependency;
+        });
+        const group = JSON.stringify(
+          prerequisites.map((p) => physicalKey(snapshot, p.selector, execution))
+            .sort(),
         );
-        if (dependencies.some((d) => d.outcome !== "passed" || !d.complete)) {
-          return unfinished(
-            "unrun",
-            "Required producer dependencies did not complete successfully.",
-          );
+        const peers = cohorts[group] ??= [];
+        const verified = Promise.withResolvers<void>();
+        peers.push(verified.promise);
+        try {
+          const dependencies = await Promise.all(prerequisites.map(run));
+          if (
+            dependencies.some((d) => d.outcome !== "passed" || !d.complete)
+          ) {
+            return unfinished(
+              "unrun",
+              "Required producer dependencies did not complete successfully.",
+            );
+          }
+          if (execution.signal.aborted) {
+            throw new Error(
+              cancellationReason(execution.signal, "validation was cancelled"),
+            );
+          }
+          await runtime.verify(execution);
+        } finally {
+          verified.resolve();
         }
-        if (execution.signal.aborted) {
-          throw new Error(
-            cancellationReason(execution.signal, "validation was cancelled"),
-          );
-        }
-        await runtime.verify(execution);
+        await Promise.all(peers);
         return await runtime.produce(producer, execution);
       })().catch(failure);
       physical.set(key, work);
