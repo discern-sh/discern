@@ -189,8 +189,14 @@ jobs:
             --keychain "${APPLE_SIGNING_KEYCHAIN}" \
             --wait
           codesign --verify --strict --verbose=2 "dist/${{ matrix.output }}"
-          codesign -vvvv -R="notarized" --check-notarization \
-            "dist/${{ matrix.output }}"
+          # Apple's online ticket lookup can trail the notary service's
+          # acceptance by several seconds.
+          for attempt in 1 2 3 4 5 6; do
+            codesign -vvvv -R="notarized" --check-notarization \
+              "dist/${{ matrix.output }}" && break
+            [ "$attempt" -lt 6 ] || exit 1
+            sleep 10
+          done
 
       - name: Checksum
         working-directory: dist

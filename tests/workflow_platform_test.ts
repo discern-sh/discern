@@ -624,6 +624,20 @@ Deno.test("macOS release binaries are signed before smoke and notarized before c
   );
 });
 
+Deno.test("the online notarization check retries while Apple's ticket propagates", () => {
+  const build = job(releaseSource, "build", "release");
+  const start = build.indexOf("- name: Notarize ${{ matrix.output }}");
+  assert(start >= 0, "the target is notarized");
+  const step = build.slice(start, build.indexOf("- name:", start + 1));
+  const retry = step.match(/for attempt in ([\d ]+); do\n([\s\S]*?)\n\s*done/);
+  const last = (retry?.[1] ?? "").trim().split(" ").at(-1);
+  const body = retry?.[2] ?? "";
+  assertStringIncludes(body, '-R="notarized" --check-notarization');
+  assertStringIncludes(body, `[ "$attempt" -lt ${last} ] || exit 1`);
+  const pause = Number(body.trim().split(/\s+/).at(-1));
+  assert(pause > 0, "each failed lookup waits before the next attempt");
+});
+
 Deno.test("the hardened runtime grants only Deno's required JIT entitlement", () => {
   assertStringIncludes(
     entitlementsSource,
