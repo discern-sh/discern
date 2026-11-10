@@ -62,6 +62,24 @@ Deno.test("the actual Deno project resolves imported and generic promise-like ex
   );
 });
 
+Deno.test("a package that ships no declarations is typed through its @types sibling", async () => {
+  const project = await createPromiseEffectsProject();
+  const hooks = project.addSourceFileAtPath(
+    join(FIXTURE_ROOT, "untyped_package.ts"),
+  );
+  project.resolveSourceFileDependencies();
+
+  // Left untyped, every call into the package reads as unresolved, and the
+  // one real ignored promise is lost among calls that return nothing.
+  assertEquals(
+    promiseEffectFindingsInFiles([hooks]).map((finding) => [
+      finding.expression,
+      finding.reason,
+    ]),
+    [["Promise.resolve(count)", "ignored-promise"]],
+  );
+});
+
 /** Build one complete synthetic deliberate-detachment registry row. */
 function boundary(
   overrides: Partial<DetachedPromiseBoundary> = {},

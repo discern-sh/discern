@@ -413,13 +413,17 @@ export async function createPromiseEffectsProject(
           const nodeName = npmModuleName(concrete) ?? concrete;
           const packageParts = npmModuleParts(nodeName);
           if (packageParts !== undefined) {
-            let packageEntry = packagesByName.get(packageParts.name)?.[0];
-            if (packageEntry === undefined && packageParts.subpath === "") {
-              packageEntry = packagesByName.get(
-                `@types/${packageParts.name}`,
-              )?.[0];
-            }
-            if (packageEntry !== undefined) {
+            // A package that ships no declarations of its own is typed by
+            // its `@types` sibling, at the same subpath. An untyped module
+            // would make every call into it unresolvable.
+            let untyped: ts.ResolvedModuleFull | undefined;
+            for (
+              const packageEntry of [
+                packagesByName.get(packageParts.name)?.[0],
+                packagesByName.get(`@types/${packageParts.name}`)?.[0],
+              ]
+            ) {
+              if (packageEntry === undefined) continue;
               const manifestPath = join(packageEntry.localPath, "package.json");
               const manifest = host.fileExists(manifestPath)
                 ? packageJson(manifestPath)
@@ -436,21 +440,23 @@ export async function createPromiseEffectsProject(
                   : undefined
                 : undefined;
               const target = exported ?? manifestTypes ?? packageParts.subpath;
-              for (
-                const candidate of moduleFileCandidates(
-                  join(packageEntry.localPath, target),
-                )
-              ) {
-                if (!host.fileExists(candidate)) continue;
-                return {
-                  extension: compilerExtension(
-                    candidate.endsWith(".d.ts") ? "Dts" : undefined,
-                  ),
-                  isExternalLibraryImport: true,
-                  resolvedFileName: candidate,
-                };
-              }
+              const candidate = moduleFileCandidates(
+                join(packageEntry.localPath, target),
+              ).find((path) => host.fileExists(path));
+              if (candidate === undefined) continue;
+              const resolved = {
+                extension: compilerExtension(
+                  candidate.endsWith(".d.ts") ? "Dts" : undefined,
+                ),
+                isExternalLibraryImport: true,
+                resolvedFileName: candidate,
+              };
+              // A `.d.ts` or `.ts` candidate carries types; plain JavaScript
+              // waits in case the sibling has declarations.
+              if (candidate.endsWith(".ts")) return resolved;
+              untyped ??= resolved;
             }
+            if (untyped !== undefined) return untyped;
           }
           const direct = ts.resolveModuleName(
             nodeName,
