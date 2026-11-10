@@ -28,13 +28,31 @@ export function cardNumeral(card: WallCard): string | undefined {
 }
 
 /**
+ * The class of the box inside each card's face that draws the shared pointer
+ * light on that card's border. The pointer light finds the cards it may reach
+ * by this class, and writes its place on this box alone.
+ *
+ * The box is empty on purpose. A browser that restyles an element looks again
+ * at each of that element's children, so a value written on the face every
+ * frame would cost the glyph, the heading, and the line each frame as well.
+ * This box has no children to look at.
+ */
+export const CARD_LIGHT = "wall-card-light";
+
+/**
  * Where the pointer sits inside the card it is over: one number per axis, from
  * -1 at the leading edge to 1 at the trailing edge and 0 at the center. The
  * stylesheet turns the pair into that card's tilt and the light on its own
- * face. Both are written on the card's root, so they reach no other card.
+ * face. Both are written on the card's root on every pointer move inside it,
+ * and the stylesheet registers them so that they do not inherit: the pair
+ * reaches the two boxes that ask for it by name, and is never handed down
+ * through the card's glyph and its words.
  */
-const POINTER_X = "--wall-pointer-x";
-const POINTER_Y = "--wall-pointer-y";
+export const POINTER_PROPERTIES = [
+  "--wall-pointer-x",
+  "--wall-pointer-y",
+] as const;
+const [POINTER_X, POINTER_Y] = POINTER_PROPERTIES;
 
 /**
  * How far `at` lies across a span that starts at `start` and is `size` long,
@@ -122,6 +140,7 @@ export function Card({ card, receded, onOpen }: CardProps): ReactElement {
       onPointerLeave={leaveCard}
     >
       <div className="wall-card-face">
+        <span className={CARD_LIGHT} />
         {glyph === undefined
           ? null
           : <Glyph name={glyph} className="wall-card-glyph" />}

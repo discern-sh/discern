@@ -58,6 +58,15 @@ export const WALL_KNOBS = [
     default: 80,
   },
   {
+    name: "light-fade",
+    label: "Light fade",
+    unit: "",
+    min: 0,
+    max: 600,
+    step: 20,
+    default: 240,
+  },
+  {
     name: "hover-tilt",
     label: "Hover tilt",
     unit: "deg",

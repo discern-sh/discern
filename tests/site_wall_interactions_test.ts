@@ -20,12 +20,7 @@ import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
 import { Lens, lensRecedes } from "../site/wall/Lens.tsx";
 import { OpenCard } from "../site/wall/OpenCard.tsx";
 import type { WallCard, WallLens } from "../site/wall/types.ts";
-import {
-  lightAway,
-  type LightBox,
-  type LightPoint,
-  lightStep,
-} from "../site/wall/use_light.ts";
+import { type LightPoint, lightStep } from "../site/wall/use_light.ts";
 import {
   drawnFlat,
   openChange,
@@ -392,39 +387,6 @@ Deno.test("the light closes on its target without overshoot and arrives exactly"
   }
   assert(Math.abs(oneLongFrame.x - threeShort.x) < 1e-6);
   assert(Math.abs(oneLongFrame.y - threeShort.y) < 1e-6);
-});
-
-Deno.test("the light enters and leaves from out of sight, through the nearest edge", () => {
-  const box: LightBox = { left: 10, top: 60, right: 1430, bottom: 900 };
-  const reach = 520;
-  assertEquals(lightAway({ x: 40, y: 500 }, box, reach), { x: -510, y: 500 });
-  assertEquals(lightAway({ x: 1400, y: 500 }, box, reach), {
-    x: 1950,
-    y: 500,
-  });
-  assertEquals(lightAway({ x: 700, y: 70 }, box, reach), { x: 700, y: -460 });
-  assertEquals(lightAway({ x: 700, y: 890 }, box, reach), {
-    x: 700,
-    y: 1420,
-  });
-  // A pointer already past an edge still leaves through that edge.
-  assertEquals(lightAway({ x: 700, y: 55 }, box, reach), { x: 700, y: -460 });
-
-  for (let x = box.left; x <= box.right; x += 71) {
-    for (let y = box.top; y <= box.bottom; y += 53) {
-      const away = lightAway({ x, y }, box, reach);
-      const outside = Math.max(
-        box.left - away.x,
-        away.x - box.right,
-        box.top - away.y,
-        away.y - box.bottom,
-      );
-      assert(
-        outside >= reach - 1e-9,
-        `from ${x},${y} the light waits a full reach outside the wall`,
-      );
-    }
-  }
 });
 
 interface StyleRule {

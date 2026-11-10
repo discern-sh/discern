@@ -1,5 +1,41 @@
 /* Wall cards: the surface, type, and states of the three kinds. */
 
+/* What script writes on a card while the pointer moves: where the pointer
+ * sits inside the card it is over, and where the shared pointer light is
+ * from the corner of each card it reaches. Registered so that they do not
+ * inherit: a new value reaches the box it is written on and the boxes that
+ * ask for it by name, and is never handed down through the glyph and the
+ * words inside the card. */
+@property --wall-pointer-x {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --wall-pointer-y {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --wall-card-light-x {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wall-card-light-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wall-card-light-on {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
 @layer discern.components {
   .wall-card {
     --wall-accent: oklch(80% var(--wall-chroma) var(--wall-hue));
@@ -37,30 +73,9 @@
       transparent 72%
     );
 
-    /* The pointer light on the border, dark until the wall is near. Near, it
-     * is placed in viewport coordinates, so following the pointer measures
-     * nothing. A face that has moved loses that placement, so it takes the
-     * same light at the pointer's place inside the card instead. */
-    --wall-card-light: none;
-    --wall-card-glow:
-      oklch(
-        86% var(--wall-chroma) var(--wall-hue) /
-        calc(0.45 * var(--wall-light-strength))
-      ),
-      transparent 62%;
-    --wall-card-light-near:
-      radial-gradient(
-        calc(var(--wall-light-radius) * 0.7) circle at var(--wall-light-x)
-        var(--wall-light-y),
-        var(--wall-card-glow)
-      )
-      fixed;
-    --wall-card-light-own: radial-gradient(
-      calc(var(--wall-light-radius) * 0.7) circle at
-      calc(50% + var(--wall-pointer-x) * 50%)
-      calc(50% + var(--wall-pointer-y) * 50%),
-      var(--wall-card-glow)
-    );
+    /* The pointer's place inside the card, taken from the card's root. */
+    --wall-pointer-x: inherit;
+    --wall-pointer-y: inherit;
 
     position: relative;
     z-index: 0;
@@ -72,7 +87,6 @@
     background:
       var(--wall-card-wash) padding-box,
       var(--wall-card-surface) padding-box,
-      var(--wall-card-light) border-box,
       var(--wall-card-edge) border-box,
       linear-gradient(180deg, oklch(100% 0 0 / 0.16), oklch(100% 0 0 / 0.075))
       border-box;
@@ -84,6 +98,41 @@
       0 1px 1px oklch(0% 0 0 / 0.45),
       0 calc(var(--wall-gap) * 0.35) calc(var(--wall-gap) * 0.5)
       calc(var(--wall-gap) * -0.25) oklch(0% 0 0 / 0.8);
+  }
+
+  /* The shared pointer light as this card's border catches it. The box lies
+   * over the face's border and shows nowhere else: a mask leaves only that
+   * one-pixel ring. It is dark at rest, and the light writes its place and
+   * how far it has come up on each card within its reach. The place is
+   * measured from the card's own corner, so the light stays where it is on a
+   * face that lifts or tilts, and following the pointer changes brightness
+   * only. The box has nothing inside it, so a new place restyles it alone:
+   * written on the face, the same value would cost every child of the face
+   * a second look each frame. */
+  .wall-card-light {
+    --wall-card-light-x: 0px;
+    --wall-card-light-y: 0px;
+    --wall-card-light-on: 0;
+
+    position: absolute;
+    z-index: -2;
+    inset: -1px;
+    border: 1px solid transparent;
+    border-radius: var(--wall-radius);
+    background: radial-gradient(
+      var(--wall-light-throw) circle at var(--wall-card-light-x)
+      var(--wall-card-light-y),
+      oklch(
+        86% var(--wall-chroma) var(--wall-hue) /
+        calc(0.45 * var(--wall-light-strength) * var(--wall-card-light-on))
+      ),
+      transparent
+    )
+      border-box;
+    mask:
+      linear-gradient(oklch(0% 0 0) 0 0) padding-box exclude,
+      linear-gradient(oklch(0% 0 0) 0 0);
+    pointer-events: none;
   }
 
   /* Two layers sit between the surface and the words, and only their opacity
@@ -101,6 +150,9 @@
   }
 
   .wall-card-face::before {
+    --wall-pointer-x: inherit;
+    --wall-pointer-y: inherit;
+
     border: 1px solid transparent;
     background:
       radial-gradient(
@@ -234,19 +286,6 @@
   }
 
   @media (hover: hover) {
-    /* Near, the pointer light reaches card borders. It changes their
-     * brightness and nothing else. It needs a pointer to follow and a
-     * background the browser can place by the viewport, and a touch screen
-     * promises neither. */
-    .wall[data-wall-near] .wall-card-face {
-      --wall-card-light: var(--wall-card-light-near);
-    }
-
-    .wall[data-wall-near] .wall-card:hover .wall-card-face,
-    .wall[data-wall-near] .wall-card:active .wall-card-face {
-      --wall-card-light: var(--wall-card-light-own);
-    }
-
     /* Hover changes the hovered card and nothing else: its face takes the
      * light and its shadow deepens. */
     .wall-card:hover .wall-card-face::before,
@@ -324,6 +363,15 @@
     .wall-card {
       color-scheme: light;
     }
+
+    /* A statement's rule is a border on paper, which prints whether or not
+     * the reader prints backgrounds. */
+    .wall-card--statement .wall-card-title::before {
+      block-size: 0;
+      border-block-start: 2px solid CanvasText;
+      border-radius: 0;
+      background: none;
+    }
   }
 
   @media (forced-colors: active), print {
@@ -339,7 +387,8 @@
     }
 
     .wall-card-face::before,
-    .wall-card-face::after {
+    .wall-card-face::after,
+    .wall-card-light {
       display: none;
     }
 

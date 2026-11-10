@@ -1,6 +1,38 @@
 /* The homepage wall: the dark room, the pool, the stage and its approach, and
  * the closing call to action. */
 
+/* The pointer light's place and how far it has come up, which script writes
+ * on the wall root on every frame the light moves. Registered so that they
+ * do not inherit: a new value reaches the root and the one box that asks for
+ * it by name, and is never handed down through the room. */
+@property --wall-light-x {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wall-light-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wall-light-on {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* How far the pointer light reaches onto card borders at this moment, which
+ * script reads from the wall root. Registered as a length so that script
+ * reads it in pixels, and not to inherit: it changes as the wall arrives and
+ * leaves, and an inheriting value would restyle the whole wall each time. */
+@property --wall-light-reach {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 @layer discern.components {
   body {
     display: flex;
@@ -39,9 +71,15 @@
     --wall-edge: oklch(100% 0 0 / 0.12);
     --wall-focus: oklch(85% 0.12 255);
 
-    /* Where the pointer light rests while no pointer is over the wall. */
-    --wall-light-x: -999px;
-    --wall-light-y: -999px;
+    /* The pointer light at rest: nowhere, and dark. */
+    --wall-light-x: 0px;
+    --wall-light-y: 0px;
+    --wall-light-on: 0;
+
+    /* How far from the pointer light a card's border can catch it, and how
+     * far the light reaches now: no card takes it until the wall is near. */
+    --wall-light-throw: calc(var(--wall-light-radius) * 0.434);
+    --wall-light-reach: 0px;
 
     /* The room's side padding, which full-width sections reach back across. */
     --wall-gutter: clamp(0.75rem, 1.6vw, 1.5rem);
@@ -63,17 +101,9 @@
     font-size: 0.95rem;
     line-height: 1.5;
 
-    /* From the top: the pointer light, placed in viewport coordinates so
-     * following the pointer measures nothing and changes brightness only; the
-     * room's own light from above; a vignette down both sides; the canvas. */
+    /* From the top: the room's own light from above, a vignette down both
+     * sides, and the canvas. */
     background:
-      radial-gradient(
-      var(--wall-light-radius) circle at var(--wall-light-x)
-      var(--wall-light-y),
-      oklch(100% 0 0 / calc(0.055 * var(--wall-light-strength))),
-      transparent 62%
-    )
-      fixed,
       radial-gradient(
       80rem 44rem at 50% -14rem,
       oklch(36% 0.08 258 / 0.42),
@@ -90,6 +120,43 @@
     box-shadow: inset 0 0 0 1px oklch(100% 0 0 / 0.07);
   }
 
+  /* The pointer light on the canvas: one soft disc under everything the room
+   * holds, carried to wherever the light is. Following the pointer moves
+   * this one box and changes how far up it is. It changes brightness only,
+   * lays out nothing, and no card is restyled for it. The disc is painted
+   * into the room's own layer: given a layer of its own, the browser lifts
+   * every card off the canvas into a second layer the size of the wall. */
+  .wall::before {
+    --wall-light-x: inherit;
+    --wall-light-y: inherit;
+    --wall-light-on: inherit;
+
+    position: absolute;
+    inset: 0 auto auto 0;
+    z-index: -1;
+    inline-size: calc(var(--wall-light-radius) * 1.24);
+    block-size: calc(var(--wall-light-radius) * 1.24);
+    margin: calc(var(--wall-light-radius) * -0.62) 0 0
+      calc(var(--wall-light-radius) * -0.62);
+    background: radial-gradient(
+      closest-side,
+      oklch(100% 0 0 / calc(0.055 * var(--wall-light-strength))),
+      transparent
+    );
+    opacity: var(--wall-light-on);
+    translate: var(--wall-light-x) var(--wall-light-y);
+    pointer-events: none;
+    content: "";
+  }
+
+  /* Near, card borders catch the light too, out to its full throw. That
+   * needs a pointer to follow, which a touch screen does not promise. */
+  @media (hover: hover) {
+    .wall[data-wall-near] {
+      --wall-light-reach: var(--wall-light-throw);
+    }
+  }
+
   /* Fine grain over the whole room, cards included, so its large dark
    * gradients do not band. One tile the browser draws once and repeats. */
   .wall::after {
@@ -101,6 +168,19 @@
     opacity: var(--wall-grain);
     pointer-events: none;
     content: "";
+  }
+
+  /* Selected words keep their own color, on a wash of the room's blue. The
+   * site's selection colors follow the site theme, and the room is dark in
+   * both: they put dark ink on its dark cards in one theme and white on its
+   * white button in the other. They also read the site's tokens, which the
+   * browser works out afresh for every element it restyles, so a selection
+   * style that reads one makes every restyle in the room several times
+   * dearer. These colors are written out and read none. */
+  .wall::selection,
+  .wall ::selection {
+    color: currentcolor;
+    background: oklch(72% 0.13 258 / 0.3);
   }
 
   .wall :where(h1, h2, p, ul, li) {
@@ -119,16 +199,6 @@
   .wall :where(a, button):focus-visible {
     outline: 2px solid var(--wall-focus);
     outline-offset: 3px;
-  }
-
-  /* The pointer light's place is inherited, so each frame it moves restyles
-   * everything that inherits it. The pool and the closing section take no
-   * pointer light, so its place stops at their edge and their contents are
-   * left alone. */
-  .wall-pool,
-  .wall-closing {
-    --wall-light-x: -999px;
-    --wall-light-y: -999px;
   }
 
   /* The pool: the upright, readable center of the first viewport. It sits
@@ -437,14 +507,7 @@
         perspective-origin: 50% calc(var(--wall-vanish) * -1svh);
       }
 
-      /* A far card takes no pointer light: a transformed plane has no
-       * viewport coordinates to place it in. So the light's place stops here
-       * while the plane is far, and a pointer crossing the first viewport
-       * restyles the room, not every card in it. */
       .wall:not([data-wall-near]) .wall-plane {
-        --wall-light-x: -999px;
-        --wall-light-y: -999px;
-
         position: relative;
         transform-origin: 50% 0;
         animation:
@@ -507,20 +570,44 @@
     }
   }
 
+  /* Forced colors drop every gradient: the room's light, its grain, and the
+   * fade behind the lens bar. The bar gets a solid backing in the system's
+   * own canvas and a rule along its foot instead, so cards pass under it and
+   * no chip is left sitting on a card's words. */
   @media (forced-colors: active) {
     .wall-headline {
       mask-image: none;
     }
 
+    .wall::before,
     .wall::after {
       display: none;
+    }
+
+    .wall-controls {
+      padding-block-end: 0.875rem;
+    }
+
+    .wall-controls::before {
+      border-block-end: 1px solid CanvasText;
+      background: Canvas;
     }
   }
 
   /* On paper the room is a plain sheet: dark ink, no light, and no controls.
    * It keeps a light surface of its own, so its ink stays readable whether or
-   * not the reader prints backgrounds. */
+   * not the reader prints backgrounds, and the page around it gives up the
+   * site's canvas, so no dark margin frames the sheet. */
   @media print {
+    html,
+    body {
+      background: none;
+    }
+
+    .wall-frame {
+      padding: 0;
+    }
+
     .wall {
       --wall-ink: CanvasText;
       --wall-ink-muted: CanvasText;
@@ -533,6 +620,7 @@
       box-shadow: none;
     }
 
+    .wall::before,
     .wall::after,
     .wall-controls {
       display: none;

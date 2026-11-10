@@ -12,6 +12,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { WALL_STYLESHEETS } from "../site/wall/assets.ts";
 import {
   Card,
+  CARD_LIGHT,
   cardGlyph,
   cardHeading,
   cardNumeral,
@@ -20,6 +21,7 @@ import {
 import { WALL_DECK } from "../site/wall/deck.ts";
 import { WALL_KNOBS } from "../site/wall/tuning/knobs.ts";
 import type { WallCard } from "../site/wall/types.ts";
+import { LIGHT_PROPERTIES, LIGHT_REACH } from "../site/wall/use_light.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -90,15 +92,19 @@ function cardCopy(card: WallCard): string {
   ].join(" ");
 }
 
+/** The box that draws the pointer light on a card, as the face's first child. */
+const LIGHT_BOX = `span.${CARD_LIGHT}`;
+
 /** The face's children for each kind, in order. */
 const FACE: Readonly<Record<WallCard["kind"], readonly string[]>> = {
   benefit: [
+    LIGHT_BOX,
     "svg.wall-glyph.wall-card-glyph",
     "h2.wall-card-title",
     "p.wall-card-line",
   ],
-  statement: ["h2.wall-card-title"],
-  numeral: ["h2.wall-card-title", "p.wall-card-line"],
+  statement: [LIGHT_BOX, "h2.wall-card-title"],
+  numeral: [LIGHT_BOX, "h2.wall-card-title", "p.wall-card-line"],
 };
 
 Deno.test("every card in the deck renders its kind's markup", () => {
@@ -123,6 +129,13 @@ Deno.test("every card in the deck renders its kind's markup", () => {
     const face = item.firstElementChild;
     assert(face !== null);
     assertEquals([...face.children].map(shape), FACE[card.kind], card.id);
+    // The light writes on this box every frame it moves, and a box with
+    // anything inside it would have that restyled too.
+    assertEquals(
+      face.firstElementChild?.childNodes.length,
+      0,
+      `${card.id}: the light box is empty`,
+    );
 
     // One control per card, in the heading, named by its own content.
     const controls = item.querySelectorAll("a, button, input, [tabindex]");
@@ -496,54 +509,107 @@ Deno.test("the hover tilt is the knob's angle at most, and the lift a few pixels
   );
 });
 
-Deno.test("the viewport-placed light is used only near, and never on a face that moves", async () => {
-  const rules = await cardRules();
-  const sheet = withoutComments(await readSheet(CARD_SHEET));
-
-  // One declaration places a background by the viewport.
-  const fixed = rules.flatMap((rule) =>
-    rule.declarations.filter(([, value]) => /\bfixed\b/.test(value)).map((
-      [property],
-    ) => property)
-  );
-  assertEquals(fixed, ["--wall-card-light-near"]);
-  assertEquals((sheet.match(/\bfixed\b/g) ?? []).length, 1);
-
-  const nearUsers = rules.filter((rule) =>
-    rule.declarations.some(([property, value]) =>
-      property !== "--wall-card-light-near" &&
-      value.includes("var(--wall-card-light-near)")
-    )
-  );
-  assert(nearUsers.length > 0, "the near light reaches the card borders");
-  for (const rule of nearUsers) {
-    assert(
-      rule.context.some((query) => query.includes("hover: hover")),
-      `${rule.selector} follows a pointer on a screen that may have none`,
-    );
-    for (const selector of selectors(rule)) {
-      assert(
-        selector.startsWith(".wall[data-wall-near] "),
-        `${selector} places a background by the viewport while the plane may be transformed`,
-      );
+Deno.test("no wall surface is placed by the viewport", async () => {
+  // A background fixed to the viewport is repainted on every frame the page
+  // scrolls, and is drawn in the wrong place on anything that has moved.
+  const fixed: string[] = [];
+  let surfaces = 0;
+  for (const sheet of WALL_STYLESHEETS) {
+    for (const rule of cssRules(withoutComments(await readSheet(sheet)))) {
+      for (const [property, value] of rule.declarations) {
+        if (!/^(?:background(?:-attachment)?|--[\w-]+)$/.test(property)) {
+          continue;
+        }
+        surfaces++;
+        if (/\bfixed\b/.test(value)) {
+          fixed.push(`${sheet}: ${rule.selector} { ${property} }`);
+        }
+      }
     }
   }
+  assertEquals(fixed, []);
+  assert(surfaces > 0, "the wall stylesheets declare their surfaces");
+});
 
-  // A transformed element draws a viewport-placed background in the wrong
-  // place, so each state that moves the face swaps in the card's own light.
-  const movers = rules.filter((rule) =>
-    declared(rule, "transform") !== undefined
-  ).flatMap(selectors);
-  assert(movers.length > 0);
-  for (const mover of movers) {
-    assert(FACE_SUBJECT.test(mover), `${mover} moves something off the face`);
-    const swap = rules.find((rule) =>
-      selectors(rule).includes(`.wall[data-wall-near] ${mover}`)
+Deno.test("a card's border catches the pointer light through one box, near and where a pointer can hover", async () => {
+  const rules = await cardRules();
+  const box = rules.find((rule) =>
+    rule.selector === `.${CARD_LIGHT}` && rule.context.length === 1
+  );
+  assert(box !== undefined, "the light box has its resting rule");
+
+  // The box lies over the whole face and shows on its border ring alone.
+  assert(
+    /\bpadding-box exclude\b/.test(declared(box, "mask") ?? ""),
+    "the light box is masked down to the border",
+  );
+  assertEquals(declared(box, "pointer-events"), "none");
+
+  // It is placed from the card's own corner by what the light writes, it
+  // reaches as far as the room says, and it is dark until the light is up.
+  const [x, y, on] = LIGHT_PROPERTIES.card;
+  const light = declared(box, "background") ?? "";
+  const thrown = /^radial-gradient\( (var\(--wall-[\w-]+\)) circle at /.exec(
+    light,
+  )?.[1];
+  assert(
+    thrown !== undefined,
+    "the light box draws a round light of a named size",
+  );
+  assert(
+    light.includes(`${thrown} circle at var(${x}) var(${y})`),
+    "the light box places its light where the light says",
+  );
+  assert(light.includes(`var(${on})`), "the light box dims with the light");
+  assertEquals(
+    [x, y, on].map((name) => declared(box, name)),
+    ["0px", "0px", "0"],
+    "the light box rests dark",
+  );
+
+  // Only its brightness ever changes: nothing moves or fades it.
+  const still =
+    /^(?:transform|translate|rotate|scale|transition(?:-.+)?|animation(?:-.+)?|opacity|filter|will-change)$/;
+  const moved = rules.filter((rule) =>
+    selectors(rule).some((selector) => selector.endsWith(`.${CARD_LIGHT}`))
+  ).flatMap((rule) =>
+    rule.declarations.filter(([property]) => still.test(property)).map((
+      [property],
+    ) => `${rule.selector} { ${property} }`)
+  );
+  assertEquals(moved, []);
+
+  // The room alone says how far the light reaches, and it reaches cards only
+  // while the wall is near and the screen has a pointer to follow. A far
+  // plane is tilted, and a touch screen has nothing for the light to follow.
+  const room = cssRules(withoutComments(await readSheet("wall.css"))).filter((
+    rule,
+  ) => declared(rule, LIGHT_REACH) !== undefined);
+  assert(
+    room.some((rule) =>
+      rule.selector === ".wall" && rule.context.length === 1 &&
+      declared(rule, LIGHT_REACH) === "0px"
+    ),
+    "no card takes the light at rest",
+  );
+  const reaching = room.filter((rule) => declared(rule, LIGHT_REACH) !== "0px");
+  assert(reaching.length > 0, "the light reaches card borders somewhere");
+  for (const rule of reaching) {
+    assert(
+      rule.context.some((query) => query.includes("hover: hover")),
+      `${rule.selector} lights cards on a screen that may have no pointer`,
     );
     assertEquals(
-      swap === undefined ? undefined : declared(swap, "--wall-card-light"),
-      "var(--wall-card-light-own)",
-      `${mover} moves the face but keeps the viewport-placed light`,
+      selectors(rule),
+      [".wall[data-wall-near]"],
+      "the light reaches cards while the plane may be tilted",
+    );
+    // Script lights the cards within this reach, so it must be exactly as
+    // far as the light box draws its light.
+    assertEquals(
+      declared(rule, LIGHT_REACH),
+      thrown,
+      "script and stylesheet disagree on how far the light is thrown",
     );
   }
 });
@@ -688,6 +754,17 @@ Deno.test("print and forced colors get flat cards in system colors", async () =>
     assertEquals(declared(flat, "color"), "CanvasText", mode);
     assertEquals(declared(flat, "border-color"), "CanvasText", mode);
     assertEquals(declared(flat, "box-shadow"), "none", mode);
+  }
+  // The pointer light has no meaning in either, so its box is not drawn.
+  for (const mode of ["forced-colors: active", "print"]) {
+    assert(
+      rules.some((rule) =>
+        selectors(rule).includes(`.${CARD_LIGHT}`) &&
+        rule.context.some((query) => query.includes(mode)) &&
+        declared(rule, "display") === "none"
+      ),
+      `${mode} leaves the light box out`,
+    );
   }
   // The wall is dark, so paper needs the light scheme's system colors.
   assert(
