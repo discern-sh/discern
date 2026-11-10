@@ -9,6 +9,7 @@ import {
   arc,
   band,
   bar,
+  bracket,
   dashed,
   dot,
   frame,
@@ -44,11 +45,10 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // Two parties joined directly; the go-between's place stands empty.
   "wait-without-relay": [
-    bar(11, 31, 18, 8, "tint"),
-    dot(11, 35, 8),
-    dot(37, 35, 8, "tint"),
-    ring(37, 35, 8),
-    shift(dashed(ring(24, 12.5, 7.5)), 0, -2),
+    bar(6, 20.5, 36, 7, "solid", -38),
+    dot(10, 35, 7),
+    dot(38, 13, 7),
+    shift(ring(37, 37, 6.5), 2, 2),
   ],
   // Steps rising from a base that is still pending.
   "compose-staged-work": [
@@ -71,18 +71,20 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // A line dropped in the middle, bridged back into one.
   "agent-resume-after-interruption": [
-    bar(3, 34, 11, 9, "tint"),
-    bar(34, 34, 11, 9, "tint"),
-    dashed(line(18, 38.5, 30, 38.5)),
-    band(24, 37, 17, 7.5, 270, 180),
+    bar(3, 36, 11, 9, "tint"),
+    bar(34, 36, 11, 9, "tint"),
+    dashed(line(15.25, 40.5, 32.75, 40.5)),
+    band(24, 22, 15.25, 7.5, 270, 180),
+    bar(5, 21, 7.5, 13),
+    bar(35.5, 21, 7.5, 13),
   ],
-  // A lens over the one row that matters.
+  // Four marks frame the one thing worth a look.
   "reduce-routine-review": [
-    ring(20, 20, 15.5),
-    bar(30.25, 35, 15, 5.5, "solid", 45),
-    bar(13, 9.5, 14, 4, "tint"),
-    bar(10.5, 17.25, 19, 5.5),
-    bar(13, 26.5, 10, 4, "tint"),
+    bracket(3, 3, 16, 16, 5.5),
+    bracket(45, 3, -16, 16, 5.5),
+    bracket(3, 45, 16, -16, 5.5),
+    bracket(45, 45, -16, -16, 5.5),
+    bar(12, 19, 24, 10),
   ],
   // A decision point, set into the path of a change.
   "judgment-at-the-change": [
@@ -150,11 +152,12 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(6, 17, 36, 27, "tint"),
     bar(17, 25, 14, 5),
   ],
-  // A fan of variations, opened from one hand.
+  // A pinwheel: a thing made to be spun, again and again.
   "explicit-release-decision": [
-    bar(17.91, 12.38, 12, 38, "tint", 68),
-    bar(12.39, 5.56, 12, 38, "tint", 34),
-    bar(4, 3, 12, 38),
+    sector(24, 3.5, 20.5, 90, 90),
+    sector(44.5, 24, 20.5, 180, 90, "tint"),
+    sector(24, 44.5, 20.5, 270, 90),
+    sector(3.5, 24, 20.5, 0, 90, "tint"),
   ],
   // A wall with one lane left open.
   "bounded-standing-permission": [
@@ -185,11 +188,11 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // A gauge holding the level it has reached.
   "retain-measured-gains": [
-    band(24, 34, 17.5, 8, 270, 180, "tint"),
-    band(24, 34, 17.5, 8, 270, 115),
-    dot(24, 34, 5),
+    band(24, 28, 17.5, 8, 240, 240, "tint"),
+    band(24, 28, 17.5, 8, 240, 165),
+    dot(24, 28, 5),
   ],
-  // A marker moved up its track, the old position left behind.
+  // A marker raised on its track, with an outline where it stood.
   "pin-new-baseline": [
     bar(21, 3, 6, 5.5, "tint"),
     bar(21, 19.5, 6, 10, "tint"),
@@ -206,12 +209,10 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(15, 41, 9, 4, "tint"),
     bar(15, 20, 30, 8.5),
   ],
-  // The whole class, kept behind bars.
+  // The empty set: nowhere left for the bug to live.
   "remove-bug-class": [
-    dot(24, 24, 19, "tint"),
-    bar(10.5, 3, 5.5, 42),
-    bar(21.25, 3, 5.5, 42),
-    bar(32, 3, 5.5, 42),
+    band(24, 24, 15.5, 6.5, 0, 360),
+    bar(-1, 21, 50, 6, "solid", -45),
   ],
   // Bars fading as they step down to an empty place on the baseline.
   "retire-old-pattern": [
@@ -231,8 +232,8 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // Two links of a chain, one of them broken.
   "catch-documentation-breakage": [
-    shift(band(32.5, 24, 10, 6, 50, 260, "tint"), 2, 0),
-    band(15.5, 24, 10, 6, 0, 360),
+    shift(band(31, 31, 11, 6.5, 95, 260, "tint"), 2, 2),
+    band(17, 17, 11, 6.5, 0, 360),
   ],
   // A tally where one bar stands far above the rest.
   "improve-practice-from-evidence": [
@@ -268,11 +269,10 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(17.5, 22.5, 9, 9, "solid", 45),
     bar(7, 4, 34, 23),
   ],
-  // A clock face with only its first quarter spent.
+  // A whole disc, and the one quarter that needs reading.
   "orient-new-session": [
     dot(24, 24, 21, "tint"),
-    ring(24, 24, 21),
-    sector(24, 24, 15, 0, 90),
+    sector(24, 24, 21, 0, 90),
   ],
   // Sheets gathered behind a single front page.
   "export-project-briefing": [
@@ -280,19 +280,19 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(10.5, 8.5, 24, 30, "tint"),
     bar(5, 14, 24, 30),
   ],
-  // One solid original; its echoes fade.
+  // One solid original; its echoes widen and fade.
   "reuse-engineering-discipline": [
-    dashed(arc(31, 24, 14, 338, 224)),
-    arc(24, 24, 14, 338, 224),
+    arc(28.5, 24, 18, 338, 224, "tint"),
+    arc(23, 24, 16, 338, 224),
     dot(17, 24, 14),
   ],
   // A ladder, climbed one rung at a time.
   "agent-invoke-curated-project-procedures": [
-    bar(10, 8, 28, 5.5, "tint"),
-    bar(10, 21.25, 28, 5.5),
-    bar(10, 34.5, 28, 5.5),
-    bar(8, 3, 3.5, 42),
-    bar(36.5, 3, 3.5, 42),
+    bar(6, 8, 36, 6, "tint"),
+    bar(6, 21, 36, 6),
+    bar(6, 34, 36, 6),
+    bar(4, 3, 4.5, 42),
+    bar(39.5, 3, 4.5, 42),
   ],
   // The discern mark settling into the place made for it.
   "agent-commissioning": [
@@ -303,14 +303,14 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
       ], [4, 45]],
       "tint",
     ),
-    shift(split(24, 22, 21, 18.5), 0, 3),
+    shift(split(24, 18, 23, 24), 0, 3),
   ],
-  // One piece in place; the three it never needs stay outlines.
+  // One piece in place; the three it never needs stay empty.
   "small-installation-footprint": [
-    dashed(frame(3, 3, 19.5, 19.5, 5.5)),
-    dashed(frame(25.5, 3, 19.5, 19.5, 5.5)),
-    dashed(frame(25.5, 25.5, 19.5, 19.5, 5.5)),
     bar(3, 25.5, 19.5, 19.5),
+    ring(12.75, 12.75, 8.5),
+    ring(35.25, 12.75, 8.5),
+    ring(35.25, 35.25, 8.5),
   ],
   // The discern mark inside a loop that feeds back into itself.
   "inspect-live-example": [
@@ -328,13 +328,17 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   // A pulse crossing a steady disc.
   "agent-manage-the-installation-lifecycle": [
     dot(24, 24, 18, "tint"),
-    trail([[3, 24], [14, 24], [19.5, 12], [27.5, 36], [33, 24], [45, 24]]),
+    bar(3, 22, 13, 4),
+    bar(8.15, 16, 17.2, 4, "solid", -65.4),
+    bar(8.85, 22, 29.3, 4, "solid", 71.6),
+    bar(21.65, 28, 17.2, 4, "solid", -65.4),
+    bar(31, 22, 14, 4),
   ],
   // A switch that flips either way.
   "switch-providers": [
-    frame(3, 10, 42, 28, 14),
-    dashed(ring(17, 24, 7.5)),
-    shift(dot(31, 24, 9.5), -3, 0),
+    frame(3, 7, 42, 34, 17),
+    dashed(ring(20, 24, 9)),
+    shift(dot(30, 24, 12), -3, 0),
   ],
   // Three different shapes standing on one baseline.
   "practice-across-stacks": [
@@ -380,16 +384,16 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(18.25, 32.5, 11.5, 12.5),
     bar(33.5, 32.5, 11.5, 12.5, "tint"),
   ],
-  // The discern mark lifting away; the stack beneath it stays.
+  // The discern mark lifting away, hollow; the stack beneath it stays.
   "retain-work-after-uninstall": [
     bar(3, 37, 42, 8),
     bar(3, 26, 42, 8),
-    shift(dashed(trail([[14, 21], [34, 21], [24, 5], [14, 21]])), 0, -2),
+    shift(poly([[13, 21], [35, 21], [24, 4]], "outline"), 0, -2),
   ],
   // Two agents overlapping on one task.
   "agent-switch-supported-agent-hosts": [
-    dot(18, 24, 15, "tint"),
-    ring(30, 24, 15),
+    dot(18, 18, 15, "tint"),
+    ring(30, 30, 15),
     dot(24, 24, 5),
   ],
   // A whole shell with nothing fitted inside it.
@@ -399,11 +403,9 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // Two lines, and the one thing that travels between them.
   "explicit-write-authority": [
-    bar(0.16, 11.91, 30, 6.5, "solid", -45),
-    bar(17.84, 29.59, 30, 6.5, "solid", -45),
-    dot(13.5, 34.5, 2.6, "tint"),
-    dot(19.5, 28.5, 4, "tint"),
-    shift(dot(28.5, 19.5, 6), 2, -2),
+    bar(-2, 14.5, 38, 5, "solid", -45),
+    bar(12, 28.5, 38, 5, "solid", -45),
+    shift(dot(24, 24, 5.5), 2, -2),
   ],
   // A signal that fades and stops at the wall.
   "agent-diagnose-workflow-friction-locally": [

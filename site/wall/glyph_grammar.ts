@@ -30,7 +30,7 @@ export type GlyphStrokeTone = Exclude<GlyphTone, "solid">;
 export type GlyphPoint = readonly [x: number, y: number];
 
 interface Movable {
-  /** How far the primitive travels while its card is hovered, in grid units. */
+  /** How far the primitive travels while its card is lit, in grid units. */
   readonly shift?: GlyphPoint;
 }
 
@@ -267,6 +267,30 @@ export function poly(
 }
 
 /**
+ * A solid bracket around a corner: its elbow at `x`, `y`, one arm reaching
+ * `dx` across and the other `dy` down, each `thick` wide. A negative reach
+ * turns that arm the other way.
+ */
+export function bracket(
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  thick: number,
+): PolyPrimitive {
+  const tx = dx < 0 ? -thick : thick;
+  const ty = dy < 0 ? -thick : thick;
+  return poly([
+    [x, y],
+    [x + dx, y],
+    [x + dx, y + ty],
+    [x + tx, y + ty],
+    [x + tx, y + dy],
+    [x, y + dy],
+  ]);
+}
+
+/**
  * The split triangle of the discern mark: an upright triangle `w` wide and `h`
  * tall, its right half solid and its left half tinted. A rare accent.
  */
@@ -291,7 +315,7 @@ export function dashed<
   return { ...primitive, dashed: true };
 }
 
-/** The same primitive, travelling `dx`, `dy` grid units while its card is hovered. */
+/** The same primitive, travelling `dx`, `dy` grid units while its card is lit. */
 export function shift<Primitive extends GlyphPrimitive>(
   primitive: Primitive,
   dx: number,
@@ -491,23 +515,30 @@ function barCorner(w: number, h: number): number {
   return Math.min(Math.min(w, h) / 2.4, Math.max(w, h) / 5, 4.5);
 }
 
-/** The length a dash and the gap after it share along a stroke. */
-const DASH_PERIOD = 5.6;
+/**
+ * The least length a dash and the gap after it share along a stroke. The
+ * stylesheet draws a dashed stroke heavier than a whole one, because the gaps
+ * take ink away, and a dash's round caps extend it by that weight. The period
+ * leaves a clear gap between two dashes at the heaviest setting of the weight
+ * knob.
+ */
+const DASH_PERIOD = 7.4;
 /** The drawn length of a dash before the stroke's round caps extend it. */
-const DASH_LENGTH = 1.5;
+const DASH_LENGTH = 2.2;
 
 /**
  * A dash pattern that divides a stroke evenly: a closed stroke meets itself
- * without a seam, and an open one begins and ends on a whole dash.
+ * without a seam, and an open one begins and ends on a whole dash. A stroke
+ * takes as many dashes as fit at the period, so the gaps only ever widen.
  */
 function dashes(length: number, closed: boolean): string {
   if (closed) {
-    const count = Math.max(2, Math.round(length / DASH_PERIOD));
+    const count = Math.max(2, Math.floor(length / DASH_PERIOD));
     return `${DASH_LENGTH} ${round(length / count - DASH_LENGTH)}`;
   }
   const count = Math.max(
     2,
-    Math.round((length + DASH_PERIOD - DASH_LENGTH) / DASH_PERIOD),
+    Math.floor((length + DASH_PERIOD - DASH_LENGTH) / DASH_PERIOD),
   );
   const gap = (length - count * DASH_LENGTH) / (count - 1);
   return `${DASH_LENGTH} ${round(gap)}`;
@@ -850,7 +881,7 @@ export function seededGlyph(name: string): GlyphDrawing {
     case 1: {
       const lit = pick(3);
       return [0, 1, 2].map((column) => {
-        const height = 24 + pick(4) * 6;
+        const height = 34 + pick(3) * 4;
         return bar(
           3 + column * 15.5,
           45 - height,
@@ -890,7 +921,7 @@ export function seededGlyph(name: string): GlyphDrawing {
         bar(
           3,
           4 + row * 15.5,
-          30 + pick(3) * 6,
+          34 + pick(3) * 4,
           9,
           row === lit ? "solid" : "tint",
         )

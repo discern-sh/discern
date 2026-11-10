@@ -4,17 +4,21 @@
  * the markup is stable enough to hydrate, and the triangle stays a rare accent.
  *
  * The set also has to read as one family at the size it is shown. Each glyph
- * is measured as the ink it lays on the grid, so that none is faint, none is
- * cramped into a corner of its grid, no two share a silhouette, and no single
- * device is leaned on by several glyphs. Every authored glyph belongs to a
- * card on the wall.
+ * is measured as the ink it lays on the grid, so that none is faint, none
+ * leaves a side of its grid empty, no two share a silhouette, and no single
+ * device is leaned on by several glyphs. A dashed stroke carries enough ink to
+ * be seen. Every authored glyph belongs to a card on the wall.
+ *
+ * A glyph's one move belongs to its card's light: the glyph is posed exactly
+ * where the card stylesheet lights the card, and wherever else a lit card's
+ * glyph is drawn.
  */
 import { assert, assertEquals, assertStrictEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Project, SyntaxKind } from "ts-morph";
-import { cardGlyph } from "../site/wall/Card.tsx";
+import { Card, cardGlyph } from "../site/wall/Card.tsx";
 import { WALL_DECK } from "../site/wall/deck.ts";
 import { Glyph } from "../site/wall/Glyph.tsx";
 import {
@@ -37,7 +41,9 @@ import {
   split,
 } from "../site/wall/glyph_grammar.ts";
 import { glyphDrawing, GLYPHS } from "../site/wall/glyphs.ts";
+import { OpenCard } from "../site/wall/OpenCard.tsx";
 import { WALL_KNOBS } from "../site/wall/tuning/knobs.ts";
+import { OPENING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
 import {
   readScopedSources,
   structuralGuardScope,
@@ -69,9 +75,32 @@ function glyphKnob(
   return knob;
 }
 
-/** The heaviest stroke the tuning panel can set, in grid units. */
-function heaviestStroke(): number {
-  return glyphKnob("glyph-weight").max;
+/** A wall stylesheet's source. */
+function wallSheet(name: string): string {
+  return Deno.readTextFileSync(join(ROOT, "site/page-src", name));
+}
+
+/** The glyph stylesheet, as the wall ships it. */
+const GLYPH_SHEET = wallSheet("wall-glyph.css");
+
+/**
+ * The number the glyph stylesheet multiplies a knob by where it sets a
+ * property: a declaration of the form `calc(var(--wall-glyph-<knob>) * n)`.
+ */
+function sheetFactor(property: string, knob: string): number {
+  const found = new RegExp(
+    `${property}:\\s*calc\\(\\s*var\\(--wall-glyph-${knob}\\)\\s*\\*\\s*([\\d.]+)\\s*\\)`,
+  ).exec(GLYPH_SHEET);
+  assert(
+    found !== null,
+    `the stylesheet sets ${property} as a multiple of the ${knob} knob`,
+  );
+  return Number(found[1]);
+}
+
+/** How much heavier than a whole stroke the stylesheet draws a dashed one. */
+function dashedWeight(): number {
+  return sheetFactor("stroke-width", "weight");
 }
 
 /** Render one glyph the way the server does. */
@@ -98,6 +127,33 @@ function stroked(primitive: GlyphPrimitive): boolean {
   return shapesOf(primitive).some((shape) =>
     shape.paint === "outline" || shape.paint === "faint"
   );
+}
+
+/** A dashed primitive's pattern as the grammar writes it: a dash, then a gap. */
+function dashPattern(
+  primitive: GlyphPrimitive,
+): readonly [drawn: number, gap: number] | undefined {
+  const dash = shapesOf(primitive).find((shape) => shape.dash !== undefined)
+    ?.dash;
+  if (dash === undefined) return undefined;
+  const [drawn = NaN, gap = NaN] = dash.split(" ").map(Number);
+  return [drawn, gap];
+}
+
+/**
+ * How a primitive's stroke is laid when a whole stroke is `weight` wide: its
+ * own width, and the share of its length that carries ink. A dash's round
+ * caps extend it by the stroke's width.
+ */
+function strokeOf(
+  primitive: GlyphPrimitive,
+  weight: number,
+): { readonly width: number; readonly share: number } {
+  const pattern = dashPattern(primitive);
+  if (pattern === undefined) return { width: weight, share: 1 };
+  const width = weight * dashedWeight();
+  const [drawn, gap] = pattern;
+  return { width, share: Math.min(1, (drawn + width) / (drawn + gap)) };
 }
 
 /** How many different points a list holds. */
@@ -197,7 +253,9 @@ function drawingProblems(name: string, drawing: GlyphDrawing): string[] {
       return;
     }
     const extent = primitiveExtent(primitive);
-    const margin = stroked(primitive) ? heaviestStroke() / 2 : 0;
+    const margin = stroked(primitive)
+      ? strokeOf(primitive, glyphKnob("glyph-weight").max).width / 2
+      : 0;
     const [dx, dy] = primitive.shift ?? [0, 0];
     const reach = {
       left: extent.minX - margin + Math.min(0, dx),
@@ -380,7 +438,7 @@ Deno.test("the grammar serializes primitives exactly", () => {
     cy: 24,
     r: 7,
     paint: "outline",
-    dash: "1.5 4",
+    dash: "2.2 6.6",
   }]);
   assertEquals(drawPrimitive(bar(10, 20, 20, 6, "tint", 45)), [{
     el: "rect",
@@ -499,27 +557,48 @@ Deno.test("glyph modules compute with exact arithmetic and nothing that varies b
   assertEquals(violations, []);
 });
 
-/**
- * A stylesheet with one block cut out: everything before the block's opening
- * line and after its closing brace. Undefined when the sheet has no such block.
- */
-function outsideBlock(sheet: string, opening: string): string | undefined {
-  const start = sheet.indexOf(opening);
-  const open = start < 0 ? -1 : sheet.indexOf("{", start);
-  if (open < 0) return undefined;
-  let depth = 0;
-  for (let index = open; index < sheet.length; index++) {
-    if (sheet[index] === "{") depth++;
-    if (sheet[index] === "}") depth--;
-    if (depth === 0) return sheet.slice(0, start) + sheet.slice(index + 1);
-  }
-  return undefined;
+/** One style rule of a stylesheet, with the at-rules around it. */
+interface SheetRule {
+  /** Every at-rule the rule sits inside, outermost first. */
+  readonly within: readonly string[];
+  readonly selectors: readonly string[];
+  readonly declarations: string;
 }
 
-Deno.test("the glyph stylesheet styles everything the renderer emits, in currentColor alone", async () => {
-  const sheet = await Deno.readTextFile(
-    join(ROOT, "site/page-src/wall-glyph.css"),
+/**
+ * The style rules of a stylesheet. The wall's stylesheets nest style rules
+ * inside at-rules and never inside each other, which is all this reads.
+ */
+function sheetRules(sheet: string): SheetRule[] {
+  const parts = sheet.replace(/\/\*[\s\S]*?\*\//g, "").split(/([{}])/);
+  const rules: SheetRule[] = [];
+  const open: string[] = [];
+  for (let brace = 1; brace < parts.length; brace += 2) {
+    if (parts[brace] === "}") {
+      open.pop();
+      continue;
+    }
+    const head = (parts[brace - 1] ?? "").replace(/\s+/g, " ").trim();
+    open.push(head);
+    if (head.startsWith("@")) continue;
+    rules.push({
+      within: open.filter((prelude) => prelude.startsWith("@")),
+      selectors: head.split(/\s*,\s*(?![^()]*\))/),
+      declarations: parts[brace + 1] ?? "",
+    });
+  }
+  return rules;
+}
+
+/** Whether a rule applies only to a reader who has not asked for reduced motion. */
+function movesByChoice(rule: SheetRule): boolean {
+  return rule.within.some((prelude) =>
+    prelude.includes("prefers-reduced-motion: no-preference")
   );
+}
+
+Deno.test("the glyph stylesheet styles everything the renderer emits, in currentColor alone", () => {
+  const sheet = GLYPH_SHEET;
   const rendered = [
     ...AUTHORED.map(([name]) => name),
     ...UNKNOWN_NAMES,
@@ -530,7 +609,12 @@ Deno.test("the glyph stylesheet styles everything the renderer emits, in current
       (match[1] ?? "").split(/\s+/)
     ),
   );
-  assert(classes.has("wall-glyph") && classes.has("wall-glyph-move"));
+  assert(
+    ["wall-glyph", "wall-glyph-move", "wall-glyph-dashed"].every((name) =>
+      classes.has(name)
+    ),
+    "the set draws a moving primitive and a dashed one",
+  );
   const selectors: readonly string[] = GLYPH_PAINTS.map((paint) =>
     `wall-glyph-${paint}`
   );
@@ -560,22 +644,16 @@ Deno.test("the glyph stylesheet styles everything the renderer emits, in current
     assert(read.has(property), `${property} sets the glyph's ${property}`);
   }
 
-  for (const state of ["hover", "focus-within"]) {
-    assert(
-      sheet.includes(`.wall-card:${state} .wall-glyph-move`),
-      `a glyph moves while its own card matches :${state}`,
-    );
-  }
-  const still = outsideBlock(
-    sheet,
-    "@media (prefers-reduced-motion: no-preference)",
-  );
+  const rules = sheetRules(sheet);
   assert(
-    still !== undefined,
+    rules.some(movesByChoice),
     "the sheet scopes motion to readers who allow it",
   );
   assertEquals(
-    still.match(/\b(?:transform|transition|animation)[a-z-]*\s*:/g) ?? [],
+    rules.filter((rule) =>
+      !movesByChoice(rule) &&
+      /\b(?:transform|transition|animation)[a-z-]*\s*:/.test(rule.declarations)
+    ).map((rule) => rule.selectors.join(", ")),
     [],
     "a glyph moves only for a reader who has not asked for reduced motion",
   );
@@ -588,9 +666,184 @@ Deno.test("the glyph stylesheet styles everything the renderer emits, in current
   assert(sheet.includes("currentColor"));
 });
 
+/** The class of the element at the root of a component's markup. */
+function rootClass(rendered: string): string {
+  const found = /^<[a-z]+ class="([\w-]+)/.exec(rendered);
+  assert(found !== null, "the markup opens with a classed element");
+  return `.${found[1]}`;
+}
+
+/**
+ * Every state a stylesheet declares for a subject: what stands before the
+ * subject in each selector that ends with it, led by the media queries around
+ * the rule. A query on reduced motion is left out, so that a state reads the
+ * same whether or not the rule that declares it is one that moves.
+ */
+function statesOf(
+  sheet: string,
+  subject: string,
+  declares: RegExp,
+): string[] {
+  return sheetRules(sheet).filter((rule) => declares.test(rule.declarations))
+    .flatMap((rule) =>
+      rule.selectors.filter((selector) => selector.endsWith(` ${subject}`))
+        .map((selector) =>
+          [
+            ...rule.within.filter((prelude) =>
+              prelude.startsWith("@media") &&
+              !prelude.includes("reduced-motion")
+            ),
+            selector.slice(0, -subject.length - 1),
+          ].join(" ")
+        )
+    ).sort();
+}
+
+Deno.test("a glyph is posed exactly where its card is lit, and wherever a lit card's glyph is drawn", async () => {
+  const moving = WALL_DECK.find((card) =>
+    glyphDrawing(cardGlyph(card) ?? "").some((primitive) =>
+      primitive.shift !== undefined
+    )
+  );
+  assert(moving !== undefined, "some card's glyph has a primitive that moves");
+  const card = renderToStaticMarkup(
+    createElement(Card, { card: moving, receded: false, onOpen: () => {} }),
+  );
+  const sheet = renderToStaticMarkup(
+    createElement(OpenCard, { card: moving, onClose: () => {} }),
+  );
+  // Each module that draws a glyph, with what it draws for that card.
+  const surfaces = {
+    "site/wall/Card.tsx": card,
+    "site/wall/OpenCard.tsx": sheet,
+  };
+  for (const rendered of Object.values(surfaces)) {
+    assert(rendered.includes('class="wall-glyph-move"'), rendered);
+  }
+
+  // The card stylesheet lights a card by showing the layer over its face,
+  // the element a card's glyph is a child of.
+  const face = /class="([\w-]+)"[^<>]*>$/.exec(
+    card.slice(0, card.indexOf('<svg class="wall-glyph ')).replace(
+      /<([a-z]+)\b[^<>]*><\/\1>/g,
+      "",
+    ),
+  );
+  assert(face !== null, `a card's glyph sits on a classed face: ${card}`);
+  const lit = statesOf(
+    wallSheet("wall-card.css"),
+    `.${face[1]}::before`,
+    /(?:^|[;\s])opacity:\s*1\s*(?:;|$)/,
+  );
+  assert(
+    lit.length > 1 && lit.every((state) => state.includes(rootClass(card))),
+    `the card stylesheet lights a card in several states: ${lit}`,
+  );
+
+  // Where a pointer can hover, a card is lit when it is opened. Its glyph
+  // then keeps the pose in each place it is drawn until the sheet is gone:
+  // on the card while it is the sheet's source, and in the sheet itself.
+  const hovered = lit.filter((state) => state.endsWith(":hover"));
+  assertEquals(hovered.length, 1, `a card is lit under a pointer: ${lit}`);
+  const pointer = hovered[0]?.slice(0, -`${rootClass(card)}:hover`.length);
+  const carried = [
+    `${rootClass(card)}[${OPENING_ATTRIBUTE}]`,
+    rootClass(sheet),
+  ].map((surface) => `${pointer}${surface}`);
+
+  const posed =
+    /transform:\s*translate\(\s*var\(--wall-glyph-dx\),\s*var\(--wall-glyph-dy\)\s*\)/;
+  assertEquals(
+    statesOf(GLYPH_SHEET, ".wall-glyph-move", posed),
+    [...lit, ...carried].sort(),
+    "the glyph stylesheet poses a glyph in the states the card stylesheet " +
+      "lights its card, and where an opened card's glyph is drawn",
+  );
+  assertEquals(
+    statesOf(GLYPH_SHEET, ".wall-glyph-move", /transform:/),
+    statesOf(GLYPH_SHEET, ".wall-glyph-move", posed),
+    "a glyph has one pose",
+  );
+
+  // A new place that draws a glyph has to decide its pose here first.
+  const sources = await readScopedSources(
+    ROOT,
+    await structuralGuardScope({
+      guard: "tests/site_wall_glyph_test.ts#glyph-surfaces",
+      universe: "authored-ts",
+      narrow: {
+        reason: "Only the wall's own modules draw a wall glyph.",
+        include: (path) => path.startsWith("site/wall/"),
+      },
+    }),
+  );
+  assertEquals(
+    sources.filter(({ source }) => /<Glyph\b/.test(source)).map(({ path }) =>
+      path
+    ).sort(),
+    Object.keys(surfaces),
+    "each module that draws a glyph is rendered above and its pose is checked",
+  );
+});
+
+/** The least ink a dashed stroke may lay along its length, as a share of a whole stroke's. */
+const DASHED_INK = 0.75;
+
+/** The least clear gap between two dashes at the heaviest weight, in grid units. */
+const DASH_GAP = 1;
+
+Deno.test("a dashed stroke carries the ink to read at card size and keeps its gaps at every weight", () => {
+  const weight = glyphKnob("glyph-weight");
+  const heaviest = weight.max * dashedWeight();
+  const strokes: (readonly [string, GlyphPrimitive])[] = [
+    ...AUTHORED.flatMap(([name, drawing]) =>
+      drawing.map((primitive, index) =>
+        [`${name}[${index}] ${primitive.kind}`, primitive] as const
+      )
+    ),
+    // The grammar spaces dashes by a stroke's length, so every length a
+    // glyph could draw is measured, not only the ones drawn today.
+    ...Array.from({ length: 68 }, (_, step) => {
+      const r = 5 + step / 4;
+      return [`a dashed ring of radius ${r}`, dashed(ring(24, 24, r))] as const;
+    }),
+  ];
+  const dashedStrokes = strokes.filter(([, primitive]) =>
+    dashPattern(primitive) !== undefined
+  );
+  assert(
+    dashedStrokes.some(([where]) => !where.startsWith("a dashed ring")),
+    "some authored glyph draws a dashed stroke",
+  );
+  const problems: string[] = [];
+  for (const [where, primitive] of dashedStrokes) {
+    const [drawn, gap] = dashPattern(primitive) ?? [NaN, NaN];
+    const { width, share } = strokeOf(primitive, weight.default);
+    const ink = width * share / weight.default;
+    if (!(ink >= DASHED_INK)) {
+      problems.push(
+        `${where}: its dashes lay ${shown(ink)} of a whole stroke's ink, ` +
+          `under ${DASHED_INK}, and fade at card size`,
+      );
+    }
+    if (!(gap - heaviest >= DASH_GAP)) {
+      problems.push(
+        `${where}: its dashes close up at the heaviest weight, with ` +
+          `${shown(gap - heaviest)} between them`,
+      );
+    }
+    if (!(drawn >= heaviest / 2)) {
+      problems.push(
+        `${where}: its dashes shrink to dots at the heaviest weight`,
+      );
+    }
+  }
+  assertEquals(problems, []);
+});
+
 /** How the glyph stylesheet paints a glyph at the shipped knob values. */
 interface GlyphOptics {
-  /** The stroke's width, in grid units. */
+  /** A whole stroke's width, in grid units. */
   readonly weight: number;
   /** The opacity of a tinted fill. */
   readonly tint: number;
@@ -602,30 +855,17 @@ interface GlyphOptics {
  * The optics the wall ships with: the two knob defaults, and the step the
  * stylesheet takes from a tinted fill to a tinted stroke.
  */
-async function shippedOptics(): Promise<GlyphOptics> {
-  const sheet = await Deno.readTextFile(
-    join(ROOT, "site/page-src/wall-glyph.css"),
-  );
-  const step =
-    /stroke-opacity:\s*calc\(\s*var\(--wall-glyph-tint\)\s*\*\s*([\d.]+)\s*\)/
-      .exec(sheet);
-  assert(
-    step !== null,
-    "the stylesheet sets a tinted stroke as a multiple of the tint",
-  );
+function shippedOptics(): GlyphOptics {
   const tint = glyphKnob("glyph-tint").default;
   return {
     weight: glyphKnob("glyph-weight").default,
     tint,
-    faint: Math.min(1, tint * Number(step[1])),
+    faint: Math.min(1, tint * sheetFactor("stroke-opacity", "tint")),
   };
 }
 
 /** Points measured along each side of the grid: two to a grid unit. */
 const SAMPLES = GLYPH_GRID * 2;
-
-/** The share of its ink a dashed stroke lays down, gaps counted. */
-const DASHED_SHARE = 0.5;
 
 /** The least opacity that counts as ink when a glyph's extent is measured. */
 const FIRM_INK = 0.15;
@@ -635,13 +875,13 @@ function fillInk(tone: "solid" | "tint", optics: GlyphOptics): number {
   return tone === "solid" ? 1 : optics.tint;
 }
 
-/** The opacity of a stroke in one tone, whole or dashed. */
+/** The opacity of a stroke in one tone that carries ink along `share` of its length. */
 function strokeInk(
   tone: "outline" | "tint",
-  dashed: boolean,
+  share: number,
   optics: GlyphOptics,
 ): number {
-  return (tone === "tint" ? optics.faint : 1) * (dashed ? DASHED_SHARE : 1);
+  return (tone === "tint" ? optics.faint : 1) * share;
 }
 
 /** A point's bearing from a center, in degrees clockwise from twelve o'clock. */
@@ -789,7 +1029,8 @@ function primitiveInk(
   y: number,
   optics: GlyphOptics,
 ): number {
-  const half = optics.weight / 2;
+  const { width, share } = strokeOf(primitive, optics.weight);
+  const half = width / 2;
   switch (primitive.kind) {
     case "dot":
       return Math.hypot(x - primitive.cx, y - primitive.cy) <= primitive.r
@@ -797,7 +1038,7 @@ function primitiveInk(
         : 0;
     case "ring":
       return toArc(x, y, { ...primitive, from: 0, sweep: 360 }) <= half
-        ? strokeInk("outline", primitive.dashed === true, optics)
+        ? strokeInk("outline", share, optics)
         : 0;
     case "bar":
       return outsideBox(x, y, primitive) <= 0
@@ -805,15 +1046,15 @@ function primitiveInk(
         : 0;
     case "frame":
       return Math.abs(outsideBox(x, y, primitive)) <= half
-        ? strokeInk("outline", primitive.dashed === true, optics)
+        ? strokeInk("outline", share, optics)
         : 0;
     case "trail":
       return toLine(x, y, primitive.points, false) <= half
-        ? strokeInk(primitive.tone, primitive.dashed === true, optics)
+        ? strokeInk(primitive.tone, share, optics)
         : 0;
     case "arc":
       return toArc(x, y, primitive) <= half
-        ? strokeInk(primitive.tone, primitive.dashed === true, optics)
+        ? strokeInk(primitive.tone, share, optics)
         : 0;
     case "band":
       return toArc(x, y, primitive) <= primitive.width / 2
@@ -973,8 +1214,8 @@ function shown(value: number): string {
   return value.toFixed(2);
 }
 
-Deno.test("the ink measure sees each primitive where the grammar draws it", async () => {
-  const optics = await shippedOptics();
+Deno.test("the ink measure sees each primitive where the grammar draws it", () => {
+  const optics = shippedOptics();
   const drawings = [
     ...AUTHORED,
     ...UNKNOWN_NAMES.slice(0, 40).map((name) =>
@@ -988,7 +1229,9 @@ Deno.test("the ink measure sees each primitive where the grammar draws it", asyn
       kinds.add(primitive.kind);
       const box = inkBox(inkMap([primitive], optics));
       const extent = primitiveExtent(primitive);
-      const margin = stroked(primitive) ? optics.weight / 2 : 0;
+      const margin = stroked(primitive)
+        ? strokeOf(primitive, optics.weight).width / 2
+        : 0;
       const slack = 1 + roundedAway(primitive);
       const edges: readonly (readonly [string, number, number])[] = [
         ["left", box?.minX ?? NaN, extent.minX - margin],
@@ -1021,10 +1264,10 @@ Deno.test("the ink measure sees each primitive where the grammar draws it", asyn
 const INK_SHARE = { least: 0.16, most: 0.42 } as const;
 
 /** The least a glyph's firm ink may span: one way, then the other. */
-const INK_SPAN = { longer: 38, shorter: 24 } as const;
+const INK_SPAN = { longer: 38, shorter: 34 } as const;
 
-Deno.test("every glyph carries a like weight of ink and fills its grid", async () => {
-  const optics = await shippedOptics();
+Deno.test("every glyph carries a like weight of ink and fills its grid", () => {
+  const optics = shippedOptics();
   const drawings = [
     ...AUTHORED,
     ...UNKNOWN_NAMES.map((name) =>
@@ -1068,8 +1311,8 @@ Deno.test("every glyph carries a like weight of ink and fills its grid", async (
 /** The most of their ink two authored glyphs may lay in the same places. */
 const MOST_ALIKE = 0.72;
 
-Deno.test("no two authored glyphs share a silhouette", async () => {
-  const optics = await shippedOptics();
+Deno.test("no two authored glyphs share a silhouette", () => {
+  const optics = shippedOptics();
   const pictures = AUTHORED.map(([name, drawing]) =>
     [name, silhouette(inkMap(drawing, optics))] as const
   );
@@ -1109,8 +1352,8 @@ function stackedRows(map: Float64Array): boolean {
 /** The most authored glyphs that may be a stack of three or more rows. */
 const MOST_ROW_STACKS = 3;
 
-Deno.test("no one device carries a family of authored glyphs", async () => {
-  const optics = await shippedOptics();
+Deno.test("no one device carries a family of authored glyphs", () => {
+  const optics = shippedOptics();
   const problems: string[] = [];
   const framed = AUTHORED.filter(([, drawing]) => enclosed(drawing)).map((
     [name],

@@ -12,10 +12,11 @@ type ShiftStyle =
   & CSSProperties
   & Record<"--wall-glyph-dx" | "--wall-glyph-dy", string>;
 
-/** One drawn element, painted by its tone's class. */
+/** One drawn element, painted by its tone's class, and marked when its stroke is dashed. */
 function Shape({ shape }: { readonly shape: GlyphShape }): ReactElement {
+  const tone = `wall-glyph-${shape.paint}`;
   const paint = {
-    className: `wall-glyph-${shape.paint}`,
+    className: shape.dash === undefined ? tone : `${tone} wall-glyph-dashed`,
     strokeDasharray: shape.dash,
     transform: shape.turn === undefined
       ? undefined

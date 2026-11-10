@@ -30,19 +30,32 @@
     stroke-opacity: calc(var(--wall-glyph-tint) * 1.4);
   }
 
-  /* One primitive of a glyph may travel a few grid units while its own card
-   * is hovered or holds focus. Nothing else about the glyph changes. */
+  /* A dashed stroke gives up part of its length to gaps, so it is drawn
+   * heavier than a whole stroke and its dashes read as short pills. */
+  .wall-glyph-dashed {
+    stroke-width: calc(var(--wall-glyph-weight) * 1.5);
+  }
+
+  /* One primitive of a glyph may travel a few grid units. It holds that pose
+   * for as long as its card is lit: with keyboard focus, or under a pointer
+   * that can hover. Where a pointer can hover, a card is lit when it is
+   * opened, so the pose carries through the opening: the card keeps it while
+   * it is the opened sheet's source, and the sheet draws its own glyph in the
+   * same pose. The two pictures of the glyph agree as one grows into the
+   * other. Nothing else about the glyph changes. */
   @media (prefers-reduced-motion: no-preference) {
     .wall-glyph-move {
       transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    .wall-card:focus-within .wall-glyph-move {
+    .wall-card:has(.wall-card-open:focus-visible) .wall-glyph-move {
       transform: translate(var(--wall-glyph-dx), var(--wall-glyph-dy));
     }
 
     @media (hover: hover) {
-      .wall-card:hover .wall-glyph-move {
+      .wall-card:hover .wall-glyph-move,
+      .wall-card[data-wall-opening] .wall-glyph-move,
+      .wall-open .wall-glyph-move {
         transform: translate(var(--wall-glyph-dx), var(--wall-glyph-dy));
       }
     }
