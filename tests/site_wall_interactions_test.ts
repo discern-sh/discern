@@ -1,9 +1,10 @@
 /**
  * The wall's interactions hold their contracts without a browser: what the
  * opened card's sheet says for each kind of card, how a lens decides which
- * cards recede, how a card is chosen to open, and where the pointer light
- * goes. The stylesheet is held to the same contracts: a receded card stays
- * legible, and nothing the lens or an opening card does can move a card.
+ * cards recede and where it takes the page, how a card is chosen to open, and
+ * where the pointer light goes. The stylesheet is held to the same contracts:
+ * a receded card stays legible, nothing the lens or an opening card does can
+ * move a card, and the morph never shows two sets of words at once.
  *
  * Focus, the modal dialog, and the view transition itself need a real browser
  * and are checked in `site_homepage_browser_test.ts`.
@@ -17,7 +18,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { oklchHex } from "../site/social/draw.tsx";
 import { cardGlyph, cardHeading, cardNumeral } from "../site/wall/Card.tsx";
 import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
-import { Lens, lensRecedes } from "../site/wall/Lens.tsx";
+import {
+  Lens,
+  lensRecedes,
+  lensTravel,
+  type ViewSpan,
+} from "../site/wall/Lens.tsx";
 import { OpenCard } from "../site/wall/OpenCard.tsx";
 import type { WallCard, WallLens } from "../site/wall/types.ts";
 import { type LightPoint, lightStep } from "../site/wall/use_light.ts";
@@ -240,6 +246,84 @@ Deno.test("a lens recedes exactly the cards outside its clusters", () => {
   }
   const empty: WallLens = { id: "none", label: "None", clusters: [] };
   assert(WALL_DECK.every((card) => lensRecedes(empty, card)));
+});
+
+Deno.test("a lens just chosen brings the page to the nearest card it kept forward, and only when none is in view", () => {
+  // A phone: the lens bar pinned over the top 82 pixels of an 844 pixel screen.
+  const shown: ViewSpan = { top: 82, bottom: 844 };
+  const rest = 82;
+  const card = (top: number): ViewSpan => ({ top, bottom: top + 180 });
+
+  assertEquals(
+    lensTravel(shown, rest, []),
+    0,
+    "nothing forward, nowhere to go",
+  );
+  assertEquals(
+    lensTravel(shown, rest, [card(-600), card(300), card(2000)]),
+    0,
+    "a card in view keeps the page where it is",
+  );
+  assertEquals(
+    lensTravel(shown, rest, [card(754)]),
+    0,
+    "half a card is in view",
+  );
+  assertEquals(
+    lensTravel(shown, rest, [card(-8)]),
+    0,
+    "half shows under the bar",
+  );
+  assertEquals(
+    lensTravel(shown, rest, [card(755)]),
+    755 - rest,
+    "less than half a card at the foot of the screen is not in view",
+  );
+  assertEquals(
+    lensTravel(shown, rest, [card(-9)]),
+    -9 - rest,
+    "nor is less than half a card under the bar",
+  );
+  assertEquals(
+    lensTravel(shown, rest, [card(-300), card(1500)]),
+    -300 - rest,
+    "the nearest card is the one above",
+  );
+  assertEquals(
+    lensTravel(shown, rest, [card(-900), card(1000)]),
+    1000 - rest,
+    "the nearest card is the one below",
+  );
+
+  // One scroll is enough, wherever the cards lie and whether or not the bar
+  // had reached the top of the screen: the card that was nearest then rests
+  // just under the pinned bar, so the lens has nothing further to find.
+  for (const barBottom of [rest, 300, 620]) {
+    for (let offset = -4000; offset <= 4000; offset += 173) {
+      const cards = [-2600, -900, 1300, 3100].map((top) => card(top + offset));
+      const before: ViewSpan = { top: barBottom, bottom: shown.bottom };
+      const travel = lensTravel(before, rest, cards);
+      const after = cards.map((each) => ({
+        top: each.top - travel,
+        bottom: each.bottom - travel,
+      }));
+      assertEquals(
+        lensTravel(
+          { ...before, top: Math.max(rest, barBottom - travel) },
+          rest,
+          after,
+        ),
+        0,
+        `cards ${offset} pixels along, bar at ${barBottom}`,
+      );
+      if (travel !== 0) {
+        assert(
+          after.some((each) => each.top === rest),
+          "the card it came to rests just under the bar",
+        );
+      }
+    }
+  }
 });
 
 Deno.test("the lens is one pressed chip among toggles, each keyed to its clusters' hues", () => {
@@ -479,6 +563,44 @@ Deno.test("the stylesheet styles every state the hook marks an opening card with
     styled.filter((state) => !OPENING_STATES.some((known) => known === state)),
     [],
     "the stylesheet styles a state the hook never sets",
+  );
+});
+
+/** When one picture of the morph is on screen, in seconds from its start. */
+function morphPicture(
+  rules: readonly StyleRule[],
+  picture: "old" | "new",
+): { readonly starts: number; readonly ends: number } {
+  const animated = rules.filter((rule) =>
+    rule.declarations.has("animation") &&
+    rule.selectors.some((selector) =>
+      selector.includes(`[${OPENING_ATTRIBUTE}]`) &&
+      selector.endsWith(`::view-transition-${picture}(wall-open)`)
+    )
+  );
+  assertEquals(
+    animated.length,
+    1,
+    `one rule times the ${picture} picture of the morph`,
+  );
+  // An animation shorthand gives its duration first and then its delay.
+  const [duration, delay = 0] = [
+    ...(animated[0]?.declarations.get("animation") ?? "").matchAll(
+      /(?<![\w.-])([\d.]+)(m?s)\b/g,
+    ),
+  ].map((time) => Number(time[1]) / (time[2] === "ms" ? 1000 : 1));
+  assert(duration !== undefined && duration > 0, `${picture} has a duration`);
+  return { starts: delay, ends: delay + duration };
+}
+
+Deno.test("as a card and its sheet morph, the outgoing words are gone before the incoming words show", async () => {
+  const rules = styleRules(await stylesheet("wall-interactions.css"));
+  const outgoing = morphPicture(rules, "old");
+  const incoming = morphPicture(rules, "new");
+  assertEquals(outgoing.starts, 0, "the outgoing picture starts to go at once");
+  assert(
+    incoming.starts >= outgoing.ends,
+    `the incoming picture shows from ${incoming.starts}s, while the outgoing one is on screen until ${outgoing.ends}s: for that long two sets of words overlap`,
   );
 });
 

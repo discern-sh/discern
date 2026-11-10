@@ -3,7 +3,7 @@ import { type RefObject, useEffect } from "react";
 
 /**
  * One way of staging the wall. A stage drives the wall root from outside React
- * and puts everything back when it stops, so another stage can replace it.
+ * and restores the root when it stops, so another stage can replace it.
  */
 export interface WallStage {
   /** Stable name, written to the wall root as `data-wall-stage` while mounted. */
@@ -14,8 +14,8 @@ export interface WallStage {
 
 /**
  * The wall root carries this attribute whenever the plane is flat and has no
- * transform at all. Stylesheets scope to it anything that needs viewport-fixed
- * coordinates, which a transformed ancestor breaks.
+ * transform at all. Stylesheets scope to it what belongs to the flat wall
+ * alone: the lens, and the pointer light's reach onto cards.
  */
 const NEAR = "data-wall-near";
 
@@ -52,9 +52,12 @@ function approachIsStaged(pool: Element): boolean {
  * transform. The stage moves nothing and measures nothing while the page
  * scrolls: the browser reports the pool's crossing.
  *
- * One thing it does start. A card that takes keyboard focus while the plane
- * is far is too small to read, so the stage scrolls the pool away and the
- * wall arrives under the focus.
+ * One thing it does start. A card the keyboard has stepped onto while the
+ * plane is far is too small to read, so the stage scrolls the pool away and
+ * the wall arrives under the focus. Only that step does it, and the stage
+ * answers the Tab key's release, not the focus. Focus also comes to a card
+ * handed back, as when the sheet it opened closes or the window returns, and
+ * a card that is handed its focus back leaves the page where it was.
  */
 export const APPROACH_STAGE: WallStage = {
   id: "approach",
@@ -79,13 +82,12 @@ export const APPROACH_STAGE: WallStage = {
       poolInView = latest.isIntersecting;
       settle();
     }, { rootMargin: `-${POOL_EDGE}px 0px 0px 0px` });
-    const arrive = (event: FocusEvent): void => {
+    const arrive = (event: KeyboardEvent): void => {
+      // With Control or Command held, Tab changes tab or window, not focus.
+      if (event.key !== "Tab" || event.ctrlKey || event.metaKey) return;
       const focused = event.target;
       if (root.hasAttribute(NEAR) || !(focused instanceof Element)) return;
-      if (
-        focused.closest(".wall-plane") === null ||
-        !focused.matches(":focus-visible")
-      ) return;
+      if (focused.closest(".wall-plane") === null) return;
       globalThis.scrollBy({
         top: pool.getBoundingClientRect().bottom,
         behavior: "smooth",
@@ -100,14 +102,14 @@ export const APPROACH_STAGE: WallStage = {
     ].map((query) => globalThis.matchMedia(query));
     settle();
     crossing.observe(pool);
-    root.addEventListener("focusin", arrive);
+    root.addEventListener("keyup", arrive);
     globalThis.addEventListener("resize", schedule);
     for (const preference of preferences) {
       preference.addEventListener("change", schedule);
     }
     return () => {
       crossing.disconnect();
-      root.removeEventListener("focusin", arrive);
+      root.removeEventListener("keyup", arrive);
       globalThis.removeEventListener("resize", schedule);
       for (const preference of preferences) {
         preference.removeEventListener("change", schedule);

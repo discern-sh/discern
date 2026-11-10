@@ -111,6 +111,19 @@ function overtaken(reason: unknown): boolean {
     (reason instanceof DOMException && reason.name === "AbortError");
 }
 
+/**
+ * Hand a click to what it fell on, as the browser would have: the link or
+ * button there takes focus and the click. This is for a click the browser
+ * kept from the page, and it reads the page as it stands when called.
+ */
+function deliverClick(event: MouseEvent): void {
+  const under = document.elementFromPoint(event.clientX, event.clientY);
+  const control = under?.closest<HTMLElement>("a[href], button") ?? null;
+  control?.focus({ preventScroll: true });
+  const target = control ?? under;
+  if (target instanceof HTMLElement) target.click();
+}
+
 /** What the wall shows open, and which request put it there. */
 interface Shown {
   readonly id: string | null;
@@ -131,6 +144,14 @@ interface Shown {
  *   transition where it stands.
  * - At most one card carries the opening attribute, and the last close to
  *   finish removes it.
+ *
+ * While a view transition runs, the browser tests nothing on the page for a
+ * hit: every click lands on the document's root. The sheet reads such a click
+ * itself while it is open. Once it is on its way out the page is the
+ * visitor's again, so a click made then ends the transition where it stands
+ * and goes to what it fell on. The later clicks of a double click are left
+ * alone: a double click that dismisses the sheet must not also press the card
+ * that lies under it.
  */
 export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
   const [shown, setShown] = useState<Shown>({ id: null, turn: 0 });
@@ -138,11 +159,24 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
   const turns = useRef(0);
   const marked = useRef<HTMLElement | null>(null);
   const committing = useRef<Array<() => void>>([]);
+  const leaving = useRef<ViewTransition | null>(null);
 
   useEffect(() => {
     for (const committed of committing.current.splice(0)) committed();
   }, [shown]);
   useEffect(() => () => marked.current?.removeAttribute(OPENING_ATTRIBUTE), []);
+  useEffect(() => {
+    const deliver = (event: MouseEvent): void => {
+      const transition = leaving.current;
+      if (transition === null || event.detail > 1) return;
+      if (event.target !== document.documentElement) return;
+      leaving.current = null;
+      transition.skipTransition();
+      deliverClick(event);
+    };
+    document.addEventListener("click", deliver);
+    return () => document.removeEventListener("click", deliver);
+  }, []);
 
   const mark = (card: HTMLElement | null, state?: OpeningState): void => {
     if (marked.current !== card) {
@@ -177,10 +211,12 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
     if (how === "cut") return await commit();
     if (morphs && next !== null) mark(source, "morph");
     const transition = document.startViewTransition(commit);
+    leaving.current = next === null ? transition : null;
     const [began] = await Promise.allSettled([
       transition.ready,
       transition.finished,
     ]);
+    if (leaving.current === transition) leaving.current = null;
     if (began.status === "rejected" && !overtaken(began.reason)) {
       reportError(began.reason);
     }

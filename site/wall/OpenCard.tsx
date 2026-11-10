@@ -1,7 +1,6 @@
 /** The opened card: one card's full account as a sheet in a modal dialog. */
 import {
   type KeyboardEvent,
-  type MouseEvent,
   type ReactElement,
   type SyntheticEvent,
   useCallback,
@@ -46,6 +45,53 @@ function ignoreHeldKey(event: KeyboardEvent<HTMLDialogElement>): void {
   }
 }
 
+/**
+ * Whether a pointer event was aimed outside the sheet.
+ *
+ * A modal dialog's backdrop reports its events on the dialog itself. While a
+ * view transition runs, the browser tests nothing on the page for a hit, and
+ * every pointer event lands on the document's root wherever it fell. Then
+ * only its place can answer, against the box the sheet is laid out in: that
+ * box is the sheet's resting place from the moment the dialog mounts, however
+ * far the transition has drawn it from there.
+ */
+function aimedOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
+  if (event.target === dialog) return true;
+  if (event.target !== document.documentElement) return false;
+  const sheet = dialog.getBoundingClientRect();
+  return event.clientX < sheet.left || event.clientX > sheet.right ||
+    event.clientY < sheet.top || event.clientY > sheet.bottom;
+}
+
+/**
+ * Ask the dialog to cancel when the visitor clicks outside the sheet, which
+ * is how Escape asks too. Returns the function that stops asking.
+ *
+ * The click counts from the moment the dialog mounts, while the sheet is
+ * still arriving as much as once it rests. Two kinds of click are not a
+ * request to leave. One that began as a press inside the sheet and ended
+ * outside it was a drag. And the later clicks of a double click belong with
+ * the first, so a card that is double-clicked opens and stays open.
+ */
+function cancelOnOutsideClick(dialog: HTMLDialogElement): () => void {
+  let pressedOutside = false;
+  const notePress = (event: PointerEvent): void => {
+    pressedOutside = aimedOutside(dialog, event);
+  };
+  const ask = (event: MouseEvent): void => {
+    if (!pressedOutside || event.detail > 1) return;
+    if (aimedOutside(dialog, event)) {
+      dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+    }
+  };
+  document.addEventListener("pointerdown", notePress);
+  document.addEventListener("click", ask);
+  return () => {
+    document.removeEventListener("pointerdown", notePress);
+    document.removeEventListener("click", ask);
+  };
+}
+
 /** The mark on the close control: a plain cross, drawn rather than typed. */
 function CloseMark(): ReactElement {
   return (
@@ -83,7 +129,7 @@ export function OpenCard(
   { card, onClose }: OpenCardProps,
 ): ReactElement | null {
   const mounted = useRef<HTMLDialogElement | null>(null);
-  const pressedOutside = useRef(false);
+  const unwatch = useRef<(() => void) | null>(null);
   const attach = useCallback((dialog: HTMLDialogElement | null): void => {
     const page = document.documentElement;
     if (dialog !== null && !dialog.open) {
@@ -92,8 +138,11 @@ export function OpenCard(
         `${globalThis.innerWidth - page.clientWidth}px`,
       );
       dialog.showModal();
+      unwatch.current = cancelOnOutsideClick(dialog);
     }
     if (dialog === null) {
+      unwatch.current?.();
+      unwatch.current = null;
       if (mounted.current?.open === true) mounted.current.close();
       page.style.removeProperty(SCROLLBAR_ROOM);
     }
@@ -105,21 +154,11 @@ export function OpenCard(
   const numeral = cardNumeral(card);
   const heading = cardHeading(card);
   // The browser closes a dialog on Escape by itself. Refusing that lets the
-  // owner close it the same way every other route does.
+  // owner close it the same way every other route does. A click outside the
+  // sheet arrives here as the same request.
   const askToClose = (event: SyntheticEvent<HTMLDialogElement>): void => {
     event.preventDefault();
     onClose();
-  };
-  // A modal dialog's backdrop reports pointer events on the dialog itself. A
-  // press that began inside the sheet and ended outside it is not a request
-  // to leave.
-  const notePress = (event: MouseEvent<HTMLDialogElement>): void => {
-    pressedOutside.current = event.target === event.currentTarget;
-  };
-  const closeOutside = (event: MouseEvent<HTMLDialogElement>): void => {
-    if (pressedOutside.current && event.target === event.currentTarget) {
-      onClose();
-    }
   };
   return (
     <dialog
@@ -130,8 +169,6 @@ export function OpenCard(
       style={clusterHueStyle(card.cluster)}
       onCancel={askToClose}
       onClose={onClose}
-      onPointerDown={notePress}
-      onClick={closeOutside}
       onKeyDown={ignoreHeldKey}
     >
       <div className="wall-open-face">

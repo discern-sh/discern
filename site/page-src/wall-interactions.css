@@ -39,6 +39,19 @@
     }
   }
 
+  /* The bar arrives whole when the controls come alive. An element shown
+   * through its parent's visibility must not transition that visibility
+   * itself: under reduced motion the design system gives every transition a
+   * token duration, and each level of the bar would then appear a frame after
+   * the one above it. Nothing named here has a transition of its own. */
+  .wall-controls,
+  .wall-controls::before,
+  .wall-lens,
+  .wall-chip-hues,
+  .wall-chip::after {
+    transition: none;
+  }
+
   /* Free space goes outside the first and last chip: a row that fits is
    * centered, and a row that does not starts at its first chip. */
   .wall-chip:first-child {
@@ -234,6 +247,12 @@
 
   .wall-card[data-wall-opening="held"] {
     opacity: 0;
+  }
+
+  /* A card opens only once the island is live. Until then, and for good where
+   * no script runs, its button is the card's heading and offers no press. */
+  .wall:not([data-wall-live]) .wall-card-open {
+    cursor: auto;
   }
 
   /* The opened card: a sheet in a modal dialog. The page behind it holds its
@@ -491,12 +510,10 @@
    * the browser grows the one into the other; everything else on the page
    * cross-fades in place and nothing but that one object moves.
    *
-   * The snapshots are shown above the page. They take no pointer events, so
-   * a press during a transition reaches the page and is never swallowed. */
-  ::view-transition {
-    pointer-events: none;
-  }
-
+   * While a transition runs the browser answers every press at the page's
+   * root, whatever lies under it. Script reads such a press by where it fell:
+   * a click outside the arriving sheet still closes it, and a click on the
+   * page while the sheet leaves still reaches what it was aimed at. */
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 0.3s;
@@ -521,8 +538,9 @@
    * own surface and hairline, and clips its two pictures to its shape. Both
    * pictures hang from the box's top-left corner and neither is squashed: the
    * outgoing one keeps the box's width, and the incoming one fills the box.
-   * The outgoing picture is nearly gone before the incoming one shows, so two
-   * sets of words are never read at once. */
+   * The two pictures say different words at different sizes, so they never
+   * show together: the outgoing one is gone before the incoming one starts,
+   * and for that instant the box is its own plain surface. */
   :root:has(.wall-card[data-wall-opening])::view-transition-image-pair(wall-open) {
     border-radius: 1rem;
     outline: 1px solid oklch(100% 0 0 / 0.13);
@@ -570,11 +588,11 @@
   }
 
   :root:has(.wall-card[data-wall-opening])::view-transition-old(wall-open) {
-    animation: wall-open-out 0.11s linear both;
+    animation: wall-open-out 0.09s linear both;
   }
 
   :root:has(.wall-card[data-wall-opening])::view-transition-new(wall-open) {
-    animation: wall-open-in 0.17s 0.04s linear both;
+    animation: wall-open-in 0.16s 0.09s linear both;
   }
 
   /* With no card to grow from or return to, as in the far view where the

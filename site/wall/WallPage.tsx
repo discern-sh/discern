@@ -37,7 +37,7 @@ export interface WallPageProps {
 }
 
 /** Where both calls to action lead. */
-const MANUAL_START = "/docs/start";
+export const MANUAL_START = "/docs/start";
 
 /** The link that starts a visitor on the manual. */
 function StartLink(): ReactElement {
