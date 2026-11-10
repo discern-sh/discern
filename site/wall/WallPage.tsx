@@ -8,7 +8,7 @@
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import { Card } from "./Card.tsx";
 import { WALL_DECK, WALL_LENSES } from "./deck.ts";
-import { Lens, lensRecedes } from "./Lens.tsx";
+import { Lens, lensRecedes, useLens } from "./Lens.tsx";
 import { OpenCard } from "./OpenCard.tsx";
 import {
   wallKnobDefaults,
@@ -18,6 +18,7 @@ import {
 } from "./tuning/knobs.ts";
 import { Panel, tuningRequested } from "./tuning/Panel.tsx";
 import { useLight } from "./use_light.ts";
+import { useOpenCard } from "./use_open_card.ts";
 import { useStage } from "./use_stage.ts";
 
 /**
@@ -63,8 +64,8 @@ export function WallPage(
   { mark, version, headline, categoryLine }: WallPageProps,
 ): ReactElement {
   const root = useRef<HTMLDivElement>(null);
-  const [lensId, setLensId] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const { lens, select: selectLens } = useLens(WALL_LENSES);
+  const opened = useOpenCard(WALL_DECK);
   const [paused, setPaused] = useState(false);
   const [live, setLive] = useState(false);
   const [tuning, setTuning] = useState(false);
@@ -76,8 +77,6 @@ export function WallPage(
     setTuning(tuningRequested(globalThis.location.search));
   }, []);
 
-  const lens = WALL_LENSES.find((candidate) => candidate.id === lensId);
-  const open = WALL_DECK.find((card) => card.id === openId) ?? null;
   const setKnob = (name: WallKnobName, value: number): void =>
     setKnobs((was) => ({ ...was, [name]: value }));
 
@@ -107,7 +106,7 @@ export function WallPage(
           <Lens
             lenses={WALL_LENSES}
             active={lens?.id ?? null}
-            onSelect={setLensId}
+            onSelect={selectLens}
           />
           <button
             type="button"
@@ -125,7 +124,7 @@ export function WallPage(
                 key={card.id}
                 card={card}
                 receded={lensRecedes(lens, card)}
-                onOpen={setOpenId}
+                onOpen={opened.open}
               />
             ))}
           </ul>
@@ -142,7 +141,7 @@ export function WallPage(
         <StartLink />
       </section>
 
-      <OpenCard card={open} onClose={() => setOpenId(null)} />
+      <OpenCard card={opened.card} onClose={opened.close} />
       {tuning
         ? (
           <Panel

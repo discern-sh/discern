@@ -1,5 +1,5 @@
 /** The lens: chips that bring one group of cards forward and let the rest recede. */
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import type { WallCard, WallLens } from "./types.ts";
 
 export interface LensProps {
@@ -8,6 +8,26 @@ export interface LensProps {
   readonly active: string | null;
   /** Called with a lens id, or null for "Everything". */
   readonly onSelect: (id: string | null) => void;
+}
+
+export interface LensState {
+  /** The active lens, or nothing while every card is forward. */
+  readonly lens: WallLens | undefined;
+  /** Choose a lens by id, or null for "Everything". */
+  readonly select: (id: string | null) => void;
+}
+
+/**
+ * Hold the wall's active lens. The wall page reads `lens` to decide which
+ * cards recede and passes `select` to the chips, so how a lens is chosen and
+ * kept is decided here and nowhere else.
+ */
+export function useLens(lenses: readonly WallLens[]): LensState {
+  const [lensId, setLensId] = useState<string | null>(null);
+  return {
+    lens: lenses.find((candidate) => candidate.id === lensId),
+    select: setLensId,
+  };
 }
 
 /**
