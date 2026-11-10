@@ -58,7 +58,11 @@ function StartLink(): ReactElement {
  * - `data-wall-live` once the island has hydrated. Controls that need script
  *   stay hidden until then, so a page without script shows no dead controls.
  * - `data-wall-lens="<id>"` while a lens is active.
- * - `data-wall-paused` while the visitor has paused motion.
+ * - `data-wall-drift` while the drift knob is above zero, which is the only
+ *   time anything on the wall moves by itself.
+ * - `data-wall-paused` while the visitor has paused that drift.
+ *
+ * The stage adds its own marks to the same root: see `use_stage.ts`.
  */
 export function WallPage(
   { mark, version, headline, categoryLine }: WallPageProps,
@@ -79,6 +83,7 @@ export function WallPage(
 
   const setKnob = (name: WallKnobName, value: number): void =>
     setKnobs((was) => ({ ...was, [name]: value }));
+  const drifting = knobs.drift > 0;
 
   return (
     <div
@@ -87,7 +92,8 @@ export function WallPage(
       style={wallKnobStyle(knobs)}
       data-wall-live={live ? "" : undefined}
       data-wall-lens={lens?.id}
-      data-wall-paused={paused ? "" : undefined}
+      data-wall-drift={drifting ? "" : undefined}
+      data-wall-paused={drifting && paused ? "" : undefined}
     >
       <section className="wall-pool" aria-labelledby="wall-headline">
         <p className="wall-eyebrow">
@@ -108,15 +114,19 @@ export function WallPage(
             active={lens?.id ?? null}
             onSelect={selectLens}
           />
-          <button
-            type="button"
-            className="wall-pause"
-            aria-pressed={paused}
-            onClick={() => setPaused((was) => !was)}
-          >
-            Pause motion
-          </button>
         </div>
+        {drifting
+          ? (
+            <button
+              type="button"
+              className="wall-pause"
+              aria-pressed={paused}
+              onClick={() => setPaused((was) => !was)}
+            >
+              Pause motion
+            </button>
+          )
+          : null}
         <div className="wall-plane">
           <ul className="wall-list" role="list">
             {WALL_DECK.map((card) => (
