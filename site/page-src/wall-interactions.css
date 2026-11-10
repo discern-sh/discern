@@ -1,0 +1,142 @@
+/* Wall interactions: the lens, the receded state, and the opened card. */
+
+@layer discern.components {
+  .wall-lens {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .wall-chip,
+  .wall-pause {
+    padding: 0.42rem 0.8rem;
+    border: 1px solid oklch(100% 0 0 / 0.1);
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--wall-ink-muted);
+    background: oklch(100% 0 0 / 0.03);
+    cursor: pointer;
+    appearance: none;
+  }
+
+  .wall-chip:hover,
+  .wall-pause:hover {
+    border-color: oklch(100% 0 0 / 0.22);
+    color: var(--wall-ink);
+  }
+
+  .wall-chip[aria-pressed="true"],
+  .wall-pause[aria-pressed="true"] {
+    border-color: transparent;
+    color: oklch(14% 0 0);
+    background: oklch(100% 0 0 / 0.92);
+  }
+
+  /* Where the wall is flat from the start there is no motion to pause. */
+  @media (prefers-reduced-motion: reduce), (max-width: 42rem) {
+    .wall-pause {
+      display: none;
+    }
+  }
+
+  /* A lens changes opacity and saturation only: no card moves or resizes. */
+  .wall-card {
+    transition: opacity 0.3s, filter 0.3s;
+  }
+
+  .wall-card[data-receded] {
+    opacity: 0.3;
+    filter: saturate(0.25);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wall-card {
+      transition: none;
+    }
+  }
+
+  /* The opened card. */
+  .wall-open {
+    --wall-accent: oklch(80% var(--wall-chroma) var(--wall-hue));
+
+    inline-size: min(36rem, calc(100vw - 2rem));
+    margin: auto;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    font: inherit;
+    color: var(--wall-ink);
+    background: none;
+  }
+
+  .wall-open::backdrop {
+    background: oklch(8% 0.01 265 / 0.72);
+  }
+
+  .wall-open-face {
+    display: grid;
+    justify-items: start;
+    padding: 1.6rem;
+    border: 1px solid oklch(86% var(--wall-chroma) var(--wall-hue) / 0.5);
+    border-radius: 1.25rem;
+    background:
+      radial-gradient(
+      26rem circle at 0 0,
+      oklch(60% calc(var(--wall-chroma) * 1.25) var(--wall-hue) / 0.2),
+      transparent 70%
+    ),
+      linear-gradient(180deg, oklch(20.5% 0.008 265), oklch(15.5% 0.008 265));
+  }
+
+  .wall-open-glyph {
+    inline-size: 3.5rem;
+    block-size: 3.5rem;
+    margin-block-end: 1.1rem;
+    color: var(--wall-accent);
+  }
+
+  .wall-open-title {
+    font-size: 1.55rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  .wall-open-line {
+    margin-block-start: 0.5rem;
+    font-size: 1rem;
+  }
+
+  .wall-open-more {
+    margin-block-start: 0.9rem;
+    color: var(--wall-ink-muted);
+  }
+
+  .wall-open-foot {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    inline-size: 100%;
+    margin-block-start: 1.5rem;
+  }
+
+  .wall-open-link {
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--wall-accent);
+  }
+
+  .wall-open-close {
+    margin-inline-start: auto;
+    padding: 0.42rem 0.75rem;
+    border: 1px solid oklch(100% 0 0 / 0.12);
+    border-radius: 0.5rem;
+    color: var(--wall-ink-muted);
+    background: none;
+    cursor: pointer;
+    appearance: none;
+  }
+}

@@ -1,0 +1,100 @@
+/* Wall cards: the surface and type of the three kinds. */
+
+@layer discern.components {
+  .wall-card {
+    --wall-accent: oklch(80% var(--wall-chroma) var(--wall-hue));
+
+    position: relative;
+    margin-block-end: var(--wall-gap);
+    break-inside: avoid;
+  }
+
+  /* Opaque and neutral. Color appears in the corner wash, the glyph, and the
+   * lit border. */
+  .wall-card-face {
+    display: grid;
+    justify-items: start;
+    padding: 1.1rem 1.1rem 1.25rem;
+    border: 1px solid var(--wall-edge);
+    border-radius: var(--wall-radius);
+    background:
+      radial-gradient(
+      12rem circle at 0 0,
+      oklch(60% calc(var(--wall-chroma) * 1.25) var(--wall-hue) / 0.15),
+      transparent 72%
+    ),
+      linear-gradient(180deg, oklch(19.5% 0.008 265), oklch(15% 0.008 265));
+  }
+
+  .wall-card-glyph {
+    inline-size: 2.875rem;
+    block-size: 2.875rem;
+    margin-block-end: 1.1rem;
+    color: var(--wall-accent);
+  }
+
+  .wall-card-numeral {
+    margin-block-end: 0.75rem;
+    font-size: 3.6rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    color: var(--wall-accent);
+  }
+
+  .wall-card-title {
+    font-size: 1.03rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.012em;
+  }
+
+  .wall-card--statement .wall-card-title {
+    font-family: var(--discern-font-marketing);
+    font-size: 1.375rem;
+    line-height: 1.16;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  .wall-card-line {
+    margin-block-start: 0.4rem;
+    font-size: 0.89rem;
+    color: var(--wall-ink-muted);
+    text-wrap: pretty;
+  }
+
+  .wall-card-open {
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: start;
+    cursor: pointer;
+    appearance: none;
+  }
+
+  /* The card's one button covers the whole face. */
+  .wall-card-open::after {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--wall-radius);
+    content: "";
+  }
+
+  .wall-card-open:focus-visible {
+    outline: none;
+  }
+
+  .wall-card-open:focus-visible::after {
+    outline: 2px solid var(--wall-accent);
+    outline-offset: 2px;
+  }
+
+  /* Hover changes the hovered card and nothing else. */
+  @media (hover: hover) {
+    .wall-card:hover .wall-card-face {
+      border-color: oklch(86% var(--wall-chroma) var(--wall-hue) / 0.6);
+    }
+  }
+}

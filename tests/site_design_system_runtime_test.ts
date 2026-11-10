@@ -33,7 +33,13 @@ import { PUBLISHED_MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderMarketingPage } from "../site/renderers.ts";
 import { handler } from "../site/serve.ts";
-import { runtimeAssetReferences } from "./runtime_asset_references.ts";
+import {
+  carriesReactRuntime,
+  loadedScripts,
+  runtimeAssetReferences,
+  type WallIslandReference,
+  wallIslandReferences,
+} from "./runtime_asset_references.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
@@ -184,6 +190,19 @@ function resolvedSelection(name: DesignSystemBundleName): string[] {
   return resolved;
 }
 
+/** The one island bundle the built homepage loads. */
+async function homepageWallIsland(): Promise<WallIslandReference> {
+  const response = await handler(
+    new Request("https://discern.sh/", { headers: BROWSER }),
+  );
+  const [island, ...others] = wallIslandReferences(await response.text());
+  assert(
+    island !== undefined && others.length === 0,
+    "the built homepage loads exactly one wall island",
+  );
+  return island;
+}
+
 /** Collect CSS rule preludes that mention classes owned by selected components. */
 function componentOwnedSelectors(
   source: string,
@@ -284,6 +303,12 @@ Deno.test("the production server renders React without importing its browser ent
     reactRuntimeModules(modules).filter((specifier) =>
       /react-dom[^\s]*\/client(?:[.@/]|$)/.test(specifier)
     ),
+    [],
+  );
+  // The wall island is the one browser entry that hydrates; the server never
+  // loads it, so React's browser client stays out of the serving process.
+  assertEquals(
+    modules.filter((specifier) => specifier.endsWith("/site/wall/island.tsx")),
     [],
   );
 });
@@ -458,10 +483,16 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     assertEquals(ignored.code, 0, `${path} must be ignored`);
   }
 
+  // The build names the island after its contents and hands the name to the
+  // renderers, so reproducing a page takes the same name.
+  const built = { wallIsland: (await homepageWallIsland()).file };
   for (const page of PUBLISHED_MARKETING_PAGES) {
     assertEquals(
       await Deno.readTextFile(join(ROOT, "site", page.page)),
-      await formatGeneratedText(renderMarketingPage(page.route), "html"),
+      await formatGeneratedText(
+        renderMarketingPage(page.route, built),
+        "html",
+      ),
     );
   }
   for (const asset of COPIED_PAGE_ASSETS) {
@@ -511,7 +542,21 @@ Deno.test("consumer CSS never targets a package-manifest-owned class", async () 
   assertEquals(violations, []);
 });
 
-Deno.test("bundle routes use local static assets and ship no React runtime", async () => {
+/** Read one served script by site path, as a browser would receive it. */
+async function servedScript(path: string): Promise<string | undefined> {
+  const response = await handler(
+    new Request(`https://discern.sh${path}`, { headers: BROWSER }),
+  );
+  return response.ok ? await response.text() : undefined;
+}
+
+Deno.test("bundle routes use local static assets, and a React runtime reaches the browser only in the homepage island", async () => {
+  const island = await homepageWallIsland();
+  assertEquals(
+    island.path,
+    designSystemAssetPath("compositions", island.file),
+    "the island ships beside the homepage's own bundle",
+  );
   for (
     const name of Object.keys(DESIGN_SYSTEM_BUNDLES) as DesignSystemBundleName[]
   ) {
@@ -545,6 +590,18 @@ Deno.test("bundle routes use local static assets and ship no React runtime", asy
       assertEquals(
         runtimeRefs.filter((value) => /(?:react|jsx-runtime)/i.test(value)),
         [],
+      );
+      // A bundler hides a runtime behind any file name, so the scripts are
+      // judged by what they contain: everything the page loads, imports
+      // included.
+      const scripts = await loadedScripts(html, servedScript);
+      assert(scripts.size > 0, `${route} loads no script`);
+      assertEquals(
+        [...scripts].filter(([, source]) => carriesReactRuntime(source)).map((
+          [path],
+        ) => path),
+        route === "/" ? [island.path] : [],
+        `${route} loads a React runtime outside the homepage island`,
       );
     }
   }

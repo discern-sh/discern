@@ -1,0 +1,193 @@
+/* The homepage wall: page layout, the pool, and the masonry of cards. */
+
+@layer discern.components {
+  body {
+    display: flex;
+    min-block-size: 100svh;
+    margin: 0;
+    flex-direction: column;
+    background: var(--discern-color-canvas);
+  }
+
+  main,
+  .wall-frame,
+  .wall-host {
+    display: grid;
+  }
+
+  main {
+    flex: 1;
+  }
+
+  /* The wall is one dark room in both site themes. It owns its colors and
+   * reads none of them from the site's theme. Every tunable value arrives as a
+   * --wall-<name> custom property in this element's inline style. */
+  .wall {
+    --wall-canvas: oklch(10.5% 0.008 265);
+    --wall-ink: oklch(100% 0 0 / 0.94);
+    --wall-ink-muted: oklch(100% 0 0 / 0.66);
+    --wall-ink-faint: oklch(100% 0 0 / 0.56);
+    --wall-edge: oklch(100% 0 0 / 0.12);
+    --wall-focus: oklch(85% 0.12 255);
+
+    /* Where the pointer light rests while no pointer is over the wall. */
+    --wall-light-x: -999px;
+    --wall-light-y: -999px;
+
+    /* Scroll progress, from 0 far to 1 flat. Flat until a stage writes it. */
+    --wall-p: 1;
+
+    display: grid;
+    align-content: start;
+    padding-inline: clamp(1rem, 3vw, 1.75rem);
+    color: var(--wall-ink);
+    color-scheme: dark;
+    font-family: var(--discern-font-ui);
+    font-size: 0.95rem;
+    line-height: 1.5;
+
+    /* The light is placed in viewport coordinates, so following the pointer
+     * needs no measurement and changes brightness only. */
+    background:
+      radial-gradient(
+      var(--wall-light-radius) circle at var(--wall-light-x)
+      var(--wall-light-y),
+      oklch(100% 0 0 / calc(0.055 * var(--wall-light-strength))),
+      transparent 62%
+    )
+      fixed,
+      radial-gradient(
+      70rem 40rem at 50% -8%,
+      oklch(34% 0.07 255 / 0.32),
+      transparent 70%
+    ),
+      var(--wall-canvas);
+  }
+
+  .wall :where(h1, h2, p, ul, li) {
+    margin: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+  }
+
+  .wall :where(button) {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+  }
+
+  .wall :where(a, button):focus-visible {
+    outline: 2px solid var(--wall-focus);
+    outline-offset: 3px;
+  }
+
+  /* The pool: the upright, readable center of the first viewport. */
+  .wall-pool {
+    display: grid;
+    justify-items: center;
+    padding-block: clamp(3rem, 10vh, 6.5rem) clamp(2.5rem, 7vh, 4.5rem);
+    text-align: center;
+  }
+
+  .wall-eyebrow {
+    margin-block-end: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--wall-ink-muted);
+  }
+
+  .wall-name {
+    font-family: var(--discern-font-mono);
+    color: var(--wall-ink);
+  }
+
+  .wall-headline {
+    max-inline-size: 13ch;
+    font-family: var(--discern-font-marketing);
+    font-size: clamp(2.5rem, 5vw, 3.9rem);
+    font-weight: 600;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  .wall-category {
+    margin-block-start: 1.25rem;
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+  }
+
+  .wall-actions {
+    margin-block-start: 1.6rem;
+  }
+
+  .wall-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.15rem;
+    border-radius: 0.625rem;
+    font-weight: 500;
+    text-decoration: none;
+    color: oklch(13% 0 0);
+    background: oklch(100% 0 0 / 0.95);
+  }
+
+  .wall-cta:hover {
+    background: oklch(100% 0 0);
+  }
+
+  .wall-facts {
+    margin-block-start: 1rem;
+    font-size: 0.82rem;
+    color: var(--wall-ink-faint);
+  }
+
+  /* The wall: a masonry in DOM order, so focus order and reading order agree. */
+  .wall-stage {
+    inline-size: 100%;
+    max-inline-size: 80rem;
+    margin-inline: auto;
+  }
+
+  .wall-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 1rem;
+    margin-block-end: 1.4rem;
+  }
+
+  /* Controls need script. Their space is kept, so nothing shifts on hydration. */
+  .wall:not([data-wall-live]) .wall-controls {
+    visibility: hidden;
+  }
+
+  .wall-list {
+    columns: 4 16.5rem;
+    column-gap: var(--wall-gap);
+    padding: 0;
+    list-style: none;
+  }
+
+  .wall-closing {
+    display: grid;
+    justify-items: center;
+    padding-block: clamp(3.5rem, 10vh, 6rem);
+    text-align: center;
+  }
+
+  .wall-closing-title {
+    font-family: var(--discern-font-marketing);
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+
+  .wall-closing-line {
+    margin-block-start: 0.75rem;
+    color: var(--wall-ink-muted);
+  }
+}

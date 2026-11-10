@@ -221,11 +221,11 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   },
   {
     path: "site/page-src/format-generated.ts",
-    enclosingFunction: "formatGeneratedText",
+    enclosingFunction: "denoTransform",
     publication: "repository-tooling",
-    operation: "format generated site text",
+    operation: "format generated site text and bundle the homepage island",
     reason:
-      "the site generator invokes Deno fmt as a byte-transform protocol over piped standard input and output",
+      "the site generator invokes Deno fmt and Deno bundle as byte-transform protocols over piped standard input and output",
     may: ["other"],
     role: "registered-boundary",
   },

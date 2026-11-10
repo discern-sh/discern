@@ -5374,7 +5374,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `scripts/vale_toolchain.ts#runExactVale`
   - `scripts/vale_toolchain.ts#extractVale`
   - `site/dev.ts#runSiteBuild`
-  - `site/page-src/format-generated.ts#formatGeneratedText`
+  - `site/page-src/format-generated.ts#denoTransform`
   - `site/specimens.ts#buildSpecimenPreview`
   - `src/shared/subprocess.ts#runGit`
   - `src/shared/subprocess.ts#runShell`

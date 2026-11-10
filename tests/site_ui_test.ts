@@ -10,6 +10,12 @@ const OWNED_CLASSES = new Set(
   packageManifest.components.flatMap((component) => component.ownedClasses),
 );
 
+/**
+ * Trees whose modules compose the site's markup as components: the shared UI
+ * the server renders, and the homepage wall that the browser also hydrates.
+ */
+const COMPONENT_TREES = ["site/ui/", "site/wall/"] as const;
+
 /** Inspect executable syntax rather than comments or a copied list of renderer names. */
 function markupViolations(path: string, text: string): string[] {
   const project = new Project({
@@ -34,7 +40,7 @@ function markupViolations(path: string, text: string): string[] {
         `${path}:${node.getStartLineNumber()}: HTML-producing modules use .tsx`,
       );
     }
-    if (!path.startsWith("site/ui/")) continue;
+    if (!COMPONENT_TREES.some((tree) => path.startsWith(tree))) continue;
     if (
       Node.isJsxAttribute(node) &&
       node.getNameNode().getText() === "dangerouslySetInnerHTML" &&
@@ -94,12 +100,22 @@ Deno.test("new site renderers and copied package classes enroll in the TSX bound
       'const Page=()=>"<header>Hello</header>";',
     ).length > 0,
   );
-  assert(
-    markupViolations(
-      "site/ui/pages/Future.tsx",
-      "const Page=()=> <div dangerouslySetInnerHTML={{__html:source}} />;",
-    ).length > 0,
-  );
+  for (const tree of COMPONENT_TREES) {
+    assert(
+      markupViolations(
+        `${tree}Future.tsx`,
+        "const Page=()=> <div dangerouslySetInnerHTML={{__html:source}} />;",
+      ).length > 0,
+      `${tree} routes raw HTML through HtmlFragment`,
+    );
+    assert(
+      markupViolations(
+        `${tree}Future.tsx`,
+        `const Page=()=> <div className="${token}" />;`,
+      ).length > 0,
+      `${tree} imports the component that owns a package class`,
+    );
+  }
   assertEquals(
     markupViolations(
       "site/parser.ts",

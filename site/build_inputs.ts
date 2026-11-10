@@ -13,6 +13,7 @@ export const SITE_BUILD_INPUTS = [
   "site/workflow_registry.ts",
   "site/page-src",
   "site/ui",
+  "site/wall",
   "site/routes.ts",
   "site/navigation.ts",
   "site/renderers.ts",

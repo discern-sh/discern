@@ -1,0 +1,63 @@
+/* The tuning panel: a development aid shown only with ?tune in the URL. */
+
+@layer discern.components {
+  .wall-tune {
+    position: fixed;
+    inset-block-end: 1rem;
+    inset-inline-end: 1rem;
+    z-index: 20;
+    inline-size: 17rem;
+    border: 1px solid oklch(100% 0 0 / 0.12);
+    border-radius: 0.875rem;
+    font-size: 0.78rem;
+    color: var(--wall-ink-muted);
+    background: oklch(14% 0.008 265 / 0.96);
+  }
+
+  .wall-tune-summary {
+    padding: 0.6rem 0.9rem;
+    font-weight: 500;
+    color: var(--wall-ink);
+    cursor: pointer;
+  }
+
+  .wall-tune-rows {
+    display: grid;
+    gap: 0.45rem;
+    max-block-size: 60vh;
+    padding: 0.1rem 0.9rem 0.75rem;
+    overflow: auto;
+  }
+
+  .wall-tune-row {
+    display: grid;
+    grid-template-columns: 5.75rem 1fr 3.25rem;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .wall-tune-row input {
+    inline-size: 100%;
+    accent-color: oklch(80% 0.12 255);
+  }
+
+  .wall-tune-row output {
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+  }
+
+  .wall-tune-actions {
+    display: flex;
+    gap: 0.4rem;
+    padding-block-start: 0.25rem;
+  }
+
+  .wall-tune-actions button {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid oklch(100% 0 0 / 0.14);
+    border-radius: 0.5rem;
+    background: oklch(100% 0 0 / 0.04);
+    cursor: pointer;
+  }
+}
