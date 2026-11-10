@@ -1,0 +1,50 @@
+/* Wall glyphs: the three tones, the one stroke, and the hover move. */
+
+@layer discern.components {
+  /* A primitive that travels on hover may cross the edge of the grid. */
+  .wall-glyph {
+    overflow: visible;
+    fill: none;
+  }
+
+  .wall-glyph-solid {
+    fill: currentColor;
+  }
+
+  .wall-glyph-tint {
+    fill: currentColor;
+    fill-opacity: var(--wall-glyph-tint);
+  }
+
+  .wall-glyph-outline,
+  .wall-glyph-faint {
+    stroke: currentColor;
+    stroke-width: var(--wall-glyph-weight);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* A line covers less than an area, so a tinted stroke sits a step above
+   * the tinted fill to read at the same strength. */
+  .wall-glyph-faint {
+    stroke-opacity: calc(var(--wall-glyph-tint) * 1.4);
+  }
+
+  /* One primitive of a glyph may travel a few grid units while its own card
+   * is hovered or holds focus. Nothing else about the glyph changes. */
+  @media (prefers-reduced-motion: no-preference) {
+    .wall-glyph-move {
+      transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .wall-card:focus-within .wall-glyph-move {
+      transform: translate(var(--wall-glyph-dx), var(--wall-glyph-dy));
+    }
+
+    @media (hover: hover) {
+      .wall-card:hover .wall-glyph-move {
+        transform: translate(var(--wall-glyph-dx), var(--wall-glyph-dy));
+      }
+    }
+  }
+}
