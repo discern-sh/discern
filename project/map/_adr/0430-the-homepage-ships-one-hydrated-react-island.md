@@ -1,6 +1,6 @@
 # ADR 0430: The homepage ships one hydrated React island
 
-**Status**: accepted on 2026-11-10. Narrows [ADR 0135](0135-site-pages-use-build-time-react-and-static-runtime.md) and [ADR 0402](0402-site-layouts-use-server-rendered-react-components.md) for the route `/`. [ADR 0139](0139-the-design-system-is-an-independent-package.md) stands unchanged.
+**Status**: accepted on 2026-11-10. Narrows [ADR 0135](0135-site-pages-use-build-time-react-and-static-runtime.md) and [ADR 0402](0402-site-layouts-use-server-rendered-react-components.md) for the route `/`. The package ownership in [ADR 0139](0139-the-design-system-is-an-independent-package.md) stands, and its restatement of ADR 0135's static-runtime clause narrows the same way.
 
 ## Context
 
@@ -22,7 +22,7 @@ These facts bounded the choice:
 
 **The homepage hydrates one React island, the wall.** [`WallPage`](../../../site/wall/WallPage.tsx) renders on the server into a host element. The browser hydrates the same component with the props the server recorded on that host. The document around it, including the head, header, and footer, stays static server output.
 
-**The page is complete before script runs.** The headline, the call to action, and every card's text are server markup. Controls that need script stay hidden until the island marks the wall live. Hydration must find nothing to reconcile, so the component reads no clock, no randomness, and nothing from the browser before an effect runs.
+**The page is complete before script runs.** The headline, the call to action, and every card's text are server markup. The lens stays hidden until the island marks the wall live. A card's heading is a button that opens nothing until then. Hydration must find nothing to reconcile, so the component reads no clock, no randomness, and nothing from the browser before an effect runs.
 
 **The island is one content-hashed script.** [`site/build.ts`](../../../site/build.ts) bundles [`site/wall/island.tsx`](../../../site/wall/island.tsx) with `deno bundle` and names the file after the SHA-256 digest of its own bytes. The homepage loads it as a same-origin module script. The build fails when that file name is missing from `/` or present on any other page.
 
@@ -30,19 +30,19 @@ These facts bounded the choice:
 
 **One module imports the browser client.** Only the island entry imports `react-dom/client`, and no module imports the island. The server and the build load neither.
 
-**No animation library.** Motion uses what the platform provides: CSS, the Web Animations API, and the View Transitions API. CSS drives the scroll approach where the browser supports scroll-driven animation, and a browser without that support shows the flat wall from the start. The page is complete in both.
+**No animation library.** Motion uses only what the platform provides. CSS and the View Transitions API carry the wall's motion, and the Web Animations API is the one other tool this decision permits. CSS drives the scroll approach where the browser supports scroll-driven animation, and a browser without that support shows the flat wall from the start. The page is complete in both.
 
-**The wall owns its look.** Its card surfaces, glyphs, and dark palette live in site stylesheets. ADR 0139 stands: the wall asks the design-system package for nothing new and adds nothing to it.
+**The wall owns its look.** Its card surfaces, glyphs, and dark palette live in site stylesheets. ADR 0139's ownership stands: the wall asks the design-system package for nothing new and adds nothing to it.
 
 This decision does not make the site a client application. It adds no client-side routing and no application shell, and it hydrates no part of the document outside the wall. A second island needs its own decision.
 
 ## Consequences
 
-- `/` loads about 62 KB of compressed script, 197 KB before compression. That bundle holds React, React DOM, the wall's components, the deck, and the glyph drawings. The page reads in full before the script arrives.
+- `/` loads about 66 KB of gzip-compressed script, 206 KB before compression, measured on the day of this decision. That bundle holds React, React DOM, the wall's components, the deck, and the glyph drawings. The page reads in full before the script arrives.
 - The build depends on `deno bundle`, which Deno 2.9 labels experimental. A Deno upgrade can change its flags or its output, and the hosted build needs a Deno that has the subcommand. A test compares the built file with a fresh bundle, so changed output fails that test.
 - Server and browser must serialize identical markup. The glyph grammar therefore computes coordinates with arithmetic the language specifies exactly, and a structural guard rejects anything in the glyph modules that could vary between renders.
 - Card copy ships twice: once as server markup and once inside the bundle. An opened card's second paragraph exists only in the bundle, so the prose checks that read server markup do not read it.
-- The wall is dark inside both site themes. A reader on the light theme sees a dark body between a light header and footer.
+- The wall is dark inside both site themes. It sits as one rounded dark room with a margin of the site's canvas around it, so a reader on the light theme sees a dark panel on a light page.
 - The wall's look sits outside the design system. A package restyle does not reach it, and the package gains nothing from it.
 - The runtime guard recognizes React by constants internal to React. A React release that renames them would blind the guard, so a test also requires the island itself to carry them and fails on that release.
 - The import map pins React once for the server and once for the browser client. Both pins must move together, because hydration needs one version on both sides.
