@@ -1,68 +1,205 @@
-/* Wall cards: the surface and type of the three kinds. */
+/* Wall cards: the surface, type, and states of the three kinds. */
 
 @layer discern.components {
   .wall-card {
     --wall-accent: oklch(80% var(--wall-chroma) var(--wall-hue));
+
+    /* Where the pointer sits inside the card it is over: -1 to 1 on each
+     * axis, 0 at the center. The card writes both while a pointer hovers. */
+    --wall-pointer-x: 0;
+    --wall-pointer-y: 0;
 
     position: relative;
     margin-block-end: var(--wall-gap);
     break-inside: avoid;
   }
 
-  /* Opaque and neutral. Color appears in the corner wash, the glyph, and the
-   * lit border. */
+  /* The face is an opaque, neutral object lit from its top-left corner.
+   * Color appears only as light: the corner wash, the hue the border catches
+   * there, and the glyph. Depth comes from light and shadow, never from blur.
+   *
+   * Each part of the surface is a custom property so a kind or a state can
+   * change one part without restating the stack. */
   .wall-card-face {
-    display: grid;
-    justify-items: start;
-    padding: 1.1rem 1.1rem 1.25rem;
-    border: 1px solid var(--wall-edge);
-    border-radius: var(--wall-radius);
-    background:
-      radial-gradient(
+    --wall-card-surface: linear-gradient(
+      180deg,
+      oklch(19.5% 0.008 265),
+      oklch(15.5% 0.008 265)
+    );
+    --wall-card-wash: radial-gradient(
       12rem circle at 0 0,
       oklch(60% calc(var(--wall-chroma) * 1.25) var(--wall-hue) / 0.15),
       transparent 72%
-    ),
-      linear-gradient(180deg, oklch(19.5% 0.008 265), oklch(15% 0.008 265));
+    );
+    --wall-card-edge: radial-gradient(
+      9rem circle at 0 0,
+      oklch(86% var(--wall-chroma) var(--wall-hue) / 0.34),
+      transparent 72%
+    );
+
+    /* The pointer light on the border, dark until the wall is near. Near, it
+     * is placed in viewport coordinates, so following the pointer measures
+     * nothing. A face that has moved loses that placement, so it takes the
+     * same light at the pointer's place inside the card instead. */
+    --wall-card-light: none;
+    --wall-card-glow:
+      oklch(
+        86% var(--wall-chroma) var(--wall-hue) /
+        calc(0.45 * var(--wall-light-strength))
+      ),
+      transparent 62%;
+    --wall-card-light-near:
+      radial-gradient(
+        calc(var(--wall-light-radius) * 0.7) circle at var(--wall-light-x)
+        var(--wall-light-y),
+        var(--wall-card-glow)
+      )
+      fixed;
+    --wall-card-light-own: radial-gradient(
+      calc(var(--wall-light-radius) * 0.7) circle at
+      calc(50% + var(--wall-pointer-x) * 50%)
+      calc(50% + var(--wall-pointer-y) * 50%),
+      var(--wall-card-glow)
+    );
+
+    position: relative;
+    z-index: 0;
+    display: grid;
+    justify-items: start;
+    padding: 1.125rem 1.125rem 1.3125rem;
+    border: 1px solid transparent;
+    border-radius: var(--wall-radius);
+    background:
+      var(--wall-card-wash) padding-box,
+      var(--wall-card-surface) padding-box,
+      var(--wall-card-light) border-box,
+      var(--wall-card-edge) border-box,
+      linear-gradient(180deg, oklch(100% 0 0 / 0.16), oklch(100% 0 0 / 0.075))
+      border-box;
+
+    /* Every outer shadow is sized from the gap, so it ends before the next
+     * card: a card darkens the wall beneath it and never a neighbor. */
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.045),
+      0 1px 1px oklch(0% 0 0 / 0.45),
+      0 calc(var(--wall-gap) * 0.35) calc(var(--wall-gap) * 0.5)
+      calc(var(--wall-gap) * -0.25) oklch(0% 0 0 / 0.8);
+  }
+
+  /* Two layers sit between the surface and the words, and only their opacity
+   * ever changes. The first is the face as it looks in the light. The second
+   * is the deeper shadow of a lifted card. */
+  .wall-card-face::before,
+  .wall-card-face::after {
+    position: absolute;
+    z-index: -1;
+    inset: -1px;
+    border-radius: inherit;
+    opacity: 0;
+    pointer-events: none;
+    content: "";
+  }
+
+  .wall-card-face::before {
+    border: 1px solid transparent;
+    background:
+      radial-gradient(
+      16rem circle at calc(50% + var(--wall-pointer-x) * 50%)
+      calc(50% + var(--wall-pointer-y) * 50%),
+      oklch(100% 0 0 / 0.055),
+      transparent 68%
+    )
+      padding-box,
+      var(--wall-card-wash) padding-box,
+      var(--wall-card-surface) padding-box,
+      radial-gradient(
+      18rem circle at calc(50% + var(--wall-pointer-x) * 50%)
+      calc(50% + var(--wall-pointer-y) * 50%),
+      oklch(90% var(--wall-chroma) var(--wall-hue) / 0.9),
+      oklch(86% var(--wall-chroma) var(--wall-hue) / 0.28) 70%
+    )
+      border-box;
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07);
+  }
+
+  .wall-card-face::after {
+    box-shadow:
+      0 calc(var(--wall-gap) * 0.45) calc(var(--wall-gap) * 0.7)
+      calc(var(--wall-gap) * -0.3) oklch(0% 0 0 / 0.9),
+      0 0 calc(var(--wall-gap) * 0.8) calc(var(--wall-gap) * -0.25)
+      oklch(72% var(--wall-chroma) var(--wall-hue) / 0.3);
   }
 
   .wall-card-glyph {
     inline-size: 2.875rem;
     block-size: 2.875rem;
-    margin-block-end: 1.1rem;
-    color: var(--wall-accent);
-  }
-
-  .wall-card-numeral {
-    margin-block-end: 0.75rem;
-    font-size: 3.6rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 0.9;
-    letter-spacing: -0.05em;
+    margin-block-end: 1.125rem;
     color: var(--wall-accent);
   }
 
   .wall-card-title {
-    font-size: 1.03rem;
+    font-size: 1.03125rem;
     font-weight: 600;
     line-height: 1.25;
     letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+
+  .wall-card-line {
+    margin-block-start: 0.375rem;
+    font-size: 0.890625rem;
+    line-height: 1.5;
+    color: var(--wall-ink-muted);
+    text-wrap: pretty;
+  }
+
+  /* A statement is a sentence set large under a short rule in its hue, on a
+   * face that takes more of that hue than a benefit card does. */
+  .wall-card--statement .wall-card-face {
+    --wall-card-wash: radial-gradient(
+      22rem circle at 0 0,
+      oklch(60% calc(var(--wall-chroma) * 1.25) var(--wall-hue) / 0.2),
+      transparent 70%
+    );
+    --wall-card-edge: linear-gradient(
+      150deg,
+      oklch(86% var(--wall-chroma) var(--wall-hue) / 0.55),
+      transparent 46%
+    );
+
+    padding: 1.5rem 1.375rem 1.6875rem;
   }
 
   .wall-card--statement .wall-card-title {
     font-family: var(--discern-font-marketing);
     font-size: 1.375rem;
     line-height: 1.16;
-    letter-spacing: -0.025em;
-    text-wrap: balance;
+    letter-spacing: -0.028em;
   }
 
-  .wall-card-line {
-    margin-block-start: 0.4rem;
-    font-size: 0.89rem;
-    color: var(--wall-ink-muted);
-    text-wrap: pretty;
+  .wall-card--statement .wall-card-title::before {
+    display: block;
+    inline-size: 1.625rem;
+    block-size: 2px;
+    margin-block-end: 1.125rem;
+    border-radius: 1px;
+    background: var(--wall-accent);
+    content: "";
+  }
+
+  /* A numeral card leads with its number, which is part of the heading. */
+  .wall-card--numeral .wall-card-face {
+    padding-block-start: 1.25rem;
+  }
+
+  .wall-card-numeral {
+    display: block;
+    margin-block-end: 0.875rem;
+    font-family: var(--discern-font-marketing);
+    font-size: 3.625rem;
+    line-height: 0.86;
+    letter-spacing: -0.055em;
+    color: var(--wall-accent);
   }
 
   .wall-card-open {
@@ -74,10 +211,10 @@
     appearance: none;
   }
 
-  /* The card's one button covers the whole face. */
+  /* The card's one button covers the whole face, border included. */
   .wall-card-open::after {
     position: absolute;
-    inset: 0;
+    inset: -1px;
     border-radius: var(--wall-radius);
     content: "";
   }
@@ -91,10 +228,140 @@
     outline-offset: 2px;
   }
 
-  /* Hover changes the hovered card and nothing else. */
+  /* Keyboard focus lights the card it is on. */
+  .wall-card:has(.wall-card-open:focus-visible) .wall-card-face::before {
+    opacity: 1;
+  }
+
   @media (hover: hover) {
-    .wall-card:hover .wall-card-face {
-      border-color: oklch(86% var(--wall-chroma) var(--wall-hue) / 0.6);
+    /* Near, the pointer light reaches card borders. It changes their
+     * brightness and nothing else. It needs a pointer to follow and a
+     * background the browser can place by the viewport, and a touch screen
+     * promises neither. */
+    .wall[data-wall-near] .wall-card-face {
+      --wall-card-light: var(--wall-card-light-near);
+    }
+
+    .wall[data-wall-near] .wall-card:hover .wall-card-face,
+    .wall[data-wall-near] .wall-card:active .wall-card-face {
+      --wall-card-light: var(--wall-card-light-own);
+    }
+
+    /* Hover changes the hovered card and nothing else: its face takes the
+     * light and its shadow deepens. */
+    .wall-card:hover .wall-card-face::before,
+    .wall-card:hover .wall-card-face::after {
+      opacity: 1;
+    }
+  }
+
+  /* Pressed, the card settles back onto the wall: less light, no lift. */
+  .wall-card:active .wall-card-face::before {
+    opacity: 0.6;
+  }
+
+  .wall-card:active .wall-card-face::after {
+    opacity: 0;
+  }
+
+  /* Motion belongs to the face, never to the list item, so a moving card
+   * keeps its place in the masonry and no neighbor shifts. The lift is two
+   * pixels. The tilt leans toward the pointer by at most --wall-hover-tilt,
+   * reached only at the card's edge.
+   *
+   * A face has its own layer only while it moves. For as long as it does, it
+   * is drawn above the other cards: a layer in the middle of the wall would
+   * make the browser redraw every card after it, and their edges and letters
+   * would shimmer. So the face rises in the stack at once and steps back down
+   * a moment after it has come to rest. */
+  @media (prefers-reduced-motion: no-preference) {
+    .wall-card-face {
+      transition:
+        transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+        z-index 0s 0.5s;
+    }
+
+    .wall-card-face::before,
+    .wall-card-face::after {
+      transition: opacity 0.45s;
+    }
+
+    .wall-card:has(.wall-card-open:focus-visible) .wall-card-face {
+      z-index: 1;
+      transition-delay: 0s;
+    }
+
+    @media (hover: hover) {
+      .wall-card:hover .wall-card-face {
+        z-index: 1;
+        transform: perspective(60rem) translate3d(0, -2px, 0)
+          rotateX(calc(var(--wall-pointer-y) * var(--wall-hover-tilt) * -1))
+          rotateY(calc(var(--wall-pointer-x) * var(--wall-hover-tilt)))
+          scale(1);
+        transition-delay: 0s;
+        will-change: transform;
+      }
+
+      .wall-card:hover .wall-card-face::before,
+      .wall-card:hover .wall-card-face::after {
+        transition-duration: 0.2s;
+      }
+    }
+
+    .wall-card:active .wall-card-face {
+      z-index: 1;
+      transform: perspective(60rem) translate3d(0, 0, 0)
+        rotateX(calc(var(--wall-pointer-y) * var(--wall-hover-tilt) * -1))
+        rotateY(calc(var(--wall-pointer-x) * var(--wall-hover-tilt)))
+        scale(0.985);
+      transition-duration: 0.12s, 0s;
+      transition-delay: 0s;
+    }
+  }
+
+  /* Print and forced colors: flat cards in the system's own colors. */
+  @media print {
+    .wall-card {
+      color-scheme: light;
+    }
+  }
+
+  @media (forced-colors: active), print {
+    .wall-card {
+      --wall-accent: CanvasText;
+    }
+
+    .wall-card-face {
+      border-color: CanvasText;
+      color: CanvasText;
+      background: Canvas;
+      box-shadow: none;
+    }
+
+    .wall-card-face::before,
+    .wall-card-face::after {
+      display: none;
+    }
+
+    .wall-card-line {
+      color: CanvasText;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .wall-card:has(.wall-card-open:focus-visible) .wall-card-face {
+      border-color: Highlight;
+    }
+
+    @media (hover: hover) {
+      .wall-card:hover .wall-card-face {
+        border-color: Highlight;
+      }
+    }
+
+    /* The design system outlines the focused button itself here. */
+    .wall-card-open:focus-visible::after {
+      outline: none;
     }
   }
 }
