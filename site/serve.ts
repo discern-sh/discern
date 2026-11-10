@@ -57,6 +57,7 @@ import {
 } from "./social/address.ts";
 import { socialCardFor } from "./social/model.ts";
 import { socialCardPng } from "./social/render.ts";
+import { wallIslandContentHash } from "./wall/assets.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 /** Published routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
@@ -113,6 +114,19 @@ export function wantsText(req: Request): boolean {
   return accept.includes("text/plain");
 }
 
+/**
+ * How long a cache may keep a bundled file. A file named after the digest of
+ * its own bytes never changes under that name, so a cache keeps it for a
+ * year and never asks again: a new build publishes new bytes under a new
+ * name. Every other file is asked for again within minutes.
+ */
+function fileCachePolicy(relPath: string): string {
+  const name = relPath.slice(relPath.lastIndexOf("/") + 1);
+  return wallIslandContentHash(name) === undefined
+    ? "public, max-age=300"
+    : "public, max-age=31536000, immutable";
+}
+
 /** Read a bundled file and respond with its inferred content type and cache policy. */
 async function serveFile(
   relPath: string,
@@ -123,7 +137,7 @@ async function serveFile(
   const headers = new Headers(extraHeaders);
   headers.set("content-type", CONTENT_TYPES[ext] ?? "application/octet-stream");
   if (!headers.has("cache-control")) {
-    headers.set("cache-control", "public, max-age=300");
+    headers.set("cache-control", fileCachePolicy(relPath));
   }
   return new Response(body, { status: 200, headers });
 }

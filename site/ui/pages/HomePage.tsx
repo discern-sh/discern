@@ -9,13 +9,18 @@ import {
   LANDING_HEADLINE,
   LANDING_TITLE,
 } from "../../brand.ts";
+import { loadDocsSite } from "../../docs.tsx";
 import { type BuiltAssets, WALL_STYLESHEETS } from "../../wall/assets.ts";
+import { WALL_DECK } from "../../wall/deck.ts";
 import {
   encodeWallProps,
+  type LinkLabels,
+  linkRoute,
   WALL_HOST_ID,
   WALL_PROPS_ATTRIBUTE,
+  type WallPageProps,
 } from "../../wall/host.ts";
-import { WallPage, type WallPageProps } from "../../wall/WallPage.tsx";
+import { WallPage } from "../../wall/WallPage.tsx";
 import { HtmlFragment } from "../components/HtmlFragment.tsx";
 import { renderDocument } from "../Document.tsx";
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
@@ -26,6 +31,38 @@ import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
  * to leave the element after it alone.
  */
 const FORMATTER_HOLD = "<!-- deno-fmt-ignore -->";
+
+/**
+ * The manual as the site publishes it, read once as this module loads. The
+ * wall's cards link into it, and only the server can read it.
+ */
+const MANUAL = await loadDocsSite();
+
+/**
+ * The title of every manual page the deck links to, by route, for the opened
+ * card to name its link by. A card that links to a page the manual does not
+ * publish stops the render, so no page ships with a link it cannot name.
+ */
+function manualLinkLabels(): LinkLabels {
+  const titles = new Map(
+    [MANUAL.landing, ...MANUAL.pages].map((
+      page,
+    ) => [page.route, page.entry.title]),
+  );
+  const labels: Record<string, string> = {};
+  for (const card of WALL_DECK) {
+    if (card.href === undefined) continue;
+    const route = linkRoute(card.href);
+    const title = titles.get(route);
+    if (title === undefined) {
+      throw new Error(
+        `the wall's "${card.id}" card links to ${card.href}, a page the manual does not publish`,
+      );
+    }
+    labels[route] = title;
+  }
+  return labels;
+}
 
 /**
  * Render the homepage with shared navigation around the wall. The page loads
@@ -56,6 +93,7 @@ function wallIslandMarkup(): string {
     version: DISCERN_VERSION,
     headline: LANDING_HEADLINE,
     categoryLine: DISCERN_CATEGORY_LINE,
+    linkLabels: manualLinkLabels(),
   };
   return renderToString(
     <div

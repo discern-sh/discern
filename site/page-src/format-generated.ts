@@ -42,12 +42,18 @@ export function formatGeneratedText(
 
 /**
  * Bundle one browser entry module and everything it imports into a single
- * minified script, with npm packages resolved through the repository's own
- * import map and lockfile.
+ * script, with npm packages resolved through the repository's own import map
+ * and lockfile. The script is minified unless the caller asks otherwise.
+ * Minifying is also what selects each package's production build, so an
+ * unminified bundle carries the development builds and the warnings that
+ * only they give.
  */
-export function bundleBrowserModule(entry: string): Promise<string> {
+export function bundleBrowserModule(
+  entry: string,
+  { minify = true }: { readonly minify?: boolean } = {},
+): Promise<string> {
   return denoTransform(
-    ["bundle", "--platform", "browser", "--minify", entry],
+    ["bundle", "--platform", "browser", ...(minify ? ["--minify"] : []), entry],
     "",
     `Bundling ${entry}`,
   );

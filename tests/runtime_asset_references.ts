@@ -40,19 +40,6 @@ export function runtimeAssetReferences(html: string): readonly string[] {
   );
 }
 
-/**
- * Marks a React build leaves in any script that carries its runtime. They are
- * string constants, so they survive bundling and minification under any file
- * name; a script's address says nothing about what was bundled into it.
- */
-const REACT_RUNTIME_MARKS =
-  /react\.element|react\.transitional\.element|__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED|__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE/;
-
-/** Whether script text carries a React runtime, whatever the file is called. */
-export function carriesReactRuntime(script: string): boolean {
-  return REACT_RUNTIME_MARKS.test(script);
-}
-
 const SCRIPT_PATH = /\.m?js$/;
 
 /** The site paths one script imports, statically or dynamically. */

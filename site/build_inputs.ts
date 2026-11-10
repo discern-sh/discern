@@ -9,6 +9,7 @@ export const SITE_BUILD_INPUTS = [
   "src/shared/product_identity.ts",
   "src/shared/semver.ts",
   "site/brand.ts",
+  "site/docs.tsx",
   "site/design_system.ts",
   "site/workflow_registry.ts",
   "site/page-src",

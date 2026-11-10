@@ -33,8 +33,8 @@ import { PUBLISHED_MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderMarketingPage } from "../site/renderers.ts";
 import { handler } from "../site/serve.ts";
+import { carriesReactRuntime } from "../site/wall/assets.ts";
 import {
-  carriesReactRuntime,
   loadedScripts,
   runtimeAssetReferences,
   type WallIslandReference,
