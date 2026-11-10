@@ -28,7 +28,10 @@ interface CardBase {
   readonly cites: string;
   /** Optional second paragraph shown when the card is opened. One or two plain sentences. */
   readonly more?: string;
-  /** Optional site path to a manual page that exists, such as "/docs/start". */
+  /**
+   * Optional site path to a manual page that exists, such as "/docs/start".
+   * It may end in "#" and the id of a heading on that page.
+   */
   readonly href?: string;
 }
 export interface BenefitCard extends CardBase {
@@ -52,7 +55,7 @@ export type WallCard = BenefitCard | StatementCard | NumeralCard;
 
 export interface WallLens {
   readonly id: string;
-  /** Phrased as something the visitor wants, such as "Move more work". */
+  /** Phrased as something the visitor wants, such as "Run more at once". */
   readonly label: string;
   readonly clusters: readonly ClusterId[];
 }

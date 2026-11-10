@@ -1,9 +1,10 @@
 /**
  * The wall's deck holds together: every card cites a live registry entry, its
  * copy stays inside the wall's length limits, each benefit card draws a glyph
- * authored for it, every link leads to a manual page, no human benefit goes
- * missing without a reason, and a number that counts a changing inventory
- * equals that inventory.
+ * authored for it, every link leads to a manual page and to a heading on it,
+ * no human benefit goes missing without a reason, a number that counts a
+ * changing inventory equals that inventory, a duration is the one the manual
+ * states, and the wall opens on its authored lead.
  */
 import { assert, assertEquals } from "@std/assert";
 import { CLAIMS } from "../scripts/brand/claims.ts";
@@ -12,9 +13,14 @@ import {
   allAgentBenefitEntries,
   allHumanBenefitEntries,
 } from "../scripts/feature_registry.ts";
-import { loadDocsSite } from "../site/docs.tsx";
+import { loadDocsSite, renderDoc } from "../site/docs.tsx";
 import { cardGlyph, cardHeading } from "../site/wall/Card.tsx";
-import { WALL_ABSENT, WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
+import {
+  WALL_ABSENT,
+  WALL_DECK,
+  WALL_LEAD,
+  WALL_LENSES,
+} from "../site/wall/deck.ts";
 import { GLYPHS } from "../site/wall/glyphs.ts";
 import {
   type CardSource,
@@ -71,6 +77,36 @@ const NUMERAL_COUNTS: Readonly<Record<string, () => Promise<number>>> = {
   "numeral-supported-coding-agents": () => Promise.resolve(AGENT_NAMES.length),
 };
 
+/**
+ * The manual page that states how long setup takes. A duration on the wall is
+ * a fact the manual owns, so the wall may quote only what that page says.
+ */
+const SETUP_PAGE = "/docs/start/installation-and-setup";
+
+/** A span of minutes as the wall writes one, such as "5 to 10 minutes". */
+const MINUTES_SPAN = /\d+ to \d+ minutes/g;
+
+/**
+ * The words for the numbers a heading could spell out, by value. A numeral
+ * card's heading reads as its numeral and then its title, so a title that
+ * says the number again reads it twice.
+ */
+const NUMBER_WORDS: readonly string[] = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+];
+
 /** How many words a text has, counted between spaces. */
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter((word) => word !== "").length;
@@ -111,6 +147,14 @@ function titleFaults(title: string): string[] {
   return faults;
 }
 
+/** Whether a numeral card's title says its number a second time. */
+function repeatsNumeral(numeral: string, title: string): boolean {
+  const spoken = [numeral, NUMBER_WORDS[Number(numeral)]];
+  return title.toLowerCase().split(/[^a-z0-9]+/).some((word) =>
+    spoken.includes(word)
+  );
+}
+
 /** What is wrong with a card's copy, measured against the wall's limits. */
 function copyFaults(card: WallCard): string[] {
   const faults: string[] = [];
@@ -124,6 +168,11 @@ function copyFaults(card: WallCard): string[] {
     }
   } else {
     faults.push(...titleFaults(card.title));
+    if (card.kind === "numeral" && repeatsNumeral(card.numeral, card.title)) {
+      faults.push(
+        `the heading reads "${card.numeral} ${card.title}", which says the number twice`,
+      );
+    }
     if (!isOneSentence(card.line) || wordCount(card.line) > LINE_WORD_LIMIT) {
       faults.push(
         `line "${card.line}" must be one sentence of ${LINE_WORD_LIMIT} words or fewer`,
@@ -246,7 +295,14 @@ Deno.test("control: the copy limits refuse what the wall's rules rule out", () =
       cites: "control",
       text: `${"word ".repeat(STATEMENT_WORD_LIMIT)}more.`,
     },
+    { ...sound, kind: "numeral", numeral: "1", title: "One sound title" },
+    { ...sound, kind: "numeral", numeral: "36", title: "All 36 limits" },
   ];
+  assertEquals(
+    copyFaults({ ...sound, kind: "numeral", numeral: "1" }),
+    [],
+    "a numeral card whose title leaves the number to the numeral is sound",
+  );
   for (const card of refused) {
     assertEquals(copyFaults(card).length, 1, JSON.stringify(card));
   }
@@ -273,18 +329,55 @@ Deno.test("every benefit card draws a glyph authored for it", () => {
   );
 });
 
-Deno.test("every card link leads to a manual page", async () => {
+Deno.test("every card link leads to a manual page, and to a heading on it", async () => {
   const site = await loadDocsSite();
-  const manual = new Set(
-    [site.landing, ...site.pages].map((page) => page.route),
+  const manual = new Map(
+    [site.landing, ...site.pages].map((page) => [page.route, page]),
   );
   assert(manual.size > 1, "the manual publishes pages");
+  const faults: string[] = [];
+  let sections = 0;
+  for (const card of WALL_DECK) {
+    if (card.href === undefined) continue;
+    const [route = "", section, ...extra] = card.href.split("#");
+    const page = manual.get(route);
+    if (page === undefined || extra.length > 0) {
+      faults.push(
+        `${card.id} links to ${card.href}, a path the manual does not publish`,
+      );
+      continue;
+    }
+    if (section === undefined) continue;
+    sections++;
+    const { toc } = await renderDoc(page, site);
+    if (!toc.some((heading) => heading.id === section)) {
+      faults.push(
+        `${card.id} links to ${card.href}, and ${route} has no heading with the id "${section}"; its headings are ${
+          toc.map((heading) => heading.id).join(", ")
+        }`,
+      );
+    }
+  }
+  assertEquals(faults, []);
+  assert(sections > 0, "a card links to a section of a manual page");
+});
+
+Deno.test("a duration on the wall is the one the manual states", async () => {
+  const site = await loadDocsSite();
+  const page = site.pages.find((each) => each.route === SETUP_PAGE);
+  assert(page !== undefined, `the manual publishes ${SETUP_PAGE}`);
+  const manual = await Deno.readTextFile(page.entry.absPath);
+  const quoted = WALL_DECK.flatMap((card) =>
+    cardTexts(card).flatMap((text) => text.match(MINUTES_SPAN) ?? []).map((
+      span,
+    ) => ({ card: card.id, span }))
+  );
+  assert(quoted.length > 0, "the wall says how long setup takes");
   assertEquals(
-    WALL_DECK.filter((card) =>
-      card.href !== undefined && !manual.has(card.href)
-    ).map((card) => `${card.id} links to ${card.href}`),
+    quoted.filter(({ span }) => !manual.includes(span)).map(({ card, span }) =>
+      `${card} says "${span}", which ${SETUP_PAGE} does not state`
+    ),
     [],
-    "a card links to a path the manual does not publish",
   );
 });
 
@@ -333,6 +426,26 @@ Deno.test("every cluster is reachable through a lens, and every lens shows cards
     ).map((lens) => lens.id),
     [],
     "a lens selects no card",
+  );
+});
+
+Deno.test("the wall opens on its authored lead, and so does every lens", () => {
+  assertEquals(
+    WALL_DECK.slice(0, WALL_LEAD.length).map((card) => card.id),
+    [...WALL_LEAD],
+    "the first cards on the wall are the lead, in the lead's order",
+  );
+  // A lens lists the cards it keeps in display order, so its first card is
+  // chosen only when the lead holds a card from one of its clusters.
+  assertEquals(
+    WALL_LENSES.filter((lens) => {
+      const first = WALL_DECK.find((card) =>
+        lens.clusters.includes(card.cluster)
+      );
+      return first === undefined || !WALL_LEAD.includes(first.id);
+    }).map((lens) => lens.id),
+    [],
+    "a lens opens on a card the lead did not choose",
   );
 });
 

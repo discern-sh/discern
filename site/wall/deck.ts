@@ -3,9 +3,9 @@
  *
  * Cards are authored by cluster, in the benefit canon's order, so the copy for
  * one family of outcomes reads together. `WALL_DECK` is the same set in display
- * order: clusters scattered through one another, with the statement and
- * numeral cards spaced through the benefit cards. Every card cites the
- * registry entry it expresses.
+ * order: an authored lead, then the clusters scattered through one another,
+ * with the statement and numeral cards spaced through the benefit cards. Every
+ * card cites the registry entry it expresses.
  */
 import {
   AGENT_NAMES,
@@ -17,6 +17,15 @@ import type { WallCard, WallLens } from "./types.ts";
 const SUPPORTED_AGENTS: readonly string[] = AGENT_NAMES.map(
   agentLabelForNative,
 );
+
+/**
+ * The supported agents whose name alone could mean a chat app or an editor
+ * plug-in. For each of these, discern supports the command-line tool.
+ */
+const COMMAND_LINE_AGENTS: readonly string[] = [
+  agentLabelForNative("gemini"),
+  agentLabelForNative("copilot"),
+];
 
 /**
  * How many quality limits discern's own repository holds: its `[standards.*]`
@@ -79,8 +88,9 @@ const CARDS = [
     title: "Build on pending work",
     line: "Start the next task on top of work you haven't merged yet.",
     more:
-      "A follow-up can begin from an earlier task's tested commit while that one waits for your approval. Each task still merges only when you say so.",
-    href: "/docs/guides/coordinate-parallel-tasks",
+      "A follow-up can begin from an earlier task's tested commit while that one waits for your approval. Each task still merges only when you approve it.",
+    href:
+      "/docs/guides/coordinate-parallel-tasks#build-on-work-before-it-lands",
   },
   {
     kind: "benefit",
@@ -90,10 +100,10 @@ const CARDS = [
     cites: "land-finished-work-as-the-project-moves",
     title: "Merge in any order",
     line:
-      "When something else merges first, your finished work doesn't start over.",
+      "Finished work still merges after other changes land, retested on the combined code.",
     more:
       "A temporary copy combines both changes, your tests run on the result, and only what passed merges. A real conflict goes back to the agent that wrote the change.",
-    href: "/docs/guides/finish-and-land-a-change",
+    href: "/docs/guides/finish-and-land-a-change#when-other-work-lands-first",
   },
   {
     kind: "benefit",
@@ -113,10 +123,10 @@ const CARDS = [
     cluster: "build-further",
     source: "agent-benefit",
     cites: "resume-after-interruption",
-    title: "Reconnect to a run",
-    line: "A dropped connection doesn't have to cost you a second test run.",
+    title: "Don't run tests twice",
+    line: "If your agent loses a long test run, it reads the result back.",
     more:
-      "Long runs record their progress and keep their final result. If your agent loses track of one, it reads that record back instead of starting over.",
+      "A long run saves its progress and its final result as it goes. An agent that loses the connection reads them back instead of starting the run again.",
     href: "/docs/guides/recover-an-interrupted-task",
   },
   {
@@ -125,7 +135,7 @@ const CARDS = [
     cluster: "build-further",
     source: "consequence",
     cites: "parallel-by-default",
-    text: "Parallel stops being a special occasion.",
+    text: "Run three tasks as easily as one.",
     more:
       "Every task gets its own copy of the project, so starting a third takes no more setup than starting the first. The work still has to split along real seams.",
     href: "/docs/guides/coordinate-parallel-tasks",
@@ -161,11 +171,11 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "judgment-at-the-change",
-    title: "Your questions, built in",
+    title: "Standing review questions",
     line:
-      "Agents answer your review questions whenever they change the files you flag.",
+      "Write a review question once, and agents answer it on every matching change.",
     more:
-      "Write a question once, such as whether a database change can be undone, and choose the files that trigger it. The answer goes on record as the agent's judgment, and an unmet one waits for you.",
+      "You choose the files that trigger each question, such as whether a database change can be undone. This is what discern calls a checkpoint, and an unmet answer waits for you.",
     href: "/docs/understand/checkpoints",
   },
   {
@@ -211,10 +221,11 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "run-relevant-checks",
-    title: "Only the checks needed",
-    line: "A docs-only check, like a link checker, runs only when docs change.",
+    title: "No wasted checks",
+    line:
+      "Checks for one part of your project run only when that part changes.",
     more:
-      "You name an area of your project and the check it needs. Your tests and other everyday commands still run on every change.",
+      "You name an area, such as your docs, and the check it needs, such as a link checker. Your tests and other everyday commands still run on every change.",
     href: "/docs/guides/finish-and-land-a-change",
   },
   {
@@ -223,10 +234,10 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "context-for-the-task",
-    title: "Room to think",
-    line: "Brief, focused output keeps your agent's attention on your code.",
+    title: "Less noise for agents",
+    line: "Results stay short, so your agent's attention goes to your code.",
     more:
-      "An agent can hold only so much in mind at once, so discern keeps its output brief and offers advice only when it applies.",
+      "Each result is short and names the next step. Long output keeps its start and end, and the full text goes to a file.",
     href: "/docs/start/how-discern-works",
   },
   {
@@ -235,9 +246,9 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "consequence",
     cites: "the-job-moves-up-a-level",
-    text: "Your job moves up a level.",
+    text: "Less checking, more deciding.",
     more:
-      "The work comes back finished. What's left is the part only you can do.",
+      "Agents carry the coordination, the testing, and the record of what passed. Your time goes to briefs, design, and deciding what merges.",
     href: "/docs/guides/delegate-work",
   },
   {
@@ -273,7 +284,7 @@ const CARDS = [
     cites: "evidence-for-this-change",
     title: "Proof of what passed",
     line:
-      "Every finished change shows which tests passed, and on which exact commit.",
+      "Every finished change shows which of your commands passed, and on which commit.",
     more:
       "That record, a Proof, names the commit it covers. Edit the code afterward and that Proof no longer applies.",
     href: "/docs/understand/proof",
@@ -287,7 +298,7 @@ const CARDS = [
     title: "A record that lasts",
     line: "Months later, look up what a change passed before it merged.",
     more:
-      "When a change merges, its record stays with that commit in your Git history. It outlives the task's folder and the agent's session.",
+      "When a change merges, discern attaches its record to that commit as a Git note. The note outlives the task's folder and the agent's session, and you choose whether to share it.",
     href: "/docs/understand/proof",
   },
   {
@@ -299,7 +310,7 @@ const CARDS = [
     title: "Experiment freely",
     line: "Rapidly iterate on new features and experiments with confidence.",
     more:
-      "A change merges only with your go-ahead, or under a permission you set up in advance. Until then, finished work waits for you with its tests already passed.",
+      "Each experiment runs on its own branch and merges only with your approval. Keep what passes your tests and throw the rest away.",
     href: "/docs/guides/finish-and-land-a-change",
   },
   {
@@ -312,8 +323,8 @@ const CARDS = [
     line:
       "Let routine changes, like docs fixes, merge without waiting for you.",
     more:
-      "Name the areas you're happy to wave through, such as documentation. A change that touches any file outside them still comes to you.",
-    href: "/docs/guides/finish-and-land-a-change",
+      "Name the areas you approve in advance, such as documentation. A change that touches any file outside them still comes to you.",
+    href: "/docs/guides/finish-and-land-a-change#pre-approve-routine-work",
   },
   {
     kind: "benefit",
@@ -325,7 +336,7 @@ const CARDS = [
     line:
       "An agent can try, fail, and retry without touching your main branch.",
     more:
-      "Each task lives on its own branch in its own folder. Your main branch changes only when you accept a finished result.",
+      "Each task lives on its own branch in its own folder. Your main branch changes only when you approve a finished result.",
     href: "/docs/understand/worktrees-and-trunk",
   },
   {
@@ -346,10 +357,11 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "agent-benefit",
     cites: "carry-judgment-as-judgment",
-    title: "Opinion marked as opinion",
-    line: "See what was tested and what is only your agent's opinion.",
+    title: "Tested or only claimed",
+    line:
+      "Every result separates what passed your tests from what your agent only judged.",
     more:
-      "An agent's answer to a review question sits apart from the pass and fail results. Opinion never passes for tested fact.",
+      "Commands that ran show as passed or failed. An agent's answer to a review question shows apart from them, as that agent's judgment.",
     href: "/docs/understand/checkpoints",
   },
   {
@@ -360,7 +372,7 @@ const CARDS = [
     cites: "ci-confirms-what-you-know",
     text: "By the time CI runs, you already know.",
     more:
-      "Your tests and other commands run on your machine before you share anything. CI then confirms a result you've already seen.",
+      "Your tests and other commands run on your machine before you share anything. CI, the checks that run after you push, then confirms a result you've already seen.",
     href: "/docs/guides/run-the-gate-in-ci",
   },
 
@@ -371,9 +383,10 @@ const CARDS = [
     source: "human-benefit",
     cites: "retain-measured-gains",
     title: "Gains that stick",
-    line: "Set a bar, like test coverage, that agents can't lower to pass.",
+    line:
+      "Set a limit, like minimum test coverage, that agents can't lower to pass.",
     more:
-      "Every change has to meet the limit on your main branch. Moving a limit the wrong way takes your approval.",
+      "Every change has to meet the limit on your main branch, and loosening one takes your approval. These limits are what discern calls standards.",
     href: "/docs/understand/standards",
   },
   {
@@ -382,11 +395,12 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "pin-new-baseline",
-    title: "Lock in the win",
-    line: "Make today's better number the limit every later change must meet.",
+    title: "Raise the bar",
+    line:
+      "When test coverage improves, one command locks the gain in as the new minimum.",
     more:
-      "When a measure improves, one command sets the new value as the limit. From then on, the project starts from the better number.",
-    href: "/docs/guides/set-and-raise-standards",
+      "The command tightens the limit to the new value and saves that change as its own commit. A margin you set keeps ordinary ups and downs from failing the next change.",
+    href: "/docs/understand/standards#lock-in-a-gain",
   },
   {
     kind: "benefit",
@@ -407,7 +421,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "remove-bug-class",
-    title: "Bugs fixed for good",
+    title: "Fix it everywhere",
     line: "Fix a bug everywhere it lives and guard against its return.",
     more:
       "A built-in playbook has your agent prove the cause, fix every instance, and add a test or lint rule that fails if the bug comes back.",
@@ -444,9 +458,10 @@ const CARDS = [
     source: "human-benefit",
     cites: "catch-documentation-breakage",
     title: "Dead links get caught",
-    line: "A broken link in your project's guide fails like a broken test.",
+    line:
+      "A broken link in the docs your agents keep fails like a broken test.",
     more:
-      "The same goes for section anchors and discern command examples in the guide your agents maintain. Whether an explanation is still right stays a judgment for you and your agents.",
+      "The same check covers section anchors and discern command examples in the project guide. Whether an explanation is still right stays a judgment for you and your agents.",
     href: "/docs/guides/maintain-project-map",
   },
   {
@@ -455,11 +470,11 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "improve-practice-from-evidence",
-    title: "See where time goes",
+    title: "See where agents struggle",
     line:
       "Find out where your agents keep getting stuck, counted from real runs.",
     more:
-      "A local record of what discern's commands did shows repeated failures and slow steps. It holds no code and ranks no agent.",
+      "A local activity log of what discern's commands did shows repeated failures and slow steps. It holds no code and ranks no agent.",
     href: "/docs/guides/improve-the-practice",
   },
   {
@@ -468,7 +483,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "consequence",
     cites: "a-project-that-only-gets-better",
-    text: "A project that only gets better.",
+    text: "Your quality bar never drops without your say-so.",
     more:
       "A quality limit you set can tighten, and no change can loosen one without your approval. What the project learns is where the next session starts.",
     href: "/docs/understand/standards",
@@ -495,7 +510,7 @@ const CARDS = [
     title: "What your agents know",
     line: "Read a plain account of how your agents think your project works.",
     more:
-      "Your agents keep a guide to the project, called the map, and update it as the code changes. Spot a misunderstanding there and correct it before it becomes a bug.",
+      "Your agents keep a project guide, which discern calls the map, and update it as the code changes. Spot a misunderstanding there and correct it before it becomes a bug.",
     href: "/docs/understand/instructions-skills-and-map",
   },
   {
@@ -508,7 +523,7 @@ const CARDS = [
     line:
       "Keep the reasons behind big decisions where future agents will find them.",
     more:
-      "A short record captures the context, the choice, and the options you turned down. Later sessions are less likely to reopen a settled question.",
+      "A short decision record captures the context, the choice, and the options you turned down. Later sessions are less likely to reopen a settled question.",
     href: "/docs/understand/instructions-skills-and-map",
   },
   {
@@ -517,8 +532,9 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "instructions-at-failure",
-    title: "Advice when it's needed",
-    line: "A known problem shows up with the fix you already wrote down.",
+    title: "Known fixes, delivered",
+    line:
+      "When an agent hits a problem you've seen before, it gets your written fix.",
     more:
       "Record a recurring trap once, with what to do about it. The next agent to hit it gets your note in the same result that reports the failure.",
     href: "/docs/guides/maintain-project-map",
@@ -529,11 +545,11 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "orient-new-session",
-    title: "Quick to catch up",
+    title: "New sessions start fast",
     line:
-      "A fresh agent finds the right docs and commands without reading everything.",
+      "A new session searches the docs your agents keep and reads only what its task needs.",
     more:
-      "Documentation search returns the few pages a task needs. A mistyped or renamed command points to the right one.",
+      "Search ranks the project guide's pages for the task and returns the best few. A mistyped or renamed command points to the right one.",
     href: "/docs/start/how-discern-works",
   },
   {
@@ -545,7 +561,7 @@ const CARDS = [
     title: "Briefings on demand",
     line: "Export what a new teammate or agent should read as one file.",
     more:
-      "Choose the public pages, a named reading list, or a hand-picked set. The reader gets them in a set order instead of a documentation dump.",
+      "Choose the project guide's public pages, a named reading list, or a hand-picked set. The reader gets them in a set order instead of a documentation dump.",
     href: "/docs/guides/maintain-project-map",
   },
   {
@@ -555,9 +571,10 @@ const CARDS = [
     source: "human-benefit",
     cites: "reuse-engineering-discipline",
     title: "One source of truth",
-    line: "Have agents define each value once, so copies stop drifting apart.",
+    line:
+      "A built-in playbook has agents define each value once and test every use.",
     more:
-      "A built-in playbook carries the habits behind discern's own code into any project. Another habit it teaches: when a list grows, its tests and docs grow with it.",
+      "Each fact gets one home, and a test keeps every copy in step with it. When a list grows, its tests and docs grow with it.",
     href: "/docs/guides/create-and-manage-skills",
   },
   {
@@ -579,9 +596,9 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "consequence",
     cites: "documentation-stops-being-owed",
-    text: "Documentation stops being something you owe.",
+    text: "Your agents write the docs, and you read them.",
     more:
-      "The agents that change your code also keep its guide current. You read their account instead of writing it.",
+      "The agents that change your code also keep the project guide current. You read their account instead of writing it.",
     href: "/docs/guides/maintain-project-map",
   },
   {
@@ -605,7 +622,7 @@ const CARDS = [
     title: "Agent-led setup",
     line: "Your coding agent installs and fine-tunes discern for your project.",
     more:
-      "It studies your repository, connects the commands you already use, and asks you a short batch of questions. Setup counts as done only when your tests pass in a fresh copy of the project.",
+      "It studies your repository, connects the commands you already use, and asks you a short batch of questions. Setup usually takes 20 to 40 minutes and counts as done only when your tests pass in a fresh copy of the project.",
     href: "/docs/start/installation-and-setup",
   },
   {
@@ -617,7 +634,7 @@ const CARDS = [
     title: "Nothing to host",
     line: "Add discern with no account, server, or service to set up.",
     more:
-      "It's a program on your own machine, and its settings for your project live in one file you can read and edit.",
+      "It's one program that runs on your own machine. Your project needs Git and nothing else new.",
     href: "/docs/understand/local-control",
   },
   {
@@ -629,7 +646,7 @@ const CARDS = [
     title: "Built with itself",
     line: "Every change to discern is made with discern itself.",
     more:
-      "Its own development uses separate tasks, quality limits, and a record for every merged change. That's the same setup it brings to your project.",
+      "Its own development uses separate tasks, quality limits, and a record of what passed for every merged change. That's the same setup it brings to your project.",
   },
   {
     kind: "benefit",
@@ -638,10 +655,11 @@ const CARDS = [
     source: "human-benefit",
     cites: "clean-abandoned-environments",
     title: "Tidy up safely",
-    line: "Remove abandoned tasks, and bring one back if you chose wrong.",
+    line:
+      "Delete old tasks, and recover their committed work if you change your mind.",
     more:
       "Removing a task frees its folder, ports, and databases. Each recently removed task keeps its last commit, so committed work can come back.",
-    href: "/docs/guides/recover-an-interrupted-task",
+    href: "/docs/guides/recover-an-interrupted-task#recover-a-dropped-branch",
   },
   {
     kind: "benefit",
@@ -651,9 +669,9 @@ const CARDS = [
     cites: "manage-the-installation-lifecycle",
     title: "A built-in health check",
     line:
-      "If something breaks, one command finds the problem and names the fix.",
+      "If discern stops working, one command finds the problem and names the fix.",
     more:
-      "When something stops working, ask your agent to check the installation. It runs the check, applies the fixes, and tells you what it needs from you.",
+      "Ask your agent to check the installation. It runs the check, applies the fixes it can, and tells you what it needs from you.",
     href: "/docs/guides/maintain-or-remove-discern",
   },
   {
@@ -664,7 +682,7 @@ const CARDS = [
     cites: "try-it-where-it-matters",
     text: "Try it on the project that matters.",
     more:
-      "Setup is work your agent does. Leaving takes one command and keeps every file you wrote.",
+      "Setup usually takes your agent 20 to 40 minutes. Leaving takes one command and keeps every file you wrote.",
     href: "/docs/start/installation-and-setup",
   },
   {
@@ -673,9 +691,9 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "consequence",
     cites: "get-serious-when-it-gets-real",
-    text: "Get serious the week it gets real.",
+    text: "Add it the week your project gets real users.",
     more:
-      "A first paying user or a first collaborator can arrive without warning. Setup is same-day work for your agent.",
+      "A first paying user or a first collaborator can arrive without warning. Setup usually takes your agent 20 to 40 minutes.",
     href: "/docs/start",
   },
   {
@@ -685,8 +703,9 @@ const CARDS = [
     source: "claim",
     cites: "one-config-file",
     numeral: "1",
-    title: "One config file",
-    line: "Every discern setting for your project lives in one file.",
+    title: "Config file",
+    line:
+      "Every discern setting for your project lives in a single readable file.",
     more:
       "Your instructions, project guide, and agent files sit beside it as ordinary files you own.",
     href: "/docs/reference/config-reference",
@@ -698,11 +717,11 @@ const CARDS = [
     source: "claim",
     cites: "runs-on-itself",
     numeral: String(OWN_QUALITY_LIMITS),
-    title: "Limits on itself",
+    title: "Limits it must meet",
     line:
-      "That's how many quality limits discern's own code and writing must meet.",
+      "Every change to discern has to pass them, from test coverage to reading level.",
     more:
-      "They run from test coverage to the reading level of its docs. You can set the same kind of limit on your own project.",
+      "Others cap its download size, its duplicated code, and its lint exceptions. You can set the same kind of limit on your own project.",
   },
 
   {
@@ -727,7 +746,7 @@ const CARDS = [
     title: "Any language, any stack",
     line: "Work the same way in every project, whatever it's written in.",
     more:
-      "Your project's own commands do the checking, so there's no plugin to wait for and nothing tied to one language or framework.",
+      "Your project's own commands do the checking, so any language or framework works. It needs Git, and it runs on macOS, Linux, and Windows through WSL 2.",
     href: "/docs/start/how-discern-works",
   },
   {
@@ -785,9 +804,9 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "consequence",
     cites: "the-same-interview-for-every-agent",
-    text: "Every new agent walks into the same interview.",
+    text: "Every agent faces the same rules and tests.",
     more:
-      "A new coding agent reads the same instructions, faces the same tests, and returns the same kind of record as the last one.",
+      "A new coding agent reads the same instructions and has to pass the same commands as the last one. Its work comes back with the same kind of record of what passed.",
     href: "/docs/guides/connect-a-coding-agent",
   },
   {
@@ -796,7 +815,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "consequence",
     cites: "what-agents-learn-you-own",
-    text: "Everything your agents learn becomes something you own.",
+    text: "What you teach your agents stays in your repository.",
     more:
       "Instructions, playbooks, the project guide, and decision records are ordinary files in your repository. Back them up, hand them over, or take them elsewhere.",
     href: "/docs/reference/files-and-ownership",
@@ -810,8 +829,9 @@ const CARDS = [
     numeral: String(SUPPORTED_AGENTS.length),
     title: "Coding agents supported",
     line: `${listed(SUPPORTED_AGENTS)} all read the same instructions.`,
-    more:
-      "Pick your favorite, or use several at once. Each reads the same project instructions in the file it expects.",
+    more: `${
+      listed(COMMAND_LINE_AGENTS)
+    } here mean their command-line tools. Use one agent or several, and each reads the same project instructions in the file it expects.`,
     href: "/docs/reference/platforms-and-providers",
   },
 
@@ -822,7 +842,7 @@ const CARDS = [
     source: "human-benefit",
     cites: "local-without-another-model",
     title: "No API key",
-    line: "No AI model inside means no API key and no model bill.",
+    line: "No AI model inside, so there's no API key and no extra model bill.",
     more:
       "It runs your project's own commands and records the results. Your coding agent still uses its own model provider.",
     href: "/docs/understand/local-control",
@@ -834,11 +854,10 @@ const CARDS = [
     source: "human-benefit",
     cites: "explicit-write-authority",
     title: "Stays in its lane",
-    line:
-      "Every file discern writes goes to a default spot or a path you chose.",
+    line: "Every place discern can write is on a list you can read.",
     more:
-      "Before you approve setup, you see what will be added. A command that writes to Git checks first that it can, so it stops before it starts instead of failing halfway.",
-    href: "/docs/understand/local-control",
+      "Before you approve setup, you see what it will add. A command that writes to Git checks first that it can, so it stops before it starts instead of failing halfway.",
+    href: "/docs/reference/files-and-ownership",
   },
   {
     kind: "benefit",
@@ -850,7 +869,7 @@ const CARDS = [
     line:
       "What discern records stays on your machine, and it sends no telemetry.",
     more:
-      "Its activity log holds names, timings, and results, with no code or command output, and you can switch it off. Your coding agent and your project's commands can still use the network.",
+      "Its activity log holds names, timings, and results, with no code or command output, and you can switch it off. Checking for updates opens the release page in your browser with your version number, and nothing else leaves your machine through discern.",
     href: "/docs/reference/logbook",
   },
   {
@@ -903,18 +922,45 @@ function woven<T>(major: readonly T[], minor: readonly T[]): T[] {
 }
 
 /**
- * The cards in display order. Benefit cards are scattered so that no cluster
- * gathers in one part of the wall. Statement cards are scattered the same way
- * with the numeral cards spaced through them, and that sequence is then spaced
- * through the benefit cards.
+ * The cards the wall opens on, by id, in order. They are the first words a
+ * visitor reads. A lens lists the cards it keeps in display order, so the lead
+ * also opens each lens, and it holds a card from every lens.
+ */
+export const WALL_LEAD: readonly string[] = [
+  "agent-commissioning",
+  "parallel-work-on-one-machine",
+  "project-defined-completion",
+  "statement-cheap-failure-buys-bold-work",
+  "teach-project-once",
+  "explicit-release-decision",
+  "switch-providers",
+  "local-without-another-model",
+  "reduce-routine-review",
+  "retain-measured-gains",
+];
+
+/**
+ * The cards in display order: the lead, then every other card. Among the
+ * others, benefit cards are scattered so that no cluster gathers in one part
+ * of the wall. Statement cards are scattered the same way with the numeral
+ * cards spaced through them, and that sequence is then spaced through the
+ * benefit cards.
  */
 function displayOrder(cards: readonly WallCard[]): WallCard[] {
-  const ofKind = (kind: WallCard["kind"]): WallCard[] =>
-    scattered(cards.filter((card) => card.kind === kind));
-  return woven(
-    ofKind("benefit"),
-    woven(ofKind("statement"), ofKind("numeral")),
+  const lead = WALL_LEAD.flatMap((id) =>
+    cards.filter((card) => card.id === id)
   );
+  const ofKind = (kind: WallCard["kind"]): WallCard[] =>
+    scattered(
+      cards.filter((card) => card.kind === kind && !lead.includes(card)),
+    );
+  return [
+    ...lead,
+    ...woven(
+      ofKind("benefit"),
+      woven(ofKind("statement"), ofKind("numeral")),
+    ),
+  ];
 }
 
 /** Every card on the wall, in the order the wall shows them. */
@@ -923,23 +969,23 @@ export const WALL_DECK: readonly WallCard[] = displayOrder(CARDS);
 /** The lenses a visitor can view the wall through, in chip order. */
 export const WALL_LENSES: readonly WallLens[] = [
   {
-    id: "move-more-work",
-    label: "Move more work",
+    id: "run-more-at-once",
+    label: "Run more at once",
     clusters: ["build-further"],
   },
   {
-    id: "get-your-time-back",
-    label: "Get your time back",
+    id: "review-less",
+    label: "Review less",
     clusters: ["return-human-attention"],
   },
   {
-    id: "trust-what-ships",
-    label: "Trust what ships",
-    clusters: ["know-what-is-ready", "keep-control"],
+    id: "know-its-ready",
+    label: "Know it's ready",
+    clusters: ["know-what-is-ready"],
   },
   {
-    id: "keep-getting-better",
-    label: "Keep getting better",
+    id: "keep-quality-up",
+    label: "Keep quality up",
     clusters: ["make-improvement-accumulate"],
   },
   {
@@ -948,9 +994,14 @@ export const WALL_LENSES: readonly WallLens[] = [
     clusters: ["keep-project-knowledge-working"],
   },
   {
-    id: "adopt-on-your-terms",
-    label: "Adopt on your terms",
-    clusters: ["put-practice-in-place", "change-tools-without-starting-over"],
+    id: "safe-to-try",
+    label: "Safe to try",
+    clusters: ["put-practice-in-place", "keep-control"],
+  },
+  {
+    id: "fits-your-tools",
+    label: "Fits your tools",
+    clusters: ["change-tools-without-starting-over"],
   },
 ];
 

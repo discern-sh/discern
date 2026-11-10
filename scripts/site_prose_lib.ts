@@ -2,14 +2,19 @@
  * One deterministic public-site prose projection shared by the Vale gate and
  * both site Standards. The marketing-page registry supplies enrollment and
  * source metadata; markup, attributes, code, and duplicate rendered strings
- * never enter the measured bytes.
+ * never enter the measured bytes. Prose a page shows only after its script
+ * runs joins the same projection from the module that authors it.
  */
 
 import { resolve } from "@std/path";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { MARKETING_PAGES } from "../site/marketing_pages.ts";
+import {
+  MARKETING_PAGES,
+  type MarketingRoute,
+} from "../site/marketing_pages.ts";
 import { renderMarketingPage } from "../site/renderers.ts";
+import { WALL_DECK } from "../site/wall/deck.ts";
 import {
   countProse,
   fleschKincaidGrade,
@@ -49,6 +54,17 @@ const CONTAINER_BLOCK_SELECTOR = [
   "th",
   "td",
 ].join(",");
+
+/**
+ * The prose each route shows only after its script runs, which the rendered
+ * markup therefore lacks. The homepage's wall shows a card's second paragraph
+ * when a visitor opens the card.
+ */
+const SCRIPT_SHOWN_PROSE: Readonly<
+  Partial<Record<MarketingRoute, () => readonly string[]>>
+> = {
+  "/": () => WALL_DECK.flatMap((card) => card.more ?? []),
+};
 
 /** One registry-owned page after markup-free projection. */
 export interface ProjectedSiteProsePage {
@@ -100,8 +116,13 @@ function ownsDistinctBlock(element: Element): boolean {
  * Project the authored prose a visitor can read from one rendered page.
  * Script-enhanced controls are included even when their no-JavaScript state is
  * hidden; repeated prompts and CTA labels are measured once as authored copy.
+ * `scriptShown` is prose the page shows only after its script runs: it follows
+ * the rendered blocks, one block per entry.
  */
-export function visibleSiteProse(html: string): {
+export function visibleSiteProse(
+  html: string,
+  scriptShown: readonly string[] = [],
+): {
   blocks: string[];
   prose: string;
 } {
@@ -130,7 +151,8 @@ export function visibleSiteProse(html: string): {
     blocks.push(text);
   }
   for (
-    const metadata of [
+    const text of [
+      ...scriptShown.map(normalizeRenderedText),
       readableText(document.querySelector("title")),
       normalizeRenderedText(
         document.querySelector('meta[name="description"]')?.getAttribute(
@@ -139,9 +161,9 @@ export function visibleSiteProse(html: string): {
       ),
     ]
   ) {
-    if (metadata === "" || seen.has(metadata)) continue;
-    seen.add(metadata);
-    blocks.push(metadata);
+    if (text === "" || seen.has(text)) continue;
+    seen.add(text);
+    blocks.push(text);
   }
   dom.window.close();
   return { blocks, prose: `${blocks.join("\n\n")}\n` };
@@ -161,7 +183,10 @@ export function projectSiteProse(): ProjectedSiteProsePage[] {
   return MARKETING_PAGES
     .filter((page) => page.prose === "guarded")
     .map((page) => {
-      const projected = visibleSiteProse(renderMarketingPage(page.route));
+      const projected = visibleSiteProse(
+        renderMarketingPage(page.route),
+        SCRIPT_SHOWN_PROSE[page.route]?.(),
+      );
       return {
         route: page.route,
         source: page.source,

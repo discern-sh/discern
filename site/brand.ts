@@ -18,8 +18,9 @@ export const LANDING_HEADLINE = "Intelligence In Practice.";
 /** The one-line category claim under the footer brand and on the homepage card. */
 export const DISCERN_CATEGORY_LINE =
   "An engineering practice for agent-built software.";
+/** What the product does, for a search result or a shared link to the homepage. */
 export const LANDING_DESCRIPTION =
-  "Visit the discern manual for setup instructions, guides, and full product documentation.";
+  "Run coding agents in separate copies of your project. Finished means your tests pass, and nothing merges through discern without your approval.";
 
 /** Exact metadata for the public agent-ergonomics composition. */
 export const AGENTS_TITLE =

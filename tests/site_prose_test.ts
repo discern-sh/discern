@@ -7,6 +7,7 @@ import { JSDOM } from "jsdom";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderAgents } from "../site/ui/pages/AgentsPage.tsx";
 import { renderLanding } from "../site/ui/pages/HomePage.tsx";
+import { WALL_DECK } from "../site/wall/deck.ts";
 import { proseWordCount } from "../scripts/prose_lib.ts";
 import {
   projectSiteProse,
@@ -70,6 +71,17 @@ Deno.test("site prose: projectSiteProse cases", () => {
         "the homepage headline contributes one authored prose block",
       );
       assert(siteProseReadingGrade(pages) > 0);
+    },
+    "the homepage projection reads every card's opened paragraph": () => {
+      const homepage = projectSiteProse().find(({ route }) => route === "/");
+      assert(homepage !== undefined);
+      const opened = WALL_DECK.flatMap((card) => card.more ?? []);
+      assert(opened.length > 0, "the wall has opened paragraphs");
+      assertEquals(
+        opened.filter((paragraph) => !homepage.blocks.includes(paragraph)),
+        [],
+        "an opened paragraph is missing from the prose the site checks read",
+      );
     },
   });
 });
