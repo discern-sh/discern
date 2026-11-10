@@ -1,45 +1,64 @@
 /**
  * The wall's interactions hold their contracts without a browser: what the
- * opened card's sheet says for each kind of card, how a lens decides which
- * cards recede and where it takes the page, how a card is chosen to open, and
- * where the pointer light goes. The stylesheet is held to the same contracts:
- * a receded card stays legible, nothing the lens or an opening card does can
- * move a card, and the morph never shows two sets of words at once.
+ * opened card's sheet says for each kind of card and what its link is called,
+ * how a lens orders the wall and what it says it did, how a card is chosen to
+ * open, which early end of a view transition is a fault, which click is a
+ * plain one, and that one function alone makes a click on a visitor's
+ * behalf. The stylesheet is held to the
+ * same contracts: a receded card stays legible, the list's order is the only
+ * thing that places a card, the morph never shows two sets of words at once,
+ * and a card's mark crosses on the sheet's own clock.
  *
- * Focus, the modal dialog, and the view transition itself need a real browser
- * and are checked in `site_homepage_browser_test.ts`.
+ * Focus, the modal dialog, the re-sorted list, and the view transitions
+ * themselves need a real browser and are checked in
+ * `site_homepage_browser_test.ts` and `site_wall_sheet_browser_test.ts`.
  */
 import { assert, assertEquals, assertStrictEquals } from "@std/assert";
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl } from "@std/path";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { oklchHex } from "../site/social/draw.tsx";
-import { cardGlyph, cardHeading, cardNumeral } from "../site/wall/Card.tsx";
+import {
+  Card,
+  cardGlyph,
+  cardHeading,
+  cardNumeral,
+  RECEDED_ATTRIBUTE,
+} from "../site/wall/Card.tsx";
 import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
+import { type LinkLabels, linkRoute } from "../site/wall/host.ts";
 import {
   Lens,
+  LENS_REST,
+  lensGroups,
   lensRecedes,
-  lensTravel,
-  type ViewSpan,
+  lensStatus,
 } from "../site/wall/Lens.tsx";
 import { OpenCard } from "../site/wall/OpenCard.tsx";
 import type { WallCard, WallLens } from "../site/wall/types.ts";
-import { type LightPoint, lightStep } from "../site/wall/use_light.ts";
 import {
+  type ClickKind,
   drawnFlat,
   openChange,
   OPENING_ATTRIBUTE,
   OPENING_STATES,
+  plainClick,
+  transitionOvertaken,
 } from "../site/wall/use_open_card.ts";
+import {
+  readScopedSources,
+  structuralGuardScope,
+} from "./structural_guard_scope.ts";
+import {
+  declared,
+  readWallSheet,
+  type StyleRule,
+  styleRules,
+} from "./wall_stylesheets.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-
-/** Read one of the wall's stylesheets as authored. */
-function stylesheet(name: string): Promise<string> {
-  return Deno.readTextFile(join(ROOT, "site/page-src", name));
-}
 
 /** Cards that cover every kind, with and without the optional parts. */
 const SPARE: Pick<WallCard, "cluster" | "source" | "cites"> = {
@@ -88,10 +107,29 @@ const SAMPLE_CARDS: readonly WallCard[] = [
   },
 ];
 
+/** The manual route a card links to, or nothing for a card with no link. */
+function linkedRoute(card: WallCard): string | undefined {
+  return card.href === undefined ? undefined : linkRoute(card.href);
+}
+
+/**
+ * A label for every route the sample cards and the deck link to. No label
+ * is the address it stands for, so a sheet that shows one has looked it up.
+ */
+const LABELS: LinkLabels = Object.fromEntries(
+  [...SAMPLE_CARDS, ...WALL_DECK].flatMap((card) => {
+    const route = linkedRoute(card);
+    return route === undefined ? [] : [[route, `The page at ${route}`]];
+  }),
+);
+
 /** Render the opened card on the server and hand back its one dialog. */
-function sheetOf(card: WallCard): { readonly dialog: Element } {
+function sheetOf(
+  card: WallCard,
+  linkLabels: LinkLabels = LABELS,
+): { readonly dialog: Element } {
   const markup = renderToStaticMarkup(
-    createElement(OpenCard, { card, onClose: () => {} }),
+    createElement(OpenCard, { card, linkLabels, onClose: () => {} }),
   );
   const { document } = new JSDOM(markup).window;
   const dialogs = [...document.querySelectorAll("dialog")];
@@ -117,10 +155,22 @@ function only(scope: Element, selector: string): string | undefined {
   return found[0]?.textContent ?? undefined;
 }
 
+/** A link's words as they are read out: without the arrow that decorates them. */
+function linkWords(link: Element): string {
+  return [...link.childNodes].filter((node) =>
+    !(node.nodeType === node.ELEMENT_NODE &&
+      link.querySelector("[aria-hidden='true']") === node)
+  ).map((node) => node.textContent ?? "").join("").trim();
+}
+
 Deno.test("no card open renders no dialog at all", () => {
   assertStrictEquals(
     renderToStaticMarkup(
-      createElement(OpenCard, { card: null, onClose: () => {} }),
+      createElement(OpenCard, {
+        card: null,
+        linkLabels: LABELS,
+        onClose: () => {},
+      }),
     ),
     "",
   );
@@ -174,7 +224,7 @@ Deno.test("the sheet says what its card says, for every kind of card", () => {
     }
 
     // A benefit card keeps its glyph, as decoration.
-    const glyph = dialog.querySelector("svg.wall-open-glyph");
+    const glyph = dialog.querySelector(".wall-open-glyph");
     assertEquals(glyph?.getAttribute("data-glyph"), cardGlyph(card), card.id);
     assertEquals(
       glyph?.getAttribute("aria-hidden"),
@@ -189,7 +239,8 @@ Deno.test("the sheet says what its card says, for every kind of card", () => {
 
     assertEquals(only(dialog, ".wall-open-more"), card.more, card.id);
 
-    // The docs link is there only when the card names a page.
+    // The link into the manual is there only when the card names a page,
+    // and its words are that page's label, so the link says where it goes.
     const links = [...dialog.querySelectorAll("a")];
     assertEquals(
       links.map((link) => link.getAttribute("href")),
@@ -198,7 +249,7 @@ Deno.test("the sheet says what its card says, for every kind of card", () => {
     );
     for (const link of links) {
       assert(link.classList.contains("wall-open-link"));
-      assert((link.textContent ?? "").trim().length > 0, "the link has words");
+      assertEquals(linkWords(link), LABELS[linkedRoute(card) ?? ""], card.id);
     }
 
     // One close control, named, and first, so it takes focus as the sheet
@@ -224,6 +275,27 @@ Deno.test("the deck opens to sheets of every kind, with and without a docs link"
   }
   assert(WALL_DECK.some((card) => card.href === undefined));
   assert(WALL_DECK.some((card) => card.href !== undefined));
+  assert(
+    WALL_DECK.some((card) => card.href?.includes("#") === true),
+    "a card links to a section of a page",
+  );
+});
+
+Deno.test("a link to a section of a page is named by the page, and a page with no label by its own address", () => {
+  const [, linked] = SAMPLE_CARDS;
+  assert(linked?.href !== undefined, "a sample card names a page");
+  const section: WallCard = { ...linked, href: `${linked.href}#a-section` };
+  const words = (card: WallCard, labels: LinkLabels): string[] =>
+    [...sheetOf(card, labels).dialog.querySelectorAll("a")].map(linkWords);
+
+  assertEquals(linkRoute(section.href ?? ""), linked.href);
+  assertEquals(words(section, { [linked.href]: "A page" }), ["A page"]);
+  assertEquals(words(linked, { [linked.href]: "A page" }), ["A page"]);
+  assertEquals(
+    words(section, { [`${linked.href}/elsewhere`]: "Another page" }),
+    [linked.href],
+    "a link is never blank",
+  );
 });
 
 Deno.test("a lens recedes exactly the cards outside its clusters", () => {
@@ -248,90 +320,82 @@ Deno.test("a lens recedes exactly the cards outside its clusters", () => {
   assert(WALL_DECK.every((card) => lensRecedes(empty, card)));
 });
 
-Deno.test("a lens just chosen brings the page to the nearest card it kept forward, and only when none is in view", () => {
-  // A phone: the lens bar pinned over the top 82 pixels of an 844 pixel screen.
-  const shown: ViewSpan = { top: 82, bottom: 844 };
-  const rest = 82;
-  const card = (top: number): ViewSpan => ({ top, bottom: top + 180 });
+Deno.test("a lens leads the wall with the cards it kept and sets the rest after them, each group in the deck's order", () => {
+  const ids = (cards: readonly WallCard[]): string[] =>
+    cards.map((card) => card.id);
+  const place = new Map(WALL_DECK.map((card, index) => [card.id, index]));
+  const inDeckOrder = (cards: readonly WallCard[]): boolean =>
+    cards.every((card, index) =>
+      index === 0 ||
+      (place.get(cards[index - 1]?.id ?? "") ?? -1) < (place.get(card.id) ?? -1)
+    );
 
-  assertEquals(
-    lensTravel(shown, rest, []),
-    0,
-    "nothing forward, nowhere to go",
-  );
-  assertEquals(
-    lensTravel(shown, rest, [card(-600), card(300), card(2000)]),
-    0,
-    "a card in view keeps the page where it is",
-  );
-  assertEquals(
-    lensTravel(shown, rest, [card(754)]),
-    0,
-    "half a card is in view",
-  );
-  assertEquals(
-    lensTravel(shown, rest, [card(-8)]),
-    0,
-    "half shows under the bar",
-  );
-  assertEquals(
-    lensTravel(shown, rest, [card(755)]),
-    755 - rest,
-    "less than half a card at the foot of the screen is not in view",
-  );
-  assertEquals(
-    lensTravel(shown, rest, [card(-9)]),
-    -9 - rest,
-    "nor is less than half a card under the bar",
-  );
-  assertEquals(
-    lensTravel(shown, rest, [card(-300), card(1500)]),
-    -300 - rest,
-    "the nearest card is the one above",
-  );
-  assertEquals(
-    lensTravel(shown, rest, [card(-900), card(1000)]),
-    1000 - rest,
-    "the nearest card is the one below",
-  );
+  // With no lens the wall is the deck itself, and nothing is set aside.
+  const whole = lensGroups(undefined, WALL_DECK);
+  assertEquals(ids(whole.kept), ids(WALL_DECK));
+  assertEquals(whole.rest, []);
 
-  // One scroll is enough, wherever the cards lie and whether or not the bar
-  // had reached the top of the screen: the card that was nearest then rests
-  // just under the pinned bar, so the lens has nothing further to find.
-  for (const barBottom of [rest, 300, 620]) {
-    for (let offset = -4000; offset <= 4000; offset += 173) {
-      const cards = [-2600, -900, 1300, 3100].map((top) => card(top + offset));
-      const before: ViewSpan = { top: barBottom, bottom: shown.bottom };
-      const travel = lensTravel(before, rest, cards);
-      const after = cards.map((each) => ({
-        top: each.top - travel,
-        bottom: each.bottom - travel,
-      }));
-      assertEquals(
-        lensTravel(
-          { ...before, top: Math.max(rest, barBottom - travel) },
-          rest,
-          after,
-        ),
-        0,
-        `cards ${offset} pixels along, bar at ${barBottom}`,
-      );
-      if (travel !== 0) {
-        assert(
-          after.some((each) => each.top === rest),
-          "the card it came to rests just under the bar",
-        );
-      }
-    }
+  for (const lens of WALL_LENSES) {
+    const { kept, rest } = lensGroups(lens, WALL_DECK);
+    assertEquals(
+      ids(kept),
+      ids(WALL_DECK.filter((card) => !lensRecedes(lens, card))),
+      `${lens.id}: the cards it kept`,
+    );
+    assertEquals(
+      ids(rest),
+      ids(WALL_DECK.filter((card) => lensRecedes(lens, card))),
+      `${lens.id}: the cards it set aside`,
+    );
+    assert(inDeckOrder(kept), `${lens.id} keeps its cards in the deck's order`);
+    assert(inDeckOrder(rest), `${lens.id} keeps the rest in the deck's order`);
+    assertEquals(
+      ids([...kept, ...rest]).toSorted(),
+      ids(WALL_DECK).toSorted(),
+      `${lens.id} neither drops nor repeats a card`,
+    );
   }
+});
+
+Deno.test("a lens says in words what it did to the wall, and says nothing with no lens", () => {
+  assertStrictEquals(
+    lensStatus(undefined, lensGroups(undefined, WALL_DECK)),
+    "",
+    "no lens, nothing to announce",
+  );
+  for (const lens of WALL_LENSES) {
+    const groups = lensGroups(lens, WALL_DECK);
+    assert(groups.kept.length > 1 && groups.rest.length > 1, lens.id);
+    assertEquals(
+      lensStatus(lens, groups),
+      `${groups.kept.length} cards for "${lens.label}". The other ${groups.rest.length} follow under "${LENS_REST}".`,
+      lens.id,
+    );
+  }
+
+  // A count of one reads as one, and a lens that keeps every card names no
+  // divider, because the wall then shows none.
+  const [first, second, ...others] = WALL_DECK;
+  assert(first !== undefined && second !== undefined && others.length > 1);
+  const lens: WallLens = { id: "sample", label: "Sample", clusters: [] };
+  assertEquals(
+    lensStatus(lens, { kept: [first], rest: [second] }),
+    `1 card for "Sample". The other card follows under "${LENS_REST}".`,
+  );
+  assertEquals(
+    lensStatus(lens, { kept: [first, second], rest: [] }),
+    '2 cards for "Sample".',
+  );
 });
 
 Deno.test("the lens is one pressed chip among toggles, each keyed to its clusters' hues", () => {
   for (const active of [null, ...WALL_LENSES.map((lens) => lens.id)]) {
+    const status = active === null ? "" : `What ${active} did.`;
     const markup = renderToStaticMarkup(
       createElement(Lens, {
         lenses: WALL_LENSES,
         active,
+        status,
         onSelect: () => {},
       }),
     );
@@ -343,7 +407,24 @@ Deno.test("the lens is one pressed chip among toggles, each keyed to its cluster
 
     const chips = [...group.querySelectorAll("button.wall-chip")];
     assertEquals(chips.length, WALL_LENSES.length + 1);
-    assertEquals(group.children.length, chips.length, "the group holds chips");
+
+    // The status is a live region inside the group. It is there with no
+    // lens, empty, so assistive technology hears the first lens fill it.
+    const regions = [...group.querySelectorAll("[role='status']")];
+    assertEquals(regions.length, 1, "the group holds one status");
+    assertEquals(regions[0]?.textContent, status);
+    assertStrictEquals(
+      regions[0]?.closest("[aria-hidden]"),
+      null,
+      "assistive technology can read the status",
+    );
+    assertEquals(
+      [...group.children].filter((child) =>
+        !chips.includes(child) && !regions.includes(child)
+      ),
+      [],
+      "the group holds chips and its status, and nothing else",
+    );
     assertEquals(
       chips.map((chip) => chip.getAttribute("data-lens")),
       [null, ...WALL_LENSES.map((lens) => lens.id)],
@@ -439,67 +520,100 @@ Deno.test("a flat card counts as flat whatever fraction of a pixel its size ends
   }
 });
 
-Deno.test("the light closes on its target without overshoot and arrives exactly", () => {
-  const from: LightPoint = { x: -400, y: 900 };
-  const to: LightPoint = { x: 640, y: 120 };
-  assertStrictEquals(lightStep(from, to, 16, 0), to, "no ease, no glide");
-  assertEquals(lightStep(from, to, 0, 80), from, "no time, no travel");
-  assertEquals(lightStep(from, to, -5, 80), from, "time never runs backward");
-
-  let at = from;
-  let frames = 0;
-  while (at !== to) {
-    const next = lightStep(at, to, 16, 80);
-    const before = Math.hypot(to.x - at.x, to.y - at.y);
-    const after = Math.hypot(to.x - next.x, to.y - next.y);
-    assert(after < before, "every frame is nearer the target");
-    assert(
-      Math.sign(to.x - next.x) !== -Math.sign(to.x - at.x) &&
-        Math.sign(to.y - next.y) !== -Math.sign(to.y - at.y),
-      "the light never passes its target",
+Deno.test("a view transition that ends early is expected when the page is hidden, a later request ended it, or the window changed size, and is a fault otherwise", () => {
+  const overtaken = new DOMException("skipped", "AbortError");
+  // The browser gives one name to a window that changed size and to a
+  // transition name that stands on two boxes. Only the first is expected.
+  const invalid = new DOMException("invalid state", "InvalidStateError");
+  const steady = { hidden: false, resized: false };
+  const cases:
+    readonly (readonly [string, unknown, boolean, boolean, boolean])[] = [
+      ["a later request ended it", overtaken, false, false, true],
+      ["a later request, after a resize", overtaken, false, true, true],
+      ["the window changed size", invalid, false, true, true],
+      ["a transition name on two boxes", invalid, false, false, false],
+      ["a hidden page, whatever the reason", invalid, true, false, true],
+      ["a hidden page and no reason", undefined, true, false, true],
+      ["another fault during a resize", new TypeError("a"), false, true, false],
+      [
+        "another DOM fault during a resize",
+        new DOMException("too slow", "TimeoutError"),
+        false,
+        true,
+        false,
+      ],
+      ["a reason that is no error", "skipped", false, false, false],
+    ];
+  for (const [name, reason, hidden, resized, expected] of cases) {
+    assertEquals(
+      transitionOvertaken({ ...steady, reason, hidden, resized }),
+      expected,
+      name,
     );
-    at = next;
-    frames += 1;
-    assert(frames < 120, "the light arrives, so a still pointer costs nothing");
   }
-
-  // The same distance takes the same time whatever the frame rate.
-  const oneLongFrame = lightStep(from, to, 48, 80);
-  let threeShort = from;
-  for (let frame = 0; frame < 3; frame++) {
-    threeShort = lightStep(threeShort, to, 16, 80);
-  }
-  assert(Math.abs(oneLongFrame.x - threeShort.x) < 1e-6);
-  assert(Math.abs(oneLongFrame.y - threeShort.y) < 1e-6);
 });
 
-interface StyleRule {
-  readonly selectors: readonly string[];
-  readonly declarations: ReadonlyMap<string, string>;
-}
+Deno.test("only a click of the primary button, with no modifier key held, is a plain one", () => {
+  const plain: ClickKind = {
+    button: 0,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+    altKey: false,
+  };
+  assert(plainClick(plain), "the plain click");
+  const keys = Object.entries(plain).flatMap(([part, value]) =>
+    typeof value === "boolean" ? [part] : []
+  );
+  assert(keys.length >= 4, "a click names its modifier keys");
+  for (const key of keys) {
+    assertEquals(plainClick({ ...plain, [key]: true }), false, key);
+  }
+  for (const button of [1, 2, 3, 4]) {
+    assertEquals(plainClick({ ...plain, button }), false, `button ${button}`);
+  }
+});
 
-/**
- * Every innermost block of a stylesheet with the selectors that head it,
- * however deeply at-rules nest it. A keyframe is such a block too; callers
- * select by selector, so a keyframe never matches a card.
- */
-function styleRules(css: string): StyleRule[] {
-  const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
-  return [...text.matchAll(/([^{};]+)\{([^{}]*)\}/g)].map((match) => ({
-    selectors: (match[1] ?? "").split(",").map((selector) =>
-      selector.replace(/\s+/g, " ").trim()
+Deno.test("a click made by script is made in one place, which hands on a plain click alone", async () => {
+  // A click made by script carries no modifier key and no button. It can
+  // stand in for a visitor's click only when theirs was a plain one, so one
+  // function makes such a click, for the sheet and for the lens alike, and
+  // it asks first.
+  const sources = await readScopedSources(
+    ROOT,
+    await structuralGuardScope({
+      guard: "tests/site_wall_interactions_test.ts#script-made-clicks",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Only the site's own modules run in a visitor's browser, where a click made by script stands in for theirs.",
+        include: (path) => path.startsWith("site/"),
+      },
+    }),
+  );
+  assert(sources.length > 0);
+  const makesClick = /\.click\(|new (?:Mouse|Pointer)Event\(\s*["'`]click/g;
+  const home = "site/wall/use_open_card.ts";
+  assertEquals(
+    sources.flatMap(({ path, source }) =>
+      [...source.matchAll(makesClick)].map(() => path)
     ),
-    declarations: new Map(
-      (match[2] ?? "").split(";").map((declaration) => {
-        const colon = declaration.indexOf(":");
-        return [
-          declaration.slice(0, colon).trim(),
-          declaration.slice(colon + 1).replace(/\s+/g, " ").trim(),
-        ] as const;
-      }).filter(([name]) => name.length > 0),
-    ),
-  }));
-}
+    [home],
+    "one line of the site makes a click on a visitor's behalf",
+  );
+  const handsOn =
+    /\nexport function deliverClick\(event: MouseEvent\): void \{\n([\s\S]*?)\n\}\n/
+      .exec(sources.find(({ path }) => path === home)?.source ?? "")?.[1];
+  assert(handsOn !== undefined, `${home} exports deliverClick`);
+  assert(
+    [...handsOn.matchAll(makesClick)].length === 1,
+    "deliverClick is the function that makes the click",
+  );
+  assert(
+    handsOn.trimStart().startsWith("if (!plainClick(event)) return;"),
+    "deliverClick refuses any click but a plain one before it reads the page",
+  );
+});
 
 /** Whether a selector's subject is the card's own list item. */
 function selectsTheCardItself(selector: string): boolean {
@@ -508,14 +622,18 @@ function selectsTheCardItself(selector: string): boolean {
   );
 }
 
-Deno.test("the lens and an opening card change a card's opacity, color, and transition name, and never move it", async () => {
-  const rules = styleRules(await stylesheet("wall-interactions.css")).filter((
-    rule,
-  ) => rule.selectors.some(selectsTheCardItself));
+Deno.test("the list's order alone places a card: the stylesheet changes a receded or opening card's opacity, color, and transition name, and never moves it", async () => {
+  const sheet = styleRules(await readWallSheet("wall-interactions.css"));
+  const rules = sheet.filter((rule) =>
+    rule.selectors.some(selectsTheCardItself)
+  );
   assert(
     rules.length > 0,
     "the stylesheet styles the receded and opening card",
   );
+  // A lens re-sorts the list, and the cards a lens set aside are drawn
+  // receded where the list puts them. So a rule that moved or resized a card
+  // would be a second thing placing it, and a card would be seen to travel.
   const allowed = new Set([
     "opacity",
     "filter",
@@ -543,10 +661,23 @@ Deno.test("the lens and an opening card change a card's opacity, color, and tran
       }
     }
   }
+
+  // The divider between the two groups is one row across every column, so
+  // the cards a lens kept end above it in each column and the rest start
+  // below it.
+  const dividers = sheet.filter((rule) =>
+    rule.selectors.includes(".wall-rest") &&
+    declared(rule, "column-span") !== undefined
+  );
+  assertEquals(
+    dividers.map((rule) => declared(rule, "column-span")),
+    ["all"],
+    "the divider spans every column of the wall",
+  );
 });
 
 Deno.test("the stylesheet styles every state the hook marks an opening card with", async () => {
-  const css = await stylesheet("wall-interactions.css");
+  const css = await readWallSheet("wall-interactions.css");
   const selectors = styleRules(css).flatMap((rule) => rule.selectors);
   for (const state of OPENING_STATES) {
     assert(
@@ -566,42 +697,286 @@ Deno.test("the stylesheet styles every state the hook marks an opening card with
   );
 });
 
-/** When one picture of the morph is on screen, in seconds from its start. */
+/** Every time a CSS value writes, in seconds, in the order written. */
+function seconds(value: string): number[] {
+  return [...value.matchAll(/(?<![\w.-])([\d.]+)(m?s)\b/g)].map((time) =>
+    Number(time[1]) / (time[2] === "ms" ? 1000 : 1)
+  );
+}
+
+/**
+ * When one picture of the morph is on screen, in seconds from its start,
+ * while a card carries `state`. One rule times the picture for every state,
+ * and a rule for one state alone may move its delay or its duration. A later
+ * declaration wins, as it does in the browser, because both rules name the
+ * mark by one attribute.
+ */
 function morphPicture(
   rules: readonly StyleRule[],
   picture: "old" | "new",
+  state: string,
 ): { readonly starts: number; readonly ends: number } {
-  const animated = rules.filter((rule) =>
-    rule.declarations.has("animation") &&
+  const pseudo = `::view-transition-${picture}(wall-open)`;
+  const marks = [`[${OPENING_ATTRIBUTE}]`, `[${OPENING_ATTRIBUTE}="${state}"]`];
+  const timing = rules.filter((rule) =>
     rule.selectors.some((selector) =>
-      selector.includes(`[${OPENING_ATTRIBUTE}]`) &&
-      selector.endsWith(`::view-transition-${picture}(wall-open)`)
+      selector.endsWith(pseudo) &&
+      marks.some((mark) => selector.includes(mark))
     )
   );
+  let whole = 0;
+  let duration: number | undefined;
+  let delay = 0;
+  for (const rule of timing) {
+    // An animation shorthand gives its duration first and then its delay.
+    const shorthand = declared(rule, "animation");
+    if (shorthand !== undefined) {
+      whole++;
+      [duration, delay = 0] = seconds(shorthand);
+    }
+    [duration = duration] = seconds(declared(rule, "animation-duration") ?? "");
+    [delay = delay] = seconds(declared(rule, "animation-delay") ?? "");
+  }
   assertEquals(
-    animated.length,
+    whole,
     1,
-    `one rule times the ${picture} picture of the morph`,
+    `one rule times the ${picture} picture of the morph for a card marked ${state}`,
   );
-  // An animation shorthand gives its duration first and then its delay.
-  const [duration, delay = 0] = [
-    ...(animated[0]?.declarations.get("animation") ?? "").matchAll(
-      /(?<![\w.-])([\d.]+)(m?s)\b/g,
-    ),
-  ].map((time) => Number(time[1]) / (time[2] === "ms" ? 1000 : 1));
   assert(duration !== undefined && duration > 0, `${picture} has a duration`);
   return { starts: delay, ends: delay + duration };
 }
 
-Deno.test("as a card and its sheet morph, the outgoing words are gone before the incoming words show", async () => {
-  const rules = styleRules(await stylesheet("wall-interactions.css"));
-  const outgoing = morphPicture(rules, "old");
-  const incoming = morphPicture(rules, "new");
-  assertEquals(outgoing.starts, 0, "the outgoing picture starts to go at once");
-  assert(
-    incoming.starts >= outgoing.ends,
-    `the incoming picture shows from ${incoming.starts}s, while the outgoing one is on screen until ${outgoing.ends}s: for that long two sets of words overlap`,
+Deno.test("as a card and its sheet morph, the outgoing words are gone before the incoming words show, on the way out and on the way back", async () => {
+  const rules = styleRules(await readWallSheet("wall-interactions.css"));
+  for (const state of OPENING_STATES) {
+    const outgoing = morphPicture(rules, "old", state);
+    const incoming = morphPicture(rules, "new", state);
+    assertEquals(
+      outgoing.starts,
+      0,
+      `${state}: the outgoing picture starts to go at once`,
+    );
+    assert(
+      incoming.starts >= outgoing.ends,
+      `${state}: the incoming picture shows from ${incoming.starts}s, while the outgoing one is on screen until ${outgoing.ends}s: for that long two sets of words overlap`,
+    );
+  }
+});
+
+/**
+ * How tall the stylesheet draws the morph's incoming picture while a card
+ * carries each state. Filling the box suits the sheet's picture on the way
+ * out: the box grows to the sheet's own shape. The card's picture on the way
+ * back is shorter for its width than the box it arrives in, and filling that
+ * box would draw its words several times their size and cut each line at the
+ * box's edge, so it keeps its own shape at the box's width.
+ */
+const INCOMING_HEIGHT: Readonly<
+  Record<(typeof OPENING_STATES)[number], string>
+> = { held: "100%", morph: "auto" };
+
+Deno.test("the morph's incoming picture fills the box on the way out, and keeps its own shape on the way back so no line of the card is cut", async () => {
+  const rules = styleRules(await readWallSheet("wall-interactions.css"));
+  const pseudo = "::view-transition-new(wall-open)";
+  for (const state of OPENING_STATES) {
+    const marks = [
+      `[${OPENING_ATTRIBUTE}]`,
+      `[${OPENING_ATTRIBUTE}="${state}"]`,
+    ];
+    // A later declaration wins, as it does in the browser, because every
+    // rule here names the mark by one attribute.
+    const height = rules.filter((rule) =>
+      rule.selectors.some((selector) =>
+        selector.endsWith(pseudo) &&
+        marks.some((mark) => selector.includes(mark))
+      )
+    ).map((rule) => declared(rule, "block-size")).findLast((size) =>
+      size !== undefined
+    );
+    assertEquals(
+      height,
+      INCOMING_HEIGHT[state],
+      `the height of the incoming picture while a card is marked ${state}`,
+    );
+  }
+});
+
+/** The name a card's mark crosses to the sheet under. */
+const MARK_NAME = "wall-open-mark";
+
+/** One card as its list item, rendered on the server. */
+function cardOf(card: WallCard): Element {
+  const markup = renderToStaticMarkup(
+    createElement(Card, { card, receded: false, onOpen: () => {} }),
   );
+  const item = new JSDOM(`<ul>${markup}</ul>`).window.document.querySelector(
+    "li",
+  );
+  assert(item !== null, `${card.id} renders as a list item`);
+  return item;
+}
+
+Deno.test("a card's mark crosses under a name of its own, given to its box on the card and in the sheet, on the sheet's own clock", async () => {
+  const rules = styleRules(await readWallSheet("wall-interactions.css"));
+
+  // One rule gives the name, and each of its selectors ends at the mark's
+  // box. Run against the components' own markup, those ends find the one
+  // box that holds a card's glyph or numeral, and never a drawing inside it:
+  // a glyph is a box of drawings, and a name on one of them would carry only
+  // part of the glyph across.
+  const naming = rules.filter((rule) =>
+    declared(rule, "view-transition-name") === MARK_NAME
+  );
+  assertEquals(naming.length, 1, "one rule names the mark");
+  const boxes = [
+    ...(naming[0]?.prelude ?? "").matchAll(/(:is\([^()]*\))\s*(?=,|$)/g),
+  ].map((match) => match[1] ?? "");
+  assertEquals(boxes.length, 2, "the card's box and the sheet's");
+  const marked = SAMPLE_CARDS.filter((card) =>
+    cardGlyph(card) !== undefined || cardNumeral(card) !== undefined
+  );
+  assert(
+    marked.length > 1 && marked.length < SAMPLE_CARDS.length,
+    "the sample cards lead with a glyph, with a numeral, and with neither",
+  );
+  for (const card of SAMPLE_CARDS) {
+    for (
+      const [where, scope] of [
+        ["on the card", cardOf(card)],
+        ["in the sheet", sheetOf(card).dialog],
+      ] as const
+    ) {
+      const found = [...scope.querySelectorAll(boxes.join(", "))];
+      assertEquals(
+        found.length,
+        marked.includes(card) ? 1 : 0,
+        `${card.id}: the boxes the stylesheet names ${where}`,
+      );
+      for (const box of found) {
+        assertStrictEquals(
+          box.closest("svg"),
+          null,
+          `${card.id}: the name stands on a drawing ${where}, not on its box`,
+        );
+      }
+    }
+  }
+
+  // The mark travels on the sheet's box, so whatever times that box times
+  // the mark with it, in one rule.
+  const box = "::view-transition-group(wall-open)";
+  const mark = `::view-transition-group(${MARK_NAME})`;
+  const timed = rules.filter((rule) =>
+    rule.selectors.some((selector) =>
+      selector.endsWith(box) || selector.endsWith(mark)
+    )
+  );
+  assert(timed.length > 1, "the box is timed on its way out and its way back");
+  for (const rule of timed) {
+    const heads = (part: string): string[] =>
+      rule.selectors.filter((selector) => selector.endsWith(part)).map((
+        selector,
+      ) => selector.slice(0, -part.length)).toSorted();
+    assertEquals(
+      heads(mark),
+      heads(box),
+      `"${rule.prelude}" times the sheet's box and the mark apart`,
+    );
+  }
+
+  // The mark's two pictures are one drawing at two sizes. Each is scaled to
+  // the travelling box's height, so a numeral, whose box is as wide as its
+  // heading, keeps its shape.
+  const pictures = rules.filter((rule) =>
+    rule.selectors.some((selector) =>
+      /^::view-transition-(?:old|new)\(wall-open-mark\)$/.test(selector)
+    )
+  );
+  assertEquals(
+    pictures.map((rule) => [
+      rule.selectors.toSorted(),
+      declared(rule, "block-size"),
+      declared(rule, "inline-size"),
+    ]),
+    [[
+      [
+        `::view-transition-new(${MARK_NAME})`,
+        `::view-transition-old(${MARK_NAME})`,
+      ],
+      "100%",
+      "auto",
+    ]],
+    "both pictures of the mark take the box's height and their own width",
+  );
+});
+
+/** Every declaration a stylesheet makes under exactly this selector, later ones winning. */
+function declaredFor(css: string, selector: string): Map<string, string> {
+  return new Map(
+    styleRules(css).filter((rule) => rule.selectors.includes(selector))
+      .flatMap((rule) => [...rule.declarations]),
+  );
+}
+
+/** The properties that give a run of text its shape at any size. */
+const TEXT_SHAPE = [
+  "font-family",
+  "font-style",
+  "font-weight",
+  "font-stretch",
+  "font-variant-numeric",
+  "font-feature-settings",
+  "line-height",
+  "letter-spacing",
+  "text-transform",
+] as const;
+
+Deno.test("the sheet draws a card's mark as the card does, a size up, so the two are one drawing while one grows into the other", async () => {
+  const [cards, interactions] = await Promise.all([
+    readWallSheet("wall-card.css"),
+    readWallSheet("wall-interactions.css"),
+  ]);
+  const onCard = declaredFor(cards, ".wall-card-numeral");
+  const inSheet = declaredFor(interactions, ".wall-open-numeral");
+  assert(
+    onCard.has("font-size") && inSheet.has("font-size"),
+    "each stylesheet sets its numeral",
+  );
+  for (const property of TEXT_SHAPE) {
+    assertEquals(
+      inSheet.get(property),
+      onCard.get(property),
+      `the sheet sets a numeral's ${property} apart from the card's, so the two pictures of it do not lie on each other`,
+    );
+  }
+  for (const property of ["line-height", "letter-spacing"]) {
+    assert(
+      /^-?[\d.]+(?:em)?$/.test(onCard.get(property) ?? ""),
+      `a numeral's ${property} is a share of its size, so it grows with it`,
+    );
+  }
+
+  // A glyph is a square box on the card and in the sheet, at every size
+  // either stylesheet gives it.
+  const sized = [
+    ...styleRules(cards).filter((rule) =>
+      rule.selectors.some((selector) => selector.endsWith(".wall-card-glyph"))
+    ),
+    ...styleRules(interactions).filter((rule) =>
+      rule.selectors.some((selector) => selector.endsWith(".wall-open-glyph"))
+    ),
+  ].filter((rule) =>
+    declared(rule, "inline-size") !== undefined ||
+    declared(rule, "block-size") !== undefined
+  );
+  assert(sized.length > 1, "both stylesheets size the glyph");
+  for (const rule of sized) {
+    assertEquals(
+      declared(rule, "inline-size"),
+      declared(rule, "block-size"),
+      `"${rule.prelude}" gives the glyph a box that is not square`,
+    );
+  }
 });
 
 /**
@@ -609,11 +984,11 @@ Deno.test("as a card and its sheet morph, the outgoing words are gone before the
  * `var()` inside it resolved against the sheet's first declaration of that name.
  */
 function customProperty(sheet: string, css: string, name: string): string[] {
-  const declared = new Map<string, string[]>();
+  const set = new Map<string, string[]>();
   for (const rule of styleRules(css)) {
     for (const [property, value] of rule.declarations) {
       if (!property.startsWith("--")) continue;
-      declared.set(property, [...(declared.get(property) ?? []), value]);
+      set.set(property, [...(set.get(property) ?? []), value]);
     }
   }
   const resolve = (value: string, depth: number): string =>
@@ -623,7 +998,7 @@ function customProperty(sheet: string, css: string, name: string): string[] {
       return resolve(first, depth + 1);
     });
   const values = (property: string): string[] => {
-    const found = declared.get(property);
+    const found = set.get(property);
     assert(
       found !== undefined,
       `the receded-contrast guard reads ${property} from ${sheet}, which no longer declares it: point the guard at the color's new home`,
@@ -687,18 +1062,18 @@ function contrast(one: Rgb, other: Rgb): number {
 
 Deno.test("a receded card's title and line stay legible, because the card can still be read and opened", async () => {
   const [room, cards, interactions] = await Promise.all([
-    stylesheet("wall.css"),
-    stylesheet("wall-card.css"),
-    stylesheet("wall-interactions.css"),
+    readWallSheet("wall.css"),
+    readWallSheet("wall-card.css"),
+    readWallSheet("wall-interactions.css"),
   ]);
   const receded = styleRules(interactions).find((rule) =>
-    rule.selectors.includes(".wall-card[data-receded]")
+    rule.selectors.includes(`.wall-card[${RECEDED_ATTRIBUTE}]`)
   );
   assert(receded !== undefined, "the stylesheet styles a receded card");
-  const opacity = Number(receded.declarations.get("opacity"));
+  const opacity = Number(declared(receded, "opacity"));
   assert(opacity > 0 && opacity < 1, "a receded card is dimmed");
   assert(
-    /^saturate\(/.test(receded.declarations.get("filter") ?? ""),
+    /^saturate\(/.test(declared(receded, "filter") ?? ""),
     "a receded card loses color, and the filter does nothing else",
   );
 
@@ -712,10 +1087,11 @@ Deno.test("a receded card's title and line stay legible, because the card can st
     oklchColors,
   );
   // Light text has least contrast on the lightest surface any card kind
-  // carries, so that one stop stands for every face.
+  // carries, so that one stop stands for every face. The card names its
+  // surface, and the room declares the colors that surface is made of.
   const [surface] = customProperty(
-    "wall-card.css",
-    cards,
+    "wall.css and wall-card.css",
+    `${room}\n${cards}`,
     "--wall-card-surface",
   )
     .flatMap(oklchColors).filter((color) => color.alpha === 1).toSorted((

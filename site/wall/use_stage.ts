@@ -6,8 +6,6 @@ import { type RefObject, useEffect } from "react";
  * and restores the root when it stops, so another stage can replace it.
  */
 export interface WallStage {
-  /** Stable name, written to the wall root as `data-wall-stage` while mounted. */
-  readonly id: string;
   /** Start driving `root`. Returns the function that stops and restores it. */
   readonly mount: (root: HTMLElement) => () => void;
 }
@@ -15,9 +13,30 @@ export interface WallStage {
 /**
  * The wall root carries this attribute whenever the plane is flat and has no
  * transform at all. Stylesheets scope to it what belongs to the flat wall
- * alone: the lens, and the pointer light's reach onto cards.
+ * alone, such as the pointer light's reach onto cards.
  */
-const NEAR = "data-wall-near";
+export const NEAR_ATTRIBUTE = "data-wall-near";
+
+/** The stage: the lens bar, the plane, and the link past the cards. */
+const STAGE = ".wall-stage";
+
+/**
+ * Matches the stage while the keyboard's focus is on it: on the link past the
+ * cards, a lens chip, or a card. A card in the far view is too small to read,
+ * and the browser cannot scroll to a card that is drawn where it does not
+ * lie, so keyboard focus on the stage means a flat plane.
+ *
+ * The stylesheet says so by itself, with no script: in `wall.css` the stage's
+ * own far-view rules stand down on this selector, and the plane's and the
+ * lens bar's stand down on the part of it each can see. The approach marks
+ * the root `data-wall-near` on the same selector, so the plane is flat under
+ * a focused lens chip too, and everything else that is scoped to the flat
+ * wall agrees with the plane.
+ *
+ * The pause control is left out. It belongs to the far view, and holding the
+ * focus must not end the view it pauses.
+ */
+export const KEYBOARD_ON_STAGE = ":has(:focus-visible:not(.wall-pause))";
 
 /**
  * How much of the pool, in pixels from the top of the viewport, must still
@@ -40,38 +59,57 @@ function approachIsStaged(pool: Element): boolean {
 }
 
 /**
+ * Whether the keyboard's focus is on the stage now. A browser that cannot
+ * read the selector stages no approach either, and answers no.
+ */
+function keyboardOnStage(stage: Element | null): boolean {
+  return stage !== null && CSS.supports(`selector(${KEYBOARD_ON_STAGE})`) &&
+    stage.matches(KEYBOARD_ON_STAGE);
+}
+
+/** Whether what holds the focus lies in a modal layer over the page. */
+function inModalLayer(holder: EventTarget | null): boolean {
+  return holder instanceof Element && holder.closest("dialog") !== null;
+}
+
+/**
  * The approach: scrolling brings the wall from far to flat as one plane.
  *
  * The stylesheet performs the motion as a scroll-driven animation that the
  * pool's exit from the viewport times, so it runs with no script and is right
  * on the first paint. This stage only reports where the plane has got to. It
- * sets `data-wall-near` on the wall root while the plane is flat, which is
- * always where no approach is staged and, where one is, from the moment the
- * pool has left the viewport until any part of it returns. The stylesheet
- * stands its animation down in that state, so a near plane carries no
- * transform. The stage moves nothing and measures nothing while the page
- * scrolls: the browser reports the pool's crossing.
+ * sets `data-wall-near` on the wall root while the plane is flat:
  *
- * One thing it does start. A card the keyboard has stepped onto while the
- * plane is far is too small to read, so the stage scrolls the pool away and
- * the wall arrives under the focus. Only that step does it, and the stage
- * answers the Tab key's release, not the focus. Focus also comes to a card
- * handed back, as when the sheet it opened closes or the window returns, and
- * a card that is handed its focus back leaves the page where it was.
+ * - always, where no approach is staged;
+ * - where one is, from the moment the pool has left the viewport until any
+ *   part of it returns;
+ * - while the keyboard's focus is on the stage, as `KEYBOARD_ON_STAGE` says.
+ *   A modal layer that takes the focus from the stage, as an opened card
+ *   does, leaves the plane as it was until the focus comes back out.
+ *
+ * The stylesheet stands its animation down in that state, so a near plane
+ * carries no transform. The stage moves nothing, scrolls nothing, and measures
+ * nothing while the page scrolls: the browser reports the pool's crossing,
+ * and the browser brings a focused card into view by itself, on a plane that
+ * is already flat.
  */
 export const APPROACH_STAGE: WallStage = {
-  id: "approach",
   mount(root: HTMLElement): () => void {
     const pool = root.querySelector(".wall-pool");
     if (pool === null) {
-      root.setAttribute(NEAR, "");
-      return () => root.removeAttribute(NEAR);
+      root.setAttribute(NEAR_ATTRIBUTE, "");
+      return () => root.removeAttribute(NEAR_ATTRIBUTE);
     }
+    const stage = root.querySelector(STAGE);
     let poolInView = pool.getBoundingClientRect().bottom >= POOL_EDGE;
+    let keyboard = keyboardOnStage(stage);
     let frame = 0;
     const settle = (): void => {
       frame = 0;
-      root.toggleAttribute(NEAR, !(poolInView && approachIsStaged(pool)));
+      root.toggleAttribute(
+        NEAR_ATTRIBUTE,
+        keyboard || !(poolInView && approachIsStaged(pool)),
+      );
     };
     const schedule = (): void => {
       if (frame === 0) frame = requestAnimationFrame(settle);
@@ -82,16 +120,20 @@ export const APPROACH_STAGE: WallStage = {
       poolInView = latest.isIntersecting;
       settle();
     }, { rootMargin: `-${POOL_EDGE}px 0px 0px 0px` });
-    const arrive = (event: KeyboardEvent): void => {
-      // With Control or Command held, Tab changes tab or window, not focus.
-      if (event.key !== "Tab" || event.ctrlKey || event.metaKey) return;
-      const focused = event.target;
-      if (root.hasAttribute(NEAR) || !(focused instanceof Element)) return;
-      if (focused.closest(".wall-plane") === null) return;
-      globalThis.scrollBy({
-        top: pool.getBoundingClientRect().bottom,
-        behavior: "smooth",
-      });
+    // The focus changes hands, or a key turns focus that a pointer placed
+    // into the keyboard's, which no change of focus reports.
+    const refocus = (event: FocusEvent | KeyboardEvent): void => {
+      const leaving = event instanceof FocusEvent && event.type === "focusout";
+      const holder = leaving ? event.relatedTarget : event.target;
+      // A modal layer borrows the focus, so the plane stays as it is until
+      // the focus comes back out. Focus that moves within the wall is read
+      // as it arrives, not as it leaves.
+      if (inModalLayer(holder)) return;
+      if (leaving && holder instanceof Node && root.contains(holder)) return;
+      const held = !leaving && keyboardOnStage(stage);
+      if (held === keyboard) return;
+      keyboard = held;
+      settle();
     };
     // Motion and pointer preferences can change what the stylesheet stages
     // without the window changing size.
@@ -102,28 +144,31 @@ export const APPROACH_STAGE: WallStage = {
     ].map((query) => globalThis.matchMedia(query));
     settle();
     crossing.observe(pool);
-    root.addEventListener("keyup", arrive);
+    root.addEventListener("focusin", refocus);
+    root.addEventListener("focusout", refocus);
+    root.addEventListener("keydown", refocus);
     globalThis.addEventListener("resize", schedule);
     for (const preference of preferences) {
       preference.addEventListener("change", schedule);
     }
     return () => {
       crossing.disconnect();
-      root.removeEventListener("keyup", arrive);
+      root.removeEventListener("focusin", refocus);
+      root.removeEventListener("focusout", refocus);
+      root.removeEventListener("keydown", refocus);
       globalThis.removeEventListener("resize", schedule);
       for (const preference of preferences) {
         preference.removeEventListener("change", schedule);
       }
       cancelAnimationFrame(frame);
-      root.removeAttribute(NEAR);
+      root.removeAttribute(NEAR_ATTRIBUTE);
     };
   },
 };
 
 /**
  * Run one stage on the wall root for as long as the component is mounted.
- * Mounting marks the root with `data-wall-stage="<id>"`; unmounting, or a
- * change of stage, stops the stage and removes the mark.
+ * Unmounting, or a change of stage, stops the stage and restores the root.
  */
 export function useStage(
   root: RefObject<HTMLElement>,
@@ -131,12 +176,6 @@ export function useStage(
 ): void {
   useEffect(() => {
     const element = root.current;
-    if (element === null) return;
-    element.dataset.wallStage = stage.id;
-    const stop = stage.mount(element);
-    return () => {
-      stop();
-      delete element.dataset.wallStage;
-    };
+    return element === null ? undefined : stage.mount(element);
   }, [root, stage]);
 }

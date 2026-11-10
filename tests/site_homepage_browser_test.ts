@@ -2,142 +2,75 @@
  * Real-browser homepage checks against the production handler, at phone and
  * laptop sizes. The wall's content must be complete before any script runs, and
  * the island must then hydrate that same markup under the site's Content
- * Security Policy without one page or console error. The same pages hold the
- * wall's motion contract: the approach on a large screen, a flat wall on a
- * phone and under reduced motion, and a pointer that moves nothing. They hold
- * the opened card's too: every way out of the sheet leaves the page exactly
- * as it was. Layout, script policy, motion, modal dialogs, and focus need a
- * real browser to judge.
+ * Security Policy without one page or console error, and without a word from
+ * a development build of React. The same pages hold the wall's motion
+ * contract: the approach on a large screen, a flat wall on a phone, under
+ * reduced motion, and under the keyboard's focus, a pointer that moves
+ * nothing, and a lens that re-sorts the wall with no card seen to travel.
+ * Layout, script policy, motion, focus, and reflow need a real browser to
+ * judge. The opened card has its own file, `site_wall_sheet_browser_test.ts`.
  */
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import type { Browser, BrowserContext, Locator, Page } from "playwright-core";
+import { fromFileUrl, join } from "@std/path";
+import type { Locator, Page } from "playwright-core";
 import { DISCERN_CATEGORY_LINE, LANDING_HEADLINE } from "../site/brand.ts";
-import { handler } from "../site/serve.ts";
-import { cardHeading, cardNumeral } from "../site/wall/Card.tsx";
+import { loadDocsSite } from "../site/docs.tsx";
+import { bundleBrowserModule } from "../site/page-src/format-generated.ts";
+import {
+  WALL_ISLAND_ENTRY,
+  wallIslandContentHash,
+} from "../site/wall/assets.ts";
+import { cardHeading, RECEDED_ATTRIBUTE } from "../site/wall/Card.tsx";
 import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
-import { lensRecedes } from "../site/wall/Lens.tsx";
+import { linkRoute } from "../site/wall/host.ts";
+import {
+  LENS_REST,
+  lensGroups,
+  lensRecedes,
+  lensStatus,
+} from "../site/wall/Lens.tsx";
 import { WALL_KNOBS, wallKnobProperty } from "../site/wall/tuning/knobs.ts";
-import type { WallCard, WallLens } from "../site/wall/types.ts";
-import { OPENING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
+import type { WallLens } from "../site/wall/types.ts";
+import { NEAR_ATTRIBUTE } from "../site/wall/use_stage.ts";
 import { MANUAL_START } from "../site/wall/WallPage.tsx";
-import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
-
-const ORIGIN = "http://127.0.0.1:18899";
-
-const VIEWPORTS = [
-  { name: "phone", width: 390, height: 844 },
-  { name: "laptop", width: 1440, height: 900 },
-] as const;
-
-type Viewport = (typeof VIEWPORTS)[number];
-
-/** The live wall root: present once the island has hydrated. */
-const LIVE_WALL = ".wall[data-wall-live]";
-
-/** The live wall while the plane is flat and carries no transform. */
-const NEAR_WALL = `${LIVE_WALL}[data-wall-near]`;
-
-/** The live wall while the plane is tilted away. */
-const FAR_WALL = `${LIVE_WALL}:not([data-wall-near])`;
-
-/** The opened card's sheet, and the sheet once it is open. */
-const SHEET = "dialog.wall-open";
-const OPEN_SHEET = `${SHEET}[open]`;
+import {
+  atEachViewport,
+  countSheets,
+  dropFocus,
+  eventually,
+  FAR_WALL,
+  LIVE_WALL,
+  motionSettled,
+  NEAR_WALL,
+  OPEN_SHEET,
+  openerOf,
+  openLiveWall,
+  openPage,
+  ORIGIN,
+  OUTSIDE_Y,
+  planeTransform,
+  pressableCard,
+  RECEDED_CARD,
+  sampleWall,
+  scrolled,
+  scrollToWall,
+  SHEET,
+  sheetGone,
+  sheetName,
+  sheetsMounted,
+  type Viewport,
+  VIEWPORTS,
+  wallAtRest,
+  watchTransition,
+  withBrowser,
+} from "./site_wall_browser.ts";
+import { declared, readWallSheet, styleRules } from "./wall_stylesheets.ts";
 
 /** The most a hovered card's own box may differ from its box at rest, in pixels. */
 const HOVER_TRAVEL = 6;
 
 /** A receded card can still be read and opened, so it keeps at least this opacity. */
 const RECEDED_OPACITY_FLOOR = 0.7;
-
-/** How far down the viewport a click lands that is meant for no sheet: above every sheet. */
-const OUTSIDE_Y = 8;
-
-/** Open a page on the production handler and record every fault it reports. */
-async function openPage(
-  context: BrowserContext,
-): Promise<{ readonly page: Page; readonly faults: string[] }> {
-  context.setDefaultTimeout(10_000);
-  const page = await context.newPage();
-  await serveThroughHandler(page, ORIGIN, handler);
-  const faults: string[] = [];
-  page.on("pageerror", (error) => faults.push(`page error: ${error.message}`));
-  page.on("console", (message) => {
-    // A hydration mismatch and a Content Security Policy refusal both arrive
-    // on the console; neither is tolerated as a warning either.
-    if (message.type() === "error" || message.type() === "warning") {
-      faults.push(`console ${message.type()}: ${message.text()}`);
-    }
-  });
-  page.on("requestfailed", (request) => {
-    faults.push(`request failed: ${request.url()}`);
-  });
-  page.on("response", (response) => {
-    if (response.status() >= 400) {
-      faults.push(`${response.status()}: ${response.url()}`);
-    }
-  });
-  return { page, faults };
-}
-
-/** Run `check` against a fresh browser, and close it whatever happens. */
-async function withBrowser(
-  check: (browser: Browser) => Promise<void>,
-): Promise<void> {
-  const browser = await launchBrowser();
-  try {
-    await check(browser);
-  } finally {
-    await browser.close();
-  }
-}
-
-interface Visitor {
-  readonly javaScriptEnabled: boolean;
-  /** The visitor asked for reduced motion. Motion is welcome unless this is set. */
-  readonly reducedMotion?: true;
-}
-
-/**
- * Run `check` at every viewport, each in a browser of its own. An installed
- * Chrome that has been up for more than about twenty seconds takes as long
- * again to close, so no browser here is kept for more than one viewport.
- */
-async function atEachViewport(
-  visitor: Visitor,
-  check: (context: BrowserContext, viewport: Viewport) => Promise<void>,
-): Promise<void> {
-  for (const viewport of VIEWPORTS) {
-    await withBrowser(async (browser) => {
-      await check(
-        await browser.newContext({
-          viewport: { width: viewport.width, height: viewport.height },
-          reducedMotion: visitor.reducedMotion ? "reduce" : "no-preference",
-          javaScriptEnabled: visitor.javaScriptEnabled,
-        }),
-        viewport,
-      );
-    });
-  }
-}
-
-/** Open the homepage and wait until its island is live and its type is in. */
-async function openLiveWall(
-  context: BrowserContext,
-): Promise<{ readonly page: Page; readonly faults: string[] }> {
-  const opened = await openPage(context);
-  await opened.page.goto(`${ORIGIN}/`);
-  await opened.page.locator(LIVE_WALL).waitFor();
-  await opened.page.evaluate(() => document.fonts.ready.then(() => undefined));
-  return opened;
-}
-
-/** The plane's computed transform: "none" exactly when it carries none at all. */
-function planeTransform(page: Page): Promise<string> {
-  return page.locator(".wall-plane").evaluate((plane) =>
-    getComputedStyle(plane).transform
-  );
-}
 
 /**
  * Whether the first card is drawn exactly where layout put it, at its layout
@@ -152,18 +85,6 @@ function firstCardIsFlat(page: Page): Promise<boolean> {
   });
 }
 
-/** Scroll until the stage's top edge meets the top of the viewport. */
-function scrollToWall(page: Page): Promise<void> {
-  return page.locator(".wall-stage").evaluate((stage) =>
-    stage.scrollIntoView({ block: "start", behavior: "instant" })
-  );
-}
-
-/** How far down the page the viewport has scrolled. */
-function scrolled(page: Page): Promise<number> {
-  return page.evaluate(() => scrollY);
-}
-
 /** How far the document extends past the viewport sideways, and its height. */
 function documentExtent(
   page: Page,
@@ -173,46 +94,6 @@ function documentExtent(
       document.documentElement.clientWidth,
     height: document.documentElement.scrollHeight,
   }));
-}
-
-/** Resolve once no clock-driven, finite animation or transition is running. */
-async function motionSettled(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document.getAnimations().every((animation) =>
-      animation.playState !== "running" ||
-      !(animation.timeline instanceof DocumentTimeline) ||
-      animation.effect?.getTiming().iterations === Infinity
-    )
-  );
-}
-
-/**
- * Resolve once `check` holds, asking again each frame or so for a few
- * seconds. A scroll-driven animation answers a scroll at the next frame, not
- * within the call that scrolled, and a page with script off has no state of
- * its own to wait on.
- */
-async function eventually(
-  page: Page,
-  check: () => Promise<boolean>,
-  message: string,
-): Promise<void> {
-  for (let attempt = 0; attempt < 100; attempt++) {
-    if (await check()) return;
-    await page.waitForTimeout(50);
-  }
-  assert(await check(), message);
-}
-
-/**
- * Hold the page to where it stands for a moment. A smooth scroll that has
- * been started shows within its first frames, so this is long enough to
- * catch one and short enough to ask often.
- */
-async function assertHoldsStill(page: Page, message: string): Promise<void> {
-  const at = await scrolled(page);
-  await page.waitForTimeout(200);
-  assertEquals(await scrolled(page), at, message);
 }
 
 /** Everything in the lens bar that cannot be seen, the bar itself included. */
@@ -226,81 +107,63 @@ function hiddenControls(page: Page): Promise<string[]> {
   );
 }
 
-/** One card as drawn: its item's box, its face's box, and how it is lit. */
-interface CardSample {
-  readonly id: string;
-  /** Left, top, width, and height of the list item, then of the face. */
-  readonly box: readonly number[];
-  /** The item's opacity and filter, which a lens and nothing else may change. */
-  readonly look: string;
+/** The lens bar as a pointer finds it. */
+interface LensBar {
+  /** How far the bar has faded in: "0" is unseen and "1" is whole. */
+  readonly opacity: string;
+  /** Whether a press on its first chip would reach that chip. */
+  readonly pressable: boolean;
+  /** Whether any part of that chip lies in the viewport. */
+  readonly inView: boolean;
 }
 
-/** Sample every card as drawn, and name the card at a viewport point. */
-function sampleWall(
-  page: Page,
-  point: { readonly x: number; readonly y: number },
-): Promise<
-  { readonly cards: readonly CardSample[]; readonly under: string | null }
-> {
-  return page.evaluate(({ x, y }) => {
-    const cards = [...document.querySelectorAll<HTMLElement>(".wall-card")]
-      .map((card) => {
-        const item = card.getBoundingClientRect();
-        const face = card.querySelector(".wall-card-face")
-          ?.getBoundingClientRect();
-        const style = getComputedStyle(card);
-        return {
-          id: card.dataset.card ?? "",
-          box: [
-            item.x,
-            item.y,
-            item.width,
-            item.height,
-            face?.x ?? 0,
-            face?.y ?? 0,
-            face?.width ?? 0,
-            face?.height ?? 0,
-          ],
-          look: `${style.opacity} ${style.filter}`,
-        };
-      });
-    const under = document.elementFromPoint(x, y)?.closest<HTMLElement>(
-      ".wall-card",
-    )?.dataset.card ?? null;
-    return { cards, under };
-  }, point);
+/** The lens bar's look, and what a press on its first chip would hit. */
+function lensBar(page: Page): Promise<LensBar> {
+  return page.locator(".wall-controls").evaluate((bar) => {
+    const chip = bar.querySelector(".wall-chip");
+    const box = chip?.getBoundingClientRect();
+    const hit = box === undefined ? null : document.elementFromPoint(
+      box.left + box.width / 2,
+      box.top + box.height / 2,
+    );
+    return {
+      opacity: getComputedStyle(bar).opacity,
+      pressable: chip !== null && hit !== null && chip.contains(hit),
+      inView: box !== undefined && box.bottom > 0 && box.top < innerHeight,
+    };
+  });
 }
 
-/** The page as it stands once nothing is moving and the pointer is off the wall. */
-interface WallAtRest {
-  readonly scrollY: number;
-  readonly near: boolean;
-  readonly cards: readonly CardSample[];
+/** The lens bar, whole and ready to press. */
+const WHOLE_BAR: LensBar = { opacity: "1", pressable: true, inView: true };
+
+/** What holds the focus, and how the page stands around it. */
+interface Focus {
+  /** The focused card's id, or the focused control's class. */
+  readonly on: string;
+  /** Whether the focus is drawn as the keyboard's. */
+  readonly keyboard: boolean;
+  /** Whether the whole focused box lies in the viewport. */
+  readonly inView: boolean;
+  /** Whether the focused box is drawn at the size it was laid out at. */
+  readonly flat: boolean;
 }
 
-/** Park the pointer in the room's margin, where it touches no card. */
-async function parkPointer(
-  page: Page,
-  size: Viewport,
-): Promise<{ readonly x: number; readonly y: number }> {
-  const rest = { x: 2, y: size.height - 2 };
-  await page.mouse.move(rest.x, rest.y);
-  return rest;
-}
-
-/**
- * Park the pointer, wait for motion to end, and sample the page: its scroll,
- * whether the plane is near, and every card as drawn.
- */
-async function wallAtRest(page: Page, size: Viewport): Promise<WallAtRest> {
-  const rest = await parkPointer(page, size);
-  await motionSettled(page);
-  const { cards, under } = await sampleWall(page, rest);
-  assertEquals(under, null, "the pointer rests off the wall");
+/** Runs in the page: describe the focused element as `Focus` does. */
+function readFocus(): Focus {
+  const focused = document.activeElement;
+  if (!(focused instanceof HTMLElement)) {
+    return { on: "", keyboard: false, inView: false, flat: false };
+  }
+  const box = focused.getBoundingClientRect();
   return {
-    scrollY: await scrolled(page),
-    near: await page.locator(NEAR_WALL).count() === 1,
-    cards,
+    on: focused.closest<HTMLElement>(".wall-card")?.dataset.card ??
+      focused.className,
+    keyboard: focused.matches(":focus-visible"),
+    inView: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 &&
+      box.right <= innerWidth,
+    flat: Math.abs(box.width - focused.offsetWidth) < 1 &&
+      Math.abs(box.height - focused.offsetHeight) < 1,
   };
 }
 
@@ -317,6 +180,7 @@ async function assertStage(page: Page, size: Viewport): Promise<void> {
     assert(await firstCardIsFlat(page), "phone: cards at their layout size");
     // The lens is there from the start, with no approach to bring it in.
     assertEquals(await hiddenControls(page), [], "phone: the lens is whole");
+    assertEquals((await lensBar(page)).opacity, "1", "phone: the lens is seen");
     assertEquals(await scrolled(page), 0, "phone: at the top");
     assertEquals((await documentExtent(page)).overflowX, 0, "phone");
     await scrollToWall(page);
@@ -326,7 +190,9 @@ async function assertStage(page: Page, size: Viewport): Promise<void> {
   }
 
   // Far: at the top of the page the plane is tilted away, the stage has not
-  // called it near, and the lens has not arrived.
+  // called it near, and the lens has not arrived. The lens is unseen, not
+  // gone: assistive technology finds its group, and an unseen chip takes no
+  // press meant for the floor it lies over.
   await page.locator(FAR_WALL).waitFor();
   assertNotEquals(await planeTransform(page), "none", "laptop: tilted at top");
   assertEquals(
@@ -335,9 +201,14 @@ async function assertStage(page: Page, size: Viewport): Promise<void> {
     "laptop: the far rows are small",
   );
   assertEquals(
-    await page.locator(".wall-chip").first().isVisible(),
-    false,
+    await lensBar(page),
+    { opacity: "0", pressable: false, inView: true },
     "laptop: the lens stays out of the far view",
+  );
+  assertEquals(
+    await page.getByRole("group").and(page.locator(".wall-lens")).count(),
+    1,
+    "laptop: the lens is in the accessibility tree at the top of the page",
   );
   const far = await documentExtent(page);
   assertEquals(
@@ -386,6 +257,7 @@ async function assertStage(page: Page, size: Viewport): Promise<void> {
   assertEquals(await planeTransform(page), "none", "laptop: flat when near");
   assert(await firstCardIsFlat(page), "laptop: cards at their layout size");
   assertEquals(await hiddenControls(page), [], "laptop: the lens has arrived");
+  assertEquals(await lensBar(page), WHOLE_BAR, "laptop: the lens is whole");
   assertEquals(
     (await documentExtent(page)).height,
     far.height,
@@ -397,26 +269,41 @@ async function assertStage(page: Page, size: Viewport): Promise<void> {
   await page.locator(FAR_WALL).waitFor();
   assertNotEquals(await planeTransform(page), "none", "laptop: far again");
 
-  // A card the keyboard steps onto in the far view is too small to read, so
-  // the wall comes to the focus instead of leaving it out there.
+  // The keyboard reaches the lens from the top of the page. Its focus on the
+  // stage lays the plane flat where it stands, so nothing scrolls, the lens
+  // shows whole, and everything scoped to the flat wall agrees: the stage
+  // marks the root near, and the pointer light reaches card borders.
   await page.locator(".wall-pool .wall-cta").focus();
   await page.keyboard.press("Tab");
-  assert(
-    await page.locator(".wall-plane").evaluate((plane) =>
-      plane.contains(document.activeElement)
-    ),
-    "laptop: after the call to action, Tab lands on a card, not a hidden chip",
+  assertEquals(
+    await page.evaluate(readFocus),
+    { on: "wall-skip", keyboard: true, inView: true, flat: true },
+    "laptop: after the call to action, Tab lands on the link past the cards",
   );
+  await page.keyboard.press("Tab");
+  assertEquals(
+    await page.evaluate(readFocus),
+    { on: "wall-chip", keyboard: true, inView: true, flat: true },
+    "laptop: the next Tab lands on a lens chip",
+  );
+  assertEquals(await scrolled(page), 0, "laptop: the lens is at the top");
+  assertEquals(await lensBar(page), WHOLE_BAR, "laptop: the focused lens");
+  assertEquals(await planeTransform(page), "none", "laptop: flat under focus");
+  assert(await firstCardIsFlat(page), "laptop: cards at their layout size");
   await page.locator(NEAR_WALL).waitFor();
-  assert(
-    await page.evaluate(() => {
-      const box = document.activeElement?.getBoundingClientRect();
-      return box !== undefined && box.top >= 0 && box.bottom <= innerHeight;
-    }),
-    "laptop: the focused card is in view at reading size",
+  assertNotEquals(
+    await page.locator(".wall").evaluate((wall) =>
+      getComputedStyle(wall).getPropertyValue("--wall-light-reach").trim()
+    ),
+    "0px",
+    "laptop: the light reaches cards on a wall the keyboard has laid flat",
   );
-  await page.evaluate(() => scrollTo(0, 0));
+
+  // The far view returns when the keyboard's focus leaves the stage.
+  await dropFocus(page);
   await page.locator(FAR_WALL).waitFor();
+  assertNotEquals(await planeTransform(page), "none", "laptop: far once more");
+  assertEquals((await lensBar(page)).opacity, "0", "laptop: the lens leaves");
 
   // Reduced motion: flat and near at the top, both when the preference
   // changes under a loaded page and from the start of a fresh load.
@@ -430,6 +317,7 @@ async function assertStage(page: Page, size: Viewport): Promise<void> {
   assert(await firstCardIsFlat(page), "reduced motion: cards at layout size");
   // The lens is there from the start, with no approach to bring it in.
   assertEquals(await hiddenControls(page), [], "reduced motion: the lens");
+  assertEquals(await lensBar(page), WHOLE_BAR, "reduced motion: the lens");
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.locator(FAR_WALL).waitFor();
   assertNotEquals(await planeTransform(page), "none", "motion allowed again");
@@ -487,45 +375,56 @@ async function assertCalm(page: Page, size: Viewport): Promise<void> {
   );
 }
 
-/** The button that opens the card with this id. */
-function openerOf(id: string): string {
-  return `.wall-card[data-card="${id}"] .wall-card-open`;
+/** One item of the wall's list as the page orders and draws it. */
+interface WallItem {
+  /** The card's id, or nothing for the divider. */
+  readonly id: string | null;
+  /** The divider's words; a card's are not read here. */
+  readonly words: string;
+  readonly receded: boolean;
+  /** The item's box on the page itself, which scrolling leaves alone. */
+  readonly top: number;
+  readonly bottom: number;
+  readonly width: number;
 }
 
-/** The name a card's sheet goes by: its numeral, when it has one, then its heading. */
-function sheetName(card: WallCard): string {
-  const numeral = cardNumeral(card);
-  return numeral === undefined
-    ? cardHeading(card)
-    : `${numeral} ${cardHeading(card)}`;
+/** The wall's list, item by item, in the page's own order. */
+function wallItems(page: Page): Promise<WallItem[]> {
+  return page.locator(".wall-list > *").evaluateAll(
+    (items, receded) =>
+      items.map((item) => {
+        const box = item.getBoundingClientRect();
+        const id = item instanceof HTMLElement ? item.dataset.card : undefined;
+        return {
+          id: id ?? null,
+          words: id === undefined ? (item.textContent ?? "") : "",
+          receded: item.hasAttribute(receded),
+          top: box.top + scrollY,
+          bottom: box.bottom + scrollY,
+          width: box.width,
+        };
+      }),
+    RECEDED_ATTRIBUTE,
+  );
 }
 
-/** How many of these cards lie at least half in view under the lens bar. */
-function inView(page: Page, ids: readonly string[]): Promise<number> {
-  return page.evaluate((wanted) => {
+/** How far the stage's top edge lies below the top of the viewport. */
+function stageTop(page: Page): Promise<number> {
+  return page.locator(".wall-stage").evaluate((stage) =>
+    stage.getBoundingClientRect().top
+  );
+}
+
+/** Whether the card with this id shows at least half of itself under the lens bar. */
+function cardInView(page: Page, id: string): Promise<boolean> {
+  return page.locator(`.wall-card[data-card="${id}"]`).evaluate((card) => {
     const bar = document.querySelector(".wall-controls")
       ?.getBoundingClientRect();
-    return [...document.querySelectorAll<HTMLElement>(".wall-card")].filter(
-      (card) => {
-        const box = card.getBoundingClientRect();
-        const shown = Math.min(box.bottom, innerHeight) -
-          Math.max(box.top, bar?.bottom ?? 0);
-        return wanted.includes(card.dataset.card ?? "") &&
-          shown * 2 >= box.height;
-      },
-    ).length;
-  }, ids);
-}
-
-/** Every card's box on the page itself, which scrolling leaves alone. */
-function cardPlaces(page: Page): Promise<string[]> {
-  return page.locator(".wall-card").evaluateAll((cards) =>
-    cards.map((card) => {
-      const box = card.getBoundingClientRect();
-      return [box.left + scrollX, box.top + scrollY, box.width, box.height]
-        .map((length) => length.toFixed(1)).join(" ");
-    })
-  );
+    const box = card.getBoundingClientRect();
+    const shown = Math.min(box.bottom, innerHeight) -
+      Math.max(box.top, bar?.bottom ?? 0);
+    return shown * 2 >= box.height;
+  });
 }
 
 /**
@@ -559,7 +458,7 @@ async function assertRecededStillWorks(
   assert(receded !== undefined, `${lens.id} lets some card recede`);
   await motionSettled(page);
   const faintest = Math.min(
-    ...await page.locator(".wall-card[data-receded]").evaluateAll((cards) =>
+    ...await page.locator(RECEDED_CARD).evaluateAll((cards) =>
       cards.map((card) => Number(getComputedStyle(card).opacity))
     ),
   );
@@ -575,14 +474,80 @@ async function assertRecededStillWorks(
   await page.locator(SHEET).waitFor({ state: "detached" });
 }
 
+/** The chip that chooses this lens, or "Everything" for no lens. */
+function chipOf(page: Page, lens: WallLens | undefined): Locator {
+  return page.locator(
+    lens === undefined
+      ? ".wall-chip:not([data-lens])"
+      : `.wall-chip[data-lens="${lens.id}"]`,
+  );
+}
+
+/** Press a lens's chip and wait until the wall has taken the choice. */
+async function chooseLens(
+  page: Page,
+  lens: WallLens | undefined,
+): Promise<void> {
+  const chip = chipOf(page, lens);
+  await pressChip(page, chip);
+  await chip.and(page.locator("[aria-pressed='true']")).waitFor();
+}
+
 /**
- * The lens: one row of chips, each of which recedes the cards outside it,
- * removes and moves none, and lets go when pressed again. A lens that leaves
- * nothing it chose in view brings the page to the nearest card it did choose.
+ * Hold the wall to the order a lens gives it: the cards it kept, one divider
+ * across every column, then the rest, receded, each group in the deck's own
+ * order. With no lens the wall is the deck, with no divider and nothing
+ * receded. The status says the same in words.
+ */
+async function assertWallOrder(
+  page: Page,
+  lens: WallLens | undefined,
+  where: string,
+): Promise<void> {
+  const kept = WALL_DECK.filter((card) => !lensRecedes(lens, card));
+  const rest = WALL_DECK.filter((card) => lensRecedes(lens, card));
+  const items = await wallItems(page);
+  const divider = { id: null, words: LENS_REST, receded: false };
+  assertEquals(
+    items.map(({ id, words, receded }) => ({ id, words, receded })),
+    [
+      ...kept.map(({ id }) => ({ id, words: "", receded: false })),
+      ...(lens === undefined ? [] : [divider]),
+      ...rest.map(({ id }) => ({ id, words: "", receded: true })),
+    ],
+    `${where}: the wall's order`,
+  );
+  assertEquals(
+    await page.locator(".wall-lens").getByRole("status").textContent(),
+    lensStatus(lens, lensGroups(lens, WALL_DECK)),
+    `${where}: what the lens says it did`,
+  );
+  if (lens === undefined) return;
+
+  // The divider is drawn where the list has it: one row as wide as the wall,
+  // under every card the lens kept and over every card it set aside.
+  const line = items[kept.length];
+  assert(line !== undefined && line.id === null, `${where}: the divider`);
+  const wide = await page.locator(".wall-list").evaluate((list) =>
+    list.getBoundingClientRect().width
+  );
+  assert(Math.abs(line.width - wide) <= 1, `${where}: the divider spans`);
+  assert(
+    items.slice(0, kept.length).every((card) => card.bottom <= line.top + 1) &&
+      items.slice(kept.length + 1).every((card) => card.top >= line.bottom - 1),
+    `${where}: the divider lies between the two groups`,
+  );
+}
+
+/**
+ * The lens: one row of chips. Choosing one leads the wall with the cards it
+ * kept and sets the rest after a divider, and choosing it again, or
+ * "Everything", gives the deck's order back exactly. No card is removed. A
+ * reader at the head of the wall stays there, and a reader further down is
+ * brought back to it. Where motion is welcome the page cross-fades once, as
+ * one picture, and a press made while it fades still lands.
  */
 async function assertLens(page: Page, size: Viewport): Promise<void> {
-  const everything = page.locator(".wall-chip:not([data-lens])");
-  const receded = page.locator(".wall-card[data-receded]");
   assertEquals(
     await page.locator(".wall-chip").evaluateAll((chips) =>
       new Set(chips.map((chip) => Math.round(chip.getBoundingClientRect().top)))
@@ -596,441 +561,150 @@ async function assertLens(page: Page, size: Viewport): Promise<void> {
     0,
     `${size.name}: the row of chips does not widen the page`,
   );
-  const places = await cardPlaces(page);
-  let brought = 0;
+  await assertWallOrder(page, undefined, `${size.name}, no lens`);
 
   for (const lens of WALL_LENSES) {
     const where = `${size.name}, ${lens.id}`;
-    const chip = page.locator(`.wall-chip[data-lens="${lens.id}"]`);
-    const forward = WALL_DECK.filter((card) => !lensRecedes(lens, card)).map((
-      { id },
-    ) => id);
+    const [leader] = WALL_DECK.filter((card) => !lensRecedes(lens, card));
+    assert(leader !== undefined, `${where}: the lens keeps a card`);
+
+    // From the head of the wall: the cards the lens kept arrive under the
+    // bar, and the page stays where it is.
     await scrollToWall(page);
     const from = await scrolled(page);
-    const alreadyShown = await inView(page, forward) > 0;
-    assertEquals(await chip.getAttribute("aria-pressed"), "false", where);
-
-    await pressChip(page, chip);
-    assertEquals(await chip.getAttribute("aria-pressed"), "true", where);
-    assertEquals(await everything.getAttribute("aria-pressed"), "false", where);
     assertEquals(
-      await receded.evaluateAll((items) =>
-        items.map((item) => item.getAttribute("data-card"))
-      ),
-      WALL_DECK.filter((card) => lensRecedes(lens, card)).map(({ id }) => id),
+      await chipOf(page, lens).getAttribute("aria-pressed"),
+      "false",
       where,
     );
+    await chooseLens(page, lens);
     assertEquals(
-      await page.locator(".wall-list > .wall-card").count(),
-      WALL_DECK.length,
-      `${where}: a lens never removes a card`,
+      await chipOf(page, undefined).getAttribute("aria-pressed"),
+      "false",
+      where,
     );
-
-    // The visitor sees what the lens chose. Where a card it chose was in
-    // view already the page stays put; otherwise the page comes to one.
-    await eventually(
-      page,
-      async () => await inView(page, forward) > 0,
-      `${where}: no card the lens kept forward is in view`,
+    await assertWallOrder(page, lens, where);
+    assertEquals(await scrolled(page), from, `${where}: the page stays put`);
+    assert(
+      await cardInView(page, leader.id),
+      `${where}: the first card the lens kept is in view`,
     );
-    if (alreadyShown) {
-      assertEquals(await scrolled(page), from, `${where}: nothing to find`);
-    } else {
-      brought += 1;
-    }
     assertEquals(
-      await cardPlaces(page),
-      places,
-      `${where}: a lens never moves a card`,
+      (await documentExtent(page)).overflowX,
+      0,
+      `${where}: the divider does not widen the page`,
     );
 
     if (lens === WALL_LENSES[0]) {
       await assertRecededStillWorks(page, lens);
-      await pressChip(page, everything);
+      await chooseLens(page, undefined);
     } else {
       // Pressing the pressed chip lets the lens go.
-      await pressChip(page, chip);
+      await pressChip(page, chipOf(page, lens));
+      await chipOf(page, undefined).and(page.locator("[aria-pressed='true']"))
+        .waitFor();
     }
-    assertEquals(await receded.count(), 0, `${where}: the lens lets go`);
-    assertEquals(await everything.getAttribute("aria-pressed"), "true", where);
+    await assertWallOrder(page, undefined, `${where}, let go`);
+    assertEquals(await scrolled(page), from, `${where}: let go in place`);
   }
-  if (size.name === "phone") {
+
+  // From further down the wall, choosing a lens and letting it go each bring
+  // the page back to the head of the wall, where the re-sorted cards begin.
+  const [first, second] = WALL_LENSES;
+  assert(first !== undefined && second !== undefined, "two lenses to choose");
+  for (const lens of [first, undefined]) {
+    const where = `${size.name}, ${lens?.id ?? "no lens"}, from down the wall`;
+    await page.evaluate(() => scrollBy({ top: 1500, behavior: "instant" }));
+    assert(await stageTop(page) < -1000, `${where}: the reader is down it`);
+    await chooseLens(page, lens);
+    await assertWallOrder(page, lens, where);
     assert(
-      brought > 0,
-      "on a phone some lens starts with none of its cards on screen; if the deck no longer has one, start this check further down the wall",
+      Math.abs(await stageTop(page)) <= 1,
+      `${where}: the page comes back to the head of the wall`,
     );
   }
-}
 
-/** A card under a point of the viewport, and that point. */
-interface Press {
-  readonly id: string;
-  readonly x: number;
-  readonly y: number;
-}
-
-/**
- * Find a card the pointer can press. Scanning from the top finds one high in
- * the viewport, above where a sheet comes to rest; scanning from the bottom
- * finds one of the far view's nearest rows.
- */
-async function pressableCard(
-  page: Page,
-  size: Viewport,
-  from: "top" | "bottom",
-): Promise<Press> {
-  const found = await page.evaluate(({ width, height, upward }) => {
-    for (let row = 0; row < 14; row++) {
-      const y = upward ? height - 60 - row * 40 : height * 0.16 + row * 40;
-      for (const across of [0.1, 0.3, 0.5, 0.7, 0.9]) {
-        const x = Math.round(width * across);
-        const id = document.elementFromPoint(x, y)?.closest<HTMLElement>(
-          ".wall-card",
-        )?.dataset.card;
-        if (id !== undefined) return { id, x, y };
-      }
+  // Requests a frame apart, each made before the last has been shown: the
+  // last one stands, and a cross-fade that another cut short is no fault.
+  const hurried = WALL_LENSES.slice(0, 4);
+  const last = hurried.at(-1);
+  assert(last !== undefined && hurried.length > 2, "lenses to hurry through");
+  await page.evaluate(async (ids) => {
+    for (const id of ids) {
+      document.querySelector<HTMLElement>(`.wall-chip[data-lens="${id}"]`)
+        ?.click();
+      await new Promise((frame) => requestAnimationFrame(frame));
     }
-    return null;
-  }, { width: size.width, height: size.height, upward: from === "bottom" });
-  assert(found !== null, `${size.name}: a card lies under the pointer`);
-  return found;
-}
+  }, hurried.map(({ id }) => id));
+  await chipOf(page, last).and(page.locator("[aria-pressed='true']")).waitFor();
+  await assertWallOrder(page, last, `${size.name}, hurried`);
+  await chooseLens(page, undefined);
 
-/** Every card marked as an opened card's source, as `id:state`. */
-function markedCards(page: Page): Promise<string[]> {
-  return page.locator(`[${OPENING_ATTRIBUTE}]`).evaluateAll(
-    (cards, attribute) =>
-      cards.map((card) =>
-        `${card.getAttribute("data-card")}:${card.getAttribute(attribute)}`
-      ),
-    OPENING_ATTRIBUTE,
-  );
-}
-
-/** Count the sheets the page mounts from now on, starting again from none. */
-function countSheets(page: Page): Promise<void> {
-  return page.evaluate((sheet) => {
-    const root = document.documentElement;
-    const counting = root.dataset.testSheets !== undefined;
-    root.dataset.testSheets = "0";
-    if (counting) return;
-    new MutationObserver((records) => {
-      const mounted = records.flatMap((record) => [...record.addedNodes])
-        .filter((node) => node instanceof Element && node.matches(sheet));
-      root.dataset.testSheets = String(
-        Number(root.dataset.testSheets) + mounted.length,
-      );
-    }).observe(document.body, { childList: true, subtree: true });
-  }, SHEET);
-}
-
-/** How many sheets the page has mounted since `countSheets`. */
-function sheetsMounted(page: Page): Promise<number> {
-  return page.evaluate(() =>
-    Number(document.documentElement.dataset.testSheets)
-  );
-}
-
-/** Wait for the sheet to go, and for the card it came from to be let go. */
-async function sheetGone(page: Page, where: string): Promise<void> {
-  await page.locator(SHEET).waitFor({ state: "detached" });
-  await eventually(
-    page,
-    async () => (await markedCards(page)).length === 0,
-    `${where}: a card stays marked after its sheet has gone`,
-  );
-}
-
-interface WayOut {
-  readonly name: string;
-  readonly leave: (page: Page, size: Viewport) => Promise<void>;
-}
-
-/**
- * Every way a visitor leaves the sheet. Each is taken the moment the sheet
- * exists, while it is still arriving. The one exception is the pointer on the
- * close control, which has to see the control before it can press it.
- */
-const WAYS_OUT: readonly WayOut[] = [
-  { name: "Escape", leave: (page) => page.keyboard.press("Escape") },
-  {
-    name: "Enter on the close control",
-    leave: (page) => page.keyboard.press("Enter"),
-  },
-  {
-    name: "a click on the close control",
-    leave: (page) => page.locator(`${OPEN_SHEET} .wall-open-close`).click(),
-  },
-  {
-    name: "a click outside the sheet",
-    leave: (page, size) => page.mouse.click(size.width / 2, OUTSIDE_Y),
-  },
-];
-
-/**
- * Open a card by pointer, leave by every way out in turn, and hold the page
- * to what it was each time: the same scroll, the same plane, every card where
- * it was drawn, none marked, and focus back on the card. While the sheet is
- * open the card that became it is the one card held, which happens only where
- * the card lay flat to begin with.
- */
-async function assertEveryWayOut(
-  page: Page,
-  size: Viewport,
-  press: Press,
-  held: boolean,
-): Promise<void> {
-  for (const way of WAYS_OUT) {
-    const where = `${size.name}, ${
-      held ? "near" : "far"
-    }, leaving by ${way.name}`;
-    const before = await wallAtRest(page, size);
-    await page.mouse.click(press.x, press.y);
-    await page.locator(OPEN_SHEET).waitFor();
-    assertEquals(
-      await markedCards(page),
-      held ? [`${press.id}:held`] : [],
-      `${where}: the card that became the sheet`,
-    );
-    const sheet = await page.locator(OPEN_SHEET).boundingBox();
-    assert(sheet !== null, "the sheet has a box");
-    assert(
-      Math.abs(sheet.x + sheet.width / 2 - size.width / 2) <= 1 &&
-        sheet.y > OUTSIDE_Y,
-      `${where}: the sheet sits centered, clear of the top edge`,
-    );
-
-    // The pointer leaves the card's place first. Left there it would light
-    // the card again as the sheet goes, and that light would then have to
-    // fade before the page could be compared.
-    await parkPointer(page, size);
-    await way.leave(page, size);
-    await sheetGone(page, where);
-    assert(
-      await page.locator(openerOf(press.id)).evaluate((button) =>
-        button === document.activeElement
-      ),
-      `${where}: focus returns to the card that was opened`,
-    );
-    assertEquals(
-      await wallAtRest(page, size),
-      before,
-      `${where}: the page is not where it was`,
-    );
-  }
-}
-
-/**
- * Runs in the page: hand an element focus as a script does, afresh, and
- * without the browser scrolling to it.
- */
-function takeFocus(element: Element): void {
-  if (!(element instanceof HTMLElement)) return;
-  element.blur();
-  element.focus({ preventScroll: true });
-}
-
-/**
- * In the far view focus reaches a card in ways that are not a step of the
- * keyboard: a script hands it over, or a closing sheet hands it back. None of
- * them may bring the wall near, however the focus is then drawn.
- */
-async function assertHandedFocusMovesNothing(
-  page: Page,
-  size: Viewport,
-  press: Press,
-): Promise<void> {
-  const opener = page.locator(openerOf(press.id));
-  const before = await wallAtRest(page, size);
-  assertEquals(before.near, false, "the far view is where this is checked");
-
-  await opener.evaluate(takeFocus);
-  await page.keyboard.press("Enter");
-  await page.locator(OPEN_SHEET).waitFor();
-  await page.keyboard.press("Escape");
-  await sheetGone(page, "far, opened by keyboard");
-  await opener.evaluate(takeFocus);
-  assert(
-    await opener.evaluate((button) => button.matches(":focus-visible")),
-    "the far card holds the keyboard's focus, drawn as such",
-  );
-  await assertHoldsStill(page, "focus handed to a far card scrolled the page");
+  // One cross-fade of the whole page: no card has a transition part of its
+  // own, so none can be seen to travel. A second press made at once, while
+  // the page is fading, ends the fade and reaches the chip it was aimed at.
+  const fade = page.evaluate(watchTransition);
+  await pressChip(page, chipOf(page, first));
+  await chooseLens(page, second);
+  const parts = await fade;
+  assert(parts.length > 0, `${size.name}: a lens cross-fades the page`);
   assertEquals(
-    await wallAtRest(page, size),
-    before,
-    "focus handed to a far card moved the wall",
+    parts.filter((part) => !part.endsWith("(root)")),
+    [],
+    `${size.name}: only the page itself cross-fades`,
   );
-}
-
-/** The second click of a double click, where the pointer already is. */
-async function clickAgain(page: Page): Promise<void> {
-  await page.mouse.down({ clickCount: 2 });
-  await page.mouse.up({ clickCount: 2 });
-  // Long enough for whatever the click asked for to have begun.
-  await page.waitForTimeout(250);
+  await assertWallOrder(page, second, `${size.name}, pressed mid-fade`);
+  await chooseLens(page, undefined);
+  await assertWallOrder(page, undefined, `${size.name}, at the end`);
   await motionSettled(page);
-}
-
-/**
- * A double click is one act. On a card it opens the card once and leaves it
- * open, though its second click lands outside the sheet while the sheet is
- * still arriving. Outside the open sheet it closes the sheet and stops there,
- * though its second click lands on the card that lies under it.
- */
-async function assertDoubleClickOpensOnce(
-  page: Page,
-  size: Viewport,
-  press: Press,
-): Promise<void> {
-  await countSheets(page);
-  await page.mouse.click(press.x, press.y);
-  await page.locator(OPEN_SHEET).waitFor();
-  const sheet = await page.locator(OPEN_SHEET).boundingBox();
-  assert(
-    sheet !== null && (press.x < sheet.x || press.y < sheet.y),
-    `${size.name}: the pressed card lies outside the sheet's resting place`,
-  );
-  await clickAgain(page);
-  assertEquals(
-    [await sheetsMounted(page), await markedCards(page)],
-    [1, [`${press.id}:held`]],
-    `${size.name}: a double click opens the card once and leaves it open`,
-  );
-  await page.mouse.click(press.x, press.y);
-  await page.locator(SHEET).waitFor({ state: "detached" });
-  await clickAgain(page);
-  assertEquals(
-    [await sheetsMounted(page), await page.locator(SHEET).count()],
-    [1, 0],
-    `${size.name}: a double click that dismisses the sheet opens no card`,
-  );
-  await sheetGone(page, `${size.name}, after a double click`);
-}
-
-/**
- * While the sheet is on its way out the page is the visitor's again. A press
- * made then, with the sheet still returning to its card, reaches the card it
- * was aimed at, and that card opens and takes the focus.
- */
-async function assertPressWhileLeavingLands(
-  page: Page,
-  size: Viewport,
-  press: Press,
-): Promise<void> {
-  const next = await pressableCard(page, size, "bottom");
-  const card = WALL_DECK.find((each) => each.id === next.id);
-  assert(card !== undefined && next.id !== press.id, "a second card to press");
-  await page.mouse.click(press.x, press.y);
-  await page.locator(OPEN_SHEET).waitFor();
-  await page.keyboard.press("Escape");
-  await page.locator(SHEET).waitFor({ state: "detached" });
-  await page.mouse.click(next.x, next.y);
-  await page.getByRole("dialog", { name: sheetName(card), exact: true })
-    .waitFor();
-  assertEquals(
-    await markedCards(page),
-    [`${next.id}:held`],
-    `${size.name}: a press while the sheet leaves opens the card under it`,
-  );
-  await page.keyboard.press("Escape");
-  await sheetGone(page, `${size.name}, after a press while leaving`);
-  assert(
-    await page.locator(openerOf(next.id)).evaluate((button) =>
-      button === document.activeElement
-    ),
-    `${size.name}: focus returns to the card the press opened`,
-  );
-}
-
-/** How many times a held key repeats in the check below. */
-const HELD_KEY_REPEATS = 14;
-
-/**
- * A key held down on a card opens the sheet once and leaves it open, however
- * long it repeats: across the open, and on whatever takes focus in the sheet.
- */
-async function assertHeldKeyOpensOnce(
-  page: Page,
-  size: Viewport,
-  press: Press,
-): Promise<void> {
-  await countSheets(page);
-  await page.locator(openerOf(press.id)).focus();
-  for (let repeat = 0; repeat < HELD_KEY_REPEATS; repeat++) {
-    await page.keyboard.down("Enter");
-    await page.waitForTimeout(30);
-  }
-  await page.keyboard.up("Enter");
-  await motionSettled(page);
-  assertEquals(
-    [await sheetsMounted(page), await page.locator(OPEN_SHEET).count()],
-    [1, 1],
-    `${size.name}: a held Enter opens the sheet once and leaves it open`,
-  );
-  await page.keyboard.press("Escape");
-  await sheetGone(page, `${size.name}, after a held key`);
-}
-
-/**
- * Requests that overlap settle whole. Opens and closes sent faster than any
- * of them can finish end with at most one sheet, modal and open, its card
- * held and no other marked; and once that sheet is closed the page is where
- * it began.
- */
-async function assertRequestsSettleWhole(
-  page: Page,
-  size: Viewport,
-  press: Press,
-): Promise<void> {
-  const where = `${size.name}, overlapping requests`;
-  const before = await wallAtRest(page, size);
-  for (const request of ["open", "close", "open", "close"] as const) {
-    await (request === "open"
-      ? page.mouse.click(press.x, press.y)
-      : page.keyboard.press("Escape"));
-    await page.waitForTimeout(40);
-  }
-  await eventually(
-    page,
-    () =>
-      page.evaluate(({ sheet, attribute }) => {
-        const moving = document.getAnimations().some((animation) =>
-          animation.playState === "running" &&
-          animation.timeline instanceof DocumentTimeline &&
-          animation.effect?.getTiming().iterations !== Infinity
-        );
-        const sheets = document.querySelectorAll(sheet).length;
-        const marks = [...document.querySelectorAll(`[${attribute}]`)].map((
-          card,
-        ) => card.getAttribute(attribute));
-        return !moving && sheets <= 1 &&
-          sheets === document.querySelectorAll(`${sheet}[open]:modal`).length &&
-          marks.length <= sheets && marks.every((mark) => mark === "held");
-      }, { sheet: SHEET, attribute: OPENING_ATTRIBUTE }),
-    `${where}: the page is left between states`,
-  );
-  await page.keyboard.press("Escape");
-  await sheetGone(page, where);
-  assertEquals(
-    await wallAtRest(page, size),
-    before,
-    `${where}: the page is not where it was`,
-  );
 }
 
 /**
  * The sheet is named as its card's own button is: a numeral leads the
- * heading. Where nothing has to finish moving, every card in the deck is
- * opened by keyboard, asked its name, and closed, with focus back on it.
+ * heading. Its link, where the card names a page, is named by that page's
+ * title in the manual, so the link says where it goes. Where nothing has to
+ * finish moving, every card in the deck is opened by keyboard, asked its
+ * name and its link's, and closed, with focus back on it.
  */
 async function assertEverySheetIsNamed(page: Page): Promise<void> {
+  const manual = await loadDocsSite();
+  const titles = new Map(
+    [manual.landing, ...manual.pages].map((
+      each,
+    ) => [each.route, each.entry.title]),
+  );
   await countSheets(page);
   for (const card of WALL_DECK) {
     const opener = page.locator(openerOf(card.id));
     await opener.focus();
     await page.keyboard.press("Enter");
-    await page.getByRole("dialog", { name: sheetName(card), exact: true })
-      .waitFor();
+    const sheet = page.getByRole("dialog", {
+      name: sheetName(card),
+      exact: true,
+    });
+    await sheet.waitFor();
+    // A page the manual does not publish has no title, and reads as no name.
+    const named = card.href === undefined ? [] : [{
+      href: card.href,
+      name: titles.get(linkRoute(card.href)) ?? "",
+    }];
+    assert(
+      named.every((link) => link.name.length > 0),
+      `${card.id}: ${card.href} leads to a manual page with a title`,
+    );
+    assertEquals(
+      await sheet.getByRole("link").evaluateAll((links) =>
+        links.map((link) => ({
+          href: link.getAttribute("href") ?? "",
+          // The arrow after the words is decoration, hidden from the name.
+          name: [...link.childNodes].filter((node) =>
+            !(node instanceof Element && node.ariaHidden === "true")
+          ).map((node) => node.textContent ?? "").join("").trim(),
+        }))
+      ),
+      named,
+      `${card.id}: the sheet's link is named by the manual page it leads to`,
+    );
     await page.keyboard.press("Escape");
     await sheetGone(page, card.id);
     assert(
@@ -1056,6 +730,192 @@ function noteControlTransitions(): void {
       root.dataset.testControlTransitions ?? ""
     }${event.propertyName} on .${target.className}${event.pseudoElement}; `;
   }, true);
+}
+
+/**
+ * Runs in the page before its own scripts: note every view transition the
+ * page asks for, and every transition or animation that starts on an item of
+ * the wall's list, where the page can read the notes back. An item is what a
+ * lens recedes and re-sorts; what a card's face does under a pointer is the
+ * card's own affair.
+ */
+function noteWallMotion(): void {
+  const note = (what: string): void => {
+    const root = document.documentElement;
+    root.dataset.testWallMotion = `${
+      root.dataset.testWallMotion ?? ""
+    }${what}; `;
+  };
+  const start = Document.prototype.startViewTransition;
+  if (typeof start === "function") {
+    Document.prototype.startViewTransition = new Proxy(start, {
+      apply(target, page, args): unknown {
+        note("a view transition");
+        return Reflect.apply(target, page, args);
+      },
+    });
+  }
+  for (const type of ["transitionrun", "animationstart"]) {
+    document.addEventListener(type, (event) => {
+      const target = event.target;
+      if (target instanceof Element && target.matches(".wall-list > *")) {
+        note(`${type} on .${target.className}`);
+      }
+    }, true);
+  }
+}
+
+/**
+ * At the foot of the page the lens bar has gone. It is unseen and takes no
+ * press, so no part of it is left cut by the viewport's edge, and it is whole
+ * again back up the wall.
+ */
+async function assertLensLeavesAtTheEnd(
+  page: Page,
+  size: Viewport,
+): Promise<void> {
+  const fadedTo = (opacity: string): Promise<unknown> =>
+    page.waitForFunction((wanted) => {
+      const bar = document.querySelector(".wall-controls");
+      return bar !== null && getComputedStyle(bar).opacity === wanted;
+    }, opacity);
+  await page.evaluate(() =>
+    scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: "instant",
+    })
+  );
+  await fadedTo("0");
+  const end = await lensBar(page);
+  assertEquals(
+    [end.opacity, end.pressable],
+    ["0", false],
+    `${size.name}: the lens bar is still there at the foot of the page`,
+  );
+  await scrollToWall(page);
+  await fadedTo("1");
+  assertEquals(
+    await lensBar(page),
+    WHOLE_BAR,
+    `${size.name}: back up the wall`,
+  );
+}
+
+/**
+ * Runs in the page: how many frames draw the plane with a transform on it,
+ * of this frame and the `frames` that follow.
+ */
+function tiltedFrames(frames: number): Promise<number> {
+  return new Promise((resolve) => {
+    const plane = document.querySelector(".wall-plane");
+    let tilted = 0;
+    const look = (left: number): void => {
+      if (plane === null || getComputedStyle(plane).transform !== "none") {
+        tilted++;
+      }
+      if (left === 0) resolve(tilted);
+      else requestAnimationFrame(() => look(left - 1));
+    };
+    look(frames);
+  });
+}
+
+/**
+ * How many frames a step of the keyboard is watched for where the page jumps
+ * under it: over half a second, which outlasts any scroll the step starts.
+ */
+const JUMP_FRAMES = 40;
+
+/**
+ * Press a key and hold the wall to a flat plane as the key lands and on each
+ * of the `frames` that follow, then to a focus that is the keyboard's, wholly
+ * in view, and at its reading size. A browser scrolls to a focused card by
+ * where the card is drawn, so a plane that tilts under the step leaves the
+ * focus somewhere else.
+ */
+async function assertStep(
+  page: Page,
+  key: string,
+  where: string,
+  frames = 0,
+): Promise<Focus> {
+  await page.keyboard.press(key);
+  assertEquals(
+    await page.evaluate(tiltedFrames, frames),
+    0,
+    `${where}: the plane tilted under ${key}`,
+  );
+  const focus = await page.evaluate(readFocus);
+  assert(
+    focus.keyboard && focus.inView && focus.flat,
+    `${where}: after ${key} the focus is on ${focus.on}, ${
+      focus.inView ? "in view" : "out of view"
+    } and ${focus.flat ? "flat" : "tilted"}`,
+  );
+  return focus;
+}
+
+/** The index of the first card in each column of the wall, in the deck's order. */
+function columnHeads(page: Page): Promise<number[]> {
+  return page.locator(".wall-card").evaluateAll((cards) =>
+    cards.flatMap((card, index) => {
+      const before = cards[index - 1];
+      return before instanceof HTMLElement && card instanceof HTMLElement &&
+          before.offsetLeft === card.offsetLeft
+        ? []
+        : [index];
+    })
+  );
+}
+
+/**
+ * The text spacing a reader may set for themselves, which a page must take
+ * without losing words: WCAG 2.2 success criterion 1.4.12.
+ */
+const READER_TEXT_SPACING =
+  "* { line-height: 1.5 !important; letter-spacing: 0.12em !important; " +
+  "word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }";
+
+/**
+ * Runs in the page: the start of every run of words in the room that the
+ * room's own edge cuts off. Words that are never drawn, and words in a strip
+ * that scrolls sideways by design, are not counted.
+ */
+function cutWords(): string[] {
+  const wall = document.querySelector(".wall");
+  if (wall === null) return ["the page has no wall"];
+  const room = wall.getBoundingClientRect();
+  const cut: string[] = [];
+  const walker = document.createTreeWalker(wall, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const words = (node.textContent ?? "").trim();
+    if (words === "") continue;
+    let drawn = true;
+    for (
+      let box = node.parentElement;
+      drawn && box !== null && box !== wall;
+      box = box.parentElement
+    ) {
+      const style = getComputedStyle(box);
+      drawn = style.clipPath === "none" && style.visibility === "visible" &&
+        style.overflowX !== "auto" && style.overflowX !== "scroll";
+    }
+    if (!drawn) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const outside = [...range.getClientRects()].some((rect) =>
+      rect.width > 0 &&
+      (rect.left < room.left - 1 || rect.right > room.right + 1)
+    );
+    if (outside) cut.push(words.slice(0, 40));
+  }
+  return cut;
+}
+
+/** The alpha of the first color a CSS value writes with one, or 1. */
+function alphaOf(color: string): number {
+  const alpha = /\/\s*([\d.]+)\s*\)/.exec(color)?.[1];
+  return alpha === undefined ? 1 : Number(alpha);
 }
 
 Deno.test("the homepage is complete before any script runs", async () => {
@@ -1085,6 +945,34 @@ Deno.test("the homepage is complete before any script runs", async () => {
       `${size.name}: the first paint's plane`,
     );
     assertEquals((await documentExtent(page)).overflowX, 0, size.name);
+
+    // The keyboard's focus on the stage lays the plane flat by stylesheet
+    // alone. The link past the cards comes first; the lens needs script, so
+    // the first card is next, in view and at its reading size.
+    if (size.name === "laptop") {
+      const [leader] = WALL_DECK;
+      assert(leader !== undefined, "the deck has a first card");
+      await page.locator(".wall-pool .wall-cta").focus();
+      await page.keyboard.press("Tab");
+      assertEquals(
+        await page.evaluate(readFocus),
+        { on: "wall-skip", keyboard: true, inView: true, flat: true },
+        "no script: Tab reaches the link past the cards",
+      );
+      assert(await firstCardIsFlat(page), "no script: flat under that focus");
+      await page.keyboard.press("Tab");
+      assertEquals(
+        await page.evaluate(readFocus),
+        { on: leader.id, keyboard: true, inView: true, flat: true },
+        "no script: the next Tab reaches the first card, flat and in view",
+      );
+      await dropFocus(page);
+      await eventually(
+        page,
+        async () => !(await firstCardIsFlat(page)),
+        "no script: the far view never returns once the focus has gone",
+      );
+    }
 
     // Reading distance: scrolled to the wall, every card is flat and legible
     // with no script to bring it there.
@@ -1144,7 +1032,7 @@ Deno.test("the homepage is complete before any script runs", async () => {
     // sight invites a press it could not answer. A card's button is still
     // its heading, so it shows; it just offers nothing.
     assertEquals(
-      await page.locator(`${LIVE_WALL}, .wall[data-wall-near]`).count(),
+      await page.locator(`${LIVE_WALL}, .wall[${NEAR_ATTRIBUTE}]`).count(),
       0,
       `${size.name}: only script marks the wall live or near`,
     );
@@ -1210,53 +1098,87 @@ Deno.test("the island hydrates the served wall, the stage brings it near, and th
     await assertStage(page, size);
     if (size.name === "laptop") await assertCalm(page, size);
     await assertLens(page, size);
+    await assertLensLeavesAtTheEnd(page, size);
 
     assertEquals(await page.locator(".wall-tune").count(), 0);
     assertEquals(faults, [], size.name);
   });
 });
 
-Deno.test("a card opens as a sheet, and every way out leaves the page exactly as it was", async () => {
+/** The wall island's browser entry, by absolute path. */
+const ISLAND_ENTRY = join(
+  fromFileUrl(new URL("../", import.meta.url)),
+  WALL_ISLAND_ENTRY,
+);
+
+Deno.test("a development build of React hydrates the served wall and has nothing to say", async () => {
+  // The built island carries React's production build, which keeps the
+  // server's attributes without a word when the browser's first render
+  // disagrees with them. Only a development build says so, on the console,
+  // so the served wall is hydrated once more with one.
+  const development = await bundleBrowserModule(ISLAND_ENTRY, {
+    minify: false,
+  });
+  assert(
+    !development.includes("Minified React error"),
+    "an unminified bundle of the island carries React's development build",
+  );
+  const [lens] = WALL_LENSES;
+  assert(lens !== undefined, "the wall has a lens");
+  const [kept] = lensGroups(lens, WALL_DECK).kept;
+  assert(kept !== undefined, `${lens.id} keeps a card`);
+
   await atEachViewport({ javaScriptEnabled: true }, async (context, size) => {
-    const { page, faults } = await openLiveWall(context);
+    const { page, faults } = await openPage(context);
+    const said: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() !== "log" && message.type() !== "info") {
+        said.push(`${message.type()}: ${message.text()}`);
+      }
+    });
+    let served = 0;
+    await page.route(
+      (url) =>
+        wallIslandContentHash(
+          url.pathname.slice(url.pathname.lastIndexOf("/") + 1),
+        ) !== undefined,
+      async (route) => {
+        served++;
+        await route.fulfill({
+          contentType: "text/javascript; charset=utf-8",
+          body: development,
+        });
+      },
+    );
+    await page.goto(`${ORIGIN}/`);
+    await page.locator(LIVE_WALL).waitFor();
+    assertEquals(served, 1, `${size.name}: the page loaded the island once`);
 
-    // Far: a tilted card opens where the sheet stands, with no card held,
-    // and closing it never brings the wall near.
-    if (size.name === "laptop") {
-      await page.locator(FAR_WALL).waitFor();
-      const far = await pressableCard(page, size, "bottom");
-      await assertEveryWayOut(page, size, far, false);
-      await assertHandedFocusMovesNothing(page, size, far);
-    }
-
-    // Near: the card grows into the sheet and the sheet returns to it.
+    // Hydration, a lens that re-sorts the list, and a sheet that mounts and
+    // goes: each is a render a development build checks.
     await scrollToWall(page);
     await page.locator(NEAR_WALL).waitFor();
-    const near = await pressableCard(page, size, "top");
-    await assertEveryWayOut(page, size, near, true);
+    await chooseLens(page, lens);
+    await assertWallOrder(page, lens, `${size.name}, development React`);
+    await page.locator(openerOf(kept.id)).focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("dialog", { name: sheetName(kept), exact: true })
+      .waitFor();
+    await page.keyboard.press("Escape");
+    await sheetGone(page, `${size.name}, development React`);
+    await chooseLens(page, undefined);
+    await motionSettled(page);
+    assertEquals(said, [], `${size.name}: development React spoke up`);
     assertEquals(faults, [], size.name);
   });
 });
 
-Deno.test("a double click, a held key, and requests that overlap each leave one whole sheet or none", async () => {
-  await atEachViewport({ javaScriptEnabled: true }, async (context, size) => {
-    const { page, faults } = await openLiveWall(context);
-    await scrollToWall(page);
-    await page.locator(NEAR_WALL).waitFor();
-    const press = await pressableCard(page, size, "top");
-    await assertDoubleClickOpensOnce(page, size, press);
-    await assertPressWhileLeavingLands(page, size, press);
-    await assertHeldKeyOpensOnce(page, size, press);
-    await assertRequestsSettleWhole(page, size, press);
-    assertEquals(faults, [], size.name);
-  });
-});
-
-Deno.test("under reduced motion the lens arrives whole, and every card opens at once under its own name", async () => {
+Deno.test("under reduced motion the lens arrives whole and re-sorts the wall with a cut, and every card opens at once under its own name", async () => {
   await atEachViewport(
     { javaScriptEnabled: true, reducedMotion: true },
     async (context, size) => {
       await context.addInitScript(noteControlTransitions);
+      await context.addInitScript(noteWallMotion);
       const { page, faults } = await openPage(context);
       await page.goto(`${ORIGIN}/`);
 
@@ -1275,16 +1197,306 @@ Deno.test("under reduced motion the lens arrives whole, and every card opens at 
       );
       if (size.name === "laptop") await assertEverySheetIsNamed(page);
 
-      // With no transition to cover it, a click outside closes just as soon.
+      // A lens re-sorts the wall at once, and so does letting it go.
       await scrollToWall(page);
+      const [lens] = WALL_LENSES;
+      assert(lens !== undefined, "the wall has a lens");
+      const motion = (): Promise<string> =>
+        page.evaluate(() =>
+          document.documentElement.dataset.testWallMotion ?? ""
+        );
+      await chooseLens(page, lens);
+      await assertWallOrder(page, lens, `${size.name}, reduced motion`);
+      await chooseLens(page, undefined);
+      await assertWallOrder(page, undefined, `${size.name}, reduced motion`);
+      assertEquals(
+        await motion(),
+        "",
+        `${size.name}: under reduced motion a lens ran a view transition, or an item of the wall faded`,
+      );
+
+      // With no transition to cover it, a click outside closes just as soon.
       const press = await pressableCard(page, size, "top");
       await page.mouse.click(press.x, press.y);
       await page.locator(OPEN_SHEET).waitFor();
       await page.mouse.click(size.width / 2, OUTSIDE_Y);
       await sheetGone(page, "reduced motion");
+      await motionSettled(page);
+      assertEquals(
+        await motion(),
+        "",
+        `${size.name}: under reduced motion a card opened through a view transition`,
+      );
       assertEquals(faults, [], size.name);
     },
   );
+});
+
+/** The sizes the keyboard is walked at: both stage the approach. */
+const KEYBOARD_VIEWPORTS = [
+  { name: "laptop", width: 1440, height: 900 },
+  { name: "small laptop", width: 1280, height: 720 },
+] as const;
+
+Deno.test("the keyboard walks a flat wall: every card it reaches is in view at reading size, and no step shows the plane tilted", async () => {
+  for (const size of KEYBOARD_VIEWPORTS) {
+    await withBrowser(async (browser) => {
+      const context = await browser.newContext({
+        viewport: { width: size.width, height: size.height },
+        reducedMotion: "no-preference",
+      });
+      const { page, faults } = await openLiveWall(context);
+      await page.locator(FAR_WALL).waitFor();
+      const openers = page.locator(".wall-card-open");
+      const cardAt = (index: number): string => WALL_DECK[index]?.id ?? "";
+
+      // The stage's first control leads past all the cards, to the closing
+      // section's heading.
+      await page.locator(".wall-pool .wall-cta").focus();
+      const skip = await assertStep(page, "Tab", `${size.name}, from the top`);
+      assertEquals(skip.on, "wall-skip", `${size.name}: the first control`);
+      await page.keyboard.press("Enter");
+      assert(
+        await page.locator(".wall-closing-title").evaluate((title) =>
+          title === document.activeElement &&
+          title.getBoundingClientRect().top >= 0 &&
+          title.getBoundingClientRect().bottom <= innerHeight
+        ),
+        `${size.name}: the link past the cards hands the closing heading the focus, in view`,
+      );
+      await dropFocus(page);
+      await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+      await page.locator(FAR_WALL).waitFor();
+
+      // Down the first column: the link, the chips, then card after card.
+      await page.locator(".wall-pool .wall-cta").focus();
+      const controls = 1 + 1 + WALL_LENSES.length;
+      const reached = 12;
+      let focus = skip;
+      for (let stop = 0; stop < controls + reached; stop++) {
+        focus = await assertStep(page, "Tab", `${size.name}, stop ${stop}`);
+      }
+      assertEquals(focus.on, cardAt(reached - 1), `${size.name}: twelve cards`);
+
+      // Home brings the pool back into view under a focused card. The wall
+      // stays flat for the keyboard, so the next card is where it is drawn.
+      await page.keyboard.press("Home");
+      await page.waitForFunction(() => scrollY === 0);
+      focus = await assertStep(
+        page,
+        "Tab",
+        `${size.name}, after Home`,
+        JUMP_FRAMES,
+      );
+      assertEquals(focus.on, cardAt(reached), `${size.name}: the next card`);
+
+      // Across a change of column the page jumps most of its own height,
+      // and back again going backward.
+      const heads = await columnHeads(page);
+      const [, second] = heads;
+      assert(second !== undefined && second > 1, `${size.name}: two columns`);
+      await openers.nth(second - 1).focus();
+      focus = await assertStep(
+        page,
+        "Tab",
+        `${size.name}, to column two`,
+        JUMP_FRAMES,
+      );
+      assertEquals(focus.on, cardAt(second), `${size.name}: its first card`);
+      focus = await assertStep(
+        page,
+        "Shift+Tab",
+        `${size.name}, and back`,
+        JUMP_FRAMES,
+      );
+      assertEquals(focus.on, cardAt(second - 1), `${size.name}: the foot`);
+
+      // A key released in the frame it was pressed in, which is how these
+      // presses are made, is the hardest case for anything that waits on the
+      // key's release.
+      await openers.nth(second + 1).focus();
+      for (const expected of [second, second - 1]) {
+        focus = await assertStep(
+          page,
+          "Shift+Tab",
+          `${size.name}, hurried`,
+          JUMP_FRAMES,
+        );
+        assertEquals(focus.on, cardAt(expected), `${size.name}: hurried`);
+      }
+
+      // Backward up the whole wall, no focused card sits under the pinned
+      // lens bar: its button starts below the bar's foot.
+      await page.locator(".wall-closing .wall-cta").focus();
+      const covered: string[] = [];
+      for (let stop = 0; stop < WALL_DECK.length; stop++) {
+        await page.keyboard.press("Shift+Tab");
+        const under = await page.evaluate(() => {
+          const bar = document.querySelector(".wall-controls")
+            ?.getBoundingClientRect();
+          const button = document.activeElement;
+          const card = button?.closest<HTMLElement>(".wall-card");
+          return button !== null && bar !== undefined &&
+              button.getBoundingClientRect().top < bar.bottom
+            ? card?.dataset.card ?? "no card"
+            : null;
+        });
+        if (under !== null) covered.push(under);
+      }
+      assertEquals(
+        await page.evaluate(readFocus),
+        { on: cardAt(0), keyboard: true, inView: true, flat: true },
+        `${size.name}: the walk ends on the first card`,
+      );
+      assertEquals(covered, [], `${size.name}: focused under the lens bar`);
+      assertEquals(faults, [], size.name);
+    });
+  }
+});
+
+/** Narrow and re-spaced rooms, each of which must still show every word. */
+const TIGHT_ROOMS = [
+  { name: "a phone at 200% zoom", width: 195, height: 422, spaced: false },
+  { name: "320 wide, re-spaced", width: 320, height: 640, spaced: true },
+  { name: "a laptop at 400% zoom", width: 320, height: 256, spaced: false },
+] as const;
+
+Deno.test("a narrow, zoomed, or re-spaced room cuts off no word, and a short one does not pin the lens bar", async () => {
+  for (const room of TIGHT_ROOMS) {
+    await withBrowser(async (browser) => {
+      const context = await browser.newContext({
+        viewport: { width: room.width, height: room.height },
+        reducedMotion: "no-preference",
+      });
+      const { page, faults } = await openLiveWall(context);
+      if (room.spaced) {
+        // A constructed sheet is how a reader's own style reaches the page
+        // under the site's Content Security Policy.
+        await page.evaluate((css) => {
+          const sheet = new CSSStyleSheet();
+          sheet.replaceSync(css);
+          document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+        }, READER_TEXT_SPACING);
+      }
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      assertEquals(await page.evaluate(cutWords), [], `${room.name}: cut off`);
+      assertEquals((await documentExtent(page)).overflowX, 0, room.name);
+
+      // A pinned bar on a short screen would cover a third of it.
+      const pinned = await page.locator(".wall-controls").evaluate((bar) =>
+        getComputedStyle(bar).position
+      );
+      const short = await page.evaluate(() =>
+        matchMedia("(max-height: 30rem)").matches
+      );
+      assertEquals(pinned, short ? "static" : "sticky", room.name);
+      assertEquals(faults, [], room.name);
+    });
+  }
+  assert(
+    TIGHT_ROOMS.some((room) => room.height <= 480) &&
+      TIGHT_ROOMS.some((room) => room.height > 480),
+    "the rooms cover a short screen and a tall one",
+  );
+});
+
+/**
+ * The widest viewport, in pixels, at which the lens stylesheet closes the
+ * chips up so that the row still fits.
+ */
+async function chipsCloseUpAt(): Promise<number> {
+  const closing = styleRules(await readWallSheet("wall-interactions.css"))
+    .find((rule) =>
+      rule.selectors.includes(".wall-lens") &&
+      declared(rule, "gap") !== undefined &&
+      rule.context.some((query) => query.includes("max-width"))
+    );
+  const rem = /^@media \(max-width: ([\d.]+)rem\)$/.exec(
+    closing?.context.at(-1) ?? "",
+  )?.[1];
+  assert(rem !== undefined, "the chips close up under a width given in rem");
+  return Number(rem) * 16;
+}
+
+Deno.test("the row of chips fits a laptop screen whole, on both sides of the width where the chips close up", async () => {
+  // A row a pixel or two too wide for its screen becomes a strip that scrolls
+  // sideways, with its ends faded and its last chip cut.
+  const closeUp = await chipsCloseUpAt();
+  const [, laptop] = VIEWPORTS;
+  for (const width of [1280, closeUp, closeUp + 1]) {
+    await withBrowser(async (browser) => {
+      const context = await browser.newContext({
+        viewport: { width, height: laptop.height },
+        reducedMotion: "no-preference",
+      });
+      const { page, faults } = await openLiveWall(context);
+      assertEquals(
+        await page.locator(".wall-lens").evaluate((lens) => ({
+          rows: new Set(
+            [...lens.querySelectorAll(".wall-chip")].map((chip) =>
+              Math.round(chip.getBoundingClientRect().top)
+            ),
+          ).size,
+          scrolls: lens.scrollWidth - lens.clientWidth,
+        })),
+        { rows: 1, scrolls: 0 },
+        `${width} pixels wide: the chips are one row, and the row does not scroll`,
+      );
+      assertEquals(faults, [], `${width} pixels wide`);
+    });
+  }
+});
+
+Deno.test("a reader who asks for more contrast gets firmer inks and edges, and a receded card still reads as set aside", async () => {
+  const [, laptop] = VIEWPORTS;
+  const [lens] = WALL_LENSES;
+  assert(lens !== undefined, "the wall has a lens");
+  await withBrowser(async (browser) => {
+    const context = await browser.newContext({
+      viewport: { width: laptop.width, height: laptop.height },
+      reducedMotion: "no-preference",
+    });
+    const { page, faults } = await openLiveWall(context);
+    await scrollToWall(page);
+    await page.locator(NEAR_WALL).waitFor();
+    await chooseLens(page, lens);
+    const read = async (): Promise<Record<string, number>> => {
+      await motionSettled(page);
+      return await page.evaluate((receded) => {
+        const style = (selector: string): CSSStyleDeclaration | undefined => {
+          const element = document.querySelector(selector);
+          return element === null ? undefined : getComputedStyle(element);
+        };
+        return {
+          facts: style(".wall-facts")?.color ?? "",
+          line: style(".wall-card-line")?.color ?? "",
+          chip: style(".wall-chip[aria-pressed='false']")?.borderTopColor ?? "",
+          divider: style(".wall-rest")?.borderTopColor ?? "",
+          receded: style(receded)?.opacity ?? "",
+        };
+      }, RECEDED_CARD).then((seen) => ({
+        facts: alphaOf(seen.facts),
+        line: alphaOf(seen.line),
+        chip: alphaOf(seen.chip),
+        divider: alphaOf(seen.divider),
+        receded: Number(seen.receded),
+      }));
+    };
+    const plain = await read();
+    await page.emulateMedia({ contrast: "more" });
+    const firm = await read();
+    for (const [part, alpha] of Object.entries(firm)) {
+      assert(
+        alpha > (plain[part] ?? 1),
+        `more contrast leaves the ${part} at ${alpha}, from ${plain[part]}`,
+      );
+    }
+    assert(
+      (firm.receded ?? 1) < 1,
+      "a receded card still reads as set aside under more contrast",
+    );
+    assertEquals(faults, []);
+  });
 });
 
 Deno.test("a finger drawn across the wall changes nothing on it", async () => {

@@ -1,4 +1,5 @@
-/* Wall interactions: the lens chips, the receded state, and the opened card. */
+/* Wall interactions: the lens chips, the divider and the receded cards under
+ * it, and the opened card. */
 
 @layer discern.components {
   /* The lens: one row of toggle chips, never two. Where the row fits it sits
@@ -39,26 +40,27 @@
     }
   }
 
-  /* The bar arrives whole when the controls come alive. An element shown
-   * through its parent's visibility must not transition that visibility
-   * itself: under reduced motion the design system gives every transition a
-   * token duration, and each level of the bar would then appear a frame after
-   * the one above it. Nothing named here has a transition of its own. */
-  .wall-controls,
-  .wall-controls::before,
+  /* The bar arrives whole when the controls come alive, and so does what it
+   * holds. An element shown through its parent's visibility must not
+   * transition that visibility itself: under reduced motion the design system
+   * gives every transition a token duration, and each level of the bar would
+   * then appear a frame after the one above it. The room's stylesheet stills
+   * the bar, and nothing named here has a transition of its own. */
   .wall-lens,
+  .wall-lens-status,
   .wall-chip-hues,
   .wall-chip::after {
     transition: none;
   }
 
   /* Free space goes outside the first and last chip: a row that fits is
-   * centered, and a row that does not starts at its first chip. */
-  .wall-chip:first-child {
+   * centered, and a row that does not starts at its first chip. The chips
+   * are the row's only buttons; its status is not drawn. */
+  .wall-chip:first-of-type {
     margin-inline-start: auto;
   }
 
-  .wall-chip:last-child {
+  .wall-chip:last-of-type {
     margin-inline-end: auto;
   }
 
@@ -66,7 +68,7 @@
    * lens bar and must not show through it. The pause control is one too. */
   .wall-chip,
   .wall-pause {
-    --wall-chip-surface: oklch(15.5% 0.008 265);
+    --wall-chip-surface: var(--wall-face-foot);
 
     position: relative;
     display: inline-flex;
@@ -94,7 +96,7 @@
   @media (hover: hover) {
     .wall-chip:hover,
     .wall-pause:hover {
-      --wall-chip-surface: oklch(19.5% 0.008 265);
+      --wall-chip-surface: var(--wall-face-head);
 
       border-color: oklch(100% 0 0 / 0.24);
       color: var(--wall-ink);
@@ -148,7 +150,7 @@
     inline-size: 0.5rem;
     block-size: 0.5rem;
     border-radius: 50%;
-    background: oklch(80% var(--wall-chroma) var(--wall-hue));
+    background: var(--wall-accent);
     box-shadow: 0 0 0 1.5px var(--wall-chip-surface);
     transition: box-shadow 0.2s;
   }
@@ -174,7 +176,7 @@
 
   /* A little under the width where the row fits, the chips close up, so the
    * row still fits a common laptop instead of losing its last few pixels. */
-  @media (max-width: 82rem) {
+  @media (max-width: 82.5rem) {
     .wall-lens {
       gap: 0.375rem;
     }
@@ -199,11 +201,24 @@
     }
   }
 
-  /* A lens changes opacity and saturation only: no card moves or resizes. A
-   * receded card stays legible, because it can still be read and opened: at
-   * this opacity its title and its line both keep a contrast above 4.5 to 1
-   * against the card. Taking its color away is what makes it read as
-   * receded. */
+  /* A lens re-sorts the list: the cards it kept, this divider across every
+   * column, then the rest. The list's order is all that places a card, and
+   * no rule here moves or resizes one. */
+  .wall-rest {
+    column-span: all;
+    margin-block: 1.75rem 1.25rem;
+    padding-block-start: 1rem;
+    border-block-start: 1px solid oklch(100% 0 0 / 0.1);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--wall-ink-faint);
+  }
+
+  /* A card under the divider is receded. It stays legible, because it can
+   * still be read and opened: at this opacity its title and its line both
+   * keep a contrast above 4.5 to 1 against the card. Taking its color away is
+   * what makes it read as receded. */
   .wall-card {
     transition: opacity 0.3s ease, filter 0.3s ease;
   }
@@ -233,6 +248,13 @@
     }
   }
 
+  /* The wall re-sorts under one cross-fade of the page. A card that recedes
+   * or comes forward as it does takes its new look at once, inside that
+   * fade, instead of fading a second time where it lands. */
+  :root:active-view-transition .wall-card {
+    transition: none;
+  }
+
   /* The card that opened the sheet. While the two morph into each other the
    * card shares the sheet's transition name; while the sheet is open the card
    * has become the sheet, so its place on the wall stays empty. Neither state
@@ -247,6 +269,20 @@
 
   .wall-card[data-wall-opening="held"] {
     opacity: 0;
+  }
+
+  /* The card's mark, its glyph or its numeral, crosses to the sheet as an
+   * object of its own. The card names it while the card carries the shared
+   * name, and the sheet names it while a card is its source, so the name
+   * never stands on two boxes at once. A sheet with no source card keeps its
+   * mark in its own picture, and arrives and leaves whole.
+   *
+   * A receded card's mark stays in the card's picture. The browser lifts a
+   * named box out of whatever dims its card, and the mark would arrive at a
+   * dimmed card at full strength. */
+  .wall-card[data-wall-opening="morph"]:not([data-receded]) :is(.wall-card-glyph, .wall-card-numeral),
+  :root:has(.wall-card[data-wall-opening]:not([data-receded])) .wall-open :is(.wall-open-glyph, .wall-open-numeral) {
+    view-transition-name: wall-open-mark;
   }
 
   /* A card opens only once the island is live. Until then, and for good where
@@ -265,7 +301,12 @@
   }
 
   .wall-open {
-    --wall-accent: oklch(80% var(--wall-chroma) var(--wall-hue));
+    /* The sheet's padding, and the close control's size and its distance
+     * from the sheet's top corner. The control's place is worked out from
+     * all three, so a screen that changes one moves nothing else. */
+    --wall-open-pad: 2rem;
+    --wall-open-close: 2.25rem;
+    --wall-open-close-inset: 1rem;
 
     inline-size: min(34rem, calc(100vw - 2rem));
     max-block-size: calc(100dvh - 2rem);
@@ -293,9 +334,11 @@
   .wall-open-face {
     position: relative;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     justify-items: start;
     max-block-size: inherit;
-    padding: 2rem 2rem 2.125rem;
+    padding: var(--wall-open-pad) var(--wall-open-pad)
+      calc(var(--wall-open-pad) + 0.125rem);
     border: 1px solid transparent;
     border-radius: 1.5rem;
     overflow: auto;
@@ -306,7 +349,7 @@
       transparent 72%
     )
       padding-box,
-      linear-gradient(180deg, oklch(20.5% 0.008 265), oklch(15.5% 0.008 265))
+      linear-gradient(180deg, var(--wall-sheet-head), var(--wall-face-foot))
       padding-box,
       radial-gradient(
       22rem circle at 0 0,
@@ -325,20 +368,42 @@
   }
 
   /* The close control sits in the sheet's top corner and comes first, so it
-   * holds focus as the sheet opens. */
+   * holds focus as the sheet opens. It is the first row of the face and
+   * takes no room there: its margins lift it into the corner and give back
+   * its own height, so the sheet is laid out as if the control were not in
+   * it. A sheet too tall for its screen scrolls inside its face, and the
+   * control stays in the corner while the words pass under it, in reach of a
+   * pointer however far the sheet has scrolled. A browser measures where a
+   * box sticks from inside the scrolling box's padding, so the distance it
+   * sticks at is the same lift its margin gives it.
+   *
+   * The control is opaque. It is laid on the color of the sheet's head and
+   * not on the sheet behind it, because the sheet's words scroll under it. */
   .wall-open-close {
-    position: absolute;
-    inset-block-start: 1rem;
-    inset-inline-end: 1rem;
+    --wall-open-close-lift: calc(
+      var(--wall-open-close-inset) - var(--wall-open-pad)
+    );
+
+    position: sticky;
+    z-index: 1;
+    inset-block-start: var(--wall-open-close-lift);
     display: grid;
     place-items: center;
-    inline-size: 2.25rem;
-    block-size: 2.25rem;
+    justify-self: end;
+    inline-size: var(--wall-open-close);
+    block-size: var(--wall-open-close);
+    margin-block: var(--wall-open-close-lift)
+      calc(0px - var(--wall-open-close-lift) - var(--wall-open-close));
+    margin-inline-end: var(--wall-open-close-lift);
     padding: 0;
     border: 1px solid oklch(100% 0 0 / 0.1);
     border-radius: 50%;
     color: var(--wall-ink-muted);
-    background: oklch(100% 0 0 / 0.04);
+    background: color-mix(
+      in oklch,
+      oklch(100% 0 0) 4%,
+      var(--wall-sheet-head)
+    );
     cursor: pointer;
     appearance: none;
     transition: color 0.2s, background-color 0.2s, border-color 0.2s;
@@ -349,14 +414,22 @@
     .wall-open-close:hover {
       border-color: oklch(100% 0 0 / 0.24);
       color: var(--wall-ink);
-      background: oklch(100% 0 0 / 0.08);
+      background: color-mix(
+        in oklch,
+        oklch(100% 0 0) 8%,
+        var(--wall-sheet-head)
+      );
     }
   }
 
   .wall-open-close:active {
     border-color: oklch(100% 0 0 / 0.3);
     color: var(--wall-ink);
-    background: oklch(100% 0 0 / 0.13);
+    background: color-mix(
+      in oklch,
+      oklch(100% 0 0) 13%,
+      var(--wall-sheet-head)
+    );
   }
 
   .wall-open-cross {
@@ -373,21 +446,24 @@
     color: var(--wall-accent);
   }
 
+  /* A word longer than a narrow sheet is wide breaks where it must, as it
+   * does on the card. */
   .wall-open-title {
     font-size: 1.75rem;
     font-weight: 600;
     line-height: 1.14;
     letter-spacing: -0.028em;
     text-wrap: balance;
+    overflow-wrap: anywhere;
   }
 
-  /* A numeral leads its heading, as it does on the card. */
+  /* A numeral leads its heading, as it does on the card, and is set as the
+   * card sets it, a size up: the two are one drawing as the card opens. */
   .wall-open-numeral {
     display: block;
     margin-block-end: 1.25rem;
     font-family: var(--discern-font-marketing);
     font-size: 6rem;
-    font-variant-numeric: tabular-nums;
     line-height: 0.86;
     letter-spacing: -0.055em;
     color: var(--wall-accent);
@@ -437,18 +513,23 @@
     margin-block-start: 1.75rem;
   }
 
-  /* The way on to the docs, in the cluster's hue. */
+  /* The way on into the manual, in the cluster's hue. It is named by the
+   * page it leads to, and a name too long for a narrow sheet takes a second
+   * line inside it. */
   .wall-open-link {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    max-inline-size: 100%;
     min-block-size: 2.5rem;
-    padding: 0 1rem;
+    padding: 0.4375rem 1rem;
     border: 1px solid oklch(86% var(--wall-chroma) var(--wall-hue) / 0.32);
     border-radius: 0.75rem;
     font-size: 0.9375rem;
     font-weight: 550;
+    line-height: 1.3;
     letter-spacing: -0.005em;
+    overflow-wrap: anywhere;
     text-decoration: none;
     color: var(--wall-accent);
     background: oklch(60% var(--wall-chroma) var(--wall-hue) / 0.1);
@@ -467,20 +548,14 @@
   }
 
   @media (max-width: 42rem) {
+    .wall-open {
+      --wall-open-pad: 1.5rem;
+      --wall-open-close-inset: 0.75rem;
+    }
+
     .wall-open,
     .wall-open-face {
       border-radius: 1.25rem;
-    }
-
-    .wall-open-face {
-      padding: 1.5rem 1.5rem 1.625rem;
-    }
-
-    .wall-open-close {
-      inset-block-start: 0.75rem;
-      inset-inline-end: 0.75rem;
-      inline-size: 2.75rem;
-      block-size: 2.75rem;
     }
 
     .wall-open-glyph {
@@ -499,6 +574,14 @@
 
     .wall-open--statement .wall-open-title {
       font-size: 1.75rem;
+    }
+  }
+
+  /* A finger gets the full 44 pixels on both of the sheet's controls: on a
+   * narrow screen, and on a wide one that is touched. */
+  @media (max-width: 42rem), (pointer: coarse) {
+    .wall-open {
+      --wall-open-close: 2.75rem;
     }
 
     .wall-open-link {
@@ -522,25 +605,41 @@
   /* The object gathers speed before it travels and settles slowly, so it
    * never lunges: a tenth of the way in the first three frames, half by a
    * quarter of the time. */
-  ::view-transition-group(wall-open) {
+  ::view-transition-group(wall-open),
+  ::view-transition-group(wall-open-mark) {
     animation-duration: 0.42s;
     animation-timing-function: cubic-bezier(0.3, 0.1, 0.1, 1);
   }
 
   /* The way back is a little quicker than the way out. The card carries the
    * shared name only while the sheet returns to it. */
-  :root:has(.wall-card[data-wall-opening="morph"])::view-transition-group(wall-open) {
+  :root:has(.wall-card[data-wall-opening="morph"])::view-transition-group(wall-open),
+  :root:has(.wall-card[data-wall-opening="morph"])::view-transition-group(wall-open-mark) {
     animation-duration: 0.34s;
   }
 
+  /* The mark travels on the box, in step with it, as one drawing that grows:
+   * its two pictures are the same mark at two sizes, each scaled to the
+   * travelling box's height and hung from its top-left corner, so they lie
+   * on each other as one fades into the other. A numeral's box is as wide as
+   * its heading, which differs between the card and the sheet, so the height
+   * alone sets the scale. */
+  ::view-transition-old(wall-open-mark),
+  ::view-transition-new(wall-open-mark) {
+    inline-size: auto;
+    block-size: 100%;
+  }
+
   /* The morph, which runs only while a card is marked as the sheet's source.
-   * The moving box is one solid object with one outline: it carries the face's
-   * own surface and hairline, and clips its two pictures to its shape. Both
+   * The moving box is one solid object with one outline: it carries a face's
+   * surface, halfway between the card's and the sheet's, and a face's
+   * hairline, and it clips its two pictures to its shape. Both
    * pictures hang from the box's top-left corner and neither is squashed: the
    * outgoing one keeps the box's width, and the incoming one fills the box.
    * The two pictures say different words at different sizes, so they never
-   * show together: the outgoing one is gone before the incoming one starts,
-   * and for that instant the box is its own plain surface. */
+   * show together: the outgoing one is gone before the incoming one starts.
+   * Between them the box shows its own plain surface, and on it the card's
+   * mark, where the card has one that crosses. */
   :root:has(.wall-card[data-wall-opening])::view-transition-image-pair(wall-open) {
     border-radius: 1rem;
     outline: 1px solid oklch(100% 0 0 / 0.13);
@@ -548,8 +647,8 @@
     overflow: clip;
     background: linear-gradient(
       180deg,
-      oklch(20% 0.008 265),
-      oklch(15.5% 0.008 265)
+      color-mix(in oklch, var(--wall-face-head), var(--wall-sheet-head)),
+      var(--wall-face-foot)
     );
   }
 
@@ -588,11 +687,20 @@
   }
 
   :root:has(.wall-card[data-wall-opening])::view-transition-old(wall-open) {
-    animation: wall-open-out 0.09s linear both;
+    animation: wall-open-out 0.06s linear both;
   }
 
   :root:has(.wall-card[data-wall-opening])::view-transition-new(wall-open) {
-    animation: wall-open-in 0.16s 0.09s linear both;
+    animation: wall-open-in 0.12s 0.06s linear both;
+  }
+
+  /* On the way back the incoming picture is the card's, which is shorter
+   * for its width than the box it arrives in. Filling that box would draw
+   * its words several times their size and cut every line at the box's
+   * edge. So it keeps the box's width and its own shape, as the outgoing
+   * picture does, and its words are whole from the first frame they show. */
+  :root:has(.wall-card[data-wall-opening="morph"])::view-transition-new(wall-open) {
+    block-size: auto;
   }
 
   /* With no card to grow from or return to, as in the far view where the
@@ -672,10 +780,47 @@
     }
   }
 
+  /* A reader who asks for more contrast gets firmer edges on the controls
+   * and the divider, and receded cards nearer to full strength. The divider
+   * still says which cards the lens set aside. */
+  @media (prefers-contrast: more) {
+    .wall-chip,
+    .wall-pause,
+    .wall-open-close,
+    .wall-rest {
+      border-color: oklch(100% 0 0 / 0.5);
+    }
+
+    .wall-card[data-receded] {
+      opacity: 0.86;
+    }
+  }
+
   @media print {
     .wall-card[data-receded] {
       opacity: 1;
       filter: none;
+    }
+
+    .wall-rest {
+      border-color: CanvasText;
+    }
+
+    /* Paper gets the wall. A sheet that was open stays off the page, the
+     * card it grew from shows in its own place again, and the page behind
+     * prints at its full width and length. */
+    .wall-open,
+    .wall-open::backdrop {
+      display: none;
+    }
+
+    .wall-card[data-wall-opening] {
+      opacity: 1;
+    }
+
+    :root:has(.wall-open[open]) {
+      padding-inline-end: 0;
+      overflow: visible;
     }
   }
 }

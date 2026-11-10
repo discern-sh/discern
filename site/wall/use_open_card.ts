@@ -100,23 +100,67 @@ function liesFlat(card: HTMLElement | null): boolean {
     });
 }
 
+/** The viewport's size, in pixels. */
+function viewportSize(): BoxSize {
+  return { width: globalThis.innerWidth, height: globalThis.innerHeight };
+}
+
+/** What is known when a view transition fails to begin. */
+export interface TransitionEnd {
+  /** The reason the browser gave for ending it. */
+  readonly reason: unknown;
+  /** The page is hidden. */
+  readonly hidden: boolean;
+  /** The viewport has changed size since the transition was asked for. */
+  readonly resized: boolean;
+}
+
 /**
- * Whether a view transition failed to begin for the one expected reason: a
- * later request, or a hidden page, ended it first. The page still reaches the
- * state that was asked for, so there is nothing to report. Any other reason
- * is a fault.
+ * Whether a view transition failed to begin for an expected reason. The page
+ * still reaches the state that was asked for, so there is nothing to report.
+ *
+ * - A hidden page runs no transition.
+ * - A later request ends an earlier transition, which the browser calls an
+ *   abort.
+ * - A viewport that changes size as the transition starts, when a window is
+ *   resized or a phone turned, ends it as an invalid state.
+ *
+ * Any other reason is a fault. An invalid state with the viewport unchanged
+ * is how the browser reports a transition name that stands on two boxes.
  */
-function overtaken(reason: unknown): boolean {
-  return document.visibilityState === "hidden" ||
-    (reason instanceof DOMException && reason.name === "AbortError");
+export function transitionOvertaken(end: TransitionEnd): boolean {
+  if (end.hidden) return true;
+  if (!(end.reason instanceof DOMException)) return false;
+  return end.reason.name === "AbortError" ||
+    (end.resized && end.reason.name === "InvalidStateError");
+}
+
+/** The parts of a click that say whether it is a plain one. */
+export type ClickKind = Pick<
+  MouseEvent,
+  "button" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey"
+>;
+
+/**
+ * Whether a click is the plain kind: the primary button, with no modifier
+ * key held. Any other click asks the browser for something of its own, such
+ * as a link opened in a new tab, which a click made by script cannot carry.
+ */
+export function plainClick(click: ClickKind): boolean {
+  return click.button === 0 &&
+    !(click.ctrlKey || click.metaKey || click.shiftKey || click.altKey);
 }
 
 /**
  * Hand a click to what it fell on, as the browser would have: the link or
  * button there takes focus and the click. This is for a click the browser
- * kept from the page, and it reads the page as it stands when called.
+ * kept from the page, and it reads the page as it stands when called. Only a
+ * plain click is handed on. The click made here is a new one that keeps no
+ * modifier key and no button, so any other click is dropped, and the visitor
+ * makes it again on a page that answers for itself.
  */
-function deliverClick(event: MouseEvent): void {
+export function deliverClick(event: MouseEvent): void {
+  if (!plainClick(event)) return;
   const under = document.elementFromPoint(event.clientX, event.clientY);
   const control = under?.closest<HTMLElement>("a[href], button") ?? null;
   control?.focus({ preventScroll: true });
@@ -149,9 +193,11 @@ interface Shown {
  * hit: every click lands on the document's root. The sheet reads such a click
  * itself while it is open. Once it is on its way out the page is the
  * visitor's again, so a click made then ends the transition where it stands
- * and goes to what it fell on. The later clicks of a double click are left
- * alone: a double click that dismisses the sheet must not also press the card
- * that lies under it.
+ * and goes to what it fell on. A click with a modifier key held, or with any
+ * button but the primary one, ends the transition and goes nowhere: see
+ * `deliverClick`. The later clicks of a double click are left alone: a double
+ * click that dismisses the sheet must not also press the card that lies under
+ * it.
  */
 export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
   const [shown, setShown] = useState<Shown>({ id: null, turn: 0 });
@@ -174,8 +220,13 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
       transition.skipTransition();
       deliverClick(event);
     };
+    // A click of any button but the primary one arrives as `auxclick`.
     document.addEventListener("click", deliver);
-    return () => document.removeEventListener("click", deliver);
+    document.addEventListener("auxclick", deliver);
+    return () => {
+      document.removeEventListener("click", deliver);
+      document.removeEventListener("auxclick", deliver);
+    };
   }, []);
 
   const mark = (card: HTMLElement | null, state?: OpeningState): void => {
@@ -193,6 +244,7 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
     wanted.current = next;
     turns.current += 1;
     const turn = turns.current;
+    const asked = viewportSize();
     const source = cardElement(next ?? was);
     const how = openChange({
       transitions: typeof document.startViewTransition === "function",
@@ -217,8 +269,14 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
       transition.finished,
     ]);
     if (leaving.current === transition) leaving.current = null;
-    if (began.status === "rejected" && !overtaken(began.reason)) {
-      reportError(began.reason);
+    if (began.status === "rejected") {
+      const now = viewportSize();
+      const overtaken = transitionOvertaken({
+        reason: began.reason,
+        hidden: document.visibilityState === "hidden",
+        resized: now.width !== asked.width || now.height !== asked.height,
+      });
+      if (!overtaken) reportError(began.reason);
     }
     if (next === null && turns.current === turn) mark(null);
   };

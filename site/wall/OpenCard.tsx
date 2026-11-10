@@ -9,11 +9,14 @@ import {
 import { cardGlyph, cardHeading, cardNumeral } from "./Card.tsx";
 import { clusterHueStyle } from "./clusters.ts";
 import { Glyph } from "./Glyph.tsx";
+import { type LinkLabels, linkRoute } from "./host.ts";
 import type { WallCard } from "./types.ts";
 
 export interface OpenCardProps {
   /** The card to show, or null while none is open. */
   readonly card: WallCard | null;
+  /** The title of each manual page a card links to, by that page's route. */
+  readonly linkLabels: LinkLabels;
   /**
    * Called when the visitor asks to leave: Escape, the close control, or a
    * click outside the sheet. The owner answers by passing a null `card`, and
@@ -109,26 +112,44 @@ function CloseMark(): ReactElement {
 }
 
 /**
+ * What a card's link says: the title of the manual page it leads to, so the
+ * link names where it goes. A page the table does not cover is named by its
+ * own address, so a link is never blank.
+ */
+function linkLabel(href: string, labels: LinkLabels): string {
+  const route = linkRoute(href);
+  return labels[route] ?? route;
+}
+
+/**
  * Show `card` as a modal sheet and nothing while it is null, so the server
  * markup never contains a dialog.
  *
  * The sheet leads with the card's glyph or numeral, then its heading, its
- * line, the optional second paragraph, and a link to the docs when the card
- * names a page. A numeral sits inside the heading, as it does on the card, so
- * the dialog and the button that opened it share one name and assistive
- * technology reads the number once.
+ * line, the optional second paragraph, and a link into the manual when the
+ * card names a page. The link is named by the page it leads to. A numeral
+ * sits inside the heading, as it does on the card, so the dialog and the
+ * button that opened it share one name and assistive technology reads the
+ * number once.
  *
- * The close control comes first in the sheet, so it takes focus when the
- * dialog opens. The dialog opens as it mounts and closes natively just before
- * it unmounts, which returns focus to the card button that opened it. Every
- * way of leaving only asks through `onClose`: the owner decides how the sheet
- * goes. While the dialog is open the page behind it cannot scroll, and it
- * keeps its exact width.
+ * The close control comes first in the sheet and takes focus as the dialog
+ * opens. A sheet too tall for a small or zoomed screen scrolls inside itself,
+ * and a browser that can focus a box that scrolls would choose that box
+ * before the control, so the control is handed the focus outright. The
+ * stylesheet keeps the control in the sheet's corner while the words scroll
+ * under it.
+ *
+ * The dialog opens as it mounts and closes natively just before it unmounts,
+ * which returns focus to the card button that opened it. Every way of leaving
+ * only asks through `onClose`: the owner decides how the sheet goes. While
+ * the dialog is open the page behind it cannot scroll, and it keeps its exact
+ * width.
  */
 export function OpenCard(
-  { card, onClose }: OpenCardProps,
+  { card, linkLabels, onClose }: OpenCardProps,
 ): ReactElement | null {
   const mounted = useRef<HTMLDialogElement | null>(null);
+  const closer = useRef<HTMLButtonElement | null>(null);
   const unwatch = useRef<(() => void) | null>(null);
   const attach = useCallback((dialog: HTMLDialogElement | null): void => {
     const page = document.documentElement;
@@ -138,6 +159,7 @@ export function OpenCard(
         `${globalThis.innerWidth - page.clientWidth}px`,
       );
       dialog.showModal();
+      closer.current?.focus({ preventScroll: true });
       unwatch.current = cancelOnOutsideClick(dialog);
     }
     if (dialog === null) {
@@ -173,6 +195,7 @@ export function OpenCard(
     >
       <div className="wall-open-face">
         <button
+          ref={closer}
           type="button"
           className="wall-open-close"
           aria-label="Close"
@@ -198,7 +221,8 @@ export function OpenCard(
         {card.href === undefined ? null : (
           <p className="wall-open-foot">
             <a className="wall-open-link" href={card.href}>
-              Read the docs <span aria-hidden="true">→</span>
+              {`${linkLabel(card.href, linkLabels)} `}
+              <span aria-hidden="true">→</span>
             </a>
           </p>
         )}

@@ -91,7 +91,7 @@ export const WALL_KNOBS = [
     min: 0,
     max: 80,
     step: 1,
-    default: 70,
+    default: 64,
   },
   {
     name: "far-scale",
@@ -100,7 +100,7 @@ export const WALL_KNOBS = [
     min: 0.3,
     max: 1,
     step: 0.02,
-    default: 0.44,
+    default: 0.56,
   },
   {
     name: "perspective",
@@ -109,7 +109,7 @@ export const WALL_KNOBS = [
     min: 30,
     max: 200,
     step: 1,
-    default: 64,
+    default: 110,
   },
   {
     name: "vanish",
@@ -118,7 +118,7 @@ export const WALL_KNOBS = [
     min: -10,
     max: 40,
     step: 0.5,
-    default: 9,
+    default: 12,
   },
   {
     name: "haze",
@@ -127,7 +127,7 @@ export const WALL_KNOBS = [
     min: 0,
     max: 1,
     step: 0.05,
-    default: 0.9,
+    default: 0.75,
   },
   {
     name: "horizon",
@@ -136,7 +136,7 @@ export const WALL_KNOBS = [
     min: 0,
     max: 1.5,
     step: 0.05,
-    default: 1,
+    default: 0.8,
   },
   {
     name: "glyph-weight",

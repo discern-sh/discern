@@ -59,6 +59,19 @@
     padding: clamp(0.375rem, 0.8vw, 0.75rem);
   }
 
+  /* The surface every face in the room is made of: a near-black that is a
+   * little lighter at its head than at its foot. A card, a lens chip, and
+   * the sheet a card opens into all end on the one foot. The sheet is the
+   * card grown and nearer the reader, so its head is a step lighter than a
+   * card's, and the box that carries the one into the other takes the color
+   * halfway between the two heads. They are declared on the page's root,
+   * where the pictures of a view transition can read them. */
+  :root {
+    --wall-face-foot: oklch(15.5% 0.008 265);
+    --wall-face-head: oklch(19.5% 0.008 265);
+    --wall-sheet-head: oklch(20.5% 0.008 265);
+  }
+
   /* The wall is one dark room in both site themes. It owns its colors and
    * reads none of them from the site's theme. Every tunable value arrives as a
    * --wall-<name> custom property in this element's inline style. */
@@ -68,7 +81,6 @@
     --wall-ink: oklch(100% 0 0 / 0.94);
     --wall-ink-muted: oklch(100% 0 0 / 0.66);
     --wall-ink-faint: oklch(100% 0 0 / 0.56);
-    --wall-edge: oklch(100% 0 0 / 0.12);
     --wall-focus: oklch(85% 0.12 255);
 
     /* The pointer light at rest: nowhere, and dark. */
@@ -87,6 +99,10 @@
     position: relative;
     isolation: isolate;
     display: grid;
+
+    /* One column that may be narrower than the longest word in it, so a
+     * narrow or zoomed page wraps its words instead of cutting them. */
+    grid-template-columns: minmax(0, 1fr);
     align-content: start;
     min-inline-size: 0;
     padding-inline: var(--wall-gutter);
@@ -183,6 +199,15 @@
     background: oklch(72% 0.13 258 / 0.3);
   }
 
+  /* A cluster's accent: its hue at the room's one lightness and chroma.
+   * Whatever carries a hue of its own works its accent out from it here: a
+   * card, the sheet a card opens into, and a dot on a lens chip. */
+  .wall-card,
+  .wall-open,
+  .wall-chip-hue {
+    --wall-accent: oklch(80% var(--wall-chroma) var(--wall-hue));
+  }
+
   .wall :where(h1, h2, p, ul, li) {
     margin: 0;
     font: inherit;
@@ -196,9 +221,26 @@
     color: inherit;
   }
 
-  .wall :where(a, button):focus-visible {
+  .wall :where(a, button, [tabindex]):focus-visible {
     outline: 2px solid var(--wall-focus);
     outline-offset: 3px;
+  }
+
+  /* Read by assistive technology and never drawn: the lens's status, and
+   * the link past the cards until it holds the focus. */
+  .wall-lens-status,
+  .wall-skip:not(:focus) {
+    position: absolute;
+    inset: 0 auto auto 0;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    min-block-size: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   /* The pool: the upright, readable center of the first viewport. It sits
@@ -245,6 +287,9 @@
     line-height: 0.98;
     letter-spacing: -0.045em;
     text-wrap: balance;
+
+    /* A room narrower than the longest word breaks the word. */
+    overflow-wrap: anywhere;
     mask-image: linear-gradient(
       180deg,
       oklch(0% 0 0) 55%,
@@ -303,6 +348,28 @@
     margin-inline: auto;
   }
 
+  /* The link past the cards is the stage's first control. It takes no room
+   * and is drawn only while it holds the focus: one light object just above
+   * the head of the wall, clear of the lens bar. */
+  .wall-skip {
+    position: absolute;
+    inset-block-end: calc(100% + 0.25rem);
+    inset-inline-start: 0;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 2rem;
+    padding: 0 0.9375rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 550;
+    line-height: 1;
+    text-decoration: none;
+    color: oklch(15% 0 0);
+    background: oklch(95% 0 0);
+  }
+
   /* The lens bar stays with the reader down the wall. Behind it the canvas
    * is solid and then fades, so the cards pass under it and none is cut. */
   .wall-controls {
@@ -334,6 +401,25 @@
     content: "";
   }
 
+  /* The bar arrives whole when the controls come alive. An element shown
+   * through its parent's visibility must not transition that visibility
+   * itself: under reduced motion the design system gives every transition a
+   * token duration, and each level of the bar would then appear a frame after
+   * the one above it. Neither box here has a transition of its own, and the
+   * lens stylesheet says the same of what the bar holds. */
+  .wall-controls,
+  .wall-controls::before {
+    transition: none;
+  }
+
+  /* On a short screen, or a page zoomed until it is one, a pinned bar would
+   * take a third of the view. There it stays at the head of the wall. */
+  @media (max-height: 30rem) {
+    .wall-controls {
+      position: static;
+    }
+  }
+
   /* Controls need script. Their space is kept, so nothing shifts on hydration. */
   .wall:not([data-wall-live]) .wall-controls {
     visibility: hidden;
@@ -353,11 +439,14 @@
     display: none;
   }
 
-  /* The wall: a masonry in DOM order, so focus order and reading order agree. */
+  /* The wall: a masonry in DOM order, so focus order and reading order agree.
+   * A lens re-sorts the list under the reader. No card in it anchors the
+   * page's scroll, or the page would follow one card to its new place. */
   .wall-list {
     columns: 4 16.5rem;
     column-gap: var(--wall-gap);
     padding: 0;
+    overflow-anchor: none;
     list-style: none;
   }
 
@@ -372,7 +461,7 @@
     display: grid;
     justify-items: center;
     margin-inline: calc(var(--wall-gutter) * -1);
-    padding: clamp(5rem, 15vh, 8.5rem) 1.5rem clamp(5.5rem, 17vh, 9.5rem);
+    padding: clamp(3rem, 8vh, 5rem) 1.5rem clamp(5.5rem, 17vh, 9.5rem);
     text-align: center;
     background: radial-gradient(
       64rem 26rem at 50% 100%,
@@ -381,12 +470,20 @@
     );
   }
 
+  /* The link past the cards hands this heading the focus, and the page
+   * comes to rest with the section's own margin above it. */
   .wall-closing-title {
+    border-radius: 0.5rem;
     font-family: var(--discern-font-marketing);
     font-size: clamp(2rem, 4.2vw, 3.5rem);
     font-weight: 600;
     line-height: 1.04;
     letter-spacing: -0.04em;
+    scroll-margin-block-start: clamp(3rem, 8vh, 5rem);
+  }
+
+  .wall-closing-title:focus-visible {
+    outline-offset: 0.5rem;
   }
 
   .wall-closing-line {
@@ -438,7 +535,20 @@
    * The stage marks the wall root data-wall-near once the pool is gone, and
    * every rule here stands down in that state: a flat plane carries no
    * transform at all. Phones, reduced motion, forced colors, print, and
-   * browsers without scroll-driven animations never leave it. */
+   * browsers without scroll-driven animations never leave it.
+   *
+   * Every rule here stands down, too, under the keyboard's focus, with no
+   * script: the stage while that focus is anywhere on it, the plane while it
+   * is on a card or on the link past the cards, and the lens bar while it is
+   * in the bar. A card the keyboard reaches is then at its reading size
+   * where it lies, so the browser scrolls to it as it would on any page.
+   * Script marks the root near for as long as that focus is on the stage,
+   * which lays the plane flat under a focused lens chip as well.
+   *
+   * Each rule looks for that focus from the box it styles. A rule that
+   * looked from the wall root instead would have the browser restyle the
+   * whole wall at every step of the keyboard, and so would one that styled
+   * every child of a box by no name. */
   @keyframes wall-approach {
     from {
       transform: translateZ(
@@ -461,16 +571,46 @@
     }
   }
 
+  /* The lens bar comes in over the last of the approach and goes out as the
+   * closing section comes in. It only fades: unseen, it is still there for
+   * the keyboard and for assistive technology. What it holds takes no press
+   * until it is half seen. A keyword has no halfway, so it changes at the
+   * middle of the same stretch the fade covers. */
   @keyframes wall-arrive {
     from,
     84% {
-      visibility: hidden;
       opacity: 0;
     }
 
     to {
-      visibility: visible;
       opacity: 1;
+    }
+  }
+
+  @keyframes wall-arrive-press {
+    from,
+    84% {
+      pointer-events: none;
+    }
+
+    to {
+      pointer-events: auto;
+    }
+  }
+
+  @keyframes wall-leave {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes wall-leave-press {
+    from {
+      pointer-events: auto;
+    }
+
+    to {
+      pointer-events: none;
     }
   }
 
@@ -489,12 +629,39 @@
     }
   }
 
+  /* At the foot of the wall the lens bar has nothing left to sort, and on
+   * some screens the page ends with the bar cut by the viewport's edge. So
+   * it fades out as the closing section comes in, and is gone while the
+   * section's top is still well clear of the bar. Keyboard focus inside the
+   * bar shows it whole wherever the page stands. */
+  @supports (animation-timeline: view()) and (timeline-scope: --wall-closing) {
+    .wall {
+      timeline-scope: --wall-closing;
+    }
+
+    .wall-closing {
+      view-timeline: --wall-closing block;
+    }
+
+    .wall-controls:not(:has(:focus-visible)) {
+      animation: wall-leave linear both;
+      animation-timeline: --wall-closing;
+      animation-range: entry 30% entry 80%;
+    }
+
+    .wall-controls:not(:has(:focus-visible)) .wall-lens {
+      animation: wall-leave-press linear both;
+      animation-timeline: --wall-closing;
+      animation-range: entry 30% entry 80%;
+    }
+  }
+
   @supports (animation-timeline: view()) and (timeline-scope: --wall-pool) {
     @media screen and (min-width: 60rem) and (min-height: 37.5rem) and (hover:
       hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) and
       (forced-colors: none) {
       .wall {
-        timeline-scope: --wall-pool;
+        timeline-scope: --wall-pool, --wall-closing;
       }
 
       /* The stage reads this name to learn that the approach is staged. */
@@ -502,12 +669,12 @@
         view-timeline: --wall-pool block;
       }
 
-      .wall:not([data-wall-near]) .wall-stage {
+      .wall:not([data-wall-near]) .wall-stage:not(:has(:focus-visible:not(.wall-pause))) {
         perspective: calc(var(--wall-perspective) * 1svh);
         perspective-origin: 50% calc(var(--wall-vanish) * -1svh);
       }
 
-      .wall:not([data-wall-near]) .wall-plane {
+      .wall:not([data-wall-near]) .wall-plane:not(:has(:focus-visible), .wall-skip:focus-visible ~ *) {
         position: relative;
         transform-origin: 50% 0;
         animation:
@@ -519,7 +686,7 @@
 
       /* Light on the horizon: a low, wide glow lying on the floor's own plane
        * across its far edge, so it foreshortens with the floor. */
-      .wall:not([data-wall-near]) .wall-plane::before {
+      .wall:not([data-wall-near]) .wall-plane:not(:has(:focus-visible), .wall-skip:focus-visible ~ *)::before {
         position: absolute;
         inset: -22rem -34rem auto;
         z-index: -1;
@@ -538,7 +705,7 @@
       }
 
       /* Haze: the far rows sink into the canvas the farther off they lie. */
-      .wall:not([data-wall-near]) .wall-plane::after {
+      .wall:not([data-wall-near]) .wall-plane:not(:has(:focus-visible), .wall-skip:focus-visible ~ *)::after {
         position: absolute;
         inset: -1rem -1rem auto;
         block-size: 44rem;
@@ -554,17 +721,23 @@
         content: "";
       }
 
-      .wall[data-wall-live]:not([data-wall-near]) .wall-controls {
+      .wall[data-wall-live]:not([data-wall-near]) .wall-controls:not(:has(:focus-visible)) {
         animation: wall-arrive linear both;
         animation-timeline: --wall-pool;
         animation-range: exit 0% exit 100%;
       }
 
-      .wall[data-wall-drift]:not([data-wall-near]) .wall-stage {
+      .wall[data-wall-live]:not([data-wall-near]) .wall-controls:not(:has(:focus-visible)) .wall-lens {
+        animation: wall-arrive-press linear both;
+        animation-timeline: --wall-pool;
+        animation-range: exit 0% exit 100%;
+      }
+
+      .wall[data-wall-drift]:not([data-wall-near]) .wall-stage:not(:has(:focus-visible:not(.wall-pause))) {
         animation: wall-drift 16s ease-in-out infinite alternate;
       }
 
-      .wall[data-wall-drift][data-wall-paused]:not([data-wall-near]) .wall-stage {
+      .wall[data-wall-drift][data-wall-paused]:not([data-wall-near]) .wall-stage:not(:has(:focus-visible:not(.wall-pause))) {
         animation-play-state: paused;
       }
     }
@@ -594,6 +767,15 @@
     }
   }
 
+  /* A reader who asks for more contrast gets the room's quieter inks nearer
+   * to its full ink. */
+  @media (prefers-contrast: more) {
+    .wall {
+      --wall-ink-muted: oklch(100% 0 0 / 0.86);
+      --wall-ink-faint: oklch(100% 0 0 / 0.8);
+    }
+  }
+
   /* On paper the room is a plain sheet: dark ink, no light, and no controls.
    * It keeps a light surface of its own, so its ink stays readable whether or
    * not the reader prints backgrounds, and the page around it gives up the
@@ -612,7 +794,6 @@
       --wall-ink: CanvasText;
       --wall-ink-muted: CanvasText;
       --wall-ink-faint: CanvasText;
-      --wall-edge: CanvasText;
 
       border-radius: 0;
       color-scheme: light;
@@ -622,6 +803,7 @@
 
     .wall::before,
     .wall::after,
+    .wall-skip,
     .wall-controls {
       display: none;
     }
