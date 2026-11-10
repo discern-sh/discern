@@ -210,14 +210,6 @@ export function line(
   return { kind: "trail", points: [[x1, y1], [x2, y2]], tone };
 }
 
-/** An open stroke through each point in turn. */
-export function trail(
-  points: readonly GlyphPoint[],
-  tone: GlyphStrokeTone = "outline",
-): TrailPrimitive {
-  return { kind: "trail", points, tone };
-}
-
 /** A stroke along part of a circle: `sweep` degrees clockwise from `from`. */
 export function arc(
   cx: number,
@@ -366,6 +358,15 @@ const PI = 3.141592653589793;
 function round(value: number): number {
   const rounded = Math.round(value * 100) / 100;
   return rounded === 0 ? 0 : rounded;
+}
+
+/**
+ * A distance in grid units as a percentage of the grid's side. A box that
+ * draws the grid at any size moves its drawing that many units when it moves
+ * by this share of its own side.
+ */
+export function gridShare(units: number): number {
+  return round(units / GLYPH_GRID * 100);
 }
 
 /**

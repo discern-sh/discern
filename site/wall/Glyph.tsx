@@ -3,8 +3,10 @@ import type { CSSProperties, ReactElement } from "react";
 import {
   drawPrimitive,
   GLYPH_GRID,
+  type GlyphPoint,
   type GlyphPrimitive,
   type GlyphShape,
+  gridShare,
 } from "./glyph_grammar.ts";
 import { glyphDrawing } from "./glyphs.ts";
 
@@ -41,25 +43,50 @@ function Shape({ shape }: { readonly shape: GlyphShape }): ReactElement {
   }
 }
 
-/** One primitive's shapes, grouped when the primitive travels on hover. */
-function Primitive(
-  { primitive }: { readonly primitive: GlyphPrimitive },
+/**
+ * One drawing of the grid: the given primitives, in paint order. A drawing
+ * that travels carries its distance for the stylesheet as a share of its own
+ * side, so one value serves a glyph at any size.
+ */
+function Layer(
+  props: {
+    readonly className: string;
+    readonly primitives: readonly GlyphPrimitive[];
+    readonly shift?: GlyphPoint;
+  },
 ): ReactElement {
-  const shapes = drawPrimitive(primitive).map((shape, index) => (
-    <Shape key={index} shape={shape} />
-  ));
-  if (primitive.shift === undefined) return <>{shapes}</>;
-  const style: ShiftStyle = {
-    "--wall-glyph-dx": `${primitive.shift[0]}px`,
-    "--wall-glyph-dy": `${primitive.shift[1]}px`,
-  };
-  return <g className="wall-glyph-move" style={style}>{shapes}</g>;
+  const style: ShiftStyle | undefined = props.shift === undefined
+    ? undefined
+    : {
+      "--wall-glyph-dx": `${gridShare(props.shift[0])}%`,
+      "--wall-glyph-dy": `${gridShare(props.shift[1])}%`,
+    };
+  return (
+    <svg
+      className={props.className}
+      style={style}
+      viewBox={`0 0 ${GLYPH_GRID} ${GLYPH_GRID}`}
+      width={GLYPH_GRID}
+      height={GLYPH_GRID}
+      focusable="false"
+    >
+      {props.primitives.flatMap(drawPrimitive).map((shape, index) => (
+        <Shape key={index} shape={shape} />
+      ))}
+    </svg>
+  );
 }
 
 /**
- * Render the named glyph as a decorative 48 by 48 drawing. A name with no
- * authored glyph draws a seeded one, decided by the name alone, so the server
- * and the browser always agree and no card is ever blank.
+ * Render the named glyph as a decorative square box. A name with no authored
+ * glyph draws a seeded one, decided by the name alone, so the server and the
+ * browser always agree and no card is ever blank.
+ *
+ * The box holds one drawing of the primitives that stay still. A primitive
+ * that travels is a second drawing of the same grid, laid over the first, and
+ * the stylesheet moves that whole drawing. The browser moves a box as one
+ * piece and lays nothing out again. A shape that moves inside a drawing has
+ * the browser lay out every drawing on the wall on each frame.
  */
 export function Glyph(
   props: { readonly name: string; readonly className?: string },
@@ -67,19 +94,25 @@ export function Glyph(
   const className = props.className === undefined
     ? "wall-glyph"
     : `wall-glyph ${props.className}`;
+  const drawing = glyphDrawing(props.name);
   return (
-    <svg
-      className={className}
-      viewBox={`0 0 ${GLYPH_GRID} ${GLYPH_GRID}`}
-      width={GLYPH_GRID}
-      height={GLYPH_GRID}
-      aria-hidden="true"
-      focusable="false"
-      data-glyph={props.name}
-    >
-      {glyphDrawing(props.name).map((primitive, index) => (
-        <Primitive key={index} primitive={primitive} />
-      ))}
-    </svg>
+    <span className={className} aria-hidden="true" data-glyph={props.name}>
+      <Layer
+        className="wall-glyph-art"
+        primitives={drawing.filter((primitive) =>
+          primitive.shift === undefined
+        )}
+      />
+      {drawing.map((primitive, index) =>
+        primitive.shift === undefined ? null : (
+          <Layer
+            key={index}
+            className="wall-glyph-move"
+            primitives={[primitive]}
+            shift={primitive.shift}
+          />
+        )
+      )}
+    </span>
   );
 }

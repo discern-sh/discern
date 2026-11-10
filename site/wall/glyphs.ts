@@ -21,18 +21,15 @@ import {
   seededGlyph,
   shift,
   split,
-  trail,
 } from "./glyph_grammar.ts";
 
 export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
-  // One goal above, three briefs branching beneath it.
+  // One large aim, and the three finished pieces it becomes.
   "shape-substantial-work": [
-    trail([[9, 31], [9, 24], [39, 24], [39, 31]]),
-    line(24, 17, 24, 31),
-    bar(12, 3, 24, 14),
-    bar(3, 31, 12, 14, "tint"),
-    bar(18, 31, 12, 14, "tint"),
-    bar(33, 31, 12, 14, "tint"),
+    dot(17.5, 24, 14.5, "tint"),
+    dot(39.5, 8.5, 5.5),
+    dot(39.5, 39.5, 5.5),
+    shift(dot(39.5, 24, 5.5), 2, 0),
   ],
   // Three lanes, one agent moving in each.
   "parallel-work-on-one-machine": [
@@ -69,14 +66,11 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(25.5, 5, 5, 38),
     shift(bar(33, 19.5, 10, 9, "tint"), 2, 0),
   ],
-  // A line dropped in the middle, bridged back into one.
+  // One long run, and a short way back to what it found.
   "agent-resume-after-interruption": [
-    bar(3, 36, 11, 9, "tint"),
-    bar(34, 36, 11, 9, "tint"),
-    dashed(line(15.25, 40.5, 32.75, 40.5)),
-    band(24, 22, 15.25, 7.5, 270, 180),
-    bar(5, 21, 7.5, 13),
-    bar(35.5, 21, 7.5, 13),
+    bar(3, 5, 42, 13),
+    dashed(line(6, 37, 27, 37)),
+    shift(dot(38.5, 37, 6.5), -2, 0),
   ],
   // Four marks frame the one thing worth a look.
   "reduce-routine-review": [
@@ -146,11 +140,11 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     ring(33, 33, 11.5),
     dot(33, 33, 7),
   ],
-  // A box with its lid on, kept for later.
+  // Rings laid down around a core, one for each season it has kept.
   "evidence-that-lasts": [
-    shift(bar(3, 4, 42, 10), 0, -2),
-    bar(6, 17, 36, 27, "tint"),
-    bar(17, 25, 14, 5),
+    dot(24, 24, 7),
+    band(24, 24, 13, 5, 0, 360, "tint"),
+    ring(24, 24, 20.1),
   ],
   // A pinwheel: a thing made to be spun, again and again.
   "explicit-release-decision": [
@@ -178,8 +172,8 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // A dashed outline of what is about to happen, ahead of what is.
   "recover-interrupted-operations": [
-    shift(dashed(frame(18.5, 3.5, 26, 26, 5)), 1.5, -1.5),
     bar(3, 19, 26, 26),
+    shift(dashed(frame(18.5, 3.5, 26, 26, 5)), 1.5, -1.5),
   ],
   // Two halves that face each other: one settled, one open.
   "agent-carry-judgment-as-judgment": [
@@ -232,8 +226,8 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // Two links of a chain, one of them broken.
   "catch-documentation-breakage": [
-    shift(band(31, 31, 11, 6.5, 95, 260, "tint"), 2, 2),
     band(17, 17, 11, 6.5, 0, 360),
+    shift(band(31, 31, 11, 6.5, 95, 260, "tint"), 2, 2),
   ],
   // A tally where one bar stands far above the rest.
   "improve-practice-from-evidence": [
@@ -256,18 +250,17 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     poly([[18.5, 5], [29.5, 10], [29.5, 43], [18.5, 38]], "tint"),
     poly([[33, 10], [44, 5], [44, 38], [33, 43]]),
   ],
-  // A signpost with one direction marked.
+  // One thing settled, standing on the two beneath it.
   "preserve-decision-reasons": [
-    poly([[36, 26], [11, 26], [4, 33], [11, 40], [36, 40]], "tint"),
-    bar(21.5, 3, 5, 42),
-    shift(poly([[12, 6], [37, 6], [44, 13], [37, 20], [12, 20]]), 2, 0),
+    dot(13, 35, 9.5, "tint"),
+    dot(35, 35, 9.5, "tint"),
+    shift(dot(24, 13.5, 9.5), 0, 2),
   ],
-  // A note pinned over the break in a line.
+  // A block arriving over the break in a line.
   "instructions-at-failure": [
-    bar(3, 38, 15, 5.5, "tint"),
-    bar(28, 38, 17, 5.5, "tint"),
-    bar(17.5, 22.5, 9, 9, "solid", 45),
-    bar(7, 4, 34, 23),
+    bar(3, 38, 16, 7, "tint"),
+    bar(29, 38, 16, 7, "tint"),
+    shift(bar(9, 4, 30, 25), 0, 3),
   ],
   // A whole disc, and the one quarter that needs reading.
   "orient-new-session": [
@@ -325,14 +318,11 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(10, 33, 17, 9),
     shift(dot(10, 37.5, 6.5), -2, 0),
   ],
-  // A pulse crossing a steady disc.
+  // A plain cross on a steady disc.
   "agent-manage-the-installation-lifecycle": [
-    dot(24, 24, 18, "tint"),
-    bar(3, 22, 13, 4),
-    bar(8.15, 16, 17.2, 4, "solid", -65.4),
-    bar(8.85, 22, 29.3, 4, "solid", 71.6),
-    bar(21.65, 28, 17.2, 4, "solid", -65.4),
-    bar(31, 22, 14, 4),
+    dot(24, 24, 21, "tint"),
+    bar(19.5, 10, 9, 28),
+    bar(10, 19.5, 28, 9),
   ],
   // A switch that flips either way.
   "switch-providers": [
