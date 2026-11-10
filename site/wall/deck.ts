@@ -296,7 +296,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "explicit-release-decision",
-    title: "You decide what ships",
+    title: "Experiment freely",
     line: "Rapidly iterate on new features and experiments with confidence.",
     more:
       "A change merges only with your go-ahead, or under a permission you set up in advance. Until then, finished work waits for you with its tests already passed.",
