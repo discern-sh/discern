@@ -49,6 +49,15 @@ export const WALL_KNOBS = [
     default: 1,
   },
   {
+    name: "light-ease",
+    label: "Light ease",
+    unit: "",
+    min: 0,
+    max: 240,
+    step: 10,
+    default: 80,
+  },
+  {
     name: "hover-tilt",
     label: "Hover tilt",
     unit: "deg",

@@ -1,54 +1,217 @@
-/* Wall interactions: the lens, the receded state, and the opened card. */
+/* Wall interactions: the lens chips, the receded state, and the opened card. */
 
 @layer discern.components {
+  /* The lens: one row of toggle chips, never two. Where the row fits it sits
+   * centered. Where it does not, it is a strip that scrolls sideways, from
+   * edge to edge of the room: it fades at both ends, and a chip cut by the
+   * far fade says there is more. Choosing a chip brings it to the middle.
+   *
+   * The strip is as wide as the screen whatever its container's width, and
+   * its own padding puts the first chip back in line with the cards and
+   * leaves the focus ring room. */
   .wall-lens {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex: none;
     gap: 0.5rem;
+    inline-size: 100vw;
+    margin: -0.5rem calc(50% - 50vw);
+    padding: 0.5rem calc(50vw - 50%);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: calc(50vw - 50%);
+    scrollbar-width: none;
+    mask-image: linear-gradient(
+      90deg,
+      transparent,
+      oklch(0% 0 0) 1rem,
+      oklch(0% 0 0) calc(100% - 1rem),
+      transparent
+    );
   }
 
-  .wall-chip,
-  .wall-pause {
-    padding: 0.42rem 0.8rem;
-    border: 1px solid oklch(100% 0 0 / 0.1);
-    border-radius: 999px;
-    font-size: 0.84rem;
-    font-weight: 500;
-    color: var(--wall-ink-muted);
-    background: oklch(100% 0 0 / 0.03);
-    cursor: pointer;
-    appearance: none;
+  .wall-lens::-webkit-scrollbar {
+    display: none;
   }
 
-  .wall-chip:hover,
-  .wall-pause:hover {
-    border-color: oklch(100% 0 0 / 0.22);
-    color: var(--wall-ink);
-  }
-
-  .wall-chip[aria-pressed="true"],
-  .wall-pause[aria-pressed="true"] {
-    border-color: transparent;
-    color: oklch(14% 0 0);
-    background: oklch(100% 0 0 / 0.92);
-  }
-
-  /* Where the wall is flat from the start there is no motion to pause. */
-  @media (prefers-reduced-motion: reduce), (max-width: 42rem) {
-    .wall-pause {
-      display: none;
+  @media (prefers-reduced-motion: no-preference) {
+    .wall-lens {
+      scroll-behavior: smooth;
     }
   }
 
-  /* A lens changes opacity and saturation only: no card moves or resizes. */
+  /* Free space goes outside the first and last chip: a row that fits is
+   * centered, and a row that does not starts at its first chip. */
+  .wall-chip:first-child {
+    margin-inline-start: auto;
+  }
+
+  .wall-chip:last-child {
+    margin-inline-end: auto;
+  }
+
+  /* A chip is a small opaque object, like a card: the wall passes under the
+   * lens bar and must not show through it. The pause control is one too. */
+  .wall-chip,
+  .wall-pause {
+    --wall-chip-surface: oklch(15.5% 0.008 265);
+
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.5rem;
+    min-block-size: 2.25rem;
+    padding: 0 0.9375rem;
+    border: 1px solid oklch(100% 0 0 / 0.11);
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--wall-ink-muted);
+    background: var(--wall-chip-surface);
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.04);
+    cursor: pointer;
+    user-select: none;
+    appearance: none;
+    transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) {
+    .wall-chip:hover,
+    .wall-pause:hover {
+      --wall-chip-surface: oklch(19.5% 0.008 265);
+
+      border-color: oklch(100% 0 0 / 0.24);
+      color: var(--wall-ink);
+    }
+  }
+
+  .wall-chip:active,
+  .wall-pause:active {
+    --wall-chip-surface: oklch(23% 0.008 265);
+
+    border-color: oklch(100% 0 0 / 0.3);
+    color: var(--wall-ink);
+    transition-duration: 0.05s;
+  }
+
+  /* The active chip is the one light object in the bar. */
+  .wall-chip[aria-pressed="true"],
+  .wall-pause[aria-pressed="true"] {
+    --wall-chip-surface: oklch(95% 0 0);
+
+    border-color: transparent;
+    color: oklch(15% 0 0);
+    box-shadow: 0 0.5rem 1.5rem -0.75rem oklch(100% 0 0 / 0.45);
+  }
+
+  @media (hover: hover) {
+    .wall-chip[aria-pressed="true"]:hover,
+    .wall-pause[aria-pressed="true"]:hover {
+      --wall-chip-surface: oklch(100% 0 0);
+    }
+  }
+
+  .wall-chip[aria-pressed="true"]:active,
+  .wall-pause[aria-pressed="true"]:active {
+    --wall-chip-surface: oklch(86% 0 0);
+  }
+
+  .wall-chip:focus-visible,
+  .wall-pause:focus-visible {
+    outline-offset: 2px;
+  }
+
+  /* One dot per cluster a lens gathers, in that cluster's hue: the chips are
+   * the key to the colors on the wall. Two dots overlap, each ringed in the
+   * chip's own surface so they stay two. */
+  .wall-chip-hues {
+    display: inline-flex;
+  }
+
+  .wall-chip-hue {
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-radius: 50%;
+    background: oklch(80% var(--wall-chroma) var(--wall-hue));
+    box-shadow: 0 0 0 1.5px var(--wall-chip-surface);
+    transition: box-shadow 0.2s;
+  }
+
+  .wall-chip-hue + .wall-chip-hue {
+    margin-inline-start: -0.125rem;
+  }
+
+  .wall-chip[aria-pressed="true"] .wall-chip-hue {
+    background: oklch(60% var(--wall-chroma) var(--wall-hue));
+  }
+
+  /* The pause control's mark: two bars, drawn in its own ink. */
+  .wall-pause::before {
+    inline-size: 0.1875rem;
+    block-size: 0.625rem;
+    border-radius: 1px;
+    background: currentColor;
+    box-shadow: 0.3125rem 0 0 currentColor;
+    margin-inline-end: 0.3125rem;
+    content: "";
+  }
+
+  /* A little under the width where the row fits, the chips close up, so the
+   * row still fits a common laptop instead of losing its last few pixels. */
+  @media (max-width: 82rem) {
+    .wall-lens {
+      gap: 0.375rem;
+    }
+
+    .wall-chip {
+      padding-inline: 0.8125rem;
+    }
+  }
+
+  /* A finger gets a taller chip, and the full 44 pixels around it. */
+  @media (max-width: 42rem), (pointer: coarse) {
+    .wall-chip {
+      min-block-size: 2.5rem;
+      padding-inline: 1rem;
+      font-size: 0.875rem;
+    }
+
+    .wall-chip::after {
+      position: absolute;
+      inset: -0.1875rem -0.25rem;
+      content: "";
+    }
+  }
+
+  /* A lens changes opacity and saturation only: no card moves or resizes. A
+   * receded card stays legible, because it can still be read and opened: at
+   * this opacity its title and its line both keep a contrast above 4.5 to 1
+   * against the card. Taking its color away is what makes it read as
+   * receded. */
   .wall-card {
-    transition: opacity 0.3s, filter 0.3s;
+    transition: opacity 0.3s ease, filter 0.3s ease;
   }
 
   .wall-card[data-receded] {
-    opacity: 0.3;
-    filter: saturate(0.25);
+    opacity: 0.72;
+    filter: saturate(0.08);
+  }
+
+  /* Pointing at a receded card, or reaching it by keyboard, brings that one
+   * card back up. */
+  @media (hover: hover) {
+    .wall-card[data-receded]:hover {
+      opacity: 1;
+      filter: none;
+    }
+  }
+
+  .wall-card[data-receded]:has(:focus-visible) {
+    opacity: 1;
+    filter: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -57,86 +220,444 @@
     }
   }
 
-  /* The opened card. */
+  /* The card that opened the sheet. While the two morph into each other the
+   * card shares the sheet's transition name; while the sheet is open the card
+   * has become the sheet, so its place on the wall stays empty. Neither state
+   * moves the card or touches any other. */
+  .wall-card[data-wall-opening] {
+    transition: none;
+  }
+
+  .wall-card[data-wall-opening="morph"] {
+    view-transition-name: wall-open;
+  }
+
+  .wall-card[data-wall-opening="held"] {
+    opacity: 0;
+  }
+
+  /* The opened card: a sheet in a modal dialog. The page behind it holds its
+   * place. Stopping its scroll removes its scrollbar, so the page is padded by
+   * the width the dialog measured for it, and nothing shifts as the sheet
+   * opens or closes. */
+  :root:has(.wall-open[open]) {
+    padding-inline-end: var(--wall-open-scrollbar);
+    overflow: hidden;
+  }
+
   .wall-open {
     --wall-accent: oklch(80% var(--wall-chroma) var(--wall-hue));
 
-    inline-size: min(36rem, calc(100vw - 2rem));
+    inline-size: min(34rem, calc(100vw - 2rem));
+    max-block-size: calc(100dvh - 2rem);
     margin: auto;
     padding: 0;
     border: 0;
     overflow: visible;
+    border-radius: 1.5rem;
     font: inherit;
     color: var(--wall-ink);
     background: none;
+
+    /* The shadow belongs to the dialog, not the face, so it fades in where
+     * the sheet will rest instead of travelling with the morph. */
+    box-shadow: 0 2.5rem 5.5rem -1.75rem oklch(0% 0 0 / 0.9);
   }
 
   .wall-open::backdrop {
-    background: oklch(8% 0.01 265 / 0.72);
+    background: oklch(7% 0.01 265 / 0.74);
   }
 
+  /* The sheet is the card, grown: the same opaque near-black face, the same
+   * hairline that catches the cluster's hue at the top-left corner, and the
+   * same corner wash, all a size up. */
   .wall-open-face {
+    position: relative;
     display: grid;
     justify-items: start;
-    padding: 1.6rem;
-    border: 1px solid oklch(86% var(--wall-chroma) var(--wall-hue) / 0.5);
-    border-radius: 1.25rem;
+    max-block-size: inherit;
+    padding: 2rem 2rem 2.125rem;
+    border: 1px solid transparent;
+    border-radius: 1.5rem;
+    overflow: auto;
     background:
       radial-gradient(
       26rem circle at 0 0,
       oklch(60% calc(var(--wall-chroma) * 1.25) var(--wall-hue) / 0.2),
-      transparent 70%
-    ),
-      linear-gradient(180deg, oklch(20.5% 0.008 265), oklch(15.5% 0.008 265));
+      transparent 72%
+    )
+      padding-box,
+      linear-gradient(180deg, oklch(20.5% 0.008 265), oklch(15.5% 0.008 265))
+      padding-box,
+      radial-gradient(
+      22rem circle at 0 0,
+      oklch(86% var(--wall-chroma) var(--wall-hue) / 0.6),
+      transparent 72%
+    )
+      border-box,
+      linear-gradient(180deg, oklch(100% 0 0 / 0.18), oklch(100% 0 0 / 0.07))
+      border-box;
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
+    view-transition-name: wall-open;
+  }
+
+  .wall-open :is(a, button):focus-visible {
+    outline-color: var(--wall-accent);
+  }
+
+  /* The close control sits in the sheet's top corner and comes first, so it
+   * holds focus as the sheet opens. */
+  .wall-open-close {
+    position: absolute;
+    inset-block-start: 1rem;
+    inset-inline-end: 1rem;
+    display: grid;
+    place-items: center;
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    padding: 0;
+    border: 1px solid oklch(100% 0 0 / 0.1);
+    border-radius: 50%;
+    color: var(--wall-ink-muted);
+    background: oklch(100% 0 0 / 0.04);
+    cursor: pointer;
+    appearance: none;
+    transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) {
+    .wall-open-close:hover {
+      border-color: oklch(100% 0 0 / 0.24);
+      color: var(--wall-ink);
+      background: oklch(100% 0 0 / 0.08);
+    }
+  }
+
+  .wall-open-close:active {
+    border-color: oklch(100% 0 0 / 0.3);
+    color: var(--wall-ink);
+    background: oklch(100% 0 0 / 0.13);
+  }
+
+  .wall-open-cross {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
   }
 
   .wall-open-glyph {
-    inline-size: 3.5rem;
-    block-size: 3.5rem;
-    margin-block-end: 1.1rem;
+    inline-size: 4.75rem;
+    block-size: 4.75rem;
+    margin-block-end: 1.5rem;
     color: var(--wall-accent);
   }
 
   .wall-open-title {
-    font-size: 1.55rem;
+    font-size: 1.75rem;
     font-weight: 600;
-    line-height: 1.15;
-    letter-spacing: -0.025em;
+    line-height: 1.14;
+    letter-spacing: -0.028em;
     text-wrap: balance;
   }
 
-  .wall-open-line {
-    margin-block-start: 0.5rem;
-    font-size: 1rem;
-  }
-
-  .wall-open-more {
-    margin-block-start: 0.9rem;
-    color: var(--wall-ink-muted);
-  }
-
-  .wall-open-foot {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    inline-size: 100%;
-    margin-block-start: 1.5rem;
-  }
-
-  .wall-open-link {
-    font-weight: 500;
-    text-decoration: none;
+  /* A numeral leads its heading, as it does on the card. */
+  .wall-open-numeral {
+    display: block;
+    margin-block-end: 1.25rem;
+    font-family: var(--discern-font-marketing);
+    font-size: 6rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 0.86;
+    letter-spacing: -0.055em;
     color: var(--wall-accent);
   }
 
-  .wall-open-close {
-    margin-inline-start: auto;
-    padding: 0.42rem 0.75rem;
-    border: 1px solid oklch(100% 0 0 / 0.12);
-    border-radius: 0.5rem;
+  /* A statement is its own headline, under the short rule its card carries.
+   * The rule starts clear of the close control. */
+  .wall-open--statement .wall-open-title {
+    padding-block-start: 0.5rem;
+    font-family: var(--discern-font-marketing);
+    font-size: 2.125rem;
+    line-height: 1.1;
+    letter-spacing: -0.034em;
+  }
+
+  .wall-open--statement .wall-open-title::before {
+    display: block;
+    inline-size: 2.5rem;
+    block-size: 3px;
+    margin-block-end: 1.75rem;
+    border-radius: 2px;
+    background: var(--wall-accent);
+    content: "";
+  }
+
+  .wall-open-line {
+    margin-block-start: 0.75rem;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  .wall-open-more {
+    margin-block-start: 0.875rem;
+    font-size: 0.96875rem;
+    line-height: 1.55;
     color: var(--wall-ink-muted);
-    background: none;
-    cursor: pointer;
-    appearance: none;
+    text-wrap: pretty;
+  }
+
+  .wall-open--statement .wall-open-more {
+    margin-block-start: 1.125rem;
+    font-size: 1.0625rem;
+  }
+
+  .wall-open-foot {
+    margin-block-start: 1.75rem;
+  }
+
+  /* The way on to the docs, in the cluster's hue. */
+  .wall-open-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-block-size: 2.5rem;
+    padding: 0 1rem;
+    border: 1px solid oklch(86% var(--wall-chroma) var(--wall-hue) / 0.32);
+    border-radius: 0.75rem;
+    font-size: 0.9375rem;
+    font-weight: 550;
+    letter-spacing: -0.005em;
+    text-decoration: none;
+    color: var(--wall-accent);
+    background: oklch(60% var(--wall-chroma) var(--wall-hue) / 0.1);
+    transition: background-color 0.2s, border-color 0.2s;
+  }
+
+  @media (hover: hover) {
+    .wall-open-link:hover {
+      border-color: oklch(86% var(--wall-chroma) var(--wall-hue) / 0.6);
+      background: oklch(60% var(--wall-chroma) var(--wall-hue) / 0.18);
+    }
+  }
+
+  .wall-open-link:active {
+    background: oklch(60% var(--wall-chroma) var(--wall-hue) / 0.26);
+  }
+
+  @media (max-width: 42rem) {
+    .wall-open,
+    .wall-open-face {
+      border-radius: 1.25rem;
+    }
+
+    .wall-open-face {
+      padding: 1.5rem 1.5rem 1.625rem;
+    }
+
+    .wall-open-close {
+      inset-block-start: 0.75rem;
+      inset-inline-end: 0.75rem;
+      inline-size: 2.75rem;
+      block-size: 2.75rem;
+    }
+
+    .wall-open-glyph {
+      inline-size: 4rem;
+      block-size: 4rem;
+      margin-block-end: 1.25rem;
+    }
+
+    .wall-open-title {
+      font-size: 1.5rem;
+    }
+
+    .wall-open-numeral {
+      font-size: 5rem;
+    }
+
+    .wall-open--statement .wall-open-title {
+      font-size: 1.75rem;
+    }
+
+    .wall-open-link {
+      min-block-size: 2.75rem;
+    }
+  }
+
+  /* Opening and closing. The card and the sheet share one transition name, so
+   * the browser grows the one into the other; everything else on the page
+   * cross-fades in place and nothing but that one object moves.
+   *
+   * The snapshots are shown above the page. They take no pointer events, so
+   * a press during a transition reaches the page and is never swallowed. */
+  ::view-transition {
+    pointer-events: none;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.3s;
+  }
+
+  /* The object gathers speed before it travels and settles slowly, so it
+   * never lunges: a tenth of the way in the first three frames, half by a
+   * quarter of the time. */
+  ::view-transition-group(wall-open) {
+    animation-duration: 0.42s;
+    animation-timing-function: cubic-bezier(0.3, 0.1, 0.1, 1);
+  }
+
+  /* The way back is a little quicker than the way out. The card carries the
+   * shared name only while the sheet returns to it. */
+  :root:has(.wall-card[data-wall-opening="morph"])::view-transition-group(wall-open) {
+    animation-duration: 0.34s;
+  }
+
+  /* The morph, which runs only while a card is marked as the sheet's source.
+   * The moving box is one solid object with one outline: it carries the face's
+   * own surface and hairline, and clips its two pictures to its shape. Both
+   * pictures hang from the box's top-left corner and neither is squashed: the
+   * outgoing one keeps the box's width, and the incoming one fills the box.
+   * The outgoing picture is nearly gone before the incoming one shows, so two
+   * sets of words are never read at once. */
+  :root:has(.wall-card[data-wall-opening])::view-transition-image-pair(wall-open) {
+    border-radius: 1rem;
+    outline: 1px solid oklch(100% 0 0 / 0.13);
+    outline-offset: -1px;
+    overflow: clip;
+    background: linear-gradient(
+      180deg,
+      oklch(20% 0.008 265),
+      oklch(15.5% 0.008 265)
+    );
+  }
+
+  :root:has(.wall-card[data-wall-opening])::view-transition-old(wall-open),
+  :root:has(.wall-card[data-wall-opening])::view-transition-new(wall-open) {
+    mix-blend-mode: normal;
+  }
+
+  :root:has(.wall-card[data-wall-opening])::view-transition-new(wall-open) {
+    block-size: 100%;
+    object-fit: cover;
+    object-position: 0 0;
+  }
+
+  /* On the way out the card's picture is the shorter of the two, so its foot
+   * would show as a line inside the growing box. It is feathered away; the
+   * box's own outline stands in for the card's from the first frame. */
+  :root:has(.wall-card[data-wall-opening="held"])::view-transition-old(wall-open) {
+    mask-image: linear-gradient(
+      180deg,
+      oklch(0% 0 0) calc(100% - 1.5rem),
+      transparent
+    );
+  }
+
+  @keyframes wall-open-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes wall-open-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  :root:has(.wall-card[data-wall-opening])::view-transition-old(wall-open) {
+    animation: wall-open-out 0.11s linear both;
+  }
+
+  :root:has(.wall-card[data-wall-opening])::view-transition-new(wall-open) {
+    animation: wall-open-in 0.17s 0.04s linear both;
+  }
+
+  /* With no card to grow from or return to, as in the far view where the
+   * wall is tilted, the sheet arrives and leaves where it stands. */
+  @keyframes wall-open-arrive {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+
+  @keyframes wall-open-leave {
+    to {
+      opacity: 0;
+      transform: scale(0.985);
+    }
+  }
+
+  ::view-transition-new(wall-open):only-child {
+    animation: wall-open-arrive 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  ::view-transition-old(wall-open):only-child {
+    animation: wall-open-leave 0.16s ease-in both;
+  }
+
+  /* A browser with no view transitions gets a short fade as the sheet opens,
+   * where motion is welcome. Reduced motion gets no animation at all: the
+   * hook starts no transition, and none could run if one were started. */
+  @keyframes wall-open-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @supports not (view-transition-name: none) {
+    @media (prefers-reduced-motion: no-preference) {
+      .wall-open[open] > .wall-open-face,
+      .wall-open[open]::backdrop {
+        animation: wall-open-fade 0.16s ease-out;
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none;
+    }
+  }
+
+  /* Forced colors and print: the system's own colors, and states that do not
+   * depend on a background the system has replaced. */
+  @media (forced-colors: active) {
+    .wall-chip[aria-pressed="true"],
+    .wall-pause[aria-pressed="true"] {
+      border-color: Highlight;
+      color: HighlightText;
+      background: Highlight;
+      forced-color-adjust: none;
+    }
+
+    .wall-chip-hues {
+      display: none;
+    }
+
+    .wall-open {
+      --wall-accent: CanvasText;
+      box-shadow: none;
+    }
+
+    .wall-open-face {
+      border-color: CanvasText;
+      background: Canvas;
+      box-shadow: none;
+    }
+  }
+
+  @media print {
+    .wall-card[data-receded] {
+      opacity: 1;
+      filter: none;
+    }
   }
 }
