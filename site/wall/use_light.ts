@@ -1,7 +1,8 @@
 /** The shared pointer light. */
 import { type RefObject, useEffect } from "react";
 import { CARD_LIGHT } from "./Card.tsx";
-import { wallKnobProperty } from "./tuning/knobs.ts";
+import { type WallKnobName, wallKnobProperty } from "./tuning/knobs.ts";
+import { NEAR_ATTRIBUTE } from "./use_stage.ts";
 
 /**
  * Every custom property the light writes while it moves, by the element it
@@ -26,6 +27,18 @@ export const LIGHT_PROPERTIES = {
  * pointer to follow.
  */
 export const LIGHT_REACH = "--wall-light-reach";
+
+/**
+ * What the stylesheets may turn the reach on and off by: an attribute of the
+ * wall root named here, and this media condition. The light asks for the
+ * reach again when one of them changes, and at no other change of state, so
+ * a stylesheet that set the reach by anything else would change it without
+ * the light knowing.
+ */
+export const LIGHT_REACH_GATES = {
+  attributes: [NEAR_ATTRIBUTE],
+  media: "(hover: hover)",
+} as const;
 
 /** A place, in pixels. */
 export interface LightPoint {
@@ -61,6 +74,22 @@ export interface LightPace {
 
 /** Closer to its target than this, in pixels, the light has arrived. */
 const ARRIVED = 0.5;
+
+/**
+ * The light's pace from the knobs that set it, each read through `knob`.
+ * `still` is a visitor who asks for less motion: for them the light neither
+ * eases nor fades, and is wherever the pointer is at once.
+ */
+export function lightPace(
+  knob: (name: WallKnobName) => number,
+  still: boolean,
+): LightPace {
+  return {
+    ease: still ? 0 : knob("light-ease"),
+    fade: still ? 0 : knob("light-fade"),
+    span: knob("light-radius"),
+  };
+}
 
 /**
  * Where the light is one frame later: part of the way from `from` to `to`,
@@ -204,40 +233,55 @@ function px(length: number): string {
  *
  * - The light comes up in place where the pointer arrives and goes down in
  *   place when the pointer leaves, then every property is removed and the
- *   stylesheets' resting values apply. A visitor who asks for less motion
- *   gets both at once.
+ *   stylesheets' resting values apply.
  * - Between the two it eases toward the pointer over `--wall-light-ease`
  *   milliseconds and stops writing once it has arrived, so a still pointer
  *   costs nothing. A page that scrolls under a still pointer moves the
  *   pointer's place on the wall, and the light follows that the same way.
+ * - A visitor who asks for less motion gets neither the fade nor the ease:
+ *   the light is where the pointer is, at once.
  * - Touch never moves it, and it holds still while the pointer is over a
  *   modal layer such as an opened card.
  *
- * Nothing here reads layout while the pointer moves or the page scrolls. The
- * root's place on the page and each card's box inside the root are measured
- * when the browser reports that one of them changed size, and every frame
- * after that is arithmetic on those, on the knobs, and on `LIGHT_REACH`,
- * which the hook reads afresh each frame because the wall can arrive or
- * leave under a pointer that never moves. Unmounting removes the listeners,
- * the observer, and every property.
+ * No pointer handler, scroll handler, or frame reads layout or computed
+ * style. A read there makes the browser finish, on the spot, whatever style
+ * and layout the page has pending. Everything the light measures, it
+ * measures in the report of one `ResizeObserver`, which the browser delivers
+ * just after it has laid the page out, when a read costs nothing:
+ *
+ * - where the wall root is on the page and how far the page has scrolled,
+ *   and from those where a still pointer now is on the page;
+ * - how far the light reaches, which is the stylesheets' to say;
+ * - each card's box inside the root.
+ *
+ * The observer reports by itself when the root, a card, or the document
+ * changes size. What moves the wall or its cards and resizes nothing is
+ * followed by asking for a report: the page scrolling under the pointer,
+ * anything inside the wall being added, removed, or put in another order,
+ * and a change in what `LIGHT_REACH_GATES` names or in the light's own
+ * size. Every frame between reports is arithmetic on what the last report
+ * found and on the knobs, which are read from the root's inline style.
+ *
+ * Unmounting removes the listeners, both observers, and every property.
  */
 export function useLight(root: RefObject<HTMLElement>): void {
   useEffect(() => {
     const element = root.current;
     if (element === null) return;
+    const page = document.documentElement;
+    const still = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
+    const gate = globalThis.matchMedia(LIGHT_REACH_GATES.media);
     const cards = new Map<HTMLElement, LitCard>();
     let frame = 0;
-    let before = 0;
-    let pace: LightPace = { ease: 0, fade: 0, span: 0 };
+    let before: number | null = null;
     let reach = 0;
+    let radius = 0;
     let origin: LightPoint = { x: 0, y: 0 };
     let light: Light | null = null;
     let pointer: LightPoint | null = null;
     let client: LightPoint | null = null;
 
-    const knob = (
-      name: "light-ease" | "light-fade" | "light-radius",
-    ): number => {
+    const knob = (name: WallKnobName): number => {
       const value = Number.parseFloat(
         element.style.getPropertyValue(wallKnobProperty(name)),
       );
@@ -270,23 +314,22 @@ export function useLight(root: RefObject<HTMLElement>): void {
       clear(element, LIGHT_PROPERTIES.room);
       for (const [box, card] of cards) dim(box, card);
     };
-    const pick = (): void => {
-      const still = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
-      pace = {
-        ease: knob("light-ease"),
-        fade: still.matches ? 0 : knob("light-fade"),
-        span: knob("light-radius"),
-      };
-      const length = Number.parseFloat(
-        getComputedStyle(element).getPropertyValue(LIGHT_REACH),
-      );
-      reach = Number.isFinite(length) ? length : 0;
+    // The observer reports on a box it has just been given once the browser
+    // has next laid the page out, whether or not that box has changed size.
+    const again = (target: Element): void => {
+      measured.unobserve(target);
+      measured.observe(target);
     };
     const step = (now: number): void => {
       frame = 0;
       if (light === null) return;
-      pick();
-      light = lightFrame(light, pointer, now - before, pace);
+      const pace = lightPace(knob, still.matches);
+      // The reach was read for a light of another size.
+      if (pace.span !== radius) again(element);
+      // A run that began with no clock reading counts its first frame as
+      // its beginning.
+      const elapsed = before === null ? 0 : now - before;
+      light = lightFrame(light, pointer, elapsed, pace);
       before = now;
       if (pointer === null && light.on === 0) {
         park();
@@ -297,7 +340,7 @@ export function useLight(root: RefObject<HTMLElement>): void {
         frame = requestAnimationFrame(step);
       }
     };
-    const head = (when: number): void => {
+    const head = (when: number | null): void => {
       if (frame !== 0) return;
       before = when;
       frame = requestAnimationFrame(step);
@@ -315,29 +358,34 @@ export function useLight(root: RefObject<HTMLElement>): void {
       pointer = null;
       head(event.timeStamp);
     };
-    const scrolled = (event: Event): void => {
-      if (client === null) return;
-      pointer = {
-        x: client.x + globalThis.scrollX,
-        y: client.y + globalThis.scrollY,
-      };
-      head(event.timeStamp);
-    };
-    const measured = new ResizeObserver(() => {
+    // Where the root is on the page, how far the light reaches, and where a
+    // pointer that has not moved now is on the page.
+    const locate = (): void => {
       const rect = element.getBoundingClientRect();
+      const scroll = { x: globalThis.scrollX, y: globalThis.scrollY };
       origin = {
-        x: rect.left + element.clientLeft + globalThis.scrollX,
-        y: rect.top + element.clientTop + globalThis.scrollY,
+        x: rect.left + element.clientLeft + scroll.x,
+        y: rect.top + element.clientTop + scroll.y,
       };
+      radius = knob("light-radius");
+      const length = Number.parseFloat(
+        getComputedStyle(element).getPropertyValue(LIGHT_REACH),
+      );
+      reach = Number.isFinite(length) ? length : 0;
+      if (client === null) return;
+      const at = { x: client.x + scroll.x, y: client.y + scroll.y };
+      if (
+        pointer !== null &&
+        Math.hypot(at.x - pointer.x, at.y - pointer.y) < ARRIVED
+      ) return;
+      pointer = at;
+      head(null);
+    };
+    // The box of every card now in the wall, and none for a card that left.
+    const fit = (): void => {
       const boxes = new Set(
         element.querySelectorAll<HTMLElement>(`.${CARD_LIGHT}`),
       );
-      for (const [box, card] of cards) {
-        if (boxes.has(box)) continue;
-        dim(box, card);
-        cards.delete(box);
-        measured.unobserve(box);
-      }
       for (const box of boxes) {
         const known = cards.get(box);
         const card = known ?? { box: null, lit: false };
@@ -346,16 +394,46 @@ export function useLight(root: RefObject<HTMLElement>): void {
         cards.set(box, card);
         measured.observe(box);
       }
+      for (const [box, card] of cards) {
+        if (boxes.has(box)) continue;
+        dim(box, card);
+        cards.delete(box);
+        measured.unobserve(box);
+      }
+    };
+    // A report on the document alone says the wall may have moved on the
+    // page. A report on the root or on a card says the cards may have moved
+    // inside the wall as well. Every read comes before any write.
+    const measured = new ResizeObserver((entries) => {
+      locate();
+      if (entries.some((entry) => entry.target !== page)) fit();
       if (light !== null) draw(light);
     });
+    // The page scrolled under a pointer that may not have moved.
+    const scrolled = (): void => {
+      if (client !== null) again(page);
+    };
+    // The cards may have changed places, or the reach may have changed.
+    const moved = (): void => again(element);
+    const changed = new MutationObserver(moved);
+    measured.observe(page);
     measured.observe(element);
+    changed.observe(element, {
+      attributes: true,
+      attributeFilter: [...LIGHT_REACH_GATES.attributes],
+      childList: true,
+      subtree: true,
+    });
+    gate.addEventListener("change", moved);
     element.addEventListener("pointermove", follow, { passive: true });
     element.addEventListener("pointerleave", leave);
     globalThis.addEventListener("scroll", scrolled, { passive: true });
     return () => {
+      gate.removeEventListener("change", moved);
       element.removeEventListener("pointermove", follow);
       element.removeEventListener("pointerleave", leave);
       globalThis.removeEventListener("scroll", scrolled);
+      changed.disconnect();
       measured.disconnect();
       cancelAnimationFrame(frame);
       park();

@@ -7,7 +7,12 @@
  * writes while the pointer moves: it is registered so that it does not
  * inherit, so a new value restyles the box that carries it and never the
  * subtree below. And a real browser counts what a frame of pointer travel
- * restyles, on the wall as built and on a wall twice the size.
+ * restyles, on the wall as built and on a wall twice the size, and traces
+ * that no handler or frame makes it lay the page out on the spot.
+ *
+ * The same browser moves the wall and its cards without resizing either, and
+ * scrolls the page under a still pointer, and requires the light to stay
+ * under the pointer through each.
  *
  * The same browser checks what stands in for the light where light means
  * nothing: forced colors, where the bar over the wall needs a solid backing,
@@ -16,7 +21,6 @@
  * the room must keep both readable and cheap.
  */
 import { assert, assertEquals, assertStrictEquals } from "@std/assert";
-import { fromFileUrl, join } from "@std/path";
 import type {
   Browser,
   BrowserContextOptions,
@@ -24,8 +28,11 @@ import type {
   Page,
 } from "playwright-core";
 import { handler } from "../site/serve.ts";
-import { WALL_STYLESHEETS } from "../site/wall/assets.ts";
 import { CARD_LIGHT, POINTER_PROPERTIES } from "../site/wall/Card.tsx";
+import {
+  wallKnobDefaults,
+  type WallKnobName,
+} from "../site/wall/tuning/knobs.ts";
 import {
   type Light,
   LIGHT_PROPERTIES,
@@ -33,16 +40,62 @@ import {
   lightFrame,
   lightGap,
   type LightPace,
+  lightPace,
+  type LightPoint,
+  lightStep,
 } from "../site/wall/use_light.ts";
 import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
+import { FAR_WALL, motionSettled, NEAR_WALL } from "./site_wall_browser.ts";
+import { type StyleRule, styleRules, wallSheets } from "./wall_stylesheets.ts";
 
-const ROOT = fromFileUrl(new URL("../", import.meta.url));
+/** A knob's shipped value. */
+function shipped(name: WallKnobName): number {
+  return wallKnobDefaults()[name];
+}
 
-/** How the light keeps pace in these checks: the shipped shape of it. */
-const PACE: LightPace = { ease: 80, fade: 240, span: 520 };
+/** How the light keeps pace as shipped, for a visitor who has asked nothing. */
+const PACE: LightPace = lightPace(shipped, false);
 
 /** One frame at sixty to the second, in milliseconds. */
 const FRAME = 16;
+
+Deno.test("the light closes on its target without overshoot and arrives exactly", () => {
+  const from: LightPoint = { x: -400, y: 900 };
+  const to: LightPoint = { x: 640, y: 120 };
+  assertStrictEquals(lightStep(from, to, FRAME, 0), to, "no ease, no glide");
+  assertEquals(lightStep(from, to, 0, PACE.ease), from, "no time, no travel");
+  assertEquals(
+    lightStep(from, to, -5, PACE.ease),
+    from,
+    "time never runs backward",
+  );
+
+  let at = from;
+  let frames = 0;
+  while (at !== to) {
+    const next = lightStep(at, to, FRAME, PACE.ease);
+    const before = Math.hypot(to.x - at.x, to.y - at.y);
+    const after = Math.hypot(to.x - next.x, to.y - next.y);
+    assert(after < before, "every frame is nearer the target");
+    assert(
+      Math.sign(to.x - next.x) !== -Math.sign(to.x - at.x) &&
+        Math.sign(to.y - next.y) !== -Math.sign(to.y - at.y),
+      "the light never passes its target",
+    );
+    at = next;
+    frames += 1;
+    assert(frames < 120, "the light arrives, so a still pointer costs nothing");
+  }
+
+  // The same distance takes the same time whatever the frame rate.
+  const oneLongFrame = lightStep(from, to, 3 * FRAME, PACE.ease);
+  let threeShort = from;
+  for (let frame = 0; frame < 3; frame++) {
+    threeShort = lightStep(threeShort, to, FRAME, PACE.ease);
+  }
+  assert(Math.abs(oneLongFrame.x - threeShort.x) < 1e-6);
+  assert(Math.abs(oneLongFrame.y - threeShort.y) < 1e-6);
+});
 
 Deno.test("the light comes up where the pointer is and goes down where it stands", () => {
   const pointer = { x: 600, y: 400 };
@@ -110,11 +163,21 @@ Deno.test("the light follows the pointer only as far as its own size", () => {
 });
 
 Deno.test("a visitor who asks for less motion gets the light at once", () => {
-  const cut: LightPace = { ...PACE, fade: 0 };
+  assert(PACE.ease > 0 && PACE.fade > 0, "the shipped light eases and fades");
+  const cut = lightPace(shipped, true);
+  assertEquals(cut, { ease: 0, fade: 0, span: PACE.span });
+
   const pointer = { x: 600, y: 400 };
   assertEquals(
     lightFrame({ at: { x: 0, y: 0 }, on: 0 }, pointer, FRAME, cut),
     { at: pointer, on: 1 },
+    "it is up where the pointer arrives in one frame",
+  );
+  const next = { x: pointer.x + cut.span / 2, y: pointer.y };
+  assertStrictEquals(
+    lightFrame({ at: pointer, on: 1 }, next, FRAME, cut).at,
+    next,
+    "it is where the pointer has moved to in one frame, with no glide",
   );
   assertEquals(lightFrame({ at: pointer, on: 1 }, null, FRAME, cut).on, 0);
 });
@@ -138,41 +201,19 @@ const FRAME_PROPERTIES: readonly string[] = [
   ...POINTER_PROPERTIES,
 ];
 
-/** One innermost block of a stylesheet: what introduces it, and its body. */
-interface StyleBlock {
+/** One block of declarations in a wall stylesheet, with the sheet it is in. */
+interface StyleBlock extends StyleRule {
   readonly sheet: string;
-  /** A selector list, or the at-rule that names a registered property. */
-  readonly prelude: string;
-  /** Each declaration as its property and its value. */
-  readonly declarations: readonly (readonly [string, string])[];
 }
 
-/** Every innermost block of every wall stylesheet, comments removed. */
+/**
+ * Every block of declarations in every wall stylesheet: each style rule, and
+ * each `@property` that registers a custom property.
+ */
 async function wallBlocks(): Promise<StyleBlock[]> {
-  const blocks: StyleBlock[] = [];
-  for (const sheet of WALL_STYLESHEETS) {
-    const text = (await Deno.readTextFile(join(ROOT, "site/page-src", sheet)))
-      .replace(/\/\*[\s\S]*?\*\//g, "");
-    for (
-      const [, prelude = "", body = ""] of text.matchAll(
-        /([^{}]+)\{([^{}]*)\}/g,
-      )
-    ) {
-      blocks.push({
-        sheet,
-        prelude: prelude.replace(/\s+/g, " ").trim(),
-        declarations: body.split(";").flatMap((declaration) => {
-          const colon = declaration.indexOf(":");
-          return colon === -1 ? [] : [
-            [
-              declaration.slice(0, colon).trim(),
-              declaration.slice(colon + 1).replace(/\s+/g, " ").trim(),
-            ] as const,
-          ];
-        }),
-      });
-    }
-  }
+  const blocks = (await wallSheets()).flatMap(({ sheet, text }) =>
+    styleRules(text).map((rule) => ({ sheet, ...rule }))
+  );
   assert(blocks.length > 0, "the wall stylesheets hold rules");
   return blocks;
 }
@@ -197,8 +238,8 @@ function registrations(blocks: readonly StyleBlock[]): Map<string, boolean> {
 
 /** The box each selector of a block styles: its last compound selector. */
 function subjects(block: StyleBlock): string[] {
-  return block.prelude.split(",").map((selector) =>
-    selector.trim().split(/\s*[>+~]\s*|\s+/).at(-1) ?? ""
+  return block.selectors.map((selector) =>
+    selector.split(/\s*[>+~]\s*|\s+/).at(-1) ?? ""
   );
 }
 
@@ -228,7 +269,7 @@ Deno.test("no state of the wall root changes a value that everything inherits", 
   const state =
     /^\.wall(?:\[data-wall-[\w-]+(?:=[^\]]*)?\]|:not\(\[data-wall-[\w-]+\]\))+$/;
   const stated = blocks.filter((block) =>
-    block.prelude.split(",").some((selector) => state.test(selector.trim()))
+    block.selectors.some((selector) => state.test(selector))
   );
   assert(
     stated.some((block) =>
@@ -308,11 +349,10 @@ Deno.test("the room names its own selection colors, and no highlight in it reads
   // restyles that element. One that reads a site token is slow to work out,
   // and the site's own rule reads two, so the room overrides both of them
   // for itself and for everything inside it.
-  const room = highlights.find((block) => {
-    const covered = block.prelude.split(",").map((selector) => selector.trim());
-    return covered.includes(".wall::selection") &&
-      covered.includes(".wall ::selection");
-  });
+  const room = highlights.find((block) =>
+    block.selectors.includes(".wall::selection") &&
+    block.selectors.includes(".wall ::selection")
+  );
   assert(room !== undefined, "the room styles its own selected text");
   const named = new Map(room.declarations);
   assertEquals(
@@ -338,18 +378,23 @@ const VIEWPORT = { width: 1440, height: 900 };
 /** A viewport point in the page's margin, off the wall. */
 const OFF_WALL = { x: 2, y: VIEWPORT.height - 2 };
 
-/** The live wall with its plane flat: the state the pointer light is for. */
-const NEAR_WALL = ".wall[data-wall-live][data-wall-near]";
-
 /**
  * The most elements one style recalculation may touch while the pointer
- * crosses the flat wall. The light restyles the room's root and one box in
- * each card near the pointer; the card under the pointer restyles its face;
- * and a card the pointer enters or leaves restyles once, whole. The browser
- * counts each element's highlight styles too. None of that grows with the
- * wall, which holds some fifteen hundred elements by the same count.
+ * crosses the flat wall, one move to a frame. The light restyles the room's
+ * root and one box in each card near the pointer; the card under the pointer
+ * restyles its face; and a card the pointer enters or leaves restyles once,
+ * whole. The browser counts each element's highlight styles too. None of
+ * that grows with the wall, which holds some fifteen hundred elements by the
+ * same count.
  */
-const RESTYLE_BUDGET = 96;
+const RESTYLE_BUDGET = 88;
+
+/**
+ * How much more a sweep may restyle in all on a wall of twice the cards. A
+ * cost that grew with the wall would double. One that does not stays level,
+ * whatever the machine's speed does to either sweep.
+ */
+const RESTYLE_GROWTH = 1.15;
 
 /** Open the homepage in a laptop viewport and bring the wall near. */
 async function onTheWall(
@@ -458,29 +503,17 @@ function lightSettled(page: Page): Promise<void> {
   );
 }
 
-/** Resolve once no animation or transition on the page is still running. */
-async function motionDone(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document.getAnimations().every((animation) =>
-      animation.playState !== "running"
-    )
-  );
-}
-
 /** Whether a parsed trace value is an object with named fields. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-/**
- * How many elements each style recalculation touched while `act` ran, as the
- * browser's own trace reports it.
- */
-async function restyled(
+/** Every event on the browser's own timeline while `act` ran. */
+async function traced(
   browser: Browser,
   page: Page,
   act: () => Promise<void>,
-): Promise<number[]> {
+): Promise<Record<string, unknown>[]> {
   await browser.startTracing(page, {
     categories: ["devtools.timeline", "blink"],
   });
@@ -494,9 +527,21 @@ async function restyled(
   const parsed: unknown = JSON.parse(new TextDecoder().decode(trace));
   const events = isRecord(parsed) ? parsed["traceEvents"] : parsed;
   assert(Array.isArray(events), "the browser returned a trace");
+  return events.filter(isRecord);
+}
+
+/**
+ * How many elements each style recalculation touched while `act` ran, as the
+ * browser's own trace reports it.
+ */
+async function restyled(
+  browser: Browser,
+  page: Page,
+  act: () => Promise<void>,
+): Promise<number[]> {
   const counts: number[] = [];
-  for (const event of events) {
-    if (!isRecord(event) || event["name"] !== "UpdateLayoutTree") continue;
+  for (const event of await traced(browser, page, act)) {
+    if (event["name"] !== "UpdateLayoutTree") continue;
     const args = event["args"];
     const count = isRecord(args) ? args["elementCount"] : undefined;
     if (typeof count === "number" && count > 0) counts.push(count);
@@ -504,19 +549,211 @@ async function restyled(
   return counts;
 }
 
-/** Cross the visible wall three times, over cards and the gaps between them. */
+/** The stretch of one thread's time that a trace event covers. */
+interface Span {
+  readonly name: string;
+  readonly thread: string;
+  readonly from: number;
+  readonly to: number;
+  /** For the dispatch of an event, the event's type. */
+  readonly type: string;
+}
+
+/** Every traced event that covers a stretch of time, as that stretch. */
+function spans(events: readonly Record<string, unknown>[]): Span[] {
+  return events.flatMap((event) => {
+    const { name, ph, ts, dur, pid, tid, args } = event;
+    if (ph !== "X" || typeof name !== "string" || typeof ts !== "number") {
+      return [];
+    }
+    const data = isRecord(args) ? args["data"] : undefined;
+    const type = isRecord(data) ? data["type"] : undefined;
+    return [{
+      name,
+      thread: `${pid}:${tid}`,
+      from: ts,
+      to: ts + (typeof dur === "number" ? dur : 0),
+      type: typeof type === "string" ? type : "",
+    }];
+  });
+}
+
+/**
+ * The work script made the browser do on the spot: every style recalculation
+ * and layout that ran inside the dispatch of an event or inside a frame
+ * callback, by what it ran inside. The browser does that work in its own
+ * time once a frame's callbacks have returned, and none of that is listed.
+ */
+function forcedWork(events: readonly Record<string, unknown>[]): string[] {
+  const all = spans(events);
+  const callbacks = all.filter((span) =>
+    span.name === "EventDispatch" || span.name === "FireAnimationFrame"
+  );
+  return all.filter((span) =>
+    span.name === "Layout" || span.name === "UpdateLayoutTree"
+  ).flatMap((work) => {
+    const inside = callbacks.find((callback) =>
+      callback.thread === work.thread && callback.from <= work.from &&
+      callback.to >= work.to
+    );
+    if (inside === undefined) return [];
+    return [
+      `${work.name} in ${
+        inside.name === "EventDispatch" ? `a ${inside.type} event` : "a frame"
+      }`,
+    ];
+  });
+}
+
+/**
+ * The one read of layout the wall makes in a handler: a card measures itself
+ * once as the pointer crosses into it. The page learns of a crossing while
+ * the browser dispatches one of these two events.
+ */
+const CROSSING = /^(?:Layout|UpdateLayoutTree) in a pointer(?:over|out) event$/;
+
+/**
+ * Leave style and layout pending before every pointer and scroll handler on
+ * the page runs, from now on. A handler or a frame that then reads layout or
+ * a computed style makes the browser finish that work on the spot, where
+ * the trace shows it. Without this a read shows only when something else on
+ * the page happens to have left work pending.
+ */
+async function leaveWorkPending(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.position = "fixed";
+    probe.style.inset = "0 auto auto 0";
+    document.body.append(probe);
+    let turn = 0;
+    const unsettle = (): void => {
+      turn++;
+      // A box outside the flow changes size: layout is pending, and nothing
+      // on the page moves.
+      probe.style.inlineSize = `${1 + turn % 2}px`;
+      // An ancestor of the wall changes a value nothing inherits: its style
+      // is pending, and so is that of everything under it that is read.
+      document.body.style.outlineOffset = `${turn % 2}px`;
+    };
+    for (const type of ["pointerover", "pointerout", "pointermove", "scroll"]) {
+      addEventListener(type, unsettle, { capture: true, passive: true });
+    }
+  });
+  // The site's own scripts look the page over in the frame after an element
+  // joins it. That frame has passed before anything is traced.
+  await drawn(page, 3);
+}
+
+/** How many moves carry the pointer across the wall in one crossing. */
+const CROSSING_MOVES = 30;
+
+/**
+ * Cross the visible wall three times, over cards and the gaps between them,
+ * one move to a frame. Two moves in one frame restyle two frames' worth of
+ * boxes at once, so a sweep left to the machine's own pace measures the
+ * machine.
+ */
 async function sweep(page: Page): Promise<void> {
   for (const y of [190, 400, 610]) {
     await page.mouse.move(40, y);
-    await page.mouse.move(VIEWPORT.width - 40, y + 80, { steps: 40 });
+    for (let move = 1; move <= CROSSING_MOVES; move++) {
+      const share = move / CROSSING_MOVES;
+      await page.mouse.move(
+        40 + (VIEWPORT.width - 80) * share,
+        y + 80 * share,
+      );
+      await drawn(page, 1);
+    }
   }
+}
+
+/** The total of a list of counts. */
+function sum(counts: readonly number[]): number {
+  return counts.reduce((total, count) => total + count, 0);
+}
+
+/** How one card's light box stands against a pointer at some point. */
+interface CardLight {
+  /** From the point to the nearest part of the box as drawn, in pixels. */
+  readonly gap: number;
+  /** How far the stylesheet says the light reaches, in pixels. */
+  readonly span: number;
+  /** How far up the light is written on the box, or "" when it is not. */
+  readonly on: string;
+  /** How far the light's written place lies from the point, on each axis. */
+  readonly off: readonly number[];
+}
+
+/** Every card's light box against a pointer at `point` of the viewport. */
+function cardLights(
+  page: Page,
+  point: { readonly x: number; readonly y: number },
+): Promise<CardLight[]> {
+  return page.evaluate(
+    ({ point, light, reach, card: [x, y, on] }) => {
+      const root = document.querySelector<HTMLElement>(".wall");
+      const span = root === null
+        ? 0
+        : parseFloat(getComputedStyle(root).getPropertyValue(reach));
+      return [...document.querySelectorAll<HTMLElement>(`.${light}`)].map(
+        (box) => {
+          const rect = box.getBoundingClientRect();
+          const gap = Math.hypot(
+            Math.max(rect.left - point.x, 0, point.x - rect.right),
+            Math.max(rect.top - point.y, 0, point.y - rect.bottom),
+          );
+          return {
+            gap,
+            span,
+            on: box.style.getPropertyValue(on ?? ""),
+            off: [
+              parseFloat(box.style.getPropertyValue(x ?? "")) -
+              (point.x - rect.left),
+              parseFloat(box.style.getPropertyValue(y ?? "")) -
+              (point.y - rect.top),
+            ],
+          };
+        },
+      );
+    },
+    {
+      point,
+      light: CARD_LIGHT,
+      reach: LIGHT_REACH,
+      card: [...LIGHT_PROPERTIES.card],
+    },
+  );
+}
+
+/**
+ * Require the light, fully up, to be on every card within its reach of the
+ * pointer, placed under the pointer on each, and on no card beyond it.
+ */
+function assertLitAround(lit: readonly CardLight[]): void {
+  const near = lit.filter((card) => card.gap < card.span - 2);
+  const beyond = lit.filter((card) => card.gap > card.span + 2);
+  assert(near.length >= 4, "the pointer sits among several cards");
+  assert(beyond.length > near.length * 4, "most of the wall is out of reach");
+  for (const card of near) {
+    assertEquals(card.on, "1.000", "a card in reach catches the light");
+    // The light is placed on the face as laid out. The face under the
+    // pointer is drawn lifted and tilted a pixel or three from there.
+    assert(
+      Math.max(...card.off.map(Math.abs)) <= 4,
+      `the light sits ${card.off} from the pointer on a card's border`,
+    );
+  }
+  assertEquals(
+    beyond.filter((card) => card.on !== "").length,
+    0,
+    "a card out of reach is not written to",
+  );
 }
 
 Deno.test("the wall arrives and leaves without restyling its cards", async () => {
   await onTheWall({}, async (page, browser) => {
-    const far = ".wall[data-wall-live]:not([data-wall-near])";
     await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
-    await page.locator(far).waitFor();
+    await page.locator(FAR_WALL).waitFor();
     await drawn(page, 3);
     // The pointer rests where the wall will be, so the light is at work too.
     await page.mouse.move(700, 430);
@@ -548,11 +785,69 @@ Deno.test("the wall arrives and leaves without restyling its cards", async () =>
 
     const leaving = await restyled(browser, page, async () => {
       await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
-      await page.locator(far).waitFor();
+      await page.locator(FAR_WALL).waitFor();
     });
+    assert(leaving.length > 0, "leaving restyled something");
     assert(
       Math.max(...leaving) <= RESTYLE_BUDGET,
       `as the wall left one style recalculation touched ${
+        Math.max(...leaving)
+      } elements`,
+    );
+  });
+});
+
+Deno.test("a step of the keyboard restyles a few boxes, on the flat wall and as its focus lays the wall flat", async () => {
+  await onTheWall({}, async (page, browser) => {
+    // Keyboard focus on the stage lays the wall flat, and each rule that
+    // says so looks for that focus from the box it styles. A rule that asked
+    // the wall root what it holds would restyle the whole wall at every step.
+    await page.locator(".wall-card-open").nth(3).focus();
+    await drawn(page, 3);
+    const stepping = await restyled(browser, page, async () => {
+      for (let step = 0; step < 3; step++) {
+        await page.keyboard.press("Tab");
+        await drawn(page, 2);
+      }
+    });
+    assert(stepping.length > 0, "a step of the keyboard restyled something");
+    assert(
+      Math.max(...stepping) <= RESTYLE_BUDGET,
+      `as the keyboard stepped from card to card one style recalculation touched ${
+        Math.max(...stepping)
+      } elements`,
+    );
+
+    // From the far view, the step that brings the focus onto the stage is
+    // the wall's arrival, and the step that takes it off again its leaving.
+    await page.locator(".wall-pool .wall-cta").focus();
+    await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+    await page.locator(FAR_WALL).waitFor();
+    await drawn(page, 3);
+    const arriving = await restyled(browser, page, async () => {
+      await page.keyboard.press("Tab");
+      await page.locator(NEAR_WALL).waitFor();
+    });
+    assertEquals(
+      await page.evaluate(() => document.activeElement?.className),
+      "wall-skip",
+      "the stage's first stop takes the focus",
+    );
+    assert(arriving.length > 0, "the focus arriving restyled something");
+    assert(
+      Math.max(...arriving) <= RESTYLE_BUDGET,
+      `as the keyboard's focus laid the wall flat one style recalculation touched ${
+        Math.max(...arriving)
+      } elements`,
+    );
+    const leaving = await restyled(browser, page, async () => {
+      await page.keyboard.press("Shift+Tab");
+      await page.locator(FAR_WALL).waitFor();
+    });
+    assert(leaving.length > 0, "the focus leaving restyled something");
+    assert(
+      Math.max(...leaving) <= RESTYLE_BUDGET,
+      `as the keyboard's focus left the stage one style recalculation touched ${
         Math.max(...leaving)
       } elements`,
     );
@@ -619,58 +914,7 @@ Deno.test("a frame of pointer travel restyles a few boxes, however many cards th
     const end = { x: 700, y: 430 };
     await page.mouse.move(end.x, end.y, { steps: 4 });
     await lightSettled(page);
-    const lit = await page.evaluate(
-      ({ end, light, reach, card: [x, y, on] }) => {
-        const root = document.querySelector<HTMLElement>(".wall");
-        const span = root === null
-          ? 0
-          : parseFloat(getComputedStyle(root).getPropertyValue(reach));
-        return [...document.querySelectorAll<HTMLElement>(`.${light}`)].map(
-          (box) => {
-            const rect = box.getBoundingClientRect();
-            const gap = Math.hypot(
-              Math.max(rect.left - end.x, 0, end.x - rect.right),
-              Math.max(rect.top - end.y, 0, end.y - rect.bottom),
-            );
-            return {
-              gap,
-              span,
-              on: box.style.getPropertyValue(on ?? ""),
-              off: [
-                parseFloat(box.style.getPropertyValue(x ?? "")) -
-                (end.x - rect.left),
-                parseFloat(box.style.getPropertyValue(y ?? "")) -
-                (end.y - rect.top),
-              ],
-            };
-          },
-        );
-      },
-      {
-        end,
-        light: CARD_LIGHT,
-        reach: LIGHT_REACH,
-        card: [...LIGHT_PROPERTIES.card],
-      },
-    );
-    const near = lit.filter((card) => card.gap < card.span - 2);
-    const beyond = lit.filter((card) => card.gap > card.span + 2);
-    assert(near.length >= 4, "the pointer sits among several cards");
-    assert(beyond.length > near.length * 4, "most of the wall is out of reach");
-    for (const card of near) {
-      assertEquals(card.on, "1.000", "a card in reach catches the light");
-      // The light is placed on the face as laid out. The face under the
-      // pointer is drawn lifted and tilted a pixel or three from there.
-      assert(
-        Math.max(...card.off.map(Math.abs)) <= 4,
-        `the light sits ${card.off} from the pointer on a card's border`,
-      );
-    }
-    assertEquals(
-      beyond.filter((card) => card.on !== "").length,
-      0,
-      "a card out of reach is not written to",
-    );
+    assertLitAround(await cardLights(page, end));
 
     // Twice the cards, and the same fixed budget: a cost that grew with the
     // wall would be twice over it.
@@ -681,11 +925,60 @@ Deno.test("a frame of pointer travel restyles a few boxes, however many cards th
     assertEquals(await page.locator(".wall *").count() > wall * 1.8, true);
     await drawn(page, 3);
     const doubled = await restyled(browser, page, () => sweep(page));
+    assert(doubled.length > 40, "the second sweep restyled the page as often");
     assert(
       Math.max(...doubled) <= RESTYLE_BUDGET,
       `with twice the cards one style recalculation touched ${
         Math.max(...doubled)
       } elements`,
+    );
+    // And the same sweep restyles no more in all. The budget above holds one
+    // recalculation, and this holds their total.
+    assert(
+      sum(doubled) <= sum(asBuilt) * RESTYLE_GROWTH,
+      `the sweep restyled ${sum(asBuilt)} elements in all, and ${
+        sum(doubled)
+      } with twice the cards`,
+    );
+  });
+});
+
+Deno.test("no pointer handler, scroll handler, or frame makes the browser lay the page out", async () => {
+  await onTheWall({}, async (page, browser) => {
+    await leaveWorkPending(page);
+    const events = await traced(browser, page, async () => {
+      await sweep(page);
+      // And the page scrolls under a pointer that has come to rest on a card.
+      await page.mouse.move(700, 430);
+      await lightSettled(page);
+      for (let turn = 0; turn < 6; turn++) {
+        await page.mouse.wheel(0, 60);
+        await drawn(page, 2);
+      }
+    });
+    const dispatched = new Set(
+      spans(events).filter((span) => span.name === "EventDispatch").map((
+        span,
+      ) => span.type),
+    );
+    for (const type of ["pointermove", "pointerover", "scroll"]) {
+      assert(dispatched.has(type), `the trace holds a ${type} event`);
+    }
+    assert(
+      spans(events).filter((span) => span.name === "FireAnimationFrame")
+        .length > CROSSING_MOVES * 3,
+      "the trace holds the light's frames",
+    );
+
+    const forced = forcedWork(events);
+    assert(
+      forced.some((work) => CROSSING.test(work)),
+      "the trace shows layout made on the spot where a card measures itself, so it would show any other",
+    );
+    assertEquals(
+      [...new Set(forced.filter((work) => !CROSSING.test(work)))],
+      [],
+      "a read of layout or of a computed style in a handler or a frame made the browser finish its pending work there",
     );
   });
 });
@@ -727,6 +1020,148 @@ function isAt(
   return Math.abs(parseFloat(x) - place.x) <= 0.6 &&
     Math.abs(parseFloat(y) - place.y) <= 0.6;
 }
+
+/** What the light has written on the wall root: its place, and how far up. */
+function lightNow(page: Page): Promise<string[]> {
+  return page.locator(".wall").evaluate(
+    (root, names) =>
+      root instanceof HTMLElement
+        ? names.map((name) => root.style.getPropertyValue(name))
+        : [],
+    [...LIGHT_PROPERTIES.room],
+  );
+}
+
+Deno.test("the light stays under the pointer when the wall or its cards move and nothing changes size", async () => {
+  await onTheWall({}, async (page) => {
+    // Something above the wall grows, and the wall moves down the page. At
+    // the top of the page the browser holds nothing in place on the screen,
+    // so the wall moves under the pointer.
+    await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+    await drawn(page, 3);
+    const high = { x: 300, y: 320 };
+    await page.mouse.move(high.x, high.y);
+    await lightSettled(page);
+    assert(isAt(await lightNow(page), await placeOnWall(page, high)));
+    const pushed = await page.locator(".wall").evaluate((root) => {
+      const before = root.getBoundingClientRect();
+      const spacer = document.createElement("div");
+      spacer.style.blockSize = "48px";
+      root.closest(".wall-frame")?.before(spacer);
+      const after = root.getBoundingClientRect();
+      return {
+        down: after.top - before.top,
+        wider: after.width - before.width,
+        taller: after.height - before.height,
+      };
+    });
+    assertEquals(pushed, { down: 48, wider: 0, taller: 0 });
+    await drawn(page, 2);
+    const held = await lightNow(page);
+    assert(
+      isAt(held, await placeOnWall(page, high)),
+      `after the wall moved down the page, the light stood at ${held}, off the still pointer`,
+    );
+    const low = { x: 340, y: 300 };
+    await page.mouse.move(low.x, low.y);
+    await lightSettled(page);
+    const landed = await lightNow(page);
+    assert(
+      isAt(landed, await placeOnWall(page, low)),
+      `after the wall moved down the page, the light followed the pointer to ${landed}, off it`,
+    );
+
+    // The page scrolls under the pointer, which does not move. Its place on
+    // the wall does, and the light goes there.
+    await page.mouse.move(OFF_WALL.x, OFF_WALL.y);
+    await page.locator(".wall-stage").evaluate((stage) =>
+      stage.scrollIntoView({ block: "start", behavior: "instant" })
+    );
+    await page.locator(NEAR_WALL).waitFor();
+    const point = { x: 700, y: 430 };
+    await page.mouse.move(point.x, point.y, { steps: 4 });
+    await lightSettled(page);
+    const resting = await lightNow(page);
+    assert(isAt(resting, await placeOnWall(page, point)));
+    const scrolled = 240;
+    await page.evaluate(
+      (top) => scrollBy({ top, behavior: "instant" }),
+      scrolled,
+    );
+    await drawn(page, 3);
+    await lightSettled(page);
+    const followed = await lightNow(page);
+    assert(
+      isAt(followed, await placeOnWall(page, point)),
+      `after the page scrolled, the light stood at ${followed}, off the pointer`,
+    );
+    assert(
+      Math.abs(
+        parseFloat(followed[1] ?? "") - parseFloat(resting[1] ?? "") - scrolled,
+      ) <= 0.6,
+      "the light went as far down the wall as the page scrolled",
+    );
+    assertLitAround(await cardLights(page, point));
+
+    // Two cards of one size change places: one the light is on and the
+    // pointer is not, and one far out of its reach. Neither changes size,
+    // and nor does the wall.
+    const swap = await page.evaluate(({ point, light, reach, on }) => {
+      const root = document.querySelector<HTMLElement>(".wall");
+      if (root === null) return null;
+      const span = parseFloat(getComputedStyle(root).getPropertyValue(reach));
+      const gap = (card: HTMLElement): number => {
+        const rect = card.getBoundingClientRect();
+        return Math.hypot(
+          Math.max(rect.left - point.x, 0, point.x - rect.right),
+          Math.max(rect.top - point.y, 0, point.y - rect.bottom),
+        );
+      };
+      const lit = (card: HTMLElement): boolean =>
+        card.querySelector<HTMLElement>(`.${light}`)?.style.getPropertyValue(
+          on,
+        ) === "1.000";
+      const cards = [
+        ...document.querySelectorAll<HTMLElement>(".wall-list > .wall-card"),
+      ];
+      for (const near of cards) {
+        if (!lit(near) || near.matches(":hover")) continue;
+        const far = cards.find((card) =>
+          gap(card) > span * 2 && card.className === near.className &&
+          card.offsetWidth === near.offsetWidth &&
+          card.offsetHeight === near.offsetHeight
+        );
+        if (far === undefined) continue;
+        const size = [root.offsetWidth, root.offsetHeight];
+        const place = document.createComment("");
+        near.replaceWith(place);
+        far.replaceWith(near);
+        place.replaceWith(far);
+        return {
+          resized: root.offsetWidth !== size[0] ||
+            root.offsetHeight !== size[1],
+          apart: gap(near) > span && gap(far) < span,
+        };
+      }
+      return null;
+    }, {
+      point,
+      light: CARD_LIGHT,
+      reach: LIGHT_REACH,
+      on: LIGHT_PROPERTIES.card[2],
+    });
+    assertEquals(
+      swap,
+      { resized: false, apart: true },
+      "the wall holds two cards of one size to change places, one in the light and one out of it",
+    );
+    await drawn(page, 2);
+    const nudged = { x: point.x + 3, y: point.y + 2 };
+    await page.mouse.move(nudged.x, nudged.y);
+    await lightSettled(page);
+    assertLitAround(await cardLights(page, nudged));
+  });
+});
 
 Deno.test("the light comes up under the pointer, goes down where it was, and never crosses the wall", async () => {
   await onTheWall({}, async (page) => {
@@ -817,6 +1252,19 @@ Deno.test("a visitor who asks for less motion sees the light appear and go, with
     const watching = await watchLight(page);
     await page.mouse.move(300, 320);
     await lightSettled(page);
+
+    // One move of the pointer, well within the light's own size, and then
+    // stillness: the light is written once, where the pointer went.
+    const next = { x: 600, y: 360 };
+    const there = await placeOnWall(page, next);
+    const moving = await watchLight(page);
+    await page.mouse.move(next.x, next.y);
+    await lightSettled(page);
+    await drawn(page, 6);
+    const moves = await moving.jsonValue();
+    assertEquals(moves.length, 1, `one move wrote the light at ${moves}`);
+    assert(isAt(moves[0] ?? [], there), "and wrote it where the pointer is");
+
     await page.mouse.move(OFF_WALL.x, OFF_WALL.y);
     await page.waitForFunction(
       (on) =>
@@ -846,7 +1294,7 @@ Deno.test("the light writes nothing while the pointer rests or is over an opened
 
     await page.mouse.click(520, 400);
     await page.locator("dialog.wall-open:modal").waitFor();
-    await motionDone(page);
+    await motionSettled(page);
     await drawn(page, 2);
     const opened = await lightCalls(page);
     await page.mouse.move(760, 470, { steps: 8 });
@@ -932,7 +1380,7 @@ Deno.test("in forced colors every bar that stays over the wall has a solid backi
 Deno.test("on paper the room is a plain sheet with nothing left over the cards", async () => {
   await onTheWall({ colorScheme: "dark" }, async (page) => {
     await page.emulateMedia({ media: "print" });
-    await motionDone(page);
+    await motionSettled(page);
     const marks = await page.evaluate(() => {
       // Paper is light: a surface is plain when it is clear or near white.
       // A canvas reads any color the browser can compute as plain numbers.

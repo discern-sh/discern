@@ -6,7 +6,7 @@ import type { WallCard } from "./types.ts";
 
 export interface CardProps {
   readonly card: WallCard;
-  /** Outside the active lens. The stylesheet dims a receded card; it stays in the list. */
+  /** Outside the active lens: the card carries `RECEDED_ATTRIBUTE` and stays in the list. */
   readonly receded: boolean;
   /** Called with the card's id when its button is activated. */
   readonly onOpen: (id: string) => void;
@@ -26,6 +26,12 @@ export function cardGlyph(card: WallCard): string | undefined {
 export function cardNumeral(card: WallCard): string | undefined {
   return card.kind === "numeral" ? card.numeral : undefined;
 }
+
+/**
+ * The attribute a card's root carries while it sits outside the active lens.
+ * The stylesheets set such a card aside by it.
+ */
+export const RECEDED_ATTRIBUTE = "data-receded";
 
 /**
  * The class of the box inside each card's face that draws the shared pointer
@@ -133,7 +139,7 @@ export function Card({ card, receded, onOpen }: CardProps): ReactElement {
     <li
       className={`wall-card wall-card--${card.kind}`}
       data-card={card.id}
-      data-receded={receded ? "" : undefined}
+      {...{ [RECEDED_ATTRIBUTE]: receded ? "" : undefined }}
       style={clusterHueStyle(card.cluster)}
       onPointerEnter={enterCard}
       onPointerMove={followPointer}

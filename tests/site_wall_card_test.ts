@@ -2,13 +2,19 @@
  * The wall's cards hold their contract: the markup of each kind, what
  * assistive technology reads from a card, the type the wall is set in, and the
  * stylesheet rules that keep a hovered card from disturbing any other.
+ *
+ * A real browser holds what only layout can show: a card the keyboard
+ * reaches comes to rest clear of the bar pinned over the wall, a heading
+ * wraps a word longer than its card is wide, and a benefit card sets its
+ * glyph beside its words exactly where the wall is one column.
  */
 import { assert, assertEquals } from "@std/assert";
-import { fromFileUrl, join } from "@std/path";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
+import type { Page } from "playwright-core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { handler } from "../site/serve.ts";
 import { WALL_STYLESHEETS } from "../site/wall/assets.ts";
 import {
   Card,
@@ -17,21 +23,31 @@ import {
   cardHeading,
   cardNumeral,
   pointerOffset,
+  RECEDED_ATTRIBUTE,
 } from "../site/wall/Card.tsx";
 import { WALL_DECK } from "../site/wall/deck.ts";
 import { WALL_KNOBS } from "../site/wall/tuning/knobs.ts";
 import type { WallCard } from "../site/wall/types.ts";
-import { LIGHT_PROPERTIES, LIGHT_REACH } from "../site/wall/use_light.ts";
-
-const ROOT = fromFileUrl(new URL("../", import.meta.url));
+import {
+  LIGHT_PROPERTIES,
+  LIGHT_REACH,
+  LIGHT_REACH_GATES,
+} from "../site/wall/use_light.ts";
+import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
+import {
+  declared,
+  MOTION_PROPERTY,
+  movesByChoice,
+  readWallSheet,
+  splitOutside,
+  type StyleRule,
+  styleRules,
+  wallSheets,
+  withoutComments,
+} from "./wall_stylesheets.ts";
 
 /** The stylesheet this suite holds to the card rules. */
 const CARD_SHEET = "wall-card.css";
-
-/** Read one of the wall's stylesheets from its source. */
-function readSheet(sheet: string): Promise<string> {
-  return Deno.readTextFile(join(ROOT, "site/page-src", sheet));
-}
 
 /** Render one card as the server does and hand back its list item. */
 function renderCard(
@@ -99,7 +115,7 @@ const LIGHT_BOX = `span.${CARD_LIGHT}`;
 const FACE: Readonly<Record<WallCard["kind"], readonly string[]>> = {
   benefit: [
     LIGHT_BOX,
-    "svg.wall-glyph.wall-card-glyph",
+    "span.wall-glyph.wall-card-glyph",
     "h2.wall-card-title",
     "p.wall-card-line",
   ],
@@ -119,7 +135,7 @@ Deno.test("every card in the deck renders its kind's markup", () => {
     const { item, close } = renderCard(card);
     assertEquals(shape(item), `li.wall-card.wall-card--${card.kind}`, card.id);
     assertEquals(item.getAttribute("data-card"), card.id);
-    assertEquals(item.hasAttribute("data-receded"), false, card.id);
+    assertEquals(item.hasAttribute(RECEDED_ATTRIBUTE), false, card.id);
     assert(
       /--wall-hue:\s*\d+/.test(item.getAttribute("style") ?? ""),
       `${card.id} carries its cluster hue`,
@@ -178,7 +194,7 @@ Deno.test("every card in the deck renders its kind's markup", () => {
   const first = WALL_DECK[0];
   assert(first !== undefined);
   const receded = renderCard(first, true);
-  assertEquals(receded.item.getAttribute("data-receded"), "");
+  assertEquals(receded.item.getAttribute(RECEDED_ATTRIBUTE), "");
   receded.close();
 });
 
@@ -257,25 +273,25 @@ Deno.test("the wall is set in sans-serif type alone", async () => {
   ]);
   const violations: string[] = [];
   for (const sheet of WALL_STYLESHEETS) {
-    const text = withoutComments(await readSheet(sheet));
+    const text = withoutComments(await readWallSheet(sheet));
     if (text.includes("--discern-font-display")) {
       violations.push(`${sheet} reads the display serif token`);
     }
     if (/(?<![\w-])serif\b/i.test(text)) {
       violations.push(`${sheet} names a serif family`);
     }
-    for (const rule of cssRules(text)) {
+    for (const rule of styleRules(text)) {
       for (const [property, value] of rule.declarations) {
         if (
           property === "font-family" && value !== "inherit" &&
           !families.has(value)
         ) {
           violations.push(
-            `${sheet}: ${rule.selector} sets font-family: ${value}`,
+            `${sheet}: ${rule.prelude} sets font-family: ${value}`,
           );
         }
         if (property === "font" && value !== "inherit") {
-          violations.push(`${sheet}: ${rule.selector} sets font: ${value}`);
+          violations.push(`${sheet}: ${rule.prelude} sets font: ${value}`);
         }
       }
     }
@@ -283,9 +299,9 @@ Deno.test("the wall is set in sans-serif type alone", async () => {
   assertEquals(violations, []);
 
   // The check above can fail: it reads real declarations out of these sheets.
-  const seen = (await Promise.all(WALL_STYLESHEETS.map(readSheet))).flatMap(
+  const seen = (await Promise.all(WALL_STYLESHEETS.map(readWallSheet))).flatMap(
     (text) =>
-      cssRules(withoutComments(text)).flatMap((rule) =>
+      styleRules(text).flatMap((rule) =>
         rule.declarations.filter(([property]) => property === "font-family")
       ),
   );
@@ -295,108 +311,18 @@ Deno.test("the wall is set in sans-serif type alone", async () => {
 Deno.test("no wall surface blurs what is behind it", async () => {
   for (const sheet of WALL_STYLESHEETS) {
     assertEquals(
-      /backdrop-filter/.test(withoutComments(await readSheet(sheet))),
+      /backdrop-filter/.test(withoutComments(await readWallSheet(sheet))),
       false,
       `${sheet} uses backdrop-filter`,
     );
   }
 });
 
-interface CssRule {
-  /** The rule's selector list, white space collapsed. */
-  readonly selector: string;
-  /** The at-rules that enclose it, outermost first. */
-  readonly context: readonly string[];
-  readonly declarations: readonly (readonly [string, string])[];
-}
-
-/** A stylesheet with its comments removed. */
-function withoutComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\//g, "");
-}
-
-/** Split `text` on `separator` wherever it sits outside every parenthesis. */
-function splitOutside(text: string, separator: string): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let start = 0;
-  for (let at = 0; at < text.length; at++) {
-    const char = text[at];
-    if (char === "(") depth++;
-    else if (char === ")") depth--;
-    else if (char === separator && depth === 0) {
-      parts.push(text.slice(start, at));
-      start = at + 1;
-    }
-  }
-  parts.push(text.slice(start));
-  return parts.map((part) => part.replace(/\s+/g, " ").trim()).filter((part) =>
-    part !== ""
-  );
-}
-
-/**
- * The style rules of a comment-free stylesheet, each with the at-rules around
- * it. The wall's stylesheets nest rules only inside at-rules, which is all
- * this reads.
- */
-function cssRules(text: string, context: readonly string[] = []): CssRule[] {
-  const rules: CssRule[] = [];
-  let at = 0;
-  while (at < text.length) {
-    const open = text.indexOf("{", at);
-    if (open === -1) break;
-    let depth = 1;
-    let close = open + 1;
-    while (close < text.length && depth > 0) {
-      if (text[close] === "{") depth++;
-      else if (text[close] === "}") depth--;
-      close++;
-    }
-    const prelude = text.slice(at, open).replace(/\s+/g, " ").trim();
-    const body = text.slice(open + 1, close - 1);
-    if (prelude.startsWith("@")) {
-      rules.push(...cssRules(body, [...context, prelude]));
-    } else {
-      rules.push({
-        selector: prelude,
-        context,
-        declarations: splitOutside(body, ";").map((declaration) => {
-          const colon = declaration.indexOf(":");
-          return [
-            declaration.slice(0, colon).trim(),
-            declaration.slice(colon + 1).trim(),
-          ] as const;
-        }),
-      });
-    }
-    at = close;
-  }
-  return rules;
-}
-
 /** The card stylesheet's rules. */
-async function cardRules(): Promise<CssRule[]> {
-  const rules = cssRules(withoutComments(await readSheet(CARD_SHEET)));
+async function cardRules(): Promise<StyleRule[]> {
+  const rules = styleRules(await readWallSheet(CARD_SHEET));
   assert(rules.length > 0);
   return rules;
-}
-
-/** A rule's selectors, one per entry of its selector list. */
-function selectors(rule: CssRule): string[] {
-  return splitOutside(rule.selector, ",");
-}
-
-/** One declaration's value in a rule, when the rule makes it. */
-function declared(rule: CssRule, property: string): string | undefined {
-  return rule.declarations.find(([name]) => name === property)?.[1];
-}
-
-/** Whether a rule applies only where the reader has not asked for less motion. */
-function movesOnlyByChoice(rule: CssRule): boolean {
-  return rule.context.some((query) =>
-    query.includes("prefers-reduced-motion: no-preference")
-  );
 }
 
 /** The face, with none of its pseudo-elements. */
@@ -407,7 +333,7 @@ Deno.test("card motion lives on the face, and the list item is left to the lens"
   const reserved =
     /^(?:transform|translate|rotate|scale|transition(?:-.+)?|animation(?:-.+)?|opacity|filter|will-change|z-index)$/;
   const onItem = rules.flatMap((rule) =>
-    selectors(rule).filter((selector) =>
+    rule.selectors.filter((selector) =>
       /(?:^|\s)\.wall-card(?:--[\w-]+)?(?![\w-])\S*$/.test(selector)
     ).flatMap((selector) =>
       rule.declarations.filter(([property]) => reserved.test(property)).map((
@@ -423,7 +349,7 @@ Deno.test("card motion lives on the face, and the list item is left to the lens"
 
   assert(
     rules.some((rule) =>
-      selectors(rule).some((selector) => FACE_SUBJECT.test(selector)) &&
+      rule.selectors.some((selector) => FACE_SUBJECT.test(selector)) &&
       declared(rule, "transform") !== undefined
     ),
     "the hover lift is a transform on the face",
@@ -432,17 +358,16 @@ Deno.test("card motion lives on the face, and the list item is left to the lens"
 
 Deno.test("cards animate transform and opacity, and stay still for a reader who asks", async () => {
   const rules = await cardRules();
-  const moving = /^(?:transform|will-change|transition(?:-.+)?)$/;
   const violations: string[] = [];
   let transitions = 0;
   for (const rule of rules) {
     for (const [property, value] of rule.declarations) {
       if (/^animation/.test(property)) {
-        violations.push(`${rule.selector} animates with ${property}`);
+        violations.push(`${rule.prelude} animates with ${property}`);
       }
-      if (moving.test(property) && !movesOnlyByChoice(rule)) {
+      if (MOTION_PROPERTY.test(property) && !movesByChoice(rule)) {
         violations.push(
-          `${rule.selector} sets ${property} outside prefers-reduced-motion: no-preference`,
+          `${rule.prelude} sets ${property} outside prefers-reduced-motion: no-preference`,
         );
       }
       if (property !== "transition") continue;
@@ -453,7 +378,7 @@ Deno.test("cards animate transform and opacity, and stay still for a reader who 
         // tweened.
         const allowed = name === "transform" || name === "opacity" ||
           (name === "z-index" && duration === "0s");
-        if (!allowed) violations.push(`${rule.selector} transitions ${item}`);
+        if (!allowed) violations.push(`${rule.prelude} transitions ${item}`);
       }
     }
   }
@@ -463,9 +388,9 @@ Deno.test("cards animate transform and opacity, and stay still for a reader who 
 
 Deno.test("hover applies only where a pointer can hover", async () => {
   const stuck = (await cardRules()).filter((rule) =>
-    rule.selector.includes(":hover") &&
+    rule.prelude.includes(":hover") &&
     !rule.context.some((query) => query.includes("hover: hover"))
-  ).map((rule) => rule.selector);
+  ).map((rule) => rule.prelude);
   assertEquals(stuck, [], "a touch screen would leave these stuck after a tap");
 });
 
@@ -476,7 +401,7 @@ Deno.test("the hover tilt is the knob's angle at most, and the lift a few pixels
   assertEquals(knob.min, 0, "the tilt can be turned off");
   assert(knob.default <= 1.5, "the shipped tilt is 1.5 degrees at most");
 
-  const sheet = withoutComments(await readSheet(CARD_SHEET)).replace(
+  const sheet = withoutComments(await readWallSheet(CARD_SHEET)).replace(
     /\s+/g,
     " ",
   );
@@ -515,14 +440,14 @@ Deno.test("no wall surface is placed by the viewport", async () => {
   const fixed: string[] = [];
   let surfaces = 0;
   for (const sheet of WALL_STYLESHEETS) {
-    for (const rule of cssRules(withoutComments(await readSheet(sheet)))) {
+    for (const rule of styleRules(await readWallSheet(sheet))) {
       for (const [property, value] of rule.declarations) {
         if (!/^(?:background(?:-attachment)?|--[\w-]+)$/.test(property)) {
           continue;
         }
         surfaces++;
         if (/\bfixed\b/.test(value)) {
-          fixed.push(`${sheet}: ${rule.selector} { ${property} }`);
+          fixed.push(`${sheet}: ${rule.prelude} { ${property} }`);
         }
       }
     }
@@ -531,10 +456,33 @@ Deno.test("no wall surface is placed by the viewport", async () => {
   assert(surfaces > 0, "the wall stylesheets declare their surfaces");
 });
 
+Deno.test("a control that draws its own look takes no tap highlight from the browser", async () => {
+  // A rule that gives up the browser's look for a control draws that
+  // control's pressed state itself. On a touch screen the browser still lays
+  // its own highlight over the control's box at a tap, and the picture a
+  // view transition takes of the page catches it.
+  const kept: string[] = [];
+  let controls = 0;
+  for (const { sheet, text } of await wallSheets()) {
+    for (const rule of styleRules(text)) {
+      if (declared(rule, "appearance") !== "none") continue;
+      controls++;
+      if (declared(rule, "-webkit-tap-highlight-color") !== "transparent") {
+        kept.push(`${sheet}: ${rule.prelude} keeps the browser's highlight`);
+      }
+    }
+  }
+  assertEquals(kept, []);
+  assert(
+    controls >= 3,
+    "a card's button, a chip, and the sheet's close control draw their own look",
+  );
+});
+
 Deno.test("a card's border catches the pointer light through one box, near and where a pointer can hover", async () => {
   const rules = await cardRules();
   const box = rules.find((rule) =>
-    rule.selector === `.${CARD_LIGHT}` && rule.context.length === 1
+    rule.prelude === `.${CARD_LIGHT}` && rule.context.length === 1
   );
   assert(box !== undefined, "the light box has its resting rule");
 
@@ -567,42 +515,70 @@ Deno.test("a card's border catches the pointer light through one box, near and w
     "the light box rests dark",
   );
 
+  // What a card near the pointer catches is white, the same on every card.
+  // A card's own hue shows on the layer that lights the one card the pointer
+  // or the keyboard is on.
+  const hued = ["--wall-hue", "--wall-chroma", "--wall-accent"];
+  for (const name of hued) {
+    assertEquals(
+      light.includes(`var(${name})`),
+      false,
+      `the light a nearby card catches reads ${name}, so each card near the pointer lights in its own color`,
+    );
+  }
+  const lit = rules.find((rule) =>
+    rule.prelude === ".wall-card-face::before" && rule.context.length === 1
+  );
+  assert(lit !== undefined, "the face has its lit layer");
+  assert(
+    (declared(lit, "background") ?? "").includes("var(--wall-hue)"),
+    "the card under the pointer shows its own hue",
+  );
+
   // Only its brightness ever changes: nothing moves or fades it.
   const still =
     /^(?:transform|translate|rotate|scale|transition(?:-.+)?|animation(?:-.+)?|opacity|filter|will-change)$/;
   const moved = rules.filter((rule) =>
-    selectors(rule).some((selector) => selector.endsWith(`.${CARD_LIGHT}`))
+    rule.selectors.some((selector) => selector.endsWith(`.${CARD_LIGHT}`))
   ).flatMap((rule) =>
     rule.declarations.filter(([property]) => still.test(property)).map((
       [property],
-    ) => `${rule.selector} { ${property} }`)
+    ) => `${rule.prelude} { ${property} }`)
   );
   assertEquals(moved, []);
 
   // The room alone says how far the light reaches, and it reaches cards only
   // while the wall is near and the screen has a pointer to follow. A far
   // plane is tilted, and a touch screen has nothing for the light to follow.
-  const room = cssRules(withoutComments(await readSheet("wall.css"))).filter((
+  // The light reads the reach again only when one of those two changes, so
+  // no rule may set the reach by anything else.
+  const room = styleRules(await readWallSheet("wall.css")).filter((
     rule,
   ) => declared(rule, LIGHT_REACH) !== undefined);
-  assert(
-    room.some((rule) =>
-      rule.selector === ".wall" && rule.context.length === 1 &&
-      declared(rule, LIGHT_REACH) === "0px"
-    ),
+  const resting = room.filter((rule) =>
+    rule.prelude === ".wall" && rule.context.length === 1
+  );
+  assertEquals(
+    resting.map((rule) => declared(rule, LIGHT_REACH)),
+    ["0px"],
     "no card takes the light at rest",
   );
-  const reaching = room.filter((rule) => declared(rule, LIGHT_REACH) !== "0px");
+  const reaching = room.filter((rule) => !resting.includes(rule));
   assert(reaching.length > 0, "the light reaches card borders somewhere");
   for (const rule of reaching) {
-    assert(
-      rule.context.some((query) => query.includes("hover: hover")),
-      `${rule.selector} lights cards on a screen that may have no pointer`,
+    assertEquals(
+      rule.context.filter((query) => !query.startsWith("@layer")),
+      [`@media ${LIGHT_REACH_GATES.media}`],
+      `${rule.prelude} sets the reach under a condition the light does not watch`,
     );
     assertEquals(
-      selectors(rule),
-      [".wall[data-wall-near]"],
-      "the light reaches cards while the plane may be tilted",
+      rule.selectors,
+      [
+        `.wall${
+          LIGHT_REACH_GATES.attributes.map((name) => `[${name}]`).join("")
+        }`,
+      ],
+      "the reach is set by a state of the wall the light does not watch",
     );
     // Script lights the cards within this reach, so it must be exactly as
     // far as the light box draws its light.
@@ -617,7 +593,7 @@ Deno.test("a card's border catches the pointer light through one box, near and w
 Deno.test("a face that moves or lights is drawn above the other cards until it rests", async () => {
   const rules = await cardRules();
   const face = rules.find((rule) =>
-    rule.selector === ".wall-card-face" && rule.context.length === 1
+    rule.prelude === ".wall-card-face" && rule.context.length === 1
   );
   assert(face !== undefined, "the face has its resting rule");
   assertEquals(declared(face, "z-index"), "0");
@@ -627,7 +603,7 @@ Deno.test("a face that moves or lights is drawn above the other cards until it r
   // makes the browser redraw every later card, and their edges shimmer.
   const states = new Set<string>();
   for (const rule of rules) {
-    for (const selector of selectors(rule)) {
+    for (const selector of rule.selectors) {
       const state =
         /^(?:\.wall\[data-wall-near\] )?(\.wall-card\S+) \.wall-card-face(?:::(?:before|after))?$/
           .exec(selector)?.[1];
@@ -642,8 +618,8 @@ Deno.test("a face that moves or lights is drawn above the other cards until it r
   assert(states.size >= 3, "hover, focus, and press each light or move a card");
   for (const state of states) {
     const raise = rules.find((rule) =>
-      movesOnlyByChoice(rule) &&
-      selectors(rule).includes(`${state} .wall-card-face`) &&
+      movesByChoice(rule) &&
+      rule.selectors.includes(`${state} .wall-card-face`) &&
       declared(rule, "z-index") === "1"
     );
     assert(
@@ -660,13 +636,13 @@ Deno.test("a face that moves or lights is drawn above the other cards until it r
   // At rest the face steps back down only after its transform has finished
   // and its two layers have faded.
   const resting = rules.find((rule) =>
-    rule.selector === ".wall-card-face" && movesOnlyByChoice(rule)
+    rule.prelude === ".wall-card-face" && movesByChoice(rule)
   );
   assert(resting !== undefined);
   const layers = rules.find((rule) =>
-    movesOnlyByChoice(rule) &&
-    selectors(rule).includes(".wall-card-face::before") &&
-    selectors(rule).includes(".wall-card-face::after") &&
+    movesByChoice(rule) &&
+    rule.selectors.includes(".wall-card-face::before") &&
+    rule.selectors.includes(".wall-card-face::after") &&
     declared(rule, "transition") !== undefined
   );
   assert(layers !== undefined, "the face's two layers fade");
@@ -734,7 +710,7 @@ Deno.test("no card's shadow reaches the next card", async () => {
           at(blur);
         assert(
           reach <= width,
-          `${rule.selector}: "${shadow}" reaches ${reach}px across a ${width}px gap`,
+          `${rule.prelude}: "${shadow}" reaches ${reach}px across a ${width}px gap`,
         );
       }
     }
@@ -746,7 +722,7 @@ Deno.test("print and forced colors get flat cards in system colors", async () =>
   const rules = await cardRules();
   for (const mode of ["forced-colors: active", "print"]) {
     const flat = rules.find((rule) =>
-      rule.selector === ".wall-card-face" &&
+      rule.prelude === ".wall-card-face" &&
       rule.context.some((query) => query.includes(mode))
     );
     assert(flat !== undefined, `${mode} restyles the face`);
@@ -759,7 +735,7 @@ Deno.test("print and forced colors get flat cards in system colors", async () =>
   for (const mode of ["forced-colors: active", "print"]) {
     assert(
       rules.some((rule) =>
-        selectors(rule).includes(`.${CARD_LIGHT}`) &&
+        rule.selectors.includes(`.${CARD_LIGHT}`) &&
         rule.context.some((query) => query.includes(mode)) &&
         declared(rule, "display") === "none"
       ),
@@ -769,10 +745,183 @@ Deno.test("print and forced colors get flat cards in system colors", async () =>
   // The wall is dark, so paper needs the light scheme's system colors.
   assert(
     rules.some((rule) =>
-      rule.selector === ".wall-card" &&
+      rule.prelude === ".wall-card" &&
       rule.context.some((query) => query === "@media print") &&
       declared(rule, "color-scheme") === "light"
     ),
     "printed cards resolve system colors against a light page",
   );
+});
+
+const ORIGIN = "http://127.0.0.1:18905";
+
+/**
+ * Open the homepage at one size for a reader who asked for less motion, who
+ * gets the flat wall wherever the page stands and no travel between two
+ * places on it.
+ */
+async function onThePage(
+  viewport: { readonly width: number; readonly height: number },
+  check: (page: Page) => Promise<void>,
+): Promise<void> {
+  const browser = await launchBrowser();
+  try {
+    const context = await browser.newContext({
+      viewport,
+      reducedMotion: "reduce",
+    });
+    context.setDefaultTimeout(10_000);
+    const page = await context.newPage();
+    await serveThroughHandler(page, ORIGIN, handler);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator(".wall[data-wall-live]").waitFor();
+    await check(page);
+  } finally {
+    await browser.close();
+  }
+}
+
+Deno.test("a card the keyboard reaches going backward comes to rest clear of the pinned bar", async () => {
+  await onThePage({ width: 1280, height: 720 }, async (page) => {
+    // From the link after the wall, back through every card to the first.
+    await page.locator(".wall-closing a").focus();
+    const stops: { readonly card: string; readonly under: number }[] = [];
+    for (let press = 0; press < WALL_DECK.length + 8; press++) {
+      await page.keyboard.press("Shift+Tab");
+      const stop = await page.evaluate(() =>
+        new Promise<{ card: string | null; under: number }>((resolve) =>
+          // The browser has scrolled to the focused card by the next frame.
+          requestAnimationFrame(() => {
+            const focused = document.activeElement;
+            const bar = document.querySelector(".wall-controls");
+            const card = focused?.closest(".wall-list > .wall-card") ?? null;
+            resolve({
+              card: card?.getAttribute("data-card") ?? null,
+              under: focused === null || bar === null
+                ? Number.NaN
+                : bar.getBoundingClientRect().bottom -
+                  focused.getBoundingClientRect().top,
+            });
+          })
+        )
+      );
+      if (stop.card !== null) {
+        stops.push({ card: stop.card, under: stop.under });
+      } else if (stops.length > 0) break;
+    }
+    assertEquals(
+      stops.map((stop) => stop.card).toSorted(),
+      WALL_DECK.map((card) => card.id).toSorted(),
+      "the keyboard stops on every card on the way back",
+    );
+    assertEquals(
+      stops.filter((stop) => !(stop.under <= 0)).map((stop) =>
+        `${stop.card}: its heading is ${stop.under}px under the bar`
+      ),
+      [],
+    );
+    assertEquals(
+      await page.locator(".wall-controls").evaluate((bar) =>
+        getComputedStyle(bar).position
+      ),
+      "sticky",
+      "the bar stays over the wall at this size, so a card could pass under it",
+    );
+  });
+});
+
+Deno.test("a heading wraps a word longer than its card is wide", async () => {
+  await onThePage({ width: 390, height: 844 }, async (page) => {
+    const kinds = [...new Set(WALL_DECK.map((card) => card.kind))];
+    const spills = await page.evaluate((kinds) => {
+      const found: string[] = [];
+      for (const kind of kinds) {
+        const card = document.querySelector(`.wall-card--${kind}`);
+        const face = card?.querySelector(".wall-card-face");
+        const button = card?.querySelector(".wall-card-open");
+        const words = [...button?.childNodes ?? []].findLast((node) =>
+          node.nodeType === Node.TEXT_NODE
+        );
+        if (!face || !button || !words) {
+          found.push(`${kind}: no heading to fill`);
+          continue;
+        }
+        words.textContent = "Uncharacteristically".repeat(6);
+        const edge = face.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(words);
+        const lines = [...range.getClientRects()];
+        if (lines.length < 2) found.push(`${kind}: the word did not wrap`);
+        for (const line of lines) {
+          if (line.left < edge.left - 0.5 || line.right > edge.right + 0.5) {
+            found.push(
+              `${kind}: the word runs from ${line.left} to ${line.right} in a face from ${edge.left} to ${edge.right}`,
+            );
+          }
+        }
+        const room = document.querySelector(".wall-list")
+          ?.getBoundingClientRect();
+        if (room === undefined || edge.right > room.right + 0.5) {
+          found.push(`${kind}: the word made its card wider than the wall`);
+        }
+      }
+      return found;
+    }, kinds);
+    assertEquals(spills, []);
+  });
+});
+
+Deno.test("a benefit card sets its glyph beside its words exactly where the wall is one column", async () => {
+  await onThePage({ width: 390, height: 844 }, async (page) => {
+    const seen: { width: number; columns: number; beside: boolean }[] = [];
+    for (const width of [320, 390, 600, 620, 768, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      const laid = await page.evaluate(() =>
+        new Promise<{ columns: number; beside: boolean[] }>((resolve) =>
+          requestAnimationFrame(() => {
+            const cards = [
+              ...document.querySelectorAll(".wall-list > .wall-card"),
+            ];
+            resolve({
+              columns: new Set(
+                cards.map((card) =>
+                  Math.round(card.getBoundingClientRect().left)
+                ),
+              ).size,
+              beside: cards.flatMap((card) => {
+                const glyph = card.querySelector(".wall-card-glyph")
+                  ?.getBoundingClientRect();
+                const title = card.querySelector(".wall-card-title")
+                  ?.getBoundingClientRect();
+                return glyph === undefined || title === undefined
+                  ? []
+                  : [glyph.right <= title.left && glyph.top < title.bottom];
+              }),
+            });
+          })
+        )
+      );
+      assert(laid.beside.length > 0, "the wall holds cards with glyphs");
+      assertEquals(
+        new Set(laid.beside).size,
+        1,
+        `at ${width}px every benefit card is set the same way`,
+      );
+      seen.push({
+        width,
+        columns: laid.columns,
+        beside: laid.beside[0] === true,
+      });
+    }
+    assert(
+      seen.some((size) => size.columns === 1) &&
+        seen.some((size) => size.columns > 1),
+      "the sizes tried cover a wall of one column and of several",
+    );
+    assertEquals(
+      seen.filter((size) => size.beside !== (size.columns === 1)),
+      [],
+      "the glyph is beside the words in one column, and above them in several",
+    );
+  });
 });

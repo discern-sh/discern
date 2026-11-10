@@ -38,8 +38,6 @@
 
 @layer discern.components {
   .wall-card {
-    --wall-accent: oklch(80% var(--wall-chroma) var(--wall-hue));
-
     /* Where the pointer sits inside the card it is over: -1 to 1 on each
      * axis, 0 at the center. The card writes both while a pointer hovers. */
     --wall-pointer-x: 0;
@@ -59,8 +57,8 @@
   .wall-card-face {
     --wall-card-surface: linear-gradient(
       180deg,
-      oklch(19.5% 0.008 265),
-      oklch(15.5% 0.008 265)
+      var(--wall-face-head),
+      var(--wall-face-foot)
     );
     --wall-card-wash: radial-gradient(
       12rem circle at 0 0,
@@ -108,7 +106,11 @@
    * face that lifts or tilts, and following the pointer changes brightness
    * only. The box has nothing inside it, so a new place restyles it alone:
    * written on the face, the same value would cost every child of the face
-   * a second look each frame. */
+   * a second look each frame.
+   *
+   * The light is white and faint, the same on every card it reaches, so the
+   * cards round the pointer read as lit by one light. A card shows its own
+   * hue only while the pointer is on it or the keyboard has reached it. */
   .wall-card-light {
     --wall-card-light-x: 0px;
     --wall-card-light-y: 0px;
@@ -123,8 +125,8 @@
       var(--wall-light-throw) circle at var(--wall-card-light-x)
       var(--wall-card-light-y),
       oklch(
-        86% var(--wall-chroma) var(--wall-hue) /
-        calc(0.45 * var(--wall-light-strength) * var(--wall-card-light-on))
+        100% 0 0 /
+        calc(0.2 * var(--wall-light-strength) * var(--wall-card-light-on))
       ),
       transparent
     )
@@ -189,12 +191,15 @@
     color: var(--wall-accent);
   }
 
+  /* A word longer than the card is wide breaks where it must, so a narrow
+   * card never pushes its heading out past its own edge. */
   .wall-card-title {
     font-size: 1.03125rem;
     font-weight: 600;
     line-height: 1.25;
     letter-spacing: -0.012em;
     text-wrap: balance;
+    overflow-wrap: anywhere;
   }
 
   .wall-card-line {
@@ -254,6 +259,10 @@
     color: var(--wall-accent);
   }
 
+  /* The margins are for the browser's own scroll to a focused card. The bar
+   * pinned over the wall hides what passes under it, so a card the keyboard
+   * reaches comes to rest clear of the bar, with the whole of the card above
+   * its heading in view. */
   .wall-card-open {
     padding: 0;
     border: 0;
@@ -261,6 +270,8 @@
     text-align: start;
     cursor: pointer;
     appearance: none;
+    scroll-margin-block: 9.5rem 2rem;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* The card's one button covers the whole face, border included. */
@@ -301,6 +312,28 @@
 
   .wall-card:active .wall-card-face::after {
     opacity: 0;
+  }
+
+  /* Where the wall is one column, a benefit card sets its glyph beside its
+   * words, not above them, and the wall is about a quarter shorter to
+   * scroll. The width here is the widest at which the list has one column. */
+  @media (max-width: 37.875rem) {
+    .wall-card--benefit .wall-card-face {
+      grid-template-columns: 2.5rem minmax(0, 1fr);
+      column-gap: 0.875rem;
+      padding: 1rem 1rem 1.125rem;
+    }
+
+    .wall-card--benefit .wall-card-glyph {
+      grid-row: 1 / span 2;
+      inline-size: 2.5rem;
+      block-size: 2.5rem;
+      margin: 0;
+    }
+
+    .wall-card--benefit :is(.wall-card-title, .wall-card-line) {
+      grid-column: 2;
+    }
   }
 
   /* Motion belongs to the face, never to the list item, so a moving card
