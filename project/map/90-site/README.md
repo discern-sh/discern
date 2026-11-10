@@ -14,31 +14,32 @@ The public pages for discern live in this repository, so the gate checks the sit
 
 [`site/serve.ts`](../../../site/serve.ts) is the production fetch handler. It combines independently owned reading surfaces:
 
-| Surface           | Authority                                                                                                                          | Public role                                                                                     |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `/`               | [`MARKETING_PAGES`](../../../site/marketing_pages.ts) and the typed compositions under [`site/ui/pages/`](../../../site/ui/pages/) | Desire. The registry also holds the unpublished `/agents` composition.                          |
-| `/releases`       | [Release records and comparison](releases.md)                                                                                      | Release history and stable recommendations rendered from the shared comparison model.           |
-| `/docs`           | The validated manual projection from `project/manual/`                                                                             | Current product documentation, exact reference, and recovery.                                   |
-| `/map`            | The configured Map filtered by canonical tier and publication policy                                                               | Inspectable evidence of the account discern's agents maintain for project work and human audit. |
-| `/docs/decisions` | Published records under `project/map/_adr/`                                                                                        | Project history, explicitly outside current product documentation.                              |
+| Surface           | Authority                                                                                                                                                                                                                | Public role                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `/`               | [`MARKETING_PAGES`](../../../site/marketing_pages.ts), the typed compositions under [`site/ui/pages/`](../../../site/ui/pages/), and [the homepage wall](the-homepage-wall.md) under [`site/wall/`](../../../site/wall/) | Desire. The registry also holds the unpublished `/agents` composition.                          |
+| `/releases`       | [Release records and comparison](releases.md)                                                                                                                                                                            | Release history and stable recommendations rendered from the shared comparison model.           |
+| `/docs`           | The validated manual projection from `project/manual/`                                                                                                                                                                   | Current product documentation, exact reference, and recovery.                                   |
+| `/map`            | The configured Map filtered by canonical tier and publication policy                                                                                                                                                     | Inspectable evidence of the account discern's agents maintain for project work and human audit. |
+| `/docs/decisions` | Published records under `project/map/_adr/`                                                                                                                                                                              | Project history, explicitly outside current product documentation.                              |
 
 The main implementation boundaries are:
 
-| Piece                                                         | Role                                                                                 |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`site/docs.tsx`](../../../site/docs.tsx)                     | Discovers and validates the manual, decision, and map models and renders bodies.     |
-| [`site/documents.tsx`](../../../site/documents.tsx)           | Serves every document request: negotiation, raw editions, search index, React pages. |
-| [`site/search.ts`](../../../site/search.ts)                   | Builds the reader-visible search projection for the published manual.                |
-| [`site/seo.tsx`](../../../site/seo.tsx)                       | Canonical metadata, redirect validation, discovery files, and security policy.       |
-| [`site/social/`](../../../site/social/)                       | Draws each HTML route's link-preview card on request.                                |
-| [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Enrolls every static public composition in build, serving, prose, and route guards.  |
-| [`site/design_system.ts`](../../../site/design_system.ts)     | Owns route bundles, package selections, assets, and theme.                           |
-| [`site/build.ts`](../../../site/build.ts)                     | Emits selected package bundles and static marketing shells.                          |
-| [`site/build_inputs.ts`](../../../site/build_inputs.ts)       | Defines the site-owned source boundary for watched builds.                           |
-| [`site/dev.ts`](../../../site/dev.ts)                         | Runs loopback-only previews and source-driven rebuilds.                              |
-| [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts)     | Crawls the real handler across routes, links, metadata, raw editions, and redirects. |
+| Piece                                                         | Role                                                                                    |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [`site/docs.tsx`](../../../site/docs.tsx)                     | Discovers and validates the manual, decision, and map models and renders bodies.        |
+| [`site/documents.tsx`](../../../site/documents.tsx)           | Serves every document request: negotiation, raw editions, search index, React pages.    |
+| [`site/search.ts`](../../../site/search.ts)                   | Builds the reader-visible search projection for the published manual.                   |
+| [`site/seo.tsx`](../../../site/seo.tsx)                       | Canonical metadata, redirect validation, discovery files, and security policy.          |
+| [`site/social/`](../../../site/social/)                       | Draws each HTML route's link-preview card on request.                                   |
+| [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Enrolls every public composition in build, serving, prose, and route guards.            |
+| [`site/wall/`](../../../site/wall/)                           | Holds the homepage wall: its cards, glyphs, hooks, tuning table, and browser island.    |
+| [`site/design_system.ts`](../../../site/design_system.ts)     | Owns route bundles, package selections, assets, and theme.                              |
+| [`site/build.ts`](../../../site/build.ts)                     | Emits selected package bundles, the homepage island's bundle, and the marketing shells. |
+| [`site/build_inputs.ts`](../../../site/build_inputs.ts)       | Defines the site-owned source boundary for watched builds.                              |
+| [`site/dev.ts`](../../../site/dev.ts)                         | Runs loopback-only previews and source-driven rebuilds.                                 |
+| [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts)     | Crawls the real handler across routes, links, metadata, raw editions, and redirects.    |
 
-[The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [Publishing](publishing.md) owns local previews and production deployment. [Social cards](social-cards.md) owns each page's link-preview image. [Authoring](authoring.md) explains the TSX structure, component boundary, and browser interaction model.
+[The docs section](the-docs-section.md) owns the corpus boundaries, navigation, rendering, search, raw, and admission contracts. [Design-system consumption](design-system-consumption.md) owns static composition and package boundaries. [The homepage wall](the-homepage-wall.md) owns the homepage body, its hydrated island, and the motion contract. [Publishing](publishing.md) owns local previews and production deployment. [Social cards](social-cards.md) owns each page's link-preview image. [Authoring](authoring.md) explains the TSX structure, component boundary, and browser interaction model.
 
 ## Route authority
 
@@ -71,11 +72,12 @@ Every response class, including assets, redirects, and errors, receives the same
 - [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real socket and crawls every canonical and raw route, link, anchor, redirect variant, and response class.
 - [`tests/site_social_cards_test.ts`](../../../tests/site_social_cards_test.ts) lays out every live route's social card and holds its title to a complete fit.
 - [`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) enrolls every `MARKETING_PAGES` composition in its declared public register. The manual has its separate product-voice corpus.
+- [`tests/site_wall_island_test.ts`](../../../tests/site_wall_island_test.ts) crawls every live HTML route and allows a React runtime in the browser only inside the homepage island. [The homepage wall](the-homepage-wall.md#guards) lists the wall's other guards.
 
 - [Release-page guards](releases.md#visual-and-accessibility-review) cover normalized comparison states, query metadata, no-JavaScript operation, and the real browser journey.
 
 ## Current state
 
-The homepage is static build output from a typed source. Manual and decision pages render at request time through the document layout. The map overview uses the shared marketing layout and links to repository sources; its entries have no individual website endpoints. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
+The homepage is build output from a typed source: static chrome around the wall, which one browser island hydrates ([ADR 0430](../_adr/0430-the-homepage-ships-one-hydrated-react-island.md)). No other page hydrates. Manual and decision pages render at request time through the document layout. The map overview uses the shared marketing layout and links to repository sources; its entries have no individual website endpoints. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
 
-`deno task site:build` owns ignored output under `site/pages/`, and Deno Deploy runs that build before starting the handler. Never hand-edit generated shells or emitted design-system assets.
+`deno task site:build` owns ignored output under `site/pages/`, and Deno Deploy runs that build before starting the handler. Never hand-edit generated shells, the island bundle, or emitted design-system assets.

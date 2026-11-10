@@ -12,13 +12,17 @@ Start in [`site/ui/pages/`](../../../site/ui/pages/) for a React page and [`site
 
 HTML-producing site modules use `.tsx`; routing, registries, data models, and build orchestration use `.ts`. [`site/docs.tsx`](../../../site/docs.tsx) owns the manual, Map, and decision models, the Markdown body renderer with its Workflow and glossary projections, and the exported navigation facts (breadcrumb trails, pager adjacency, colophon destinations). It imports no React: the site route inventory evaluates it during codegen under permissions that exclude the `NODE_ENV` read `react-dom` performs on load. [`site/documents.tsx`](../../../site/documents.tsx) is where the React pages join that model: it negotiates each document request, serves raw editions and the search index, and renders the page components. The [docs contract](the-docs-section.md) governs that surface.
 
+The homepage body lives apart in [`site/wall/`](../../../site/wall/), because the browser hydrates it. Start in [The homepage wall](the-homepage-wall.md) before changing a card, a glyph, the motion, or the island.
+
 ## Rendering and interaction
 
 Marketing components render during `site:build`. Releases, the map overview, and every manual and decision page render on the server from their content models. Marketing-family pages use `Document` and `MarketingLayout`; document pages use `Document` and [`DocumentLayout`](../../../site/ui/layouts/DocumentLayout.tsx) ([ADR 0402](../_adr/0402-site-layouts-use-server-rendered-react-components.md)).
 
-Server rendering produces the initial HTML. It does not run `useEffect` or attach React event handlers in the visitor's browser. The site currently uses the package's selected enhancements and page-owned JavaScript for interaction. Theme selection and Command's copy control both come from the package runtime; the site supplies only its theme storage policy and the pre-paint bootstrap.
+Server rendering produces the initial HTML. It does not run `useEffect` or attach React event handlers in the visitor's browser. Outside the homepage wall, the site uses the package's selected enhancements and page-owned JavaScript for interaction. Theme selection and Command's copy control both come from the package runtime; the site supplies only its theme storage policy and the pre-paint bootstrap.
 
-Hydration would load a browser React entrypoint and connect React to matching server-rendered markup. That enables effects and stateful components, while adding JavaScript, initial-state consistency, and browser build obligations. A component needing hydration must have that integration explicitly; a server-rendering import alone cannot provide it.
+Hydration loads a browser React entrypoint and connects React to matching server-rendered markup. That enables effects and stateful components, while adding JavaScript, initial-state consistency, and browser build obligations. The homepage wall is the only hydrated subtree ([ADR 0430](../_adr/0430-the-homepage-ships-one-hydrated-react-island.md)): [`site/wall/island.tsx`](../../../site/wall/island.tsx) is the site's one browser entrypoint, and the build bundles it for `/` alone. A hook or event handler added to any other server component still does nothing in the browser. A second hydrated page needs its own decision. Until then, the [island guards](the-homepage-wall.md#guards) fail on any other script that carries a React runtime.
+
+A component under `site/wall/` runs in both places. It must render the same markup on the server and in the browser, so it reads nothing from the browser before an effect runs. [Server render and hydration](the-homepage-wall.md#server-render-and-hydration) lists the rules.
 
 ## Local editing
 
@@ -28,7 +32,7 @@ Run this Project Script from the effort's worktree:
 discern scripts site-watch
 ```
 
-It prints the localhost address, builds the site, and watches authored inputs. Reload the browser after a rebuild. This is a source watcher, not React Fast Refresh. Treat generated page HTML under `site/pages/` as output and edit its TSX source; shared authored assets in `site/pages/assets/` remain editable.
+It prints the localhost address, builds the site, and watches authored inputs. Reload the browser after a rebuild. This is a source watcher, not React Fast Refresh: a wall edit rebuilds the island bundle under a new file name, and the reloaded page links it. Treat generated page HTML under `site/pages/` as output and edit its TSX source; shared authored assets in `site/pages/assets/` remain editable.
 
 ## Add a public route
 
@@ -44,6 +48,6 @@ Use [`MARKETING_PAGES`](../../../site/marketing_pages.ts) for a static compositi
 
 ## Component ownership
 
-Use the package React adapter for a component. Site CSS owns composition and page classes; package classes and internal element structure stay upstream. [`site_ui_test.ts`](../../../tests/site_ui_test.ts) checks every authored site module for HTML-producing TypeScript and checks shared UI sources for package-class reconstruction and HTML-insertion boundaries.
+Use the package React adapter for a component. Site CSS owns composition and page classes; package classes and internal element structure stay upstream. [`site_ui_test.ts`](../../../tests/site_ui_test.ts) checks every authored site module for HTML-producing TypeScript. It checks the component trees, `site/ui/` and `site/wall/`, for package-class reconstruction and HTML-insertion boundaries.
 
 A page that places package Markdown beneath its own heading passes the package's document context — a base heading level and an id prefix — instead of adjusting rendered output. [`HtmlFragment.tsx`](../../../site/ui/components/HtmlFragment.tsx) is the insertion boundary for trusted rendered markup and the authored theme bootstrap. Direct request text must never enter it. This module is the sole shared UI lint exclusion because it owns raw HTML insertion; the structural guard rejects that operation elsewhere in the shared UI. The other React modules and site build use the normal lint policy.

@@ -24,7 +24,7 @@ Every HTML route has its own link-preview image at `/og/<route>.png`, with `/og/
 
 ## What a card says
 
-- A marketing page shows a headline and one supporting line. The homepage repeats its hero headline and the footer's category line. Both are constants in [`site/brand.ts`](../../../site/brand.ts), so one edit changes the page and the card together.
+- A marketing page shows a headline and one supporting line. The homepage card repeats the wall's headline and the category line beneath it. Both are constants in [`site/brand.ts`](../../../site/brand.ts), so one edit changes the page and the card together.
 - A document shows an eyebrow, its title, and its description. A manual page's eyebrow carries the section number and name. It adds the page's purpose when the section name does not already say it. A decision's eyebrow carries its record number, and its title drops the `ADR NNNN:` prefix.
 - The releases page shows the newest stable release with its codename, date, and summary. Before the first release, it shows the newest record instead.
 
@@ -40,6 +40,6 @@ Edit a layout in `draw.tsx` and request the card from a local preview, for examp
 
 ## Guards
 
-- [`tests/site_social_cards_test.ts`](../../../tests/site_social_cards_test.ts) lays out every live route's card. It fails when a title loses words or a character has no drawing. It also checks card addresses, the served image's size, and the retired-image redirects. A backdrop check holds the card's ring ratio to the homepage backdrop's.
+- [`tests/site_social_cards_test.ts`](../../../tests/site_social_cards_test.ts) lays out every live route's card. It fails when a title loses words or a character has no drawing. It also checks card addresses, the served image's size, and the retired-image redirects. A backdrop check holds the card's ring ratio to the design-system package's Approach backdrop. The cards still draw that backdrop; the homepage wall does not show it.
 - [`tests/site_social_cards_browser_test.ts`](../../../tests/site_social_cards_browser_test.ts) compares every card color with the value its token computes in the site's dark theme.
 - [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) and the [process smoke](publishing.md#verify-a-deploy) check that every page names its own card. The smoke also fetches one card of each kind.

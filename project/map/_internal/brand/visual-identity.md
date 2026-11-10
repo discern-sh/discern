@@ -71,9 +71,9 @@ What the package means for the brand:
 
 - **The visual decisions live as typed design tokens:** typography, color, and spacing, with discern's blue as the identity color of the default theme.
 - **Typography is self-hosted.** Fonts and textures ship with the package; public pages depend on no third-party asset host.
-- **Pages ship as static, semantic HTML and CSS.** React is only an optional build-time adapter; the browser receives no framework runtime. The quiet, fast result is part of the premium feel.
+- **Pages are complete as semantic HTML and CSS.** React is an optional adapter that renders them on the server, so a page's content is in its HTML before any script runs. The homepage is the only page that hydrates: it loads one React island for its wall (ADR 0430). No other page sends a framework runtime to the browser. The quiet, fast result is part of the premium feel.
 
-Components, tokens, the catalog, and theming seams belong to the package itself; the brand documents stay at this altitude. The public website consumes the browser graph, while terminal surfaces consume the React-free CLI graph. MCP results remain structured product facts rather than a visual projection. New visual surfaces draw on the same package and inherit its decisions.
+Components, tokens, the catalog, and theming seams belong to the package itself; the brand documents stay at this altitude. The public website consumes the browser graph, while terminal surfaces consume the React-free CLI graph. MCP results remain structured product facts rather than a visual projection. New visual surfaces draw on the same package and inherit its decisions. The homepage wall is the exception: it sets its type in the package's fonts, and its cards, glyphs, and dark palette are site-owned.
 
 ## Relationship to the verbal brand
 

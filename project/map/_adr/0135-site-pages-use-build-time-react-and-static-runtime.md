@@ -5,6 +5,7 @@
 > **Current-consumer amendment (2026-07-28; [ADR 0205](0205-browser-workflow-semantics-are-explicit-markdown-projections.md)):** `/design-system-demo` was the first consumer at the time of this decision. The homepage and browser manual now consume the external package too, and selected manual blocks project its published Workflow semantics from complete Markdown. The build-time React and framework-free browser-runtime decision stands.
 >
 > - **React site authoring:** Website rendering uses React at build time and on the server; the browser still receives HTML and explicit progressive enhancements. The build-only server restriction is replaced. See [ADR 0402](0402-site-layouts-use-server-rendered-react-components.md).
+> - **Homepage island:** The route `/` hydrates one React island, and its browser receives a React runtime inside that island's bundle. This is the later decision the static-runtime clause reserved. Every other route keeps the static browser runtime. See [ADR 0430](0430-the-homepage-ships-one-hydrated-react-island.md).
 
 **Status**: accepted
 

@@ -12,7 +12,7 @@ aliases:
 
 _Every direct child-process constructor has one declared boundary._
 
-[`subprocess.ts`](../../../src/shared/subprocess.ts) owns ordinary Git and buffered shell execution, including safe arguments, capture, bounds, and descendant quiescence. Use `runGit` or `runShell` when they fit. Specialized operations retain constructors for interactive input/output, live gate streaming, platform launch, standard-input formatting, or process-group supervision.
+[`subprocess.ts`](../../../src/shared/subprocess.ts) owns ordinary Git and buffered shell execution, including safe arguments, capture, bounds, and descendant quiescence. Use `runGit` or `runShell` when they fit. Specialized operations retain constructors for interactive input/output, live gate streaming, platform launch, standard-input formatting, or process-group supervision. The site build's byte-transform boundary, [`denoTransform`](../../../site/page-src/format-generated.ts), serves both `deno fmt` for generated pages and `deno bundle` for the homepage island, so the two share one registered row.
 
 Read-only Git discovery can opt into the isolated environment fallback when its host grants only named environment variables. The shared planner queries the full-environment grant without prompting; when it is unavailable, the child receives only sanitized explicit overrides and no inherited environment. Ordinary Git operations still require the full environment so identity and hooks retain their context. The [subprocess tests](../../../tests/subprocess_test.ts) guard the fallback before enumeration, and the [preview tests](../../../tests/site_development_test.ts) exercise each task's declared permissions.
 

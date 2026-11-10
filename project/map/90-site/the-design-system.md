@@ -76,7 +76,7 @@ The docs site's React-free Markdown renderer passes fenced code through `project
 
 Release 0.22.0 gives Toast and shared Forms frames balanced horizontal padding and omits routine derived lifecycle tokens from labels. Search retains its pending signal, while callers can request explicit diagnostic status through `showStatus`. Meter, Badge, Activity log, Section, and Procedure receive package-owned presentational refinements without changing discern's product data or effect boundaries. Real-TTY tests synchronize input from the authored request label rather than optional lifecycle decoration.
 
-The package registry now includes Layout `Masonry`. The compositions bundle selects the Marketing group and therefore carries `FeatureBento` runtime assets. No discern page renders a `FeatureBento` instance, so its strict rectangular tiling contract has no product call site here.
+The package registry includes Layout `Masonry` and Marketing `FeatureBento`. No discern page renders either. The compositions bundle selects the Marketing components the site renders, the site header and footer, instead of the Marketing group, so it carries no `FeatureBento` runtime assets. [The homepage wall](the-homepage-wall.md) lays out its own columns in site CSS.
 
 ## Release 0.19.0 Markdown contracts
 
@@ -130,14 +130,14 @@ Mixed Result summaries compose through the package's group renderer, which align
 
 [`site/design_system.ts`](../../../site/design_system.ts) contains the complete integration. Its `DESIGN_SYSTEM_BUNDLES` table declares:
 
-| Bundle         | Routes                      | Selection                                              | Optional assets |
-| -------------- | --------------------------- | ------------------------------------------------------ | --------------- |
-| `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
-| `compositions` | `/` and `/releases`         | Marketing, Editorial, and shared display parts         | fonts           |
+| Bundle         | Routes                       | Selection                                                       | Optional assets |
+| -------------- | ---------------------------- | --------------------------------------------------------------- | --------------- |
+| `docs`         | `/docs` and its descendants  | Docs, shared chrome, and the 6 rendered Workflow roots          | fonts           |
+| `compositions` | `/`, `/map`, and `/releases` | Editorial, the site header and footer, and shared display parts | fonts           |
 
 The table also owns the emitted public directories. Beside it, [`SITE_APPEARANCE`](../../../site/appearance.ts) is the single browser Appearance authority: it selects the package's symmetric scope CSS and names the Accent roots and hue 255 that retain discern's blue identity. [`site/build.ts`](../../../site/build.ts) passes that scope selection and each bundle selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a schema-4 manifest, and the requested assets. The production marketing and docs document builders put the shared root contract on `<html>`; nested fixed-theme specimen and art roots reuse its Accent activation and inherit the hue. The discern integration reads package outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
-The document layout loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The `/` and `/releases` pages load the full selected bundle from `/assets/design-system/compositions/`. Each document in that bundle loads the package behavior script emitted for its selection. The release page uses the public semantic class contract at request time; the other marketing pages use build-time adapters. Both bundles select fonts; neither selects the optional grain asset. Generated output stays ignored beneath `site/pages/assets/design-system/`.
+The document layout loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The `/`, `/map`, and `/releases` pages load the full selected bundle from `/assets/design-system/compositions/`. Each document in that bundle loads the package behavior script emitted for its selection. The homepage also loads the wall's stylesheets and island bundle, which the build writes into the same directory. The release page uses the public semantic class contract at request time; the other marketing pages use build-time adapters. Both bundles select fonts; neither selects the optional grain asset. Generated output stays ignored beneath `site/pages/assets/design-system/`.
 
 ### Output coverage
 
@@ -147,10 +147,10 @@ The document layout loads its smaller bundle from `/assets/design-system/docs/`,
 
 [`tests/site_component_coverage_test.ts`](../../../tests/site_component_coverage_test.ts) separately requires every live route to render at least one component owned by its assigned bundle. The census does not score every Document Object Model (DOM) element: product copy, composition markup, and bespoke artwork remain site-owned. The consumer-style guard prevents those composition sheets from reaching into package-owned selectors.
 
-The docs bundle selects the `Docs` group plus the shared `icon`, `icon-button`, `theme-toggle`, `brand`, `divider`, `heading`, `kicker`, `table`, `breadcrumbs`, and `table-of-contents` components. Its explicit Workflow roots are `procedure`, `command`, `result-summary`, `path-reference`, `ownership-badge`, and `branch-choice`; the package adds their dependencies in manifest order. A selected Workflow root must appear on a real manual journey, and a rendered root must resolve into this bundle.
+The docs bundle selects the `Docs` group plus the shared `icon`, `icon-button`, `theme-toggle`, `brand`, `kicker`, `table`, `breadcrumbs`, and `table-of-contents` components. Its explicit Workflow roots are `procedure`, `command`, `result-summary`, `path-reference`, `ownership-badge`, and `branch-choice`; the package adds their dependencies in manifest order. A selected Workflow root must appear on a real manual journey, and a rendered root must resolve into this bundle.
 
 Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/ui/components/Brand.tsx`](../../../site/ui/components/Brand.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. The document layout renders the same adapter in the Docs header. Both marketing compositions pass the same mark and name treatment into the Marketing `SiteHeader` campaign variant.
 
-The homepage and release page select the monochrome Appearance; the other page families retain the explicit site Accent. Their [compositions](design-system-consumption.md) own product content and page layout. Shared component styling, assets, and behavior stay in the immutable package. The browser receives semantic HTML and local assets without a React runtime.
+The homepage and release page select the monochrome Appearance; the other page families retain the explicit site Accent. Their [compositions](design-system-consumption.md) own product content and page layout. Shared component styling, assets, and behavior stay in the immutable package. The browser receives semantic HTML and local assets. Only the homepage also receives a React runtime, inside the island bundle for [its wall](the-homepage-wall.md), whose look is site-owned and outside the package ([ADR 0430](../_adr/0430-the-homepage-ships-one-hydrated-react-island.md)).
 
 The static page boundary, marketing compositions, build commands, and manifest-driven consumer guards are recorded separately in [design-system-consumption.md](design-system-consumption.md).

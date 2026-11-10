@@ -20,11 +20,11 @@ deno task site:smoke              # build, self-host, and crawl the real handler
 deno serve --host 127.0.0.1 --allow-read --port 9000 site/serve.ts  # after build
 ```
 
-The `site` task first runs `site:build`, which deterministically creates the ignored design-system marketing shells and assets. It then serves the same handler on the loopback-only `http://localhost:4507/` in the main checkout. In a discern worktree, both tasks discover its deterministic identity port automatically, so concurrent previews use separate ports. An explicit `PORT` takes precedence. The `watch` task performs the same initial build, then rebuilds in a fresh Deno process when marketing sources, the manual, the map, shared document primitives, the site-owned design-system selection, or build configuration changes. [`SITE_BUILD_INPUTS`](../../../site/build_inputs.ts) is that watched boundary. After a watched rebuild fails, the watcher reports the failure and waits for a correcting edit. Local and production expose the same route surface. The generic component catalog lives in the design-system package repository and the discern site does not mount it.
+The `site` task first runs `site:build`, which deterministically creates the ignored design-system marketing shells and assets, including the island bundle for [the homepage wall](the-homepage-wall.md#the-build-step). It then serves the same handler on the loopback-only `http://localhost:4507/` in the main checkout. In a discern worktree, both tasks discover its deterministic identity port automatically, so concurrent previews use separate ports. An explicit `PORT` takes precedence. The `watch` task performs the same initial build, then rebuilds in a fresh Deno process when marketing sources, the manual, the map, shared document primitives, the site-owned design-system selection, or build configuration changes. [`SITE_BUILD_INPUTS`](../../../site/build_inputs.ts) is that watched boundary. After a watched rebuild fails, the watcher reports the failure and waits for a correcting edit. Local and production expose the same route surface. The generic component catalog lives in the design-system package repository and the discern site does not mount it.
 
 Local preview processes identify themselves only at `127.0.0.1`. A new one-shot `site` run builds successfully before it asks a compatible older one-shot preview from the same checkout to close, then serves the fresh build at the same URL. An existing `watch` preview stays in place because it already rebuilds authored changes; another `site` or `watch` invocation prints that live URL instead. An unrelated or older process is never killed blindly: the task reports the occupied browser URL and tells the user to open it or select another `PORT`.
 
-Deno Deploy runs the same build task before it starts the handler through the [`site/main.ts`](../../../site/main.ts) `Deno.serve` entrypoint. The current Deno Deploy runs an entrypoint with `deno run`, as described below. A build failure stops the deployment before the revision receives traffic.
+Deno Deploy runs the same build task before it starts the handler through the [`site/main.ts`](../../../site/main.ts) `Deno.serve` entrypoint. The current Deno Deploy runs an entrypoint with `deno run`, as described below. A build failure stops the deployment before the revision receives traffic. The build runs `deno fmt` and `deno bundle` through the Deno that executes it, so the hosted build needs a Deno release that provides `deno bundle`.
 
 The [release-page review journey](releases.md#visual-and-accessibility-review) exercises published comparisons through the production handler using synthetic records. A normal local build has no publication snapshot and therefore labels its authored notes as unpublished. Keep fixture publication evidence out of the source and deployment input.
 
@@ -38,7 +38,7 @@ Check both readers:
 
 ```sh
 curl -s localhost:4507/           # prints the llms.txt plaintext edition
-open http://localhost:4507/       # renders the generated design-system homepage
+open http://localhost:4507/       # renders the generated homepage
 ```
 
 ## Deploy to production (Deno Deploy)

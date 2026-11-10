@@ -10,7 +10,7 @@ aliases:
 
 ## React authoring and HTML responses
 
-The site's React pages live in [`site/ui/`](../../../site/ui/). Marketing pages render at build time; Releases and the map directory render on the server. Their shared document and layout components use the package's typed React adapters. The browser receives HTML, CSS, and explicit progressive enhancements, with no hydration ([ADR 0402](../_adr/0402-site-layouts-use-server-rendered-react-components.md)). See [Authoring site pages](authoring.md) for editing locations and the server/browser distinction.
+The site's React pages live in [`site/ui/`](../../../site/ui/). Marketing pages render at build time; Releases and the map directory render on the server. Their shared document and layout components use the package's typed React adapters. The browser receives HTML, CSS, and explicit progressive enhancements ([ADR 0402](../_adr/0402-site-layouts-use-server-rendered-react-components.md)). The homepage is the only page that also hydrates: it loads a React island for [its wall](the-homepage-wall.md) ([ADR 0430](../_adr/0430-the-homepage-ships-one-hydrated-react-island.md)). See [Authoring site pages](authoring.md) for editing locations and the server/browser distinction.
 
 Layout and display components render completely as semantic HTML. The package emits selection-scoped, framework-neutral enhancements for reusable component behavior. Page behavior remains page-owned. Product copy, routes, commands, bespoke artwork, docs rendering, and composition Cascading Style Sheets (CSS) remain in discern.
 
@@ -26,13 +26,13 @@ The marked Markdown is the authority for every command and outcome in the projec
 
 ## The homepage composition
 
-[`site/ui/pages/HomePage.tsx`](../../../site/ui/pages/HomePage.tsx) owns the homepage composition, route metadata boundary, and asset selection. It composes the package's marketing blocks in order. A statement Hero block sits over the monochrome Approach backdrop, which arrives, drifts inward, and dollies with scroll. Phones hold that backdrop still, in portrait and in landscape. [`landing.css`](../../../site/page-src/landing.css) applies the package's `motion="still"` rules at phone-sized viewports, which the prop cannot see. [`tests/site_homepage_browser_test.ts`](../../../tests/site_homepage_browser_test.ts) proves in a browser which viewports move. The hero carries the launch introduction, a Get started link to `/docs/start`, and the agent Logo cloud in its visual slot. The benefit blocks follow in a compact Marketing section, then a Narrative chapter on the practice and a Feature bento of what the project gains. The hero eyebrow reads the version from [`src/lib/version.ts`](../../../src/lib/version.ts). The Logo cloud derives each agent's name, mark, and dark-theme silhouette from the provider registry, so a new provider appears without a copy change. The manual holds the detailed product information.
+[`site/ui/pages/HomePage.tsx`](../../../site/ui/pages/HomePage.tsx) owns the homepage document: its route metadata, the monochrome Appearance, its stylesheets and scripts, and the host element for the wall. The body is [the homepage wall](the-homepage-wall.md), which lives in [`site/wall/`](../../../site/wall/) and renders none of the package's marketing blocks. The wall sets its type with the package's font tokens and declares its rules in the package's component cascade layer. Its card surfaces, glyphs, and dark palette are site-owned, and the wall is dark in both site themes. The eyebrow reads the version from [`src/lib/version.ts`](../../../src/lib/version.ts). The manual holds the detailed product information.
 
 [`MarketingLayout.tsx`](../../../site/ui/layouts/MarketingLayout.tsx) owns shared landmarks and takes the route being rendered. The [site header](../../../site/ui/components/SiteHeader.tsx) and [site footer](../../../site/ui/components/SiteFooter.tsx) use the package adapters, and the header renders the package Theme toggle directly. Pages supply navigation, actions, footer destinations, and body content. [`CopyPrompt.tsx`](../../../site/ui/components/CopyPrompt.tsx) owns the commissioning text and uses the package Button; `site/page-src/copy-prompt.js` supplies its clipboard enhancement.
 
 [`site/navigation.ts`](../../../site/navigation.ts) owns route matching for the header: a destination equal to the route is the current page, and a destination whose branch contains it is the current section. The package renders both states from `aria-current` and styles them; the site never restates the anchor markup.
 
-The marketing blocks, header, and footer share the package's wide campaign frame through their `frame` option. The Logo cloud fills the hero's visual slot. The large bento tile aligns its copy to the tile's end. The footer asks for one row per navigation group. [`site/page-src/landing.css`](../../../site/page-src/landing.css) styles only the page's own composition classes: the eyebrow, introduction, benefit row, and chapter subheading. It reaches into no package block. A layout the package cannot express needs a package option first. Component behavior and artwork come from the selected design-system runtime. The homepage has no page-specific browser script. [`site/brand.ts`](../../../site/brand.ts) owns the homepage's title and description.
+The header uses the package's campaign variant. The footer uses its wide frame, with one column per navigation group. The wall's stylesheets style only the wall's own `wall-` classes and reach into no package block. A shared layout the package cannot express needs a package option first. The homepage loads the package behavior script for the header and theme control, plus the wall island as its one page-specific script. [`site/brand.ts`](../../../site/brand.ts) owns the homepage's title, description, headline, and category line.
 
 ## The For Agents composition
 
@@ -50,7 +50,7 @@ The [human release page](releases.md#the-human-page) is rendered at request time
 
 The projection keeps the authored blocks a visitor reads and removes markup, attributes, code, artifact data, and repeated rendered copies. It stages each page under its declared register so the generated brand rules apply. `deno task site:prose-check` blocks Vale errors. `deno task site:prose` emits the alert numerator and exact word denominator consumed by `[standards.site_prose]`; `deno task site:reading-grade` reads the same projection for `[standards.site_reading_grade]`.
 
-The owner writes most public brand copy, and the house rules stay on as a safety net that catches a slip. When the owner keeps a flagged word, that word moves into its own rule, and [`.vale.ini`](../../../.vale.ini) switches the rule off for that page's staged path alone. The homepage keeps `empower(s)` and `simply` this way, through `Discern.CampaignHype` and `Discern.CampaignFiller`. Every other hype and filler word still blocks there, and [`tests/voice_vale_parity_test.ts`](../../../tests/voice_vale_parity_test.ts) proves the exemption stays that narrow.
+The owner writes most public brand copy, and the house rules stay on as a safety net that catches a slip. When the owner keeps a flagged word, that word moves into its own rule, and [`.vale.ini`](../../../.vale.ini) switches the rule off for that page's staged path alone. The homepage's staged path admits `empower(s)` and `simply` this way, through `Discern.CampaignHype` and `Discern.CampaignFiller`; the wall's copy uses neither word today. Every other hype and filler word still blocks there, and [`tests/voice_vale_parity_test.ts`](../../../tests/voice_vale_parity_test.ts) proves the exemption stays that narrow.
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. The discern site does not mount `/style-guide/` in development or production.
 
@@ -79,10 +79,11 @@ Every browser study keeps its TypeScript JSX (TSX) renderer and art-only CSS tog
 - every package browser script emitted for a selection being loaded by every route that uses that bundle;
 - runtime-manifest schema 4 and Appearance-scope selection;
 - exclusion of Marketing and Editorial CSS and grain from the docs bundle;
-- route-to-bundle coverage, local assets, media types, integrity, font licenses, and the absence of a React browser runtime; and
+- route-to-bundle coverage, local assets, media types, integrity, and font licenses;
+- a React runtime reaching the browser only inside the homepage island, judged by the content of every script a bundle route loads; and
 - the rule that consumer styles may compose package classes while leaving component-owned `.discern-*` selectors untouched.
 
-The published manifest automatically enrolls new package components and classes. `DESIGN_SYSTEM_BUNDLES` automatically enrolls new site selections and routes.
+The published manifest automatically enrolls new package components and classes. `DESIGN_SYSTEM_BUNDLES` automatically enrolls new site selections and routes. [`tests/site_wall_island_test.ts`](../../../tests/site_wall_island_test.ts) extends the runtime check from the bundle routes to every live HTML route.
 
 [`scripts/site_component_coverage.ts`](../../../scripts/site_component_coverage.ts) uses the same authorities to census selected components that have no manifest-owned class in any assigned live route. `[standards.site_component_gaps]` prevents that raw deficit from rising while the site converges on complete use of what it emits. [`tests/site_component_coverage_test.ts`](../../../tests/site_component_coverage_test.ts) keeps every live HTML route inside a selected component boundary.
 
@@ -91,7 +92,7 @@ The published manifest automatically enrolls new package components and classes.
 ## Build and theme
 
 ```sh
-deno task site:build   # emit both runtimes and the static marketing shells
+deno task site:build   # emit both runtimes, the homepage island, and the marketing shells
 deno task site         # build, then serve on the worktree's loopback port
 deno task watch        # rebuild when site-owned inputs change
 deno task site:prose-check # run the public-copy Vale gate
@@ -99,7 +100,7 @@ deno task site:prose   # measure the pinned public-copy density
 deno task site:reading-grade # measure the pinned reading grade
 ```
 
-The build and local server tasks explicitly grant `NODE_ENV` for React rendering. The production import graph permits server React and rejects its browser entrypoint. Response tests separately reject browser React assets. This keeps server-side rendering and client hydration as distinct choices.
+The build and local server tasks explicitly grant `NODE_ENV` for React rendering. The production import graph permits server React and rejects both `react-dom/client` and the wall's island entry. The build's own import graph rejects both too: it hands the island to `deno bundle` by path. Response tests allow a React runtime only in the homepage island's script. Server-side rendering and client hydration therefore stay distinct choices, and hydration is made for one page.
 
 The package's browser roles default to monochrome. [`SITE_APPEARANCE`](../../../site/appearance.ts) emits the symmetric Appearance scopes. Its root helper uses blue hue 255 by default; a page can select the monochrome projection through [`site/ui/Document.tsx`](../../../site/ui/Document.tsx). The homepage and release page select monochrome with `data-discern-accent="none"`. The other marketing pages, docs, and the Canon Editor retain the shared blue Accent, while fixed-theme specimen and art roots inherit that hue. Browser Appearance remains separate from terminal theme selection.
 
