@@ -840,47 +840,48 @@ export function seededGlyph(name: string): GlyphDrawing {
   const quarter = pick(4) * 90;
   switch (pick(6)) {
     case 0: {
-      const [x, y] = onCircle(24, 24, 19, 45 + quarter);
+      const [x, y] = onCircle(24, 24, 18, 45 + quarter);
       return [
-        ring(24, 24, 19),
-        dot(24, 24, 5 + pick(4), "tint"),
-        dot(round(x), round(y), 4.5),
+        band(24, 24, 18, 5, 0, 360, "tint"),
+        dot(24, 24, 7 + pick(3)),
+        dot(round(x), round(y), 5),
       ];
     }
     case 1: {
       const lit = pick(3);
       return [0, 1, 2].map((column) => {
-        const height = 16 + pick(5) * 6;
+        const height = 24 + pick(4) * 6;
         return bar(
-          4 + column * 15,
+          3 + column * 15.5,
           45 - height,
-          10,
+          11,
           height,
           column === lit ? "solid" : "tint",
         );
       });
     }
     case 2: {
-      const side = 10 + pick(3) * 3;
-      const [x, y] = onCircle(24, 24, 12, 45 + quarter);
+      const side = 12 + pick(3) * 3;
+      const [x, y] = onCircle(24, 24, 7, 45 + quarter);
       return [
-        frame(3, 3, 42, 42, 9),
+        dot(24, 24, 21, "tint"),
         bar(round(x - side / 2), round(y - side / 2), side, side),
       ];
     }
     case 3: {
-      const [x, y] = onCircle(24, 24, 13, quarter + 180);
+      const lit = pick(2) === 0;
+      const [x, y] = onCircle(24, 24, 12, quarter + 180);
       return [
-        sector(24, 24, 20, quarter - 90, 180, pick(2) === 0 ? "tint" : "solid"),
-        ring(round(x), round(y), 5.5),
+        sector(24, 24, 20, quarter - 90, 180, lit ? "solid" : "tint"),
+        dot(round(x), round(y), 8, lit ? "tint" : "solid"),
       ];
     }
     case 4: {
-      const sweep = 180 + pick(3) * 45;
+      const sweep = 150 + pick(3) * 45;
       return [
-        band(24, 24, 17, 6, quarter, sweep, "tint"),
-        band(24, 24, 17, 6, quarter + sweep + 30, 300 - sweep),
-        dot(24, 24, 5),
+        band(24, 24, 16.5, 8, quarter, sweep, "tint"),
+        band(24, 24, 16.5, 8, quarter + sweep + 40, 280 - sweep),
+        dot(24, 24, 6),
       ];
     }
     default: {
@@ -888,9 +889,9 @@ export function seededGlyph(name: string): GlyphDrawing {
       return [0, 1, 2].map((row) =>
         bar(
           3,
-          6 + row * 14.5,
-          24 + pick(4) * 6,
-          7,
+          4 + row * 15.5,
+          30 + pick(3) * 6,
+          9,
           row === lit ? "solid" : "tint",
         )
       );

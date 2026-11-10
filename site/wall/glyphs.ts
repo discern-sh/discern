@@ -42,36 +42,39 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     shift(dot(24, 13, 4), 0, -3),
     dot(39.25, 24, 4),
   ],
-  // Two parties joined by a bridge nobody has to carry.
+  // Two parties joined directly; the go-between's place stands empty.
   "wait-without-relay": [
-    dashed(arc(24, 25, 15, 292, 136)),
-    dot(10, 31, 7),
-    ring(38, 31, 6.1),
+    bar(11, 31, 18, 8, "tint"),
+    dot(11, 35, 8),
+    dot(37, 35, 8, "tint"),
+    ring(37, 35, 8),
+    shift(dashed(ring(24, 12.5, 7.5)), 0, -2),
   ],
   // Steps rising from a base that is still pending.
   "compose-staged-work": [
-    dashed(frame(3, 32, 26, 12, 4)),
-    bar(11, 18, 26, 12, "tint"),
-    shift(bar(19, 4, 26, 12), 0, -2),
+    dashed(frame(3, 32.5, 27, 12.5, 4.5)),
+    bar(10.5, 17.75, 27, 12.5, "tint"),
+    shift(bar(18, 5, 27, 12.5), 0, -2),
   ],
   // Two streams curve into one trunk.
   "land-finished-work-as-the-project-moves": [
-    band(24, 6, 18, 6, 180, 90, "tint"),
-    band(24, 42, 18, 6, 270, 90),
-    shift(bar(22, 21, 23, 6), 2, 0),
+    band(24, 6, 18, 7.5, 180, 90, "tint"),
+    band(24, 42, 18, 7.5, 270, 90),
+    shift(bar(22, 20.25, 23, 7.5), 2, 0),
   ],
   // A line pauses, then carries on.
   "resume-later": [
-    bar(3, 20.5, 13, 7),
-    bar(19.25, 11, 3.5, 26),
-    bar(25.25, 11, 3.5, 26),
-    shift(bar(32, 20.5, 13, 7, "tint"), 2, 0),
+    bar(3, 19.5, 12, 9),
+    bar(18.5, 5, 5, 38),
+    bar(25.5, 5, 5, 38),
+    shift(bar(33, 19.5, 10, 9, "tint"), 2, 0),
   ],
-  // A broken ring, rejoined by the dot in its gap.
+  // A line dropped in the middle, bridged back into one.
   "agent-resume-after-interruption": [
-    dot(24, 24, 8, "tint"),
-    arc(24, 24, 18, 85, 280),
-    dot(36.73, 11.27, 4.6),
+    bar(3, 34, 11, 9, "tint"),
+    bar(34, 34, 11, 9, "tint"),
+    dashed(line(18, 38.5, 30, 38.5)),
+    band(24, 37, 17, 7.5, 270, 180),
   ],
   // A lens over the one row that matters.
   "reduce-routine-review": [
@@ -81,26 +84,29 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(10.5, 17.25, 19, 5.5),
     bar(13, 26.5, 10, 4, "tint"),
   ],
-  // A question, hooked above its point.
+  // A decision point, set into the path of a change.
   "judgment-at-the-change": [
-    band(24, 17, 11, 6.5, 270, 270),
-    dot(24, 41, 4.5),
+    bar(10, 10, 28, 28, "tint", 45),
+    frame(10, 10, 28, 28, 4.5, 45),
+    bar(19, 19, 10, 10, "solid", 45),
   ],
-  // A list with one row lit.
+  // One screen of panes, the pane that needs you lit.
   "decisions-in-one-view": [
-    dot(7, 9.5, 3.5, "tint"),
-    bar(15, 6.5, 30, 6, "tint"),
-    dot(7, 24, 4),
-    shift(bar(15, 21, 28, 6), 2, 0),
-    dot(7, 38.5, 3.5, "tint"),
-    bar(15, 35.5, 22, 6, "tint"),
+    bar(3, 3, 19, 42, "tint"),
+    bar(25.5, 3, 19.5, 19.5),
+    bar(25.5, 25.5, 19.5, 19.5, "tint"),
   ],
-  // A failure, with the line that explains it and the point to run again.
+  // A clean break, its two sides laid open to read.
   "useful-failures-sooner": [
-    bar(7, 14, 34, 6, "solid", 45),
-    bar(7, 14, 34, 6, "solid", -45),
-    bar(3, 37, 30, 7, "tint"),
-    dot(41, 40.5, 4),
+    poly([[4, 5], [25, 5], [18, 22.5], [26.5, 22.5], [16.5, 43], [4, 43]]),
+    shift(
+      poly(
+        [[30.5, 5], [44, 5], [44, 43], [22, 43], [33, 19.5], [24, 19.5]],
+        "tint",
+      ),
+      2,
+      0,
+    ),
   ],
   // One file changed, its usual companion still missing.
   "catch-related-files": [
@@ -110,40 +116,25 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // A field of checks, only a few of them needed.
   "run-relevant-checks": [
-    dot(8, 8, 4.6),
-    dot(24, 8, 4.6, "tint"),
-    dot(40, 8, 4.6, "tint"),
-    dot(8, 24, 4.6, "tint"),
-    dot(24, 24, 4.6, "tint"),
-    dot(40, 24, 4.6),
-    dot(8, 40, 4.6, "tint"),
-    dot(24, 40, 4.6),
-    dot(40, 40, 4.6, "tint"),
+    dot(8.5, 8.5, 5.4),
+    dot(24, 8.5, 5.4, "tint"),
+    dot(39.5, 8.5, 5.4, "tint"),
+    dot(8.5, 24, 5.4, "tint"),
+    dot(24, 24, 5.4, "tint"),
+    dot(39.5, 24, 5.4),
+    dot(8.5, 39.5, 5.4, "tint"),
+    dot(24, 39.5, 5.4),
+    dot(39.5, 39.5, 5.4, "tint"),
   ],
-  // A small thing in a wide, empty room.
+  // A small thing in a wide, calm room.
   "context-for-the-task": [
-    frame(3, 3, 42, 42, 9),
-    shift(bar(9, 29, 10, 10), 2, -2),
-  ],
-  // A path of steps, the next one marked.
-  "agent-orient-from-one-bounded-result": [
-    dot(6, 41, 2.6, "tint"),
-    dot(14, 34.5, 3.1, "tint"),
-    dot(23, 27, 3.6, "tint"),
-    ring(34, 16, 10.5),
-    dot(34, 16, 5.5),
-  ],
-  // Three bars reaching one finish line together.
-  "agent-run-the-relevant-gate-efficiently": [
-    bar(3, 6, 33, 7),
-    bar(15, 20.5, 21, 7, "tint"),
-    bar(8, 35, 28, 7),
-    bar(41, 3, 3.5, 42),
+    bar(3, 3, 42, 42, "tint"),
+    shift(bar(9, 28, 11, 11), 2, -2),
   ],
   // A ring closed by its last segment.
   "project-defined-completion": [
-    band(24, 24, 16.5, 7, 14, 240, "tint"),
-    band(24, 24, 16.5, 7, 284, 62),
+    band(24, 24, 16.5, 8.5, 16, 234, "tint"),
+    band(24, 24, 16.5, 8.5, 286, 54),
   ],
   // A seal pressed onto the corner of a written sheet.
   "evidence-for-this-change": [
@@ -155,32 +146,32 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // A box with its lid on, kept for later.
   "evidence-that-lasts": [
-    shift(bar(3, 5, 42, 10), 0, -2),
-    frame(6, 18, 36, 25, 4.5),
-    bar(18, 26, 12, 4.5),
+    shift(bar(3, 4, 42, 10), 0, -2),
+    bar(6, 17, 36, 27, "tint"),
+    bar(17, 25, 14, 5),
   ],
-  // A lever, with your hand on it.
+  // A fan of variations, opened from one hand.
   "explicit-release-decision": [
-    frame(3, 27, 42, 18, 6),
-    bar(22, 10, 5, 25, "solid", 21),
-    dot(29.5, 9.5, 6),
+    bar(17.91, 12.38, 12, 38, "tint", 68),
+    bar(12.39, 5.56, 12, 38, "tint", 34),
+    bar(4, 3, 12, 38),
   ],
   // A wall with one lane left open.
   "bounded-standing-permission": [
-    bar(3, 7.5, 20, 6, "tint"),
-    bar(3, 34.5, 20, 6, "tint"),
-    bar(3, 21, 33, 6, "tint"),
-    bar(27, 3, 6.5, 13.5),
-    bar(27, 31.5, 6.5, 13.5),
-    shift(dot(40, 24, 4.5), 3, 0),
+    bar(3, 7, 20, 7.5, "tint"),
+    bar(3, 33.5, 20, 7.5, "tint"),
+    bar(3, 20.25, 33, 7.5, "tint"),
+    bar(27, 3, 7, 13.5),
+    bar(27, 31.5, 7, 13.5),
+    shift(dot(39.5, 24, 5), 3, 0),
   ],
-  // A branch that leaves the main line and stays off it.
+  // Two failed tries and one that worked, held apart from the main line.
   "unfinished-work-stays-isolated": [
-    bar(3, 37, 42, 7),
-    trail([[10, 37], [10, 25], [20, 14], [34, 14]]),
-    dot(10, 25, 3),
-    dot(21, 14, 3),
-    shift(ring(39.5, 14, 4.5), 2, 0),
+    bar(3, 4, 42, 20, "tint"),
+    ring(12.5, 14, 5),
+    ring(24, 14, 5),
+    dot(35.5, 14, 5.5),
+    bar(3, 35, 42, 9),
   ],
   // A dashed outline of what is about to happen, ahead of what is.
   "recover-interrupted-operations": [
@@ -194,56 +185,54 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // A gauge holding the level it has reached.
   "retain-measured-gains": [
-    band(24, 33, 17.5, 7, 270, 180, "tint"),
-    band(24, 33, 17.5, 7, 270, 115),
-    dot(24, 33, 4.5),
+    band(24, 34, 17.5, 8, 270, 180, "tint"),
+    band(24, 34, 17.5, 8, 270, 115),
+    dot(24, 34, 5),
   ],
   // A marker moved up its track, the old position left behind.
   "pin-new-baseline": [
-    bar(21, 3, 6, 6, "tint"),
-    bar(21, 18, 6, 11, "tint"),
-    bar(21, 38, 6, 7, "tint"),
-    dashed(frame(11, 29, 26, 9, 4)),
-    shift(bar(11, 9, 26, 9), 0, -2),
+    bar(21, 3, 6, 5.5, "tint"),
+    bar(21, 19.5, 6, 10, "tint"),
+    bar(21, 40, 6, 5, "tint"),
+    dashed(frame(7, 29.5, 34, 10.5, 4.5)),
+    shift(bar(7, 8.5, 34, 11), 0, -2),
   ],
   // A ruler with one bold mark.
   "standards-that-scale": [
-    bar(3, 3, 6, 42, "tint"),
-    line(13, 7, 20, 7),
-    line(13, 15.5, 20, 15.5),
-    line(13, 32.5, 20, 32.5),
-    line(13, 41, 20, 41),
-    bar(13, 21, 32, 6),
+    bar(3, 3, 8, 42, "tint"),
+    bar(15, 5, 9, 4, "tint"),
+    bar(15, 13, 9, 4, "tint"),
+    bar(15, 33, 9, 4, "tint"),
+    bar(15, 41, 9, 4, "tint"),
+    bar(15, 20, 30, 8.5),
   ],
-  // Every instance gathered inside one guard ring.
+  // The whole class, kept behind bars.
   "remove-bug-class": [
-    ring(24, 24, 20),
-    dot(16.5, 18.5, 4.5),
-    dot(30, 16, 3.5),
-    dot(20.5, 31, 3.5),
-    dot(32, 29, 4.5),
+    dot(24, 24, 19, "tint"),
+    bar(10.5, 3, 5.5, 42),
+    bar(21.25, 3, 5.5, 42),
+    bar(32, 3, 5.5, 42),
   ],
-  // Bars stepping down to an empty place on the baseline.
+  // Bars fading as they step down to an empty place on the baseline.
   "retire-old-pattern": [
-    bar(3, 6, 9, 31, "tint"),
-    bar(15, 17, 9, 20, "tint"),
-    bar(27, 28, 9, 9, "tint"),
-    ring(41, 32.5, 3.6),
-    bar(3, 40, 42, 4.5),
+    bar(3, 5, 9.5, 30),
+    bar(15, 15, 9.5, 20),
+    bar(27, 25, 9.5, 10, "tint"),
+    ring(40.5, 30.5, 4),
+    bar(3, 39, 42, 6),
   ],
-  // Scattered pieces beside the same pieces put in order.
+  // Scattered pieces beside what is left once they are put in order.
   "keep-clutter-down": [
-    bar(5, 5, 9, 9, "tint", 20),
-    bar(15, 19, 8, 8, "tint", -15),
-    bar(5, 31, 10, 10, "tint", 38),
-    bar(32, 4, 11, 11),
-    bar(32, 18.5, 11, 11),
-    bar(32, 33, 11, 11),
+    bar(5, 5, 10, 10, "tint", 20),
+    bar(13, 19, 9, 9, "tint", -15),
+    bar(5, 31, 11, 11, "tint", 38),
+    bar(27, 3, 18, 19.5),
+    bar(27, 25.5, 18, 19.5),
   ],
   // Two links of a chain, one of them broken.
   "catch-documentation-breakage": [
-    shift(band(32.5, 24, 10, 5, 50, 260, "tint"), 2, 0),
-    band(15.5, 24, 10, 5, 0, 360),
+    shift(band(32.5, 24, 10, 6, 50, 260, "tint"), 2, 0),
+    band(15.5, 24, 10, 6, 0, 360),
   ],
   // A tally where one bar stands far above the rest.
   "improve-practice-from-evidence": [
@@ -260,11 +249,11 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(18.5, 8, 25, 6, "tint", -28),
     bar(18.5, 34, 25, 6, "tint", 28),
   ],
-  // A frame opened to show the frames inside it.
+  // A folded map, opened flat.
   "inspect-agent-understanding": [
-    frame(3, 3, 42, 42, 9),
-    bar(11, 11, 26, 26, "tint"),
-    bar(18.5, 18.5, 11, 11),
+    poly([[4, 10], [15, 5], [15, 38], [4, 43]]),
+    poly([[18.5, 5], [29.5, 10], [29.5, 43], [18.5, 38]], "tint"),
+    poly([[33, 10], [44, 5], [44, 38], [33, 43]]),
   ],
   // A signpost with one direction marked.
   "preserve-decision-reasons": [
@@ -281,20 +270,21 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // A clock face with only its first quarter spent.
   "orient-new-session": [
-    ring(24, 24, 20),
-    sector(24, 24, 14, 0, 90),
+    dot(24, 24, 21, "tint"),
+    ring(24, 24, 21),
+    sector(24, 24, 15, 0, 90),
   ],
   // Sheets gathered behind a single front page.
   "export-project-briefing": [
-    bar(14, 3, 26, 32, "tint"),
-    bar(9.5, 8, 26, 32, "tint"),
-    bar(5, 13, 26, 32),
+    bar(16, 3, 24, 30, "tint"),
+    bar(10.5, 8.5, 24, 30, "tint"),
+    bar(5, 14, 24, 30),
   ],
   // One solid original; its echoes fade.
   "reuse-engineering-discipline": [
-    dashed(arc(32, 24, 12, 338, 224)),
-    arc(23, 24, 12, 338, 224),
-    dot(14, 24, 12),
+    dashed(arc(31, 24, 14, 338, 224)),
+    arc(24, 24, 14, 338, 224),
+    dot(17, 24, 14),
   ],
   // A ladder, climbed one rung at a time.
   "agent-invoke-curated-project-procedures": [
@@ -304,29 +294,36 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(8, 3, 3.5, 42),
     bar(36.5, 3, 3.5, 42),
   ],
-  // The discern mark settling into a project's frame.
+  // The discern mark settling into the place made for it.
   "agent-commissioning": [
-    frame(3, 3, 42, 42, 10),
-    shift(split(24, 25, 23, 19), 0, -3),
+    poly(
+      [[4, 21], [10.5, 21], [10.5, 38], [37.5, 38], [37.5, 21], [44, 21], [
+        44,
+        45,
+      ], [4, 45]],
+      "tint",
+    ),
+    shift(split(24, 22, 21, 18.5), 0, 3),
   ],
-  // A lone square under an empty sky.
+  // One piece in place; the three it never needs stay outlines.
   "small-installation-footprint": [
-    dashed(arc(24, 30, 21, 270, 180)),
-    bar(17, 26, 14, 14),
-    bar(3, 41, 42, 4, "tint"),
+    dashed(frame(3, 3, 19.5, 19.5, 5.5)),
+    dashed(frame(25.5, 3, 19.5, 19.5, 5.5)),
+    dashed(frame(25.5, 25.5, 19.5, 19.5, 5.5)),
+    bar(3, 25.5, 19.5, 19.5),
   ],
   // The discern mark inside a loop that feeds back into itself.
   "inspect-live-example": [
-    arc(24, 24, 20, 35, 290),
-    dot(12.53, 7.62, 3.4),
-    split(24, 25.5, 20, 17),
+    band(24, 24, 19, 4.5, 35, 290, "tint"),
+    dot(13.1, 8.44, 4.5),
+    split(24, 25.5, 21, 18),
   ],
-  // One piece pulled from the stack, its place kept open.
+  // A way out that turns and leads back.
   "clean-abandoned-environments": [
-    bar(3, 5, 20, 9),
-    dashed(frame(3, 19.5, 20, 9, 3.75)),
-    shift(bar(25, 19.5, 20, 9, "tint"), -3, 0),
-    bar(3, 34, 20, 9),
+    bar(3, 6, 24, 9, "tint"),
+    band(27, 24, 13.5, 9, 0, 180),
+    bar(10, 33, 17, 9),
+    shift(dot(10, 37.5, 6.5), -2, 0),
   ],
   // A pulse crossing a steady disc.
   "agent-manage-the-installation-lifecycle": [
@@ -335,26 +332,43 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // A switch that flips either way.
   "switch-providers": [
-    frame(3, 11, 42, 26, 13),
-    dashed(ring(16, 24, 7)),
-    shift(dot(32, 24, 8), -3, 0),
+    frame(3, 10, 42, 28, 14),
+    dashed(ring(17, 24, 7.5)),
+    shift(dot(31, 24, 9.5), -3, 0),
   ],
   // Three different shapes standing on one baseline.
   "practice-across-stacks": [
-    bar(3, 38, 42, 5),
-    dot(9.5, 27.5, 6.5),
-    bar(18, 9, 12, 25, "tint"),
-    frame(33.7, 22.7, 9.6, 9.6, 1.5, 45),
+    bar(3, 38.5, 42, 6),
+    dot(10, 28, 7),
+    bar(19, 7, 11, 28, "tint"),
+    bar(32.2, 22.2, 10.6, 10.6, "solid", 45),
   ],
-  // Structured rows held between braces.
+  // Two parts cut to fit each other.
   "build-on-published-contracts": [
-    trail([[14, 4], [9, 4], [9, 20], [5, 24], [9, 28], [9, 44], [14, 44]]),
-    trail([[34, 4], [39, 4], [39, 20], [43, 24], [39, 28], [39, 44], [
-      34,
-      44,
-    ]]),
-    bar(15, 13, 18, 6.5),
-    bar(15, 27.5, 12, 6.5, "tint"),
+    poly(
+      [[3, 3], [26, 3], [26, 15], [17, 15], [17, 33], [26, 33], [26, 45], [
+        3,
+        45,
+      ]],
+      "tint",
+    ),
+    shift(
+      poly([
+        [29.5, 7],
+        [45, 7],
+        [45, 41],
+        [29.5, 41],
+        [29.5, 29.5],
+        [
+          20.5,
+          29.5,
+        ],
+        [20.5, 18.5],
+        [29.5, 18.5],
+      ]),
+      -2,
+      0,
+    ),
   ],
   // A calendar with one day chosen.
   "planned-upgrades": [
@@ -374,29 +388,29 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
   ],
   // Two agents overlapping on one task.
   "agent-switch-supported-agent-hosts": [
-    dot(17, 24, 14, "tint"),
-    ring(31, 24, 14),
-    dot(24, 24, 4.5),
+    dot(18, 24, 15, "tint"),
+    ring(30, 24, 15),
+    dot(24, 24, 5),
   ],
-  // A key fading away, because nothing asks for one.
+  // A whole shell with nothing fitted inside it.
   "local-without-another-model": [
-    band(12.5, 24, 7, 5, 0, 360),
-    bar(22, 21.5, 23, 5, "tint"),
-    bar(33, 26.5, 4.5, 7, "tint"),
-    bar(40.5, 26.5, 4.5, 5, "tint"),
+    band(24, 24, 17.5, 7, 0, 360),
+    dashed(ring(24, 24, 7)),
   ],
-  // A pen held above the page until it may write.
+  // Two lines, and the one thing that travels between them.
   "explicit-write-authority": [
-    frame(3, 22, 23, 23, 5.5),
-    dashed(line(21, 27, 9, 39)),
-    shift(bar(24.5, 9.25, 21, 6.5, "solid", -45), 2, -2),
+    bar(0.16, 11.91, 30, 6.5, "solid", -45),
+    bar(17.84, 29.59, 30, 6.5, "solid", -45),
+    dot(13.5, 34.5, 2.6, "tint"),
+    dot(19.5, 28.5, 4, "tint"),
+    shift(dot(28.5, 19.5, 6), 2, -2),
   ],
-  // A signal that never leaves its box.
+  // A signal that fades and stops at the wall.
   "agent-diagnose-workflow-friction-locally": [
-    frame(3, 3, 42, 42, 10),
-    dashed(arc(14, 34, 12, 0, 90)),
-    dashed(arc(14, 34, 21, 0, 90)),
-    dot(14, 34, 5),
+    dot(9, 24, 6),
+    band(9, 24, 15, 4, 50, 80),
+    band(9, 24, 25, 4, 58, 64, "tint"),
+    bar(38.5, 3, 6.5, 42),
   ],
 };
 
