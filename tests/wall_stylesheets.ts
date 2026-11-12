@@ -151,6 +151,41 @@ export function declared(
   return rule.declarations.findLast(([name]) => name === property)?.[1];
 }
 
+/** The last box a selector names, with its states: the box the rule styles. */
+function subjectOf(selector: string): string {
+  return splitOutside(selector, " ").at(-1) ?? "";
+}
+
+/**
+ * What names a selector's subject: its type, classes, and pseudo-classes,
+ * each as written. What a state looks at, inside `:has()` or an attribute's
+ * brackets, is no part of the name, and a pseudo-element is a box of its own,
+ * which has no name here.
+ */
+function subjectNames(selector: string): string[] {
+  let subject = subjectOf(selector);
+  if (subject.includes("::")) return [];
+  let bare = "";
+  while (bare !== subject) {
+    bare = subject;
+    subject = subject.replace(/\([^()]*\)|\[[^\][]*\]/g, "");
+  }
+  return subject.split(/(?=[.:#])/);
+}
+
+/**
+ * Whether a selector's subject is a box of this class itself, in any state,
+ * and neither a pseudo-element of it nor a box whose class only begins alike.
+ */
+export function selectsBox(selector: string, className: string): boolean {
+  return subjectNames(selector).includes(`.${className}`);
+}
+
+/** The at-rules that decide when a rule applies: every one but its layer. */
+export function conditionsOf(rule: StyleRule): readonly string[] {
+  return rule.context.filter((query) => !query.startsWith("@layer"));
+}
+
 /**
  * A property that moves a box or gives a change its time: the transform and
  * each property that stands for one part of it, a motion path, the hint that

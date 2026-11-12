@@ -25,7 +25,17 @@ export const VIEWPORTS = [
   { name: "laptop", width: 1440, height: 900 },
 ] as const;
 
-export type Viewport = (typeof VIEWPORTS)[number];
+/**
+ * A full-width window on a large laptop's own screen. The wall has five
+ * columns here, one more than the laptop viewport gives it.
+ */
+export const WIDE_VIEWPORT = {
+  name: "wide",
+  width: 1728,
+  height: 1000,
+} as const;
+
+export type Viewport = (typeof VIEWPORTS)[number] | typeof WIDE_VIEWPORT;
 
 /** The live wall root: present once the island has hydrated. */
 export const LIVE_WALL = ".wall[data-wall-live]";

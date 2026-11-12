@@ -442,13 +442,20 @@
 
   /* The wall: a masonry in DOM order, so focus order and reading order agree.
    * A lens re-sorts the list under the reader. No card in it anchors the
-   * page's scroll, or the page would follow one card to its new place. */
+   * page's scroll, or the page would follow one card to its new place.
+   *
+   * The list is one stacking context. A layer the browser composites beside
+   * it, as the far view's horizon is beneath the cards, then lifts the list
+   * as one layer. Left open, WebKit lifts each card over that layer into a
+   * layer of its own, and it draws a card lifted out of a multi-column list
+   * in the wrong column. */
   .wall-list {
     columns: 4 16.5rem;
     column-gap: var(--wall-gap);
     padding: 0;
     overflow-anchor: none;
     list-style: none;
+    isolation: isolate;
   }
 
   @media (min-width: 105rem) {
