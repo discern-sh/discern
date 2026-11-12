@@ -2,6 +2,7 @@
 import { type RefObject, useEffect } from "react";
 import { CARD_LIGHT } from "./Card.tsx";
 import { type WallKnobName, wallKnobProperty } from "./tuning/knobs.ts";
+import { transitionRunning } from "./use_open_card.ts";
 import { NEAR_ATTRIBUTE } from "./use_stage.ts";
 
 /**
@@ -242,6 +243,11 @@ function px(length: number): string {
  *   the light is where the pointer is, at once.
  * - Touch never moves it, and it holds still while the pointer is over a
  *   modal layer such as an opened card.
+ * - It writes nothing while a view transition runs, as `transitionRunning`
+ *   says, and takes up from where it stood once the transition has ended.
+ *   The browser reports the pointer gone from the wall as a transition
+ *   begins, and a light that went down then would redraw the wall on every
+ *   frame under pictures that hide it.
  *
  * No pointer handler, scroll handler, or frame reads layout or computed
  * style. A read there makes the browser finish, on the spot, whatever style
@@ -323,6 +329,13 @@ export function useLight(root: RefObject<HTMLElement>): void {
     const step = (now: number): void => {
       frame = 0;
       if (light === null) return;
+      // A run held through a view transition begins again with no clock
+      // reading, so the time it was held counts for nothing.
+      if (transitionRunning()) {
+        before = null;
+        frame = requestAnimationFrame(step);
+        return;
+      }
       const pace = lightPace(knob, still.matches);
       // The reach was read for a light of another size.
       if (pace.span !== radius) again(element);
@@ -403,11 +416,14 @@ export function useLight(root: RefObject<HTMLElement>): void {
     };
     // A report on the document alone says the wall may have moved on the
     // page. A report on the root or on a card says the cards may have moved
-    // inside the wall as well. Every read comes before any write.
+    // inside the wall as well. Every read comes before any write, and the
+    // write waits for a frame of its own while a view transition runs.
     const measured = new ResizeObserver((entries) => {
       locate();
       if (entries.some((entry) => entry.target !== page)) fit();
-      if (light !== null) draw(light);
+      if (light === null) return;
+      if (transitionRunning()) head(null);
+      else draw(light);
     });
     // The page scrolled under a pointer that may not have moved.
     const scrolled = (): void => {

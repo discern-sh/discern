@@ -51,7 +51,10 @@ A handler reads layout in a single place: a card measures itself as the pointer 
 - A page that scrolls under a still pointer moves the pointer's place on the wall, and the light follows the same way.
 - Reduced motion removes the fade and the ease. The light is where the pointer is, at once.
 - Touch never moves the light, and it holds still while the pointer is over an opened card.
+- The light writes nothing while a view transition runs: a card that opens or closes, or a lens that re-sorts the wall. `transitionRunning` in [`use_open_card.ts`](../../../site/wall/use_open_card.ts) says when one does. The browser reports the pointer gone from the wall as a transition begins. A light that went down then would redraw the wall on every frame, under pictures that hide it. It goes down once the transition has ended, and follows the pointer again from there.
 - Forced colors and print draw neither the disc nor the boxes.
+
+The disc anchors no scroll. A browser holds the page still under a reader by picking a box in view and scrolling after it when it moves. WebKit picks the disc, the first box in the room. It then scrolls the page after the light whenever a write of the light's place meets a layout, as it does at the end of a view transition. `.wall::before` therefore sets `overflow-anchor: none`.
 
 [`site_wall_light_test.ts`](../../../tests/site_wall_light_test.ts) holds the light through plain, stylesheet, and browser tests:
 
@@ -63,3 +66,5 @@ A handler reads layout in a single place: a card measures itself as the pointer 
 - A trace test leaves style and layout pending before every pointer and scroll handler runs. It then fails on any layout or style recalculation that ran inside an event's dispatch or a frame callback. The card's own read at a crossing is the exception. The test requires the trace to show that read, which proves the trace would show any other.
 - A further test moves the wall down the page, scrolls the page under a still pointer, and swaps two cards of one size. The light must stay under the pointer each time.
 - Further browser tests watch the light come up, jump, and go down. They require no write at rest or over an opened card, and none from a finger.
+
+[The transition test](../../../tests/site_wall_transition_test.ts) holds the light through a view transition. It opens and closes a card by pointer, far and near, and chooses a lens, at the laptop size and at five columns. No style write may reach the wall root or a card's light box while a transition is active, and the light must follow the pointer once each has ended. It also reads the disc's rule from the stylesheet: a box that moves by a value in `LIGHT_PROPERTIES` must opt out of scroll anchoring.

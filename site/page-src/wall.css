@@ -141,7 +141,12 @@
    * this one box and changes how far up it is. It changes brightness only,
    * lays out nothing, and no card is restyled for it. The disc is painted
    * into the room's own layer: given a layer of its own, the browser lifts
-   * every card off the canvas into a second layer the size of the wall. */
+   * every card off the canvas into a second layer the size of the wall.
+   *
+   * The disc anchors no scroll. A browser holds the page still under a
+   * reader by picking a box in view and scrolling after it when it moves,
+   * and WebKit would pick this one, the first box in the room, and scroll
+   * the page after the light. */
   .wall::before {
     --wall-light-x: inherit;
     --wall-light-y: inherit;
@@ -150,6 +155,7 @@
     position: absolute;
     inset: 0 auto auto 0;
     z-index: -1;
+    overflow-anchor: none;
     inline-size: calc(var(--wall-light-radius) * 1.24);
     block-size: calc(var(--wall-light-radius) * 1.24);
     margin: calc(var(--wall-light-radius) * -0.62) 0 0

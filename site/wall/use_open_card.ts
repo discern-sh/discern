@@ -222,21 +222,59 @@ export function useClickSequence(): () => void {
   };
 }
 
+/** The view transition `beginTransition` last began, until it has ended. */
+let running: ViewTransition | null = null;
+
+/**
+ * Whether a view transition begun here is under way: from the moment it is
+ * asked for until `transitionEnded` has seen it end. For that long the
+ * browser draws the page from pictures, and what changes on the page under
+ * them is drawn again on every frame and seen by nobody. The pointer light
+ * reads this, and holds still.
+ */
+export function transitionRunning(): boolean {
+  return running !== null;
+}
+
 /**
  * Begin a view transition around a change to the page. A browser that
  * refuses to begin one throws. The refusal is reported, and the answer is
  * null: the caller then makes the change as a cut, so the page still reaches
  * the state that was asked for.
+ *
+ * Every view transition on the site begins here, and its caller waits for it
+ * through `transitionEnded`. The two together are what `transitionRunning`
+ * answers from.
  */
 export function beginTransition(
   change: () => Promise<void>,
 ): ViewTransition | null {
   try {
-    return document.startViewTransition(change);
+    const transition = document.startViewTransition(change);
+    running = transition;
+    return transition;
   } catch (refusal) {
     reportError(refusal);
     return null;
   }
+}
+
+/**
+ * Wait for a view transition to end, however it ends, and answer with how it
+ * began and how it finished. A transition a later one has overtaken ends
+ * here too, and leaves the later one running.
+ */
+export async function transitionEnded(
+  transition: ViewTransition,
+): Promise<
+  [began: PromiseSettledResult<void>, finished: PromiseSettledResult<void>]
+> {
+  const ends = await Promise.allSettled([
+    transition.ready,
+    transition.finished,
+  ]);
+  if (running === transition) running = null;
+  return ends;
 }
 
 /** The sheet's box while a card is open: the modal layer over the page. */
@@ -359,10 +397,7 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
     const transition = beginTransition(() => commit(morphs));
     if (transition === null) return await commit(false);
     moving.current = { transition, arriving: next !== null };
-    const [began] = await Promise.allSettled([
-      transition.ready,
-      transition.finished,
-    ]);
+    const [began] = await transitionEnded(transition);
     if (moving.current?.transition === transition) moving.current = null;
     if (began.status === "rejected") {
       const now = viewportSize();

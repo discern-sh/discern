@@ -18,7 +18,7 @@ The opacity has a floor. A receded card's title and line must both keep a contra
 
 `useLens` owns the active lens and how a change shows:
 
-- **One cross-fade, or a cut.** Where the browser has view transitions and the visitor has not asked for reduced motion, the page cross-fades once, as one picture, from one order to the other. Otherwise the change is a cut. No card has a transition part of its own, so no card travels across the screen.
+- **One cross-fade, or a cut.** Where the browser has view transitions and the visitor has not asked for reduced motion, the page cross-fades once, as one picture, from one order to the other. Otherwise the change is a cut. No card has a transition part of its own, so no card travels across the screen. [The pointer light](wall-pointer-light.md#how-the-light-comes-and-goes) holds still while the fade runs.
 - **A jump to the head of the wall.** The kept cards now lead the wall. In the same frame, a reader who has scrolled past the head of the wall comes back to it at once. A reader who can see the head stays put. `.wall-list` sets `overflow-anchor: none`, or the browser would scroll the page after whichever card it had anchored.
 - **The last request wins.** Each request states the lens the wall should end with, and a later cross-fade ends an earlier one where it stands.
 - **A press made during the fade still lands.** While the cross-fade runs, the browser sends every click to the document's root. The first click ends the fade, and a plain one reaches what it fell on through `deliverClick`, the function [the opened card](wall-opened-card.md) uses.

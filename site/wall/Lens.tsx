@@ -14,6 +14,7 @@ import type { WallCard, WallLens } from "./types.ts";
 import {
   beginTransition,
   deliverClick,
+  transitionEnded,
   useClickSequence,
 } from "./use_open_card.ts";
 
@@ -126,10 +127,7 @@ async function fadeThrough(transition: ViewTransition): Promise<void> {
     deliverClick(event);
   };
   document.addEventListener("click", deliver);
-  const [, changed] = await Promise.allSettled([
-    transition.ready,
-    transition.finished,
-  ]);
+  const [, changed] = await transitionEnded(transition);
   document.removeEventListener("click", deliver);
   if (changed.status === "rejected") reportError(changed.reason);
 }

@@ -56,6 +56,14 @@ A view transition can fail to begin. `transitionOvertaken` sorts the browser's r
 
 A browser can also refuse a transition outright, by throwing when asked to begin one. `beginTransition` reports the refusal, and the sheet and the lens then make the change as a cut.
 
+## What a transition costs
+
+While a view transition runs, the browser draws the page from pictures. A change to the page under them costs a redraw on every frame, and a visitor sees none of it. The page therefore keeps still for as long:
+
+- **The pointer light holds still.** `beginTransition` begins every view transition on the site, for the sheet and for the lens. Each caller waits for the end through `transitionEnded`. `transitionRunning` answers from those two, and [the light](wall-pointer-light.md#how-the-light-comes-and-goes) writes nothing while one runs.
+
+[The transition test](../../../tests/site_wall_transition_test.ts) holds this in Chrome, with a pointer that travels to a card and presses it. It also reads the sources: one line of the site begins a view transition, and each module waits through `transitionEnded` for every transition it begins. A transition begun elsewhere would run with the light still writing. One never waited for would hold the light for good.
+
 Opening or closing a card makes the browser restyle every element on the page once. The modal dialog costs that by itself: an empty dialog opened over the homepage restyles as much, and marking the source card restyles about a dozen elements. It happens once per change, outside the pointer-travel budget, and no test counts it.
 
 ## What holds the opened card

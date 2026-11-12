@@ -47,6 +47,7 @@ import {
 import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
 import {
   drawn,
+  eventually,
   FAR_WALL,
   isAt,
   isRecord,
@@ -1209,10 +1210,15 @@ Deno.test("the light writes nothing while the pointer rests or is over an opened
     await drawn(page, 12);
     assertEquals(await lightCalls(page), moved, "a still pointer");
 
+    // The light holds still while the sheet arrives, and goes down where it
+    // stands once the sheet has landed.
     await page.mouse.click(520, 400);
     await page.locator("dialog.wall-open:modal").waitFor();
-    await motionSettled(page);
-    await drawn(page, 2);
+    await eventually(
+      page,
+      async () => (await lightNow(page)).every((value) => value === ""),
+      "the light goes down once the opened card has landed",
+    );
     const opened = await lightCalls(page);
     await page.mouse.move(760, 470, { steps: 8 });
     await drawn(page, 4);
