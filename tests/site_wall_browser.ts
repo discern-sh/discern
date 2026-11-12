@@ -3,6 +3,7 @@
  * page that records every fault, the viewports, and how a test reads the
  * wall at rest, finds a card to press, and waits for a sheet to go.
  */
+import { z } from "@zod/zod";
 import { assert, assertEquals } from "@std/assert";
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import { handler } from "../site/serve.ts";
@@ -15,6 +16,7 @@ import type { WallCard } from "../site/wall/types.ts";
 import { OPENING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
 import { NEAR_ATTRIBUTE } from "../site/wall/use_stage.ts";
 import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 export const ORIGIN = "http://127.0.0.1:18899";
 
@@ -384,4 +386,51 @@ export function watchTransition(): Promise<string[]> {
     };
     look(600);
   });
+}
+
+/** Resolve once the page has drawn `frames` more frames. */
+export function drawn(page: Page, frames: number): Promise<void> {
+  return page.evaluate((frames) =>
+    new Promise<void>((resolve) => {
+      const next = (left: number): void => {
+        if (left === 0) resolve();
+        else requestAnimationFrame(() => next(left - 1));
+      };
+      next(frames);
+    }), frames);
+}
+
+/** Whether a value read from a trace is an object with named fields. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+const TRACE_EVENTS = z.array(z.record(z.string(), z.unknown()));
+
+/** A trace as the browser writes it: its events, bare or under one key. */
+const TRACE = z.union([
+  TRACE_EVENTS,
+  z.looseObject({ traceEvents: TRACE_EVENTS }),
+]);
+
+/**
+ * Every event the browser put on its own timeline, in the named trace
+ * categories, while `act` ran and for two frames after it.
+ */
+export async function traced(
+  browser: Browser,
+  page: Page,
+  categories: readonly string[],
+  act: () => Promise<void>,
+): Promise<Record<string, unknown>[]> {
+  await browser.startTracing(page, { categories: [...categories] });
+  let trace: Uint8Array;
+  try {
+    await act();
+    await drawn(page, 2);
+  } finally {
+    trace = await browser.stopTracing();
+  }
+  const decoded = decodeWith(TRACE, new TextDecoder().decode(trace));
+  return Array.isArray(decoded) ? decoded : decoded.traceEvents;
 }

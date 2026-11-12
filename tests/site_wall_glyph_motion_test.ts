@@ -16,7 +16,12 @@ import { GLYPH_GRID, type GlyphPoint } from "../site/wall/glyph_grammar.ts";
 import { glyphDrawing } from "../site/wall/glyphs.ts";
 import { OPENING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
 import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
-import { motionSettled, NEAR_WALL } from "./site_wall_browser.ts";
+import {
+  drawn,
+  motionSettled,
+  NEAR_WALL,
+  traced,
+} from "./site_wall_browser.ts";
 
 const ORIGIN = "http://127.0.0.1:18904";
 const VIEWPORT = { width: 1440, height: 900 };
@@ -48,18 +53,6 @@ interface Travel {
   readonly stack: string;
   /** Whether the travelling drawing is the same size as the drawing under it. */
   readonly fits: boolean;
-}
-
-/** Resolve once the page has drawn `frames` more frames. */
-function drawn(page: Page, frames: number): Promise<void> {
-  return page.evaluate((frames) =>
-    new Promise<void>((resolve) => {
-      const next = (left: number): void => {
-        if (left === 0) resolve();
-        else requestAnimationFrame(() => next(left - 1));
-      };
-      next(frames);
-    }), frames);
 }
 
 /** Measure a card's travelling drawing against its glyph, and the face under it. */
@@ -191,37 +184,19 @@ async function onTheWall(
   }
 }
 
-/** Whether a parsed trace value is an object with named fields. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 /** How many times the browser laid the page out while `act` ran, by its own trace. */
 async function layouts(
   browser: Browser,
   page: Page,
   act: () => Promise<void>,
 ): Promise<number> {
-  await browser.startTracing(page, { categories: ["devtools.timeline"] });
-  let trace: Uint8Array;
-  try {
-    await act();
-    await drawn(page, 2);
-  } finally {
-    trace = await browser.stopTracing();
-  }
-  const parsed: unknown = JSON.parse(new TextDecoder().decode(trace));
-  const events = isRecord(parsed) ? parsed["traceEvents"] : parsed;
-  assert(Array.isArray(events), "the browser returned a trace");
+  const events = await traced(browser, page, ["devtools.timeline"], act);
   assert(
-    events.some((event) =>
-      isRecord(event) && event["name"] === "UpdateLayoutTree"
-    ),
+    events.some((event) => event["name"] === "UpdateLayoutTree"),
     "the trace recorded the page's work",
   );
   return events.filter((event) =>
-    isRecord(event) && event["name"] === "Layout" &&
-    (event["ph"] === "X" || event["ph"] === "B")
+    event["name"] === "Layout" && (event["ph"] === "X" || event["ph"] === "B")
   ).length;
 }
 

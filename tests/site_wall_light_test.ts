@@ -45,7 +45,14 @@ import {
   lightStep,
 } from "../site/wall/use_light.ts";
 import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
-import { FAR_WALL, motionSettled, NEAR_WALL } from "./site_wall_browser.ts";
+import {
+  drawn,
+  FAR_WALL,
+  isRecord,
+  motionSettled,
+  NEAR_WALL,
+  traced,
+} from "./site_wall_browser.ts";
 import { type StyleRule, styleRules, wallSheets } from "./wall_stylesheets.ts";
 
 /** A knob's shipped value. */
@@ -467,18 +474,6 @@ function lightCalls(page: Page): Promise<number> {
   }, LIGHT_CALLS);
 }
 
-/** Resolve once the page has drawn `frames` more frames. */
-function drawn(page: Page, frames: number): Promise<void> {
-  return page.evaluate((frames) =>
-    new Promise<void>((resolve) => {
-      const next = (left: number): void => {
-        if (left === 0) resolve();
-        else requestAnimationFrame(() => next(left - 1));
-      };
-      next(frames);
-    }), frames);
-}
-
 /**
  * Resolve once the light is fully up and has stopped writing: what it wrote
  * on the wall root has stayed the same over several frames.
@@ -503,32 +498,8 @@ function lightSettled(page: Page): Promise<void> {
   );
 }
 
-/** Whether a parsed trace value is an object with named fields. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-/** Every event on the browser's own timeline while `act` ran. */
-async function traced(
-  browser: Browser,
-  page: Page,
-  act: () => Promise<void>,
-): Promise<Record<string, unknown>[]> {
-  await browser.startTracing(page, {
-    categories: ["devtools.timeline", "blink"],
-  });
-  let trace: Uint8Array;
-  try {
-    await act();
-    await drawn(page, 2);
-  } finally {
-    trace = await browser.stopTracing();
-  }
-  const parsed: unknown = JSON.parse(new TextDecoder().decode(trace));
-  const events = isRecord(parsed) ? parsed["traceEvents"] : parsed;
-  assert(Array.isArray(events), "the browser returned a trace");
-  return events.filter(isRecord);
-}
+/** The trace categories the light's cost is read from. */
+const LIGHT_TRACE = ["devtools.timeline", "blink"] as const;
 
 /**
  * How many elements each style recalculation touched while `act` ran, as the
@@ -540,7 +511,7 @@ async function restyled(
   act: () => Promise<void>,
 ): Promise<number[]> {
   const counts: number[] = [];
-  for (const event of await traced(browser, page, act)) {
+  for (const event of await traced(browser, page, LIGHT_TRACE, act)) {
     if (event["name"] !== "UpdateLayoutTree") continue;
     const args = event["args"];
     const count = isRecord(args) ? args["elementCount"] : undefined;
@@ -946,7 +917,7 @@ Deno.test("a frame of pointer travel restyles a few boxes, however many cards th
 Deno.test("no pointer handler, scroll handler, or frame makes the browser lay the page out", async () => {
   await onTheWall({}, async (page, browser) => {
     await leaveWorkPending(page);
-    const events = await traced(browser, page, async () => {
+    const events = await traced(browser, page, LIGHT_TRACE, async () => {
       await sweep(page);
       // And the page scrolls under a pointer that has come to rest on a card.
       await page.mouse.move(700, 430);
