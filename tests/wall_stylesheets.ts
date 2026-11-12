@@ -191,6 +191,19 @@ export function selectsCardItem(selector: string): boolean {
   );
 }
 
+/** One rule of a wall stylesheet, with the stylesheet it stands in. */
+export interface SheetRule {
+  readonly sheet: string;
+  readonly rule: StyleRule;
+}
+
+/** Every rule of every wall stylesheet, in cascade order. */
+export async function wallRules(): Promise<SheetRule[]> {
+  return (await wallSheets()).flatMap(({ sheet, text }) =>
+    styleRules(text).map((rule) => ({ sheet, rule }))
+  );
+}
+
 /** The at-rules that decide when a rule applies: every one but its layer. */
 export function conditionsOf(rule: StyleRule): readonly string[] {
   return rule.context.filter((query) => !query.startsWith("@layer"));

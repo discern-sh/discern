@@ -13,6 +13,7 @@ import {
   RECEDED_ATTRIBUTE,
 } from "../site/wall/Card.tsx";
 import type { WallCard } from "../site/wall/types.ts";
+import { LIGHT_PROPERTIES } from "../site/wall/use_light.ts";
 import { OPENING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
 import { NEAR_ATTRIBUTE } from "../site/wall/use_stage.ts";
 import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
@@ -181,6 +182,67 @@ export async function eventually(
     await page.waitForTimeout(50);
   }
   assert(await check(), message);
+}
+
+/**
+ * Hold the pointer light to coming fully up and falling still: what it wrote
+ * on the wall root has stayed the same over several frames. A light that
+ * never rests there is a failure, named as one, and never an endless wait.
+ */
+export async function lightSettled(page: Page): Promise<void> {
+  const settled = await page.locator(".wall").evaluate(
+    (root, names) =>
+      new Promise<boolean>((resolve) => {
+        let last = "";
+        let still = 0;
+        const look = (patience: number): void => {
+          const now = names.map((name) => root.style.getPropertyValue(name))
+            .join(" ");
+          still = now === last ? still + 1 : 0;
+          last = now;
+          if (still >= 3 && now.endsWith(" 1.000")) resolve(true);
+          else if (patience === 0) resolve(false);
+          else requestAnimationFrame(() => look(patience - 1));
+        };
+        look(600);
+      }),
+    [...LIGHT_PROPERTIES.room],
+  );
+  assert(settled, "the light comes fully up under the pointer and rests there");
+}
+
+/** Where a viewport point lies from the wall root's corner, as the light writes it. */
+export function placeOnWall(
+  page: Page,
+  point: { readonly x: number; readonly y: number },
+): Promise<{ readonly x: number; readonly y: number }> {
+  return page.locator(".wall").evaluate((root, point) => {
+    const rect = root.getBoundingClientRect();
+    return {
+      x: point.x - rect.left - root.clientLeft,
+      y: point.y - rect.top - root.clientTop,
+    };
+  }, point);
+}
+
+/** Whether a recorded place is `place`, to within the light's own rounding. */
+export function isAt(
+  [x = "", y = ""]: readonly string[],
+  place: { readonly x: number; readonly y: number },
+): boolean {
+  return Math.abs(parseFloat(x) - place.x) <= 0.6 &&
+    Math.abs(parseFloat(y) - place.y) <= 0.6;
+}
+
+/** What the light has written on the wall root: its place, and how far up. */
+export function lightNow(page: Page): Promise<string[]> {
+  return page.locator(".wall").evaluate(
+    (root, names) =>
+      root instanceof HTMLElement
+        ? names.map((name) => root.style.getPropertyValue(name))
+        : [],
+    [...LIGHT_PROPERTIES.room],
+  );
 }
 
 /** Let go of the focus, as a click on the page's margin does. */

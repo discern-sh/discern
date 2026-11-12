@@ -31,23 +31,10 @@ import {
   declared,
   selectsBox,
   selectsCardItem,
+  type SheetRule,
   type StyleRule,
-  styleRules,
-  wallSheets,
+  wallRules,
 } from "./wall_stylesheets.ts";
-
-/** One rule of a wall stylesheet, with the stylesheet it stands in. */
-interface SheetRule {
-  readonly sheet: string;
-  readonly rule: StyleRule;
-}
-
-/** Every rule of every wall stylesheet, in cascade order. */
-async function wallRules(): Promise<SheetRule[]> {
-  return (await wallSheets()).flatMap(({ sheet, text }) =>
-    styleRules(text).map((rule) => ({ sheet, rule }))
-  );
-}
 
 /**
  * Every declaration of a property `held` matches, on a box `chosen` picks

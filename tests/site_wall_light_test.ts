@@ -48,9 +48,13 @@ import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
 import {
   drawn,
   FAR_WALL,
+  isAt,
   isRecord,
+  lightNow,
+  lightSettled,
   motionSettled,
   NEAR_WALL,
+  placeOnWall,
   traced,
 } from "./site_wall_browser.ts";
 import { type StyleRule, styleRules, wallSheets } from "./wall_stylesheets.ts";
@@ -472,30 +476,6 @@ function lightCalls(page: Page): Promise<number> {
       ? tally.calls
       : Number.NaN;
   }, LIGHT_CALLS);
-}
-
-/**
- * Resolve once the light is fully up and has stopped writing: what it wrote
- * on the wall root has stayed the same over several frames.
- */
-function lightSettled(page: Page): Promise<void> {
-  return page.locator(".wall").evaluate(
-    (root, names) =>
-      new Promise<void>((resolve) => {
-        let last = "";
-        let still = 0;
-        const look = (): void => {
-          const now = names.map((name) => root.style.getPropertyValue(name))
-            .join(" ");
-          still = now === last ? still + 1 : 0;
-          last = now;
-          if (still >= 3 && now.endsWith(" 1.000")) resolve();
-          else requestAnimationFrame(look);
-        };
-        look();
-      }),
-    [...LIGHT_PROPERTIES.room],
-  );
 }
 
 /** The trace categories the light's cost is read from. */
@@ -954,20 +934,6 @@ Deno.test("no pointer handler, scroll handler, or frame makes the browser lay th
   });
 });
 
-/** Where a viewport point lies from the wall root's corner, as the light writes it. */
-function placeOnWall(
-  page: Page,
-  point: { readonly x: number; readonly y: number },
-): Promise<{ readonly x: number; readonly y: number }> {
-  return page.locator(".wall").evaluate((root, point) => {
-    const rect = root.getBoundingClientRect();
-    return {
-      x: point.x - rect.left - root.clientLeft,
-      y: point.y - rect.top - root.clientTop,
-    };
-  }, point);
-}
-
 /**
  * Record what the light writes on the wall root from now on: its place and
  * how far it is up, once per change. An empty value is a removed property.
@@ -981,26 +947,6 @@ function watchLight(page: Page): Promise<JSHandle<string[][]>> {
     }).observe(root, { attributes: true, attributeFilter: ["style"] });
     return seen;
   }, [...LIGHT_PROPERTIES.room]);
-}
-
-/** Whether a recorded place is `place`, to within the light's own rounding. */
-function isAt(
-  [x = "", y = ""]: readonly string[],
-  place: { readonly x: number; readonly y: number },
-): boolean {
-  return Math.abs(parseFloat(x) - place.x) <= 0.6 &&
-    Math.abs(parseFloat(y) - place.y) <= 0.6;
-}
-
-/** What the light has written on the wall root: its place, and how far up. */
-function lightNow(page: Page): Promise<string[]> {
-  return page.locator(".wall").evaluate(
-    (root, names) =>
-      root instanceof HTMLElement
-        ? names.map((name) => root.style.getPropertyValue(name))
-        : [],
-    [...LIGHT_PROPERTIES.room],
-  );
 }
 
 Deno.test("the light stays under the pointer when the wall or its cards move and nothing changes size", async () => {
