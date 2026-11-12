@@ -1,6 +1,17 @@
 /* Wall interactions: the lens chips, the divider and the receded cards under
  * it, and the opened card. */
 
+/* The width the page's scrollbar had, which script writes on the page's root
+ * as a sheet opens and removes as it closes. The root alone reads it.
+ * Registered so that it does not inherit: a value written on the root stays
+ * on the root, and the browser does not restyle every element on the page
+ * for it. */
+@property --wall-open-scrollbar {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 @layer discern.components {
   /* The lens: one row of toggle chips, never two. Where the row fits it sits
    * centered. Where it does not, it is a strip that scrolls sideways, from

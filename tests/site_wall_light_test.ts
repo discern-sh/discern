@@ -21,6 +21,7 @@
  * the room must keep both readable and cheap.
  */
 import { assert, assertEquals, assertStrictEquals } from "@std/assert";
+import { fromFileUrl } from "@std/path";
 import type {
   Browser,
   BrowserContextOptions,
@@ -29,6 +30,7 @@ import type {
 } from "playwright-core";
 import { handler } from "../site/serve.ts";
 import { CARD_LIGHT, POINTER_PROPERTIES } from "../site/wall/Card.tsx";
+import { SCROLLBAR_ROOM } from "../site/wall/OpenCard.tsx";
 import {
   wallKnobDefaults,
   type WallKnobName,
@@ -58,7 +60,13 @@ import {
   placeOnWall,
   traced,
 } from "./site_wall_browser.ts";
+import {
+  readScopedSources,
+  structuralGuardScope,
+} from "./structural_guard_scope.ts";
 import { type StyleRule, styleRules, wallSheets } from "./wall_stylesheets.ts";
+
+const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 /** A knob's shipped value. */
 function shipped(name: WallKnobName): number {
@@ -213,6 +221,21 @@ const FRAME_PROPERTIES: readonly string[] = [
   ...POINTER_PROPERTIES,
 ];
 
+/**
+ * Every custom property script sets on a box of the live page, by the module
+ * that sets it. The light and the card write theirs on every frame of
+ * pointer travel. The opened card writes its one on the page's root as a
+ * sheet opens, and removes it as the sheet closes.
+ */
+const SCRIPT_WRITTEN: Readonly<Record<string, readonly string[]>> = {
+  "site/wall/use_light.ts": [
+    ...LIGHT_PROPERTIES.room,
+    ...LIGHT_PROPERTIES.card,
+  ],
+  "site/wall/Card.tsx": POINTER_PROPERTIES,
+  "site/wall/OpenCard.tsx": [SCROLLBAR_ROOM],
+};
+
 /** One block of declarations in a wall stylesheet, with the sheet it is in. */
 interface StyleBlock extends StyleRule {
   readonly sheet: string;
@@ -255,17 +278,67 @@ function subjects(block: StyleBlock): string[] {
   );
 }
 
-Deno.test("every value script writes while the pointer moves is registered so that it does not inherit", async () => {
+Deno.test("every value script writes on the live page is registered so that it does not inherit", async () => {
   const blocks = await wallBlocks();
   const inherits = registrations(blocks);
-  assert(FRAME_PROPERTIES.length > 0);
-  for (const name of FRAME_PROPERTIES) {
+  const written = Object.values(SCRIPT_WRITTEN).flat();
+  assert(FRAME_PROPERTIES.every((name) => written.includes(name)));
+  for (const name of written) {
     assertEquals(
       inherits.get(name),
       false,
-      `${name} is written every frame, so an inheriting ${name} restyles everything under the box it is written on, every frame`,
+      `script writes ${name}, so an inheriting ${name} restyles everything under the box it is written on at every write`,
     );
   }
+
+  // A module that sets a property on a box of the page names what it sets
+  // above, so a new one cannot write an inheriting value unseen.
+  const sources = await readScopedSources(
+    ROOT,
+    await structuralGuardScope({
+      guard: "tests/site_wall_light_test.ts#inline-property-writers",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Only the site's own modules run in a visitor's browser, where a style written by script restyles the page.",
+        include: (path) => path.startsWith("site/"),
+      },
+    }),
+  );
+  const writers = sources.filter(({ source }) =>
+    source.includes(".style.setProperty(")
+  );
+  assertEquals(
+    writers.map(({ path }) => path).toSorted(),
+    Object.keys(SCRIPT_WRITTEN).toSorted(),
+    "each module that sets a property on a box of the page enrols the names it sets",
+  );
+  for (const { path, source } of writers) {
+    for (const name of SCRIPT_WRITTEN[path] ?? []) {
+      assert(source.includes(`"${name}"`), `${path} names ${name}`);
+    }
+  }
+
+  // The opened card writes its value on the page's root, and a value that
+  // does not inherit reaches no other box. A rule that read it anywhere else
+  // would read the registered length of nothing.
+  const readers = blocks.filter((block) =>
+    block.declarations.some(([, value]) =>
+      value.includes(`var(${SCROLLBAR_ROOM})`)
+    )
+  );
+  assert(readers.length > 0, `${SCROLLBAR_ROOM} pads the page`);
+  assertEquals(
+    readers.flatMap((block) =>
+      block.selectors.filter((selector) =>
+        !/^:root(?![\w-])\S*$/.test(selector)
+      )
+        .map((selector) =>
+          `${block.sheet}: ${selector} reads ${SCROLLBAR_ROOM} off the root`
+        )
+    ),
+    [],
+  );
   // How far the light reaches is the stylesheet's to say, and script reads
   // it as a length only because it is registered as one.
   assert(inherits.has(LIGHT_REACH), `${LIGHT_REACH} is registered`);

@@ -31,8 +31,13 @@ export interface OpenCardProps {
  * the dialog opens. While the dialog is open the stylesheet stops the page
  * from scrolling, which removes the scrollbar, and pads the page by this
  * much, so the page keeps its width and nothing shifts.
+ *
+ * The root alone reads it. The stylesheet registers it so that it does not
+ * inherit: written on the root, a value that inherited would have the
+ * browser restyle every element on the page as the sheet opens, and again as
+ * it closes.
  */
-const SCROLLBAR_ROOM = "--wall-open-scrollbar";
+export const SCROLLBAR_ROOM = "--wall-open-scrollbar";
 
 /** The sheet's heading names the dialog, and its line describes it. */
 const TITLE_ID = "wall-open-title";
