@@ -378,8 +378,13 @@
     background: none;
 
     /* The shadow belongs to the dialog, not the face, so it fades in where
-     * the sheet will rest instead of travelling with the morph. */
+     * the sheet will rest instead of travelling with the morph. The dialog
+     * goes by a transition name of its own for it. While the dialog's face
+     * is in a transition and the page's root is not, Chrome draws nothing of
+     * the dialog's own box, and a shadow left to the page would arrive all
+     * at once as the transition ended. */
     box-shadow: 0 2.5rem 5.5rem -1.75rem oklch(0% 0 0 / 0.9);
+    view-transition-name: wall-open-shadow;
   }
 
   .wall-open::backdrop {
@@ -668,16 +673,25 @@
     view-transition-name: none;
   }
 
+  /* The sheet's shadow fades in and out where the sheet rests, on the
+   * clock of the page's own pictures. */
   ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-new(root),
+  ::view-transition-old(wall-open-shadow),
+  ::view-transition-new(wall-open-shadow) {
     animation-duration: 0.3s;
   }
 
   /* The object gathers speed before it travels and settles slowly, so it
    * never lunges: a tenth of the way in the first three frames, half by a
-   * quarter of the time. */
+   * quarter of the time.
+   *
+   * It is raised above the sheet's shadow. A browser stacks a picture that
+   * only the new state has above every other, which would lay an arriving
+   * sheet's shadow over the sheet. */
   ::view-transition-group(wall-open),
   ::view-transition-group(wall-open-mark) {
+    z-index: 1;
     animation-duration: 0.42s;
     animation-timing-function: cubic-bezier(0.3, 0.1, 0.1, 1);
   }

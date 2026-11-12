@@ -152,7 +152,8 @@ const MARKED_CARD = `.wall-card[${OPENING_ATTRIBUTE}]`;
 
 /**
  * A marked card in the state that gives it the sheet's transition name, as
- * the stylesheet selects it. The stylesheet says which state that is.
+ * the stylesheet selects it. The stylesheet says which state that is, and
+ * the answer is empty unless one state does.
  */
 async function namedCard(): Promise<string> {
   const naming = (await wallRules()).flatMap(({ rule }) =>
@@ -163,8 +164,7 @@ async function namedCard(): Promise<string> {
         selector.startsWith(`.wall-card[${OPENING_ATTRIBUTE}=`)
       )
   );
-  assertEquals(naming.length, 1, "one state of the mark names the card");
-  return naming[0] ?? "";
+  return naming.length === 1 ? naming[0] ?? "" : "";
 }
 
 const NAMED_CARD = await namedCard();
@@ -178,7 +178,8 @@ Deno.test("the page's root leaves a sheet's transition once its old picture is t
   // whole viewport of it, and its main thread waits for each one. With no
   // name from the moment the page changes, the old picture fades out over
   // the page itself, which is the same cross-fade to the eye.
-  //
+  assert(NAMED_CARD !== "", "one state of the mark names the card");
+
   // The mark also says when the page has changed. Until it has, a card that
   // carries the sheet's name is the one an opening pictures, and it keeps
   // the lit face it was pressed with. Every rule that reads the mark is
@@ -299,6 +300,61 @@ Deno.test("every box in a card that moves or takes time holds still while the ca
   );
 });
 
+/** Each transition name the stylesheets give the box one selector styles. */
+async function namesGivenTo(selector: string): Promise<string[]> {
+  return (await wallRules()).flatMap(({ rule }) => {
+    const name = declared(rule, "view-transition-name");
+    return name !== undefined && rule.selectors.includes(selector)
+      ? [name]
+      : [];
+  });
+}
+
+/**
+ * The names the sheet's dialog and the sheet's face go by in a transition.
+ * One rule names each, or it has no name here.
+ */
+const [SHADOW_NAME = "", ...OTHER_SHADOW_NAMES] = await namesGivenTo(
+  ".wall-open",
+);
+const [SHEET_NAME = "", ...OTHER_SHEET_NAMES] = await namesGivenTo(
+  ".wall-open-face",
+);
+
+Deno.test("the sheet's shadow is pictured under a name of its own, beneath the sheet", async () => {
+  // The dialog draws the sheet's shadow, and the dialog's face is what
+  // grows from the card. With the page's root out of the transition, Chrome
+  // draws nothing of the dialog's own box while its face is pictured, and
+  // the shadow would arrive all at once as the transition ended. Named, the
+  // dialog is pictured too, and its shadow fades in and out where the sheet
+  // rests.
+  assertEquals(
+    [OTHER_SHADOW_NAMES, OTHER_SHEET_NAMES],
+    [[], []],
+    "one rule names the dialog, and one its face",
+  );
+  assert(
+    !["", "none", SHEET_NAME].includes(SHADOW_NAME) && SHEET_NAME !== "",
+    "the dialog and its face each go by a name of their own",
+  );
+
+  // A browser stacks a picture that only the new state has above every
+  // other, which lays an arriving sheet's shadow over the sheet. The sheet's
+  // box, and the mark with it, are raised above it by rule.
+  const rules = await wallRules();
+  const raised = (name: string): number =>
+    Math.max(
+      0,
+      ...rules.filter(({ rule }) =>
+        rule.selectors.includes(`::view-transition-group(${name})`)
+      ).map(({ rule }) => Number(declared(rule, "z-index") ?? 0)),
+    );
+  assert(
+    raised(SHEET_NAME) > raised(SHADOW_NAME),
+    `::view-transition-group(${SHEET_NAME}) stacks above ::view-transition-group(${SHADOW_NAME})`,
+  );
+});
+
 /** What the page did while one view transition was active. */
 interface Watched {
   /** How many frames the transition was seen on. */
@@ -371,7 +427,7 @@ function watchTransition(watch: Watch): Promise<Watched> {
       if (face === null) return;
       const transform = getComputedStyle(face).transform;
       if (transform !== "none") posed.add(transform);
-      if (face.closest(watch.named) === null) return;
+      if (watch.named === "" || face.closest(watch.named) === null) return;
       const lit = getComputedStyle(face, "::before").opacity;
       const shadow = getComputedStyle(face, "::after").opacity;
       if (page.matches(watch.changed)) returning.add(`${lit} ${shadow}`);
@@ -490,8 +546,8 @@ function rootPictures(watched: Watched): string[] {
 
 /**
  * Hold a sheet's transition to one picture of the page: the old one, which
- * fades out over the page itself. The root is the page's own again once the
- * transition has ended.
+ * fades out over the page itself. The sheet's shadow has a picture of its
+ * own. The root is the page's own again once the transition has ended.
  */
 async function assertPagePicturedOnce(
   page: Page,
@@ -503,6 +559,11 @@ async function assertPagePicturedOnce(
     rootPictures(watched),
     [old],
     `${where}: the page's old picture fades over the page, and no new picture of the page is drawn`,
+  );
+  assert(
+    SHADOW_NAME !== "" &&
+      watched.parts.some((part) => part.endsWith(`(${SHADOW_NAME})`)),
+    `${where}: the sheet's shadow has a picture of its own to fade`,
   );
   assertEquals(
     await page.locator(MOVING_ROOT).count(),
