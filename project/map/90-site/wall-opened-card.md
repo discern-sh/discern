@@ -62,10 +62,23 @@ While a view transition runs, the browser draws the page from pictures. A change
 
 - **The pointer light holds still.** `beginTransition` begins every view transition on the site, for the sheet and for the lens. Each caller waits for the end through `transitionEnded`. `transitionRunning` answers from those two, and [the light](wall-pointer-light.md#how-the-light-comes-and-goes) writes nothing while one runs.
 - **A sheet's transition pictures the page once.** `useOpenCard` marks the page's root with `data-wall-sheet-moving` as the page changes, and clears the mark when the transition ends. Under that mark `wall-interactions.css` takes the root's transition name away. The browser has taken the page's old picture by then, and takes no new one. The old picture fades out over the page itself, which is the same cross-fade to the eye. WebKit draws a new picture of the root afresh on every frame, as large as the viewport, and its main thread waits for each one. A lens leaves the root its name and cross-fades both pictures.
+- **The source card holds still.** While a card carries `data-wall-opening`, its face has no transform, and nothing in the card eases. The face, its two layers, and the drawing of a glyph that travels each take their look at once. The browser reports the pointer gone from the card as the transition begins, and the face would otherwise ease out of its hover pose unseen. A face that moves has a layer of its own. Inside a marked card that layer cannot rise above the wall, so Chrome lifts every card after it into further layers and draws them again.
 
 A request that a later one overtook still makes its change, and makes it before the later transition takes its first picture. Only the latest request marks the root, or that picture would lack the page.
 
-[The transition test](../../../tests/site_wall_transition_test.ts) holds these in Chrome, with a pointer that travels to a card and presses it. A sheet's opening and closing must animate the root's old picture and no new one, far and near, and so must a request that overtakes another. A lens must animate both. The test also reads the stylesheet for the rule that takes the marked root's name away. From the sources it requires that one line of the site begins a view transition, and that each module waits through `transitionEnded` for every transition it begins. A transition begun elsewhere would run with the light still writing. One never waited for would hold the light for good.
+The still card needs the root out of the transition. While WebKit pictures the root on every frame, a face that holds still makes its frames late.
+
+Where a pointer can hover, the visitor pressed a lit card, and the browser lets go of the hover before it takes the card's picture. The root's mark says when the page has changed. Until then a card that carries the sheet's name keeps its lit face, so an opening pictures the card as the visitor pressed it. The hook marks a card the sheet returns to after the page has changed. That card arrives unlit unless the keyboard's focus is on it, and that focus lights it at once.
+
+[The transition test](../../../tests/site_wall_transition_test.ts) holds these in Chrome, with a pointer that travels to a card and presses it, at four columns and at five:
+
+- A sheet's opening and closing must animate the root's old picture and no new one, far and near, and so must a request that overtakes another. A lens must animate both.
+- On every frame, no animation may run on the marked card or inside it, and its face may carry no transform.
+- An opening must picture the card lit. A card the sheet returns to must arrive unlit while the pointer is elsewhere.
+
+The test reads the stylesheets for what the gate's browser cannot show. It names every rule that reads the root's mark. It works out which boxes a marked card must still: each box inside a rendered card that some rule moves or gives time, by the property that does it. A new moving part of a card fails the test until the marked card stills it. It fails with the reason when the face holds still and no rule takes the root's name away.
+
+From the sources the test requires that one line of the site begins a view transition, and that each module waits through `transitionEnded` for every transition it begins. A transition begun elsewhere would run with the light still writing. One never waited for would hold the light for good.
 
 Opening or closing a card makes the browser restyle every element on the page once. The modal dialog costs that by itself: an empty dialog opened over the homepage restyles as much, and marking the source card restyles about a dozen elements. It happens once per change, outside the pointer-travel budget, and no test counts it.
 
@@ -81,7 +94,7 @@ The interactions test holds the decisions and the stylesheet:
 - the sheet's link, named by its page;
 - a structural guard that no other line under `site/` makes a click, and that `deliverClick` refuses any click but a plain one before it reads the page.
 
-The columns test holds the marked card's paint containment, with [the list's other rules](wall-columns.md#what-holds-the-columns).
+The columns test holds the marked card's paint containment, with [the list's other rules](wall-columns.md#what-holds-the-columns). The transition test holds [what a transition costs](#what-a-transition-costs).
 
 The sheet test opens a card by pointer and leaves by every entry in its `WAYS_OUT` table, in the far view and in the near view. After each one, the scroll position, the plane, every card's box, and the focus must be where they began. A new way out belongs in that table. Its further cases cover:
 

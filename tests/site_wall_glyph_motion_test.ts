@@ -313,8 +313,11 @@ Deno.test("a glyph that eases on a face that is not raised never becomes a layer
     // Mark the card as a sheet's source, in neither of the states that change
     // how the card itself is drawn. Its glyph takes the pose with no pointer
     // on the card and no focus in it, so its face stays down among the rest.
-    // The mark answers with what the glyph and its face do the moment it
-    // changes: reading the transitions has the browser apply the change.
+    // A marked card holds still, so the glyph is in its pose at once. It
+    // eases back to rest when the mark goes, as it does once a sheet has
+    // closed with the pointer elsewhere. The mark answers with what the glyph
+    // and its face do the moment it changes: reading the transitions has the
+    // browser apply the change.
     const mark = async (on: boolean): Promise<Travel> => {
       await page.evaluate(({ id, on, name }) => {
         document.querySelector(`.wall-card[data-card="${id}"]`)
@@ -324,12 +327,14 @@ Deno.test("a glyph that eases on a face that is not raised never becomes a layer
     };
 
     most = 0;
-    for (const [on, at] of [[true, target.pose], [false, [0, 0]]] as const) {
-      const changed = await mark(on);
-      assert(changed.easing > 0, "the glyph eases to and from its pose");
-      assertEquals(changed.stack, rest.stack, "and its face is not raised");
-      await settled(page, target.id, at, rest.stack, false);
-    }
+    const posed = await mark(true);
+    assertEquals(posed.easing, 0, "a marked card's glyph is posed at once");
+    assertEquals(posed.stack, rest.stack, "and its face is not raised");
+    await settled(page, target.id, target.pose, rest.stack, false);
+    const freed = await mark(false);
+    assert(freed.easing > 0, "the glyph eases back once the mark has gone");
+    assertEquals(freed.stack, rest.stack, "and its face is not raised");
+    await settled(page, target.id, [0, 0], rest.stack, false);
     await drawn(page, 2);
     assertEquals(
       Math.max(most, layers),

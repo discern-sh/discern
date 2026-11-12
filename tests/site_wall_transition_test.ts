@@ -12,11 +12,18 @@
  */
 import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl } from "@std/path";
+// @ts-types="@types/jsdom"
+import { JSDOM } from "jsdom";
 import type { Page } from "playwright-core";
-import { CARD_LIGHT } from "../site/wall/Card.tsx";
-import { WALL_LENSES } from "../site/wall/deck.ts";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Card, CARD_LIGHT } from "../site/wall/Card.tsx";
+import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
 import { LIGHT_PROPERTIES } from "../site/wall/use_light.ts";
-import { SHEET_MOVING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
+import {
+  OPENING_ATTRIBUTE,
+  SHEET_MOVING_ATTRIBUTE,
+} from "../site/wall/use_open_card.ts";
 import {
   dropFocus,
   FAR_WALL,
@@ -48,7 +55,9 @@ import {
   conditionsOf,
   declared,
   MOTION_PROPERTY,
+  selectsCardItem,
   type SheetRule,
+  splitOutside,
   wallRules,
 } from "./wall_stylesheets.ts";
 
@@ -138,19 +147,155 @@ function written({ sheet, rule }: SheetRule): string {
 /** The page's root while a sheet's transition is past its first picture. */
 const MOVING_ROOT = `:root[${SHEET_MOVING_ATTRIBUTE}]`;
 
+/** A card marked as an opened card's source, in either state of the mark. */
+const MARKED_CARD = `.wall-card[${OPENING_ATTRIBUTE}]`;
+
+/**
+ * A marked card in the state that gives it the sheet's transition name, as
+ * the stylesheet selects it. The stylesheet says which state that is.
+ */
+async function namedCard(): Promise<string> {
+  const naming = (await wallRules()).flatMap(({ rule }) =>
+    declared(rule, "view-transition-name") === undefined
+      ? []
+      : rule.selectors.filter((selector) =>
+        selectsCardItem(selector) &&
+        selector.startsWith(`.wall-card[${OPENING_ATTRIBUTE}=`)
+      )
+  );
+  assertEquals(naming.length, 1, "one state of the mark names the card");
+  return naming[0] ?? "";
+}
+
+const NAMED_CARD = await namedCard();
+
+/** The face of a card, which is the one box of a card that moves. */
+const FACE = ".wall-card-face";
+
 Deno.test("the page's root leaves a sheet's transition once its old picture is taken", async () => {
   // A root that keeps its transition name is pictured in the new state too.
   // WebKit draws that picture afresh on every frame of the transition, the
   // whole viewport of it, and its main thread waits for each one. With no
   // name from the moment the page changes, the old picture fades out over
   // the page itself, which is the same cross-fade to the eye.
+  //
+  // The mark also says when the page has changed. Until it has, a card that
+  // carries the sheet's name is the one an opening pictures, and it keeps
+  // the lit face it was pressed with. Every rule that reads the mark is
+  // named here, so a new reader is a decision.
   assertEquals(
     (await wallRules()).filter(({ rule }) =>
       rule.selectors.some((selector) =>
         selector.includes(`[${SHEET_MOVING_ATTRIBUTE}]`)
       )
     ).map(written),
-    [`wall-interactions.css: ${MOVING_ROOT} { view-transition-name: none }`],
+    [
+      `wall-interactions.css: @media (hover: hover) :root:not([${SHEET_MOVING_ATTRIBUTE}]) ${NAMED_CARD} ${FACE}::before { opacity: 1 }`,
+      `wall-interactions.css: ${MOVING_ROOT} { view-transition-name: none }`,
+    ],
+  );
+});
+
+/**
+ * What holds a box still, by each property that would move the box, promise
+ * that it will, or give a change of its look some time to take.
+ */
+const STILL: Readonly<Record<string, string>> = {
+  transform: "none",
+  "will-change": "auto",
+  transition: "none",
+  animation: "none",
+};
+
+/** Every card of the deck as the page's list holds it. */
+function deckMarkup(): Document {
+  const list = createElement(
+    "ul",
+    null,
+    WALL_DECK.map((card) =>
+      createElement(Card, {
+        key: card.id,
+        card,
+        receded: false,
+        onOpen: () => {},
+      })
+    ),
+  );
+  return new JSDOM(renderToStaticMarkup(list)).window.document;
+}
+
+/**
+ * The box a selector styles, as a class with any pseudo-element, when that
+ * box lies inside a card: `.wall-card-face::before`. A box outside every
+ * card has no name here, and neither has the card's own list item.
+ */
+function boxInCard(selector: string, deck: Document): string | undefined {
+  const subject = splitOutside(selector, " ").at(-1) ?? "";
+  const name = /^\.[\w-]+/.exec(subject)?.[0];
+  if (name === undefined || deck.querySelector(`.wall-card ${name}`) === null) {
+    return undefined;
+  }
+  return `${name}${/::[\w-]+/.exec(subject)?.[0] ?? ""}`;
+}
+
+Deno.test("every box in a card that moves or takes time holds still while the card is an opened card's source, and the root has left the transition by then", async () => {
+  const rules = await wallRules();
+  const deck = deckMarkup();
+  // Whatever a rule gives a box inside a card to move it, or to take time
+  // over a change, the marked card must take away again by the same
+  // property. A marked card is a stacking context that nobody sees, and the
+  // browser reports the pointer gone from it as its transition begins. A
+  // face easing out of its hover pose in there has a layer of its own that
+  // cannot rise above the wall, so the browser lifts every card after it
+  // into further layers and draws them all again.
+  const moved = new Map<string, Set<string>>();
+  for (const { rule } of rules) {
+    for (const [property, value] of rule.declarations) {
+      const still = Object.entries(STILL).find(([name]) =>
+        property === name || property.startsWith(`${name}-`)
+      );
+      if (still === undefined || value === still[1]) continue;
+      for (const selector of rule.selectors) {
+        const box = boxInCard(selector, deck);
+        if (box === undefined) continue;
+        moved.set(box, (moved.get(box) ?? new Set()).add(still[0]));
+      }
+    }
+  }
+  assert(
+    moved.get(FACE)?.has("transform") === true && moved.size > 1,
+    "a card's face moves, and other boxes in a card take time over a change",
+  );
+  const held = (box: string, property: string): boolean =>
+    rules.some(({ rule }) =>
+      rule.selectors.includes(`${MARKED_CARD} ${box}`) &&
+      conditionsOf(rule).length === 0 &&
+      declared(rule, property) === STILL[property]
+    );
+  assertEquals(
+    [...moved].flatMap(([box, properties]) =>
+      [...properties].filter((property) => !held(box, property)).map((
+        property,
+      ) =>
+        `${MARKED_CARD} ${box} needs ${property}: ${
+          STILL[property]
+        }, for every reader`
+      )
+    ),
+    [],
+  );
+
+  // Holding the face still is safe only with the root out of the sheet's
+  // transition. While WebKit still pictures the root on every frame, a face
+  // that holds still makes each of those pictures dearer, and frames that
+  // were on time come late.
+  const leaves = rules.some(({ rule }) =>
+    rule.selectors.includes(MOVING_ROOT) &&
+    declared(rule, "view-transition-name") === "none"
+  );
+  assert(
+    leaves,
+    `${MARKED_CARD} ${FACE} holds still, so ${MOVING_ROOT} must take the root's transition name away: the face rule without the root rule is a WebKit regression`,
   );
 });
 
@@ -162,6 +307,22 @@ interface Watched {
   readonly writes: string[];
   /** Every part of the transition that animated, by its pseudo-element. */
   readonly parts: string[];
+  /** Each animation that ran on the marked card or inside it, once by name. */
+  readonly moving: string[];
+  /** Each transform the marked card's face carried, other than none. */
+  readonly posed: string[];
+  /**
+   * How far up the face's lit layer was while the card carried the sheet's
+   * name and the page had not yet changed: the card as an opening pictures
+   * it. Once per value.
+   */
+  readonly pressed: string[];
+  /**
+   * How far up the face's lit layer and its deeper shadow were while the
+   * card carried the sheet's name and the page had changed: the card a
+   * sheet returns to. Once per pair of values.
+   */
+  readonly returning: string[];
 }
 
 /** The boxes a watch looks at, as selectors. */
@@ -170,9 +331,24 @@ interface Watch {
   readonly room: string;
   /** A card's light box, where the light writes its place on that card. */
   readonly light: string;
+  /** A card marked as an opened card's source. */
+  readonly marked: string;
+  /** A marked card while it carries the sheet's transition name. */
+  readonly named: string;
+  /** A card's face, inside its card. */
+  readonly face: string;
+  /** The page's root once a sheet's transition has changed the page. */
+  readonly changed: string;
 }
 
-const WATCH: Watch = { room: LIVE_WALL, light: `.${CARD_LIGHT}` };
+const WATCH: Watch = {
+  room: LIVE_WALL,
+  light: `.${CARD_LIGHT}`,
+  marked: MARKED_CARD,
+  named: NAMED_CARD,
+  face: FACE,
+  changed: MOVING_ROOT,
+};
 
 /**
  * Runs in the page: watch from now until a view transition has come and
@@ -185,7 +361,22 @@ function watchTransition(watch: Watch): Promise<Watched> {
     const active = (): boolean => page.matches(":active-view-transition");
     const writes: string[] = [];
     const parts = new Set<string>();
+    const moving = new Set<string>();
+    const posed = new Set<string>();
+    const pressed = new Set<string>();
+    const returning = new Set<string>();
     let frames = 0;
+    const lookAtMarkedCard = (): void => {
+      const face = document.querySelector(`${watch.marked} ${watch.face}`);
+      if (face === null) return;
+      const transform = getComputedStyle(face).transform;
+      if (transform !== "none") posed.add(transform);
+      if (face.closest(watch.named) === null) return;
+      const lit = getComputedStyle(face, "::before").opacity;
+      const shadow = getComputedStyle(face, "::after").opacity;
+      if (page.matches(watch.changed)) returning.add(`${lit} ${shadow}`);
+      else pressed.add(lit);
+    };
     const written = new MutationObserver((records) => {
       if (!active()) return;
       for (const { target } of records) {
@@ -202,15 +393,35 @@ function watchTransition(watch: Watch): Promise<Watched> {
     const look = (patience: number): void => {
       if (active()) {
         frames++;
-        for (const { effect } of document.getAnimations()) {
-          const part = effect instanceof KeyframeEffect
-            ? effect.pseudoElement
-            : null;
-          if (part?.startsWith("::view-transition") === true) parts.add(part);
+        for (const animation of document.getAnimations()) {
+          const effect = animation.effect;
+          if (!(effect instanceof KeyframeEffect)) continue;
+          const part = effect.pseudoElement;
+          const target = effect.target;
+          if (part?.startsWith("::view-transition") === true) {
+            parts.add(part);
+          } else if (
+            animation.playState === "running" && target !== null &&
+            target.closest(watch.marked) !== null
+          ) {
+            const changes = animation instanceof CSSTransition
+              ? animation.transitionProperty
+              : animation.id;
+            moving.add(`${target.classList[0] ?? ""}${part ?? ""} ${changes}`);
+          }
         }
+        lookAtMarkedCard();
       } else if (frames > 0 || patience === 0) {
         written.disconnect();
-        resolve({ frames, writes, parts: [...parts] });
+        resolve({
+          frames,
+          writes,
+          parts: [...parts],
+          moving: [...moving],
+          posed: [...posed],
+          pressed: [...pressed],
+          returning: [...returning],
+        });
         return;
       }
       requestAnimationFrame(() => look(patience - 1));
@@ -300,6 +511,20 @@ async function assertPagePicturedOnce(
   );
 }
 
+/** Hold a transition to a marked card in which nothing moves or eases. */
+function assertMarkedCardStill(watched: Watched, where: string): void {
+  assertEquals(
+    watched.moving,
+    [],
+    `${where}: something eased inside the opened card's source`,
+  );
+  assertEquals(
+    watched.posed,
+    [],
+    `${where}: the face of the opened card's source carried a transform`,
+  );
+}
+
 /**
  * Open a card by a pointer that travels to it and presses, close it by a
  * click outside the sheet, and hold both transitions to their cost. The
@@ -318,11 +543,19 @@ async function assertOpensAndClosesCheaply(
   });
   assertLightHeld(opening, `${where}, opening`);
   await assertPagePicturedOnce(page, opening, `${where}, opening`);
+  assertMarkedCardStill(opening, `${where}, opening`);
   const grown = await page.locator(NEAR_WALL).count() === 1;
   assertEquals(
     await markedCards(page),
     grown ? [`${press.id}:held`] : [],
     `${where}: a flat card grows into its sheet, and no other does`,
+  );
+  // Where a pointer can hover, the visitor pressed a lit card, and the
+  // browser has let go of the hover by the time it pictures the card.
+  assertEquals(
+    opening.pressed,
+    grown ? ["1"] : [],
+    `${where}: the card is pictured lit, as it was pressed`,
   );
 
   const closing = await during(page, async () => {
@@ -331,13 +564,21 @@ async function assertOpensAndClosesCheaply(
   });
   assertLightHeld(closing, `${where}, closing`);
   await assertPagePicturedOnce(page, closing, `${where}, closing`);
+  assertMarkedCardStill(closing, `${where}, closing`);
+  // The pointer is off the card and the keyboard never reached it, so
+  // nothing lights the card the sheet returns to.
+  assertEquals(
+    closing.returning,
+    grown ? ["0 0"] : [],
+    `${where}: the card the sheet returns to arrives unlit`,
+  );
 
   await travelTo(page, { x: press.x + 48, y: press.y + 24 }, where);
 }
 
 const [, LAPTOP] = VIEWPORTS;
 
-Deno.test("while a card opens or closes the light holds still and the page is pictured once, and a lens cross-fades two pictures of the page", async () => {
+Deno.test("while a card opens or closes the light and the card hold still and the page is pictured once, and a lens cross-fades two pictures of the page", async () => {
   const [lens] = WALL_LENSES;
   assert(lens !== undefined, "the wall has a lens");
   for (const size of [LAPTOP, WIDE_VIEWPORT]) {

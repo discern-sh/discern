@@ -281,6 +281,43 @@
     opacity: 0;
   }
 
+  /* The marked card holds still, its face and its glyph. The browser reports
+   * the pointer gone from the card as its transition begins, and a face left
+   * to ease out of its lifted, tilted pose would do it unseen. A face that
+   * moves has a layer of its own, and the marked card is a stacking context,
+   * so that layer cannot rise above the other cards: the browser lifts every
+   * card after it into further layers and draws them all again, and once
+   * more when the face comes to rest. So the face rests at once, its two
+   * layers take their look at once, and the glyph takes its pose at once.
+   *
+   * These rules need the root out of the sheet's transition, which the rule
+   * for the marked root sees to. With the root still pictured on every frame,
+   * WebKit's frames come late once the face holds still. */
+  .wall-card[data-wall-opening] .wall-card-face {
+    z-index: 0;
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
+
+  .wall-card[data-wall-opening] .wall-card-face::before,
+  .wall-card[data-wall-opening] .wall-card-face::after,
+  .wall-card[data-wall-opening] .wall-glyph-move {
+    transition: none;
+  }
+
+  /* Where a pointer can hover, the visitor pressed a lit card, and the
+   * browser lets go of the hover before it takes the card's picture. The card
+   * keeps its lit face until the page changes, so the picture that grows into
+   * the sheet shows the card as it was pressed. A card the sheet returns to
+   * is marked once the page has changed, and arrives as the pointer and the
+   * keyboard have left it. */
+  @media (hover: hover) {
+    :root:not([data-wall-sheet-moving]) .wall-card[data-wall-opening="morph"] .wall-card-face::before {
+      opacity: 1;
+    }
+  }
+
   /* The card's mark, its glyph or its numeral, crosses to the sheet as an
    * object of its own. The card names it while the card carries the shared
    * name, and the sheet names it while a card is its source, so the name

@@ -84,7 +84,7 @@ The renderer hands the distance to the stylesheet as `--wall-glyph-dx` and `--wa
 
 The second drawing paints over the first, so a traveling primitive paints last wherever its drawing lists it. A drawing therefore lists nothing after a traveling primitive that crosses the box it sweeps.
 
-Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. The glyph test reads the lit states from `wall-card.css`, so a change to how a card lights fails that test until `wall-glyph.css` follows. The test also fails when another module under `site/wall/` starts to draw a glyph, until someone decides its pose.
+Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. [A marked card holds still](wall-opened-card.md#what-a-transition-costs), so its glyph takes the pose at once, and eases back to rest when the mark goes. The glyph test reads the lit states from `wall-card.css`, so a change to how a card lights fails that test until `wall-glyph.css` follows. The test also fails when another module under `site/wall/` starts to draw a glyph, until someone decides its pose.
 
 The glyph test holds each of these rules in the markup and the stylesheet. The glyph motion test watches a real browser. One hover on and off a card whose glyph travels must start no layout, and the glyph must rest before its face steps back. A glyph that eases on a face that is not raised must never become a layer. That test counts every layout during the hover, so a layout from any other cause fails it too.
 
