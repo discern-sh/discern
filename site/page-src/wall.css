@@ -271,13 +271,13 @@
     color: var(--wall-ink);
   }
 
-  /* The headline's light falls off toward its foot. A mask does it, so the
-   * text keeps one solid color for contrast and for forced colors. The mask
-   * clips at the box, so the box is padded to hold the descenders. Wrapped
-   * over two lines the fall-off is slight, so the second line is not read as
-   * the lesser one; on one line it is deeper. */
+  /* The headline takes the pool's whole width and breaks only where it must,
+   * into lines of like length. Its light falls off toward its foot. A mask
+   * does it, so the text keeps one solid color for contrast and for forced
+   * colors. The mask clips at the box, so the box is padded to hold the
+   * descenders. Wrapped over two lines the fall-off is slight, so the second
+   * line is not read as the lesser one; on one line it is deeper. */
   .wall-headline {
-    max-inline-size: 12ch;
     margin-block: 1.4rem -0.14em;
     padding-block-end: 0.14em;
     font-family: var(--discern-font-marketing);
@@ -296,6 +296,8 @@
     );
   }
 
+  /* Under a headline that wraps, the line below it wraps as well, so it is
+   * never the wider of the two. */
   .wall-category {
     max-inline-size: 30ch;
     margin-block-start: clamp(1rem, 2.4vh, 1.5rem);
@@ -504,13 +506,10 @@
     }
   }
 
-  @media (min-width: 60rem) {
-    .wall-pool {
-      min-block-size: 50svh;
-    }
-
+  /* From here the pool is wide enough for the headline on one line, and the
+   * line below it takes one line as well. */
+  @media (min-width: 34rem) {
     .wall-headline {
-      max-inline-size: none;
       mask-image: linear-gradient(
         180deg,
         oklch(0% 0 0) 45%,
@@ -520,6 +519,12 @@
 
     .wall-category {
       max-inline-size: none;
+    }
+  }
+
+  @media (min-width: 60rem) {
+    .wall-pool {
+      min-block-size: 50svh;
     }
   }
 
