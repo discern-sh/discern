@@ -14,7 +14,8 @@ import {
   type MarketingRoute,
 } from "../site/marketing_pages.ts";
 import { renderMarketingPage } from "../site/renderers.ts";
-import { WALL_DECK } from "../site/wall/deck.ts";
+import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
+import { LENS_REST, lensGroups, lensStatus } from "../site/wall/Lens.tsx";
 import {
   countProse,
   fleschKincaidGrade,
@@ -58,12 +59,17 @@ const CONTAINER_BLOCK_SELECTOR = [
 /**
  * The prose each route shows only after its script runs, which the rendered
  * markup therefore lacks. The homepage's wall shows a card's second paragraph
- * when a visitor opens the card.
+ * when a visitor opens the card. A lens puts its divider's words between the
+ * cards it kept and the rest, and says what it did in its status sentence.
  */
 const SCRIPT_SHOWN_PROSE: Readonly<
   Partial<Record<MarketingRoute, () => readonly string[]>>
 > = {
-  "/": () => WALL_DECK.flatMap((card) => card.more ?? []),
+  "/": () => [
+    ...WALL_DECK.flatMap((card) => card.more ?? []),
+    LENS_REST,
+    ...WALL_LENSES.map((lens) => lensStatus(lens, lensGroups(lens, WALL_DECK))),
+  ],
 };
 
 /** One registry-owned page after markup-free projection. */

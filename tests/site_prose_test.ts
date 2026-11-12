@@ -7,7 +7,8 @@ import { JSDOM } from "jsdom";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderAgents } from "../site/ui/pages/AgentsPage.tsx";
 import { renderLanding } from "../site/ui/pages/HomePage.tsx";
-import { WALL_DECK } from "../site/wall/deck.ts";
+import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
+import { LENS_REST, lensGroups, lensStatus } from "../site/wall/Lens.tsx";
 import { proseWordCount } from "../scripts/prose_lib.ts";
 import {
   projectSiteProse,
@@ -81,6 +82,21 @@ Deno.test("site prose: projectSiteProse cases", () => {
         opened.filter((paragraph) => !homepage.blocks.includes(paragraph)),
         [],
         "an opened paragraph is missing from the prose the site checks read",
+      );
+    },
+    "the homepage projection reads the words a lens shows": () => {
+      const homepage = projectSiteProse().find(({ route }) => route === "/");
+      assert(homepage !== undefined);
+      const statuses = WALL_LENSES.map((lens) =>
+        lensStatus(lens, lensGroups(lens, WALL_DECK))
+      );
+      assert(statuses.length > 0, "the wall has lenses");
+      assertEquals(
+        [LENS_REST, ...statuses].filter((words) =>
+          words === "" || !homepage.blocks.includes(words)
+        ),
+        [],
+        "a lens's divider or status is missing from the prose the site checks read",
       );
     },
   });
