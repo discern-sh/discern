@@ -11,6 +11,7 @@ import { clusterHueStyle } from "./clusters.ts";
 import { Glyph } from "./Glyph.tsx";
 import { type LinkLabels, linkRoute } from "./host.ts";
 import type { WallCard } from "./types.ts";
+import { fellOutside } from "./use_open_card.ts";
 
 export interface OpenCardProps {
   /** The card to show, or null while none is open. */
@@ -61,9 +62,7 @@ function ignoreHeldKey(event: KeyboardEvent<HTMLDialogElement>): void {
 function aimedOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
   if (event.target === dialog) return true;
   if (event.target !== document.documentElement) return false;
-  const sheet = dialog.getBoundingClientRect();
-  return event.clientX < sheet.left || event.clientX > sheet.right ||
-    event.clientY < sheet.top || event.clientY > sheet.bottom;
+  return fellOutside(dialog.getBoundingClientRect(), event);
 }
 
 /**
@@ -71,10 +70,11 @@ function aimedOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
  * is how Escape asks too. Returns the function that stops asking.
  *
  * The click counts from the moment the dialog mounts, while the sheet is
- * still arriving as much as once it rests. Two kinds of click are not a
- * request to leave. One that began as a press inside the sheet and ended
- * outside it was a drag. And the later clicks of a double click belong with
- * the first, so a card that is double-clicked opens and stays open.
+ * still arriving as much as once it rests. A click that began as a press
+ * inside the sheet and ended outside it was a drag, and is no request to
+ * leave. The later clicks of the double click that opened the card never
+ * arrive here: `useClickSequence` drops them, so a card that is
+ * double-clicked opens and stays open.
  */
 function cancelOnOutsideClick(dialog: HTMLDialogElement): () => void {
   let pressedOutside = false;
@@ -82,8 +82,7 @@ function cancelOnOutsideClick(dialog: HTMLDialogElement): () => void {
     pressedOutside = aimedOutside(dialog, event);
   };
   const ask = (event: MouseEvent): void => {
-    if (!pressedOutside || event.detail > 1) return;
-    if (aimedOutside(dialog, event)) {
+    if (pressedOutside && aimedOutside(dialog, event)) {
       dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
     }
   };

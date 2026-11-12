@@ -11,7 +11,11 @@ import {
 } from "react";
 import { clusterHueStyle } from "./clusters.ts";
 import type { WallCard, WallLens } from "./types.ts";
-import { deliverClick } from "./use_open_card.ts";
+import {
+  beginTransition,
+  deliverClick,
+  useClickSequence,
+} from "./use_open_card.ts";
 
 export interface LensProps {
   readonly lenses: readonly WallLens[];
@@ -108,9 +112,7 @@ function showWallHead(): void {
  * it runs. The browser tests nothing on the page for a hit during a view
  * transition: every click lands on the document's root. The page is already
  * in its new state by then, so the first such click ends the fade where it
- * stands and goes to what it fell on, as `deliverClick` hands it on. The
- * later clicks of a double click are left alone, so a double click on a chip
- * chooses its lens once.
+ * stands and goes to what it fell on, as `deliverClick` hands it on.
  *
  * The fade is how the change is shown, not the change. One that cannot
  * begin, or that a later one cuts short, leaves the page in its new state
@@ -118,7 +120,7 @@ function showWallHead(): void {
  */
 async function fadeThrough(transition: ViewTransition): Promise<void> {
   const deliver = (event: MouseEvent): void => {
-    if (event.detail > 1 || event.target !== document.documentElement) return;
+    if (event.target !== document.documentElement) return;
     document.removeEventListener("click", deliver);
     transition.skipTransition();
     deliverClick(event);
@@ -151,12 +153,14 @@ interface Shown {
  *
  * Each request states the lens the wall should end with, so however requests
  * overlap, the last one wins: a later cross-fade ends an earlier one where it
- * stands.
+ * stands. A double click on a chip chooses its lens once, and does not let
+ * it go again: see `useClickSequence`.
  */
 export function useLens(lenses: readonly WallLens[]): LensState {
   const [shown, setShown] = useState<Shown>({ id: null, turn: 0 });
   const wanted = useRef<string | null>(null);
   const committing = useRef<Array<() => void>>([]);
+  const spend = useClickSequence();
 
   useEffect(() => {
     for (const committed of committing.current.splice(0)) committed();
@@ -166,6 +170,7 @@ export function useLens(lenses: readonly WallLens[]): LensState {
     const next = wanted.current === id ? null : id;
     if (wanted.current === next) return;
     wanted.current = next;
+    spend();
     const sort = (): Promise<void> =>
       new Promise((sorted) => {
         showWallHead();
@@ -175,7 +180,9 @@ export function useLens(lenses: readonly WallLens[]): LensState {
     const cut = typeof document.startViewTransition !== "function" ||
       globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (cut) return await sort();
-    await fadeThrough(document.startViewTransition(sort));
+    const fade = beginTransition(sort);
+    if (fade === null) return await sort();
+    await fadeThrough(fade);
   };
 
   return {

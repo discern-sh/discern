@@ -284,14 +284,16 @@ export interface Press {
 /**
  * Find a card the pointer can press. Scanning from the top finds one high in
  * the viewport, above where a sheet comes to rest; scanning from the bottom
- * finds one of the far view's nearest rows.
+ * finds one of the far view's nearest rows. The card named by `except` is
+ * passed over.
  */
 export async function pressableCard(
   page: Page,
   size: Viewport,
   from: "top" | "bottom",
+  except = "",
 ): Promise<Press> {
-  const found = await page.evaluate(({ width, height, upward }) => {
+  const found = await page.evaluate(({ width, height, upward, except }) => {
     for (let row = 0; row < 14; row++) {
       const y = upward ? height - 60 - row * 40 : height * 0.16 + row * 40;
       for (const across of [0.1, 0.3, 0.5, 0.7, 0.9]) {
@@ -299,11 +301,16 @@ export async function pressableCard(
         const id = document.elementFromPoint(x, y)?.closest<HTMLElement>(
           ".wall-card",
         )?.dataset.card;
-        if (id !== undefined) return { id, x, y };
+        if (id !== undefined && id !== except) return { id, x, y };
       }
     }
     return null;
-  }, { width: size.width, height: size.height, upward: from === "bottom" });
+  }, {
+    width: size.width,
+    height: size.height,
+    upward: from === "bottom",
+    except,
+  });
   assert(found !== null, `${size.name}: a card lies under the pointer`);
   return found;
 }

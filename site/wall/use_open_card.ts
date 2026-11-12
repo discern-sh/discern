@@ -153,19 +153,102 @@ export function plainClick(click: ClickKind): boolean {
 
 /**
  * Hand a click to what it fell on, as the browser would have: the link or
- * button there takes focus and the click. This is for a click the browser
- * kept from the page, and it reads the page as it stands when called. Only a
- * plain click is handed on. The click made here is a new one that keeps no
- * modifier key and no button, so any other click is dropped, and the visitor
- * makes it again on a page that answers for itself.
+ * button there takes focus and the click. Where it fell on a sheet's words,
+ * the sheet takes the focus, as it does for a press on them once it rests.
+ * This is for a click the browser kept from the page, and it reads the page
+ * as it stands when called. Only a plain click is handed on. The click made
+ * here is a new one that keeps no modifier key and no button, so any other
+ * click is dropped, and the visitor makes it again on a page that answers
+ * for itself.
  */
 export function deliverClick(event: MouseEvent): void {
   if (!plainClick(event)) return;
   const under = document.elementFromPoint(event.clientX, event.clientY);
   const control = under?.closest<HTMLElement>("a[href], button") ?? null;
-  control?.focus({ preventScroll: true });
+  const holder = control ?? under?.closest<HTMLElement>("dialog");
+  holder?.focus({ preventScroll: true });
   const target = control ?? under;
   if (target instanceof HTMLElement) target.click();
+}
+
+/**
+ * Whether a pointer event fell outside a box, by its place alone. While a
+ * view transition runs, the browser tests nothing on the page for a hit, and
+ * every pointer event lands on the document's root wherever it fell. Then
+ * only its place can say what it was aimed at.
+ */
+export function fellOutside(box: DOMRectReadOnly, event: MouseEvent): boolean {
+  return event.clientX < box.left || event.clientX > box.right ||
+    event.clientY < box.top || event.clientY > box.bottom;
+}
+
+/**
+ * Keep a double click to one act. A double click is a sequence of clicks,
+ * which each click counts in its `detail`, and the later ones land wherever
+ * the first has left the page: on a link in the sheet it opened, on the card
+ * under a sheet it closed, or on the chip it has just pressed. Once a click
+ * has changed the wall, the sequence it belongs to is spent, and the rest of
+ * it is dropped before anything on the page hears it. The press that begins
+ * a dropped click does nothing either, so the focus stays with the sheet or
+ * the card the first click gave it to. A click that starts a sequence of its
+ * own is heard as usual.
+ *
+ * Returns the function that marks the sequence under way as spent. Whatever
+ * changes the wall calls it as the change is asked for.
+ */
+export function useClickSequence(): () => void {
+  const spent = useRef(false);
+  useEffect(() => {
+    const press = (event: MouseEvent): void => {
+      if (event.detail > 1 && spent.current) event.preventDefault();
+    };
+    const hear = (event: MouseEvent): void => {
+      if (event.detail <= 1) {
+        spent.current = false;
+      } else if (spent.current) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+    };
+    document.addEventListener("mousedown", press, true);
+    document.addEventListener("click", hear, true);
+    return () => {
+      document.removeEventListener("mousedown", press, true);
+      document.removeEventListener("click", hear, true);
+    };
+  }, []);
+  return () => {
+    spent.current = true;
+  };
+}
+
+/**
+ * Begin a view transition around a change to the page. A browser that
+ * refuses to begin one throws. The refusal is reported, and the answer is
+ * null: the caller then makes the change as a cut, so the page still reaches
+ * the state that was asked for.
+ */
+export function beginTransition(
+  change: () => Promise<void>,
+): ViewTransition | null {
+  try {
+    return document.startViewTransition(change);
+  } catch (refusal) {
+    reportError(refusal);
+    return null;
+  }
+}
+
+/** The sheet's box while a card is open: the modal layer over the page. */
+function sheetBox(): DOMRect | undefined {
+  return document.querySelector("dialog:modal")?.getBoundingClientRect();
+}
+
+/** A view transition of the open card that is under way. */
+interface Moving {
+  readonly transition: ViewTransition;
+  /** A sheet is arriving. Otherwise one is leaving. */
+  readonly arriving: boolean;
 }
 
 /** What the wall shows open, and which request put it there. */
@@ -190,14 +273,19 @@ interface Shown {
  *   finish removes it.
  *
  * While a view transition runs, the browser tests nothing on the page for a
- * hit: every click lands on the document's root. The sheet reads such a click
- * itself while it is open. Once it is on its way out the page is the
- * visitor's again, so a click made then ends the transition where it stands
- * and goes to what it fell on. A click with a modifier key held, or with any
- * button but the primary one, ends the transition and goes nowhere: see
- * `deliverClick`. The later clicks of a double click are left alone: a double
- * click that dismisses the sheet must not also press the card that lies under
- * it.
+ * hit: every click lands on the document's root. Such a click ends the
+ * transition where it stands and goes to what it fell on:
+ *
+ * - While the sheet arrives, a click inside its box reaches the control
+ *   there, so the close control and the link answer from the moment the
+ *   sheet is drawn. A click outside the box asks to leave, and the sheet
+ *   reads that one itself.
+ * - Once the sheet is on its way out the page is the visitor's again, and a
+ *   click anywhere reaches what lies under it.
+ *
+ * A click with a modifier key held, or with any button but the primary one,
+ * ends the transition and goes nowhere: see `deliverClick`. A double click
+ * that opens or closes a card stops there: see `useClickSequence`.
  */
 export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
   const [shown, setShown] = useState<Shown>({ id: null, turn: 0 });
@@ -205,7 +293,8 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
   const turns = useRef(0);
   const marked = useRef<HTMLElement | null>(null);
   const committing = useRef<Array<() => void>>([]);
-  const leaving = useRef<ViewTransition | null>(null);
+  const moving = useRef<Moving | null>(null);
+  const spend = useClickSequence();
 
   useEffect(() => {
     for (const committed of committing.current.splice(0)) committed();
@@ -213,11 +302,15 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
   useEffect(() => () => marked.current?.removeAttribute(OPENING_ATTRIBUTE), []);
   useEffect(() => {
     const deliver = (event: MouseEvent): void => {
-      const transition = leaving.current;
-      if (transition === null || event.detail > 1) return;
+      const running = moving.current;
+      if (running === null) return;
       if (event.target !== document.documentElement) return;
-      leaving.current = null;
-      transition.skipTransition();
+      if (running.arriving) {
+        const sheet = sheetBox();
+        if (sheet === undefined || fellOutside(sheet, event)) return;
+      }
+      moving.current = null;
+      running.transition.skipTransition();
       deliverClick(event);
     };
     // A click of any button but the primary one arrives as `auxclick`.
@@ -242,6 +335,7 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
     const was = wanted.current;
     if (was === next) return;
     wanted.current = next;
+    spend();
     turns.current += 1;
     const turn = turns.current;
     const asked = viewportSize();
@@ -254,21 +348,22 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
       swap: was !== null && next !== null,
     });
     const morphs = how === "morph";
-    const commit = (): Promise<void> =>
+    const commit = (grown: boolean): Promise<void> =>
       new Promise((committed) => {
-        mark(source, morphs ? (next === null ? "morph" : "held") : undefined);
+        mark(source, grown ? (next === null ? "morph" : "held") : undefined);
         committing.current.push(committed);
         setShown({ id: next, turn });
       });
-    if (how === "cut") return await commit();
+    if (how === "cut") return await commit(false);
     if (morphs && next !== null) mark(source, "morph");
-    const transition = document.startViewTransition(commit);
-    leaving.current = next === null ? transition : null;
+    const transition = beginTransition(() => commit(morphs));
+    if (transition === null) return await commit(false);
+    moving.current = { transition, arriving: next !== null };
     const [began] = await Promise.allSettled([
       transition.ready,
       transition.finished,
     ]);
-    if (leaving.current === transition) leaving.current = null;
+    if (moving.current?.transition === transition) moving.current = null;
     if (began.status === "rejected") {
       const now = viewportSize();
       const overtaken = transitionOvertaken({

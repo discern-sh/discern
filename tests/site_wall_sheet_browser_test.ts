@@ -3,18 +3,20 @@
  * phone and laptop sizes: the sheet a card opens as, and everything a visitor
  * can do to it. Every way out leaves the page exactly as it was. The card's
  * mark crosses to the sheet as an object of its own. Hurried, modified, and
- * overlapping input leaves one whole sheet or none. A window resized as the
- * sheet opens is no fault. Paper gets the wall, a finger gets full-sized
- * controls, and a sheet too tall for its screen keeps its close control in
- * reach. Modal dialogs, focus, view transitions, and print need a real
- * browser to judge.
+ * overlapping input leaves one whole sheet or none, and a double click is
+ * one act wherever its second click lands. A pointer's press on a wall the
+ * keyboard has laid flat lands. A window resized as the sheet opens is no
+ * fault, and a browser that refuses a transition still gets the change.
+ * Paper gets the wall, a finger gets full-sized controls, and a sheet too
+ * tall for its screen keeps its close control in reach. Modal dialogs,
+ * focus, view transitions, and print need a real browser to judge.
  */
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, fail } from "@std/assert";
 import type { Page } from "playwright-core";
 import { cardGlyph, cardNumeral } from "../site/wall/Card.tsx";
 import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
 import { lensRecedes } from "../site/wall/Lens.tsx";
-import type { WallCard } from "../site/wall/types.ts";
+import type { WallCard, WallLens } from "../site/wall/types.ts";
 import { OPENING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
 import {
   atEachViewport,
@@ -277,6 +279,91 @@ async function assertPressWhileLeavingLands(
   );
 }
 
+/** Whether the focus is on the open sheet or on something inside it. */
+function focusInSheet(page: Page): Promise<boolean> {
+  return page.evaluate(() =>
+    document.activeElement?.closest("dialog") instanceof HTMLDialogElement
+  );
+}
+
+/**
+ * Open a card by pointer and hold its arriving sheet where it starts, so a
+ * press cannot miss the arrival. Answers with the middle of the place where
+ * one of the sheet's parts comes to rest.
+ */
+async function holdArrivingSheet(
+  page: Page,
+  press: Press,
+  part: string,
+  where: string,
+): Promise<Point> {
+  await page.evaluate(holdNextTransition);
+  await page.mouse.click(press.x, press.y);
+  await page.waitForFunction(() =>
+    document.documentElement.dataset.testHeld !== undefined
+  );
+  const box = await page.locator(`${OPEN_SHEET} ${part}`).boundingBox();
+  assert(box !== null, `${where}: ${part} has a resting place`);
+  assert(
+    await page.evaluate(transitionParts) > 0,
+    `${where}: the sheet is still arriving`,
+  );
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/**
+ * The sheet answers a press from the moment it mounts, while it is still
+ * arriving. A press on its words ends the arrival and leaves the sheet open
+ * with the focus inside it. A press where the close control comes to rest
+ * closes the sheet and returns the focus to the card.
+ */
+async function assertPressOnTheArrivingSheetLands(
+  page: Page,
+  size: Viewport,
+  press: Press,
+): Promise<void> {
+  const where = `${size.name}, a press on the arriving sheet`;
+  const words = await holdArrivingSheet(
+    page,
+    press,
+    ".wall-open-title",
+    where,
+  );
+  await page.mouse.click(words.x, words.y);
+  await page.evaluate(nextFrame);
+  assertEquals(
+    {
+      arriving: await page.evaluate(transitionParts),
+      open: await page.locator(OPEN_SHEET).count(),
+      focusInSheet: await focusInSheet(page),
+    },
+    { arriving: 0, open: 1, focusInSheet: true },
+    `${where}: a press on its words`,
+  );
+  await page.keyboard.press("Escape");
+  await sheetGone(page, where);
+
+  const close = await holdArrivingSheet(
+    page,
+    press,
+    ".wall-open-close",
+    where,
+  );
+  await page.mouse.click(close.x, close.y);
+  await eventually(
+    page,
+    async () => await page.locator(SHEET).count() === 0,
+    `${where}: the close control did not answer`,
+  );
+  await sheetGone(page, where);
+  assert(
+    await page.locator(openerOf(press.id)).evaluate((button) =>
+      button === document.activeElement
+    ),
+    `${where}: focus returns to the card that was opened`,
+  );
+}
+
 /** How many times a held key repeats in the check below. */
 const HELD_KEY_REPEATS = 14;
 
@@ -515,7 +602,7 @@ async function assertOnlyAPlainPressIsHandedOn(
   );
 }
 
-Deno.test("a double click, a held key, a press that is not a plain click, and requests that overlap each leave one whole sheet or none", async () => {
+Deno.test("a double click, a press on the arriving sheet, a held key, a press that is not a plain click, and requests that overlap each leave one whole sheet or none", async () => {
   await atEachViewport({ javaScriptEnabled: true }, async (context, size) => {
     const { page, faults } = await openLiveWall(context);
     await scrollToWall(page);
@@ -523,10 +610,472 @@ Deno.test("a double click, a held key, a press that is not a plain click, and re
     const press = await pressableCard(page, size, "top");
     await assertDoubleClickOpensOnce(page, size, press);
     await assertPressWhileLeavingLands(page, size, press);
+    await assertPressOnTheArrivingSheetLands(page, size, press);
     await assertHeldKeyOpensOnce(page, size, press);
     await assertRequestsSettleWhole(page, size, press);
     await assertOnlyAPlainPressIsHandedOn(page, size);
     assertEquals(faults, [], size.name);
+  });
+});
+
+/**
+ * Press and release at a point as a hand does, with the button down across
+ * two drawn frames. Whatever a press sets moving has moved by the time the
+ * button comes up, so the click lands only on a page that held still.
+ */
+async function pressAsAHand(page: Page, at: Point): Promise<void> {
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.down();
+  await page.evaluate(nextFrame);
+  await page.evaluate(nextFrame);
+  await page.mouse.up();
+}
+
+/** Press a lens's chip as a hand does, and require the chip to be pressed. */
+async function assertChipPressLands(
+  page: Page,
+  lens: WallLens,
+  where: string,
+): Promise<void> {
+  const chip = page.locator(`.wall-chip[data-lens="${lens.id}"]`);
+  const box = await chip.boundingBox();
+  assert(box !== null, `${where}: the chip has a box`);
+  await pressAsAHand(page, {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  });
+  await eventually(
+    page,
+    async () => await chip.getAttribute("aria-pressed") === "true",
+    `${where}: the press did not reach the chip`,
+  );
+  await motionSettled(page);
+}
+
+/** Require the wall to be marked near, with no transform on its plane. */
+async function assertLiesFlat(page: Page, where: string): Promise<void> {
+  assertEquals(
+    [await page.locator(NEAR_WALL).count(), await planeTransform(page)],
+    [1, "none"],
+    `${where}: the wall lies flat`,
+  );
+}
+
+/**
+ * A far card opened by pointer and closed with Escape gets its focus back as
+ * the keyboard's, and the wall lies flat under it. A pointer's press on
+ * another card takes the focus without the keyboard's mark. The wall holds
+ * still under that press, so the press opens the card it was aimed at, and
+ * the far view returns only when the focus leaves the stage.
+ */
+async function assertCardPressLandsOnAFlatWall(
+  page: Page,
+  size: Viewport,
+): Promise<void> {
+  const far = await pressableCard(page, size, "bottom");
+  await page.mouse.click(far.x, far.y);
+  await page.locator(OPEN_SHEET).waitFor();
+  await page.keyboard.press("Escape");
+  await sheetGone(page, "far, closed with Escape");
+  await page.locator(NEAR_WALL).waitFor();
+  await motionSettled(page);
+
+  const next = await pressableCard(page, size, "bottom", far.id);
+  const card = WALL_DECK.find((each) => each.id === next.id);
+  assert(card !== undefined, "a second card lies under the pointer");
+  await pressAsAHand(page, next);
+  const sheet = page.getByRole("dialog", {
+    name: sheetName(card),
+    exact: true,
+  });
+  await eventually(
+    page,
+    async () => await sheet.count() === 1,
+    `a press on the flat wall did not open ${next.id}, the card under it`,
+  );
+  await page.keyboard.press("Escape");
+  await sheetGone(page, "flat for the keyboard, opened by pointer");
+  await assertLiesFlat(page, "with the focus back on the pressed card");
+  await dropFocus(page);
+  await page.locator(FAR_WALL).waitFor();
+}
+
+/**
+ * Tab from the pool reaches the lens bar. At the top of the page the wall is
+ * far until that focus lays it flat and shows the bar.
+ */
+async function tabIntoTheBar(page: Page): Promise<void> {
+  await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+  await page.locator(".wall-pool .wall-cta").focus();
+  await page.locator(FAR_WALL).waitFor();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  assert(
+    await page.evaluate(() =>
+      document.activeElement?.matches(".wall-chip:focus-visible") === true
+    ),
+    "Tab reaches the lens bar",
+  );
+  await page.locator(NEAR_WALL).waitFor();
+}
+
+/** Whether the lens bar takes a press where the page stands. */
+function barTakesAPress(page: Page): Promise<boolean> {
+  return page.locator(".wall-lens").evaluate((lens) =>
+    getComputedStyle(lens).pointerEvents !== "none"
+  );
+}
+
+/**
+ * At the foot of the page the lens bar has gone, and the keyboard's focus
+ * inside it shows it whole. A pointer's press on a chip there takes that
+ * focus, and the bar stays under the press.
+ */
+async function assertChipPressLandsAtTheFoot(
+  page: Page,
+  lens: WallLens,
+): Promise<void> {
+  const toTheFoot = (): Promise<void> =>
+    page.evaluate(() =>
+      scrollTo({ top: document.body.scrollHeight, behavior: "instant" })
+    );
+  await dropFocus(page);
+  await toTheFoot();
+  await eventually(
+    page,
+    async () => !(await barTakesAPress(page)),
+    "at the foot of the page the lens bar takes no press",
+  );
+  await page.locator(".wall-card-open").first().focus();
+  await page.keyboard.press("Shift+Tab");
+  await toTheFoot();
+  await eventually(
+    page,
+    () => barTakesAPress(page),
+    "the keyboard's focus shows the lens bar whole at the foot of the page",
+  );
+  await assertChipPressLands(page, lens, "at the foot of the page");
+}
+
+/**
+ * Runs in the page: from now on a press gives nothing the focus and takes it
+ * from whatever held it. Some browsers treat a pressed button so.
+ */
+function pressesTakeTheFocusAway(): void {
+  document.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }, { capture: true });
+}
+
+Deno.test("a pointer's press on a wall the keyboard has laid flat finds the wall still under it, and lands", async () => {
+  const [, laptop] = VIEWPORTS;
+  const [first, second, third] = WALL_LENSES;
+  assert(
+    first !== undefined && second !== undefined && third !== undefined,
+    "the wall has three lenses",
+  );
+  await withBrowser(async (browser) => {
+    const context = await browser.newContext({
+      viewport: { width: laptop.width, height: laptop.height },
+      reducedMotion: "no-preference",
+    });
+    const { page, faults } = await openLiveWall(context);
+    await page.locator(FAR_WALL).waitFor();
+    await assertCardPressLandsOnAFlatWall(page, laptop);
+
+    await tabIntoTheBar(page);
+    await assertChipPressLands(page, first, "after Tab to the bar");
+    await assertLiesFlat(page, "with the focus on the pressed chip");
+
+    await assertChipPressLandsAtTheFoot(page, second);
+
+    // A browser that gives a pressed button no focus leaves the focus
+    // nowhere as the press lands. The stage is still the visitor's.
+    await tabIntoTheBar(page);
+    await page.evaluate(pressesTakeTheFocusAway);
+    await assertChipPressLands(page, third, "with the focus taken away");
+    assert(
+      await page.evaluate(() => document.activeElement === document.body),
+      "the press left the focus nowhere, which is what this case is about",
+    );
+    await assertLiesFlat(page, "after a press that took the focus away");
+    assertEquals(faults, []);
+  });
+});
+
+/** A box of the viewport, as a locator measures one. */
+interface Box extends Point {
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * Open a card by keyboard, read where one of its sheet's controls comes to
+ * rest, and close the card again.
+ */
+async function restingPlace(
+  page: Page,
+  id: string,
+  control: string,
+): Promise<Box> {
+  await page.locator(openerOf(id)).focus();
+  await page.keyboard.press("Enter");
+  await page.locator(OPEN_SHEET).waitFor();
+  const box = await page.locator(`${OPEN_SHEET} ${control}`).boundingBox();
+  assert(box !== null, `${id}: its sheet shows ${control}`);
+  await page.keyboard.press("Escape");
+  await sheetGone(page, `${id}, measured`);
+  await motionSettled(page);
+  return box;
+}
+
+/**
+ * Runs in the page: the cards, in the list's order, that a span of the
+ * viewport's width crosses.
+ */
+function cardsAcross(span: { left: number; right: number }): string[] {
+  return [...document.querySelectorAll<HTMLElement>(".wall-card")]
+    .filter((card) => {
+      const box = card.getBoundingClientRect();
+      return Math.min(box.right, span.right) - Math.max(box.left, span.left) >
+        8;
+    }).map((card) => card.dataset.card ?? "");
+}
+
+/**
+ * Runs in the page: scroll until this card lies under the middle of a box of
+ * the viewport, and name a point the two share. Null where they share none:
+ * the card is in another column, or the page cannot scroll that far.
+ */
+function bringUnder(card: Element, box: Box): Point | null {
+  const middle = box.y + box.height / 2;
+  const before = card.getBoundingClientRect();
+  scrollBy({
+    top: before.top + before.height / 2 - middle,
+    behavior: "instant",
+  });
+  const now = card.getBoundingClientRect();
+  const left = Math.max(now.left, box.x);
+  const right = Math.min(now.right, box.x + box.width);
+  const at = { x: (left + right) / 2, y: middle };
+  const under = document.elementFromPoint(at.x, at.y)?.closest(".wall-card");
+  return right - left > 8 && under === card ? at : null;
+}
+
+/**
+ * Bring a card under the place where one of its own sheet's controls comes
+ * to rest, and name the point to press: a press there lands on the card, and
+ * a second one lands on that control once the sheet is open.
+ */
+async function cardUnderItsOwn(
+  page: Page,
+  control: string,
+  cards: readonly WallCard[],
+): Promise<Press> {
+  const [any] = cards;
+  assert(any !== undefined, `a card's sheet shows ${control}`);
+  const rough = await restingPlace(page, any.id, control);
+  const across = await page.evaluate(cardsAcross, {
+    left: rough.x,
+    right: rough.x + rough.width,
+  });
+  for (const id of across) {
+    if (!cards.some((card) => card.id === id)) continue;
+    const box = await restingPlace(page, id, control);
+    const at = await page.locator(`.wall-card[data-card="${id}"]`).evaluate(
+      bringUnder,
+      box,
+    );
+    if (at !== null) return { id, ...at };
+  }
+  return fail(`no card can lie under its own sheet's ${control}`);
+}
+
+/** The second press of a double click, where the pointer already is. */
+async function pressAgain(page: Page): Promise<void> {
+  await page.mouse.down({ clickCount: 2 });
+  await page.mouse.up({ clickCount: 2 });
+  await page.evaluate(nextFrame);
+  await motionSettled(page);
+}
+
+/**
+ * A double click on a card is one act wherever its second click lands, and
+ * here it lands on one of the opened sheet's own controls. The sheet opens
+ * once and stays open, nothing on the page hears the second click, and the
+ * focus stays in the sheet. A double click on the resting sheet's close
+ * control then closes it once: the card that lies under the control stays
+ * shut, and keeps the focus the sheet handed back.
+ */
+async function assertDoubleClickStopsAtTheSheet(
+  page: Page,
+  control: string,
+  where: string,
+): Promise<void> {
+  const press = await cardUnderItsOwn(
+    page,
+    control,
+    WALL_DECK.filter((card) => card.href !== undefined),
+  );
+  await countSheets(page);
+  const heard = await page.evaluate(clicksCounted);
+  await page.mouse.click(press.x, press.y);
+  await page.locator(OPEN_SHEET).waitFor();
+  await pressAgain(page);
+  assertEquals(
+    {
+      heard: await page.evaluate(clicksCounted) - heard,
+      sheets: await sheetsMounted(page),
+      open: await page.locator(OPEN_SHEET).count(),
+      focusInSheet: await focusInSheet(page),
+    },
+    { heard: 1, sheets: 1, open: 1, focusInSheet: true },
+    `${where}: a double click on ${press.id} that ends on its sheet's ${control}`,
+  );
+  const close = await page.locator(`${OPEN_SHEET} .wall-open-close`)
+    .boundingBox();
+  assert(close !== null, `${where}: the sheet shows its close control`);
+  await page.mouse.click(
+    close.x + close.width / 2,
+    close.y + close.height / 2,
+  );
+  await page.locator(SHEET).waitFor({ state: "detached" });
+  await pressAgain(page);
+  assertEquals(
+    {
+      heard: await page.evaluate(clicksCounted) - heard,
+      sheets: await sheetsMounted(page),
+      focusOnCard: await page.locator(openerOf(press.id)).evaluate((button) =>
+        button === document.activeElement
+      ),
+    },
+    { heard: 2, sheets: 1, focusOnCard: true },
+    `${where}: a double click on the close control of ${press.id}'s sheet`,
+  );
+  await sheetGone(page, where);
+}
+
+/** A double click on a lens's chip chooses the lens, and does not let it go. */
+async function assertDoubleClickChoosesOnce(
+  page: Page,
+  lens: WallLens,
+  where: string,
+): Promise<void> {
+  await scrollToWall(page);
+  const chip = page.locator(`.wall-chip[data-lens="${lens.id}"]`);
+  await chip.dblclick();
+  await motionSettled(page);
+  assertEquals(
+    await chip.getAttribute("aria-pressed"),
+    "true",
+    `${where}: a double click on a chip chooses its lens once`,
+  );
+}
+
+Deno.test("a double click is one act with motion and without it, wherever its second click lands", async () => {
+  const [lens] = WALL_LENSES;
+  assert(lens !== undefined, "the wall has a lens");
+  const visitors = [
+    { javaScriptEnabled: true, reducedMotion: true },
+    { javaScriptEnabled: true },
+  ] as const;
+  for (const visitor of visitors) {
+    await atEachViewport(visitor, async (context, size) => {
+      const where = `${size.name}, ${
+        "reducedMotion" in visitor ? "reduced motion" : "motion"
+      }`;
+      const { page, faults } = await openLiveWall(context);
+      await page.locator("html").evaluate(countClicks);
+      await scrollToWall(page);
+      await page.locator(NEAR_WALL).waitFor();
+      for (const control of [".wall-open-link", ".wall-open-close"]) {
+        await assertDoubleClickStopsAtTheSheet(page, control, where);
+      }
+      await assertDoubleClickChoosesOnce(page, lens, where);
+      assertEquals(faults, [], where);
+    });
+  }
+});
+
+/**
+ * Run `check` on a laptop's wall with motion welcome, scrolled until the wall
+ * is near, with a card high in the viewport to press.
+ */
+async function onANearLaptopWall(
+  check: (page: Page, press: Press, faults: string[]) => Promise<void>,
+): Promise<void> {
+  const [, laptop] = VIEWPORTS;
+  await withBrowser(async (browser) => {
+    const context = await browser.newContext({
+      viewport: { width: laptop.width, height: laptop.height },
+      reducedMotion: "no-preference",
+    });
+    const { page, faults } = await openLiveWall(context);
+    await scrollToWall(page);
+    await page.locator(NEAR_WALL).waitFor();
+    await check(page, await pressableCard(page, laptop, "top"), faults);
+  });
+}
+
+/** What the browser says when it refuses a transition in the check below. */
+const REFUSAL = "no view transition now";
+
+/**
+ * Runs in the page: have the browser refuse the next view transition it is
+ * asked to begin, by throwing. The page's own `startViewTransition` is back
+ * once it has refused.
+ */
+function refuseNextTransition(refusal: string): void {
+  Object.defineProperty(document, "startViewTransition", {
+    configurable: true,
+    value: () => {
+      Reflect.deleteProperty(document, "startViewTransition");
+      throw new DOMException(refusal, "InvalidStateError");
+    },
+  });
+}
+
+/** Whether the refusal `refuseNextTransition` set up has been given. */
+function refusalGiven(page: Page): Promise<boolean> {
+  return page.evaluate(() => !Object.hasOwn(document, "startViewTransition"));
+}
+
+Deno.test("a browser that refuses to begin a view transition still gets the card open and the lens chosen, as a cut", async () => {
+  const [lens] = WALL_LENSES;
+  assert(lens !== undefined, "the wall has a lens");
+  await onANearLaptopWall(async (page, press, faults) => {
+    await page.evaluate(refuseNextTransition, REFUSAL);
+    await page.mouse.click(press.x, press.y);
+    await eventually(
+      page,
+      async () => await page.locator(OPEN_SHEET).count() === 1,
+      "a refused transition left the card unopened",
+    );
+    assertEquals(
+      [await refusalGiven(page), await markedCards(page)],
+      [true, []],
+      "the card opens as a cut, with no card marked for a morph",
+    );
+    await page.keyboard.press("Escape");
+    await sheetGone(page, "after a refused opening");
+
+    const chip = page.locator(`.wall-chip[data-lens="${lens.id}"]`);
+    await page.evaluate(refuseNextTransition, REFUSAL);
+    await chip.click();
+    await eventually(
+      page,
+      async () => await chip.getAttribute("aria-pressed") === "true",
+      "a refused transition left the lens unchosen",
+    );
+    assert(await refusalGiven(page), "the lens asked for a transition");
+    assertEquals(
+      faults,
+      [`page error: ${REFUSAL}`, `page error: ${REFUSAL}`],
+      "each refusal is reported once, and nothing else is a fault",
+    );
   });
 });
 
@@ -749,16 +1298,7 @@ Deno.test("a window resized as a card opens is no fault, and the page settles wh
 });
 
 Deno.test("printing with a card open prints the wall and leaves the sheet off the paper", async () => {
-  const [, laptop] = VIEWPORTS;
-  await withBrowser(async (browser) => {
-    const context = await browser.newContext({
-      viewport: { width: laptop.width, height: laptop.height },
-      reducedMotion: "no-preference",
-    });
-    const { page, faults } = await openLiveWall(context);
-    await scrollToWall(page);
-    await page.locator(NEAR_WALL).waitFor();
-    const press = await pressableCard(page, laptop, "top");
+  await onANearLaptopWall(async (page, press, faults) => {
     await page.mouse.click(press.x, press.y);
     await page.locator(OPEN_SHEET).waitFor();
     await motionSettled(page);
