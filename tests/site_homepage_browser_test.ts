@@ -143,7 +143,10 @@ interface Focus {
   readonly on: string;
   /** Whether the focus is drawn as the keyboard's. */
   readonly keyboard: boolean;
-  /** Whether the whole focused box lies in the viewport. */
+  /**
+   * Whether the whole focused box lies in the viewport. For a card that is
+   * the card itself, which reaches above and below the button in it.
+   */
   readonly inView: boolean;
   /** Whether the focused box is drawn at the size it was laid out at. */
   readonly flat: boolean;
@@ -156,12 +159,13 @@ function readFocus(): Focus {
     return { on: "", keyboard: false, inView: false, flat: false };
   }
   const box = focused.getBoundingClientRect();
+  const card = focused.closest<HTMLElement>(".wall-card");
+  const whole = (card ?? focused).getBoundingClientRect();
   return {
-    on: focused.closest<HTMLElement>(".wall-card")?.dataset.card ??
-      focused.className,
+    on: card?.dataset.card ?? focused.className,
     keyboard: focused.matches(":focus-visible"),
-    inView: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 &&
-      box.right <= innerWidth,
+    inView: whole.top >= 0 && whole.bottom <= innerHeight &&
+      whole.left >= 0 && whole.right <= innerWidth,
     flat: Math.abs(box.width - focused.offsetWidth) < 1 &&
       Math.abs(box.height - focused.offsetHeight) < 1,
   };
@@ -1349,6 +1353,21 @@ Deno.test("the keyboard walks a flat wall: every card it reaches is in view at r
         `${size.name}: the walk ends on the first card`,
       );
       assertEquals(covered, [], `${size.name}: focused under the lens bar`);
+
+      // Forward down the whole wall, every card comes to rest whole: its
+      // foot lies below the button the browser scrolls to.
+      const cut: string[] = [];
+      for (let stop = 1; stop < WALL_DECK.length; stop++) {
+        await page.keyboard.press("Tab");
+        const rests = await page.evaluate(readFocus);
+        if (!rests.inView) cut.push(rests.on);
+      }
+      assertEquals(cut, [], `${size.name}: cards that rest partly out of view`);
+      assertEquals(
+        (await page.evaluate(readFocus)).on,
+        cardAt(WALL_DECK.length - 1),
+        `${size.name}: the walk ends on the last card`,
+      );
       assertEquals(faults, [], size.name);
     });
   }

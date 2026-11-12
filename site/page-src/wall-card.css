@@ -259,10 +259,14 @@
     color: var(--wall-accent);
   }
 
-  /* The margins are for the browser's own scroll to a focused card. The bar
-   * pinned over the wall hides what passes under it, so a card the keyboard
-   * reaches comes to rest clear of the bar, with the whole of the card above
-   * its heading in view. */
+  /* The margins are for the browser's own scroll to a focused card. The
+   * browser scrolls to the button, which is the heading's box alone, and the
+   * card reaches above and below it. The bar pinned over the wall hides what
+   * passes under it, so the start margin brings a card the keyboard reaches
+   * to rest clear of the bar, with the whole of the card above its heading
+   * in view. The end margin is the tallest foot a card has under its
+   * heading: four lines of description, the face's padding, and the focus
+   * ring. */
   .wall-card-open {
     padding: 0;
     border: 0;
@@ -270,7 +274,7 @@
     text-align: start;
     cursor: pointer;
     appearance: none;
-    scroll-margin-block: 9.5rem 2rem;
+    scroll-margin-block: 9.5rem 7.5rem;
     -webkit-tap-highlight-color: transparent;
   }
 
