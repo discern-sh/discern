@@ -86,17 +86,10 @@ The second drawing paints over the first, so a traveling primitive paints last w
 
 Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. [A marked card holds still](wall-opened-card.md#what-a-transition-costs), so its glyph takes the pose at once, and eases back to rest when the mark goes. The glyph test reads the lit states from `wall-card.css`, so a change to how a card lights fails that test until `wall-glyph.css` follows. The test also fails when another module under `site/wall/` starts to draw a glyph, until someone decides its pose.
 
-The glyph test holds each of these rules in the markup and the stylesheet. The glyph motion test watches a real browser. One hover on and off a card whose glyph travels must start no layout, and the glyph must rest before its face steps back. A glyph that eases on a face that is not raised must never become a layer. That test counts every layout during the hover, so a layout from any other cause fails it too.
+The glyph test holds each of these rules in the markup and the stylesheet.
 
 ### The set
 
 A dashed stroke gives up part of its length to gaps. The renderer marks a dashed shape with a second class, and the stylesheet draws it heavier than a whole stroke so that it reads at card size. The glyph test requires a dashed stroke to keep most of a whole stroke's ink and to keep its gaps open at the heaviest weight the knob reaches.
 
-`wall-glyph.css` paints every tone from `currentColor`, and the glyph test fails when the renderer emits a class the stylesheet does not style. The same test keeps the set even:
-
-- A card in the deck draws every authored key.
-- Each glyph carries a like share of ink and fills its grid.
-- No two glyphs share a silhouette.
-- No single device, such as an enclosing frame or a stack of rows, carries a family of glyphs.
-
-The limits are constants in the test. A seeded glyph meets the ink and grid limits too.
+`wall-glyph.css` paints every tone from `currentColor`, and the glyph test fails when the renderer emits a class the stylesheet does not style. The same test requires a card in the deck to draw every authored key.

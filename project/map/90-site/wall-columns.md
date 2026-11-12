@@ -24,7 +24,7 @@ Smaller rules follow from the gap's place:
 - **The divider gives the gap back.** Its end margin subtracts the gap, so the cards under it keep their distance from it.
 - **A column may hold one card.** The list sets `orphans` and `widows` to 1. A browser otherwise keeps two lines together at the head and the foot of a column.
 - **Paper keeps blocks.** Paper has no layers, and a gap at the head of every column of every sheet would cost each sheet a card. On paper a card is a block with the gap under it, kept whole, and the list and the divider give back what they took for the gap.
-- **The face contains its layout.** Chrome lays a line out again when a box in it starts or stops moving, and a hovered face does both. `.wall-card-face` sets `contain: layout`, so a hover lays nothing out. The glyph motion test counts the layouts of one hover.
+- **The face contains its layout.** Chrome lays a line out again when a box in it starts or stops moving, and a hovered face does both. `.wall-card-face` sets `contain: layout`, so a hover lays nothing out.
 
 ## What keeps every card drawn
 

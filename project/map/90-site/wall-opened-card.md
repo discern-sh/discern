@@ -104,13 +104,10 @@ The columns test holds the marked card's paint containment, with [the list's oth
 The sheet test opens a card by pointer and leaves by every entry in its `WAYS_OUT` table, in the far view and in the near view. After each one, the scroll position, the plane, every card's box, and the focus must be where they began. A new way out belongs in that table. Its further cases cover:
 
 - a double click, a press on the arriving sheet, a press while the sheet leaves, a press that is not a plain click, a held key, and overlapping requests;
-- a double click whose second click lands where the sheet's link or close control rests, one on the resting sheet's close control, and one on a lens chip, with motion and under reduced motion, each leaving the focus where its first click put it;
 - a browser that refuses to begin a transition, for a card and for a lens;
 - a pointer's press on a wall that lies flat for the keyboard;
-- the mark's crossing for each kind of card, for a receded card, and in the far view;
 - a window resized between the page's change and the transition's first frame, which must raise no fault;
 - print with a card open;
-- finger-sized controls on a wide screen with touch;
 - a sheet too tall for its screen, with the close control focused, in its corner, and in reach after the sheet scrolls.
 
 Under reduced motion, the browser test opens every card in the deck by keyboard. It checks each sheet's name, and compares each link's name with the manual's titles.

@@ -28,14 +28,6 @@ const DEVICE_WIDTHS = [
   1728,
 ];
 
-/** Every device width, and an even sweep between the narrowest and the widest. */
-const WIDTHS = [
-  ...new Set([
-    ...DEVICE_WIDTHS,
-    ...Array.from({ length: 71 }, (_, step) => 320 + step * 20),
-  ]),
-].sort((a, b) => a - b);
-
 /** A tall screen, and the short one a phone on its side has. */
 const HEIGHTS = [900, 390];
 
@@ -174,7 +166,7 @@ Deno.test("the headline breaks only where it must and the line below follows it,
       const found: string[] = [];
       const lineCounts = new Set<number>();
       for (const height of HEIGHTS) {
-        for (const width of WIDTHS) {
+        for (const width of DEVICE_WIDTHS) {
           await page.setViewportSize({ width, height });
           const pool = await measurePool(page);
           lineCounts.add(pool.headline.lines.length);

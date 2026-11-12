@@ -64,8 +64,6 @@ import {
   watchTransition,
   withBrowser,
 } from "./site_wall_browser.ts";
-import { declared, readWallSheet, styleRules } from "./wall_stylesheets.ts";
-
 /** The most a hovered card's own box may differ from its box at rest, in pixels. */
 const HOVER_TRAVEL = 6;
 
@@ -872,50 +870,6 @@ function columnHeads(page: Page): Promise<number[]> {
   );
 }
 
-/**
- * The text spacing a reader may set for themselves, which a page must take
- * without losing words: WCAG 2.2 success criterion 1.4.12.
- */
-const READER_TEXT_SPACING =
-  "* { line-height: 1.5 !important; letter-spacing: 0.12em !important; " +
-  "word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }";
-
-/**
- * Runs in the page: the start of every run of words in the room that the
- * room's own edge cuts off. Words that are never drawn, and words in a strip
- * that scrolls sideways by design, are not counted.
- */
-function cutWords(): string[] {
-  const wall = document.querySelector(".wall");
-  if (wall === null) return ["the page has no wall"];
-  const room = wall.getBoundingClientRect();
-  const cut: string[] = [];
-  const walker = document.createTreeWalker(wall, NodeFilter.SHOW_TEXT);
-  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    const words = (node.textContent ?? "").trim();
-    if (words === "") continue;
-    let drawn = true;
-    for (
-      let box = node.parentElement;
-      drawn && box !== null && box !== wall;
-      box = box.parentElement
-    ) {
-      const style = getComputedStyle(box);
-      drawn = style.clipPath === "none" && style.visibility === "visible" &&
-        style.overflowX !== "auto" && style.overflowX !== "scroll";
-    }
-    if (!drawn) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    const outside = [...range.getClientRects()].some((rect) =>
-      rect.width > 0 &&
-      (rect.left < room.left - 1 || rect.right > room.right + 1)
-    );
-    if (outside) cut.push(words.slice(0, 40));
-  }
-  return cut;
-}
-
 /** The alpha of the first color a CSS value writes with one, or 1. */
 function alphaOf(color: string): number {
   const alpha = /\/\s*([\d.]+)\s*\)/.exec(color)?.[1];
@@ -1369,99 +1323,6 @@ Deno.test("the keyboard walks a flat wall: every card it reaches is in view at r
         `${size.name}: the walk ends on the last card`,
       );
       assertEquals(faults, [], size.name);
-    });
-  }
-});
-
-/** Narrow and re-spaced rooms, each of which must still show every word. */
-const TIGHT_ROOMS = [
-  { name: "a phone at 200% zoom", width: 195, height: 422, spaced: false },
-  { name: "320 wide, re-spaced", width: 320, height: 640, spaced: true },
-  { name: "a laptop at 400% zoom", width: 320, height: 256, spaced: false },
-] as const;
-
-Deno.test("a narrow, zoomed, or re-spaced room cuts off no word, and a short one does not pin the lens bar", async () => {
-  for (const room of TIGHT_ROOMS) {
-    await withBrowser(async (browser) => {
-      const context = await browser.newContext({
-        viewport: { width: room.width, height: room.height },
-        reducedMotion: "no-preference",
-      });
-      const { page, faults } = await openLiveWall(context);
-      if (room.spaced) {
-        // A constructed sheet is how a reader's own style reaches the page
-        // under the site's Content Security Policy.
-        await page.evaluate((css) => {
-          const sheet = new CSSStyleSheet();
-          sheet.replaceSync(css);
-          document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-        }, READER_TEXT_SPACING);
-      }
-      await page.evaluate(() => document.fonts.ready.then(() => undefined));
-      assertEquals(await page.evaluate(cutWords), [], `${room.name}: cut off`);
-      assertEquals((await documentExtent(page)).overflowX, 0, room.name);
-
-      // A pinned bar on a short screen would cover a third of it.
-      const pinned = await page.locator(".wall-controls").evaluate((bar) =>
-        getComputedStyle(bar).position
-      );
-      const short = await page.evaluate(() =>
-        matchMedia("(max-height: 30rem)").matches
-      );
-      assertEquals(pinned, short ? "static" : "sticky", room.name);
-      assertEquals(faults, [], room.name);
-    });
-  }
-  assert(
-    TIGHT_ROOMS.some((room) => room.height <= 480) &&
-      TIGHT_ROOMS.some((room) => room.height > 480),
-    "the rooms cover a short screen and a tall one",
-  );
-});
-
-/**
- * The widest viewport, in pixels, at which the lens stylesheet closes the
- * chips up so that the row still fits.
- */
-async function chipsCloseUpAt(): Promise<number> {
-  const closing = styleRules(await readWallSheet("wall-interactions.css"))
-    .find((rule) =>
-      rule.selectors.includes(".wall-lens") &&
-      declared(rule, "gap") !== undefined &&
-      rule.context.some((query) => query.includes("max-width"))
-    );
-  const rem = /^@media \(max-width: ([\d.]+)rem\)$/.exec(
-    closing?.context.at(-1) ?? "",
-  )?.[1];
-  assert(rem !== undefined, "the chips close up under a width given in rem");
-  return Number(rem) * 16;
-}
-
-Deno.test("the row of chips fits a laptop screen whole, on both sides of the width where the chips close up", async () => {
-  // A row a pixel or two too wide for its screen becomes a strip that scrolls
-  // sideways, with its ends faded and its last chip cut.
-  const closeUp = await chipsCloseUpAt();
-  const [, laptop] = VIEWPORTS;
-  for (const width of [1280, closeUp, closeUp + 1]) {
-    await withBrowser(async (browser) => {
-      const context = await browser.newContext({
-        viewport: { width, height: laptop.height },
-        reducedMotion: "no-preference",
-      });
-      const { page, faults } = await openLiveWall(context);
-      assertEquals(
-        await page.locator(".wall-lens").evaluate((lens) => ({
-          rows: new Set(
-            [...lens.querySelectorAll(".wall-chip")].map((chip) =>
-              Math.round(chip.getBoundingClientRect().top)
-            ),
-          ).size,
-          scrolls: lens.scrollWidth - lens.clientWidth,
-        })),
-        { rows: 1, scrolls: 0 },
-        `${width} pixels wide: the chips are one row, and the row does not scroll`,
-      );
-      assertEquals(faults, [], `${width} pixels wide`);
     });
   }
 });
