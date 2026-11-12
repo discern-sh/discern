@@ -37,6 +37,13 @@
 }
 
 @layer discern.components {
+  /* A card is one line of the list: an inline block as wide as its column,
+   * with the gap above it as its own top margin. A column breaks between
+   * lines and never inside one, so no card is cut in two, and the card that
+   * heads a column starts one gap below the column's top. Whatever a card
+   * draws outside its box, lit or lifted, ends within that gap, so all of it
+   * lies inside the column. Once a card has a layer of its own, WebKit draws
+   * it in the column before when its ink starts above its own. */
   .wall-card {
     /* Where the pointer sits inside the card it is over: -1 to 1 on each
      * axis, 0 at the center. The card writes both while a pointer hovers. */
@@ -44,8 +51,10 @@
     --wall-pointer-y: 0;
 
     position: relative;
-    margin-block-end: var(--wall-gap);
-    break-inside: avoid;
+    display: inline-block;
+    inline-size: 100%;
+    margin-block: var(--wall-gap) 0;
+    vertical-align: top;
   }
 
   /* The face is an opaque, neutral object lit from its top-left corner.
@@ -82,6 +91,11 @@
     padding: 1.125rem 1.125rem 1.3125rem;
     border: 1px solid transparent;
     border-radius: var(--wall-radius);
+
+    /* The face is laid out apart from the list. Its card is a line of the
+     * list, and a browser lays a line out again when a box in it starts or
+     * stops moving, unless that box's layout is contained. */
+    contain: layout;
     background:
       var(--wall-card-wash) padding-box,
       var(--wall-card-surface) padding-box,
@@ -397,7 +411,13 @@
 
   /* Print and forced colors: flat cards in the system's own colors. */
   @media print {
+    /* Paper has no layers, so no card needs the gap above it. A card there
+     * is a block with the gap under it, kept whole, and a sheet's columns
+     * fill to its foot. */
     .wall-card {
+      display: list-item;
+      margin-block: 0 var(--wall-gap);
+      break-inside: avoid;
       color-scheme: light;
     }
 

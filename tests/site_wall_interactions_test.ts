@@ -54,6 +54,7 @@ import {
 import {
   declared,
   readWallSheet,
+  selectsCardItem,
   type StyleRule,
   styleRules,
 } from "./wall_stylesheets.ts";
@@ -615,18 +616,9 @@ Deno.test("a click made by script is made in one place, which hands on a plain c
   );
 });
 
-/** Whether a selector's subject is the card's own list item. */
-function selectsTheCardItself(selector: string): boolean {
-  return /\.wall-card(?![\w-])(?:\[[^\]]*\]|:[\w-]+(?:\([^()]*\))?)*$/.test(
-    selector,
-  );
-}
-
 Deno.test("the list's order alone places a card: the stylesheet changes a receded or opening card's opacity, color, and transition name, and never moves it", async () => {
   const sheet = styleRules(await readWallSheet("wall-interactions.css"));
-  const rules = sheet.filter((rule) =>
-    rule.selectors.some(selectsTheCardItself)
-  );
+  const rules = sheet.filter((rule) => rule.selectors.some(selectsCardItem));
   assert(
     rules.length > 0,
     "the stylesheet styles the receded and opening card",
@@ -642,7 +634,7 @@ Deno.test("the list's order alone places a card: the stylesheet changes a recede
   ]);
   for (const rule of rules) {
     assert(
-      rule.selectors.every(selectsTheCardItself),
+      rule.selectors.every(selectsCardItem),
       `"${rule.selectors.join(", ")}" mixes the card with something else`,
     );
     for (const [property, value] of rule.declarations) {

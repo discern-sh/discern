@@ -203,10 +203,11 @@
 
   /* A lens re-sorts the list: the cards it kept, this divider across every
    * column, then the rest. The list's order is all that places a card, and
-   * no rule here moves or resizes one. */
+   * no rule here moves or resizes one. Each card under the divider brings
+   * its own gap above it, so the divider's margin there is that much less. */
   .wall-rest {
     column-span: all;
-    margin-block: 1.75rem 1.25rem;
+    margin-block: 1.75rem calc(1.25rem - var(--wall-gap));
     padding-block-start: 1rem;
     border-block-start: 1px solid oklch(100% 0 0 / 0.1);
     font-size: 0.8rem;
@@ -802,7 +803,10 @@
       filter: none;
     }
 
+    /* On paper the gap lies under each card, so the divider keeps the
+     * whole of its own margin. */
     .wall-rest {
+      margin-block-end: 1.25rem;
       border-color: CanvasText;
     }
 

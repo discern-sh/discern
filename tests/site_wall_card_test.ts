@@ -39,6 +39,7 @@ import {
   MOTION_PROPERTY,
   movesByChoice,
   readWallSheet,
+  selectsCardItem,
   splitOutside,
   type StyleRule,
   styleRules,
@@ -333,9 +334,7 @@ Deno.test("card motion lives on the face, and the list item is left to the lens"
   const reserved =
     /^(?:transform|translate|rotate|scale|transition(?:-.+)?|animation(?:-.+)?|opacity|filter|will-change|z-index)$/;
   const onItem = rules.flatMap((rule) =>
-    rule.selectors.filter((selector) =>
-      /(?:^|\s)\.wall-card(?:--[\w-]+)?(?![\w-])\S*$/.test(selector)
-    ).flatMap((selector) =>
+    rule.selectors.filter(selectsCardItem).flatMap((selector) =>
       rule.declarations.filter(([property]) => reserved.test(property)).map((
         [property],
       ) => `${selector} { ${property} }`)

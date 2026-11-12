@@ -440,6 +440,13 @@
     display: none;
   }
 
+  /* The plane keeps the list's margin inside itself. The list starts above
+   * the plane's top edge, and that edge, which the far view hinges on, stays
+   * where it is. */
+  .wall-plane {
+    display: flow-root;
+  }
+
   /* The wall: a masonry in DOM order, so focus order and reading order agree.
    * A lens re-sorts the list under the reader. No card in it anchors the
    * page's scroll, or the page would follow one card to its new place.
@@ -448,14 +455,21 @@
    * it, as the far view's horizon is beneath the cards, then lifts the list
    * as one layer. Left open, WebKit lifts each card over that layer into a
    * layer of its own, and it draws a card lifted out of a multi-column list
-   * in the wrong column. */
+   * in the wrong column.
+   *
+   * Every card carries the gap above it inside its own line, the first row
+   * included, so the list pulls up by one gap. A card is a whole line, so
+   * one line may stand alone at the head or the foot of a column. */
   .wall-list {
     columns: 4 16.5rem;
     column-gap: var(--wall-gap);
+    margin-block-start: calc(var(--wall-gap) * -1);
     padding: 0;
     overflow-anchor: none;
     list-style: none;
     isolation: isolate;
+    orphans: 1;
+    widows: 1;
   }
 
   @media (min-width: 105rem) {
@@ -836,6 +850,12 @@
 
     .wall-pool {
       min-block-size: 0;
+    }
+
+    /* Paper has no layers, so a card there is a block with the gap under
+     * it, and the list starts where the plane does. */
+    .wall-list {
+      margin-block-start: 0;
     }
 
     .wall-headline {

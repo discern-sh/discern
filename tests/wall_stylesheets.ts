@@ -181,6 +181,16 @@ export function selectsBox(selector: string, className: string): boolean {
   return subjectNames(selector).includes(`.${className}`);
 }
 
+/**
+ * Whether a selector's subject is a card's own list item, of any kind and in
+ * any state, and no box inside the card.
+ */
+export function selectsCardItem(selector: string): boolean {
+  return subjectNames(selector).some((name) =>
+    /^\.wall-card(?:--[\w-]+)?$/.test(name)
+  );
+}
+
 /** The at-rules that decide when a rule applies: every one but its layer. */
 export function conditionsOf(rule: StyleRule): readonly string[] {
   return rule.context.filter((query) => !query.startsWith("@layer"));
