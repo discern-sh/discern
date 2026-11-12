@@ -259,9 +259,18 @@
   /* The card that opened the sheet. While the two morph into each other the
    * card shares the sheet's transition name; while the sheet is open the card
    * has become the sheet, so its place on the wall stays empty. Neither state
-   * moves the card or touches any other. */
+   * moves the card or touches any other.
+   *
+   * In both states the card paints through a layer of its own: the shared
+   * name makes one, and so does an opacity of nothing. WebKit leaves the
+   * cards after such a card out of the page's picture unless the card's paint
+   * stays inside its box, so a marked card contains its paint, in the face's
+   * own rounded shape. Nothing is lost by it: a held card is unseen, and the
+   * box that carries the morph clips its pictures to a shape of its own. */
   .wall-card[data-wall-opening] {
+    border-radius: var(--wall-radius);
     transition: none;
+    contain: paint;
   }
 
   .wall-card[data-wall-opening="morph"] {

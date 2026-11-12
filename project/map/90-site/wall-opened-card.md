@@ -24,7 +24,7 @@ The close control comes first and takes focus. A sheet too tall for a small or z
 
 A card counts as flat when its drawn box matches its laid-out box to within a pixel. A browser with no view transitions gets a short fade from the stylesheet as the sheet opens, unless the visitor asked for reduced motion.
 
-Only a morph marks the source card, with `data-wall-opening`. The value `morph` gives the card the sheet's view-transition name: for the picture the browser takes before the sheet grows from it, and while the sheet returns to it. The value `held` hides the card while the sheet is open, so its place on the wall stays empty and nothing reflows. At most one card carries the attribute, and none carries it after a close finishes.
+Only a morph marks the source card, with `data-wall-opening`. The value `morph` gives the card the sheet's view-transition name: for the picture the browser takes before the sheet grows from it, and while the sheet returns to it. The value `held` hides the card while the sheet is open, so its place on the wall stays empty and nothing reflows. At most one card carries the attribute, and none carries it after a close finishes. A marked card contains its paint, which [WebKit needs](wall-columns.md#what-keeps-every-card-drawn) of any card that has a layer of its own.
 
 ## The morph
 
@@ -69,6 +69,8 @@ The interactions test holds the decisions and the stylesheet:
 - the mark's name on one box at a time, on the sheet's own clock, with the sheet's mark set as the card's;
 - the sheet's link, named by its page;
 - a structural guard that no other line under `site/` makes a click, and that `deliverClick` refuses any click but a plain one before it reads the page.
+
+The columns test holds the marked card's paint containment, with [the list's other rules](wall-columns.md#what-holds-the-columns).
 
 The sheet test opens a card by pointer and leaves by every entry in its `WAYS_OUT` table, in the far view and in the near view. After each one, the scroll position, the plane, every card's box, and the focus must be where they began. A new way out belongs in that table. Its further cases cover:
 

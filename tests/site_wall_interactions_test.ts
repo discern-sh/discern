@@ -626,11 +626,15 @@ Deno.test("the list's order alone places a card: the stylesheet changes a recede
   // A lens re-sorts the list, and the cards a lens set aside are drawn
   // receded where the list puts them. So a rule that moved or resized a card
   // would be a second thing placing it, and a card would be seen to travel.
+  // Containing a card's paint, and rounding the box that contains it, leaves
+  // the card where it is and as large.
   const allowed = new Set([
     "opacity",
     "filter",
     "transition",
     "view-transition-name",
+    "contain",
+    "border-radius",
   ]);
   for (const rule of rules) {
     assert(

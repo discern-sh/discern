@@ -2,20 +2,24 @@
  * The wall's cards are the boxes of one multi-column list. Safari's engine
  * misdraws a box of such a list once the box paints through a layer of its
  * own: a card whose ink reaches above the top of its column is drawn in the
- * column before. Two rules keep every card drawn in its own place, and each
- * is read here from the stylesheets, because the gate's browser is Chrome
- * and Chrome draws the wall whole with or without them:
+ * column before, and the cards after an uncontained layer are left out of
+ * the page's picture. Three rules keep every card drawn in its own place,
+ * and each is read here from the stylesheets, because the gate's browser is
+ * Chrome and Chrome draws the wall whole with or without them:
  *
  * - the list is one stacking context, so the browser lifts it as one layer;
  * - the gap above a card lies inside the card's own line, so no card's ink
- *   reaches above its column.
+ *   reaches above its column;
+ * - a card that paints through a layer of its own contains its paint.
  *
  * The last case loads the built page in a real browser at four columns and
  * at five, and measures what those rules lay out.
  */
 import { assert, assertEquals } from "@std/assert";
 import type { Page } from "playwright-core";
+import { RECEDED_ATTRIBUTE } from "../site/wall/Card.tsx";
 import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
+import { OPENING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
 import {
   openLiveWall,
   VIEWPORTS,
@@ -24,6 +28,7 @@ import {
 } from "./site_wall_browser.ts";
 import {
   conditionsOf,
+  declared,
   selectsBox,
   selectsCardItem,
   type StyleRule,
@@ -177,6 +182,111 @@ Deno.test("the gap above a card lies inside the card's own line, on every screen
       "wall.css: @media print .wall-list { margin-block-start: 0 }",
       `wall-interactions.css: @media print .wall-rest { margin-block-end: ${whole} }`,
     ],
+  );
+});
+
+/**
+ * Whether a declaration makes its box paint through a layer of its own: a
+ * view-transition name, an opacity under 1, or a filter.
+ */
+function paintsThroughALayer(
+  [property, value]: readonly [string, string],
+): boolean {
+  if (property === "view-transition-name") return value !== "none";
+  if (property === "opacity") return Number(value) !== 1;
+  if (property === "filter") return value !== "none";
+  return false;
+}
+
+/** The attributes a selector asks of its subject or of any box before it. */
+function attributesAsked(selector: string): string[] {
+  return [...selector.matchAll(/\[([\w-]+)/g)].map((match) => match[1] ?? "");
+}
+
+/** Whether a rule keeps its box's paint inside the box. */
+function containsPaint(rule: StyleRule): boolean {
+  return /\b(?:paint|strict|content)\b/.test(declared(rule, "contain") ?? "");
+}
+
+/**
+ * Marks whose cards paint through a layer of their own and carry no
+ * containment, each with its reason.
+ *
+ * - The receded mark. A card a lens set aside is still lit and lifted under
+ *   the pointer and ringed under the keyboard. It draws all three outside
+ *   its box, where containment would cut them off. WebKit draws such a card,
+ *   and the cards after it, in place for as long as it rests in the list.
+ */
+const UNCONTAINED: ReadonlySet<string> = new Set([RECEDED_ATTRIBUTE]);
+
+Deno.test("a card that paints through a layer of its own keeps its paint inside its box", async () => {
+  const rules = (await wallRules()).filter(({ rule }) =>
+    rule.selectors.some(selectsCardItem)
+  );
+  // WebKit leaves the cards after such a card out of the page's picture
+  // unless the card's paint is contained. A state is contained through the
+  // attribute that marks it, so one rule covers every value of the mark.
+  const containing = rules.filter(({ rule }) => containsPaint(rule));
+  const contained = new Set(
+    containing.flatMap(({ rule }) =>
+      rule.selectors.filter(selectsCardItem).flatMap(attributesAsked)
+    ),
+  );
+  const layered = rules.filter(({ rule }) =>
+    !conditionsOf(rule).some((query) => /^@media\s+print\b/.test(query)) &&
+    rule.declarations.some(paintsThroughALayer)
+  );
+  assert(
+    layered.length > 1,
+    "the stylesheets give the opening card and the receded card a layer",
+  );
+  for (const { sheet, rule } of layered) {
+    for (const selector of rule.selectors.filter(selectsCardItem)) {
+      assert(
+        attributesAsked(selector).some((attribute) =>
+          contained.has(attribute) || UNCONTAINED.has(attribute)
+        ),
+        `${sheet}: "${selector}" gives the card a layer of its own (${
+          rule.declarations.filter(paintsThroughALayer).map(([property]) =>
+            property
+          ).join(", ")
+        }) and no rule gives a card so marked \`contain: paint\`. WebKit then ` +
+          "leaves the cards after it in the list undrawn. Mark the state with " +
+          "an attribute and contain it: see project/map/90-site/wall-columns.md.",
+      );
+    }
+  }
+
+  // Containment clips at the box, so a contained card takes the face's own
+  // rounded shape, and no later rule takes the containment away.
+  for (const { sheet, rule } of containing) {
+    assertEquals(
+      declared(rule, "border-radius"),
+      "var(--wall-radius)",
+      `${sheet}: "${rule.prelude}" clips the card to a square box`,
+    );
+  }
+  assertEquals(
+    rules.filter(({ rule }) =>
+      declared(rule, "contain") !== undefined && !containsPaint(rule)
+    ).map(({ sheet, rule }) => `${sheet}: ${rule.prelude}`),
+    [],
+    "a rule lets a card's paint out of its box again",
+  );
+
+  // Every mark the island sets on a card is contained or is listed above
+  // with its reason, and a mark that is contained leaves the list.
+  assertEquals(
+    [OPENING_ATTRIBUTE, RECEDED_ATTRIBUTE].filter((attribute) =>
+      !contained.has(attribute) && !UNCONTAINED.has(attribute)
+    ),
+    [],
+    "a mark the island sets on a card has no containment",
+  );
+  assertEquals(
+    [...UNCONTAINED].filter((attribute) => contained.has(attribute)),
+    [],
+    "a mark listed as uncontained is contained: take it off the list",
   );
 });
 

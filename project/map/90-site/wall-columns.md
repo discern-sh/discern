@@ -32,6 +32,9 @@ WebKit draws a box of a multi-column list wrongly once that box paints through a
 
 - **The list is one stacking context.** `.wall-list` sets `isolation: isolate`. A layer the browser composites beside the list then lifts the list as one layer. The far view's horizon is such a layer, beneath the cards. With an open list, WebKit lifts each card over the horizon into a layer of its own.
 - **No card's ink starts higher than its column.** WebKit draws a lifted card in the column before when its ink starts higher than its own column's top. That column clips the card away, or shows it among other cards. A hovered or pressed face is a layer too. The gap inside the card's line keeps every card clear.
+- **A card with a layer of its own contains its paint.** [The opened card's source](wall-opened-card.md) carries the sheet's view-transition name while the two morph, and has no opacity while the sheet is open. Either gives the list item a layer, and WebKit then leaves the cards after it in the list out of the page's picture. `.wall-card[data-wall-opening]` therefore sets `contain: paint`. It takes the face's radius too, so the box that clips it has the card's shape.
+
+A receded card also paints through a layer, because a lens lowers its opacity and removes its color. It carries no containment. It draws its light, its lift, and its focus ring outside its box, and containment would cut them off. WebKit draws a receded card, and the cards after it, in place.
 
 ## What holds the columns
 
@@ -39,6 +42,7 @@ Chrome draws the wall whole with or without these rules, and the gate launches C
 
 - One base rule isolates the list, and no rule for any state of the wall says otherwise.
 - One base rule makes a card a line with the gap as its top margin. No size or state of the wall changes a card's display, width, or margins, the list's pull, or the plane's display. The test names the rules that apply on paper, and no others may.
+- A rule that gives a card's list item a view-transition name, an opacity under 1, or a filter needs `contain: paint` on the attribute that marks that state. The receded mark is a named exemption with its reason. The test fails once a rule contains an exempt mark, so the exemption cannot outlive its reason.
 
 The same file loads the built page in Chrome at four columns and at five, with no lens and under a lens. It requires:
 
