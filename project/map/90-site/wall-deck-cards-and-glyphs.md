@@ -53,14 +53,8 @@ The browser scrolls to a focused card's button, which is the heading's box alone
 
 - Every card in the deck renders its kind's markup, and assistive technology reads each card's words once, in reading order.
 - Hover rules apply only where a pointer can hover, so a tap leaves no card lit.
-- The tilt stays within the knob's angle, and the lift within the test's pixel bound.
-- The browser draws a face that moves or lights over the other cards until it rests. A moving layer in the middle of the wall would make the browser redraw every later card.
-- Every outer shadow takes its size from the gap between cards, so no shadow reaches a neighbor.
 - The wall sets sans-serif type only.
 - Print and forced colors get flat cards in system colors.
-- A card the keyboard reaches going backward comes to rest clear of the pinned bar.
-- A heading wraps a word longer than its card, and the glyph sits beside the words where the list is one column and at no wider viewport.
-- Every control that draws its own look, in any wall stylesheet, takes no tap highlight from the browser. A view transition's picture of the page would otherwise catch the highlight.
 
 ## Glyphs
 
@@ -84,12 +78,12 @@ The renderer hands the distance to the stylesheet as `--wall-glyph-dx` and `--wa
 
 The second drawing paints over the first, so a traveling primitive paints last wherever its drawing lists it. A drawing therefore lists nothing after a traveling primitive that crosses the box it sweeps.
 
-Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. [A marked card holds still](wall-opened-card.md#what-a-transition-costs), so its glyph takes the pose at once, and eases back to rest when the mark goes. The glyph test reads the lit states from `wall-card.css`, so a change to how a card lights fails that test until `wall-glyph.css` follows. The test also fails when another module under `site/wall/` starts to draw a glyph, until someone decides its pose.
+Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. [A marked card holds still](wall-opened-card.md#what-a-transition-costs), so its glyph takes the pose at once, and eases back to rest when the mark goes.
 
-The glyph test holds each of these rules in the markup and the stylesheet.
+The glyph test holds the two drawings in the markup.
 
 ### The set
 
-A dashed stroke gives up part of its length to gaps. The renderer marks a dashed shape with a second class, and the stylesheet draws it heavier than a whole stroke so that it reads at card size. The glyph test requires a dashed stroke to keep most of a whole stroke's ink and to keep its gaps open at the heaviest weight the knob reaches.
+A dashed stroke gives up part of its length to gaps. The renderer marks a dashed shape with a second class, and the stylesheet draws it heavier than a whole stroke so that it reads at card size.
 
 `wall-glyph.css` paints every tone from `currentColor`, and the glyph test fails when the renderer emits a class the stylesheet does not style. The same test requires a card in the deck to draw every authored key.

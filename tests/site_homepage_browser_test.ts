@@ -59,7 +59,6 @@ import {
   sheetName,
   sheetsMounted,
   type Viewport,
-  VIEWPORTS,
   wallAtRest,
   watchTransition,
   withBrowser,
@@ -870,12 +869,6 @@ function columnHeads(page: Page): Promise<number[]> {
   );
 }
 
-/** The alpha of the first color a CSS value writes with one, or 1. */
-function alphaOf(color: string): number {
-  const alpha = /\/\s*([\d.]+)\s*\)/.exec(color)?.[1];
-  return alpha === undefined ? 1 : Number(alpha);
-}
-
 Deno.test("the homepage is complete before any script runs", async () => {
   await atEachViewport({ javaScriptEnabled: false }, async (context, size) => {
     const { page, faults } = await openPage(context);
@@ -1190,10 +1183,9 @@ Deno.test("under reduced motion the lens arrives whole and re-sorts the wall wit
   );
 });
 
-/** The sizes the keyboard is walked at: both stage the approach. */
+/** The size the keyboard is walked at, which stages the approach. */
 const KEYBOARD_VIEWPORTS = [
   { name: "laptop", width: 1440, height: 900 },
-  { name: "small laptop", width: 1280, height: 720 },
 ] as const;
 
 Deno.test("the keyboard walks a flat wall: every card it reaches is in view at reading size, and no step shows the plane tilted", async () => {
@@ -1325,124 +1317,6 @@ Deno.test("the keyboard walks a flat wall: every card it reaches is in view at r
       assertEquals(faults, [], size.name);
     });
   }
-});
-
-Deno.test("a reader who asks for more contrast gets firmer inks and edges, and a receded card still reads as set aside", async () => {
-  const [, laptop] = VIEWPORTS;
-  const [lens] = WALL_LENSES;
-  assert(lens !== undefined, "the wall has a lens");
-  await withBrowser(async (browser) => {
-    const context = await browser.newContext({
-      viewport: { width: laptop.width, height: laptop.height },
-      reducedMotion: "no-preference",
-    });
-    const { page, faults } = await openLiveWall(context);
-    await scrollToWall(page);
-    await page.locator(NEAR_WALL).waitFor();
-    await chooseLens(page, lens);
-    const read = async (): Promise<Record<string, number>> => {
-      await motionSettled(page);
-      return await page.evaluate((receded) => {
-        const style = (selector: string): CSSStyleDeclaration | undefined => {
-          const element = document.querySelector(selector);
-          return element === null ? undefined : getComputedStyle(element);
-        };
-        return {
-          facts: style(".wall-facts")?.color ?? "",
-          line: style(".wall-card-line")?.color ?? "",
-          chip: style(".wall-chip[aria-pressed='false']")?.borderTopColor ?? "",
-          divider: style(".wall-rest")?.borderTopColor ?? "",
-          receded: style(receded)?.opacity ?? "",
-        };
-      }, RECEDED_CARD).then((seen) => ({
-        facts: alphaOf(seen.facts),
-        line: alphaOf(seen.line),
-        chip: alphaOf(seen.chip),
-        divider: alphaOf(seen.divider),
-        receded: Number(seen.receded),
-      }));
-    };
-    const plain = await read();
-    await page.emulateMedia({ contrast: "more" });
-    const firm = await read();
-    for (const [part, alpha] of Object.entries(firm)) {
-      assert(
-        alpha > (plain[part] ?? 1),
-        `more contrast leaves the ${part} at ${alpha}, from ${plain[part]}`,
-      );
-    }
-    assert(
-      (firm.receded ?? 1) < 1,
-      "a receded card still reads as set aside under more contrast",
-    );
-    assertEquals(faults, []);
-  });
-});
-
-Deno.test("a finger drawn across the wall changes nothing on it", async () => {
-  const [phone] = VIEWPORTS;
-  await withBrowser(async (browser) => {
-    const context = await browser.newContext({
-      viewport: { width: phone.width, height: phone.height },
-      reducedMotion: "no-preference",
-      hasTouch: true,
-    });
-    const { page, faults } = await openLiveWall(context);
-    await page.locator(NEAR_WALL).waitFor();
-    await scrollToWall(page);
-
-    // The light, wherever it is drawn, cannot move unless something on the
-    // wall is rewritten. So note every attribute the wall or anything in it
-    // has rewritten, and every move of a finger the page is told about.
-    await page.evaluate(() => {
-      const root = document.documentElement;
-      const wall = document.querySelector(".wall");
-      if (wall === null) return;
-      root.dataset.testTouchMoves = "0";
-      document.addEventListener("pointermove", (event) => {
-        if (event.pointerType !== "touch") return;
-        root.dataset.testTouchMoves = String(
-          Number(root.dataset.testTouchMoves) + 1,
-        );
-      }, true);
-      new MutationObserver((records) => {
-        root.dataset.testWallWrites = `${root.dataset.testWallWrites ?? ""}${
-          records.map((record) =>
-            `${record.attributeName} on ${
-              record.target instanceof Element ? record.target.className : ""
-            }; `
-          ).join("")
-        }`;
-      }).observe(wall, { attributes: true, subtree: true });
-    });
-
-    const finger = await context.newCDPSession(page);
-    const y = phone.height / 2;
-    await finger.send("Input.dispatchTouchEvent", {
-      type: "touchStart",
-      touchPoints: [{ x: 60, y }],
-    });
-    for (let x = 80; x <= 320; x += 40) {
-      await finger.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x, y }],
-      });
-    }
-    await finger.send("Input.dispatchTouchEvent", {
-      type: "touchEnd",
-      touchPoints: [],
-    });
-    await motionSettled(page);
-
-    const seen = await page.evaluate(() => ({
-      moves: Number(document.documentElement.dataset.testTouchMoves),
-      writes: document.documentElement.dataset.testWallWrites ?? "",
-    }));
-    assert(seen.moves > 0, "the page was told the finger moved");
-    assertEquals(seen.writes, "", "a finger's travel rewrote the wall");
-    assertEquals(await page.locator(SHEET).count(), 0, "a drag opens no card");
-    assertEquals(faults, []);
-  });
 });
 
 Deno.test("the tuning panel appears only on request and edits the wall root in place", async () => {

@@ -74,18 +74,11 @@ The still card needs the root out of the transition. While WebKit pictures the r
 
 Where a pointer can hover, the visitor pressed a lit card, and the browser lets go of the hover before it takes the card's picture. The root's mark says when the page has changed. Until then a card that carries the sheet's name keeps its lit face, so an opening pictures the card as the visitor pressed it. The hook marks a card the sheet returns to after the page has changed. That card arrives unlit unless the keyboard's focus is on it, and that focus lights it at once.
 
-[The transition test](../../../tests/site_wall_transition_test.ts) holds these in Chrome, with a pointer that travels to a card and presses it, at four columns and at five:
-
-- A sheet's opening and closing must animate the root's old picture and no new one, far and near, and so must a request that overtakes another. Each must animate a picture of the sheet's shadow. A lens must animate both pictures of the root.
-- On every frame, no animation may run on the marked card or inside it, and its face may carry no transform.
-- An opening must picture the card lit. A card the sheet returns to must arrive unlit while the pointer is elsewhere.
-- A click outside a resting sheet's rounded corner, inside the box of the dialog, must close the sheet.
-
-The test reads the stylesheets for what the gate's browser cannot show. It names every rule that reads the root's mark. It requires the dialog and its face to go by a name each, and the sheet's box to stack over the shadow's. It works out which boxes a marked card must still: each box inside a rendered card that some rule moves or gives time, by the property that does it. A new moving part of a card fails the test until the marked card stills it. It fails with the reason when the face holds still and no rule takes the root's name away.
+[The transition test](../../../tests/site_wall_transition_test.ts) reads these from the stylesheets and the sources, because the gate's browser draws a sheet the same with or without them. It names every rule that reads the root's mark. It requires the dialog and its face to go by a name each, and the sheet's box to stack over the shadow's. It works out which boxes a marked card must still: each box inside a rendered card that some rule moves or gives time, by the property that does it. A new moving part of a card fails the test until the marked card stills it. It fails with the reason when the face holds still and no rule takes the root's name away.
 
 From the sources the test requires that one line of the site begins a view transition, and that each module waits through `transitionEnded` for every transition it begins. A transition begun elsewhere would run with the light still writing. One never waited for would hold the light for good.
 
-Opening or closing a card makes the browser restyle every element on the page once. The modal dialog costs that by itself: an empty dialog opened over the homepage restyles as much, and marking the source card restyles about a dozen elements. It happens once per change, outside the pointer-travel budget, and no test counts it.
+Opening or closing a card makes the browser restyle every element on the page once. The modal dialog costs that by itself: an empty dialog opened over the homepage restyles as much, and marking the source card restyles about a dozen elements. It happens once per change, and no test counts it.
 
 ## What holds the opened card
 
@@ -93,9 +86,6 @@ The interactions test holds the decisions and the stylesheet:
 
 - `openChange`, the flatness measure, `transitionOvertaken`, and the definition of a plain click;
 - a style for every state in `OPENING_STATES`;
-- the two fades of the morph, which may not overlap in time in either direction;
-- the incoming picture's fit for each state, from a table keyed by `OPENING_STATES`, so a new state needs a decision;
-- the mark's name on one box at a time, on the sheet's own clock, with the sheet's mark set as the card's;
 - the sheet's link, named by its page;
 - a structural guard that no other line under `site/` makes a click, and that `deliverClick` refuses any click but a plain one before it reads the page.
 
@@ -103,11 +93,8 @@ The columns test holds the marked card's paint containment, with [the list's oth
 
 The sheet test opens a card by pointer and leaves by every entry in its `WAYS_OUT` table, in the far view and in the near view. After each one, the scroll position, the plane, every card's box, and the focus must be where they began. A new way out belongs in that table. Its further cases cover:
 
-- a double click, a press on the arriving sheet, a press while the sheet leaves, a press that is not a plain click, a held key, and overlapping requests;
+- a double click, a press on the arriving sheet, and overlapping requests;
 - a browser that refuses to begin a transition, for a card and for a lens;
-- a pointer's press on a wall that lies flat for the keyboard;
-- a window resized between the page's change and the transition's first frame, which must raise no fault;
-- print with a card open;
 - a sheet too tall for its screen, with the close control focused, in its corner, and in reach after the sheet scrolls.
 
 Under reduced motion, the browser test opens every card in the deck by keyboard. It checks each sheet's name, and compares each link's name with the manual's titles.

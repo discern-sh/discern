@@ -226,17 +226,6 @@ export function isAt(
     Math.abs(parseFloat(y) - place.y) <= 0.6;
 }
 
-/** What the light has written on the wall root: its place, and how far up. */
-export function lightNow(page: Page): Promise<string[]> {
-  return page.locator(".wall").evaluate(
-    (root, names) =>
-      root instanceof HTMLElement
-        ? names.map((name) => root.style.getPropertyValue(name))
-        : [],
-    [...LIGHT_PROPERTIES.room],
-  );
-}
-
 /** Let go of the focus, as a click on the page's margin does. */
 export function dropFocus(page: Page): Promise<void> {
   return page.evaluate(() => {

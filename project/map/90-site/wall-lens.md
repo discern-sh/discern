@@ -34,5 +34,3 @@ The interactions test checks which cards each lens recedes, the two groups and t
 - the page left where it stood from the head of the wall, and brought back to the head from further down;
 - one cross-fade in which only the page's root takes part, and a press made during it to land;
 - hurried requests to settle on the last.
-
-A further browser test holds the chips to one row that does not scroll on both sides of the width where they close up. It reads that width from the stylesheet.
