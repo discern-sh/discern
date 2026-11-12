@@ -72,7 +72,7 @@ Every response class, including assets, redirects, and errors, receives the same
 - [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real socket and crawls every canonical and raw route, link, anchor, redirect variant, and response class.
 - [`tests/site_social_cards_test.ts`](../../../tests/site_social_cards_test.ts) lays out every live route's social card and holds its title to a complete fit.
 - [`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) enrolls every `MARKETING_PAGES` composition in its declared public register. The manual has its separate product-voice corpus.
-- [`tests/site_wall_island_test.ts`](../../../tests/site_wall_island_test.ts) crawls every live HTML route and allows a React runtime in the browser only inside the homepage island. [The homepage wall](the-homepage-wall.md#guards) lists the wall's other guards.
+- [`tests/site_wall_island_test.ts`](../../../tests/site_wall_island_test.ts) crawls every live HTML route and allows a React runtime in the browser only inside the homepage island. [The homepage wall](wall-guards.md) lists the wall's other guards.
 
 - [Release-page guards](releases.md#visual-and-accessibility-review) cover normalized comparison states, query metadata, no-JavaScript operation, and the real browser journey.
 
