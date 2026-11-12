@@ -42,7 +42,7 @@ Each request states where the wall should end, so opens and closes that overlap 
 
 Escape, the close control, and a click outside the sheet each close it, and focus returns to the card. The page behind keeps its scroll position and its width while the dialog is open.
 
-While a view transition runs, the browser sends every pointer event to the document's root. Script therefore reads such a click by where it fell:
+While a sheet's view transition runs, the browser hands a pointer event to nothing the visitor sees. As the sheet arrives, the page behind it is inert and the transition draws the sheet's face from its pictures, so every event lands on the dialog itself. As the sheet leaves, the page's old picture lies over the page, and every event lands on the document's root. Script therefore reads such a click by where it fell:
 
 - A click outside the arriving sheet closes it from the moment the dialog mounts.
 - A click inside the arriving sheet ends the transition and reaches what it fell on, from the moment the dialog mounts. The close control and the link answer while the sheet still arrives. A click on the sheet's words hands the sheet the focus, as a press on them does once the sheet rests.
@@ -61,8 +61,11 @@ A browser can also refuse a transition outright, by throwing when asked to begin
 While a view transition runs, the browser draws the page from pictures. A change to the page under them costs a redraw on every frame, and a visitor sees none of it. The page therefore keeps still for as long:
 
 - **The pointer light holds still.** `beginTransition` begins every view transition on the site, for the sheet and for the lens. Each caller waits for the end through `transitionEnded`. `transitionRunning` answers from those two, and [the light](wall-pointer-light.md#how-the-light-comes-and-goes) writes nothing while one runs.
+- **A sheet's transition pictures the page once.** `useOpenCard` marks the page's root with `data-wall-sheet-moving` as the page changes, and clears the mark when the transition ends. Under that mark `wall-interactions.css` takes the root's transition name away. The browser has taken the page's old picture by then, and takes no new one. The old picture fades out over the page itself, which is the same cross-fade to the eye. WebKit draws a new picture of the root afresh on every frame, as large as the viewport, and its main thread waits for each one. A lens leaves the root its name and cross-fades both pictures.
 
-[The transition test](../../../tests/site_wall_transition_test.ts) holds this in Chrome, with a pointer that travels to a card and presses it. It also reads the sources: one line of the site begins a view transition, and each module waits through `transitionEnded` for every transition it begins. A transition begun elsewhere would run with the light still writing. One never waited for would hold the light for good.
+A request that a later one overtook still makes its change, and makes it before the later transition takes its first picture. Only the latest request marks the root, or that picture would lack the page.
+
+[The transition test](../../../tests/site_wall_transition_test.ts) holds these in Chrome, with a pointer that travels to a card and presses it. A sheet's opening and closing must animate the root's old picture and no new one, far and near, and so must a request that overtakes another. A lens must animate both. The test also reads the stylesheet for the rule that takes the marked root's name away. From the sources it requires that one line of the site begins a view transition, and that each module waits through `transitionEnded` for every transition it begins. A transition begun elsewhere would run with the light still writing. One never waited for would hold the light for good.
 
 Opening or closing a card makes the browser restyle every element on the page once. The modal dialog costs that by itself: an empty dialog opened over the homepage restyles as much, and marking the source card restyles about a dozen elements. It happens once per change, outside the pointer-travel budget, and no test counts it.
 

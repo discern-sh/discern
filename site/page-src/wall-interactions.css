@@ -604,9 +604,22 @@
    * cross-fades in place and nothing but that one object moves.
    *
    * While a transition runs the browser answers every press at the page's
-   * root, whatever lies under it. Script reads such a press by where it fell:
-   * a click outside the arriving sheet still closes it, and a click on the
-   * page while the sheet leaves still reaches what it was aimed at. */
+   * root, or at the dialog of a sheet that is arriving, whatever lies under
+   * it. Script reads such a press by where it fell: a click outside the
+   * arriving sheet still closes it, and a click on the page while the sheet
+   * leaves still reaches what it was aimed at. */
+
+  /* A sheet's transition takes the page's old picture and never a new one.
+   * Script marks the root as the page changes, and the root has no transition
+   * name from then until the transition ends. The old picture fades out over
+   * the page itself, which is the same cross-fade to the eye, and the page
+   * under it is drawn as it always is. A browser that draws a new picture of
+   * the page afresh on every frame of a transition then has none to draw. A
+   * lens leaves the root its name, and cross-fades the page's two pictures. */
+  :root[data-wall-sheet-moving] {
+    view-transition-name: none;
+  }
+
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 0.3s;

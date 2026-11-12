@@ -52,16 +52,19 @@ function ignoreHeldKey(event: KeyboardEvent<HTMLDialogElement>): void {
 /**
  * Whether a pointer event was aimed outside the sheet.
  *
- * A modal dialog's backdrop reports its events on the dialog itself. While a
- * view transition runs, the browser tests nothing on the page for a hit, and
- * every pointer event lands on the document's root wherever it fell. Then
- * only its place can answer, against the box the sheet is laid out in: that
- * box is the sheet's resting place from the moment the dialog mounts, however
- * far the transition has drawn it from there.
+ * A modal dialog's backdrop reports its events on the dialog itself. So does
+ * the whole of the screen while the sheet arrives: the sheet's face is drawn
+ * from a view transition's pictures then, and the browser finds no part of
+ * it under a pointer. A browser may hand such an event to the document's
+ * root instead. Either way only its place can answer, against the box the
+ * sheet is laid out in: that box is the sheet's resting place from the
+ * moment the dialog mounts, however far the transition has drawn it from
+ * there.
  */
 function aimedOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
-  if (event.target === dialog) return true;
-  if (event.target !== document.documentElement) return false;
+  if (event.target !== dialog && event.target !== document.documentElement) {
+    return false;
+  }
   return fellOutside(dialog.getBoundingClientRect(), event);
 }
 

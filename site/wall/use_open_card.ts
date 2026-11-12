@@ -27,6 +27,16 @@ export const OPENING_ATTRIBUTE = "data-wall-opening";
 export const OPENING_STATES = ["morph", "held"] as const;
 type OpeningState = (typeof OPENING_STATES)[number];
 
+/**
+ * The attribute the page's root carries while a sheet's view transition is
+ * past its first picture: from the moment the page changes until the
+ * transition ends. The stylesheet takes the root's transition name away for
+ * as long, so the browser pictures the page as it stood and never as it
+ * stands, and that one picture fades out over the page itself. Its value is
+ * the request that set it.
+ */
+export const SHEET_MOVING_ATTRIBUTE = "data-wall-sheet-moving";
+
 /** How the page gets from one open-card state to the next. */
 export type OpenChange = "morph" | "fade" | "cut";
 
@@ -173,9 +183,9 @@ export function deliverClick(event: MouseEvent): void {
 
 /**
  * Whether a pointer event fell outside a box, by its place alone. While a
- * view transition runs, the browser tests nothing on the page for a hit, and
- * every pointer event lands on the document's root wherever it fell. Then
- * only its place can say what it was aimed at.
+ * view transition runs, the browser hands a pointer event to the document's
+ * root, or to an arriving sheet's dialog, wherever it fell. Then only its
+ * place can say what it was aimed at.
  */
 export function fellOutside(box: DOMRectReadOnly, event: MouseEvent): boolean {
   return event.clientX < box.left || event.clientX > box.right ||
@@ -277,9 +287,9 @@ export async function transitionEnded(
   return ends;
 }
 
-/** The sheet's box while a card is open: the modal layer over the page. */
-function sheetBox(): DOMRect | undefined {
-  return document.querySelector("dialog:modal")?.getBoundingClientRect();
+/** The sheet's dialog while a card is open: the modal layer over the page. */
+function modalSheet(): Element | null {
+  return document.querySelector("dialog:modal");
 }
 
 /** A view transition of the open card that is under way. */
@@ -310,9 +320,12 @@ interface Shown {
  * - At most one card carries the opening attribute, and the last close to
  *   finish removes it.
  *
- * While a view transition runs, the browser tests nothing on the page for a
- * hit: every click lands on the document's root. Such a click ends the
- * transition where it stands and goes to what it fell on:
+ * While a sheet's view transition runs, the browser hands a click to nothing
+ * the visitor sees. As the sheet arrives, the page behind it is inert and
+ * the sheet's face is drawn from the transition's pictures, so every click
+ * lands on the dialog itself. As the sheet leaves, the page's old picture
+ * lies over the page, and every click lands on the document's root. Such a
+ * click ends the transition where it stands and goes to what it fell on:
  *
  * - While the sheet arrives, a click inside its box reaches the control
  *   there, so the close control and the link answer from the moment the
@@ -342,11 +355,14 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
     const deliver = (event: MouseEvent): void => {
       const running = moving.current;
       if (running === null) return;
-      if (event.target !== document.documentElement) return;
-      if (running.arriving) {
-        const sheet = sheetBox();
-        if (sheet === undefined || fellOutside(sheet, event)) return;
-      }
+      const sheet = running.arriving ? modalSheet() : null;
+      if (
+        event.target !== document.documentElement && event.target !== sheet
+      ) return;
+      if (
+        running.arriving &&
+        (sheet === null || fellOutside(sheet.getBoundingClientRect(), event))
+      ) return;
       moving.current = null;
       running.transition.skipTransition();
       deliverClick(event);
@@ -394,11 +410,24 @@ export function useOpenCard(deck: readonly WallCard[]): OpenCardState {
       });
     if (how === "cut") return await commit(false);
     if (morphs && next !== null) mark(source, "morph");
-    const transition = beginTransition(() => commit(morphs));
+    const page = document.documentElement;
+    const transition = beginTransition(() => {
+      // A request that a later one has overtaken still makes its change, and
+      // makes it before the later transition takes its first picture. Only
+      // the latest request marks the root, or that picture would lack the
+      // page.
+      if (turns.current === turn) {
+        page.setAttribute(SHEET_MOVING_ATTRIBUTE, String(turn));
+      }
+      return commit(morphs);
+    });
     if (transition === null) return await commit(false);
     moving.current = { transition, arriving: next !== null };
     const [began] = await transitionEnded(transition);
     if (moving.current?.transition === transition) moving.current = null;
+    if (page.getAttribute(SHEET_MOVING_ATTRIBUTE) === String(turn)) {
+      page.removeAttribute(SHEET_MOVING_ATTRIBUTE);
+    }
     if (began.status === "rejected") {
       const now = viewportSize();
       const overtaken = transitionOvertaken({

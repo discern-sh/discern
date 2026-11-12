@@ -16,6 +16,7 @@ import type { Page } from "playwright-core";
 import { CARD_LIGHT } from "../site/wall/Card.tsx";
 import { WALL_LENSES } from "../site/wall/deck.ts";
 import { LIGHT_PROPERTIES } from "../site/wall/use_light.ts";
+import { SHEET_MOVING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
 import {
   dropFocus,
   FAR_WALL,
@@ -27,6 +28,7 @@ import {
   motionSettled,
   NEAR_WALL,
   OPEN_SHEET,
+  openerOf,
   openLiveWall,
   OUTSIDE_Y,
   placeOnWall,
@@ -46,6 +48,7 @@ import {
   conditionsOf,
   declared,
   MOTION_PROPERTY,
+  type SheetRule,
   wallRules,
 } from "./wall_stylesheets.ts";
 
@@ -122,12 +125,43 @@ Deno.test("a box the light moves anchors no scroll", async () => {
   );
 });
 
+/** A rule as written: its stylesheet, its conditions, its selectors, and its block. */
+function written({ sheet, rule }: SheetRule): string {
+  const block = rule.declarations.map(([property, value]) =>
+    `${property}: ${value}`
+  ).join("; ");
+  return `${sheet}: ${
+    [...conditionsOf(rule), rule.prelude].join(" ")
+  } { ${block} }`;
+}
+
+/** The page's root while a sheet's transition is past its first picture. */
+const MOVING_ROOT = `:root[${SHEET_MOVING_ATTRIBUTE}]`;
+
+Deno.test("the page's root leaves a sheet's transition once its old picture is taken", async () => {
+  // A root that keeps its transition name is pictured in the new state too.
+  // WebKit draws that picture afresh on every frame of the transition, the
+  // whole viewport of it, and its main thread waits for each one. With no
+  // name from the moment the page changes, the old picture fades out over
+  // the page itself, which is the same cross-fade to the eye.
+  assertEquals(
+    (await wallRules()).filter(({ rule }) =>
+      rule.selectors.some((selector) =>
+        selector.includes(`[${SHEET_MOVING_ATTRIBUTE}]`)
+      )
+    ).map(written),
+    [`wall-interactions.css: ${MOVING_ROOT} { view-transition-name: none }`],
+  );
+});
+
 /** What the page did while one view transition was active. */
 interface Watched {
   /** How many frames the transition was seen on. */
   readonly frames: number;
   /** Each box the light writes on that took a style write, once per write. */
   readonly writes: string[];
+  /** Every part of the transition that animated, by its pseudo-element. */
+  readonly parts: string[];
 }
 
 /** The boxes a watch looks at, as selectors. */
@@ -150,6 +184,7 @@ function watchTransition(watch: Watch): Promise<Watched> {
     const page = document.documentElement;
     const active = (): boolean => page.matches(":active-view-transition");
     const writes: string[] = [];
+    const parts = new Set<string>();
     let frames = 0;
     const written = new MutationObserver((records) => {
       if (!active()) return;
@@ -167,9 +202,15 @@ function watchTransition(watch: Watch): Promise<Watched> {
     const look = (patience: number): void => {
       if (active()) {
         frames++;
+        for (const { effect } of document.getAnimations()) {
+          const part = effect instanceof KeyframeEffect
+            ? effect.pseudoElement
+            : null;
+          if (part?.startsWith("::view-transition") === true) parts.add(part);
+        }
       } else if (frames > 0 || patience === 0) {
         written.disconnect();
-        resolve({ frames, writes });
+        resolve({ frames, writes, parts: [...parts] });
         return;
       }
       requestAnimationFrame(() => look(patience - 1));
@@ -225,6 +266,40 @@ function assertLightHeld(watched: Watched, where: string): void {
   );
 }
 
+/** The two pictures of the page's root a view transition can animate. */
+const ROOT_PICTURES = [
+  "::view-transition-old(root)",
+  "::view-transition-new(root)",
+] as const;
+
+/** Which of the root's two pictures a transition animated, old before new. */
+function rootPictures(watched: Watched): string[] {
+  return ROOT_PICTURES.filter((picture) => watched.parts.includes(picture));
+}
+
+/**
+ * Hold a sheet's transition to one picture of the page: the old one, which
+ * fades out over the page itself. The root is the page's own again once the
+ * transition has ended.
+ */
+async function assertPagePicturedOnce(
+  page: Page,
+  watched: Watched,
+  where: string,
+): Promise<void> {
+  const [old] = ROOT_PICTURES;
+  assertEquals(
+    rootPictures(watched),
+    [old],
+    `${where}: the page's old picture fades over the page, and no new picture of the page is drawn`,
+  );
+  assertEquals(
+    await page.locator(MOVING_ROOT).count(),
+    0,
+    `${where}: the root keeps the mark of a transition that has ended`,
+  );
+}
+
 /**
  * Open a card by a pointer that travels to it and presses, close it by a
  * click outside the sheet, and hold both transitions to their cost. The
@@ -242,6 +317,7 @@ async function assertOpensAndClosesCheaply(
     await page.locator(OPEN_SHEET).waitFor();
   });
   assertLightHeld(opening, `${where}, opening`);
+  await assertPagePicturedOnce(page, opening, `${where}, opening`);
   const grown = await page.locator(NEAR_WALL).count() === 1;
   assertEquals(
     await markedCards(page),
@@ -254,13 +330,14 @@ async function assertOpensAndClosesCheaply(
     await sheetGone(page, where);
   });
   assertLightHeld(closing, `${where}, closing`);
+  await assertPagePicturedOnce(page, closing, `${where}, closing`);
 
   await travelTo(page, { x: press.x + 48, y: press.y + 24 }, where);
 }
 
 const [, LAPTOP] = VIEWPORTS;
 
-Deno.test("while a card opens or closes, or a lens re-sorts the wall, the light holds still, and it follows the pointer again afterwards", async () => {
+Deno.test("while a card opens or closes the light holds still and the page is pictured once, and a lens cross-fades two pictures of the page", async () => {
   const [lens] = WALL_LENSES;
   assert(lens !== undefined, "the wall has a lens");
   for (const size of [LAPTOP, WIDE_VIEWPORT]) {
@@ -289,6 +366,25 @@ Deno.test("while a card opens or closes, or a lens re-sorts the wall, the light 
       const near = await pressableCard(page, size, "top");
       await assertOpensAndClosesCheaply(page, near, `${size.name}, near`);
 
+      // Two requests in one task: the later one wins, and the earlier one
+      // still makes its change, before the winner takes its first picture.
+      const other = await pressableCard(page, size, "top", near.id);
+      const overtaking = await during(page, async () => {
+        await page.evaluate((openers) => {
+          for (const opener of openers) {
+            document.querySelector<HTMLElement>(opener)?.click();
+          }
+        }, [openerOf(near.id), openerOf(other.id)]);
+        await page.locator(OPEN_SHEET).waitFor();
+      });
+      await assertPagePicturedOnce(
+        page,
+        overtaking,
+        `${size.name}, a request that overtakes another`,
+      );
+      await page.mouse.click(near.x, OUTSIDE_Y);
+      await sheetGone(page, `${size.name}, a request that overtakes another`);
+
       // A lens: the page cross-fades from one order to the other.
       const chip = page.locator(`.wall-chip[data-lens="${lens.id}"]`);
       const box = await chip.boundingBox();
@@ -303,6 +399,11 @@ Deno.test("while a card opens or closes, or a lens re-sorts the wall, the light 
         await chip.and(page.locator("[aria-pressed='true']")).waitFor();
       });
       assertLightHeld(sorting, `${size.name}, a lens`);
+      assertEquals(
+        rootPictures(sorting),
+        [...ROOT_PICTURES],
+        `${size.name}, a lens: the page cross-fades from its old picture to its new one`,
+      );
       await travelTo(page, near, `${size.name}, a lens`);
       assertEquals(faults, [], size.name);
     });
