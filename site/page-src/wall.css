@@ -52,9 +52,9 @@
     flex: 1;
   }
 
-  /* The room is set into the page with a margin of the site's own canvas all
-   * round it, so in either site theme it reads as one dark object the page
-   * holds, not as a band the header and footer were cut against. */
+  /* The room is set into the page with a margin of the page's own dark
+   * canvas all round it, so it reads as one object the page holds, not as a
+   * band the header and footer were cut against. */
   .wall-frame {
     padding: clamp(0.375rem, 0.8vw, 0.75rem);
   }
@@ -72,9 +72,10 @@
     --wall-sheet-head: oklch(20.5% 0.008 265);
   }
 
-  /* The wall is one dark room in both site themes. It owns its colors and
-   * reads none of them from the site's theme. Every tunable value arrives as a
-   * --wall-<name> custom property in this element's inline style. */
+  /* The wall is one dark room on a page that is dark for every visitor. It
+   * owns its colors and reads none of them from the site's theme. Every
+   * tunable value arrives as a --wall-<name> custom property in this
+   * element's inline style. */
   .wall {
     --wall-canvas-lch: 10.5% 0.008 265;
     --wall-canvas: oklch(var(--wall-canvas-lch));
@@ -112,7 +113,6 @@
      * keeps the page exactly as wide and as tall as its layout. */
     overflow: clip;
     color: var(--wall-ink);
-    color-scheme: dark;
     font-family: var(--discern-font-ui);
     font-size: 0.95rem;
     line-height: 1.5;
@@ -187,12 +187,11 @@
   }
 
   /* Selected words keep their own color, on a wash of the room's blue. The
-   * site's selection colors follow the site theme, and the room is dark in
-   * both: they put dark ink on its dark cards in one theme and white on its
-   * white button in the other. They also read the site's tokens, which the
-   * browser works out afresh for every element it restyles, so a selection
-   * style that reads one makes every restyle in the room several times
-   * dearer. These colors are written out and read none. */
+   * site's selection colors are made for the site's own surfaces, and put
+   * white on the room's white button. They also read the site's tokens,
+   * which the browser works out afresh for every element it restyles, so a
+   * selection style that reads one makes every restyle in the room several
+   * times dearer. These colors are written out and read none. */
   .wall::selection,
   .wall ::selection {
     color: currentcolor;
@@ -781,14 +780,25 @@
     }
   }
 
-  /* On paper the room is a plain sheet: dark ink, no light, and no controls.
-   * It keeps a light surface of its own, so its ink stays readable whether or
-   * not the reader prints backgrounds, and the page around it gives up the
-   * site's canvas, so no dark margin frames the sheet. */
+  /* On paper the page is the room alone, as a plain sheet: dark ink, no
+   * light, and no controls. Paper is light, so the page takes the light
+   * scheme's system colors and gives up the site's canvas, and no dark
+   * margin frames the sheet. The room keeps a light surface of its own, so
+   * its ink stays readable whether or not the reader prints backgrounds.
+   * The header and footer take their inks from the page's dark theme, which
+   * paper cannot carry, so they stay off the page. */
   @media print {
+    html {
+      color-scheme: light;
+    }
+
     html,
     body {
       background: none;
+    }
+
+    body > :not(main) {
+      display: none;
     }
 
     .wall-frame {
@@ -801,7 +811,6 @@
       --wall-ink-faint: CanvasText;
 
       border-radius: 0;
-      color-scheme: light;
       background: Canvas;
       box-shadow: none;
     }

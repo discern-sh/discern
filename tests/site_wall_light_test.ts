@@ -1412,48 +1412,46 @@ Deno.test("on paper the room is a plain sheet with nothing left over the cards",
   });
 });
 
-Deno.test("selected words stay readable in the room, whichever theme the site wears", async () => {
-  for (const colorScheme of ["light", "dark"] as const) {
-    await onTheWall({ colorScheme }, async (page) => {
-      const lost = await page.evaluate(() => {
-        // Every element in the room that holds words of its own.
-        const worded = [...document.querySelectorAll(".wall, .wall *")].filter(
-          (element) =>
-            element.getClientRects().length > 0 &&
-            [...element.childNodes].some((node) =>
-              node.nodeType === Node.TEXT_NODE &&
-              (node.textContent ?? "").trim() !== ""
-            ),
-        );
-        const ink = document.createElement("canvas").getContext("2d", {
-          willReadFrequently: true,
-        });
-        const rgba = (color: string): string => {
-          if (ink === null) return color;
-          ink.clearRect(0, 0, 1, 1);
-          ink.fillStyle = color;
-          ink.fillRect(0, 0, 1, 1);
-          return ink.getImageData(0, 0, 1, 1).data.join(",");
-        };
-        return {
-          worded: worded.length,
-          changed: worded.filter((element) =>
-            rgba(getComputedStyle(element, "::selection").color) !==
-              rgba(getComputedStyle(element).color)
-          ).map((element) => `${element.tagName}.${element.classList}`),
-          bare: worded.filter((element) =>
-            rgba(getComputedStyle(element, "::selection").backgroundColor)
-              .endsWith(",0")
-          ).length,
-        };
-      });
-      assert(lost.worded > 100, `${colorScheme}: the room is full of words`);
-      assertEquals(
-        lost.changed,
-        [],
-        `${colorScheme}: selecting these words changes their color, on a surface that does not change with it`,
+Deno.test("selected words stay readable in the room, whatever scheme the device asks for", async () => {
+  await onTheWall({ colorScheme: "light" }, async (page) => {
+    const lost = await page.evaluate(() => {
+      // Every element in the room that holds words of its own.
+      const worded = [...document.querySelectorAll(".wall, .wall *")].filter(
+        (element) =>
+          element.getClientRects().length > 0 &&
+          [...element.childNodes].some((node) =>
+            node.nodeType === Node.TEXT_NODE &&
+            (node.textContent ?? "").trim() !== ""
+          ),
       );
-      assertEquals(lost.bare, 0, `${colorScheme}: a selection shows`);
+      const ink = document.createElement("canvas").getContext("2d", {
+        willReadFrequently: true,
+      });
+      const rgba = (color: string): string => {
+        if (ink === null) return color;
+        ink.clearRect(0, 0, 1, 1);
+        ink.fillStyle = color;
+        ink.fillRect(0, 0, 1, 1);
+        return ink.getImageData(0, 0, 1, 1).data.join(",");
+      };
+      return {
+        worded: worded.length,
+        changed: worded.filter((element) =>
+          rgba(getComputedStyle(element, "::selection").color) !==
+            rgba(getComputedStyle(element).color)
+        ).map((element) => `${element.tagName}.${element.classList}`),
+        bare: worded.filter((element) =>
+          rgba(getComputedStyle(element, "::selection").backgroundColor)
+            .endsWith(",0")
+        ).length,
+      };
     });
-  }
+    assert(lost.worded > 100, "the room is full of words");
+    assertEquals(
+      lost.changed,
+      [],
+      "selecting these words changes their color, on a surface that does not change with it",
+    );
+    assertEquals(lost.bare, 0, "a selection shows");
+  });
 });

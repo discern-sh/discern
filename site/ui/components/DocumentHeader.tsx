@@ -1,15 +1,10 @@
 /** The document shell's top bar: drawer control, lockup, search opener, theme control. */
 import type { ReactElement } from "react";
-import {
-  DocsHeader,
-  Icon,
-  IconButton,
-  Kbd,
-  ThemeToggle,
-} from "discern-design-system/react";
+import { DocsHeader, Icon, IconButton, Kbd } from "discern-design-system/react";
 import { DiscernBrand } from "./Brand.tsx";
 import { MenuIcon, MoonIcon, SearchIcon, SunIcon } from "./DocumentIcons.tsx";
 import { SEARCH_PALETTE_ID } from "./DocumentSearch.tsx";
+import { useThemeToggle } from "./ThemeToggle.tsx";
 
 export interface DocumentHeaderProps {
   /** The corpus root the context link returns to, e.g. `/docs`. */
@@ -30,6 +25,10 @@ export interface DocumentHeaderProps {
 export function DocumentHeader(
   { rootRoute, contextLabel, searchLabel, navigationId }: DocumentHeaderProps,
 ): ReactElement {
+  const themeToggle = useThemeToggle({
+    lightGlyph: <SunIcon className="docs-theme-icon" />,
+    darkGlyph: <MoonIcon className="docs-theme-icon" />,
+  });
   return (
     <DocsHeader
       className="docs-top"
@@ -55,12 +54,7 @@ export function DocumentHeader(
           </span>
         </>
       }
-      actions={
-        <ThemeToggle
-          lightGlyph={<SunIcon className="docs-theme-icon" />}
-          darkGlyph={<MoonIcon className="docs-theme-icon" />}
-        />
-      }
+      actions={themeToggle}
     >
       <button
         className="docs-search-btn"

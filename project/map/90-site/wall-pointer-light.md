@@ -22,7 +22,7 @@ A browser that restyles an element also looks again at that element's children. 
 
 A frame of pointer travel restyles the root with its pseudo-elements and its three sections, and one empty box in each card near the pointer. The card under the pointer restyles its own face as well, and a card restyles whole once as the pointer enters or leaves it. None of those counts grows with the deck.
 
-Selected text costs too. The browser works out an element's `::selection` style each time it restyles that element, and a highlight rule that reads a design-system token is slow to work out. `wall.css` names the room's selection colors itself and reads no token. Selected words keep their own color on a blue wash, which stays readable in both site themes.
+Selected text costs too. The browser works out an element's `::selection` style each time it restyles that element, and a highlight rule that reads a design-system token is slow to work out. `wall.css` names the room's selection colors itself and reads no token. Selected words keep their own color on a blue wash, which stays readable on every surface in the room.
 
 ## Where the light reads layout
 

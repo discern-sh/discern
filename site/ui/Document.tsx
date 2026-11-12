@@ -12,11 +12,9 @@ import {
 } from "../design_system.ts";
 import { SITE_APPEARANCE, siteAppearanceDeclarations } from "../appearance.ts";
 import { DISCERN_FAVICON_PATH } from "../brand.ts";
-import { THEME_BOOTSTRAP, THEME_ROOT_ATTRIBUTES } from "../theme.ts";
+import { DOCUMENT_THEMES, type DocumentTheme } from "../theme.ts";
 import { HtmlFragment } from "./components/HtmlFragment.tsx";
-
-/** The browser chrome colour beside each emitted theme. */
-const THEME_COLORS = { light: "#F7F5F8", dark: "#22252C" } as const;
+import { DocumentThemeContext } from "./components/ThemeToggle.tsx";
 
 export interface DocumentProps {
   readonly source?: string;
@@ -24,6 +22,8 @@ export interface DocumentProps {
   readonly title: string;
   readonly description: string;
   readonly appearance?: AppearanceProjection;
+  /** Whose choice the theme is; the reader's unless the route fixes it. */
+  readonly theme?: DocumentTheme;
   readonly bundle?: DesignSystemBundleName;
   /** Files emitted into the selected design-system bundle. */
   readonly styles: readonly string[];
@@ -44,6 +44,7 @@ export function Document(
     title,
     description,
     appearance = "accent",
+    theme = "reader",
     bundle = "compositions",
     styles,
     scripts,
@@ -56,6 +57,7 @@ export function Document(
 ): ReactElement {
   const appearanceStyle: CSSProperties & Record<`--discern-${string}`, number> =
     siteAppearanceDeclarations(appearance);
+  const { rootAttributes, bootstrap, chromeColors } = DOCUMENT_THEMES[theme];
   return (
     <html
       lang="en"
@@ -64,25 +66,20 @@ export function Document(
         [ACCENT_ATTRIBUTE]: appearance === "mono" ? ACCENT_NONE_VALUE : "",
       }}
       style={appearanceStyle}
-      {...THEME_ROOT_ATTRIBUTES}
+      {...rootAttributes}
     >
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
         <meta name="description" content={description} />
-        <meta
-          name="theme-color"
-          content={THEME_COLORS.light}
-          media="(prefers-color-scheme: light)"
-        />
-        <meta
-          name="theme-color"
-          content={THEME_COLORS.dark}
-          media="(prefers-color-scheme: dark)"
-        />
+        {chromeColors.map((color) => (
+          <meta key={color.content} name="theme-color" {...color} />
+        ))}
         <link rel="icon" href={DISCERN_FAVICON_PATH} />
-        <HtmlFragment as="script" html={THEME_BOOTSTRAP} />
+        {bootstrap === undefined
+          ? null
+          : <HtmlFragment as="script" html={bootstrap} />}
         {head}
         {styles.map((file) => (
           <link
@@ -107,7 +104,11 @@ export function Document(
           <script key={src} type="module" src={src}></script>
         ))}
       </head>
-      <body className={bodyClassName}>{children}</body>
+      <body className={bodyClassName}>
+        <DocumentThemeContext.Provider value={theme}>
+          {children}
+        </DocumentThemeContext.Provider>
+      </body>
     </html>
   );
 }

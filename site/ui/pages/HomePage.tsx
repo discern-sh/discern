@@ -76,6 +76,7 @@ export function renderLanding(built: BuiltAssets = {}): string {
     title: LANDING_TITLE,
     description: LANDING_DESCRIPTION,
     appearance: "mono",
+    theme: "dark",
     styles: ["fonts.css", "discern.css", ...WALL_STYLESHEETS],
     scripts: island === undefined ? ["discern.js"] : ["discern.js", island],
     children: <HomePage />,

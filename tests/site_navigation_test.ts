@@ -19,6 +19,15 @@ function withoutCurrentState(header: string): string {
   return header.replaceAll(/ aria-current="[^"]*"/g, "");
 }
 
+/**
+ * Take the theme control's slot out of a header. A document whose theme is
+ * fixed renders none, and `site_theme_test.ts` holds which routes those are.
+ */
+function dropThemeControl(header: Element): void {
+  header.querySelector("button[data-discern-theme-toggle]")?.parentElement
+    ?.remove();
+}
+
 Deno.test("public React pages share the complete header and footer", async () => {
   const site = await loadDocsSite();
   const routes = [
@@ -68,11 +77,11 @@ Deno.test("public React pages share the complete header and footer", async () =>
       }),
       `${route}: the header states which destination the reader is on`,
     );
+    dropThemeControl(pageHeader);
     header ??= withoutCurrentState(pageHeader.outerHTML);
     footer ??= pageFooter.outerHTML;
     assertEquals(withoutCurrentState(pageHeader.outerHTML), header, route);
     assertEquals(pageFooter.outerHTML, footer, route);
-    assert(pageHeader.querySelector("button[data-discern-theme-toggle]"));
     dom.window.close();
   }
 });
