@@ -4,7 +4,7 @@
 
 ## Context
 
-The homepage body was a stack of marketing blocks, and it read like a manual. The owner replaced it with a wall: about seventy small cards, each stating one thing discern does. A visitor scans the cards in any order, narrows them with a lens, and opens one for a second paragraph and a link into the manual.
+The homepage body was a stack of marketing blocks, and it read like a manual. The owner replaced it with a wall: about seventy small cards, each stating one thing discern does. A visitor scans the cards in any order, brings one group forward with a lens, and opens one for a second paragraph and a link into the manual.
 
 That page needs state in the browser. A lens is active or it is not. One card is open, in a modal dialog that returns focus to its card when it closes. The wall follows the pointer with a light, and scrolling brings it from a distant, tilted plane to a flat one.
 
@@ -20,11 +20,11 @@ These facts bounded the choice:
 
 ## Decision
 
-**The homepage hydrates one React island, the wall.** [`WallPage`](../../../site/wall/WallPage.tsx) renders on the server into a host element. The browser hydrates the same component with the props the server recorded on that host. The document around it, including the head, header, and footer, stays static server output.
+**The homepage hydrates one React island, the wall.** [`WallPage`](../../../site/wall/WallPage.tsx) renders on the server into a host element. The browser hydrates the same component with the props the server recorded on that host. Those props are text: the page's own words, and the manual's title for each page a card links to. The document around the wall, including the head, header, and footer, stays static server output.
 
-**The page is complete before script runs.** The headline, the call to action, and every card's text are server markup. The lens stays hidden until the island marks the wall live. A card's heading is a button that opens nothing until then. Hydration must find nothing to reconcile, so the component reads no clock, no randomness, and nothing from the browser before an effect runs.
+**The page is complete before script runs.** The headline, the call to action, and every card's front are server markup. The lens stays hidden until the island marks the wall live. A card's heading is a button that opens nothing until then. Hydration must find nothing to reconcile, so the component reads no clock, no randomness, and nothing from the browser before an effect runs.
 
-**The island is one content-hashed script.** [`site/build.ts`](../../../site/build.ts) bundles [`site/wall/island.tsx`](../../../site/wall/island.tsx) with `deno bundle` and names the file after the SHA-256 digest of its own bytes. The homepage loads it as a same-origin module script. The build fails when that file name is missing from `/` or present on any other page.
+**The island is one content-hashed script.** [`site/build.ts`](../../../site/build.ts) bundles [`site/wall/island.tsx`](../../../site/wall/island.tsx) with `deno bundle` and names the file after the SHA-256 digest of its own bytes. The homepage loads it as a same-origin module script. The site serves that file as immutable for a year, because a new build publishes new bytes under a new name. The build fails when the bundle is not the island, and when that file name is missing from `/` or present on any other page.
 
 **Every other route stays free of a browser framework runtime.** The manual, the map, the decision records, and the release page keep the static runtime of ADR 0135. Tests hold that by script content. They read every script a route loads, imports included, and search for the string constants a React build leaves in any bundle. A check on file names would pass a bundle that carried React under another name.
 
@@ -38,13 +38,14 @@ This decision does not make the site a client application. It adds no client-sid
 
 ## Consequences
 
-- `/` loads about 66 KB of gzip-compressed script, 206 KB before compression, measured on the day of this decision. That bundle holds React, React DOM, the wall's components, the deck, and the glyph drawings. The page reads in full before the script arrives.
+- `/` loads about 67 KB of gzip-compressed script, 210 KB before compression, as built on the day of this decision. That bundle holds React, React DOM, the wall's components, the deck, and the glyph drawings. The page reads in full before the script arrives, and a returning visitor's cache keeps the file until a build changes it.
 - The build depends on `deno bundle`, which Deno 2.9 labels experimental. A Deno upgrade can change its flags or its output, and the hosted build needs a Deno that has the subcommand. A test compares the built file with a fresh bundle, so changed output fails that test.
 - Server and browser must serialize identical markup. The glyph grammar therefore computes coordinates with arithmetic the language specifies exactly, and a structural guard rejects anything in the glyph modules that could vary between renders.
-- Card copy ships twice: once as server markup and once inside the bundle. An opened card's second paragraph exists only in the bundle, so the prose checks that read server markup do not read it.
+- Card copy ships twice: once as server markup and once inside the bundle. An opened card's second paragraph and its manual link exist only in the bundle. No server markup holds those paragraphs, so the prose checks read them from the deck module.
+- The homepage's markup depends on the manual. The build reads each linked page's title, and a card that links to a page the manual does not publish stops the build.
 - The wall is dark inside both site themes. It sits as one rounded dark room with a margin of the site's canvas around it, so a reader on the light theme sees a dark panel on a light page.
 - The wall's look sits outside the design system. A package restyle does not reach it, and the package gains nothing from it.
-- The runtime guard recognizes React by constants internal to React. A React release that renames them would blind the guard, so a test also requires the island itself to carry them and fails on that release.
+- The runtime guard recognizes React by constants internal to React. A React release that renames them would blind the guard. The build and a test therefore require the island itself to carry them, and both fail on that release.
 - The import map pins React once for the server and once for the browser client. Both pins must move together, because hydration needs one version on both sides.
 
 ## Alternatives considered
