@@ -129,7 +129,8 @@ function leaveCard(event: PointerEvent<HTMLLIElement>): void {
  *
  * A numeral card's number sits inside that button, ahead of the title, so it
  * is part of the heading and of the button's name: assistive technology reads
- * "36 Limits on itself" wherever it reads the card, and reads the number once.
+ * "36 Limits it must meet" wherever it reads the card, and reads the number
+ * once.
  */
 export function Card({ card, receded, onOpen }: CardProps): ReactElement {
   const glyph = cardGlyph(card);

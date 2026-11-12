@@ -108,7 +108,7 @@ A numeral card states a count as fact, so the count comes from its inventory. Th
 
 `WALL_LENSES` gives each lens a label and the clusters it gathers. Between them the lenses cover every cluster, and the deck test fails on a cluster no lens gathers. A lens sets aside the cards outside its clusters and removes none. `clusters.ts` gives each cluster one hue, which a card passes to the stylesheets as `--wall-hue`.
 
-Card fronts are server markup, so the [public-site prose checks](design-system-consumption.md#public-site-prose) and the reading-grade standard read them. An opened card's second paragraph is not in server markup. `SCRIPT_SHOWN_PROSE` in [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts) adds every card's second paragraph to the homepage's projection, so the same checks read those too. [`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) fails when the projection lacks one. The do-not-claim guard reads `deck.ts` as source. The deck is a typed module held by its test. It has no generated canon page and no entry in [`scripts/canonical_sets.ts`](../../../scripts/canonical_sets.ts).
+Card fronts are server markup, so the [public-site prose checks](design-system-consumption.md#public-site-prose) and the reading-grade standard read them. Some words reach the page only through script: an opened card's second paragraph, the divider a lens draws, and the lens's status sentence. `SCRIPT_SHOWN_PROSE` in [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts) adds them to the homepage's projection, so the same checks read those too. It takes each card's second paragraph from the deck, the divider's words from `LENS_REST`, and one sentence per lens from `lensStatus`. [`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) fails when the projection lacks any of them. The do-not-claim guard reads `deck.ts` as source. The deck is a typed module held by its test. It has no generated canon page and no entry in [`scripts/canonical_sets.ts`](../../../scripts/canonical_sets.ts).
 
 The deck test holds the copy to these rules:
 
@@ -125,7 +125,7 @@ A card is lit while its button has keyboard focus or a pointer that can hover is
 
 Where the list is one column, a benefit card sets its glyph beside its words, which shortens a phone's page. The width `wall-card.css` names for that layout is the widest viewport at which the list has one column.
 
-The card's button carries a scroll margin, so the browser's own scroll to a focused card stops with the card clear of the pinned lens bar.
+The browser scrolls to a focused card's button, which is the heading's box alone. The button therefore carries two scroll margins. The first brings the card to rest clear of the pinned lens bar. The second is as tall as the tallest foot a card has under its heading, so the card's foot comes into view too.
 
 [`site_wall_card_test.ts`](../../../tests/site_wall_card_test.ts) holds the card's rules:
 
@@ -200,7 +200,7 @@ Calm motion is a requirement of the page. These rules bind every stylesheet and 
 - **Pointer travel moves nothing.** The light changes brightness and never geometry. The browser test sweeps a pointer across the flat wall. A card the pointer has not touched must keep its box, opacity, and filter at every stop, and every card must return to rest afterward.
 - **Hover changes only the hovered card.** Its face may travel a short distance. The same sweep bounds that travel, and the card test bounds the tilt, the lift, and the shadows. A card near the pointer shows only a faint white ring on its border, and the card test rejects a hue in that ring.
 - **Scroll moves the wall as one plane.** The approach transforms `.wall-plane` and nothing inside it. The browser test finds the plane tilted at the top of a laptop page, free of any transform once the wall is near, and tilted again after scrolling back. The page keeps its width and height throughout.
-- **Keyboard focus lays the wall flat.** While keyboard focus is on the stage, the plane carries no transform, and the stage scrolls nothing. The browser test walks the keyboard down and back up the wall at two laptop sizes. Every card it reaches must be in view at reading size, no sampled frame may show the plane tilted, and no focused card may sit under the lens bar. The island test requires every far-view rule to stand down under that focus.
+- **Keyboard focus lays the wall flat.** While keyboard focus is on the stage, the plane carries no transform, and the stage scrolls nothing. The browser test walks the keyboard down and back up the wall at two laptop sizes. Every card it reaches must be wholly in view at reading size, no sampled frame may show the plane tilted, and no focused card may sit under the lens bar. The island test requires every far-view rule to stand down under that focus. A pointer's press on that flat wall tilts nothing, and the sheet test requires the press to land.
 - **A lens re-sorts the list, and no card travels.** The list's order alone places a card. The interactions test rejects any property that would move or resize a receded or opening card. The browser test requires the page to cross-fade once, with only the page's root taking part, and it holds the list's order and the page's place after every lens.
 - **Opening a card moves one object and its mark.** The card grows into the sheet only from a flat card, and its glyph or numeral crosses with it. The interactions test holds those choices, and the sheet test requires the page to return to rest after every way out.
 - **A glyph moves one primitive, by a few units, on a lit card.** The glyph test bounds the travel and ties the pose to the card's lit states. The glyph motion test requires the move to start no layout and to make no layer.
@@ -222,7 +222,7 @@ The approach itself is CSS. Where the browser supports scroll-driven animation, 
 
 [`use_stage.ts`](../../../site/wall/use_stage.ts) defines a stage as a `mount` function that takes the wall root and returns the function that restores it. `useStage` runs one stage. The approach is the only stage, and the interface exists so another can replace it.
 
-The stage sets `data-wall-near`, which the module exports as `NEAR_ATTRIBUTE`, whenever the plane is flat and carries no transform. That holds where the stylesheet stages no approach, once the pool has left the viewport, and while keyboard focus is on the stage. The far-view rules in `wall.css` stand down under that attribute, and the light reaches card borders only under it.
+The stage sets `data-wall-near`, which the module exports as `NEAR_ATTRIBUTE`, whenever the plane is flat and carries no transform. That holds where the stylesheet stages no approach, once the pool has left the viewport, and from the moment keyboard focus reaches the stage until the focus leaves it. The far-view rules in `wall.css` stand down under that attribute, and the light reaches card borders only under it.
 
 ### Keyboard focus and the far view
 
@@ -234,12 +234,19 @@ The stylesheet does this with no script. Each far-view rule in `wall.css` stands
 - The plane drops its tilt while the focus is on a card or on the link past the cards.
 - The lens bar shows whole while the focus is inside the bar.
 
-The hook mirrors the stylesheet. `KEYBOARD_ON_STAGE` in `use_stage.ts` is the stage rule's own selector, and the hook marks the root near while it matches. The plane is then flat under a focused lens chip too, and the light's reach agrees with the plane. A modal layer that borrows the focus, as an opened card does, leaves the mark as it stood. The selector leaves the pause control out, so focus on that control does not end the view it pauses.
+The hook mirrors the stylesheet. `KEYBOARD_ON_STAGE` in `use_stage.ts` is the stage rule's own selector, and the hook marks the root near once it matches. The plane is then flat under a focused lens chip too, and the light's reach agrees with the plane. The selector leaves the pause control out, so focus on that control does not end the view it pauses.
+
+The hook then keeps the mark for as long as the focus stays anywhere on the stage, whatever moves it. A pointer's press takes the focus without the keyboard's mark, so the rules in the stylesheet stop standing down as the press lands. Left to them, the plane would tilt away between the press and its release, and the click would miss its card or chip. Every far-view rule also requires a root that is not near, so the hook's mark keeps them all off through the press.
+
+- A press on one of the stage's controls keeps the mark even when it leaves the focus nowhere. Some browsers give a pressed button no focus and take the focus from whatever held it.
+- The far view returns when the focus leaves the stage any other way.
+- A modal layer that borrows the focus, as an opened card does, leaves the mark as it stood.
 
 No rule may look for that focus from the wall root. A `:has()` on `.wall` makes the browser restyle the wall at every step of the keyboard. A rule under a root state that styles every child of a box by no name costs the same. The guards:
 
 - The island test rejects `:has(` on the root's own part of any selector in a wall stylesheet. It also requires every far-view rule to stand down, and the stage's rules to use `KEYBOARD_ON_STAGE` whole.
 - The light test holds a step of the keyboard, and the wall's arrival and departure, to the same restyle budget as pointer travel.
+- The sheet test lays the wall flat for the keyboard at the top of a laptop page and presses a card and a chip with a pointer. Each press must land, and the wall must stay flat until the focus leaves the stage. It repeats the press on a page where a press leaves the focus nowhere.
 
 The stage's first control is a link, "Skip the cards". The stylesheet draws it only while it holds the focus. It leads to the closing section's heading, which takes the focus.
 
@@ -247,7 +254,7 @@ The stage's first control is a link, "Skip the cards". The stylesheet draws it o
 
 The lens bar arrives over the last of the approach. It only fades, so an unseen bar stays in the tab order and in the accessibility tree. Its chips take no press until the bar is half seen. The browser test looks at the unseen bar at the top of a laptop page. The bar must be in the accessibility tree, take the keyboard's focus, and take no press.
 
-At the foot of the wall the bar fades out as the closing section comes in, and its chips take no press once the bar is half gone. No screen then ends with the bar cut by the viewport's edge. That fade follows scroll, so it runs under reduced motion too. Keyboard focus inside the bar shows it whole wherever the page stands. On a screen shorter than 30rem the bar stays at the head of the wall instead of pinning. The browser test holds the fade at the foot of the page and the unpinned bar on a short screen.
+At the foot of the wall the bar fades out as the closing section comes in, and its chips take no press once the bar is half gone. No screen then ends with the bar cut by the viewport's edge. That fade follows scroll, so it runs under reduced motion too. Keyboard focus inside the bar shows it whole wherever the page stands, and so does a press on the bar. A pointer that presses a chip there takes the focus from the keyboard, and the bar stays under the press. The sheet test presses a chip at the foot of the page. On a screen shorter than 30rem the bar stays at the head of the wall instead of pinning. The browser test holds the fade at the foot of the page and the unpinned bar on a short screen.
 
 ## The pointer light
 
@@ -324,6 +331,7 @@ The opacity has a floor. A receded card's title and line must both keep a contra
 - **A jump to the head of the wall.** The kept cards now lead the wall. In the same frame, a reader who has scrolled past the head of the wall comes back to it at once. A reader who can see the head stays put. `.wall-list` sets `overflow-anchor: none`, or the browser would scroll the page after whichever card it had anchored.
 - **The last request wins.** Each request states the lens the wall should end with, and a later cross-fade ends an earlier one where it stands.
 - **A press made during the fade still lands.** While the cross-fade runs, the browser sends every click to the document's root. The first click ends the fade, and a plain one reaches what it fell on through `deliverClick`, the function [the opened card](#the-opened-card) uses.
+- **A double click chooses once.** Its second click would let the chosen lens go again. [The click sequence](#requests-clicks-and-faults) drops it, under a cross-fade and under a cut.
 
 The lens also says in words what it did, for a reader who cannot see the cards regroup. A status region, `p.wall-lens-status` with `role="status"`, sits inside the lens group. It is in the server's markup, empty, so assistive technology is already listening when a lens first fills it. `lensStatus` writes a sentence such as `9 cards for "Review less". The other 59 follow under "Everything else".` The stylesheet never draws the region.
 
@@ -377,12 +385,16 @@ Escape, the close control, and a click outside the sheet each close it, and focu
 While a view transition runs, the browser sends every pointer event to the document's root. Script therefore reads such a click by where it fell:
 
 - A click outside the arriving sheet closes it from the moment the dialog mounts.
+- A click inside the arriving sheet ends the transition and reaches what it fell on, from the moment the dialog mounts. The close control and the link answer while the sheet still arrives. A click on the sheet's words hands the sheet the focus, as a press on them does once the sheet rests.
 - A click on the page while the sheet leaves ends the transition and reaches the link or button under it.
-- Both places ignore the later clicks of a double click, so a double click on a card opens it once.
 
-`deliverClick` in `use_open_card.ts` makes a click on a visitor's behalf, for the leaving sheet and for the lens's cross-fade, and no other function does. It hands on a plain click alone: the primary button, with no modifier key held. A click made by script keeps no modifier and no button, so a link meant for a new tab would open in place. Any other click therefore ends the transition and goes nowhere, and the visitor makes it again on a page that answers for itself. The hook also listens for `auxclick`, which is how a click of another button arrives.
+A double click is one act. Its later clicks land wherever the first has left the page. Under reduced motion the sheet is in place within the first click, so the second can fall on the sheet's link or its close control. `useClickSequence` in `use_open_card.ts` marks a click sequence as spent once one of its clicks has opened or closed a card, or chosen a lens. It then drops the rest of that sequence before anything on the page hears it. The press that begins a dropped click is stopped from acting too, so it takes no focus: the focus stays in the sheet the first click opened, or on the card a closed sheet handed it back to. A click that starts a sequence of its own reaches the page as usual.
+
+`deliverClick` in `use_open_card.ts` makes a click on a visitor's behalf, for the arriving sheet, the leaving sheet, and the lens's cross-fade, and no other function does. It hands on a plain click alone: the primary button, with no modifier key held. A click made by script keeps no modifier and no button, so a link meant for a new tab would open in place. Any other click therefore ends the transition and goes nowhere, and the visitor makes it again on a page that answers for itself. The hook also listens for `auxclick`, which is how a click of another button arrives.
 
 A view transition can fail to begin. `transitionOvertaken` sorts the browser's reason into expected and fault. It expects a hidden page, a later request that ends an earlier transition, and a viewport that changed size since the request. The page still reaches the state the request named. Anything else goes to `reportError`. An invalid state with the viewport unchanged is how the browser reports a transition name on two boxes.
+
+A browser can also refuse a transition outright, by throwing when asked to begin one. `beginTransition` reports the refusal, and the sheet and the lens then make the change as a cut.
 
 Opening or closing a card makes the browser restyle every element on the page once. The modal dialog costs that by itself: an empty dialog opened over the homepage restyles as much, and marking the source card restyles about a dozen elements. It happens once per change, outside the pointer-travel budget, and no test counts it.
 
@@ -400,7 +412,10 @@ The interactions test holds the decisions and the stylesheet:
 
 The sheet test opens a card by pointer and leaves by every entry in its `WAYS_OUT` table, in the far view and in the near view. After each one, the scroll position, the plane, every card's box, and the focus must be where they began. A new way out belongs in that table. Its further cases cover:
 
-- a double click, a press while the sheet leaves, a press that is not a plain click, a held key, and overlapping requests;
+- a double click, a press on the arriving sheet, a press while the sheet leaves, a press that is not a plain click, a held key, and overlapping requests;
+- a double click whose second click lands where the sheet's link or close control rests, one on the resting sheet's close control, and one on a lens chip, with motion and under reduced motion, each leaving the focus where its first click put it;
+- a browser that refuses to begin a transition, for a card and for a lens;
+- a pointer's press on a wall that lies flat for the keyboard;
 - the mark's crossing for each kind of card, for a receded card, and in the far view;
 - a window resized between the page's change and the transition's first frame, which must raise no fault;
 - print with a card open;
@@ -422,13 +437,13 @@ On paper the room is a plain light sheet with no bar, no link past the cards, no
 - [`tests/site_wall_island_test.ts`](../../../tests/site_wall_island_test.ts) holds the island boundary. Only `island.tsx` imports `react-dom/client`, and no module imports the island. The served wall equals the component's render. The island reads back the props the server wrote, link labels included, and each label is the title of the page it names. The built bundle is fresh and named by its digest. `wallIslandFile` refuses a bundle that is not the island, and no other module under `site/` spells the island's name. A file gets the immutable cache policy when its name carries the digest of its bytes, and no other file gets it. The island loads on `/`, and no other live route loads a script that contains a React runtime. The test finds a runtime by script content, through imports, under any file name. The same file holds [the custom-property and attribute contract](#knobs-and-the-tuning-panel) in both directions and [the far-view rules](#keyboard-focus-and-the-far-view).
 - [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) keeps the island out of the production server's module graph and applies the same content check to every bundle route. It takes the check, `carriesReactRuntime`, from `assets.ts`, where the build uses it too.
 - [`tests/site_homepage_browser_test.ts`](../../../tests/site_homepage_browser_test.ts) loads the page in a real browser at phone and laptop sizes, under the production Content Security Policy. Its cases cover the page without script, hydration with the stage and the lens, hydration under development React, reduced motion, the keyboard's walk, narrow and zoomed rooms, the chip row, more contrast, touch, and the tuning panel. Every case fails on a page error, a console error or warning, a failed request, or an error response.
-- [`tests/site_wall_sheet_browser_test.ts`](../../../tests/site_wall_sheet_browser_test.ts) holds [the opened card](#the-opened-card) in a real browser, with the same fault capture: every way out, hurried input, the mark's crossing, a resize, print, touch sizes, and a short screen.
+- [`tests/site_wall_sheet_browser_test.ts`](../../../tests/site_wall_sheet_browser_test.ts) holds [the opened card](#the-opened-card) in a real browser, with the same fault capture: every way out, hurried input, a refused transition, the mark's crossing, a resize, print, touch sizes, and a short screen. It also holds a pointer's press on [a wall the keyboard has laid flat](#keyboard-focus-and-the-far-view).
 - [`tests/site_wall_card_test.ts`](../../../tests/site_wall_card_test.ts) holds [a card's](#cards) markup, type, surfaces, and states, and the rule that no wall stylesheet blurs a backdrop or fixes a background to the viewport.
 - [`tests/site_wall_interactions_test.ts`](../../../tests/site_wall_interactions_test.ts) holds [the lens](#the-lens-and-receded-cards), the receded card's contrast, and [how a card opens](#the-opened-card).
 - [`tests/site_wall_light_test.ts`](../../../tests/site_wall_light_test.ts) holds [the pointer light](#the-pointer-light): its arithmetic, the non-inheriting properties, the restyle budget for pointer travel and for the keyboard, the trace of forced layout, the moved wall, the selection colors, and the forced-colors and print fallbacks.
 - [`tests/site_wall_deck_test.ts`](../../../tests/site_wall_deck_test.ts) resolves every citation and holds [the copy rules](#the-deck). It ties each numeral to its inventory, requires the wall and every lens to open on the lead, and requires neighbors on the wall to span several clusters.
 - [`tests/site_wall_glyph_test.ts`](../../../tests/site_wall_glyph_test.ts) holds [the glyphs](#glyphs): the vocabulary, the triangle budget, exact arithmetic, the two drawings, the pose and its ease, the paint order, the dashed stroke, and the evenness of the set. [`tests/site_wall_glyph_motion_test.ts`](../../../tests/site_wall_glyph_motion_test.ts) holds the move's cost in a real browser.
-- [`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) requires the homepage's prose projection to hold every card's second paragraph.
+- [`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) requires the homepage's prose projection to hold every card's second paragraph and the words each lens shows.
 - [`tests/site_ui_test.ts`](../../../tests/site_ui_test.ts) applies the shared component boundary to `site/wall`: no `dangerouslySetInnerHTML`, and no design-system class name written by hand.
 - [`tests/site_accessibility_test.ts`](../../../tests/site_accessibility_test.ts) and [`tests/site_homepage_scaffold_test.ts`](../../../tests/site_homepage_scaffold_test.ts) audit the homepage's landmarks, its manual link, and its accessibility findings.
 
