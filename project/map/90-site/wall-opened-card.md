@@ -48,6 +48,8 @@ While a sheet's view transition runs, the browser hands a pointer event to nothi
 - A click inside the arriving sheet ends the transition and reaches what it fell on, from the moment the dialog mounts. The close control and the link answer while the sheet still arrives. A click on the sheet's words hands the sheet the focus, as a press on them does once the sheet rests.
 - A click on the page while the sheet leaves ends the transition and reaches the link or button under it.
 
+Once the sheet rests, the browser tests the page for a hit again, and script reads no click by its place. An event on the dialog is then the backdrop's, the slivers outside the sheet's rounded corners included, and a click there closes the sheet.
+
 A double click is one act. Its later clicks land wherever the first has left the page. Under reduced motion the sheet is in place within the first click, so the second can fall on the sheet's link or its close control. `useClickSequence` in `use_open_card.ts` marks a click sequence as spent once one of its clicks has opened or closed a card, or chosen a lens. It then drops the rest of that sequence before anything on the page hears it. The press that begins a dropped click is stopped from acting too, so it takes no focus: the focus stays in the sheet the first click opened, or on the card a closed sheet handed it back to. A click that starts a sequence of its own reaches the page as usual.
 
 `deliverClick` in `use_open_card.ts` makes a click on a visitor's behalf, for the arriving sheet, the leaving sheet, and the lens's cross-fade, and no other function does. It hands on a plain click alone: the primary button, with no modifier key held. A click made by script keeps no modifier and no button, so a link meant for a new tab would open in place. Any other click therefore ends the transition and goes nowhere, and the visitor makes it again on a page that answers for itself. The hook also listens for `auxclick`, which is how a click of another button arrives.
@@ -77,6 +79,7 @@ Where a pointer can hover, the visitor pressed a lit card, and the browser lets 
 - A sheet's opening and closing must animate the root's old picture and no new one, far and near, and so must a request that overtakes another. Each must animate a picture of the sheet's shadow. A lens must animate both pictures of the root.
 - On every frame, no animation may run on the marked card or inside it, and its face may carry no transform.
 - An opening must picture the card lit. A card the sheet returns to must arrive unlit while the pointer is elsewhere.
+- A click outside a resting sheet's rounded corner, inside the box of the dialog, must close the sheet.
 
 The test reads the stylesheets for what the gate's browser cannot show. It names every rule that reads the root's mark. It requires the dialog and its face to go by a name each, and the sheet's box to stack over the shadow's. It works out which boxes a marked card must still: each box inside a rendered card that some rule moves or gives time, by the property that does it. A new moving part of a card fails the test until the marked card stills it. It fails with the reason when the face holds still and no rule takes the root's name away.
 

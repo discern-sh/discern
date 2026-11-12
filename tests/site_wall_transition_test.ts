@@ -26,6 +26,7 @@ import {
 } from "../site/wall/use_open_card.ts";
 import {
   dropFocus,
+  eventually,
   FAR_WALL,
   isAt,
   lightNow,
@@ -42,6 +43,7 @@ import {
   type Press,
   pressableCard,
   scrollToWall,
+  SHEET,
   sheetGone,
   VIEWPORTS,
   WIDE_VIEWPORT,
@@ -684,8 +686,22 @@ Deno.test("while a card opens or closes the light and the card hold still and th
         overtaking,
         `${size.name}, a request that overtakes another`,
       );
-      await page.mouse.click(near.x, OUTSIDE_Y);
-      await sheetGone(page, `${size.name}, a request that overtakes another`);
+
+      // The sheet rests, and the browser tests the page for a hit again.
+      // What it reports on the dialog is then the backdrop, the slivers its
+      // rounded corners leave of its own box included, and a click there
+      // closes the sheet. Only while a transition runs is a click read by
+      // where it fell.
+      await motionSettled(page);
+      const sheet = await page.locator(OPEN_SHEET).boundingBox();
+      assert(sheet !== null, `${size.name}: the resting sheet has a box`);
+      await page.mouse.click(sheet.x + 2, sheet.y + 2);
+      await eventually(
+        page,
+        async () => await page.locator(SHEET).count() === 0,
+        `${size.name}: a click outside a resting sheet's rounded corner leaves it open`,
+      );
+      await sheetGone(page, `${size.name}, a resting sheet's corner`);
 
       // A lens: the page cross-fades from one order to the other.
       const chip = page.locator(`.wall-chip[data-lens="${lens.id}"]`);

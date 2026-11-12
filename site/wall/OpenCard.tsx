@@ -11,7 +11,7 @@ import { clusterHueStyle } from "./clusters.ts";
 import { Glyph } from "./Glyph.tsx";
 import { type LinkLabels, linkRoute } from "./host.ts";
 import type { WallCard } from "./types.ts";
-import { fellOutside } from "./use_open_card.ts";
+import { fellOutside, transitionRunning } from "./use_open_card.ts";
 
 export interface OpenCardProps {
   /** The card to show, or null while none is open. */
@@ -57,16 +57,20 @@ function ignoreHeldKey(event: KeyboardEvent<HTMLDialogElement>): void {
 /**
  * Whether a pointer event was aimed outside the sheet.
  *
- * A modal dialog's backdrop reports its events on the dialog itself. So does
- * the whole of the screen while the sheet arrives: the sheet's face is drawn
- * from a view transition's pictures then, and the browser finds no part of
- * it under a pointer. A browser may hand such an event to the document's
- * root instead. Either way only its place can answer, against the box the
- * sheet is laid out in: that box is the sheet's resting place from the
- * moment the dialog mounts, however far the transition has drawn it from
- * there.
+ * A modal dialog's backdrop reports its events on the dialog itself, and at
+ * rest nothing else does: the sheet's face fills the dialog, so an event on
+ * the dialog fell outside the sheet.
+ *
+ * While a view transition runs, the whole of the screen reports on the
+ * dialog: the sheet's face is drawn from the transition's pictures then, and
+ * the browser finds no part of it under a pointer. A browser may hand such
+ * an event to the document's root instead. Either way only its place can
+ * answer, against the box the sheet is laid out in: that box is the sheet's
+ * resting place from the moment the dialog mounts, however far the
+ * transition has drawn it from there.
  */
 function aimedOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
+  if (event.target === dialog && !transitionRunning()) return true;
   if (event.target !== dialog && event.target !== document.documentElement) {
     return false;
   }
