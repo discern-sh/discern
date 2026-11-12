@@ -542,8 +542,11 @@
    * is on a card or on the link past the cards, and the lens bar while it is
    * in the bar. A card the keyboard reaches is then at its reading size
    * where it lies, so the browser scrolls to it as it would on any page.
-   * Script marks the root near for as long as that focus is on the stage,
-   * which lays the plane flat under a focused lens chip as well.
+   * Script marks the root near once that focus is on the stage, which lays
+   * the plane flat under a focused lens chip as well, and keeps the mark
+   * until the focus leaves the stage. A pointer's press takes the focus
+   * without the keyboard's mark, and these rules alone would tilt the plane
+   * away under the press.
    *
    * Each rule looks for that focus from the box it styles. A rule that
    * looked from the wall root instead would have the browser restyle the
@@ -633,7 +636,9 @@
    * some screens the page ends with the bar cut by the viewport's edge. So
    * it fades out as the closing section comes in, and is gone while the
    * section's top is still well clear of the bar. Keyboard focus inside the
-   * bar shows it whole wherever the page stands. */
+   * bar shows it whole wherever the page stands, and so does a press on it:
+   * a pointer takes the focus from the keyboard as it presses a chip, and a
+   * bar that went out under the press would lose the click. */
   @supports (animation-timeline: view()) and (timeline-scope: --wall-closing) {
     .wall {
       timeline-scope: --wall-closing;
@@ -643,13 +648,13 @@
       view-timeline: --wall-closing block;
     }
 
-    .wall-controls:not(:has(:focus-visible)) {
+    .wall-controls:not(:has(:focus-visible, :active)) {
       animation: wall-leave linear both;
       animation-timeline: --wall-closing;
       animation-range: entry 30% entry 80%;
     }
 
-    .wall-controls:not(:has(:focus-visible)) .wall-lens {
+    .wall-controls:not(:has(:focus-visible, :active)) .wall-lens {
       animation: wall-leave-press linear both;
       animation-timeline: --wall-closing;
       animation-range: entry 30% entry 80%;

@@ -38,6 +38,9 @@ const STAGE = ".wall-stage";
  */
 export const KEYBOARD_ON_STAGE = ":has(:focus-visible:not(.wall-pause))";
 
+/** Matches a link or a button while a pointer or a key presses it. */
+const PRESSED_CONTROL = ":is(a[href], button):active";
+
 /**
  * How much of the pool, in pixels from the top of the viewport, must still
  * show for the pool to count as in view. An observer reports a box that only
@@ -72,6 +75,20 @@ function inModalLayer(holder: EventTarget | null): boolean {
   return holder instanceof Element && holder.closest("dialog") !== null;
 }
 
+/** Whether what holds the focus lies on the stage. */
+function onStage(stage: Element | null, holder: EventTarget | null): boolean {
+  return stage !== null && holder instanceof Node && stage.contains(holder);
+}
+
+/**
+ * Whether one of the stage's controls is being pressed now. Some browsers
+ * give a pressed button no focus and take the focus from whatever held it,
+ * so the focus can go nowhere while the visitor is still at the stage.
+ */
+function pressingStage(stage: Element | null): boolean {
+  return stage !== null && stage.querySelector(PRESSED_CONTROL) !== null;
+}
+
 /**
  * The approach: scrolling brings the wall from far to flat as one plane.
  *
@@ -83,9 +100,16 @@ function inModalLayer(holder: EventTarget | null): boolean {
  * - always, where no approach is staged;
  * - where one is, from the moment the pool has left the viewport until any
  *   part of it returns;
- * - while the keyboard's focus is on the stage, as `KEYBOARD_ON_STAGE` says.
- *   A modal layer that takes the focus from the stage, as an opened card
- *   does, leaves the plane as it was until the focus comes back out.
+ * - while the keyboard's focus is on the stage, as `KEYBOARD_ON_STAGE` says,
+ *   and from then on for as long as the focus stays anywhere on the stage,
+ *   whatever moves it. A pointer's press takes the focus without the
+ *   keyboard's mark, and a plane that tilted away under the press would carry
+ *   the pressed card or chip out from under the pointer before the click. A
+ *   press on one of the stage's controls that leaves the focus nowhere keeps
+ *   the plane flat too. The far view returns when the focus leaves the stage
+ *   any other way. A modal layer that takes the focus from the stage, as an
+ *   opened card does, leaves the plane as it was until the focus comes back
+ *   out.
  *
  * The stylesheet stands its animation down in that state, so a near plane
  * carries no transform. The stage moves nothing, scrolls nothing, and measures
@@ -130,7 +154,11 @@ export const APPROACH_STAGE: WallStage = {
       // as it arrives, not as it leaves.
       if (inModalLayer(holder)) return;
       if (leaving && holder instanceof Node && root.contains(holder)) return;
-      const held = !leaving && keyboardOnStage(stage);
+      // A stage that lies flat for the keyboard stays flat while the focus
+      // is anywhere on it, and through a press that takes the focus away.
+      const kept = keyboard &&
+        (leaving ? pressingStage(stage) : onStage(stage, holder));
+      const held = kept || (!leaving && keyboardOnStage(stage));
       if (held === keyboard) return;
       keyboard = held;
       settle();
