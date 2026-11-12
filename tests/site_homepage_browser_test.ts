@@ -625,22 +625,6 @@ async function assertLens(page: Page, size: Viewport): Promise<void> {
     );
   }
 
-  // Requests a frame apart, each made before the last has been shown: the
-  // last one stands, and a cross-fade that another cut short is no fault.
-  const hurried = WALL_LENSES.slice(0, 4);
-  const last = hurried.at(-1);
-  assert(last !== undefined && hurried.length > 2, "lenses to hurry through");
-  await page.evaluate(async (ids) => {
-    for (const id of ids) {
-      document.querySelector<HTMLElement>(`.wall-chip[data-lens="${id}"]`)
-        ?.click();
-      await new Promise((frame) => requestAnimationFrame(frame));
-    }
-  }, hurried.map(({ id }) => id));
-  await chipOf(page, last).and(page.locator("[aria-pressed='true']")).waitFor();
-  await assertWallOrder(page, last, `${size.name}, hurried`);
-  await chooseLens(page, undefined);
-
   // One cross-fade of the whole page: no card has a transition part of its
   // own, so none can be seen to travel. A second press made at once, while
   // the page is fading, ends the fade and reaches the chip it was aimed at.

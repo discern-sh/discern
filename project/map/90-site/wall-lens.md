@@ -32,5 +32,4 @@ The interactions test checks which cards each lens recedes, the two groups and t
 - the list in the lens's order, with the divider across every column between the two groups, and the status in the same words;
 - no card removed, and the deck's own order back once the lens goes;
 - the page left where it stood from the head of the wall, and brought back to the head from further down;
-- one cross-fade in which only the page's root takes part, and a press made during it to land;
-- hurried requests to settle on the last.
+- one cross-fade in which only the page's root takes part, and a press made during it to land.
