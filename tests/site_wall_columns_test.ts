@@ -32,6 +32,7 @@ import {
   selectsBox,
   selectsCardItem,
   type SheetRule,
+  splitOutside,
   type StyleRule,
   wallRules,
 } from "./wall_stylesheets.ts";
@@ -75,6 +76,22 @@ Deno.test("the list of cards is one stacking context, in every state of the wall
     ),
     ["wall.css: .wall-list { isolation: isolate }"],
   );
+});
+
+Deno.test("whatever the plane draws of its own lies beneath the list", async () => {
+  // A face a card raises stacks inside the list. A box the plane drew over
+  // the list would cover that face, so what lies over the cards, as the far
+  // view's haze does, is the list's own to draw.
+  const over = (await wallRules()).flatMap(({ sheet, rule }) =>
+    rule.selectors.filter((selector) =>
+      /^\.wall-plane.*::(?:before|after)$/.test(
+        splitOutside(selector, " ").at(-1) ?? "",
+      ) &&
+      declared(rule, "content") !== undefined &&
+      declared(rule, "z-index") !== "-1"
+    ).map((selector) => `${sheet}: ${selector}`)
+  );
+  assertEquals(over, []);
 });
 
 /** Whether a declaration read by `declarationsOn` applies on paper alone. */

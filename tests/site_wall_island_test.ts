@@ -424,15 +424,19 @@ Deno.test("every far-view rule stands down under the keyboard's focus, and looks
   assert(far.length >= 6, "the stylesheet stages a far view");
   const violations: string[] = [];
   for (const selector of far) {
-    const [root = "", box = ""] = splitOutside(selector, " ");
+    const [root = "", box = "", ...within] = splitOutside(selector, " ");
     if (!ROOT_BOX.test(root) || !root.includes(away)) {
       violations.push(`${selector}: the wall root says whether it is near`);
     }
     // The stage's own rules use the stage hook's selector whole, so script
     // and stylesheet cannot disagree about which focus lays the wall flat.
+    // Any other rule looks for the focus from a box beneath the root: the
+    // one it names first, or one inside it.
     const standsDown = box.startsWith(".wall-stage")
       ? box.includes(`:not(${KEYBOARD_ON_STAGE})`)
-      : box.includes(":not(:has(:focus-visible)");
+      : [box, ...within].some((compound) =>
+        compound.includes(":not(:has(:focus-visible)")
+      );
     if (!standsDown) {
       violations.push(`${selector} holds a box the keyboard's focus is in`);
     }

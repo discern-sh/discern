@@ -740,8 +740,12 @@
         content: "";
       }
 
-      /* Haze: the far rows sink into the canvas the farther off they lie. */
-      .wall:not([data-wall-near]) .wall-plane:not(:has(:focus-visible), .wall-skip:focus-visible ~ *)::after {
+      /* Haze: the far rows sink into the canvas the farther off they lie. The
+       * list draws it, over its own cards and inside its own stacking
+       * context, so the face a card raises under the pointer stands clear of
+       * it. The plane places it: the list is not positioned. The list looks
+       * for keyboard focus from its own box, as the plane does from its own. */
+      .wall:not([data-wall-near]) .wall-plane:not(.wall-skip:focus-visible ~ *) > .wall-list:not(:has(:focus-visible))::after {
         position: absolute;
         inset: -1rem -1rem auto;
         block-size: 44rem;
