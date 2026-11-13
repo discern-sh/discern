@@ -56,10 +56,4 @@ A handler reads layout in a single place: a card measures itself as the pointer 
 
 The disc anchors no scroll. A browser holds the page still under a reader by picking a box in view and scrolling after it when it moves. WebKit picks the disc, the first box in the room. It then scrolls the page after the light whenever a write of the light's place meets a layout, as it does at the end of a view transition. `.wall::before` therefore sets `overflow-anchor: none`.
 
-[`site_wall_light_test.ts`](../../../tests/site_wall_light_test.ts) holds the light through plain, stylesheet, and browser tests:
-
-- Plain tests check the arithmetic of `lightStep`, `lightFrame`, and `lightGap`, at the pace `lightPace` builds from the knob table.
-- Stylesheet tests take the list of frame-written properties from `LIGHT_PROPERTIES` in `use_light.ts` and `POINTER_PROPERTIES` in `Card.tsx`, so a new property enrolls itself. Each must register as non-inheriting. So must the property [the opened card](wall-opened-card.md#what-a-transition-costs) writes on the page's root, which only a rule for the root may read. A module that sets a property on a box of the page must enroll the names it sets.
-- Browser tests watch the light come up, jump, and go down, with a fade and, for a reader who asks for less motion, without one.
-
-[The transition test](../../../tests/site_wall_transition_test.ts) reads the disc's rule from the stylesheet: a box that moves by a value in `LIGHT_PROPERTIES` must opt out of scroll anchoring.
+[`site_wall_light_test.ts`](../../../tests/site_wall_light_test.ts) checks the pure arithmetic of `lightStep`, `lightFrame`, and `lightGap`, at the pace `lightPace` builds from the knob table. It covers interpolation, arrival, pointer jumps, and reduced motion. Review the rendered light directly; per-frame writes and CSS registration details are not test contracts.

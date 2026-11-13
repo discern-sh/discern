@@ -8,6 +8,8 @@ export interface CardProps {
   readonly card: WallCard;
   /** Outside the active lens: the card carries `RECEDED_ATTRIBUTE` and stays in the list. */
   readonly receded: boolean;
+  /** Hydration has enabled the card's dialog. Before then, use its manual link. */
+  readonly live?: boolean;
   /** Called with the card's id when its button is activated. */
   readonly onOpen: (id: string) => void;
 }
@@ -125,17 +127,27 @@ function leaveCard(event: PointerEvent<HTMLLIElement>): void {
 /**
  * A card as one list item. The root carries `wall-card`, its kind as
  * `wall-card--<kind>`, and its cluster hue as `--wall-hue`. The heading holds
- * the card's one button, which the stylesheet stretches over the whole face.
+ * the card's control, which the stylesheet stretches over the whole face.
  *
- * A numeral card's number sits inside that button, ahead of the title, so it
- * is part of the heading and of the button's name: assistive technology reads
+ * A numeral card's number sits inside that control, ahead of the title, so it
+ * is part of the heading and of the control's name: assistive technology reads
  * "36 Limits it must meet" wherever it reads the card, and reads the number
  * once.
  */
-export function Card({ card, receded, onOpen }: CardProps): ReactElement {
+export function Card(
+  { card, receded, live = false, onOpen }: CardProps,
+): ReactElement {
   const glyph = cardGlyph(card);
   const numeral = cardNumeral(card);
   const heading = cardHeading(card);
+  const words = (
+    <>
+      {numeral === undefined
+        ? null
+        : <span className="wall-card-numeral">{numeral}</span>}
+      {numeral === undefined ? heading : ` ${heading}`}
+    </>
+  );
   return (
     <li
       className={`wall-card wall-card--${card.kind}`}
@@ -145,6 +157,14 @@ export function Card({ card, receded, onOpen }: CardProps): ReactElement {
       onPointerEnter={enterCard}
       onPointerMove={followPointer}
       onPointerLeave={leaveCard}
+      onClick={(event) => {
+        // The pressed face can move away from the release point. The click
+        // then reaches the stable list item that contains both targets.
+        if (!live || event.target !== event.currentTarget) return;
+        event.currentTarget.querySelector<HTMLButtonElement>(".wall-card-open")
+          ?.focus({ preventScroll: true });
+        onOpen(card.id);
+      }}
     >
       <div className="wall-card-face">
         <span className={CARD_LIGHT} />
@@ -152,17 +172,20 @@ export function Card({ card, receded, onOpen }: CardProps): ReactElement {
           ? null
           : <Glyph name={glyph} className="wall-card-glyph" />}
         <h2 className="wall-card-title">
-          <button
-            type="button"
-            className="wall-card-open"
-            aria-haspopup="dialog"
-            onClick={() => onOpen(card.id)}
-          >
-            {numeral === undefined
-              ? null
-              : <span className="wall-card-numeral">{numeral}</span>}
-            {numeral === undefined ? heading : ` ${heading}`}
-          </button>
+          {live
+            ? (
+              <button
+                type="button"
+                className="wall-card-open"
+                aria-haspopup="dialog"
+                onClick={() => onOpen(card.id)}
+              >
+                {words}
+              </button>
+            )
+            : card.href === undefined
+            ? <span className="wall-card-open">{words}</span>
+            : <a className="wall-card-open" href={card.href}>{words}</a>}
         </h2>
         {card.kind === "statement"
           ? null

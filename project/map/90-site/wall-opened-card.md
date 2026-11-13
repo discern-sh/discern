@@ -74,27 +74,14 @@ The still card needs the root out of the transition. While WebKit pictures the r
 
 Where a pointer can hover, the visitor pressed a lit card, and the browser lets go of the hover before it takes the card's picture. The root's mark says when the page has changed. Until then a card that carries the sheet's name keeps its lit face, so an opening pictures the card as the visitor pressed it. The hook marks a card the sheet returns to after the page has changed. That card arrives unlit unless the keyboard's focus is on it, and that focus lights it at once.
 
-[The transition test](../../../tests/site_wall_transition_test.ts) reads these from the stylesheets and the sources, because the gate's browser draws a sheet the same with or without them. It names every rule that reads the root's mark. It requires the dialog and its face to go by a name each, and the sheet's box to stack over the shadow's. It works out which boxes a marked card must still: each box inside a rendered card that some rule moves or gives time, by the property that does it. A new moving part of a card fails the test until the marked card stills it. It fails with the reason when the face holds still and no rule takes the root's name away.
-
-From the sources the test requires that one line of the site begins a view transition, and that each module waits through `transitionEnded` for every transition it begins. A transition begun elsewhere would run with the light still writing. One never waited for would hold the light for good.
+[The transition test](../../../tests/site_wall_transition_test.ts) requires that one line of the site begins a view transition, and that each module waits through `transitionEnded` for every transition it begins. A transition begun elsewhere would run with the light still writing. One never waited for would hold the light for good.
 
 Opening or closing a card makes the browser restyle every element on the page once. The modal dialog costs that by itself: an empty dialog opened over the homepage restyles as much, and marking the source card restyles about a dozen elements. It happens once per change, and no test counts it.
 
 ## What holds the opened card
 
-The interactions test holds the decisions and the stylesheet:
+The interactions test checks `openChange`, the flatness measure, `transitionOvertaken`, the definition of a plain click, and the sheet's content and named manual link. A structural guard keeps synthetic click delivery in one place and requires a plain click before reading the page. The transition test checks that each transition joins the shared lifecycle.
 
-- `openChange`, the flatness measure, `transitionOvertaken`, and the definition of a plain click;
-- a style for every state in `OPENING_STATES`;
-- the sheet's link, named by its page;
-- a structural guard that no other line under `site/` makes a click, and that `deliverClick` refuses any click but a plain one before it reads the page.
+The sheet browser test opens a named dialog and exercises its dismissal controls, focus return, manual navigation, a press near a visible corner, double clicks, a quick Escape, a refused transition, and reachable Close after scrolling content on a short screen. The homepage browser test also opens and closes a card by keyboard under reduced motion.
 
-The columns test holds the marked card's paint containment, with [the list's other rules](wall-columns.md#what-holds-the-columns). The transition test holds [what a transition costs](#what-a-transition-costs).
-
-The sheet test opens a card by pointer and leaves by every entry in its `WAYS_OUT` table, in the far view and in the near view. After each one, the scroll position, the plane, every card's box, and the focus must be where they began. A new way out belongs in that table. Its further cases cover:
-
-- a double click, a press on the arriving sheet, and overlapping requests;
-- a browser that refuses to begin a transition, for a card and for a lens;
-- a sheet too tall for its screen, with the close control focused, in its corner, and in reach after the sheet scrolls.
-
-Under reduced motion, the browser test opens every card in the deck by keyboard. It checks each sheet's name, and compares each link's name with the manual's titles.
+Appearance and browser-specific rendering are reviewed directly. Tests do not freeze card coordinates, shadow geometry, or intermediate animation frames. See [the testing scope](wall-guards.md#testing-scope).

@@ -343,12 +343,6 @@
     view-transition-name: wall-open-mark;
   }
 
-  /* A card opens only once the island is live. Until then, and for good where
-   * no script runs, its button is the card's heading and offers no press. */
-  .wall:not([data-wall-live]) .wall-card-open {
-    cursor: auto;
-  }
-
   /* The opened card: a sheet in a modal dialog. The page behind it holds its
    * place. Stopping its scroll removes its scrollbar, so the page is padded by
    * the width the dialog measured for it, and nothing shifts as the sheet

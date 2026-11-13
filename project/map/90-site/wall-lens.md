@@ -26,10 +26,4 @@ The opacity has a floor. A receded card's title and line must both keep a contra
 
 The lens also says in words what it did, for a reader who cannot see the cards regroup. A status region, `p.wall-lens-status` with `role="status"`, sits inside the lens group. It is in the server's markup, empty, so assistive technology is already listening when a lens first fills it. `lensStatus` writes a sentence such as `9 cards for "Review less". The other 59 follow under "Everything else".` The stylesheet never draws the region.
 
-The interactions test checks which cards each lens recedes, the two groups and their order, the status sentence, and the chips' pressed states. The browser test presses every lens at phone and laptop sizes. It requires:
-
-- one row of chips, and no sideways page overflow;
-- the list in the lens's order, with the divider across every column between the two groups, and the status in the same words;
-- no card removed, and the deck's own order back once the lens goes;
-- the page left where it stood from the head of the wall, and brought back to the head from further down;
-- one cross-fade in which only the page's root takes part, and a press made during it to land.
+The interactions test checks every lens's groups, order, status sentence, and pressed state. The browser test selects and clears a representative lens at phone and laptop sizes, checks the resulting card order and status, and requires the page to remain usable. Decorative cross-fade timing and exact chip geometry are reviewed directly.

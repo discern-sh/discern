@@ -5,7 +5,6 @@
  * or a value divides.
  */
 import { fromFileUrl, join } from "@std/path";
-import { WALL_STYLESHEETS } from "../site/wall/assets.ts";
 
 const SHEET_ROOT = fromFileUrl(new URL("../site/page-src/", import.meta.url));
 
@@ -17,16 +16,6 @@ export function readWallSheet(sheet: string): Promise<string> {
 /** A stylesheet with its comments removed. */
 export function withoutComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
-}
-
-/** Every wall stylesheet by name, in cascade order, with its comments removed. */
-export function wallSheets(): Promise<
-  { readonly sheet: string; readonly text: string }[]
-> {
-  return Promise.all(WALL_STYLESHEETS.map(async (sheet) => ({
-    sheet,
-    text: withoutComments(await readWallSheet(sheet)),
-  })));
 }
 
 /** `text` on one line, with each run of white space as one space. */
@@ -149,64 +138,6 @@ export function declared(
   property: string,
 ): string | undefined {
   return rule.declarations.findLast(([name]) => name === property)?.[1];
-}
-
-/** The last box a selector names, with its states: the box the rule styles. */
-function subjectOf(selector: string): string {
-  return splitOutside(selector, " ").at(-1) ?? "";
-}
-
-/**
- * What names a selector's subject: its type, classes, and pseudo-classes,
- * each as written. What a state looks at, inside `:has()` or an attribute's
- * brackets, is no part of the name, and a pseudo-element is a box of its own,
- * which has no name here.
- */
-function subjectNames(selector: string): string[] {
-  let subject = subjectOf(selector);
-  if (subject.includes("::")) return [];
-  let bare = "";
-  while (bare !== subject) {
-    bare = subject;
-    subject = subject.replace(/\([^()]*\)|\[[^\][]*\]/g, "");
-  }
-  return subject.split(/(?=[.:#])/);
-}
-
-/**
- * Whether a selector's subject is a box of this class itself, in any state,
- * and neither a pseudo-element of it nor a box whose class only begins alike.
- */
-export function selectsBox(selector: string, className: string): boolean {
-  return subjectNames(selector).includes(`.${className}`);
-}
-
-/**
- * Whether a selector's subject is a card's own list item, of any kind and in
- * any state, and no box inside the card.
- */
-export function selectsCardItem(selector: string): boolean {
-  return subjectNames(selector).some((name) =>
-    /^\.wall-card(?:--[\w-]+)?$/.test(name)
-  );
-}
-
-/** One rule of a wall stylesheet, with the stylesheet it stands in. */
-export interface SheetRule {
-  readonly sheet: string;
-  readonly rule: StyleRule;
-}
-
-/** Every rule of every wall stylesheet, in cascade order. */
-export async function wallRules(): Promise<SheetRule[]> {
-  return (await wallSheets()).flatMap(({ sheet, text }) =>
-    styleRules(text).map((rule) => ({ sheet, rule }))
-  );
-}
-
-/** The at-rules that decide when a rule applies: every one but its layer. */
-export function conditionsOf(rule: StyleRule): readonly string[] {
-  return rule.context.filter((query) => !query.startsWith("@layer"));
 }
 
 /**

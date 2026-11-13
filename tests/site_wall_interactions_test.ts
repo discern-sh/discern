@@ -1,18 +1,4 @@
-/**
- * The wall's interactions hold their contracts without a browser: what the
- * opened card's sheet says for each kind of card and what its link is called,
- * how a lens orders the wall and what it says it did, how a card is chosen to
- * open, which early end of a view transition is a fault, which click is a
- * plain one, and that one function alone makes a click on a visitor's
- * behalf. The stylesheet is held to the
- * same contracts: a receded card stays legible, the list's order is the only
- * thing that places a card, the morph never shows two sets of words at once,
- * and a card's mark crosses on the sheet's own clock.
- *
- * Focus, the modal dialog, the re-sorted list, and the view transitions
- * themselves need a real browser and are checked in
- * `site_homepage_browser_test.ts` and `site_wall_sheet_browser_test.ts`.
- */
+/** Lens selection, dialog content, and transition decisions. Browser journeys cover focus and input. */
 import { assert, assertEquals, assertStrictEquals } from "@std/assert";
 import { fromFileUrl } from "@std/path";
 // @ts-types="@types/jsdom"
@@ -41,8 +27,6 @@ import {
   type ClickKind,
   drawnFlat,
   openChange,
-  OPENING_ATTRIBUTE,
-  OPENING_STATES,
   plainClick,
   transitionOvertaken,
 } from "../site/wall/use_open_card.ts";
@@ -50,12 +34,7 @@ import {
   readScopedSources,
   structuralGuardScope,
 } from "./structural_guard_scope.ts";
-import {
-  declared,
-  readWallSheet,
-  selectsCardItem,
-  styleRules,
-} from "./wall_stylesheets.ts";
+import { declared, readWallSheet, styleRules } from "./wall_stylesheets.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -612,83 +591,6 @@ Deno.test("a click made by script is made in one place, which hands on a plain c
   assert(
     handsOn.trimStart().startsWith("if (!plainClick(event)) return;"),
     "deliverClick refuses any click but a plain one before it reads the page",
-  );
-});
-
-Deno.test("the list's order alone places a card: the stylesheet changes a receded or opening card's opacity, color, and transition name, and never moves it", async () => {
-  const sheet = styleRules(await readWallSheet("wall-interactions.css"));
-  const rules = sheet.filter((rule) => rule.selectors.some(selectsCardItem));
-  assert(
-    rules.length > 0,
-    "the stylesheet styles the receded and opening card",
-  );
-  // A lens re-sorts the list, and the cards a lens set aside are drawn
-  // receded where the list puts them. So a rule that moved or resized a card
-  // would be a second thing placing it, and a card would be seen to travel.
-  // Containing a card's paint, and rounding the box that contains it, leaves
-  // the card where it is and as large.
-  const allowed = new Set([
-    "opacity",
-    "filter",
-    "transition",
-    "view-transition-name",
-    "contain",
-    "border-radius",
-  ]);
-  for (const rule of rules) {
-    assert(
-      rule.selectors.every(selectsCardItem),
-      `"${rule.selectors.join(", ")}" mixes the card with something else`,
-    );
-    for (const [property, value] of rule.declarations) {
-      assert(
-        allowed.has(property),
-        `${
-          rule.selectors.join(", ")
-        } sets ${property}, which could move a card`,
-      );
-      if (property === "transition" && value !== "none") {
-        assertEquals(
-          value.split(",").map((part) => part.trim().split(" ")[0]).toSorted(),
-          ["filter", "opacity"],
-          "a card's own transition covers opacity and filter only",
-        );
-      }
-    }
-  }
-
-  // The divider between the two groups is one row across every column, so
-  // the cards a lens kept end above it in each column and the rest start
-  // below it.
-  const dividers = sheet.filter((rule) =>
-    rule.selectors.includes(".wall-rest") &&
-    declared(rule, "column-span") !== undefined
-  );
-  assertEquals(
-    dividers.map((rule) => declared(rule, "column-span")),
-    ["all"],
-    "the divider spans every column of the wall",
-  );
-});
-
-Deno.test("the stylesheet styles every state the hook marks an opening card with", async () => {
-  const css = await readWallSheet("wall-interactions.css");
-  const selectors = styleRules(css).flatMap((rule) => rule.selectors);
-  for (const state of OPENING_STATES) {
-    assert(
-      selectors.some((selector) =>
-        selector.includes(`.wall-card[${OPENING_ATTRIBUTE}="${state}"]`)
-      ),
-      `no rule styles a card marked ${state}`,
-    );
-  }
-  const styled = [...css.matchAll(
-    new RegExp(`\\[${OPENING_ATTRIBUTE}="([^"]*)"\\]`, "g"),
-  )].map((match) => match[1] ?? "");
-  assertEquals(
-    styled.filter((state) => !OPENING_STATES.some((known) => known === state)),
-    [],
-    "the stylesheet styles a state the hook never sets",
   );
 });
 

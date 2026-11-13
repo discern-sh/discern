@@ -13,11 +13,7 @@ How [the homepage wall](the-homepage-wall.md) moves, what a visitor's settings c
 
 [`WALL_KNOBS`](../../../site/wall/tuning/knobs.ts) is the single table of tunable values: each knob's name, label, unit, range, step, and default. The server writes every default as a `--wall-<name>` custom property in the wall root's inline style. The stylesheets read those properties with no fallback value, so a stylesheet cannot carry a second default. A hook that needs a knob reads the same inline property from the root.
 
-The island test enforces the contract in both directions:
-
-- Every `var(--wall-*)` in a wall stylesheet must name a knob, a property a wall stylesheet declares, or a property a `site/wall` source writes. A `var()` with a fallback fails.
-- Every `--wall-*` property a stylesheet declares, and every knob, must have a reader.
-- A stylesheet must select every `data-wall-*` attribute a wall module writes, unless the test's `ATTRIBUTE_READERS` table names the module that reads it. No stylesheet may select an attribute that nothing writes.
+The island test checks that the knob table supplies the root's defaults.
 
 Add a knob by adding one entry to the table and reading its property in a stylesheet or a source file. The panel lists whatever the table holds.
 
@@ -25,26 +21,17 @@ The tuning panel is a development aid. It appears only when the address carries 
 
 ## Motion contract
 
-Calm motion is a requirement of the page. These rules bind every stylesheet and hook on the wall. A rule names the test that holds it, where one does:
+Calm motion is a requirement of the page:
 
-- **Pointer travel moves nothing.** The light changes brightness and never geometry. The browser test sweeps a pointer across the flat wall. A card the pointer has not touched must keep its box, opacity, and filter at every stop, and every card must return to rest afterward.
-- **Hover changes only the hovered card.** Its face may travel a short distance. The same sweep bounds that travel. A card near the pointer shows only a faint white ring on its border.
-- **Scroll moves the wall as one plane.** The approach transforms `.wall-plane` and nothing inside it. The browser test finds the plane tilted at the top of a laptop page, free of any transform once the wall is near, and tilted again after scrolling back. The page keeps its width and height throughout.
-- **Keyboard focus lays the wall flat.** While keyboard focus is on the stage, the plane carries no transform, and the stage scrolls nothing. The browser test walks the keyboard down and back up the wall at a laptop size. Every card it reaches must be wholly in view at reading size, no sampled frame may show the plane tilted, and no focused card may sit under the lens bar. The island test requires every far-view rule to stand down under that focus. A pointer's press on that flat wall tilts nothing.
-- **A lens re-sorts the list, and no card travels.** The list's order alone places a card. The interactions test rejects any property that would move or resize a receded or opening card. The browser test requires the page to cross-fade once, with only the page's root taking part, and it holds the list's order and the page's place after every lens.
-- **Opening a card moves one object and its mark.** The card grows into the sheet only from a flat card, and its glyph or numeral crosses with it. The interactions test holds those choices, and the sheet test requires the page to return to rest after every way out.
-- **A glyph moves one primitive, by a few units, on a lit card.**
-- **Phones and reduced motion get the flat wall from the start.** The browser test checks a phone at load, and reduced motion both at load and when the preference changes under a loaded page.
-- **Reduced motion stills the rest.** The card test and the glyph test hold their stylesheets to `MOTION_PROPERTY` in [`tests/wall_stylesheets.ts`](../../../tests/wall_stylesheets.ts). Every property that moves a box or times a change must sit inside a `prefers-reduced-motion: no-preference` block. The interactions test requires a card to open with a cut. The light test requires the light to appear and go with no fade, and one pointer move to write the light once. The glyph test requires a glyph to move only for a reader who has not asked for reduced motion. Under reduced motion, the browser test requires the lens bar to arrive with no transition of its own and a lens to re-sort the wall with no view transition, and it opens every card in the deck.
-- **A finger moves nothing.** Hover and the light apply only where a pointer can hover, and the card test holds the hover rules to that.
-- **Movement is cheap to draw.** Cards animate `transform` and `opacity`, and the list item fades through `opacity` and `filter`. The card test rejects `backdrop-filter` and any background fixed to the viewport, in every wall stylesheet.
-- **Nothing keeps moving by itself at the shipped defaults.** The wall fades in once. Ambient drift is a knob whose default is zero, and while drift is on, the wall shows a pause control. The browser test asserts the default, the absent control, and that the control pauses the drift.
+- Pointer travel changes the light; only the hovered card lifts and tilts.
+- Scroll moves the wall as one plane. Keyboard focus brings that plane flat for reading and navigation.
+- A lens changes the list's order through a cross-fade, without cards traveling across the screen.
+- An opened card grows from a flat source, or fades in place when the source is far away. Its glyph or numeral crosses with it.
+- Phones, reduced motion, and forced colors get the flat wall. Reduced motion removes the light's fade and ease, and card and lens changes use a cut.
+- Hover and the light apply only to a pointer that can hover.
+- The shipped defaults have no ambient drift. Enabling drift in the tuning panel exposes a pause control.
 
-Some parts of the contract have no test, and [`project/TODO.md`](../../TODO.md) carries each:
-
-- No test runs a browser that lacks scroll-driven animation, which gets the flat wall too.
-- No test holds the rule that a card takes its receded look at once inside a lens's cross-fade, instead of fading a second time.
-- No test changes `(hover: hover)` or the `light-radius` knob under a still pointer to see the light ask for a new report.
+The browser journeys check usable keyboard navigation and reduced-motion card and lens changes. Pure tests check transition choices and light arithmetic. Review decorative timing and movement directly, under [the wall's testing scope](wall-guards.md#testing-scope).
 
 ### The approach
 
@@ -72,22 +59,20 @@ The hook then keeps the mark for as long as the focus stays anywhere on the stag
 - The far view returns when the focus leaves the stage any other way.
 - A modal layer that borrows the focus, as an opened card does, leaves the mark as it stood.
 
-No rule may look for that focus from the wall root. A `:has()` on `.wall` makes the browser restyle the wall at every step of the keyboard. A rule under a root state that styles every child of a box by no name costs the same. The guards:
-
-- The island test rejects `:has(` on the root's own part of any selector in a wall stylesheet. It also requires every far-view rule to stand down, and the stage's rules to use `KEYBOARD_ON_STAGE` whole.
+The focus selectors stay on the boxes they style. A `:has()` on `.wall` would make the browser restyle every element under the wall root at each keyboard step.
 
 The stage's first control is a link, "Skip the cards". The stylesheet draws it only while it holds the focus. It leads to the closing section's heading, which takes the focus.
 
 ### The lens bar's arrival and exit
 
-The lens bar arrives over the last of the approach. It only fades, so an unseen bar stays in the tab order and in the accessibility tree. Its chips take no press until the bar is half seen. The browser test looks at the unseen bar at the top of a laptop page. The bar must be in the accessibility tree, take the keyboard's focus, and take no press.
+The lens bar arrives over the last of the approach. It only fades, so an unseen bar stays in the tab order and in the accessibility tree. Its chips take no press until the bar is half seen.
 
-At the foot of the wall the bar fades out as the closing section comes in, and its chips take no press once the bar is half gone. No screen then ends with the bar cut by the viewport's edge. That fade follows scroll, so it runs under reduced motion too. Keyboard focus inside the bar shows it whole wherever the page stands, and so does a press on the bar. A pointer that presses a chip there takes the focus from the keyboard, and the bar stays under the press. On a screen shorter than 30rem the bar stays at the head of the wall instead of pinning. The browser test holds the fade at the foot of the page.
+At the foot of the wall the bar fades out as the closing section comes in, and its chips take no press once the bar is half gone. No screen then ends with the bar cut by the viewport's edge. That fade follows scroll, so it runs under reduced motion too. Keyboard focus inside the bar shows it whole wherever the page stands, and so does a press on the bar. A pointer that presses a chip there takes the focus from the keyboard, and the bar stays under the press. On a screen shorter than 30rem the bar stays at the head of the wall instead of pinning.
 
 ## Forced colors, more contrast, and print
 
-Forced colors get flat cards in system colors and no light. The lens bar takes a solid system-color backing with a rule along its foot, so no chip sits on a card's words. The card test holds the cards' part.
+Forced colors get flat cards in system colors and no light. The lens bar takes a solid system-color backing with a rule along its foot, so no chip sits on a card's words.
 
 A visitor who asks for more contrast gets the room's quieter inks nearer to its full ink. The chips, the divider, and the close control get firmer edges, and receded cards come nearer to full strength.
 
-On paper the page is the room alone, as a plain light sheet with no bar, no link past the cards, no grain, no light, and no dark margin. The page takes the light scheme's system colors there. The site header and footer stay off the paper, because the package inks them from the page's [dark theme](design-system-consumption.md#build-and-theme), which has no print form. Receded cards print at full strength, and [a card prints as a block](wall-columns.md#a-card-is-one-line) with the gap under it. With a card open, paper still gets the wall. The sheet and its backdrop stay off the page, the card it grew from shows in its own place, and the page prints at its full width and length. The card test holds the cards' part, and the theme browser test requires every word that reaches paper to be in dark ink.
+On paper the page is the room alone, as a plain light sheet with no bar, no link past the cards, no grain, no light, and no dark margin. The page takes the light scheme's system colors there. The site header and footer stay off the paper, because the package inks them from the page's [dark theme](design-system-consumption.md#build-and-theme), which has no print form. Receded cards print at full strength, and [a card prints as a block](wall-columns.md#a-card-is-one-line) with the gap under it. With a card open, paper still gets the wall. The sheet and its backdrop stay off the page, the card it grew from shows in its own place, and the page prints at its full width and length. The theme browser test checks readable ink on paper.

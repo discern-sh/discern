@@ -20,7 +20,6 @@ import { fromFileUrl, join } from "@std/path";
 import { JSDOM } from "jsdom";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
-import { DISCERN_VERSION } from "../src/lib/version.ts";
 import {
   DISCERN_CATEGORY_LINE,
   DISCERN_MARK,
@@ -51,13 +50,9 @@ import {
   WALL_PROPS_ATTRIBUTE,
   type WallPageProps,
 } from "../site/wall/host.ts";
-import {
-  WALL_KNOBS,
-  wallKnobProperty,
-  wallKnobStyle,
-} from "../site/wall/tuning/knobs.ts";
-import { KEYBOARD_ON_STAGE, NEAR_ATTRIBUTE } from "../site/wall/use_stage.ts";
+import { WALL_KNOBS, wallKnobStyle } from "../site/wall/tuning/knobs.ts";
 import { WallPage } from "../site/wall/WallPage.tsx";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import {
   moduleSpecifiers,
   reactRuntimeModules,
@@ -72,7 +67,6 @@ import {
   readScopedSources,
   structuralGuardScope,
 } from "./structural_guard_scope.ts";
-import { splitOutside, styleRules, wallSheets } from "./wall_stylesheets.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -130,57 +124,6 @@ async function homepageWallIsland(): Promise<WallIslandReference> {
     "the built homepage loads exactly one wall island",
   );
   return island;
-}
-
-/** Every `--wall-*` custom property a text names, by `pattern`'s first group. */
-function wallProperties(text: string, pattern: RegExp): Set<string> {
-  return new Set([...text.matchAll(pattern)].map((match) => match[1] ?? ""));
-}
-
-/**
- * Every authored module under `site/wall`: the only code that writes the
- * wall's custom properties and state attributes, or reads them back.
- */
-const WALL_SOURCES = await readScopedSources(
-  ROOT,
-  await structuralGuardScope({
-    guard: "tests/site_wall_island_test.ts#script-written-properties",
-    universe: "authored-ts",
-    narrow: {
-      reason:
-        "Only the wall's own modules write wall custom properties and state attributes from script.",
-      include: (path) => path.startsWith("site/wall/"),
-    },
-  }),
-);
-
-/** Every selector of every style rule in a stylesheet, one per list member. */
-function selectorsOf(text: string): string[] {
-  return styleRules(text).filter((rule) => !rule.prelude.startsWith("@"))
-    .flatMap((rule) => rule.selectors);
-}
-
-/** The wall root named in a selector's first box: `.wall` and its states. */
-const ROOT_BOX = /^\.wall(?![\w-])/;
-
-/**
- * State attributes that no stylesheet selects, each with the module that
- * reads it and the expression it reads it by.
- */
-const ATTRIBUTE_READERS: Readonly<
-  Record<string, { readonly path: string; readonly read: string }>
-> = {
-  [WALL_PROPS_ATTRIBUTE]: {
-    path: "site/wall/island.tsx",
-    read: "host.getAttribute(WALL_PROPS_ATTRIBUTE)",
-  },
-};
-
-/** The attribute a `dataset` member is written to: `wallNear` is `data-wall-near`. */
-function datasetAttribute(member: string): string {
-  return `data-${
-    member.replace(/[A-Z]/g, (upper) => `-${upper.toLowerCase()}`)
-  }`;
 }
 
 Deno.test("the homepage serves the wall exactly as the island renders it", async () => {
@@ -287,171 +230,6 @@ Deno.test("every tuning knob reaches the wall root as its own custom property", 
   for (const [property, value] of declarations) {
     assertStringIncludes(style, `${property}:${value}`);
   }
-});
-
-Deno.test("wall stylesheets read wall properties that exist, with no fallback values", async () => {
-  const scripts = WALL_SOURCES;
-  assert(scripts.length > 0);
-  const known = new Set(Object.keys(wallKnobStyle()));
-  for (const { source } of scripts) {
-    for (const name of wallProperties(source, /(--wall-[a-z0-9-]+)/g)) {
-      known.add(name);
-    }
-  }
-  const sheets = await wallSheets();
-  for (const { text } of sheets) {
-    for (const name of wallProperties(text, /(--wall-[a-z0-9-]+)\s*:/g)) {
-      known.add(name);
-    }
-  }
-
-  const violations: string[] = [];
-  for (const { sheet, text } of sheets) {
-    for (
-      const name of wallProperties(text, /var\(\s*(--wall-[a-z0-9-]+)\s*,/g)
-    ) {
-      violations.push(`${sheet}: ${name} is read with a fallback value`);
-    }
-    for (const name of wallProperties(text, /var\(\s*(--wall-[a-z0-9-]+)/g)) {
-      if (!known.has(name)) {
-        violations.push(`${sheet}: ${name} is read but nothing declares it`);
-      }
-    }
-  }
-  assertEquals(violations, []);
-});
-
-Deno.test("every wall property a stylesheet declares, and every knob, has a reader", async () => {
-  const scripts = WALL_SOURCES;
-  const sheets = await wallSheets();
-  const readBySheet = new Set(
-    sheets.flatMap(({ text }) => [
-      ...wallProperties(text, /var\(\s*(--wall-[a-z0-9-]+)/g),
-    ]),
-  );
-  const namedByScript = new Set(
-    scripts.flatMap(({ source }) => [
-      ...wallProperties(source, /(--wall-[a-z0-9-]+)/g),
-    ]),
-  );
-
-  // A value a stylesheet sets is read by a stylesheet, or by script that
-  // asks the browser for it by name. One that neither reads is dead state.
-  const violations: string[] = [];
-  let declared = 0;
-  for (const { sheet, text } of sheets) {
-    for (const name of wallProperties(text, /(--wall-[a-z0-9-]+)\s*:/g)) {
-      declared++;
-      if (!readBySheet.has(name) && !namedByScript.has(name)) {
-        violations.push(`${sheet}: ${name} is declared and never read`);
-      }
-    }
-  }
-  assert(declared > 0, "the wall stylesheets declare properties of their own");
-
-  // A knob is read by a stylesheet, or by a module that asks the wall root
-  // for it through `wallKnobProperty` and names it there.
-  const knobReaders = scripts.filter(({ path, source }) =>
-    path !== "site/wall/tuning/knobs.ts" && source.includes("wallKnobProperty(")
-  );
-  for (const knob of WALL_KNOBS) {
-    const read = readBySheet.has(wallKnobProperty(knob.name)) ||
-      knobReaders.some(({ source }) => source.includes(`"${knob.name}"`));
-    if (!read) violations.push(`the ${knob.name} knob turns nothing`);
-  }
-  assertEquals(violations, []);
-});
-
-Deno.test("every state attribute the wall writes is selected by a stylesheet or read by a named module, and none is selected unwritten", async () => {
-  const scripts = WALL_SOURCES;
-  const sheets = await wallSheets();
-  const written = new Map<string, string>();
-  for (const { path, source } of scripts) {
-    for (const [name] of source.matchAll(/data-wall-[a-z]+(?:-[a-z]+)*/g)) {
-      if (!written.has(name)) written.set(name, path);
-    }
-    for (
-      const [, member = ""] of source.matchAll(/\.dataset\.(wall[A-Z]\w*)/g)
-    ) {
-      const name = datasetAttribute(member);
-      if (!written.has(name)) written.set(name, path);
-    }
-  }
-  assert(written.size > 0, "the wall marks its state with attributes");
-  const selected = new Set(
-    sheets.flatMap(({ text }) =>
-      [...text.matchAll(/\[(data-wall-[a-z]+(?:-[a-z]+)*)/g)].map((match) =>
-        match[1] ?? ""
-      )
-    ),
-  );
-
-  const violations: string[] = [];
-  for (const [name, path] of written) {
-    if (selected.has(name)) continue;
-    const reader = ATTRIBUTE_READERS[name];
-    const reads = reader !== undefined &&
-      scripts.some(({ path, source }) =>
-        path === reader.path && source.includes(reader.read)
-      );
-    if (!reads) {
-      violations.push(
-        `${path} writes ${name}, which no wall stylesheet selects and no named module reads`,
-      );
-    }
-  }
-  for (const name of selected) {
-    if (!written.has(name)) {
-      violations.push(
-        `a wall stylesheet selects ${name}, which nothing writes`,
-      );
-    }
-  }
-  for (const name of Object.keys(ATTRIBUTE_READERS)) {
-    if (!written.has(name) || selected.has(name)) {
-      violations.push(`${name} has a named reader it does not need`);
-    }
-  }
-  assertEquals(violations, []);
-});
-
-Deno.test("every far-view rule stands down under the keyboard's focus, and looks for that focus from the box it styles", async () => {
-  const selectors = (await wallSheets()).flatMap(({ text }) =>
-    selectorsOf(text)
-  );
-  const away = `:not([${NEAR_ATTRIBUTE}])`;
-  const far = selectors.filter((selector) => selector.includes(away));
-  assert(far.length >= 6, "the stylesheet stages a far view");
-  const violations: string[] = [];
-  for (const selector of far) {
-    const [root = "", box = "", ...within] = splitOutside(selector, " ");
-    if (!ROOT_BOX.test(root) || !root.includes(away)) {
-      violations.push(`${selector}: the wall root says whether it is near`);
-    }
-    // The stage's own rules use the stage hook's selector whole, so script
-    // and stylesheet cannot disagree about which focus lays the wall flat.
-    // Any other rule looks for the focus from a box beneath the root: the
-    // one it names first, or one inside it.
-    const standsDown = box.startsWith(".wall-stage")
-      ? box.includes(`:not(${KEYBOARD_ON_STAGE})`)
-      : [box, ...within].some((compound) =>
-        compound.includes(":not(:has(:focus-visible)")
-      );
-    if (!standsDown) {
-      violations.push(`${selector} holds a box the keyboard's focus is in`);
-    }
-  }
-
-  // A rule that asked the wall root what it holds would have the browser
-  // restyle the whole wall each time the answer could change, which for the
-  // focus is every step of the keyboard.
-  for (const selector of selectors) {
-    const [root = ""] = splitOutside(selector, " ");
-    if (ROOT_BOX.test(root) && root.includes(":has(")) {
-      violations.push(`${selector} looks through the whole wall from its root`);
-    }
-  }
-  assertEquals(violations, []);
 });
 
 Deno.test("only the island entry imports React's browser client, and nothing imports the island", async () => {

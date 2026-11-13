@@ -1,13 +1,8 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert } from "@std/assert";
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import { handler } from "../site/serve.ts";
-import {
-  cardHeading,
-  cardNumeral,
-  RECEDED_ATTRIBUTE,
-} from "../site/wall/Card.tsx";
+import { cardHeading, cardNumeral } from "../site/wall/Card.tsx";
 import type { WallCard } from "../site/wall/types.ts";
-import { LIGHT_PROPERTIES } from "../site/wall/use_light.ts";
 import { OPENING_ATTRIBUTE } from "../site/wall/use_open_card.ts";
 import { NEAR_ATTRIBUTE } from "../site/wall/use_stage.ts";
 import { launchBrowser, serveThroughHandler } from "./browser_helpers.ts";
@@ -17,31 +12,13 @@ export const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
   { name: "laptop", width: 1440, height: 900 },
 ] as const;
-
-/**
- * A full-width window on a large laptop's own screen. The wall has five
- * columns here, one more than the laptop viewport gives it.
- */
-export const WIDE_VIEWPORT = {
-  name: "wide",
-  width: 1728,
-  height: 1000,
-} as const;
-
-export type Viewport = (typeof VIEWPORTS)[number] | typeof WIDE_VIEWPORT;
+export type Viewport = (typeof VIEWPORTS)[number];
 
 /** The live wall root: present once the island has hydrated. */
 export const LIVE_WALL = ".wall[data-wall-live]";
 
 /** The live wall while the plane is flat and carries no transform. */
 export const NEAR_WALL = `${LIVE_WALL}[${NEAR_ATTRIBUTE}]`;
-
-/** The live wall while the plane is tilted away. */
-export const FAR_WALL = `${LIVE_WALL}:not([${NEAR_ATTRIBUTE}])`;
-
-/** A card the active lens set aside. */
-export const RECEDED_CARD = `.wall-card[${RECEDED_ATTRIBUTE}]`;
-
 /** The opened card's sheet, and the sheet once it is open. */
 export const SHEET = "dialog.wall-open";
 export const OPEN_SHEET = `${SHEET}[open]`;
@@ -128,23 +105,11 @@ export async function openLiveWall(
   return opened;
 }
 
-/** The plane's computed transform: "none" exactly when it carries none at all. */
-export function planeTransform(page: Page): Promise<string> {
-  return page.locator(".wall-plane").evaluate((plane) =>
-    getComputedStyle(plane).transform
-  );
-}
-
 /** Scroll until the stage's top edge meets the top of the viewport. */
 export function scrollToWall(page: Page): Promise<void> {
   return page.locator(".wall-stage").evaluate((stage) =>
     stage.scrollIntoView({ block: "start", behavior: "instant" })
   );
-}
-
-/** How far down the page the viewport has scrolled. */
-export function scrolled(page: Page): Promise<number> {
-  return page.evaluate(() => scrollY);
 }
 
 /** Resolve once no clock-driven, finite animation or transition is running. */
@@ -176,147 +141,7 @@ export async function eventually(
   assert(await check(), message);
 }
 
-/**
- * Hold the pointer light to coming fully up and falling still: what it wrote
- * on the wall root has stayed the same over several frames. A light that
- * never rests there is a failure, named as one, and never an endless wait.
- */
-export async function lightSettled(page: Page): Promise<void> {
-  const settled = await page.locator(".wall").evaluate(
-    (root, names) =>
-      new Promise<boolean>((resolve) => {
-        let last = "";
-        let still = 0;
-        const look = (patience: number): void => {
-          const now = names.map((name) => root.style.getPropertyValue(name))
-            .join(" ");
-          still = now === last ? still + 1 : 0;
-          last = now;
-          if (still >= 3 && now.endsWith(" 1.000")) resolve(true);
-          else if (patience === 0) resolve(false);
-          else requestAnimationFrame(() => look(patience - 1));
-        };
-        look(600);
-      }),
-    [...LIGHT_PROPERTIES.room],
-  );
-  assert(settled, "the light comes fully up under the pointer and rests there");
-}
-
-/** Where a viewport point lies from the wall root's corner, as the light writes it. */
-export function placeOnWall(
-  page: Page,
-  point: { readonly x: number; readonly y: number },
-): Promise<{ readonly x: number; readonly y: number }> {
-  return page.locator(".wall").evaluate((root, point) => {
-    const rect = root.getBoundingClientRect();
-    return {
-      x: point.x - rect.left - root.clientLeft,
-      y: point.y - rect.top - root.clientTop,
-    };
-  }, point);
-}
-
-/** Whether a recorded place is `place`, to within the light's own rounding. */
-export function isAt(
-  [x = "", y = ""]: readonly string[],
-  place: { readonly x: number; readonly y: number },
-): boolean {
-  return Math.abs(parseFloat(x) - place.x) <= 0.6 &&
-    Math.abs(parseFloat(y) - place.y) <= 0.6;
-}
-
-/** Let go of the focus, as a click on the page's margin does. */
-export function dropFocus(page: Page): Promise<void> {
-  return page.evaluate(() => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-  });
-}
-
-/** One card as drawn: its item's box, its face's box, and how it is lit. */
-export interface CardSample {
-  readonly id: string;
-  /** Left, top, width, and height of the list item, then of the face. */
-  readonly box: readonly number[];
-  /** The item's opacity and filter, which a lens and nothing else may change. */
-  readonly look: string;
-}
-
-/** Sample every card as drawn, and name the card at a viewport point. */
-export function sampleWall(
-  page: Page,
-  point: { readonly x: number; readonly y: number },
-): Promise<
-  { readonly cards: readonly CardSample[]; readonly under: string | null }
-> {
-  return page.evaluate(({ x, y }) => {
-    const cards = [...document.querySelectorAll<HTMLElement>(".wall-card")]
-      .map((card) => {
-        const item = card.getBoundingClientRect();
-        const face = card.querySelector(".wall-card-face")
-          ?.getBoundingClientRect();
-        const style = getComputedStyle(card);
-        return {
-          id: card.dataset.card ?? "",
-          box: [
-            item.x,
-            item.y,
-            item.width,
-            item.height,
-            face?.x ?? 0,
-            face?.y ?? 0,
-            face?.width ?? 0,
-            face?.height ?? 0,
-          ],
-          look: `${style.opacity} ${style.filter}`,
-        };
-      });
-    const under = document.elementFromPoint(x, y)?.closest<HTMLElement>(
-      ".wall-card",
-    )?.dataset.card ?? null;
-    return { cards, under };
-  }, point);
-}
-
-/** The page as it stands once nothing is moving and the pointer is off the wall. */
-export interface WallAtRest {
-  readonly scrollY: number;
-  readonly near: boolean;
-  readonly cards: readonly CardSample[];
-}
-
-/** Park the pointer in the room's margin, where it touches no card. */
-export async function parkPointer(
-  page: Page,
-  size: Viewport,
-): Promise<{ readonly x: number; readonly y: number }> {
-  const rest = { x: 2, y: size.height - 2 };
-  await page.mouse.move(rest.x, rest.y);
-  return rest;
-}
-
-/**
- * Park the pointer, wait for motion to end, and sample the page: its scroll,
- * whether the plane is near, and every card as drawn.
- */
-export async function wallAtRest(
-  page: Page,
-  size: Viewport,
-): Promise<WallAtRest> {
-  const rest = await parkPointer(page, size);
-  await motionSettled(page);
-  const { cards, under } = await sampleWall(page, rest);
-  assertEquals(under, null, "the pointer rests off the wall");
-  return {
-    scrollY: await scrolled(page),
-    near: await page.locator(NEAR_WALL).count() === 1,
-    cards,
-  };
-}
-
-/** The button that opens the card with this id. */
+/** The heading control of the card with this id, before or after hydration. */
 export function openerOf(id: string): string {
   return `.wall-card[data-card="${id}"] .wall-card-open`;
 }
@@ -327,47 +152,6 @@ export function sheetName(card: WallCard): string {
   return numeral === undefined
     ? cardHeading(card)
     : `${numeral} ${cardHeading(card)}`;
-}
-
-/** A card under a point of the viewport, and that point. */
-export interface Press {
-  readonly id: string;
-  readonly x: number;
-  readonly y: number;
-}
-
-/**
- * Find a card the pointer can press. Scanning from the top finds one high in
- * the viewport, above where a sheet comes to rest; scanning from the bottom
- * finds one of the far view's nearest rows. The card named by `except` is
- * passed over.
- */
-export async function pressableCard(
-  page: Page,
-  size: Viewport,
-  from: "top" | "bottom",
-  except = "",
-): Promise<Press> {
-  const found = await page.evaluate(({ width, height, upward, except }) => {
-    for (let row = 0; row < 14; row++) {
-      const y = upward ? height - 60 - row * 40 : height * 0.16 + row * 40;
-      for (const across of [0.1, 0.3, 0.5, 0.7, 0.9]) {
-        const x = Math.round(width * across);
-        const id = document.elementFromPoint(x, y)?.closest<HTMLElement>(
-          ".wall-card",
-        )?.dataset.card;
-        if (id !== undefined && id !== except) return { id, x, y };
-      }
-    }
-    return null;
-  }, {
-    width: size.width,
-    height: size.height,
-    upward: from === "bottom",
-    except,
-  });
-  assert(found !== null, `${size.name}: a card lies under the pointer`);
-  return found;
 }
 
 /** Every card marked as an opened card's source, as `id:state`. */
@@ -381,30 +165,6 @@ export function markedCards(page: Page): Promise<string[]> {
   );
 }
 
-/** Count the sheets the page mounts from now on, starting again from none. */
-export function countSheets(page: Page): Promise<void> {
-  return page.evaluate((sheet) => {
-    const root = document.documentElement;
-    const counting = root.dataset.testSheets !== undefined;
-    root.dataset.testSheets = "0";
-    if (counting) return;
-    new MutationObserver((records) => {
-      const mounted = records.flatMap((record) => [...record.addedNodes])
-        .filter((node) => node instanceof Element && node.matches(sheet));
-      root.dataset.testSheets = String(
-        Number(root.dataset.testSheets) + mounted.length,
-      );
-    }).observe(document.body, { childList: true, subtree: true });
-  }, SHEET);
-}
-
-/** How many sheets the page has mounted since `countSheets`. */
-export function sheetsMounted(page: Page): Promise<number> {
-  return page.evaluate(() =>
-    Number(document.documentElement.dataset.testSheets)
-  );
-}
-
 /** Wait for the sheet to go, and for the card it came from to be let go. */
 export async function sheetGone(page: Page, where: string): Promise<void> {
   await page.locator(SHEET).waitFor({ state: "detached" });
@@ -413,42 +173,4 @@ export async function sheetGone(page: Page, where: string): Promise<void> {
     async () => (await markedCards(page)).length === 0,
     `${where}: a card stays marked after its sheet has gone`,
   );
-}
-
-/**
- * Runs in the page: resolve with the name of every view-transition part that
- * animates from now until a transition has come and gone. A page that never
- * runs one answers with none once its patience has run out.
- */
-export function watchTransition(): Promise<string[]> {
-  return new Promise((resolve) => {
-    const seen = new Set<string>();
-    const look = (patience: number): void => {
-      const parts = document.getAnimations().flatMap((animation) => {
-        const part = animation.effect instanceof KeyframeEffect
-          ? animation.effect.pseudoElement
-          : null;
-        return part?.startsWith("::view-transition") === true ? [part] : [];
-      });
-      for (const part of parts) seen.add(part);
-      if ((seen.size > 0 && parts.length === 0) || patience === 0) {
-        resolve([...seen]);
-      } else {
-        requestAnimationFrame(() => look(patience - 1));
-      }
-    };
-    look(600);
-  });
-}
-
-/** Resolve once the page has drawn `frames` more frames. */
-export function drawn(page: Page, frames: number): Promise<void> {
-  return page.evaluate((frames) =>
-    new Promise<void>((resolve) => {
-      const next = (left: number): void => {
-        if (left === 0) resolve();
-        else requestAnimationFrame(() => next(left - 1));
-      };
-      next(frames);
-    }), frames);
 }

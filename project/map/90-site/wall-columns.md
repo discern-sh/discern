@@ -36,20 +36,6 @@ WebKit draws a box of a multi-column list wrongly once that box paints through a
 
 A receded card also paints through a layer, because a lens lowers its opacity and removes its color. It carries no containment. It draws its light, its lift, and its focus ring outside its box, and containment would cut them off. WebKit draws a receded card, and the cards after it, in place.
 
-## What holds the columns
+## Reviewing the columns
 
-Chrome draws the wall whole with or without these rules, and the gate launches Chrome only. [`tests/site_wall_columns_test.ts`](../../../tests/site_wall_columns_test.ts) therefore reads each rule from the stylesheets:
-
-- One base rule isolates the list, and no rule for any state of the wall says otherwise.
-- One base rule makes a card a line with the gap as its top margin. No size or state of the wall changes a card's display, width, or margins, the list's pull, or the plane's display. The test names the rules that apply on paper, and no others may.
-- A rule that gives a card's list item a view-transition name, an opacity under 1, or a filter needs `contain: paint` on the attribute that marks that state. The receded mark is a named exemption with its reason. The test fails once a rule contains an exempt mark, so the exemption cannot outlive its reason.
-
-The same file loads the built page in Chrome at four columns and at five, with no lens and under a lens. It requires:
-
-- an isolated list;
-- one box for each card, and each card as wide as its column;
-- the cards filling each column from its top in the list's order;
-- two cards alone standing side by side;
-- every column head's box, less the blur of the widest shadow the card casts, starting at or below the column's top.
-
-No test runs WebKit, and [`project/TODO.md`](../../TODO.md) carries that gap.
+Review the rendered wall in Safari and Firefox when changing column layout or compositing rules. Check that cards remain visible and usable through a lens change and an opened card. The shared browser journeys check that the deck survives a lens change and fits a narrow page. They do not prescribe column coordinates, shadow extents, or the CSS used to obtain them. See [the testing scope](wall-guards.md#testing-scope).

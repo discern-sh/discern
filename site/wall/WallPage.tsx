@@ -5,7 +5,13 @@
  * identically in both places: no clock, no randomness, and nothing read from
  * the browser before an effect runs.
  */
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Card } from "./Card.tsx";
 import { WALL_DECK, WALL_LENSES } from "./deck.ts";
 import type { WallPageProps } from "./host.ts";
@@ -62,6 +68,7 @@ export function WallPage(
   { mark, version, headline, categoryLine, linkLabels }: WallPageProps,
 ): ReactElement {
   const root = useRef<HTMLDivElement>(null);
+  const focusedCard = useRef<HTMLElement | null>(null);
   const { lens, select: selectLens } = useLens(WALL_LENSES);
   const opened = useOpenCard(WALL_DECK);
   const [paused, setPaused] = useState(false);
@@ -71,9 +78,25 @@ export function WallPage(
   useLight(root);
   useStage(root);
   useEffect(() => {
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement && root.current?.contains(active) &&
+      active.matches("a.wall-card-open")
+    ) {
+      focusedCard.current = active.closest<HTMLElement>(".wall-card");
+    }
     setLive(true);
     setTuning(tuningRequested(globalThis.location.search));
   }, []);
+  useLayoutEffect(() => {
+    if (!live) return;
+    // A keyboard visitor may already be on a server link when script arrives.
+    focusedCard.current?.querySelector<HTMLButtonElement>(
+      "button.wall-card-open",
+    )
+      ?.focus({ preventScroll: true });
+    focusedCard.current = null;
+  }, [live]);
 
   const setKnob = (name: WallKnobName, value: number): void =>
     setKnobs((was) => ({ ...was, [name]: value }));
@@ -88,6 +111,7 @@ export function WallPage(
         key={`card:${card.id}`}
         card={card}
         receded={receded}
+        live={live}
         onOpen={opened.open}
       />
     ));

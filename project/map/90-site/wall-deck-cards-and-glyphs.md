@@ -45,7 +45,7 @@ The deck test holds the copy to these rules:
 
 ## Cards
 
-[`Card.tsx`](../../../site/wall/Card.tsx) renders each card as one list item, `li.wall-card`. The item carries its kind as a modifier class and its cluster hue as `--wall-hue`. Inside it, `div.wall-card-face` holds an empty box for the [pointer light](wall-pointer-light.md), the glyph on a benefit card, the heading, and the line. The heading holds the card's one button, which the stylesheet stretches over the face. A numeral card's number sits inside that button, so assistive technology reads the number once, as part of the heading.
+[`Card.tsx`](../../../site/wall/Card.tsx) renders each card as one list item, `li.wall-card`. The item carries its kind as a modifier class and its cluster hue as `--wall-hue`. Inside it, `div.wall-card-face` holds an empty box for the [pointer light](wall-pointer-light.md), the glyph on a benefit card, the heading, and the line. The heading holds a manual link before hydration, or plain text if the card has no page. Once the wall is live it holds the button that opens the dialog. Links, plain headings, and buttons share typography and box styles. A numeral card's number sits inside the control, so assistive technology reads the number once, as part of the heading. The control stretches over the face; the list item also completes a click whose release lands on it as the pressed face moves, returning focus to the button before opening.
 
 A card is lit while its button has keyboard focus or a pointer that can hover is over it. A lit card's face lifts slightly, its border takes the card's hue, and its glyph holds its pose. Under a pointer the face also leans toward it, by the `hover-tilt` knob's angle at most. `Card.tsx` writes the pointer's place inside the hovered card to `--wall-pointer-x` and `--wall-pointer-y` on the list item. It measures the card once as the pointer enters, and each move after that is arithmetic on that box until the pointer leaves.
 
@@ -53,12 +53,7 @@ Where the list is one column, a benefit card sets its glyph beside its words, wh
 
 The browser scrolls to a focused card's button, which is the heading's box alone. The button therefore carries two scroll margins. The first brings the card to rest clear of the pinned lens bar. The second is as tall as the tallest foot a card has under its heading, so the card's foot comes into view too.
 
-[`site_wall_card_test.ts`](../../../tests/site_wall_card_test.ts) holds the card's rules:
-
-- Every card in the deck renders its kind's markup, and assistive technology reads each card's words once, in reading order.
-- Hover rules apply only where a pointer can hover, so a tap leaves no card lit.
-- The wall sets sans-serif type only.
-- Print and forced colors get flat cards in system colors.
+[`site_wall_card_test.ts`](../../../tests/site_wall_card_test.ts) checks card content, accessible names, and useful server links. Browser journeys exercise navigation and the live dialog control. Appearance is reviewed directly under the [wall testing policy](wall-guards.md).
 
 ## Glyphs
 
@@ -66,7 +61,7 @@ A glyph is data: a list of primitives on a 48-unit grid, each painted in one of 
 
 Server and browser must serialize a glyph to the same markup. `Math.sin`, `Math.cos`, and `Math.sqrt` can differ in their last bit between engines. The grammar therefore computes angles and lengths with arithmetic the language defines to the last bit, and it rounds every coordinate before it leaves the module. A structural guard in the glyph test rejects anything in the glyph modules that could vary between renders.
 
-The split triangle of the discern mark is a rare accent. The glyph test counts every triangle form and permits at most one glyph in eight to draw one. The recursive triangle stays reserved, as the visual identity requires.
+The split triangle of the discern mark is a rare accent. The recursive triangle stays reserved, as the visual identity requires. Those editorial choices are reviewed with the drawings.
 
 ### The traveling primitive
 
@@ -84,10 +79,10 @@ The second drawing paints over the first, so a traveling primitive paints last w
 
 Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. [A marked card holds still](wall-opened-card.md#what-a-transition-costs), so its glyph takes the pose at once, and eases back to rest when the mark goes.
 
-The glyph test holds the two drawings in the markup.
+The renderer keeps traveling primitives separate from the still drawing.
 
 ### The set
 
 A dashed stroke gives up part of its length to gaps. The renderer marks a dashed shape with a second class, and the stylesheet draws it heavier than a whole stroke so that it reads at card size.
 
-`wall-glyph.css` paints every tone from `currentColor`, and the glyph test fails when the renderer emits a class the stylesheet does not style. The same test requires a card in the deck to draw every authored key.
+`wall-glyph.css` paints every tone from `currentColor`. The glyph test requires a card in the deck to draw every authored key.
