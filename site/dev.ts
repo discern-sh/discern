@@ -299,7 +299,7 @@ export async function localHandler(request: Request): Promise<Response> {
   return await handler(request);
 }
 
-/** Start one managed preview with a private, same-checkout replacement route. */
+/** Start an uncached local preview with a private replacement route. */
 export function startManagedSiteServer(
   port: number,
   mode: SitePreviewMode,
@@ -316,7 +316,9 @@ export function startManagedSiteServer(
   let server: Deno.HttpServer<Deno.NetAddr> | undefined;
   const managedHandler = async (request: Request): Promise<Response> => {
     if (!isSitePreviewControlRequest(request)) {
-      return await previewHandler(request);
+      const response = await previewHandler(request);
+      response.headers.set("cache-control", "no-store");
+      return response;
     }
     if (request.method === "GET") return Response.json(identity);
     if (

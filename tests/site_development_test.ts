@@ -310,7 +310,7 @@ Deno.test("an occupied site port reports the exact browser URL without a bind st
   assertEquals(reportSiteDevStartupError(new Error("other")), false);
 });
 
-Deno.test("one-shot previews replace themselves while a live watcher is reused", async () => {
+Deno.test("local previews disable caching, replace one-shot servers, and reuse a live watcher", async () => {
   const moduleUrl = toFileUrl(join(REPO, "site/dev.ts")).href;
   const script = `
     import {
@@ -328,9 +328,18 @@ Deno.test("one-shot previews replace themselves while a live watcher is reused",
     const first = startManagedSiteServer(
       port,
       "site",
-      () => new Response("first"),
+      () => new Response("first", {
+        headers: { "cache-control": "public, max-age=31536000, immutable" },
+      }),
       () => {},
     );
+    const preview = await fetch(localSiteUrl(port));
+    if (preview.headers.get("cache-control") !== "no-store") {
+      throw new Error("a local preview retained the production cache policy");
+    }
+    if (await preview.text() !== "first") {
+      throw new Error("the preview cache policy changed the response body");
+    }
     const replacement = await planSitePreviewStart(port, "site");
     if (replacement.action !== "replace") {
       throw new Error("a one-shot preview was not replaceable");
