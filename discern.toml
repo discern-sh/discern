@@ -883,7 +883,7 @@
 # not spend the budget. Consolidate a named group, then pin the reduction.
 [standards.duplicated_lines]
   direction = "down"
-  limit = 5041
+  limit = 4876
   run = "deno task duplication-census"
   inputs = [
     "*.ts",
@@ -911,7 +911,7 @@
 # Standard so the legacy tail can only shrink.
 [standards.complexity_hotspots]
   direction = "down"
-  limit = 15
+  limit = 14
   run = "deno task complexity"
   inputs = [
     "*.ts",
