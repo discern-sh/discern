@@ -1,17 +1,18 @@
 /**
- * The wall's deck holds together: every card cites a live registry entry, its
- * copy stays inside the wall's length limits, each benefit card draws a glyph
- * authored for it, every link leads to a manual page and to a heading on it,
- * no human benefit goes missing without a reason, a number that counts a
- * changing inventory equals that inventory, a duration is the one the manual
- * states, and the wall opens on its authored lead.
+ * The wall's deck holds together: every card cites a live registry entry and
+ * draws on live feature nodes that entry rests on, its copy stays inside the
+ * wall's length limits, each benefit card draws a glyph authored for it, every
+ * link leads to a manual page and to a heading on it, no human benefit goes
+ * missing without a reason, a number that counts a changing inventory equals
+ * that inventory, a duration is the one the manual states, and the wall opens
+ * on its authored lead.
  */
 import { assert, assertEquals } from "@std/assert";
-import { CLAIMS } from "../scripts/brand/claims.ts";
-import { consequencesFor } from "../scripts/brand/consequences.ts";
+import { type WallCitables, wallCitables } from "../scripts/brand/wall.ts";
 import {
-  allAgentBenefitEntries,
+  allFeatureNodes,
   allHumanBenefitEntries,
+  HUMAN_BENEFIT_CANON,
 } from "../scripts/feature_registry.ts";
 import { loadDocsSite, renderDoc } from "../site/docs.tsx";
 import { cardGlyph, cardHeading } from "../site/wall/Card.tsx";
@@ -22,11 +23,7 @@ import {
   WALL_LENSES,
 } from "../site/wall/deck.ts";
 import { GLYPHS } from "../site/wall/glyphs.ts";
-import {
-  type CardSource,
-  CLUSTER_IDS,
-  type WallCard,
-} from "../site/wall/types.ts";
+import { CLUSTER_IDS, type WallCard } from "../site/wall/types.ts";
 import {
   AGENT_NAMES,
   agentLabelForNative,
@@ -51,18 +48,15 @@ const HUMAN_BENEFIT_CLUSTERS: ReadonlyMap<string, string> = new Map(
 );
 
 /**
- * What a card may cite, by source: the ids its registry holds today. A
- * statement cites a consequence written for the person, because the wall
- * speaks to the person.
+ * What a card may cite, by source: the entries its registry holds today, each
+ * with the feature nodes it rests on.
  */
-const CITABLE: Readonly<Record<CardSource, ReadonlySet<string>>> = {
-  "human-benefit": new Set(HUMAN_BENEFIT_CLUSTERS.keys()),
-  "agent-benefit": new Set(
-    allAgentBenefitEntries().map(({ entry }) => entry.id),
-  ),
-  consequence: new Set(consequencesFor("person").map((entry) => entry.id)),
-  claim: new Set(Object.keys(CLAIMS)),
-};
+const CITABLE: WallCitables = wallCitables();
+
+/** The ids of the feature nodes the feature canon holds today. */
+const FEATURE_NODES: ReadonlySet<string> = new Set(
+  allFeatureNodes().map(({ node }) => node.id),
+);
 
 /**
  * The inventory each numeral card counts. A numeral card states a number as
@@ -191,6 +185,37 @@ function copyFaults(card: WallCard): string[] {
   return faults.map((fault) => `${card.id}: ${fault}`);
 }
 
+/**
+ * What is wrong with the feature nodes a card draws on. A card names the
+ * nodes its own words depend on, so each must be a live node, and one its
+ * cited entry rests on: a card may not promise more of the product than the
+ * entry it expresses.
+ */
+function basisFaults(
+  card: WallCard,
+  citable: WallCitables,
+  nodes: ReadonlySet<string>,
+): string[] {
+  const faults: string[] = [];
+  const restsOn = citable[card.source].get(card.cites)?.restsOn ?? [];
+  card.drawsOn.forEach((id, index) => {
+    if (card.drawsOn.indexOf(id) !== index) {
+      faults.push(`draws on "${id}" twice`);
+    } else if (!nodes.has(id)) {
+      faults.push(
+        `draws on "${id}", a node the feature canon does not hold; rewrite the card for the features that remain, or remove it`,
+      );
+    } else if (!restsOn.includes(id)) {
+      faults.push(
+        `draws on "${id}", a node its ${card.source} "${card.cites}" does not rest on; that entry rests on ${
+          restsOn.join(", ")
+        }`,
+      );
+    }
+  });
+  return faults.map((fault) => `${card.id} ${fault}`);
+}
+
 Deno.test("card ids are unique, and no registry entry is told twice", () => {
   const ids = WALL_DECK.map((card) => card.id);
   assertEquals(
@@ -236,6 +261,92 @@ Deno.test("every card cites a live entry in its source registry", () => {
   assertEquals(moved, []);
 });
 
+Deno.test("every card draws on live feature nodes its cited entry rests on", () => {
+  assertEquals(
+    WALL_DECK.flatMap((card) => basisFaults(card, CITABLE, FEATURE_NODES)),
+    [],
+    "a card draws on a feature node that is gone, or that its entry does not rest on; see site/wall/deck.ts",
+  );
+});
+
+Deno.test("control: a card's features are refused once a node or a link goes", () => {
+  const card: WallCard = {
+    kind: "statement",
+    id: "control",
+    cluster: "build-further",
+    source: "consequence",
+    cites: "held",
+    drawsOn: ["kept", "shared"],
+    text: "A sound statement.",
+  };
+  const citable: WallCitables = {
+    "human-benefit": new Map(),
+    "agent-benefit": new Map(),
+    consequence: new Map([["held", {
+      title: "Held",
+      restsOn: ["kept", "shared"],
+    }]]),
+    claim: new Map(),
+  };
+  const nodes = new Set(["kept", "shared", "elsewhere"]);
+  assertEquals(basisFaults(card, citable, nodes), []);
+  const refused: readonly (readonly [string, string[]])[] = [
+    [
+      "the feature canon drops a node",
+      basisFaults(
+        card,
+        citable,
+        new Set(["shared", "elsewhere"]),
+      ),
+    ],
+    [
+      "the cited entry stops resting on a node",
+      basisFaults(card, {
+        ...citable,
+        consequence: new Map([["held", {
+          title: "Held",
+          restsOn: ["shared"],
+        }]]),
+      }, nodes),
+    ],
+    [
+      "the card reaches past its entry",
+      basisFaults(
+        { ...card, drawsOn: ["kept", "elsewhere"] },
+        citable,
+        nodes,
+      ),
+    ],
+    [
+      "the card names a node twice",
+      basisFaults(
+        { ...card, drawsOn: ["kept", "kept"] },
+        citable,
+        nodes,
+      ),
+    ],
+    [
+      "the cited entry is gone",
+      basisFaults(
+        { ...card, cites: "gone", drawsOn: ["kept"] },
+        citable,
+        nodes,
+      ),
+    ],
+  ];
+  for (const [name, faults] of refused) {
+    assertEquals(faults.length, 1, `${name}: ${JSON.stringify(faults)}`);
+  }
+});
+
+Deno.test("the wall's clusters are the human benefit canon's clusters", () => {
+  assertEquals(
+    [...CLUSTER_IDS],
+    HUMAN_BENEFIT_CANON.map((cluster) => cluster.id),
+    "CLUSTER_IDS in site/wall/types.ts names the canon's clusters, in the canon's order",
+  );
+});
+
 Deno.test("every human benefit is on the wall or listed absent with a reason", () => {
   const shown = new Set(
     WALL_DECK.filter((card) => card.source === "human-benefit").map((card) =>
@@ -273,6 +384,7 @@ Deno.test("control: the copy limits refuse what the wall's rules rule out", () =
     cluster: "build-further",
     source: "claim",
     cites: "control",
+    drawsOn: ["control"],
     title: "A sound title",
     line: "One plain sentence that says what the reader gets.",
     more: "A first sentence. And a second.",
@@ -293,6 +405,7 @@ Deno.test("control: the copy limits refuse what the wall's rules rule out", () =
       cluster: "build-further",
       source: "claim",
       cites: "control",
+      drawsOn: ["control"],
       text: `${"word ".repeat(STATEMENT_WORD_LIMIT)}more.`,
     },
     { ...sound, kind: "numeral", numeral: "1", title: "One sound title" },

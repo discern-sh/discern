@@ -26,6 +26,11 @@ interface CardBase {
   readonly source: CardSource;
   /** The registry id or claim slug this card expresses. */
   readonly cites: string;
+  /**
+   * The feature-canon node ids this card's words depend on, chosen from the
+   * nodes its cited entry rests on. A removed node fails the deck test here.
+   */
+  readonly drawsOn: readonly [string, ...string[]];
   /** Optional second paragraph shown when the card is opened. One or two plain sentences. */
   readonly more?: string;
   /**

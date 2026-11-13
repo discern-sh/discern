@@ -60,10 +60,11 @@ import {
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 /** Cards that cover every kind, with and without the optional parts. */
-const SPARE: Pick<WallCard, "cluster" | "source" | "cites"> = {
+const SPARE: Pick<WallCard, "cluster" | "source" | "cites" | "drawsOn"> = {
   cluster: "keep-control",
   source: "claim",
   cites: "a-claim",
+  drawsOn: ["a-feature"],
 };
 const SAMPLE_CARDS: readonly WallCard[] = [
   { ...SPARE, kind: "benefit", id: "bare-benefit", title: "T", line: "L." },

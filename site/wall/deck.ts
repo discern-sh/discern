@@ -49,6 +49,7 @@ const CARDS = [
     cluster: "build-further",
     source: "human-benefit",
     cites: "shape-substantial-work",
+    drawsOn: ["skill-delegate-work"],
     title: "Hand off bigger goals",
     line: "Turn one big goal into complete briefs your agents can run with.",
     more:
@@ -61,6 +62,7 @@ const CARDS = [
     cluster: "build-further",
     source: "human-benefit",
     cites: "parallel-work-on-one-machine",
+    drawsOn: ["worktree-identity", "worktree-resources", "fleet"],
     title: "Many agents, one machine",
     line: "Run agents in parallel, each in its own copy of your project.",
     more:
@@ -73,6 +75,7 @@ const CARDS = [
     cluster: "build-further",
     source: "human-benefit",
     cites: "wait-without-relay",
+    drawsOn: ["await", "skill-await-the-fleet"],
     title: "Stop playing messenger",
     line: "Agents wait for each other's work, then carry on without a nudge.",
     more:
@@ -85,6 +88,7 @@ const CARDS = [
     cluster: "build-further",
     source: "human-benefit",
     cites: "compose-staged-work",
+    drawsOn: ["compose-below-trunk", "accept"],
     title: "Build on pending work",
     line: "Start the next task on top of work you haven't merged yet.",
     more:
@@ -98,6 +102,7 @@ const CARDS = [
     cluster: "build-further",
     source: "human-benefit",
     cites: "land-finished-work-as-the-project-moves",
+    drawsOn: ["integration-landings", "accept"],
     title: "Merge in any order",
     line:
       "Finished work still merges after other changes land, retested on the combined code.",
@@ -111,6 +116,7 @@ const CARDS = [
     cluster: "build-further",
     source: "human-benefit",
     cites: "resume-later",
+    drawsOn: ["status"],
     title: "Walk away mid-task",
     line: "Leave a task half done and resume it in a new session.",
     more:
@@ -123,6 +129,7 @@ const CARDS = [
     cluster: "build-further",
     source: "agent-benefit",
     cites: "resume-after-interruption",
+    drawsOn: ["progress"],
     title: "Don't run tests twice",
     line: "If your agent loses a long test run, it reads the result back.",
     more:
@@ -135,6 +142,7 @@ const CARDS = [
     cluster: "build-further",
     source: "consequence",
     cites: "parallel-by-default",
+    drawsOn: ["start", "worktree-identity", "worktree-resources"],
     text: "Run three tasks as easily as one.",
     more:
       "Every task gets its own copy of the project, so starting a third takes no more setup than starting the first. The work still has to split along real seams.",
@@ -146,6 +154,7 @@ const CARDS = [
     cluster: "build-further",
     source: "consequence",
     cites: "cheap-failure-buys-bold-work",
+    drawsOn: ["worktrees"],
     text: "Start the big change you keep putting off.",
     more:
       "A failed attempt stays on its own branch, away from your main one. Throw it away, or run several approaches and keep the best.",
@@ -158,6 +167,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "reduce-routine-review",
+    drawsOn: ["gate", "proof"],
     title: "Review what matters",
     line:
       "Stop checking whether the tests ran, and review what the change does.",
@@ -171,6 +181,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "judgment-at-the-change",
+    drawsOn: ["checkpoints"],
     title: "Standing review questions",
     line:
       "Write a review question once, and agents answer it on every matching change.",
@@ -184,6 +195,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "decisions-in-one-view",
+    drawsOn: ["desk", "owner-attention"],
     title: "See what needs you",
     line: "One screen shows every task and which ones are waiting on you.",
     more:
@@ -196,6 +208,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "useful-failures-sooner",
+    drawsOn: ["diagnostics", "fail-fast", "strand-detection"],
     title: "Failures you can use",
     line:
       "Every failure comes with its output and the command to reproduce it.",
@@ -209,6 +222,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "catch-related-files",
+    drawsOn: ["coupling"],
     title: "Catch the forgotten file",
     line: "Know when a change skips a file that usually goes with it.",
     more:
@@ -221,6 +235,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "run-relevant-checks",
+    drawsOn: ["scope-gates"],
     title: "No wasted checks",
     line:
       "Checks for one part of your project run only when that part changes.",
@@ -234,6 +249,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "human-benefit",
     cites: "context-for-the-task",
+    drawsOn: ["context-budget", "authored-markdown-results"],
     title: "Less noise for agents",
     line: "Results stay short, so your agent's attention goes to your code.",
     more:
@@ -246,6 +262,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "consequence",
     cites: "the-job-moves-up-a-level",
+    drawsOn: ["skill-delegate-work", "checkpoints", "instructions"],
     text: "Less checking, more deciding.",
     more:
       "Agents carry the coordination, the testing, and the record of what passed. Your time goes to briefs, design, and deciding what merges.",
@@ -257,6 +274,7 @@ const CARDS = [
     cluster: "return-human-attention",
     source: "consequence",
     cites: "review-grows-slower-than-output",
+    drawsOn: ["gate", "proof", "consent-attestations"],
     text: "More work comes back than you have to read.",
     more:
       "Routine checking happens before a change reaches you, and you can give routine approvals in advance. How deeply you review still depends on the change.",
@@ -269,6 +287,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "project-defined-completion",
+    drawsOn: ["gate", "jobs-table"],
     title: "Finished means tested",
     line:
       "Work counts as finished only when your tests, linter, and build pass.",
@@ -282,6 +301,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "evidence-for-this-change",
+    drawsOn: ["proof"],
     title: "Proof of what passed",
     line:
       "Every finished change shows which of your commands passed, and on which commit.",
@@ -295,6 +315,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "evidence-that-lasts",
+    drawsOn: ["proof-notes"],
     title: "A record that lasts",
     line: "Months later, look up what a change passed before it merged.",
     more:
@@ -307,6 +328,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "explicit-release-decision",
+    drawsOn: ["consent-attestations", "accept"],
     title: "Experiment freely",
     line: "Rapidly iterate on new features and experiments with confidence.",
     more:
@@ -319,6 +341,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "bounded-standing-permission",
+    drawsOn: ["consent-attestations"],
     title: "Pre-approve the routine",
     line:
       "Let routine changes, like docs fixes, merge without waiting for you.",
@@ -332,6 +355,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "unfinished-work-stays-isolated",
+    drawsOn: ["worktrees", "accept"],
     title: "Main stays clean",
     line:
       "An agent can try, fail, and retry without touching your main branch.",
@@ -345,6 +369,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "recover-interrupted-operations",
+    drawsOn: ["plan-apply", "crash-safe-provisioning", "interruption-safety"],
     title: "Preview before it runs",
     line: "See what discern will change before it touches your project.",
     more:
@@ -357,6 +382,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "agent-benefit",
     cites: "carry-judgment-as-judgment",
+    drawsOn: ["checkpoints"],
     title: "Tested or only claimed",
     line:
       "Every result separates what passed your tests from what your agent only judged.",
@@ -370,6 +396,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "consequence",
     cites: "ci-confirms-what-you-know",
+    drawsOn: ["gate"],
     text: "By the time CI runs, you already know.",
     more:
       "Your tests and other commands run on your machine before you share anything. CI, the checks that run after you push, then confirms a result you've already seen.",
@@ -382,6 +409,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "retain-measured-gains",
+    drawsOn: ["standards", "standards-direction"],
     title: "Gains that stick",
     line:
       "Set a limit, like minimum test coverage, that agents can't lower to pass.",
@@ -395,6 +423,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "pin-new-baseline",
+    drawsOn: ["standards-pin", "standards-margin"],
     title: "Raise the bar",
     line:
       "When test coverage improves, one command locks the gain in as the new minimum.",
@@ -408,6 +437,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "standards-that-scale",
+    drawsOn: ["standards-metric-protocol", "standards-rates"],
     title: "Limits for any metric",
     line:
       "Limit bundle size, lint warnings, or any number a command can print.",
@@ -421,6 +451,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "remove-bug-class",
+    drawsOn: ["skill-cure-a-bug"],
     title: "Fix it everywhere",
     line: "Fix a bug everywhere it lives and guard against its return.",
     more:
@@ -433,6 +464,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "retire-old-pattern",
+    drawsOn: ["skill-set-the-standard"],
     title: "Migrations that finish",
     line: "Phase out an old library and block it from creeping back.",
     more:
@@ -445,6 +477,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "keep-clutter-down",
+    drawsOn: ["skill-clear-the-decks"],
     title: "Clutter stays gone",
     line: "Clear out dead code and duplicates, and stop them piling back up.",
     more:
@@ -457,6 +490,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "catch-documentation-breakage",
+    drawsOn: ["docs-integrity"],
     title: "Dead links get caught",
     line:
       "A broken link in the docs your agents keep fails like a broken test.",
@@ -470,6 +504,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "improve-practice-from-evidence",
+    drawsOn: ["patterns", "logbook"],
     title: "See where agents struggle",
     line:
       "Find out where your agents keep getting stuck, counted from real runs.",
@@ -483,6 +518,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "consequence",
     cites: "a-project-that-only-gets-better",
+    drawsOn: ["standards", "standards-pin", "instructions"],
     text: "Your quality bar never drops without your say-so.",
     more:
       "A quality limit you set can tighten, and no change can loosen one without your approval. What the project learns is where the next session starts.",
@@ -495,6 +531,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "teach-project-once",
+    drawsOn: ["instructions", "instructions-compile"],
     title: "Teach it once",
     line: "Explain a rule once, and every agent session starts out knowing it.",
     more:
@@ -507,6 +544,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "inspect-agent-understanding",
+    drawsOn: ["map"],
     title: "What your agents know",
     line: "Read a plain account of how your agents think your project works.",
     more:
@@ -519,6 +557,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "preserve-decision-reasons",
+    drawsOn: ["adr-discipline", "skill-write-adr"],
     title: "Remember the why",
     line:
       "Keep the reasons behind big decisions where future agents will find them.",
@@ -532,6 +571,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "instructions-at-failure",
+    drawsOn: ["gotchas-pointer"],
     title: "Known fixes, delivered",
     line:
       "When an agent hits a problem you've seen before, it gets your written fix.",
@@ -545,6 +585,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "orient-new-session",
+    drawsOn: ["discovery-funnel", "forgiving-cli"],
     title: "New sessions start fast",
     line:
       "A new session searches the docs your agents keep and reads only what its task needs.",
@@ -558,6 +599,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "export-project-briefing",
+    drawsOn: ["map-browser"],
     title: "Briefings on demand",
     line: "Export what a new teammate or agent should read as one file.",
     more:
@@ -570,6 +612,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "human-benefit",
     cites: "reuse-engineering-discipline",
+    drawsOn: ["skill-write-it-once"],
     title: "One source of truth",
     line:
       "A built-in playbook has agents define each value once and test every use.",
@@ -583,6 +626,12 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "agent-benefit",
     cites: "invoke-curated-project-procedures",
+    drawsOn: [
+      "skills",
+      "skills-curation",
+      "skill-cure-a-bug",
+      "skill-delegate-work",
+    ],
     title: "Playbooks for hard jobs",
     line:
       "Agents follow step-by-step playbooks for jobs like fixing bugs and splitting work.",
@@ -596,6 +645,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "consequence",
     cites: "documentation-stops-being-owed",
+    drawsOn: ["map", "map-freshness"],
     text: "Your agents write the docs, and you read them.",
     more:
       "The agents that change your code also keep the project guide current. You read their account instead of writing it.",
@@ -607,6 +657,7 @@ const CARDS = [
     cluster: "keep-project-knowledge-working",
     source: "consequence",
     cites: "taste-becomes-infrastructure",
+    drawsOn: ["instructions", "standards", "checkpoints"],
     text: "Your taste becomes every agent's standard.",
     more:
       "Your conventions go into every agent's instructions, the numbers you care about become limits, and agents answer your review questions on matching changes. The taste stays yours: discern adds none of its own.",
@@ -619,6 +670,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "human-benefit",
     cites: "agent-commissioning",
+    drawsOn: ["setup"],
     title: "Agent-led setup",
     line: "Your coding agent installs and fine-tunes discern for your project.",
     more:
@@ -631,6 +683,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "human-benefit",
     cites: "small-installation-footprint",
+    drawsOn: ["single-binary", "install"],
     title: "Nothing to host",
     line: "Add discern with no account, server, or service to set up.",
     more:
@@ -643,6 +696,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "human-benefit",
     cites: "inspect-live-example",
+    drawsOn: ["dogfooding"],
     title: "Built with itself",
     line: "Every change to discern is made with discern itself.",
     more:
@@ -654,6 +708,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "human-benefit",
     cites: "clean-abandoned-environments",
+    drawsOn: ["drop-recovery", "worktree-prune"],
     title: "Tidy up safely",
     line:
       "Delete old tasks, and recover their committed work if you change your mind.",
@@ -667,6 +722,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "agent-benefit",
     cites: "manage-the-installation-lifecycle",
+    drawsOn: ["doctor"],
     title: "A built-in health check",
     line:
       "If discern stops working, one command finds the problem and names the fix.",
@@ -680,6 +736,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "consequence",
     cites: "try-it-where-it-matters",
+    drawsOn: ["setup", "uninstall", "ownership-buckets"],
     text: "Try it on the project that matters.",
     more:
       "Setup usually takes your agent 20 to 40 minutes. Leaving takes one command and keeps every file you wrote.",
@@ -691,6 +748,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "consequence",
     cites: "get-serious-when-it-gets-real",
+    drawsOn: ["setup"],
     text: "Add it the week your project gets real users.",
     more:
       "A first paying user or a first collaborator can arrive without warning. Setup usually takes your agent 20 to 40 minutes.",
@@ -702,6 +760,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "claim",
     cites: "one-config-file",
+    drawsOn: ["one-file-footprint"],
     numeral: "1",
     title: "Config file",
     line:
@@ -716,6 +775,7 @@ const CARDS = [
     cluster: "put-practice-in-place",
     source: "claim",
     cites: "runs-on-itself",
+    drawsOn: ["dogfooding"],
     numeral: String(OWN_QUALITY_LIMITS),
     title: "Limits it must meet",
     line:
@@ -730,6 +790,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "human-benefit",
     cites: "switch-providers",
+    drawsOn: ["providers"],
     title: "Switch agents freely",
     line:
       "Change coding agents without explaining your project all over again.",
@@ -743,6 +804,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "human-benefit",
     cites: "practice-across-stacks",
+    drawsOn: ["stack-neutral"],
     title: "Any language, any stack",
     line: "Work the same way in every project, whatever it's written in.",
     more:
@@ -755,6 +817,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "human-benefit",
     cites: "build-on-published-contracts",
+    drawsOn: ["result-envelope", "published-contracts"],
     title: "Scriptable by design",
     line: "Get any result as JSON with a published schema for your scripts.",
     more:
@@ -767,6 +830,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "human-benefit",
     cites: "planned-upgrades",
+    drawsOn: ["upgrade", "release-awareness"],
     title: "Upgrade on your schedule",
     line: "See what an upgrade will change, then update when it suits you.",
     more:
@@ -779,6 +843,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "human-benefit",
     cites: "retain-work-after-uninstall",
+    drawsOn: ["uninstall", "ownership-buckets"],
     title: "Leave without losing work",
     line:
       "Uninstall with one command and keep everything you and your agents wrote.",
@@ -792,6 +857,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "agent-benefit",
     cites: "switch-supported-agent-hosts",
+    drawsOn: ["providers"],
     title: "One task, two agents",
     line: "Start a task with one coding agent and finish it with another.",
     more:
@@ -804,6 +870,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "consequence",
     cites: "the-same-interview-for-every-agent",
+    drawsOn: ["providers", "instructions-compile"],
     text: "Every agent faces the same rules and tests.",
     more:
       "A new coding agent reads the same instructions and has to pass the same commands as the last one. Its work comes back with the same kind of record of what passed.",
@@ -815,6 +882,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "consequence",
     cites: "what-agents-learn-you-own",
+    drawsOn: ["ownership-buckets", "instructions", "skills", "map"],
     text: "What you teach your agents stays in your repository.",
     more:
       "Instructions, playbooks, the project guide, and decision records are ordinary files in your repository. Back them up, hand them over, or take them elsewhere.",
@@ -826,6 +894,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "claim",
     cites: "one-instruction-source",
+    drawsOn: ["instructions", "instructions-compile"],
     numeral: String(SUPPORTED_AGENTS.length),
     title: "Coding agents supported",
     line: `${listed(SUPPORTED_AGENTS)} all read the same instructions.`,
@@ -841,6 +910,7 @@ const CARDS = [
     cluster: "keep-control",
     source: "human-benefit",
     cites: "local-without-another-model",
+    drawsOn: ["no-model-inside"],
     title: "No API key",
     line: "No AI model inside, so there's no API key and no extra model bill.",
     more:
@@ -853,6 +923,7 @@ const CARDS = [
     cluster: "keep-control",
     source: "human-benefit",
     cites: "explicit-write-authority",
+    drawsOn: ["placement-consent", "write-preflight"],
     title: "Stays in its lane",
     line: "Every place discern can write is on a list you can read.",
     more:
@@ -865,6 +936,7 @@ const CARDS = [
     cluster: "keep-control",
     source: "agent-benefit",
     cites: "diagnose-workflow-friction-locally",
+    drawsOn: ["local-evidence", "logbook"],
     title: "No telemetry",
     line:
       "What discern records stays on your machine, and it sends no telemetry.",
@@ -878,6 +950,7 @@ const CARDS = [
     cluster: "keep-control",
     source: "consequence",
     cites: "decisions-wait-for-the-person",
+    drawsOn: ["await", "consent-attestations", "accept"],
     text: "Work keeps moving until it needs your yes.",
     more:
       "Agents keep working, and wait on each other where they need to. A change that needs your approval waits, tested and ready, until you give it.",
