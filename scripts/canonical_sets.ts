@@ -188,6 +188,91 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "wall-deck",
+    title: "Homepage wall cards",
+    what:
+      "Every card on the homepage wall: its words, the benefit, consequence, or claim it expresses, and the feature nodes it draws on, rendered into the homepage-wall page the brand-documents set owns.",
+    source: {
+      kind: "module",
+      module: "site/wall/deck.ts",
+      exportName: "WALL_DECK",
+    },
+    guards: [
+      "tests/site_wall_deck_test.ts",
+      "tests/site_wall_card_test.ts",
+      "tests/site_wall_glyph_test.ts",
+      "tests/site_prose_test.ts",
+      "tests/brand_registry_codegen_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "The wall's cards are public copy rather than product vocabulary.",
+      },
+      featureCanon: {
+        absent:
+          "Each card names the feature nodes it draws on; the wall presents the product and adds no capability.",
+      },
+    },
+    members: async () =>
+      (await import("../site/wall/deck.ts")).WALL_DECK.map((card) => card.id),
+  },
+  {
+    id: "wall-lenses",
+    title: "Homepage wall lenses",
+    what:
+      "The lenses a visitor views the wall through: each one's label and the benefit clusters it gathers, which between them cover every cluster.",
+    source: {
+      kind: "module",
+      module: "site/wall/deck.ts",
+      exportName: "WALL_LENSES",
+    },
+    guards: [
+      "tests/site_wall_deck_test.ts",
+      "tests/site_wall_interactions_test.ts",
+      "tests/site_prose_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "Lens labels are homepage copy rather than product vocabulary.",
+      },
+      featureCanon: {
+        absent:
+          "A lens groups the Human Benefit Canon's clusters for a visitor and adds no capability.",
+      },
+    },
+    members: async () =>
+      (await import("../site/wall/deck.ts")).WALL_LENSES.map((lens) => lens.id),
+  },
+  {
+    id: "wall-knobs",
+    title: "Homepage wall tuning knobs",
+    what:
+      "Every tunable value on the homepage wall: each knob's custom property, range, and shipped default, which the server writes on the wall root and the tuning panel edits in place.",
+    source: {
+      kind: "module",
+      module: "site/wall/tuning/knobs.ts",
+      exportName: "WALL_KNOBS",
+    },
+    guards: ["tests/site_wall_island_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "Knob names are website styling detail.",
+      },
+      featureCanon: {
+        absent:
+          "The knobs tune the homepage's presentation rather than product behavior.",
+      },
+    },
+    members: async () =>
+      (await import("../site/wall/tuning/knobs.ts")).WALL_KNOBS.map((knob) =>
+        knob.name
+      ),
+  },
+  {
     id: "release-records",
     title: "Release records",
     what:

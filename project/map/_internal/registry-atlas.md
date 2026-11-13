@@ -15,6 +15,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
 | [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 963     | —                | —                           |
+| [`wall-deck`](#wall-deck--homepage-wall-cards)                                                                        | `site/wall/deck.ts#WALL_DECK`                                                     | 68      | —                | —                           |
+| [`wall-lenses`](#wall-lenses--homepage-wall-lenses)                                                                   | `site/wall/deck.ts#WALL_LENSES`                                                   | 7       | —                | —                           |
+| [`wall-knobs`](#wall-knobs--homepage-wall-tuning-knobs)                                                               | `site/wall/tuning/knobs.ts#WALL_KNOBS`                                            | 18      | —                | —                           |
 | [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 4       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
@@ -152,9 +155,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 16      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 4       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 141     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 144     | —                | node `canonical-sets`       |
 
-141 sets · 204 guard tests · 76 committed artifacts.
+144 sets · 209 guard tests · 76 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -182,7 +185,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/boundary_canon_test.ts`                     | [`brand-boundaries`](#brand-boundaries--boundary-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `tests/brand_registry_codegen_test.ts`             | [`brand-documents`](#brand-documents--brand-documents), [`brand-boundaries`](#brand-boundaries--boundary-canon), [`brand-claims`](#brand-claims--brand-claims-ledger), [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `tests/brand_registry_codegen_test.ts`             | [`wall-deck`](#wall-deck--homepage-wall-cards), [`brand-documents`](#brand-documents--brand-documents), [`brand-boundaries`](#brand-boundaries--boundary-canon), [`brand-claims`](#brand-claims--brand-claims-ledger), [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/brand_vale_codegen_test.ts`                 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles), [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/browser_art_alignment_test.ts`              | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/browser_art_bifurcation_test.ts`            | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -338,10 +341,15 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/security_disclosure_test.ts`                | [`security-disclosure`](#security-disclosure--security-disclosure)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/silent_catch_lint_test.ts`                  | [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/site_design_system_runtime_test.ts`         | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `tests/site_prose_test.ts`                         | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/site_prose_test.ts`                         | [`site-marketing-pages`](#site-marketing-pages--marketing-pages), [`wall-deck`](#wall-deck--homepage-wall-cards), [`wall-lenses`](#wall-lenses--homepage-wall-lenses)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/site_routes_test.ts`                        | [`site-marketing-pages`](#site-marketing-pages--marketing-pages), [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints), [`public-site-routes`](#public-site-routes--public-site-routes)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/site_serve_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/site_wall_card_test.ts`                     | [`wall-deck`](#wall-deck--homepage-wall-cards)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/site_wall_deck_test.ts`                     | [`wall-deck`](#wall-deck--homepage-wall-cards), [`wall-lenses`](#wall-lenses--homepage-wall-lenses)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/site_wall_glyph_test.ts`                    | [`wall-deck`](#wall-deck--homepage-wall-cards)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/site_wall_interactions_test.ts`             | [`wall-lenses`](#wall-lenses--homepage-wall-lenses)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/site_wall_island_test.ts`                   | [`wall-knobs`](#wall-knobs--homepage-wall-tuning-knobs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/site_workflow_test.ts`                      | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/skill_dir_consumers_guard_test.ts`          | [`skill-dir-consumers`](#skill-dir-consumers--skills-directory-consumers)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/skill_name_parity_test.ts`                  | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -1462,6 +1470,129 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
 - Guards: `tests/site_routes_test.ts`
 - Glossary: not enrolled — The route inventory is a contributor navigation surface.
 - Feature canon: not enrolled — The inventory describes the public projections rather than a separate engine feature.
+
+## `wall-deck` — Homepage wall cards
+
+Every card on the homepage wall: its words, the benefit, consequence, or claim it expresses, and the feature nodes it draws on, rendered into the homepage-wall page the brand-documents set owns.
+
+- Source: `site/wall/deck.ts` — `WALL_DECK`
+- Members: 68
+  - `agent-commissioning`
+  - `parallel-work-on-one-machine`
+  - `project-defined-completion`
+  - `statement-cheap-failure-buys-bold-work`
+  - `teach-project-once`
+  - `explicit-release-decision`
+  - `switch-providers`
+  - `local-without-another-model`
+  - `reduce-routine-review`
+  - `retain-measured-gains`
+  - `statement-parallel-by-default`
+  - `shape-substantial-work`
+  - `clean-abandoned-environments`
+  - `evidence-that-lasts`
+  - `preserve-decision-reasons`
+  - `agent-resume-after-interruption`
+  - `numeral-one-config-file`
+  - `retain-work-after-uninstall`
+  - `pin-new-baseline`
+  - `statement-documentation-stops-being-owed`
+  - `agent-invoke-curated-project-procedures`
+  - `run-relevant-checks`
+  - `catch-documentation-breakage`
+  - `compose-staged-work`
+  - `statement-what-agents-learn-you-own`
+  - `practice-across-stacks`
+  - `unfinished-work-stays-isolated`
+  - `statement-review-grows-slower-than-output`
+  - `orient-new-session`
+  - `decisions-in-one-view`
+  - `statement-try-it-where-it-matters`
+  - `explicit-write-authority`
+  - `remove-bug-class`
+  - `inspect-live-example`
+  - `evidence-for-this-change`
+  - `statement-a-project-that-only-gets-better`
+  - `inspect-agent-understanding`
+  - `resume-later`
+  - `numeral-supported-coding-agents`
+  - `planned-upgrades`
+  - `agent-carry-judgment-as-judgment`
+  - `reuse-engineering-discipline`
+  - `catch-related-files`
+  - `statement-the-same-interview-for-every-agent`
+  - `keep-clutter-down`
+  - `wait-without-relay`
+  - `statement-the-job-moves-up-a-level`
+  - `agent-manage-the-installation-lifecycle`
+  - `bounded-standing-permission`
+  - `statement-taste-becomes-infrastructure`
+  - `instructions-at-failure`
+  - `judgment-at-the-change`
+  - `agent-switch-supported-agent-hosts`
+  - `standards-that-scale`
+  - `small-installation-footprint`
+  - `numeral-limits-on-itself`
+  - `context-for-the-task`
+  - `improve-practice-from-evidence`
+  - `statement-decisions-wait-for-the-person`
+  - `land-finished-work-as-the-project-moves`
+  - `build-on-published-contracts`
+  - `statement-ci-confirms-what-you-know`
+  - `recover-interrupted-operations`
+  - `export-project-briefing`
+  - `useful-failures-sooner`
+  - `agent-diagnose-workflow-friction-locally`
+  - `statement-get-serious-when-it-gets-real`
+  - `retire-old-pattern`
+- Guards: `tests/site_wall_deck_test.ts`, `tests/site_wall_card_test.ts`, `tests/site_wall_glyph_test.ts`, `tests/site_prose_test.ts`, `tests/brand_registry_codegen_test.ts`
+- Glossary: not enrolled — The wall's cards are public copy rather than product vocabulary.
+- Feature canon: not enrolled — Each card names the feature nodes it draws on; the wall presents the product and adds no capability.
+
+## `wall-lenses` — Homepage wall lenses
+
+The lenses a visitor views the wall through: each one's label and the benefit clusters it gathers, which between them cover every cluster.
+
+- Source: `site/wall/deck.ts` — `WALL_LENSES`
+- Members: 7
+  - `run-more-at-once`
+  - `review-less`
+  - `know-its-ready`
+  - `keep-quality-up`
+  - `stop-repeating-yourself`
+  - `safe-to-try`
+  - `fits-your-tools`
+- Guards: `tests/site_wall_deck_test.ts`, `tests/site_wall_interactions_test.ts`, `tests/site_prose_test.ts`
+- Glossary: not enrolled — Lens labels are homepage copy rather than product vocabulary.
+- Feature canon: not enrolled — A lens groups the Human Benefit Canon's clusters for a visitor and adds no capability.
+
+## `wall-knobs` — Homepage wall tuning knobs
+
+Every tunable value on the homepage wall: each knob's custom property, range, and shipped default, which the server writes on the wall root and the tuning panel edits in place.
+
+- Source: `site/wall/tuning/knobs.ts` — `WALL_KNOBS`
+- Members: 18
+  - `chroma`
+  - `light-radius`
+  - `light-strength`
+  - `light-ease`
+  - `light-fade`
+  - `hover-tilt`
+  - `drift`
+  - `far-tilt`
+  - `far-scale`
+  - `perspective`
+  - `vanish`
+  - `haze`
+  - `horizon`
+  - `glyph-weight`
+  - `glyph-tint`
+  - `gap`
+  - `radius`
+  - `grain`
+- Guards: `tests/site_wall_island_test.ts`
+- Glossary: not enrolled — Knob names are website styling detail.
+- Feature canon: not enrolled — The knobs tune the homepage's presentation rather than product behavior.
 
 ## `release-records` — Release records
 
@@ -6020,10 +6151,13 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 141
+- Members: 144
   - `site-marketing-pages`
   - `site-endpoints`
   - `public-site-routes`
+  - `wall-deck`
+  - `wall-lenses`
+  - `wall-knobs`
   - `release-records`
   - `verbs`
   - `hidden-verbs`
