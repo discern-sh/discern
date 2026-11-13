@@ -405,6 +405,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0428 — The `.gitignore` block re-includes ignored integration files](0428-the-gitignore-block-re-includes-ignored-integration-files.md)
 - [0429 — Agent-file overwrites name what they discard](0429-agent-file-overwrites-name-what-they-discard.md)
 - [0430 — The homepage ships one hydrated React island](0430-the-homepage-ships-one-hydrated-react-island.md)
+- [0431 — Wall cards name the feature nodes they draw on](0431-wall-cards-name-the-feature-nodes-they-draw-on.md)
 
 <!-- END GENERATED: current ADR records -->
 
