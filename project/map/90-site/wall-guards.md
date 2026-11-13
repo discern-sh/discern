@@ -31,3 +31,5 @@ A new assertion needs a meaningful failure it can catch. Reuse an existing journ
 [`site_wall_browser.ts`](../../../tests/site_wall_browser.ts) supplies the production handler, fault capture, representative viewports, and waits for completed interactions. [`wall_stylesheets.ts`](../../../tests/wall_stylesheets.ts) supplies the CSS parser used for contrast and reduced-motion checks.
 
 Before launch, review ordinary journeys in Safari and Firefox: visible cards, working lenses and links, card opening and closing, usable focus, and a narrow layout. Accept supported flat and reduced-motion fallbacks. Record conspicuous regressions; do not turn browser-specific paint details into permanent automated constraints.
+
+For approach changes, scroll down until the wall is flat, then back up across the start of the tilt. Repeat at a slow and an ordinary scrolling pace. The haze and horizon should return smoothly, without a flash over the cards. Check that the distant view retains both effects. This visual review guards the atmosphere's transparent fallback without adding screenshot or frame-timing assertions.

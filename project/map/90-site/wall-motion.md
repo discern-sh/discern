@@ -41,6 +41,8 @@ The approach itself is CSS. Where the browser supports scroll-driven animation, 
 
 The stage sets `data-wall-near`, which the module exports as `NEAR_ATTRIBUTE`, whenever the plane is flat and carries no transform. That holds where the stylesheet stages no approach, once the pool has left the viewport, and from the moment keyboard focus reaches the stage until the focus leaves it. The far-view rules in `wall.css` stand down under that attribute, and the light reaches card borders only under it.
 
+The haze and horizon glow default to transparent. Their shared `wall-far-only` animation supplies the visible opacity once its scroll timeline has resolved. Re-entering the far view therefore does not show either layer at full strength while the browser attaches the timeline.
+
 ### Keyboard focus and the far view
 
 A card in the far view is too small to read, and the browser cannot scroll to a card that it draws away from where the card lies. Keyboard focus on the stage therefore means a flat plane. The browser then brings a focused card into view by itself, and the stage scrolls nothing.
