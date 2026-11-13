@@ -1,10 +1,10 @@
 /**
  * Compose a social card as SVG: the site's dark canvas, the homepage's
- * approach backdrop, the brand lockup, and text set as glyph outlines. One
+ * wall motif, the brand lockup, and text set as glyph outlines. One
  * frame serves every page; each card kind arranges its own text within it.
  */
 
-import { Fragment, type ReactElement } from "react";
+import { createElement, Fragment, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DISCERN_ACCENT_HUE } from "../../src/shared/brand.ts";
 import {
@@ -12,6 +12,10 @@ import {
   DISCERN_MARK_OUTLINE_PATH,
   DISCERN_MARK_OUTLINE_STROKE,
 } from "../brand.ts";
+import { clusterHueStyle } from "../wall/clusters.ts";
+import { drawPrimitive, type GlyphShape } from "../wall/glyph_grammar.ts";
+import { glyphDrawing } from "../wall/glyphs.ts";
+import type { ClusterId } from "../wall/types.ts";
 import { SOCIAL_CARD_SIZE } from "./address.ts";
 import type {
   DocumentCard,
@@ -79,9 +83,6 @@ export const CARD_PALETTE = {
     opacity: 1,
   },
 } as const satisfies Record<string, Paint>;
-
-/** Each ring of the approach backdrop is this much larger than the one inside it. */
-export const APPROACH_RING_RATIO = 1.32;
 
 const { width: WIDTH, height: HEIGHT } = SOCIAL_CARD_SIZE;
 const MARGIN = 72;
@@ -157,63 +158,167 @@ function mark(x: number, y: number, scale: number, fill: Paint): ReactElement {
   );
 }
 
-/** Where and how strongly to draw the approach backdrop. */
-interface Approach {
-  readonly cx: number;
-  readonly cy: number;
-  readonly innermost: number;
-  readonly rings: number;
-  readonly ring: readonly [inner: number, outer: number];
-  readonly terrace: number;
+/** A still wall glyph, using the same shapes as the homepage. */
+function wallGlyph(shape: GlyphShape, index: number): ReactElement {
+  const { el, paint, dash, turn, ...geometry } = shape;
+  const outlined = paint === "outline" || paint === "faint";
+  return createElement(el, {
+    ...geometry,
+    key: index,
+    fill: outlined ? "none" : "currentColor",
+    fillOpacity: paint === "tint" ? 0.34 : 1,
+    stroke: outlined ? "currentColor" : undefined,
+    strokeOpacity: paint === "faint" ? 0.48 : 1,
+    strokeWidth: dash === undefined ? 1.75 : 2.6,
+    strokeDasharray: dash,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    transform: turn === undefined ? undefined : `rotate(${turn.join(" ")})`,
+  });
 }
 
-/** Concentric triangles stepping outward, each a faint terrace and a hairline. */
-function approach(
-  { cx, cy, innermost, rings, ring, terrace }: Approach,
-): ReactElement {
-  const paths: ReactElement[] = [];
-  for (let index = rings - 1; index >= 0; index--) {
-    const radius = innermost * APPROACH_RING_RATIO ** index;
-    const half = radius * Math.sin(Math.PI / 3);
-    const d = `M${fixed(cx)} ${fixed(cy - radius)}L${fixed(cx + half)} ${
-      fixed(cy + radius / 2)
-    }L${fixed(cx - half)} ${fixed(cy + radius / 2)}Z`;
-    const depth = index / (rings - 1);
-    const opacity = fixed((ring[0] + (ring[1] - ring[0]) * depth) * 1000) /
-      1000;
-    paths.push(
-      <path d={d} fill="#ffffff" fillOpacity={terrace} />,
-      <path
-        d={d}
-        fill="none"
-        stroke="#ffffff"
-        strokeOpacity={opacity}
-        strokeWidth={fixed(0.9 + 0.45 * depth)}
-      />,
-    );
-  }
-  return layers(paths);
+/** The cropped wall keeps its drawings to the right of the card's text. */
+const WALL_TILES = [
+  {
+    x: 750,
+    y: -56,
+    height: 188,
+    glyph: "shape-substantial-work",
+    cluster: "build-further",
+  },
+  {
+    x: 750,
+    y: 150,
+    height: 218,
+    glyph: "judgment-at-the-change",
+    cluster: "return-human-attention",
+  },
+  {
+    x: 750,
+    y: 386,
+    height: 188,
+    glyph: "evidence-that-lasts",
+    cluster: "know-what-is-ready",
+  },
+  {
+    x: 946,
+    y: 24,
+    height: 188,
+    glyph: "parallel-work-on-one-machine",
+    cluster: "build-further",
+  },
+  {
+    x: 946,
+    y: 230,
+    height: 218,
+    glyph: "evidence-for-this-change",
+    cluster: "know-what-is-ready",
+  },
+  {
+    x: 946,
+    y: 466,
+    height: 188,
+    glyph: "compose-staged-work",
+    cluster: "build-further",
+  },
+  {
+    x: 1142,
+    y: -76,
+    height: 218,
+    glyph: "decisions-in-one-view",
+    cluster: "return-human-attention",
+  },
+  {
+    x: 1142,
+    y: 160,
+    height: 188,
+    glyph: "context-for-the-task",
+    cluster: "keep-project-knowledge-working",
+  },
+  {
+    x: 1142,
+    y: 366,
+    height: 218,
+    glyph: "project-defined-completion",
+    cluster: "know-what-is-ready",
+  },
+] as const satisfies ReadonlyArray<{
+  x: number;
+  y: number;
+  height: number;
+  glyph: string;
+  cluster: ClusterId;
+}>;
+
+/** Dark card faces, colored edges, and the homepage's glyphs, faded beneath the copy. */
+function wallBackdrop(quiet = false): ReactElement {
+  return (
+    <g opacity={quiet ? 0.45 : 1}>
+      <defs>
+        <linearGradient id="wall-surface" x2="0" y2="1">
+          <stop stopColor="#ffffff" stopOpacity="0.05" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0.015" />
+        </linearGradient>
+        <linearGradient id="wall-edge" x2="0.8" y2="1">
+          <stop stopColor="#ffffff" stopOpacity="0.2" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0.035" />
+        </linearGradient>
+        <linearGradient id="wall-shade">
+          <stop offset="0.45" stopColor={CARD_PALETTE.canvas.color} />
+          <stop
+            offset="0.82"
+            stopColor={CARD_PALETTE.canvas.color}
+            stopOpacity="0.4"
+          />
+          <stop
+            offset="1"
+            stopColor={CARD_PALETTE.canvas.color}
+            stopOpacity="0"
+          />
+        </linearGradient>
+      </defs>
+      {WALL_TILES.map((tile, index) => {
+        const hue = clusterHueStyle(tile.cluster)["--wall-hue"];
+        const accent = oklchHex(0.8, 0.1, hue);
+        return (
+          <g key={index} transform={`translate(${tile.x} ${tile.y})`}>
+            <defs>
+              <radialGradient id={`wall-wash-${index}`} cx="0" cy="0" r="1">
+                <stop stopColor={accent} stopOpacity="0.12" />
+                <stop offset="1" stopColor={accent} stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <rect
+              width="178"
+              height={tile.height}
+              rx="16"
+              fill="url(#wall-surface)"
+              stroke="url(#wall-edge)"
+            />
+            <rect
+              width="178"
+              height={tile.height}
+              rx="16"
+              fill={`url(#wall-wash-${index})`}
+            />
+            <g transform="translate(24 24)" color={accent} opacity="0.62">
+              {glyphDrawing(tile.glyph).flatMap(drawPrimitive).map(wallGlyph)}
+            </g>
+            <path
+              d="M24 100H137M24 116H109"
+              fill="none"
+              stroke="#ffffff"
+              strokeOpacity="0.09"
+              strokeWidth="5"
+              strokeLinecap="round"
+            />
+          </g>
+        );
+      })}
+      <rect width={WIDTH} height={HEIGHT} fill="url(#wall-shade)" />
+    </g>
+  );
 }
-
-/** The homepage hero's backdrop, as the marketing cards show it. */
-const HERO_BACKDROP: Approach = {
-  cx: 935,
-  cy: 330,
-  innermost: 33,
-  rings: 13,
-  ring: [0.045, 0.115],
-  terrace: 0.016,
-};
-
-/** A quieter backdrop that keeps to the right of a document's text. */
-const DOCUMENT_BACKDROP: Approach = {
-  cx: 1075,
-  cy: 318,
-  innermost: 23,
-  rings: 13,
-  ring: [0.04, 0.085],
-  terrace: 0.012,
-};
 
 /** Inter at the site's headline settings. */
 function headline(size: number): TextStyle {
@@ -311,7 +416,7 @@ function address(
   return paint(line.draw(RIGHT - line.width, URL_BASELINE), CARD_PALETTE.faint);
 }
 
-/** A marketing page: the hero's headline and backdrop. */
+/** A marketing page: its headline with the wall behind it. */
 function statement(card: StatementCard, type: Typesetter): ReactElement {
   const column = new Column(type, MARGIN, 182);
   const title = type.fit(card.headline, headline, [112, 96, 84, 72], {
@@ -332,7 +437,7 @@ function statement(card: StatementCard, type: Typesetter): ReactElement {
     CARD_PALETTE.muted,
   );
   return layers([
-    approach(HERO_BACKDROP),
+    wallBackdrop(),
     lockup(type),
     ...column.parts,
     address(type, card.route, { ...URL_TEXT, size: 22 }),
@@ -453,7 +558,7 @@ export function setDocumentText(
 /** A manual page, map, or decision: serif title, its description, and its address. */
 function documentLayout(card: DocumentCard, type: Typesetter): ReactElement {
   return layers([
-    approach(DOCUMENT_BACKDROP),
+    wallBackdrop(true),
     lockup(type, card.crumb),
     ...setDocumentText(card, type).column.parts,
     address(type, card.route),
@@ -462,7 +567,7 @@ function documentLayout(card: DocumentCard, type: Typesetter): ReactElement {
 
 /** The releases page: the newest version, its codename, and its summary. */
 function releaseLayout(card: ReleaseCard, type: Typesetter): ReactElement {
-  const parts = [approach(HERO_BACKDROP), lockup(type, "/releases")];
+  const parts = [wallBackdrop(), lockup(type, "/releases")];
   if (card.date !== undefined) {
     const date = type.shape(card.date, { ...LEDE, size: 21, tracking: 0 });
     parts.push(paint(date.draw(RIGHT - date.width, 88), CARD_PALETTE.faint));

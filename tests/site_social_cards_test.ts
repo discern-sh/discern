@@ -2,14 +2,10 @@
 
 import {
   assert,
-  assertAlmostEquals,
   assertEquals,
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { ApproachBackdrop } from "discern-design-system/react";
 import { pngSize } from "../scripts/site_smoke.ts";
 import {
   DISCERN_MARK_FILLED_PATH,
@@ -25,11 +21,7 @@ import {
   socialCardPath,
   socialCardRoute,
 } from "../site/social/address.ts";
-import {
-  APPROACH_RING_RATIO,
-  drawSocialCard,
-  setDocumentText,
-} from "../site/social/draw.tsx";
+import { drawSocialCard, setDocumentText } from "../site/social/draw.tsx";
 import { type SocialCard, socialCardFor } from "../site/social/model.ts";
 import { socialCardTypesetter } from "../site/social/render.ts";
 import { MissingGlyphError } from "../site/social/typeset.ts";
@@ -97,24 +89,6 @@ Deno.test("a character no face or drawing covers fails loudly instead of drawing
     MissingGlyphError,
     "U+2603",
   );
-});
-
-Deno.test("cards use the homepage backdrop's ring ratio", () => {
-  const markup = renderToStaticMarkup(createElement(ApproachBackdrop));
-  const radii = [
-    ...markup.matchAll(
-      /class="discern-approach-backdrop__ring" d="M[\d.-]+,([\d.-]+) L[\d.-]+,([\d.-]+)/g,
-    ),
-  ].map((match) => (Number(match[2]) - Number(match[1])) * 2 / 3)
-    .sort((a, b) => a - b);
-  assert(radii.length > 2, "the backdrop renders its rings");
-  for (let index = 1; index < radii.length; index++) {
-    assertAlmostEquals(
-      (radii[index] ?? 0) / (radii[index - 1] ?? 1),
-      APPROACH_RING_RATIO,
-      0.005,
-    );
-  }
 });
 
 // The process smoke fetches one card of each kind over a real socket; this

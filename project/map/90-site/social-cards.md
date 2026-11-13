@@ -28,6 +28,8 @@ Every HTML route has its own link-preview image at `/og/<route>.png`, with `/og/
 - A document shows an eyebrow, its title, and its description. A manual page's eyebrow carries the section number and name. It adds the page's purpose when the section name does not already say it. A decision's eyebrow carries its record number, and its title drops the `ADR NNNN:` prefix.
 - The releases page shows the newest stable release with its codename, date, and summary. Before the first release, it shows the newest record instead.
 
+The backdrop is a cropped field of rounded dark cards with colored edges and glyphs from the [homepage wall](wall-deck-cards-and-glyphs.md). It fades beneath the text and is quieter on document cards. The social renderer uses the wall's glyph drawings and cluster hues directly; the image has no motion.
+
 ## How the typesetter works
 
 The typesetter reads the font files the site serves from the built composition bundle. It decompresses each one and instances each variable face at the weight a style asks for. A character the requested face lacks falls back to Inter, then JetBrains Mono. The typesetter draws ◮ from the canonical mark geometry and → as a stroked arrow. Any other character no face carries throws `MissingGlyphError`.
@@ -36,10 +38,10 @@ A document title takes the largest size at which the title and its description b
 
 ## Change the cards
 
-Edit a layout in `draw.tsx` and request the card from a local preview, for example `http://localhost:4507/og/docs/understand/proof.png`. A preview process keeps each card it has drawn, so restart the preview after an edit. Each card color names the site token it reproduces. To change a color, change the token's value in the design system.
+Edit a layout in `draw.tsx` and request the card from a local preview, for example `http://localhost:4507/og/docs/understand/proof.png`. A preview process keeps each card it has drawn, so restart the preview after an edit. The canvas and text colors name the site tokens they reproduce. The wall motif takes its accents from the wall's cluster hues.
 
 ## Guards
 
-- [`tests/site_social_cards_test.ts`](../../../tests/site_social_cards_test.ts) lays out every live route's card. It fails when a title loses words or a character has no drawing. It also checks card addresses, the served image's size, and the retired-image redirects. A backdrop check holds the card's ring ratio to the design-system package's Approach backdrop. The cards still draw that backdrop; the homepage wall does not show it.
-- [`tests/site_social_cards_browser_test.ts`](../../../tests/site_social_cards_browser_test.ts) compares every card color with the value its token computes in the site's dark theme.
+- [`tests/site_social_cards_test.ts`](../../../tests/site_social_cards_test.ts) lays out every live route's card. It fails when a title loses words or a character has no drawing. It also checks card addresses, the served image's size, and the retired-image redirects. The backdrop is reviewed from rendered examples; its decorative geometry is not a test contract.
+- [`tests/site_social_cards_browser_test.ts`](../../../tests/site_social_cards_browser_test.ts) compares the shared card palette with the values its tokens compute in the site's dark theme.
 - [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) and the [process smoke](publishing.md#verify-a-deploy) check that every page names its own card. The smoke also fetches one card of each kind.
