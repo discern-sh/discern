@@ -422,19 +422,6 @@ function onCircle(
   return [cx + r * sin, cy - r * cos];
 }
 
-/** A point after a clockwise rotation about a center. */
-function turned(
-  point: GlyphPoint,
-  degrees: number,
-  cx: number,
-  cy: number,
-): GlyphPoint {
-  const [sin, cos] = sinCos(degrees);
-  const dx = point[0] - cx;
-  const dy = point[1] - cy;
-  return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos];
-}
-
 /** A point as it is written in path data. */
 function at(point: GlyphPoint): string {
   return `${round(point[0])} ${round(point[1])}`;
@@ -742,101 +729,6 @@ export function drawPrimitive(
           ...turn,
         },
       ];
-    }
-  }
-}
-
-/** The box a primitive's geometry occupies, before its stroke adds any width. */
-export interface GlyphExtent {
-  readonly minX: number;
-  readonly minY: number;
-  readonly maxX: number;
-  readonly maxY: number;
-}
-
-/** The smallest box around a set of points. */
-function around(points: readonly GlyphPoint[]): GlyphExtent {
-  const xs = points.map((point) => point[0]);
-  const ys = points.map((point) => point[1]);
-  return {
-    minX: Math.min(...xs),
-    minY: Math.min(...ys),
-    maxX: Math.max(...xs),
-    maxY: Math.max(...ys),
-  };
-}
-
-/** The points that bound an arc: its two ends and each quarter point it passes. */
-function arcBounds(
-  cx: number,
-  cy: number,
-  r: number,
-  from: number,
-  sweep: number,
-): GlyphPoint[] {
-  const low = Math.min(from, from + sweep);
-  const high = Math.max(from, from + sweep);
-  const points = [onCircle(cx, cy, r, low), onCircle(cx, cy, r, high)];
-  for (
-    let quarter = Math.ceil(low / 90) * 90;
-    quarter <= high;
-    quarter += 90
-  ) {
-    points.push(onCircle(cx, cy, r, quarter));
-  }
-  return points;
-}
-
-/** The four corners of a bar or frame after its turn. */
-function rectCorners(
-  primitive: BarPrimitive | FramePrimitive,
-): GlyphPoint[] {
-  const { x, y, w, h, turn } = primitive;
-  const [cx, cy] = center(primitive);
-  const corners: GlyphPoint[] = [[x, y], [x + w, y], [x + w, y + h], [
-    x,
-    y + h,
-  ]];
-  return corners.map((corner) => turned(corner, turn, cx, cy));
-}
-
-/** The box one primitive's geometry occupies on the grid. */
-export function primitiveExtent(primitive: GlyphPrimitive): GlyphExtent {
-  switch (primitive.kind) {
-    case "dot":
-    case "ring": {
-      const { cx, cy, r } = primitive;
-      return { minX: cx - r, minY: cy - r, maxX: cx + r, maxY: cy + r };
-    }
-    case "bar":
-    case "frame":
-      return around(rectCorners(primitive));
-    case "trail":
-    case "poly":
-      return around(primitive.points);
-    case "arc": {
-      const { cx, cy, r, from, sweep } = primitive;
-      return around(arcBounds(cx, cy, r, from, sweep));
-    }
-    case "band": {
-      const { cx, cy, r, width, from, sweep } = primitive;
-      const core = around(arcBounds(cx, cy, r, from, sweep));
-      return {
-        minX: core.minX - width / 2,
-        minY: core.minY - width / 2,
-        maxX: core.maxX + width / 2,
-        maxY: core.maxY + width / 2,
-      };
-    }
-    case "sector": {
-      const { cx, cy, r, from, sweep } = primitive;
-      return around([[cx, cy], ...arcBounds(cx, cy, r, from, sweep)]);
-    }
-    case "split": {
-      const { cx, cy, turn } = primitive;
-      return around(
-        splitCorners(primitive).map((corner) => turned(corner, turn, cx, cy)),
-      );
     }
   }
 }
