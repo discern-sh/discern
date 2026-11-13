@@ -276,7 +276,7 @@ Cards appear under their cluster, in the order the wall shows them.
 - **Opened:** Name the areas you approve in advance, such as documentation. A change that touches any file outside them still comes to you.
 - **Link:** `/docs/guides/finish-and-land-a-change#pre-approve-routine-work`
 - **Expresses:** Human benefit · [Pre-approve routine changes within clear boundaries](../feature-canon-human-benefits.md#pre-approve-routine-changes-within-clear-boundaries)
-- **Draws on:** Landing authority is proved per invocation (`consent-attestations`)
+- **Draws on:** Landing authority is proved per invocation (`consent-attestations`) · Scopes (`scope-gates`)
 
 #### By the time CI runs, you already know.
 
@@ -350,7 +350,7 @@ Cards appear under their cluster, in the order the wall shows them.
 - **Opened:** A cleanup playbook removes only what's proven safe to delete. A limit on what's left stops the count from rising again.
 - **Link:** `/docs/guides/create-and-manage-skills`
 - **Expresses:** Human benefit · [Keep maintenance clutter from growing back](../feature-canon-human-benefits.md#keep-maintenance-clutter-from-growing-back)
-- **Draws on:** Clear the decks (`skill-clear-the-decks`)
+- **Draws on:** Clear the decks (`skill-clear-the-decks`) · Standards (`standards`)
 
 #### Limits for any metric
 
@@ -377,7 +377,7 @@ Cards appear under their cluster, in the order the wall shows them.
 - **Opened:** The count of remaining uses can only fall. Once it reaches zero, a new use stops a change from passing.
 - **Link:** `/docs/understand/standards`
 - **Expresses:** Human benefit · [Retire an old pattern across the codebase](../feature-canon-human-benefits.md#retire-an-old-pattern-across-the-codebase)
-- **Draws on:** Set the standard (`skill-set-the-standard`)
+- **Draws on:** Set the standard (`skill-set-the-standard`) · Standards (`standards`)
 
 ### Keep project knowledge available
 
@@ -563,7 +563,7 @@ Cards appear under their cluster, in the order the wall shows them.
 - **Opened:** Your instructions, quality limits, and project guide belong to the project. Connect another supported agent and discern writes the files it reads from the same sources.
 - **Link:** `/docs/guides/connect-a-coding-agent`
 - **Expresses:** Human benefit · [Switch coding agents without re-teaching the project](../feature-canon-human-benefits.md#switch-coding-agents-without-re-teaching-the-project)
-- **Draws on:** Agent providers (`providers`)
+- **Draws on:** Agent providers (`providers`) · Author once, compile everywhere (`instructions-compile`)
 
 #### Leave without losing work
 
@@ -685,13 +685,13 @@ Each feature node a card draws on, in the feature canon's order, with the cards 
 | Fail-fast cancellation (`fail-fast`)                                | Failures you can use                                                                                                                                                                                                              |
 | Strand detection (`strand-detection`)                               | Failures you can use                                                                                                                                                                                                              |
 | Git write authority proven first (`write-preflight`)                | Stays in its lane                                                                                                                                                                                                                 |
-| Scopes (`scope-gates`)                                              | No wasted checks                                                                                                                                                                                                                  |
+| Scopes (`scope-gates`)                                              | No wasted checks · Pre-approve the routine                                                                                                                                                                                        |
 | Normalized diagnostics (`diagnostics`)                              | Failures you can use                                                                                                                                                                                                              |
 | The gotchas pointer (`gotchas-pointer`)                             | Known fixes, delivered                                                                                                                                                                                                            |
 | Proof (`proof`)                                                     | Review what matters · More work comes back than you have to read. · Proof of what passed                                                                                                                                          |
 | Durable proof notes (`proof-notes`)                                 | A record that lasts                                                                                                                                                                                                               |
 | Checkpoints (`checkpoints`)                                         | Tested or only claimed · Less checking, more deciding. · Your taste becomes every agent's standard. · Standing review questions                                                                                                   |
-| Standards (`standards`)                                             | Gains that stick · Your quality bar never drops without your say-so. · Your taste becomes every agent's standard.                                                                                                                 |
+| Standards (`standards`)                                             | Gains that stick · Your quality bar never drops without your say-so. · Clutter stays gone · Your taste becomes every agent's standard. · Migrations that finish                                                                   |
 | Floors and ceilings (`standards-direction`)                         | Gains that stick                                                                                                                                                                                                                  |
 | One-line metric protocol (`standards-metric-protocol`)              | Limits for any metric                                                                                                                                                                                                             |
 | Rates, not raw counts (`standards-rates`)                           | Limits for any metric                                                                                                                                                                                                             |
@@ -712,7 +712,7 @@ Each feature node a card draws on, in the feature canon's order, with the cards 
 | Progress and reconnect (`progress`)                                 | Don't run tests twice                                                                                                                                                                                                             |
 | The desk (`desk`)                                                   | See what needs you                                                                                                                                                                                                                |
 | Agent instructions (`instructions`)                                 | Teach it once · What you teach your agents stays in your repository. · Your quality bar never drops without your say-so. · 5 Coding agents supported · Less checking, more deciding. · Your taste becomes every agent's standard. |
-| Author once, compile everywhere (`instructions-compile`)            | Teach it once · 5 Coding agents supported · Every agent faces the same rules and tests.                                                                                                                                           |
+| Author once, compile everywhere (`instructions-compile`)            | Teach it once · Switch agents freely · 5 Coding agents supported · Every agent faces the same rules and tests.                                                                                                                    |
 | Agent providers (`providers`)                                       | Switch agents freely · 5 Coding agents supported · Every agent faces the same rules and tests. · One task, two agents                                                                                                             |
 | Skills (`skills`)                                                   | Playbooks for hard jobs · What you teach your agents stays in your repository.                                                                                                                                                    |
 | A curated bundled set (`skills-curation`)                           | Playbooks for hard jobs                                                                                                                                                                                                           |

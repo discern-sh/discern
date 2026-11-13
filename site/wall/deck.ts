@@ -341,7 +341,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "bounded-standing-permission",
-    drawsOn: ["consent-attestations"],
+    drawsOn: ["consent-attestations", "scope-gates"],
     title: "Pre-approve the routine",
     line:
       "Let routine changes, like docs fixes, merge without waiting for you.",
@@ -464,7 +464,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "retire-old-pattern",
-    drawsOn: ["skill-set-the-standard"],
+    drawsOn: ["skill-set-the-standard", "standards"],
     title: "Migrations that finish",
     line: "Phase out an old library and block it from creeping back.",
     more:
@@ -477,7 +477,7 @@ const CARDS = [
     cluster: "make-improvement-accumulate",
     source: "human-benefit",
     cites: "keep-clutter-down",
-    drawsOn: ["skill-clear-the-decks"],
+    drawsOn: ["skill-clear-the-decks", "standards"],
     title: "Clutter stays gone",
     line: "Clear out dead code and duplicates, and stop them piling back up.",
     more:
@@ -790,7 +790,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "human-benefit",
     cites: "switch-providers",
-    drawsOn: ["providers"],
+    drawsOn: ["providers", "instructions-compile"],
     title: "Switch agents freely",
     line:
       "Change coding agents without explaining your project all over again.",

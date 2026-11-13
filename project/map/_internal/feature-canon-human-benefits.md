@@ -164,7 +164,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** A person can pre-authorize a tightly defined scope, such as documentation, and route everything outside that scope for fresh review. Repeated low-risk approvals disappear while permission remains bounded by the files that changed.
 - **Mechanism:** The acceptance policy records allowed scopes on the trunk, the Desk can record one effort's grant, and every acceptance recalculates coverage from the final changed paths.
-- **Product basis:** Landing authority is proved per invocation · The desk.
+- **Product basis:** Landing authority is proved per invocation · Scopes · The desk.
 
 ### Keep unfinished work away from the shared branch
 
@@ -213,13 +213,13 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** A migration gains a measurable finish line, the remaining count can only fall, and new uses are blocked once the count reaches zero. The old way stops reappearing behind the work already completed.
 - **Mechanism:** The Set the Standard Skill pairs a repository-wide detector with a falling ceiling, then replaces the temporary ceiling with a permanent zero rule.
-- **Product basis:** Set the standard.
+- **Product basis:** Set the standard · Standards.
 
 ### Keep maintenance clutter from growing back
 
 - **Value:** Cleanup can reduce duplicated helpers, dead code, stale scaffolding, and format churn while a measured ceiling prevents the remaining count from rising. The codebase does not have to repeat the same cleanup campaign every few months.
 - **Mechanism:** The Clear the Decks Skill requires proven-safe cleanup commits and a Standard over what remains; `discern tidy` gives discern-owned prose and configuration one convergent format.
-- **Product basis:** Clear the decks · Canonical formatting for discern surfaces.
+- **Product basis:** Clear the decks · Standards · Canonical formatting for discern surfaces.
 
 ### Catch broken project documentation before it lands
 
@@ -324,7 +324,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** A provider change does not require the project explanation, working methods, and quality conditions to be rebuilt from scratch. The accumulated investment remains useful when preferences, model quality, quotas, or subscriptions change.
 - **Mechanism:** Agent instructions, Skills, Map, Gate, Standards, and worktree practice remain project-owned, while the provider registry generates each configured agent's instruction file, Skill materialization, hooks, and MCP wiring.
-- **Product basis:** Agent providers · Claude Code · Codex · Gemini · Cursor · GitHub Copilot · Materialization · The Model Context Protocol (MCP) server.
+- **Product basis:** Agent providers · Claude Code · Codex · Gemini · Cursor · GitHub Copilot · Author once, compile everywhere · Materialization · The Model Context Protocol (MCP) server.
 
 ### Use the same working practice across different stacks
 

@@ -3088,7 +3088,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "A person can pre-authorize a tightly defined scope, such as documentation, and route everything outside that scope for fresh review. Repeated low-risk approvals disappear while permission remains bounded by the files that changed.",
         whyItFollows:
           "The acceptance policy records allowed scopes on the trunk, the Desk can record one effort's grant, and every acceptance recalculates coverage from the final changed paths.",
-        drawsOn: ["consent-attestations", "desk"],
+        drawsOn: ["consent-attestations", "scope-gates", "desk"],
       },
       {
         id: "unfinished-work-stays-isolated",
@@ -3176,7 +3176,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "A migration gains a measurable finish line, the remaining count can only fall, and new uses are blocked once the count reaches zero. The old way stops reappearing behind the work already completed.",
         whyItFollows:
           "The Set the Standard Skill pairs a repository-wide detector with a falling ceiling, then replaces the temporary ceiling with a permanent zero rule.",
-        drawsOn: ["skill-set-the-standard"],
+        drawsOn: ["skill-set-the-standard", "standards"],
       },
       {
         id: "keep-clutter-down",
@@ -3185,7 +3185,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "Cleanup can reduce duplicated helpers, dead code, stale scaffolding, and format churn while a measured ceiling prevents the remaining count from rising. The codebase does not have to repeat the same cleanup campaign every few months.",
         whyItFollows:
           "The Clear the Decks Skill requires proven-safe cleanup commits and a Standard over what remains; `discern tidy` gives discern-owned prose and configuration one convergent format.",
-        drawsOn: ["skill-clear-the-decks", "tidy"],
+        drawsOn: ["skill-clear-the-decks", "standards", "tidy"],
       },
       {
         id: "catch-documentation-breakage",
@@ -3397,6 +3397,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "provider-gemini",
           "provider-cursor",
           "provider-copilot",
+          "instructions-compile",
           "skills-materialization",
           "mcp-surface",
         ],
