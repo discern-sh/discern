@@ -3077,8 +3077,8 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared. They can leave it unlanded, or revoke a grant they recorded, without discarding valid evidence.",
         whyItFollows:
-          "`discern accept` checks conversational consent or a recorded grant against the actual landing diff, including a combined result. An explicitly selected queue walk checks each later submission's own authority; consent for the selected work never spreads to the rest.",
-        drawsOn: ["consent-attestations", "accept"],
+          "Each task's work stays on its own branch in an isolated worktree until it lands, so a change left unlanded touches nothing shared. `discern accept` checks conversational consent or a recorded grant against the actual landing diff, including a combined result. An explicitly selected queue walk checks each later submission's own authority; consent for the selected work never spreads to the rest.",
+        drawsOn: ["worktrees", "consent-attestations", "accept"],
         claims: ["gate-grants-no-authority"],
       },
       {
@@ -3242,6 +3242,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         drawsOn: [
           "instructions",
           "instructions-compile",
+          "providers",
           "instructions-conditionals",
           "skills",
           "skill-teach-the-project",

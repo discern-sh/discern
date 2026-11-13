@@ -157,8 +157,8 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Keep the final say over what ships
 
 - **Value:** Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared. They can leave it unlanded, or revoke a grant they recorded, without discarding valid evidence.
-- **Mechanism:** `discern accept` checks conversational consent or a recorded grant against the actual landing diff, including a combined result. An explicitly selected queue walk checks each later submission's own authority; consent for the selected work never spreads to the rest.
-- **Product basis:** Landing authority is proved per invocation · Accept.
+- **Mechanism:** Each task's work stays on its own branch in an isolated worktree until it lands, so a change left unlanded touches nothing shared. `discern accept` checks conversational consent or a recorded grant against the actual landing diff, including a combined result. An explicitly selected queue walk checks each later submission's own authority; consent for the selected work never spreads to the rest.
+- **Product basis:** Isolated worktrees · Landing authority is proved per invocation · Accept.
 
 ### Pre-approve routine changes within clear boundaries
 
@@ -244,7 +244,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** A lesson captured after one task can guide later sessions and every configured agent provider. Repeated explanation becomes a reusable project asset instead of a recurring cost paid in prompts and corrections.
 - **Mechanism:** One authored instruction source compiles into every provider's instruction file, reusable Skills carry procedures, conditional instructions keep the result project-specific, and the Teach the Project Skill routes each lesson into its smallest durable home.
-- **Product basis:** Agent instructions · Author once, compile everywhere · Config-aware instructions · Skills · Teach the project.
+- **Product basis:** Agent instructions · Author once, compile everywhere · Agent providers · Config-aware instructions · Skills · Teach the project.
 
 ### See what agents understand about the project
 

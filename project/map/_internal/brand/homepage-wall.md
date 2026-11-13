@@ -231,7 +231,7 @@ Cards appear under their cluster, in the order the wall shows them.
 - **Opened:** Each experiment runs on its own branch and merges only with your approval. Keep what passes your tests and throw the rest away.
 - **Link:** `/docs/guides/finish-and-land-a-change`
 - **Expresses:** Human benefit · [Keep the final say over what ships](../feature-canon-human-benefits.md#keep-the-final-say-over-what-ships)
-- **Draws on:** Landing authority is proved per invocation (`consent-attestations`) · Accept (`accept`)
+- **Draws on:** Isolated worktrees (`worktrees`) · Landing authority is proved per invocation (`consent-attestations`) · Accept (`accept`)
 
 #### A record that lasts
 
@@ -598,7 +598,7 @@ Cards appear under their cluster, in the order the wall shows them.
 - **Opened:** Gemini and GitHub Copilot here mean their command-line tools. Use one agent or several, and each reads the same project instructions in the file it expects.
 - **Link:** `/docs/reference/platforms-and-providers`
 - **Expresses:** Claim · [`one-instruction-source`](claims-and-evidence.md#one-instruction-source--every-configured-provider-receives-the-same-project-instructions)
-- **Draws on:** Agent instructions (`instructions`) · Author once, compile everywhere (`instructions-compile`)
+- **Draws on:** Agent providers (`providers`) · Agent instructions (`instructions`) · Author once, compile everywhere (`instructions-compile`)
 
 #### Upgrade on your schedule
 
@@ -697,7 +697,7 @@ Each feature node a card draws on, in the feature canon's order, with the cards 
 | Rates, not raw counts (`standards-rates`)                           | Limits for any metric                                                                                                                                                                                                             |
 | Pin headroom (`standards-margin`)                                   | Raise the bar                                                                                                                                                                                                                     |
 | Capturing a gain (`standards-pin`)                                  | Raise the bar · Your quality bar never drops without your say-so.                                                                                                                                                                 |
-| Isolated worktrees (`worktrees`)                                    | Start the big change you keep putting off. · Main stays clean                                                                                                                                                                     |
+| Isolated worktrees (`worktrees`)                                    | Start the big change you keep putting off. · Experiment freely · Main stays clean                                                                                                                                                 |
 | Start (`start`)                                                     | Run three tasks as easily as one.                                                                                                                                                                                                 |
 | Accept (`accept`)                                                   | Experiment freely · Build on pending work · Main stays clean · Work keeps moving until it needs your yes. · Merge in any order                                                                                                    |
 | Integration worktrees (`integration-landings`)                      | Merge in any order                                                                                                                                                                                                                |
@@ -713,7 +713,7 @@ Each feature node a card draws on, in the feature canon's order, with the cards 
 | The desk (`desk`)                                                   | See what needs you                                                                                                                                                                                                                |
 | Agent instructions (`instructions`)                                 | Teach it once · What you teach your agents stays in your repository. · Your quality bar never drops without your say-so. · 5 Coding agents supported · Less checking, more deciding. · Your taste becomes every agent's standard. |
 | Author once, compile everywhere (`instructions-compile`)            | Teach it once · 5 Coding agents supported · Every agent faces the same rules and tests.                                                                                                                                           |
-| Agent providers (`providers`)                                       | Switch agents freely · Every agent faces the same rules and tests. · One task, two agents                                                                                                                                         |
+| Agent providers (`providers`)                                       | Switch agents freely · 5 Coding agents supported · Every agent faces the same rules and tests. · One task, two agents                                                                                                             |
 | Skills (`skills`)                                                   | Playbooks for hard jobs · What you teach your agents stays in your repository.                                                                                                                                                    |
 | A curated bundled set (`skills-curation`)                           | Playbooks for hard jobs                                                                                                                                                                                                           |
 | Cure a bug (`skill-cure-a-bug`)                                     | Playbooks for hard jobs · Fix it everywhere                                                                                                                                                                                       |

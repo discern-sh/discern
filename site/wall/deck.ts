@@ -328,7 +328,7 @@ const CARDS = [
     cluster: "know-what-is-ready",
     source: "human-benefit",
     cites: "explicit-release-decision",
-    drawsOn: ["consent-attestations", "accept"],
+    drawsOn: ["worktrees", "consent-attestations", "accept"],
     title: "Experiment freely",
     line: "Rapidly iterate on new features and experiments with confidence.",
     more:
@@ -894,7 +894,7 @@ const CARDS = [
     cluster: "change-tools-without-starting-over",
     source: "claim",
     cites: "one-instruction-source",
-    drawsOn: ["instructions", "instructions-compile"],
+    drawsOn: ["providers", "instructions", "instructions-compile"],
     numeral: String(SUPPORTED_AGENTS.length),
     title: "Coding agents supported",
     line: `${listed(SUPPORTED_AGENTS)} all read the same instructions.`,
