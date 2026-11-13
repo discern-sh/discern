@@ -61,7 +61,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`provider-trust-action-kinds`](#provider-trust-action-kinds--provider-trust-action-kinds)                            | `src/shared/provider_trust.ts#TRUST_ACTION_KINDS`                                 | 5       | —                | node `providers`            |
 | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 12      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
-| [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 19      | —                | —                           |
+| [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 20      | —                | —                           |
 | [`brand-boundaries`](#brand-boundaries--boundary-canon)                                                               | `scripts/brand/boundaries.ts#BOUNDARIES`                                          | 102     | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
 | [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                        | `scripts/brand/voice.ts#BRAND_FOUNDATION_READING_STEPS`                           | 6       | —                | —                           |
@@ -154,7 +154,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 4       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 141     | —                | node `canonical-sets`       |
 
-141 sets · 204 guard tests · 75 committed artifacts.
+141 sets · 204 guard tests · 76 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -406,6 +406,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/map/_internal/brand/consequence-canon.md`         | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                                         |
 | `project/map/_internal/brand/copy-patterns.md`             | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                                         |
 | `project/map/_internal/brand/demand-canon.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                                         |
+| `project/map/_internal/brand/homepage-wall.md`             | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                                         |
 | `project/map/_internal/brand/messaging.md`                 | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                                         |
 | `project/map/_internal/brand/positioning.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                                         |
 | `project/map/_internal/brand/readiness-canon.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                                         |
@@ -2563,7 +2564,7 @@ The integration seams discern wires for each coding agent. The operational-inter
 The Brand Operating System's document map: every brand document as one typed row, where generated pages compile from the registry through the codegen chokepoint and authored overlay documents stay declared path-and-job rows without content.
 
 - Source: `scripts/brand_registry.ts` — `BRAND_DOCUMENTS`
-- Members: 19
+- Members: 20
   - `readme`
   - `positioning`
   - `audiences`
@@ -2579,12 +2580,13 @@ The Brand Operating System's document map: every brand document as one typed row
   - `voice-product`
   - `voice-agent`
   - `copy-patterns`
+  - `homepage-wall`
   - `website-brief`
   - `launch-narrative`
   - `claims-residue`
   - `decisions`
 - Guards: `tests/brand_registry_codegen_test.ts`
-- Artifacts: `project/map/_internal/brand/README.md`, `project/map/_internal/brand/boundary-canon.md`, `project/map/_internal/brand/claims-and-evidence.md`, `project/map/_internal/brand/consequence-canon.md`, `project/map/_internal/brand/copy-patterns.md`, `project/map/_internal/brand/demand-canon.md`, `project/map/_internal/brand/readiness-canon.md`, `project/map/_internal/brand/messaging.md`, `project/map/_internal/brand/positioning.md`, `project/map/_internal/brand/register-bridge.md`, `project/map/_internal/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
+- Artifacts: `project/map/_internal/brand/README.md`, `project/map/_internal/brand/boundary-canon.md`, `project/map/_internal/brand/claims-and-evidence.md`, `project/map/_internal/brand/consequence-canon.md`, `project/map/_internal/brand/copy-patterns.md`, `project/map/_internal/brand/demand-canon.md`, `project/map/_internal/brand/homepage-wall.md`, `project/map/_internal/brand/readiness-canon.md`, `project/map/_internal/brand/messaging.md`, `project/map/_internal/brand/positioning.md`, `project/map/_internal/brand/register-bridge.md`, `project/map/_internal/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
 - Glossary: not enrolled — the internal brand canon defines this strategy vocabulary
 - Feature canon: not enrolled — public copy applies this internal strategy to the product nodes it describes
 

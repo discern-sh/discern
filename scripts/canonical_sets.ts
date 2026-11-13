@@ -1542,6 +1542,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: true,
       },
       {
+        path: "project/map/_internal/brand/homepage-wall.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: "project/map/_internal/brand/readiness-canon.md",
         kind: "generated-file",
         banner: true,

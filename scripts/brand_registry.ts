@@ -42,6 +42,7 @@ import { renderCopyPatternsDoc } from "./brand/patterns.ts";
 import { renderPositioningDoc } from "./brand/docs/positioning.ts";
 import { renderReadmeDoc } from "./brand/docs/readme.ts";
 import { renderVisualIdentityDoc } from "./brand/docs/visual_identity.ts";
+import { renderHomepageWallDoc } from "./brand/docs/wall.ts";
 
 /** The banner every generated brand page carries as its first line. */
 const BANNER = generatedBrandBanner(
@@ -166,6 +167,14 @@ export const BRAND_DOCUMENTS = [
     job:
       "Reusable structures for pages, sections, proof blocks, audience explanations, and CTAs.",
     mode: { kind: "generated", render: renderCopyPatternsDoc },
+  },
+  {
+    id: "homepage-wall",
+    file: "homepage-wall.md",
+    status: "Operational",
+    job:
+      "Shows the homepage wall as published: each card's words beside the benefit, consequence, or claim it expresses and the features it draws on, with a feature-to-card index.",
+    mode: { kind: "generated", render: renderHomepageWallDoc },
   },
   {
     id: "website-brief",

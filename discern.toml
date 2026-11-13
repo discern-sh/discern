@@ -453,6 +453,7 @@
     "${map.dir}_internal/brand/readiness-canon.md",
     "${map.dir}_internal/brand/copy-patterns.md",
     "${map.dir}_internal/brand/demand-canon.md",
+    "${map.dir}_internal/brand/homepage-wall.md",
     "${map.dir}_internal/brand/messaging.md",
     "${map.dir}_internal/brand/positioning.md",
     "${map.dir}_internal/brand/register-bridge.md",
