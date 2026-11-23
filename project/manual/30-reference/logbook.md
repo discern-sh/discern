@@ -251,52 +251,52 @@ An invocation's `surface` is `cli` or `mcp`. Its `outcome` is `ok`, `failed`, `p
 | `prune`         | A digest of each month file that rotation removed.                                                                                                                                                                       |
 | `completion`    | One observation from a validation run, with durable identities: Proof recorded, a validation summary, a command started or finished, a producer run or reused, evidence invalidated, or a timed interval. Advisory only. |
 
-| Field           | What it holds                                                                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema`        | `1`                                                                                                                                                        |
-| `at`            | An ISO 8601 UTC timestamp.                                                                                                                                 |
-| `kind`          | `"begin"`, `"verb"`, or a rarer event kind.                                                                                                                |
-| `invocation`    | The opaque id that joins a start and its completion.                                                                                                       |
-| `writer`        | The discern version that wrote the line, such as `"1.0.0"`.                                                                                                |
-| `verb`          | The command, such as `"done"`.                                                                                                                             |
-| `surface`       | `"cli"` or `"mcp"`.                                                                                                                                        |
-| `driver`        | Session, mode, CI, the spawning invocation, and possible agent signals.                                                                                    |
-| `branch`        | The branch, such as `"agent/recipe-search-0a7563"`.                                                                                                        |
-| `head`          | The short commit hash when the command started.                                                                                                            |
-| `clean`         | Whether the working tree was clean.                                                                                                                        |
-| `tree`          | A checksum of the uncommitted diff.                                                                                                                        |
-| `outcome`       | `"ok"`, `"failed"`, `"partial"`, or `"refused"`.                                                                                                           |
-| `error`         | The result's stable error slug, whenever the result carries one.                                                                                           |
-| `failed_stage`  | The gate stage that went red.                                                                                                                              |
-| `crash`         | An error class name and one code location.                                                                                                                 |
-| `lock_boundary` | `"none"`, `"phased"`, `"checkout"`, `"lifecycle"`, `"lifecycle-and-checkout"`, `"common"`, `"common-and-checkout"`, or `"acceptance-and-checkout"`         |
-| `dry_run`       | Whether the command was a read-only preview.                                                                                                               |
-| `has_operands`  | Whether a command group that also acts received the operand that selects its effect.                                                                       |
-| `duration_ms`   | End-to-end wall-clock milliseconds.                                                                                                                        |
-| `waited_ms`     | Milliseconds spent waiting for a test-run slot, on capped runs.                                                                                            |
-| `engine_timing` | discern's own share of the run: how many Git processes it ran and for how long, and when each step and each of your commands started and how long it took. |
-| `gate_ran`      | Whether this `done` ran gate work.                                                                                                                         |
-| `target`        | The page served, a miss, the new branch, or the queued command.                                                                                            |
-| `from`          | The ref a `start` branched from.                                                                                                                           |
-| `update`        | What an `update` merged in.                                                                                                                                |
-| `flags`         | Flag names without values, such as `["force"]`, including `rerun` when requested.                                                                          |
-| `change`        | Files, insertions, deletions, and commits compared with the trunk.                                                                                         |
-| `scopes`        | The configured scopes the change touched.                                                                                                                  |
-| `steps`         | Each step's label, stage, outcome, and timing.                                                                                                             |
-| `validation`    | Versioned evidence about the start and execution of validation.                                                                                            |
-| `merges`        | Versioned observations of merges.                                                                                                                          |
-| `diagnostics`   | Tool, rule id, and at most a file path.                                                                                                                    |
-| `hint_ids`      | Stable ids of the advice delivered with the result.                                                                                                        |
-| `tip_ids`       | Stable ids of the desk tips shown during the run.                                                                                                          |
-| `standards`     | Each standard's measurement, limit, margin, and the gate's pin decision.                                                                                   |
-| `consent`       | The consent source and matched scopes, on accept.                                                                                                          |
-| `landing`       | Recovery, trunk, worktree, and branch effects.                                                                                                             |
-| `checkpoints`   | Checkpoint servings, declarations, variances, and abandoned open questions.                                                                                |
-| `epoch`         | A fingerprint of your configuration.                                                                                                                       |
+| Field           | What it holds                                                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`        | `1`                                                                                                                                                |
+| `at`            | An ISO 8601 UTC timestamp.                                                                                                                         |
+| `kind`          | `"begin"`, `"verb"`, or a rarer event kind.                                                                                                        |
+| `invocation`    | The opaque id that joins a start and its completion.                                                                                               |
+| `writer`        | The discern version that wrote the line, such as `"1.0.0"`.                                                                                        |
+| `verb`          | The command, such as `"done"`.                                                                                                                     |
+| `surface`       | `"cli"` or `"mcp"`.                                                                                                                                |
+| `driver`        | Session, mode, CI, the spawning invocation, and possible agent signals.                                                                            |
+| `branch`        | The branch, such as `"agent/recipe-search-0a7563"`.                                                                                                |
+| `head`          | The short commit hash when the command started.                                                                                                    |
+| `clean`         | Whether the working tree was clean.                                                                                                                |
+| `tree`          | A checksum of the uncommitted diff.                                                                                                                |
+| `outcome`       | `"ok"`, `"failed"`, `"partial"`, or `"refused"`.                                                                                                   |
+| `error`         | The result's stable error slug, whenever the result carries one.                                                                                   |
+| `failed_stage`  | The gate stage that went red.                                                                                                                      |
+| `crash`         | An error class name and one code location.                                                                                                         |
+| `lock_boundary` | `"none"`, `"phased"`, `"checkout"`, `"lifecycle"`, `"lifecycle-and-checkout"`, `"common"`, `"common-and-checkout"`, or `"acceptance-and-checkout"` |
+| `dry_run`       | Whether the command was a read-only preview.                                                                                                       |
+| `has_operands`  | Whether a command group that also acts received the operand that selects its effect.                                                               |
+| `duration_ms`   | End-to-end wall-clock milliseconds.                                                                                                                |
+| `waited_ms`     | Milliseconds spent waiting for a test-run slot, on capped runs.                                                                                    |
+| `engine_timing` | discern's own share of the run: its Git processes, and a window for each step and command.                                                         |
+| `gate_ran`      | Whether this `done` ran gate work.                                                                                                                 |
+| `target`        | The page served, a miss, the new branch, or the queued command.                                                                                    |
+| `from`          | The ref a `start` branched from.                                                                                                                   |
+| `update`        | What an `update` merged in.                                                                                                                        |
+| `flags`         | Flag names without values, such as `["force"]`, including `rerun` when requested.                                                                  |
+| `change`        | Files, insertions, deletions, and commits compared with the trunk.                                                                                 |
+| `scopes`        | The configured scopes the change touched.                                                                                                          |
+| `steps`         | Each step's label, stage, outcome, and timing.                                                                                                     |
+| `validation`    | Versioned evidence about the start and execution of validation.                                                                                    |
+| `merges`        | Versioned observations of merges.                                                                                                                  |
+| `diagnostics`   | Tool, rule id, and at most a file path.                                                                                                            |
+| `hint_ids`      | Stable ids of the advice delivered with the result.                                                                                                |
+| `tip_ids`       | Stable ids of the desk tips shown during the run.                                                                                                  |
+| `standards`     | Each standard's measurement, limit, margin, and the gate's pin decision.                                                                           |
+| `consent`       | The consent source and matched scopes, on accept.                                                                                                  |
+| `landing`       | Recovery, trunk, worktree, and branch effects.                                                                                                     |
+| `checkpoints`   | Checkpoint servings, declarations, variances, and abandoned open questions.                                                                        |
+| `epoch`         | A fingerprint of your configuration.                                                                                                               |
 
 - **`partial`** marks an error after an effect that can't be undone.
 - **`crash`** appears only when discern hits an unexpected error. It holds the error's class name, such as `"TypeError"`, and one trimmed code location. The logbook leaves out the message and stack, which a saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds in full.
-- **`engine_timing`** is there for working out why a run was slow on one computer, and no report reads it. `git_calls` and `git_ms` count every Git process discern started and their combined milliseconds. `spans` lists one window for each step and each of your commands: its `kind` (`step` or `command`), its `label`, when it started (`start_ms`, counted from the start of the run), how long it took (`ms`), and the Git processes that finished before it (`git_calls_before`, `git_ms_before`) and during it (`git_calls`, `git_ms`). The record keeps 256 windows, and `dropped` counts any beyond that.
+- **`engine_timing`** helps explain a slow run, and no report reads it. `git_calls` and `git_ms` count every Git process discern started and their total milliseconds. `spans` holds one window per step and per command: its `kind` (`step` or `command`), `label`, start (`start_ms`, from the start of the run), length (`ms`), and the Git processes that finished before it (`git_calls_before`, `git_ms_before`) and during it (`git_calls`, `git_ms`). It keeps 256 windows; `dropped` counts the rest.
 - **`tip_ids`** appears only when the [desk](glossary.md#desk) showed a tip, and carries the tip's registry id as is. The tip-adoption reader joins that id to the tip's declared commands.
 - **`consent`** feeds the landing-authority detectors described in [practice patterns](../20-guides/improve-the-practice.md).
 - **`checkpoints`** carries the open-question and variance lifecycle as metadata: ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times. The unmet rationale never lands here.
