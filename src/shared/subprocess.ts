@@ -23,6 +23,7 @@ import { assertOutsideCommonPublication } from "./operation_execution_boundary.t
 import type { GitAdminPathRunner } from "./git_admin_paths.ts";
 import { operationLockChildEnv } from "./operation_lock_context.ts";
 import { spawnedByEnv } from "./invocation_context.ts";
+import { gitCallStarted } from "./invocation_timing.ts";
 import { childLeadsOwnGroup } from "./interrupt_source.ts";
 import {
   selfShimDir as resolveSelfShimDir,
@@ -750,6 +751,7 @@ export async function runGit(
   let output: CapturedCommandOutput;
   let timedOut = false;
   let outputLimitExceeded = false;
+  const gitCallFinished = gitCallStarted();
   try {
     const environment = gitChildEnvironmentPlan(
       opts.env,
@@ -861,6 +863,7 @@ export async function runGit(
       stderr: describeSpawnError(error, binary),
     };
   } finally {
+    gitCallFinished();
     // Worktree topology may have changed under every retained discovery answer.
     if (
       invocation !== undefined &&

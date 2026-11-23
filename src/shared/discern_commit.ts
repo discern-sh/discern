@@ -12,6 +12,7 @@ import { assertOutsideCommonPublication } from "./operation_execution_boundary.t
 
 import { DISCERN_MACHINE } from "./brand.ts";
 import { spawnedByEnv } from "./invocation_context.ts";
+import { gitCallStarted } from "./invocation_timing.ts";
 import { discernAttributionEnabled, type EnvReader } from "./env.ts";
 import { splitNulRecords } from "./git_paths.ts";
 import {
@@ -712,6 +713,7 @@ export async function commitDiscernChanges(
   }
   const bin = gitBin();
   let output: Deno.CommandOutput;
+  const gitCallFinished = gitCallStarted();
   try {
     const child = new Deno.Command(bin, {
       args,
@@ -742,6 +744,8 @@ export async function commitDiscernChanges(
       stdout: "",
       stderr: describeSpawnError(error, bin),
     };
+  } finally {
+    gitCallFinished();
   }
   const decoder = new TextDecoder();
   const commit: GitResult = {

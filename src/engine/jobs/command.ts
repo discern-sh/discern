@@ -21,6 +21,7 @@ import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult, JobTimeout } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
+import { commandStarted } from "../../shared/invocation_timing.ts";
 import { selfShimPath, shellCommand } from "../../shared/subprocess.ts";
 import { terminalLine } from "../../lib/terminal.ts";
 import {
@@ -297,6 +298,7 @@ export async function spawnJob(
     : undefined;
   const start = clock.monotonicNow();
 
+  const commandFinished = commandStarted(job.label);
   const child = new Deno.Command("sh", {
     args: ["-c", command],
     cwd: opts.cwd,
@@ -476,6 +478,7 @@ export async function spawnJob(
     drain(child.stderr),
   ]);
   const status = await child.status;
+  commandFinished();
   // `sh -c '... &'` can report 0 while its background descendant keeps this
   // detached group alive. Cancel that command-owned writer before a successful
   // job result lets a worktree lifecycle begin teardown. Quiescing before the

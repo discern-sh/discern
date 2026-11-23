@@ -685,6 +685,34 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
     for (const d of event.diagnostics ?? []) {
       assertEquals(Object.keys(d).sort(), ["tool"]);
     }
+    // discern's own share rides the same event: its Git activity, and the
+    // window of every configured command it ran.
+    const timing = event.engine_timing;
+    assert(timing !== undefined, "a gate event must carry its engine timing");
+    assert(timing.git_calls > 0 && timing.git_ms >= 0);
+    const testWindow = timing.spans.find((span) =>
+      span.kind === "command" && span.label === "test"
+    );
+    assert(testWindow !== undefined, "the test job's window must be recorded");
+    assert(testWindow.start_ms >= 0 && testWindow.ms >= 0);
+    assert(
+      testWindow.git_calls_before > 0,
+      "the gate's own Git work precedes its first job",
+    );
+    assert(testWindow.git_calls_before <= timing.git_calls);
+    // Metadata only: a window names its label and carries numbers.
+    for (const span of timing.spans) {
+      assertEquals(Object.keys(span).sort(), [
+        "git_calls",
+        "git_calls_before",
+        "git_ms",
+        "git_ms_before",
+        "kind",
+        "label",
+        "ms",
+        "start_ms",
+      ]);
+    }
   });
 });
 

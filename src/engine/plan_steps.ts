@@ -16,6 +16,7 @@
 
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import { AsyncLocalStorage } from "../shared/module_loading.ts";
+import { noteStepTransition } from "../shared/invocation_timing.ts";
 import {
   PLAN_STEP_STATE_BY_OUTCOME,
   type PlanStepState,
@@ -35,6 +36,7 @@ export async function withStepSubject<T>(
 
 /** Report one step's transition, stamped now. */
 export function reportStep(label: string, state: PlanStepState): void {
+  noteStepTransition(label, state);
   const subject = subjects.getStore();
   emitCompletionStep({
     label,

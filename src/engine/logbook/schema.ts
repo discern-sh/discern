@@ -112,6 +112,28 @@ const stepTimingSchema = z.looseObject({
 /** One recorded step timing. */
 export type StepTiming = z.infer<typeof stepTimingSchema>;
 
+/** Where an invocation's own time went: every Git process it ran, and the
+ * wall-clock window of each plan step and each configured command, with the
+ * Git activity before and inside it. A window's `start_ms` counts from the
+ * invocation's start, so the time no window covers is what discern spent
+ * between them. Internal diagnostic metadata: nothing reads it to decide or
+ * report anything. Loose: a future field passes through. */
+const engineTimingSchema = z.looseObject({
+  git_calls: z.number(),
+  git_ms: z.number(),
+  spans: z.array(z.looseObject({
+    kind: z.string(),
+    label: z.string(),
+    start_ms: z.number(),
+    ms: z.number(),
+    git_calls_before: z.number(),
+    git_ms_before: z.number(),
+    git_calls: z.number(),
+    git_ms: z.number(),
+  })),
+  dropped: z.number().optional(),
+});
+
 /** One diagnostic CLASS — the rule id, tool, and file path at most, per the
  * metadata-only bar. Deliberately narrower than the envelope's `Diagnostic`:
  * the message body, captured output, and reproduce command never land here.
@@ -399,6 +421,9 @@ export const verbEventSchema = z.looseObject({
    * Absent on events written before wait accounting and on uncapped runs. New
    * writers record `0` when slot acquisition was in play without a wait. */
   waited_ms: z.number().optional(),
+  /** discern's own share of the invocation, for diagnosing a slow host.
+   * Absent on events written before it was recorded. */
+  engine_timing: engineTimingSchema.optional(),
   /** The verb's object, when it has one: the canonical `help`/`map` page a
    * successful payload served, the requested target on a miss or human-only
    * read, or the branch a `start` created. */

@@ -73,6 +73,10 @@ import {
 import type { MergeActivity } from "../../shared/merge_observation.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
 import { setActiveInvocationId } from "../../shared/invocation_context.ts";
+import {
+  beginInvocationTiming,
+  takeInvocationTiming,
+} from "../../shared/invocation_timing.ts";
 import type {
   BeginEvent,
   ChangeScale,
@@ -593,6 +597,9 @@ export function beginRecording(
   // previous invocation in this process left behind (the MCP server serves many
   // calls) so this invocation's event carries only its own observations.
   takeCheckpointActivity();
+  // The timing record is process-local in the same way: start it afresh so
+  // this invocation's event carries only its own steps and Git activity.
+  beginInvocationTiming(clock);
   const startedAt = wallTimeIso(clock.wallNow());
   const context = gatherContext(cwd).catch(() => {
     // discern-best-effort: logbook-recording-context-fallback
@@ -683,6 +690,7 @@ export function beginRecording(
         // A successful payload names the object actually served. Surface input
         // remains the fallback for human-only reads and refused lookups.
         const target = lifted.target ?? report.target;
+        const engineTiming = takeInvocationTiming();
         const event: VerbEvent = {
           schema: ON_DISK_FORMATS.logbookEvent.version,
           at,
@@ -719,6 +727,9 @@ export function beginRecording(
           duration_ms: Math.round(report.durationMs),
           ...(report.waitedMs !== undefined
             ? { waited_ms: Math.round(report.waitedMs) }
+            : {}),
+          ...(engineTiming !== undefined
+            ? { engine_timing: engineTiming }
             : {}),
           ...(target !== undefined ? { target } : {}),
           ...(lifted.from !== undefined ? { from: lifted.from } : {}),
