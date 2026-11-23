@@ -120,6 +120,7 @@ import {
   type GitHealthReport,
   inspectGitHealth,
 } from "../engine/doctor/git_health.ts";
+import { inspectCheckoutFilesystem } from "../engine/doctor/checkout_filesystem.ts";
 import {
   skillsDirectoryChecks,
   skillsDoctorChecks,
@@ -958,6 +959,14 @@ export async function runChecks(
       gitHealth = await inspectGitHealth(destDir);
       checks.push(...gitHealth.checks);
     }
+  }
+
+  // 7b′. a checkout on a remote-protocol mount makes every later command slow
+  // for a reason nothing else in the report names. Advisory only: the install
+  // is sound, so the warning never fails the health check or setup.
+  {
+    const filesystem = await inspectCheckoutFilesystem(destDir);
+    if (filesystem !== undefined) checks.push(filesystem);
   }
 
   // 7c. repository shape — the two layouts the worktree lifecycle cannot work

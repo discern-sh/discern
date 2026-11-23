@@ -37,6 +37,8 @@ _The release targets and local tools discern requires, followed by identity sele
 
 There is no native Windows release. On Windows, run the Linux binary inside WSL 2. The installer rejects other operating systems and architectures before downloading an asset. Release CI verifies this path: a release-blocking job runs the full repository gate inside WSL 2 Ubuntu on a hosted Windows runner before every publication ([ADR 0278](../_adr/0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane.md)).
 
+A Windows drive mounted into WSL 2 is reached over 9P, where every file operation is a round trip to the host. A checkout there makes each Git call and each discern file read many times slower than on the Linux filesystem. `discern doctor` reads the Linux mount table and warns under `checkout filesystem` when the checkout sits on such a mount ([`checkout_filesystem.ts`](../../../src/engine/doctor/checkout_filesystem.ts)). The warning is advisory: it never fails the health check or setup.
+
 ## Required tools
 
 | Context                    | Requirement                                                                                                                    |
