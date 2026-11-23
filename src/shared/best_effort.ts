@@ -574,17 +574,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "A user who quits the pager may close its input early; the child status still decides whether presentation succeeded.",
   },
-  "doctor-checkout-filesystem-unreadable": {
-    path: "src/engine/doctor/checkout_filesystem.ts",
-    enclosingFunction: "inspectCheckoutFilesystem",
-    operation:
-      "omit the checkout filesystem warning when the mount table or the checkout path cannot be read",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "The warning is advice about speed; a host that hides its mount table has no finding to report and must not fail the health check.",
-  },
   "doctor-model-config-fallback": {
     path: "src/commands/doctor.ts",
     enclosingFunction: "loadModelConfig",

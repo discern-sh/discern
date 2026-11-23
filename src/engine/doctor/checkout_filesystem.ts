@@ -6,11 +6,14 @@
  * round trip to another machine or host, so each command runs many times
  * slower than on a local disk. Linux names the filesystem type of every mount
  * in its mount table; this probe reads that table and warns when the checkout
- * sits on such a mount. It reports nothing on a local filesystem, on a host
- * without a mount table, or when the table cannot be read.
+ * sits on such a mount. It reports nothing on a local filesystem or on a host
+ * without a mount table.
  */
 
-import { readTextIfExists } from "../../shared/fs_presence.ts";
+import {
+  readTextIfExists,
+  realPathIfExists,
+} from "../../shared/fs_presence.ts";
 import type { DoctorDraftCheck } from "./completion_checks.ts";
 
 /**
@@ -32,13 +35,13 @@ export interface MountedFilesystem {
 export interface CheckoutFilesystemHost {
   readonly os: typeof Deno.build.os;
   readonly readMountTable: () => Promise<string | undefined>;
-  readonly realPath: (path: string) => Promise<string>;
+  readonly realPath: (path: string) => Promise<string | undefined>;
 }
 
 const SYSTEM_HOST: CheckoutFilesystemHost = {
   os: Deno.build.os,
   readMountTable: () => readTextIfExists("/proc/self/mountinfo"),
-  realPath: (path) => Deno.realPath(path),
+  realPath: realPathIfExists,
 };
 
 /** Decode the octal escapes the mount table uses for spaces and other separators. */
@@ -110,16 +113,10 @@ export async function inspectCheckoutFilesystem(
   host: CheckoutFilesystemHost = SYSTEM_HOST,
 ): Promise<DoctorDraftCheck | undefined> {
   if (host.os !== "linux") return undefined;
-  let table: string | undefined;
-  let path: string;
-  try {
-    table = await host.readMountTable();
-    path = await host.realPath(root);
-  } catch {
-    // discern-best-effort: doctor-checkout-filesystem-unreadable
-    return undefined;
-  }
+  const table = await host.readMountTable();
   if (table === undefined) return undefined;
+  const path = await host.realPath(root);
+  if (path === undefined) return undefined;
   const mount = mountServing(parseMountTable(table), path);
   if (mount === undefined) return undefined;
   const meaning = REMOTE_PROTOCOL_FILESYSTEMS[mount.type];

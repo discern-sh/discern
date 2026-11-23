@@ -98,7 +98,7 @@ Deno.test("a checkout on a local filesystem reports nothing", async () => {
   }
 });
 
-Deno.test("hosts without a readable mount table report nothing", async () => {
+Deno.test("hosts without a mount table report nothing", async () => {
   const unread = (): Promise<string | undefined> => {
     throw new Error("the mount table must not be read on this host");
   };
@@ -121,9 +121,7 @@ Deno.test("hosts without a readable mount table report nothing", async () => {
   assertEquals(
     await inspectCheckoutFilesystem(
       "/mnt/d/work/app",
-      linuxHost({
-        readMountTable: () => Promise.reject(new Error("permission denied")),
-      }),
+      linuxHost({ realPath: () => Promise.resolve(undefined) }),
     ),
     undefined,
   );
