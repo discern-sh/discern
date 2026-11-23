@@ -961,9 +961,10 @@ export async function runChecks(
     }
   }
 
-  // 7b′. a checkout on a remote-protocol mount makes every later command slow
-  // for a reason nothing else in the report names. Advisory only: the install
-  // is sound, so the warning never fails the health check or setup.
+  // The checkout's filesystem. A checkout on a remote-protocol mount makes
+  // every later command slow for a reason nothing else in the report names.
+  // Advisory only: the install is sound, so the warning never fails the health
+  // check or setup.
   {
     const filesystem = await inspectCheckoutFilesystem(destDir);
     if (filesystem !== undefined) checks.push(filesystem);

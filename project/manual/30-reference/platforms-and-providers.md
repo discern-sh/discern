@@ -81,7 +81,7 @@ discern runs on macOS and Linux. On Windows, use WSL 2. The binary includes its 
 
 There's no native Windows release. On Windows, run the Linux binary inside WSL 2. The installer refuses an unsupported operating system or architecture before it downloads anything.
 
-In WSL 2, keep your project on the Linux filesystem, such as under your home directory, because a project on a Windows drive makes [every command slow](../40-troubleshooting/setup-and-integrations.md#every-command-is-slow-in-wsl-2).
+In WSL 2, keep your project on the Linux filesystem, such as under your home directory, because on a Windows drive [commands run slowly](../40-troubleshooting/setup-and-integrations.md#commands-run-slowly-in-wsl-2).
 
 ### Required tools
 
