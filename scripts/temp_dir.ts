@@ -54,6 +54,12 @@ export const TOOL_TEMP_DIR_KINDS = {
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
+  "git-command-budget": {
+    purpose: "scaffolded project whose journey is measured for Git processes",
+    prefix: "discern-git-budget-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
   "install-fixture-capture": {
     purpose: "scratch repository set up once to capture an install fixture",
     prefix: "discern-install-fixture-",

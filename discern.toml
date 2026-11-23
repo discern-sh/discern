@@ -1014,6 +1014,42 @@
     "deno.lock",
   ]
 
+# Git command budget — how many Git processes each verb of the proven-worktree
+# journey starts over a scaffolded project whose jobs do nothing, so every
+# count is discern's own. Each command pays for every process, and a checkout
+# on a slow filesystem pays many times over. One journey run supplies all four
+# readings. A reader that needs a fact the operation already holds takes it
+# from operation-scoped Git discovery; a new process needs a conscious
+# allowance, never a quiet add.
+[standards.git_calls_done]
+  direction = "down"
+  limit = 135
+  run = "deno task git-command-budget"
+  inputs = [
+    "src/**",
+    "templates/**",
+    "tests/**",
+    "scripts/git_command_budget.ts",
+    "scripts/git_command_budget_lib.ts",
+    "deno.json",
+    "deno.lock",
+  ]
+
+[standards.git_calls_start]
+  direction = "down"
+  limit = 46
+  producer = "standards.git_calls_done"
+
+[standards.git_calls_status]
+  direction = "down"
+  limit = 51
+  producer = "standards.git_calls_done"
+
+[standards.git_calls_accept]
+  direction = "down"
+  limit = 108
+  producer = "standards.git_calls_done"
+
 # Checkout-mutation boundary standard — the workspace contract's census. Every
 # authored argument list that hands Git a command able to install a revision or
 # replace a checkout's index or working tree is one exact registered row naming
