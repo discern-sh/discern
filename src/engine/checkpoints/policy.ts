@@ -59,6 +59,7 @@ import {
   resolveGeneratedGroups,
 } from "../../shared/generated_artifacts.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { discoverGit } from "../../shared/git_discovery.ts";
 import { resolvedScopePaths } from "../scopes/scope_paths.ts";
 import { inspectCommitRef, integrationBranch } from "../worktree/git.ts";
 import type { ResolvedCheckpoint } from "./types.ts";
@@ -556,9 +557,11 @@ export async function loadGoverningPolicy(
   }
   // `:./` anchors the path at this project root even when the repository's
   // top level sits above it — the same spelling the standards trunk read uses.
-  const shown = await runGit(["show", configSpec], {
-    cwd: root,
-  });
+  const shown = await discoverGit(
+    root,
+    { kind: "object", spec: configSpec },
+    (cwd, args) => runGit(args, { cwd }),
+  );
   if (!shown.success) {
     return {
       policyCommit,

@@ -55,6 +55,7 @@ import { bestEffort } from "../../shared/best_effort.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { decodeJson } from "../../shared/runtime_decode.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { probeInsideWorkTree } from "../../shared/git_work_tree.ts";
 import {
   atomicReplaceJson,
   atomicReplaceText,
@@ -132,7 +133,7 @@ export async function preflightAdminStateWrites(
   // gate's established no-Git behavior with a non-applicable authority token;
   // once Git says this IS a worktree, failure to resolve or write its paths is a
   // genuine denial and must fail before slow work.
-  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], { cwd });
+  const inside = await probeInsideWorkTree(cwd);
   if (!inside.success || inside.stdout.trim() !== "true") {
     for (const key of VALIDATION_ADMIN_STATE_KEYS) {
       paths[key] = undefined;

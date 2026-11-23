@@ -20,6 +20,7 @@ import {
   withinGitDiscoveryScope,
 } from "../src/shared/git_discovery.ts";
 import { runGit } from "../src/shared/subprocess.ts";
+import { probeInsideWorkTree } from "../src/shared/git_work_tree.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   withCompletionPublication,
@@ -34,6 +35,7 @@ const DIR_KINDS = [
   "common-dir",
   "toplevel",
   "prefix",
+  "inside-work-tree",
 ] as const;
 
 const SINGLE_ARGS: Record<(typeof DIR_KINDS)[number], string[]> = {
@@ -41,6 +43,7 @@ const SINGLE_ARGS: Record<(typeof DIR_KINDS)[number], string[]> = {
   "common-dir": ["rev-parse", "--git-common-dir"],
   toplevel: ["rev-parse", "--show-toplevel"],
   prefix: ["rev-parse", "--show-prefix"],
+  "inside-work-tree": ["rev-parse", "--is-inside-work-tree"],
 };
 
 /** A runner that records every argv it forwards to git. */
@@ -285,6 +288,34 @@ Deno.test("publication reuse verifies checkout routing and falls back for change
         "symlink routing cannot authorize the optimization",
       );
     });
+  });
+});
+
+Deno.test("a directory outside a work tree gets git's own answer to the work-tree probe", async () => {
+  await withTempDir(async (dir) => {
+    await seededRepository(dir);
+    // Inside the administration directory git answers `false`, and it prints no
+    // top level, so nothing stands in for the exact query.
+    const administration = join(dir, ".git");
+    const fresh = await runGit(["rev-parse", "--is-inside-work-tree"], {
+      cwd: administration,
+    });
+    assertEquals(fresh.stdout, "false\n");
+    const { calls, run } = recording();
+    await withGitDiscoveryScope(async () => {
+      for (const pass of [1, 2]) {
+        const probed = await probeInsideWorkTree(administration, run);
+        assertEquals(probed.success, true, `pass ${pass}`);
+        assertEquals(probed.stdout, fresh.stdout, `pass ${pass}`);
+      }
+    });
+    assertEquals(calls, [
+      ["rev-parse", "--absolute-git-dir", "--git-common-dir"],
+      ["rev-parse", "--show-toplevel", "--show-prefix"],
+      ["rev-parse", "--is-inside-work-tree"],
+      ["rev-parse", "--show-toplevel", "--show-prefix"],
+      ["rev-parse", "--is-inside-work-tree"],
+    ]);
   });
 });
 

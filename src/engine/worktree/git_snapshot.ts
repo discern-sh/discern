@@ -15,6 +15,7 @@ import {
 } from "../../shared/git_count.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
+import { probeInsideWorkTree } from "../../shared/git_work_tree.ts";
 import { integrationBranch } from "./trunk.ts";
 
 /** A cheap, read-only snapshot of one checkout. */
@@ -79,7 +80,7 @@ export async function inspectGitSnapshot(
   cwd: string,
   mainBranchFallback?: string,
 ): Promise<GitSnapshotInspection> {
-  const inside = await git(["rev-parse", "--is-inside-work-tree"], cwd);
+  const inside = await probeInsideWorkTree(cwd, (dir, args) => git(args, dir));
   if (!inside.success || inside.stdout.trim() !== "true") {
     return {
       kind: "unavailable",

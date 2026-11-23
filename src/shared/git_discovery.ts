@@ -3,8 +3,8 @@
  *
  * Discovery answers where a checkout's Git administration lives, where the
  * shared common directory is, where a registered administrative artifact
- * resolves, how the project root sits inside its work tree, and what bytes a
- * content-addressed object holds. Those answers change only when a worktree is
+ * resolves, how the project root sits inside its work tree, whether a directory
+ * is inside a work tree at all, and what bytes a content-addressed object holds. Those answers change only when a worktree is
  * added, moved, removed, pruned or repaired, and within one discern operation
  * the engine is the only actor doing so.
  *
@@ -50,6 +50,8 @@ export type GitDiscoveryQuery =
   | { readonly kind: "common-dir" }
   | { readonly kind: "toplevel" }
   | { readonly kind: "prefix" }
+  /** Whether the directory is inside a work tree, as `true` when it is. */
+  | { readonly kind: "inside-work-tree" }
   /** A registered administrative path; the registry resolver owns the argv. */
   | {
     readonly kind: "admin-path";
@@ -166,6 +168,8 @@ function exactArgs(query: GitDiscoveryQuery): string[] {
       return ["rev-parse", "--show-toplevel"];
     case "prefix":
       return ["rev-parse", "--show-prefix"];
+    case "inside-work-tree":
+      return ["rev-parse", "--is-inside-work-tree"];
     case "admin-path":
       return [...query.args];
     case "object":
@@ -370,6 +374,12 @@ async function retainedAnswer(
     case "prefix": {
       const position = await retainPosition(checkout, cwd, run);
       return position === undefined ? undefined : replayLine(position[1]);
+    }
+    case "inside-work-tree": {
+      // Git prints a top level only from inside a work tree, so a retained
+      // position answers the question. Every other state runs the exact query.
+      const position = await retainPosition(checkout, cwd, run);
+      return position === undefined ? undefined : replayLine("true");
     }
     case "admin-path":
       return await retainExact(

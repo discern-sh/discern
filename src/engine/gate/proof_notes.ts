@@ -40,6 +40,7 @@ import {
 import { withOpenVocabulariesAsStrings } from "../../shared/result_vocabulary.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
+import { discoverGitDirs } from "../../shared/git_discovery.ts";
 import { abbreviatedObjectIdMatches } from "../../shared/tree_identity.ts";
 
 export {
@@ -212,8 +213,11 @@ export async function planProofNotesFetch(
   root: string,
   mode: "local" | "fetch",
 ): Promise<ProofNotesFetchPlan> {
-  const repository = await runGit(["rev-parse", "--git-dir"], { cwd: root });
-  if (!repository.success) {
+  const repository = await discoverGitDirs(
+    root,
+    (cwd, args) => runGit(args, { cwd }),
+  );
+  if (repository === undefined) {
     return { mode, remotes: [], boundaries: [], errors: [] };
   }
 

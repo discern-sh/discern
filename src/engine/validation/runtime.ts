@@ -41,6 +41,7 @@ import {
 } from "../completion/attempt.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { probeInsideWorkTree } from "../../shared/git_work_tree.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { lstatIfExists } from "../../shared/fs_presence.ts";
 import { containedCheckoutFile } from "./inputs.ts";
@@ -122,9 +123,7 @@ export async function observeCompletionRecords(
 export async function observableCompletionCheckout(
   root: string,
 ): Promise<boolean> {
-  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
-    cwd: root,
-  });
+  const inside = await probeInsideWorkTree(root);
   if (!inside.success || inside.stdout.trim() !== "true") return false;
   const head = await runGit(["rev-parse", "--verify", "HEAD^{commit}"], {
     cwd: root,
