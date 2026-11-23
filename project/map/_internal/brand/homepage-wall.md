@@ -536,7 +536,7 @@ Cards appear under their cluster, in the order the wall shows them.
 - **Expresses:** Human benefit · [Adopt discern without running another service](../feature-canon-human-benefits.md#adopt-discern-without-running-another-service)
 - **Draws on:** One self-contained binary (`single-binary`) · Install and lifecycle (`install`)
 
-#### 36 Limits it must meet
+#### 40 Limits it must meet
 
 - **Card:** `numeral-limits-on-itself` · numeral
 - **Line:** Every change to discern has to pass them, from test coverage to reading level.
@@ -754,7 +754,7 @@ Each feature node a card draws on, in the feature canon's order, with the cards 
 | Stack-neutral (`stack-neutral`)                                     | Any language, any stack                                                                                                                                                                                                           |
 | No model inside (`no-model-inside`)                                 | No API key                                                                                                                                                                                                                        |
 | Evidence stays local (`local-evidence`)                             | No telemetry                                                                                                                                                                                                                      |
-| Run on itself (`dogfooding`)                                        | Built with itself · 36 Limits it must meet                                                                                                                                                                                        |
+| Run on itself (`dogfooding`)                                        | Built with itself · 40 Limits it must meet                                                                                                                                                                                        |
 | Clean under interruption (`interruption-safety`)                    | Preview before it runs                                                                                                                                                                                                            |
 
 ## Benefits without a card

@@ -10,6 +10,7 @@
  */
 
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import {
   git,
   gitInit,
@@ -21,6 +22,7 @@ import {
 import { refreshScaffold } from "../tests/engine_done_fixture.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import { decodeJson } from "../src/shared/runtime_decode.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 
 /** The verbs the journey measures, in the order it runs them. */
@@ -44,6 +46,11 @@ export interface GitCommandJourney {
   readonly counts: Readonly<Record<GitCommandBudgetVerb, number>>;
   readonly spawns: readonly string[];
 }
+
+/** The one field the journey reads from a `start --json` result. */
+const STARTED_WORKTREE = z.looseObject({
+  data: z.looseObject({ path: z.string() }),
+});
 
 /** One known job per gate stage, each a no-op. */
 const FIXTURE_CONFIG = [
@@ -143,13 +150,11 @@ export async function measureGitCommandJourney(): Promise<GitCommandJourney> {
       "budget",
       "--json",
     ]);
-    const worktree = (JSON.parse(started) as { data?: { path?: unknown } }).data
-      ?.path;
-    if (typeof worktree !== "string") {
-      throw new Error(
-        `The journey's start step named no worktree:\n${started}`,
-      );
-    }
+    const worktree = decodeJson(
+      STARTED_WORKTREE,
+      started,
+      "the journey's start result",
+    ).data.path;
     await Deno.writeTextFile(join(worktree, "change.txt"), "one change\n");
     await git(worktree, "add", "-A");
     await git(

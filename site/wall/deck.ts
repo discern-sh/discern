@@ -32,7 +32,7 @@ const COMMAND_LINE_AGENTS: readonly string[] = [
  * tables in `discern.toml`. This module also runs in the browser, where that
  * file cannot be read, so the deck test holds this number equal to the count.
  */
-const OWN_QUALITY_LIMITS = 36;
+const OWN_QUALITY_LIMITS = 40;
 
 /** Names as a sentence would list them: "A", "A and B", or "A, B, and C". */
 function listed(names: readonly string[]): string {
