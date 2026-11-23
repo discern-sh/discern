@@ -73,10 +73,7 @@ import {
 import type { MergeActivity } from "../../shared/merge_observation.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
 import { setActiveInvocationId } from "../../shared/invocation_context.ts";
-import {
-  beginInvocationTiming,
-  takeInvocationTiming,
-} from "../../shared/invocation_timing.ts";
+import { beginInvocationTiming } from "../../shared/invocation_timing.ts";
 import type {
   BeginEvent,
   ChangeScale,
@@ -597,11 +594,13 @@ export function beginRecording(
   // previous invocation in this process left behind (the MCP server serves many
   // calls) so this invocation's event carries only its own observations.
   takeCheckpointActivity();
-  // The timing record is process-local in the same way: start it afresh so
-  // this invocation's event carries only its own steps and Git activity.
-  beginInvocationTiming(clock);
+  // The timing record belongs to this recording alone. Everything the
+  // invocation does runs inside it — context gathering, the operation, and the
+  // finishing reads — so invocations that overlap in one process never share
+  // Git counts or windows.
+  const timing = beginInvocationTiming(clock);
   const startedAt = wallTimeIso(clock.wallNow());
-  const context = gatherContext(cwd).catch(() => {
+  const context = timing.run(() => gatherContext(cwd)).catch(() => {
     // discern-best-effort: logbook-recording-context-fallback
     return undefined;
   });
@@ -640,139 +639,149 @@ export function beginRecording(
     : Promise.resolve();
   return {
     run<T>(operation: () => Promise<T>): Promise<T> {
-      return withCompletionObserver(async (fact) => {
-        if (fact.kind !== "event") return;
-        await beginAppend;
-        const ctx = await context;
-        if (ctx === undefined) return;
-        const event: CompletionLogbookEvent = {
-          schema: ON_DISK_FORMATS.logbookEvent.version,
-          at: wallTimeIso(clock.wallNow()),
-          writer: DISCERN_VERSION,
-          kind: "completion",
-          invocation,
-          surface: begin.surface,
-          branch: ctx.branch,
-          epoch: ctx.epoch.fingerprint,
-          driver: await begin.driver,
-          observation: completionObservationSchema.parse(fact.event),
-        };
-        await appendEvent(ctx.commonGitDir, event);
-      }, operation);
+      return timing.run(() =>
+        withCompletionObserver(async (fact) => {
+          if (fact.kind !== "event") return;
+          await beginAppend;
+          const ctx = await context;
+          if (ctx === undefined) return;
+          const event: CompletionLogbookEvent = {
+            schema: ON_DISK_FORMATS.logbookEvent.version,
+            at: wallTimeIso(clock.wallNow()),
+            writer: DISCERN_VERSION,
+            kind: "completion",
+            invocation,
+            surface: begin.surface,
+            branch: ctx.branch,
+            epoch: ctx.epoch.fingerprint,
+            driver: await begin.driver,
+            observation: completionObservationSchema.parse(fact.event),
+          };
+          await appendEvent(ctx.commonGitDir, event);
+        }, operation)
+      );
     },
     async finish(report: FinishReport): Promise<void> {
-      await bestEffort("logbook-finish-append", async () => {
-        // The surface chokepoints drain the checkpoint-observation mailbox and
-        // pass it here (the drain-parity guard holds them to it); the fallback
-        // take serves direct recorder callers and clears any remainder, so an
-        // observation can never attach to a later invocation's event.
-        const checkpointActivity = report.checkpoints ??
-          takeCheckpointActivity();
-        const merges = report.merges ?? takeMergeActivity();
-        // Preserve append order even when a very short verb finishes before its
-        // concurrent context gather. A swallowed begin failure still lets the
-        // completion append proceed.
-        await beginAppend;
-        const ctx = await context;
-        if (ctx === undefined) {
-          return;
-        }
-        const at = wallTimeIso(clock.wallNow());
-        await advanceEpoch(ctx, at);
-        const steps = report.result !== undefined
-          ? stepTimings(report.result)
-          : undefined;
-        const diagnostics = report.result !== undefined
-          ? diagnosticClasses(report.result)
-          : undefined;
-        const validation = validationEvidence(report.result);
-        const lifted = liftData(report.result?.data);
-        // A successful payload names the object actually served. Surface input
-        // remains the fallback for human-only reads and refused lookups.
-        const target = lifted.target ?? report.target;
-        const engineTiming = takeInvocationTiming();
-        const event: VerbEvent = {
-          schema: ON_DISK_FORMATS.logbookEvent.version,
-          at,
-          writer: DISCERN_VERSION,
-          kind: "verb",
-          invocation,
-          verb: report.verb,
-          surface: report.surface,
-          ...(report.driver !== undefined ? { driver: report.driver } : {}),
-          branch: ctx.branch,
-          head: ctx.head,
-          clean: ctx.clean,
-          ...(ctx.tree !== undefined ? { tree: ctx.tree } : {}),
-          outcome: recordedOutcome(
-            report.outcome,
-            report.result,
-            lifted.landing,
-          ),
-          ...(report.result?.error !== undefined
-            ? { error: report.result.error }
-            : {}),
-          ...(lifted.gateRan !== undefined ? { gate_ran: lifted.gateRan } : {}),
-          ...(lifted.failedStage !== undefined
-            ? { failed_stage: lifted.failedStage }
-            : {}),
-          ...(report.crash !== undefined ? { crash: report.crash } : {}),
-          ...(report.dryRun === true ? { dry_run: true } : {}),
-          ...(begin.lockBoundary === undefined
-            ? {}
-            : { lock_boundary: begin.lockBoundary }),
-          ...(begin.hasOperands === undefined
-            ? {}
-            : { has_operands: begin.hasOperands }),
-          duration_ms: Math.round(report.durationMs),
-          ...(report.waitedMs !== undefined
-            ? { waited_ms: Math.round(report.waitedMs) }
-            : {}),
-          ...(engineTiming !== undefined
-            ? { engine_timing: engineTiming }
-            : {}),
-          ...(target !== undefined ? { target } : {}),
-          ...(lifted.from !== undefined ? { from: lifted.from } : {}),
-          ...(report.flags !== undefined && report.flags.length > 0
-            ? { flags: report.flags }
-            : {}),
-          ...(ctx.change !== undefined ? { change: ctx.change } : {}),
-          ...(lifted.scopes !== undefined ? { scopes: lifted.scopes } : {}),
-          ...(steps !== undefined ? { steps } : {}),
-          ...(validation !== undefined ? { validation } : {}),
-          ...(diagnostics !== undefined ? { diagnostics } : {}),
-          hint_ids: report.hintIds ?? [],
-          ...(report.tipIds !== undefined && report.tipIds.length > 0
-            ? { tip_ids: report.tipIds }
-            : {}),
-          ...(lifted.standards !== undefined
-            ? { standards: lifted.standards }
-            : {}),
-          ...(lifted.update !== undefined ? { update: lifted.update } : {}),
-          ...(merges === undefined ? {} : { merges }),
-          ...(lifted.consent !== undefined ? { consent: lifted.consent } : {}),
-          ...(lifted.landing !== undefined ? { landing: lifted.landing } : {}),
-          ...(checkpointActivity !== undefined
-            ? { checkpoints: checkpointActivity }
-            : {}),
-          epoch: ctx.epoch.fingerprint,
-        };
-        await appendEvent(ctx.commonGitDir, event);
-        for (const pin of lifted.pins ?? []) {
-          const pinEvent: PinEvent = {
+      await timing.run(() =>
+        bestEffort("logbook-finish-append", async () => {
+          // The surface chokepoints drain the checkpoint-observation mailbox and
+          // pass it here (the drain-parity guard holds them to it); the fallback
+          // take serves direct recorder callers and clears any remainder, so an
+          // observation can never attach to a later invocation's event.
+          const checkpointActivity = report.checkpoints ??
+            takeCheckpointActivity();
+          const merges = report.merges ?? takeMergeActivity();
+          // Preserve append order even when a very short verb finishes before its
+          // concurrent context gather. A swallowed begin failure still lets the
+          // completion append proceed.
+          await beginAppend;
+          const ctx = await context;
+          if (ctx === undefined) {
+            return;
+          }
+          const at = wallTimeIso(clock.wallNow());
+          await advanceEpoch(ctx, at);
+          const steps = report.result !== undefined
+            ? stepTimings(report.result)
+            : undefined;
+          const diagnostics = report.result !== undefined
+            ? diagnosticClasses(report.result)
+            : undefined;
+          const validation = validationEvidence(report.result);
+          const lifted = liftData(report.result?.data);
+          // A successful payload names the object actually served. Surface input
+          // remains the fallback for human-only reads and refused lookups.
+          const target = lifted.target ?? report.target;
+          const engineTiming = timing.take();
+          const event: VerbEvent = {
             schema: ON_DISK_FORMATS.logbookEvent.version,
             at,
             writer: DISCERN_VERSION,
-            kind: "pin",
+            kind: "verb",
+            invocation,
+            verb: report.verb,
+            surface: report.surface,
+            ...(report.driver !== undefined ? { driver: report.driver } : {}),
             branch: ctx.branch,
-            standard: pin.name,
-            from: pin.from,
-            to: pin.to,
-            measured: pin.measured,
+            head: ctx.head,
+            clean: ctx.clean,
+            ...(ctx.tree !== undefined ? { tree: ctx.tree } : {}),
+            outcome: recordedOutcome(
+              report.outcome,
+              report.result,
+              lifted.landing,
+            ),
+            ...(report.result?.error !== undefined
+              ? { error: report.result.error }
+              : {}),
+            ...(lifted.gateRan !== undefined
+              ? { gate_ran: lifted.gateRan }
+              : {}),
+            ...(lifted.failedStage !== undefined
+              ? { failed_stage: lifted.failedStage }
+              : {}),
+            ...(report.crash !== undefined ? { crash: report.crash } : {}),
+            ...(report.dryRun === true ? { dry_run: true } : {}),
+            ...(begin.lockBoundary === undefined
+              ? {}
+              : { lock_boundary: begin.lockBoundary }),
+            ...(begin.hasOperands === undefined
+              ? {}
+              : { has_operands: begin.hasOperands }),
+            duration_ms: Math.round(report.durationMs),
+            ...(report.waitedMs !== undefined
+              ? { waited_ms: Math.round(report.waitedMs) }
+              : {}),
+            ...(engineTiming !== undefined
+              ? { engine_timing: engineTiming }
+              : {}),
+            ...(target !== undefined ? { target } : {}),
+            ...(lifted.from !== undefined ? { from: lifted.from } : {}),
+            ...(report.flags !== undefined && report.flags.length > 0
+              ? { flags: report.flags }
+              : {}),
+            ...(ctx.change !== undefined ? { change: ctx.change } : {}),
+            ...(lifted.scopes !== undefined ? { scopes: lifted.scopes } : {}),
+            ...(steps !== undefined ? { steps } : {}),
+            ...(validation !== undefined ? { validation } : {}),
+            ...(diagnostics !== undefined ? { diagnostics } : {}),
+            hint_ids: report.hintIds ?? [],
+            ...(report.tipIds !== undefined && report.tipIds.length > 0
+              ? { tip_ids: report.tipIds }
+              : {}),
+            ...(lifted.standards !== undefined
+              ? { standards: lifted.standards }
+              : {}),
+            ...(lifted.update !== undefined ? { update: lifted.update } : {}),
+            ...(merges === undefined ? {} : { merges }),
+            ...(lifted.consent !== undefined
+              ? { consent: lifted.consent }
+              : {}),
+            ...(lifted.landing !== undefined
+              ? { landing: lifted.landing }
+              : {}),
+            ...(checkpointActivity !== undefined
+              ? { checkpoints: checkpointActivity }
+              : {}),
+            epoch: ctx.epoch.fingerprint,
           };
-          await appendEvent(ctx.commonGitDir, pinEvent);
-        }
-      });
+          await appendEvent(ctx.commonGitDir, event);
+          for (const pin of lifted.pins ?? []) {
+            const pinEvent: PinEvent = {
+              schema: ON_DISK_FORMATS.logbookEvent.version,
+              at,
+              writer: DISCERN_VERSION,
+              kind: "pin",
+              branch: ctx.branch,
+              standard: pin.name,
+              from: pin.from,
+              to: pin.to,
+              measured: pin.measured,
+            };
+            await appendEvent(ctx.commonGitDir, pinEvent);
+          }
+        })
+      );
     },
   };
 }

@@ -1,25 +1,25 @@
 /**
  * Where one invocation's own time went: internal diagnostic metadata.
  *
- * A step result already carries the duration of a configured command. This
- * accumulator records the rest of an invocation. Every invocation counts its
- * Git processes and their time, which costs a few dozen bytes in its logbook
- * event and splits any past run into commands, Git, and everything else. An
- * invocation that sets the engine-timing switch also records a window for each
- * plan step and each configured command, with the Git activity before and
- * during it; the time no window covers, less the Git time outside every
- * window, is what discern itself spent in process. Windows cost about 140
- * bytes each, so they are recorded only when asked for. The record measures
- * only; nothing reads it to decide anything, and no report presents it.
+ * A step result already carries a configured command's duration. This module
+ * records the rest. Every invocation counts its Git processes and their time:
+ * a few dozen bytes in its logbook event, enough to split any past run into
+ * commands, Git, and everything else. An invocation that sets the engine-timing
+ * switch also records a window for each plan step and each configured command,
+ * with the Git activity before and during it; the time no window covers, less
+ * the Git time outside every window, is what discern itself spent in process.
+ * Windows cost about 140 bytes each, so they are opt-in. The record only
+ * measures: nothing reads it to decide anything, and no report presents it.
  *
- * The accumulator is process-local, like the checkpoint and merge activity
- * mailboxes: the recorder resets it when an invocation begins and drains it
- * when that invocation finishes.
+ * Each invocation owns its record and runs its work inside it. The reporting
+ * funnels find it through the async context, so invocations that overlap in
+ * one process never mix. Activity outside every record is recorded nowhere.
  */
 
 import { type Clock, SYSTEM_CLOCK } from "./clock.ts";
 import type { EnvReader } from "./env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
+import { AsyncLocalStorage } from "./module_loading.ts";
 import type { PlanStepState } from "./result.ts";
 
 /** Exact value of the engine-timing switch that asks for windows. */
@@ -67,6 +67,17 @@ export type InvocationTiming = {
   dropped?: number;
 };
 
+/** One invocation's own record: run its work inside it, then drain it once. */
+export interface InvocationTimingRecord {
+  /** Run work whose Git processes, steps, and commands belong to this record. */
+  run<T>(work: () => Promise<T>): Promise<T>;
+  /**
+   * Close the record and return what it holds, or `undefined` when nothing was
+   * recorded. Activity that finishes after this belongs to no record.
+   */
+  take(): InvocationTiming | undefined;
+}
+
 /** A record holds at most this many spans, so one event stays one short line. */
 const SPAN_CAPACITY = 256;
 
@@ -77,19 +88,35 @@ interface OpenSpan {
 }
 
 interface State {
-  clock: Clock;
-  windows: boolean;
-  originMs: number;
+  readonly clock: Clock;
+  readonly windows: boolean;
+  readonly originMs: number;
   gitCalls: number;
   gitMs: number;
-  open: Map<string, OpenSpan[]>;
-  spans: InvocationSpan[];
+  readonly open: Map<string, OpenSpan[]>;
+  readonly spans: InvocationSpan[];
   dropped: number;
+  closed: boolean;
 }
 
-/** A fresh, empty record whose offsets start now. */
-function emptyState(clock: Clock, windows: boolean): State {
-  return {
+/** The record the current async context reports to, when it has one. */
+const ACTIVE = new AsyncLocalStorage<State>();
+
+/** The live record of the current context, or nothing to report to. */
+function activeRecord(): State | undefined {
+  const record = ACTIVE.getStore();
+  return record === undefined || record.closed ? undefined : record;
+}
+
+/**
+ * Start one invocation's record now. Windows are recorded when `windows` is
+ * set; the environment decides by default.
+ */
+export function beginInvocationTiming(
+  clock: Clock = SYSTEM_CLOCK,
+  windows: boolean = invocationWindowsRequested(),
+): InvocationTimingRecord {
+  const record: State = {
     clock,
     windows,
     originMs: clock.monotonicNow(),
@@ -98,35 +125,36 @@ function emptyState(clock: Clock, windows: boolean): State {
     open: new Map(),
     spans: [],
     dropped: 0,
+    closed: false,
+  };
+  return {
+    run: (work) => ACTIVE.run(record, work),
+    take(): InvocationTiming | undefined {
+      record.closed = true;
+      if (record.gitCalls === 0 && record.spans.length === 0) return undefined;
+      return {
+        git_calls: record.gitCalls,
+        git_ms: Math.round(record.gitMs),
+        ...(record.windows ? { spans: record.spans } : {}),
+        ...(record.dropped > 0 ? { dropped: record.dropped } : {}),
+      };
+    },
   };
 }
 
-let state = emptyState(SYSTEM_CLOCK, false);
-
 /**
- * Discard anything recorded so far and start a new invocation's record now.
- * Windows are recorded when `windows` is set; the environment decides by
- * default.
- */
-export function beginInvocationTiming(
-  clock: Clock = SYSTEM_CLOCK,
-  windows: boolean = invocationWindowsRequested(),
-): void {
-  state = emptyState(clock, windows);
-}
-
-/**
- * Open one Git process's window. The spawning funnel calls the returned
- * function when the process has exited. A process that outlives the record it
- * started under belongs to no record.
+ * Open one Git process's window in the current invocation's record. The
+ * spawning funnel calls the returned function when the process has exited. A
+ * process that outlives its record belongs to no record.
  */
 export function gitCallStarted(): () => void {
-  const opened = state;
-  const startedMs = opened.clock.monotonicNow();
+  const record = activeRecord();
+  if (record === undefined) return () => {};
+  const startedMs = record.clock.monotonicNow();
   return () => {
-    if (state !== opened) return;
-    opened.gitCalls += 1;
-    opened.gitMs += Math.max(0, opened.clock.monotonicNow() - startedMs);
+    if (record.closed) return;
+    record.gitCalls += 1;
+    record.gitMs += Math.max(0, record.clock.monotonicNow() - startedMs);
   };
 }
 
@@ -146,6 +174,7 @@ function closeWindow(
   label: string,
   opened: OpenSpan,
 ): void {
+  if (record.closed) return;
   if (record.spans.length >= SPAN_CAPACITY) {
     record.dropped += 1;
     return;
@@ -163,45 +192,32 @@ function closeWindow(
 }
 
 /**
- * Record one plan step's transition. A start opens a window; any other state
- * closes the most recent open window with that label. A settlement with no
- * recorded start names a step that took no measurable time and is left out.
+ * Record one plan step's transition in the current invocation's record. A
+ * start opens a window; any other state closes the most recent open window
+ * with that label. A settlement with no recorded start names a step that took
+ * no measurable time and is left out.
  */
 export function noteStepTransition(label: string, to: PlanStepState): void {
-  if (!state.windows) return;
+  const record = activeRecord();
+  if (record === undefined || !record.windows) return;
   if (to === "started") {
-    const stack = state.open.get(label) ?? [];
-    stack.push(openWindow(state));
-    state.open.set(label, stack);
+    const stack = record.open.get(label) ?? [];
+    stack.push(openWindow(record));
+    record.open.set(label, stack);
     return;
   }
-  const opened = state.open.get(label)?.pop();
-  if (opened !== undefined) closeWindow(state, "step", label, opened);
+  const opened = record.open.get(label)?.pop();
+  if (opened !== undefined) closeWindow(record, "step", label, opened);
 }
 
 /**
- * Open one configured command's window as its process is spawned. The spawner
- * calls the returned function when that process has exited. A command that
- * outlives the record it started under belongs to no record.
+ * Open one configured command's window in the current invocation's record, as
+ * its process is spawned. The spawner calls the returned function when that
+ * process has exited. A command that outlives its record belongs to no record.
  */
 export function commandStarted(label: string): () => void {
-  const record = state;
-  if (!record.windows) return () => {};
+  const record = activeRecord();
+  if (record === undefined || !record.windows) return () => {};
   const opened = openWindow(record);
-  return () => {
-    if (state === record) closeWindow(record, "command", label, opened);
-  };
-}
-
-/** Drain the current record, or `undefined` when nothing was recorded. */
-export function takeInvocationTiming(): InvocationTiming | undefined {
-  const drained = state;
-  state = emptyState(drained.clock, false);
-  if (drained.gitCalls === 0 && drained.spans.length === 0) return undefined;
-  return {
-    git_calls: drained.gitCalls,
-    git_ms: Math.round(drained.gitMs),
-    ...(drained.windows ? { spans: drained.spans } : {}),
-    ...(drained.dropped > 0 ? { dropped: drained.dropped } : {}),
-  };
+  return () => closeWindow(record, "command", label, opened);
 }

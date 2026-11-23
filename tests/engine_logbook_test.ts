@@ -24,6 +24,7 @@ import {
 } from "../src/engine/completion/events.ts";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
+import { runGit } from "../src/shared/subprocess.ts";
 import {
   addWorktree,
   defaultMapPath,
@@ -112,6 +113,49 @@ Deno.test("logbook: landing effects are lifted from the result's own landing blo
       const event = verbEvents(await readEvents(dir)).at(-1);
       assertEquals(event?.landing, landed ? landing : undefined);
     }
+  });
+});
+
+Deno.test("logbook: overlapping recordings each count only their own Git processes", async () => {
+  // One process can hold several live recordings, as an MCP server does. Each
+  // event must count the Git processes of its own invocation, whichever
+  // recording finishes first.
+  await withTempDir(async (first) => {
+    await withTempDir(async (second) => {
+      for (const dir of [first, second]) {
+        await scaffoldEngine(dir);
+        await gitInit(dir);
+      }
+      const begin = (dir: string) =>
+        beginRecording(dir, {
+          verb: "overlapping-surface",
+          surface: "mcp",
+          driver: Promise.resolve({}),
+        });
+      const finish = { surface: "mcp", outcome: "ok", durationMs: 1 } as const;
+      const quiet = begin(first);
+      const busy = begin(second);
+      const extraCalls = 5;
+      await busy.run(async () => {
+        for (let call = 0; call < extraCalls; call++) {
+          await runGit(["rev-parse", "HEAD"], { cwd: second });
+        }
+      });
+      await quiet.run(() => Promise.resolve());
+      // The quiet recording finishes first, while the busy one is still open.
+      await quiet.finish({ verb: "overlapping-surface", ...finish });
+      await busy.finish({ verb: "overlapping-surface", ...finish });
+
+      const quietCalls = verbEvents(await readEvents(first)).at(-1)
+        ?.engine_timing?.git_calls;
+      const busyCalls = verbEvents(await readEvents(second)).at(-1)
+        ?.engine_timing?.git_calls;
+      assert(
+        quietCalls !== undefined && quietCalls > 0,
+        "the quiet recording's event must count its own context reads",
+      );
+      assertEquals(busyCalls, quietCalls + extraCalls);
+    });
   });
 });
 
