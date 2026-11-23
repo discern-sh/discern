@@ -21,6 +21,8 @@ aliases:
   - "schema_version_too_new"
   - "partial_refresh"
   - "unsupported platform"
+  - "slow in WSL 2"
+  - "checkout filesystem"
   - "ignored integration files"
   - "existing integration files"
 ---
@@ -147,6 +149,12 @@ If a test passes in your main checkout but fails in the fresh worktree, your age
 | A separate service per worktree, such as a test database.       | `[worktree.resources]` |
 
 When setup passes, your agent brings it back for review, and lands it with `discern setup accept` only when you say so. If setup was reported **unproven**, acceptance refuses until `discern setup done` passes.
+
+## Every command is slow in WSL 2
+
+When every discern command takes minutes in WSL 2, your project is probably on a Windows drive, at a path such as `/mnt/c/…`. Every file operation there crosses from Linux to Windows, so Git and discern run many times slower than they do on the Linux filesystem. `discern doctor` confirms it with a warning under **checkout filesystem**.
+
+Move the project onto the Linux filesystem, such as under your home directory. Your project's own tools, such as its package manager, then need to run in Linux as well. It's fixed when `discern doctor` no longer shows that warning.
 
 ## `discern doctor` reports a failed check
 
