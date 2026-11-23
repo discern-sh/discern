@@ -298,6 +298,8 @@ run   = "tool write-reference --source source/ --output reference/"`,
       },
       track_ignored_drift: {
         detail: [
+          "discern never looks inside an ignored directory, such as",
+          "`node_modules`, so one is listed only when it appears or disappears.",
           "Turn it off when ignored files change too often for the list to help.",
         ],
       },

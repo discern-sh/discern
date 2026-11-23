@@ -368,51 +368,43 @@ Deno.test("a newer ignored baseline is reported and never overwritten", async ()
   });
 });
 
-Deno.test("content fingerprints share one aggregate byte budget", async () => {
-  await withTempDir(async (dir) => {
-    const files = Object.fromEntries(
-      Array.from({ length: 17 }, (_, index) => [`root-${index}.cache`, ""]),
-    );
-    await initIgnoredRepo(dir, "*.cache", files);
-    for (const path of Object.keys(files)) {
-      await Deno.truncate(join(dir, path), 1024 * 1024);
-    }
+Deno.test("content fingerprints share one aggregate budget of bytes and of files", async () => {
+  // Each case offers one member more than its budget admits, so exactly one
+  // root stays on metadata.
+  for (
+    const budget of [
+      { extension: "cache", members: 17, bytesEach: 1024 * 1024 },
+      { extension: "gen", members: 2_049, bytesEach: 0 },
+    ]
+  ) {
+    await withTempDir(async (dir) => {
+      const files = Object.fromEntries(
+        Array.from(
+          { length: budget.members },
+          (_, index) => [`member-${index}.${budget.extension}`, ""],
+        ),
+      );
+      await initIgnoredRepo(dir, `*.${budget.extension}`, files);
+      for (const path of Object.keys(files)) {
+        await Deno.truncate(join(dir, path), budget.bytesEach);
+      }
 
-    await recordIgnoredFileBaseline(dir, true);
+      await recordIgnoredFileBaseline(dir, true);
 
-    const roots = (await readBaseline(dir)).roots;
-    assertEquals(
-      roots.filter((root) => root.mode === "content").reduce(
-        (total, root) => total + root.bytes,
-        0,
-      ),
-      16 * 1024 * 1024,
-    );
-    assertEquals(
-      roots.filter((root) => root.mode === "metadata").length,
-      1,
-    );
-  });
-});
-
-Deno.test("file counts cannot evade the content fingerprint budget", async () => {
-  await withTempDir(async (dir) => {
-    const files = Object.fromEntries(
-      Array.from({ length: 2_049 }, (_, index) => [`member-${index}.gen`, ""]),
-    );
-    await initIgnoredRepo(dir, "*.gen", files);
-
-    await recordIgnoredFileBaseline(dir, true);
-
-    const roots = (await readBaseline(dir)).roots;
-    assertEquals(roots.length, 2_049);
-    assertEquals(
-      roots.filter((root) => root.mode === "content").length,
-      2_048,
-    );
-    assertEquals(
-      roots.filter((root) => root.mode === "metadata").length,
-      1,
-    );
-  });
+      const roots = (await readBaseline(dir)).roots;
+      const content = roots.filter((root) => root.mode === "content");
+      assertEquals(roots.length, budget.members, budget.extension);
+      assertEquals(content.length, budget.members - 1, budget.extension);
+      assertEquals(
+        content.reduce((total, root) => total + root.bytes, 0),
+        (budget.members - 1) * budget.bytesEach,
+        budget.extension,
+      );
+      assertEquals(
+        roots.filter((root) => root.mode === "metadata").length,
+        1,
+        budget.extension,
+      );
+    });
+  }
 });

@@ -894,7 +894,7 @@ const worktreeSection = z.strictObject({
     "Set to true to write each worktree's port into an env file that already exists, as `DISCERN_WORKTREE_PORT`. Every worktree has a port either way; `discern identity --port` prints it.",
   ),
   track_ignored_drift: z.boolean().default(true).describe(
-    "Record the Git-ignored paths when a worktree is set up, and list the ones that changed when its work lands, for information only. An ignored directory, such as `node_modules`, is listed only when it appears or disappears; discern never looks inside one.",
+    "Record the Git-ignored paths when a worktree is set up, and list the ones that changed when its work lands, for information only.",
   ),
   resources: z.record(z.string().regex(NAME_RE), resourceValue).default({})
     .describe(CONFIG_PROSE["worktree.resources"].what),
