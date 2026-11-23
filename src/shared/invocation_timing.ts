@@ -2,13 +2,15 @@
  * Where one invocation's own time went: internal diagnostic metadata.
  *
  * A step result already carries the duration of a configured command. This
- * accumulator records the rest of an invocation: when each plan step and each
- * configured command began and ended, and how much Git activity ran before and
- * during it. The time no window covers, less the Git time outside every
- * window, is what discern itself spent in process. The logbook attaches
- * the drained record to the invocation's event, so a slow run on an unfamiliar
- * host can be attributed from its own history. It measures only; nothing reads
- * it to decide anything, and no report or detector presents it.
+ * accumulator records the rest of an invocation. Every invocation counts its
+ * Git processes and their time, which costs a few dozen bytes in its logbook
+ * event and splits any past run into commands, Git, and everything else. An
+ * invocation that sets the engine-timing switch also records a window for each
+ * plan step and each configured command, with the Git activity before and
+ * during it; the time no window covers, less the Git time outside every
+ * window, is what discern itself spent in process. Windows cost about 140
+ * bytes each, so they are recorded only when asked for. The record measures
+ * only; nothing reads it to decide anything, and no report presents it.
  *
  * The accumulator is process-local, like the checkpoint and merge activity
  * mailboxes: the recorder resets it when an invocation begins and drains it
@@ -16,7 +18,18 @@
  */
 
 import { type Clock, SYSTEM_CLOCK } from "./clock.ts";
+import type { EnvReader } from "./env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import type { PlanStepState } from "./result.ts";
+
+/** Exact value of the engine-timing switch that asks for windows. */
+const WINDOWS_REQUESTED_VALUE = "1";
+
+/** Whether the environment asks this invocation to record its windows. */
+export function invocationWindowsRequested(env: EnvReader = Deno.env): boolean {
+  return env.get(DISCERN_ENVIRONMENT_VARIABLES.engineTiming) ===
+    WINDOWS_REQUESTED_VALUE;
+}
 
 /**
  * One wall-clock window inside an invocation, with the Git activity around it.
@@ -48,8 +61,8 @@ export type InvocationTiming = {
   git_calls: number;
   /** Their summed wall-clock milliseconds. */
   git_ms: number;
-  /** Every closed window, in closing order. */
-  spans: InvocationSpan[];
+  /** Every closed window, in closing order; present only when asked for. */
+  spans?: InvocationSpan[];
   /** Closed windows left out once the record was full. */
   dropped?: number;
 };
@@ -65,6 +78,7 @@ interface OpenSpan {
 
 interface State {
   clock: Clock;
+  windows: boolean;
   originMs: number;
   gitCalls: number;
   gitMs: number;
@@ -74,9 +88,10 @@ interface State {
 }
 
 /** A fresh, empty record whose offsets start now. */
-function emptyState(clock: Clock): State {
+function emptyState(clock: Clock, windows: boolean): State {
   return {
     clock,
+    windows,
     originMs: clock.monotonicNow(),
     gitCalls: 0,
     gitMs: 0,
@@ -86,11 +101,18 @@ function emptyState(clock: Clock): State {
   };
 }
 
-let state = emptyState(SYSTEM_CLOCK);
+let state = emptyState(SYSTEM_CLOCK, false);
 
-/** Discard anything recorded so far and start a new invocation's record now. */
-export function beginInvocationTiming(clock: Clock = SYSTEM_CLOCK): void {
-  state = emptyState(clock);
+/**
+ * Discard anything recorded so far and start a new invocation's record now.
+ * Windows are recorded when `windows` is set; the environment decides by
+ * default.
+ */
+export function beginInvocationTiming(
+  clock: Clock = SYSTEM_CLOCK,
+  windows: boolean = invocationWindowsRequested(),
+): void {
+  state = emptyState(clock, windows);
 }
 
 /**
@@ -146,6 +168,7 @@ function closeWindow(
  * recorded start names a step that took no measurable time and is left out.
  */
 export function noteStepTransition(label: string, to: PlanStepState): void {
+  if (!state.windows) return;
   if (to === "started") {
     const stack = state.open.get(label) ?? [];
     stack.push(openWindow(state));
@@ -163,6 +186,7 @@ export function noteStepTransition(label: string, to: PlanStepState): void {
  */
 export function commandStarted(label: string): () => void {
   const record = state;
+  if (!record.windows) return () => {};
   const opened = openWindow(record);
   return () => {
     if (state === record) closeWindow(record, "command", label, opened);
@@ -172,12 +196,12 @@ export function commandStarted(label: string): () => void {
 /** Drain the current record, or `undefined` when nothing was recorded. */
 export function takeInvocationTiming(): InvocationTiming | undefined {
   const drained = state;
-  state = emptyState(drained.clock);
+  state = emptyState(drained.clock, false);
   if (drained.gitCalls === 0 && drained.spans.length === 0) return undefined;
   return {
     git_calls: drained.gitCalls,
     git_ms: Math.round(drained.gitMs),
-    spans: drained.spans,
+    ...(drained.windows ? { spans: drained.spans } : {}),
     ...(drained.dropped > 0 ? { dropped: drained.dropped } : {}),
   };
 }

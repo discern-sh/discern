@@ -53,6 +53,7 @@ import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { verbNeedsSetup } from "../src/shared/setup_state.ts";
 import { RECORDED_VALIDATION_VERBS } from "../src/engine/logbook/validation.ts";
 import { AcceptLandingStateSchema } from "../src/shared/accept_landing_state.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 
 const settledObservation:
   import("../src/engine/completion/protocol.ts").CompletionEvent = {
@@ -150,7 +151,10 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
     await gitInit(dir);
     const envValue = "logbook-test-thread-value";
     const r = await runAgent(dir, ["status", "--local", "--json"], {
-      env: { CODEX_THREAD_ID: envValue },
+      env: {
+        CODEX_THREAD_ID: envValue,
+        [DISCERN_ENVIRONMENT_VARIABLES.engineTiming]: "",
+      },
     });
     assertEquals(r.code, 0, r.output);
     const allEvents = await readEvents(dir);
@@ -173,6 +177,11 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
     assertEquals(event.clean, true);
     assertEquals(event.outcome, "ok");
     assert(event.duration_ms >= 0);
+    // Every event counts its Git processes; windows need the switch.
+    assertEquals(
+      Object.keys(event.engine_timing ?? {}).sort(),
+      ["git_calls", "git_ms"],
+    );
     assert(
       event.epoch !== null && /^[0-9a-f]{8}$/.test(event.epoch),
       `epoch fingerprint expected, got ${event.epoch}`,
@@ -639,7 +648,9 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
       `[project]\nslug = "logbook-test"\n[jobs]\ntest = "sh -c 'echo failing; exit 1'"\n`,
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"], {
+      env: { [DISCERN_ENVIRONMENT_VARIABLES.engineTiming]: "1" },
+    });
     assertEquals(r.code, 1, r.output);
     const observations = (await readEvents(dir)).filter((event) =>
       event.kind === "completion"
@@ -685,11 +696,12 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
     for (const d of event.diagnostics ?? []) {
       assertEquals(Object.keys(d).sort(), ["tool"]);
     }
-    // discern's own share rides the same event: its Git activity, and the
-    // window of every configured command it ran.
+    // discern's own share rides the same event: its Git activity, and, because
+    // this run asked for them, the window of every configured command it ran.
     const timing = event.engine_timing;
     assert(timing !== undefined, "a gate event must carry its engine timing");
     assert(timing.git_calls > 0 && timing.git_ms >= 0);
+    assert(timing.spans !== undefined, "the switch must add the windows");
     const testWindow = timing.spans.find((span) =>
       span.kind === "command" && span.label === "test"
     );

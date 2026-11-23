@@ -13,6 +13,7 @@ aliases:
   - "DISCERN_BIN_DIR"
   - "DISCERN_TRUNK"
   - "DISCERN_NO_ATTRIBUTION"
+  - "DISCERN_ENGINE_TIMING"
   - "DISCERN_PROJECT_SLUG"
   - "DISCERN_WORKTREE_BRANCH_PREFIX"
   - "DISCERN_WORKTREE_ID"
@@ -53,6 +54,7 @@ You can set these to change how discern behaves, for one command or for your who
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DISCERN_TRUNK`          | Use a different trunk than `[repository].trunk` while it's set; an empty value is ignored. discern also sets it for each project script, to the trunk in use.                                                                                                                                                                                                 |
 | `DISCERN_NO_ATTRIBUTION` | Set it to any non-empty value to leave discern's name off what it writes. Generated-file markers drop discern's name and web address, commits discern makes drop its co-author line, and Proof notes use your Git identity instead of discern's. Keep it set the same way for every command, or `discern upgrade --check` reports the markers as out of date. |
+| `DISCERN_ENGINE_TIMING`  | Set it to `1` to add each step's and command's start and length to the logbook entry, to help explain a slow run.                                                                                                                                                                                                                                             |
 
 ## Worktree identity
 

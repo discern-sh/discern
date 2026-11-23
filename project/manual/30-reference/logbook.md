@@ -274,7 +274,7 @@ An invocation's `surface` is `cli` or `mcp`. Its `outcome` is `ok`, `failed`, `p
 | `has_operands`  | Whether a command group that also acts received the operand that selects its effect.                                                               |
 | `duration_ms`   | End-to-end wall-clock milliseconds.                                                                                                                |
 | `waited_ms`     | Milliseconds spent waiting for a test-run slot, on capped runs.                                                                                    |
-| `engine_timing` | discern's own share of the run: its Git processes, and a window for each step and command.                                                         |
+| `engine_timing` | discern's own share of the run: its Git processes and, when asked, a window for each step and command.                                             |
 | `gate_ran`      | Whether this `done` ran gate work.                                                                                                                 |
 | `target`        | The page served, a miss, the new branch, or the queued command.                                                                                    |
 | `from`          | The ref a `start` branched from.                                                                                                                   |
@@ -296,7 +296,7 @@ An invocation's `surface` is `cli` or `mcp`. Its `outcome` is `ok`, `failed`, `p
 
 - **`partial`** marks an error after an effect that can't be undone.
 - **`crash`** appears only when discern hits an unexpected error. It holds the error's class name, such as `"TypeError"`, and one trimmed code location. The logbook leaves out the message and stack, which a saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds in full.
-- **`engine_timing`** helps explain a slow run, and no report reads it. `git_calls` and `git_ms` count every Git process discern started and their total milliseconds. `spans` holds one window per step and per command: its `kind` (`step` or `command`), `label`, start (`start_ms`, from the start of the run), length (`ms`), and the Git processes that finished before it (`git_calls_before`, `git_ms_before`) and during it (`git_calls`, `git_ms`). It keeps 256 windows; `dropped` counts the rest.
+- **`engine_timing`** helps explain a slow run, and no report reads it. `git_calls` and `git_ms` count every Git process discern started and their total milliseconds. A run with `DISCERN_ENGINE_TIMING=1` adds `spans`, one window per step and per command: its `kind` (`step` or `command`), `label`, start (`start_ms`, from the start of the run), length (`ms`), and the Git processes that finished before it (`git_calls_before`, `git_ms_before`) and during it (`git_calls`, `git_ms`). It keeps 256 windows; `dropped` counts the rest.
 - **`tip_ids`** appears only when the [desk](glossary.md#desk) showed a tip, and carries the tip's registry id as is. The tip-adoption reader joins that id to the tip's declared commands.
 - **`consent`** feeds the landing-authority detectors described in [practice patterns](../20-guides/improve-the-practice.md).
 - **`checkpoints`** carries the open-question and variance lifecycle as metadata: ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times. The unmet rationale never lands here.

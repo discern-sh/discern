@@ -9,9 +9,11 @@ import {
   beginInvocationTiming,
   commandStarted,
   gitCallStarted,
+  invocationWindowsRequested,
   noteStepTransition,
   takeInvocationTiming,
 } from "../src/shared/invocation_timing.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { PLAN_STEP_STATES } from "../src/shared/result.ts";
 
 /** A clock the test advances by hand. */
@@ -34,13 +36,36 @@ function gitFor(clock: { advance(ms: number): void }, ms: number): void {
 }
 
 Deno.test("an invocation with no Git process and no window records nothing", () => {
-  beginInvocationTiming(manualClock());
+  beginInvocationTiming(manualClock(), true);
   assertEquals(takeInvocationTiming(), undefined);
+});
+
+Deno.test("an invocation that did not ask for windows records only its Git totals", () => {
+  const clock = manualClock();
+  beginInvocationTiming(clock, false);
+  noteStepTransition("refresh", "started");
+  const commandFinished = commandStarted("build");
+  gitFor(clock, 12);
+  commandFinished();
+  noteStepTransition("refresh", "finished");
+
+  assertEquals(takeInvocationTiming(), { git_calls: 1, git_ms: 12 });
+});
+
+Deno.test("only the exact value 1 in the engine-timing switch asks for windows", () => {
+  const withValue = (value: string | undefined) => ({
+    get: (name: string) =>
+      name === DISCERN_ENVIRONMENT_VARIABLES.engineTiming ? value : undefined,
+  });
+  assertEquals(invocationWindowsRequested(withValue("1")), true);
+  for (const value of [undefined, "", "0", "true", "yes", " 1"]) {
+    assertEquals(invocationWindowsRequested(withValue(value)), false, value);
+  }
 });
 
 Deno.test("a window carries its offset, its length, and the Git activity before and inside it", () => {
   const clock = manualClock();
-  beginInvocationTiming(clock);
+  beginInvocationTiming(clock, true);
 
   clock.advance(40);
   gitFor(clock, 10);
@@ -87,14 +112,14 @@ Deno.test("a window carries its offset, its length, and the Git activity before 
 Deno.test("every settled state closes a step window, and an unstarted step is left out", () => {
   for (const settled of PLAN_STEP_STATES.filter((s) => s !== "started")) {
     const clock = manualClock();
-    beginInvocationTiming(clock);
+    beginInvocationTiming(clock, true);
     noteStepTransition("with-start", "started");
     clock.advance(7);
     noteStepTransition("with-start", settled);
     noteStepTransition("without-start", settled);
 
     assertEquals(
-      takeInvocationTiming()?.spans.map((span) => [span.label, span.ms]),
+      takeInvocationTiming()?.spans?.map((span) => [span.label, span.ms]),
       [["with-start", 7]],
       settled,
     );
@@ -103,7 +128,7 @@ Deno.test("every settled state closes a step window, and an unstarted step is le
 
 Deno.test("windows that share a label close most recent first, and overlapping windows share Git time", () => {
   const clock = manualClock();
-  beginInvocationTiming(clock);
+  beginInvocationTiming(clock, true);
   noteStepTransition("lint", "started");
   clock.advance(5);
   const commandFinished = commandStarted("lint");
@@ -115,7 +140,7 @@ Deno.test("windows that share a label close most recent first, and overlapping w
   commandFinished();
 
   assertEquals(
-    takeInvocationTiming()?.spans.map((span) => [
+    takeInvocationTiming()?.spans?.map((span) => [
       span.kind,
       span.start_ms,
       span.ms,
@@ -132,11 +157,11 @@ Deno.test("windows that share a label close most recent first, and overlapping w
 
 Deno.test("a process that outlives its invocation belongs to no record", () => {
   const clock = manualClock();
-  beginInvocationTiming(clock);
+  beginInvocationTiming(clock, true);
   const gitStraggler = gitCallStarted();
   const commandStraggler = commandStarted("slow");
 
-  beginInvocationTiming(clock);
+  beginInvocationTiming(clock, true);
   clock.advance(30);
   gitStraggler();
   commandStraggler();
@@ -146,12 +171,12 @@ Deno.test("a process that outlives its invocation belongs to no record", () => {
 
 Deno.test("a full record counts the windows it leaves out", () => {
   const clock = manualClock();
-  beginInvocationTiming(clock);
+  beginInvocationTiming(clock, true);
   for (let index = 0; index < 260; index++) {
     noteStepTransition(`step-${index}`, "started");
     noteStepTransition(`step-${index}`, "finished");
   }
   const timing = takeInvocationTiming();
-  assertEquals(timing?.spans.length, 256);
+  assertEquals(timing?.spans?.length, 256);
   assertEquals(timing?.dropped, 4);
 });

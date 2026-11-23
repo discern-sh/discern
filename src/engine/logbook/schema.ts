@@ -112,12 +112,14 @@ const stepTimingSchema = z.looseObject({
 /** One recorded step timing. */
 export type StepTiming = z.infer<typeof stepTimingSchema>;
 
-/** Where an invocation's own time went: every Git process it ran, and the
- * wall-clock window of each plan step and each configured command, with the
- * Git activity before and inside it. A window's `start_ms` counts from the
- * invocation's start, so the time no window covers is what discern spent
- * between them. Internal diagnostic metadata: nothing reads it to decide or
- * report anything. Loose: a future field passes through. */
+/** Where an invocation's own time went. Every event counts the Git processes
+ * the invocation ran and their time. An invocation that set the engine-timing
+ * switch adds `spans`: the wall-clock window of each plan step and each
+ * configured command, with the Git activity before and inside it. A window's
+ * `start_ms` counts from the invocation's start, so the time no window covers
+ * is what discern spent between them. Internal diagnostic metadata: nothing
+ * reads it to decide or report anything. Loose: a future field passes
+ * through. */
 const engineTimingSchema = z.looseObject({
   git_calls: z.number(),
   git_ms: z.number(),
@@ -130,7 +132,7 @@ const engineTimingSchema = z.looseObject({
     git_ms_before: z.number(),
     git_calls: z.number(),
     git_ms: z.number(),
-  })),
+  })).optional(),
   dropped: z.number().optional(),
 });
 

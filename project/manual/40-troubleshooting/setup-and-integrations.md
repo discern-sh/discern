@@ -154,7 +154,7 @@ When setup passes, your agent brings it back for review, and lands it with `disc
 
 When discern's commands run slowly in WSL 2, your project is probably on a Windows drive, at a path such as `/mnt/c/…`. Every file operation there crosses from Linux to Windows, so Git and discern run many times slower. `discern doctor` confirms it with a warning under **checkout filesystem**.
 
-Move the project onto the Linux filesystem, such as under your home directory. Your project's own tools, such as its package manager, then need to run in Linux as well. It's fixed when `discern doctor` no longer shows that warning.
+Move the project onto the Linux filesystem, such as your home directory, and run your project's own tools there too. It's fixed when `discern doctor` no longer shows that warning.
 
 ## `discern doctor` reports a failed check
 

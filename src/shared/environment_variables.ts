@@ -154,6 +154,15 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
         "Set it to any non-empty value to leave discern's name off what it writes. Generated-file markers drop discern's name and web address, commits discern makes drop its co-author line, and Proof notes use your Git identity instead of discern's. Keep it set the same way for every command, or `discern upgrade --check` reports the markers as out of date.",
     },
   },
+  engineTiming: {
+    name: "DISCERN_ENGINE_TIMING",
+    group: "runtime-overrides",
+    documentation: {
+      public: true,
+      description:
+        "Set it to `1` to add each step's and command's start and length to the logbook entry, to help explain a slow run.",
+    },
+  },
 
   projectSlug: {
     name: "DISCERN_PROJECT_SLUG",

@@ -8,6 +8,7 @@
     "DISCERN_BIN_DIR": true,
     "DISCERN_TRUNK": true,
     "DISCERN_NO_ATTRIBUTION": true,
+    "DISCERN_ENGINE_TIMING": true,
     "DISCERN_PROJECT_SLUG": true,
     "DISCERN_WORKTREE_BRANCH_PREFIX": true,
     "DISCERN_WORKTREE_ID": true,
