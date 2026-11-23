@@ -372,9 +372,10 @@
   # `discern status`.
   export_port = false
 
-  # Record the Git-ignored top-level paths, such as `node_modules`, when a
-  # worktree is set up, and list the ones that changed when its work lands, for
-  # information only.
+  # Record the Git-ignored paths when a worktree is set up, and list the ones
+  # that changed when its work lands, for information only. An ignored
+  # directory, such as `node_modules`, is listed only when it appears or
+  # disappears; discern never looks inside one.
   # Turn it off when ignored files change too often for the list to help.
   track_ignored_drift = true
 

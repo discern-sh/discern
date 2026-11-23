@@ -132,7 +132,7 @@ Changing a value in the main checkout doesn't update existing worktrees, so fix 
 
 ## Ignored files changed in a worktree
 
-Files Git ignores, such as `.env` or local test data, aren't in any commit, so copy out what you want to keep before a worktree goes. `discern accept` and its preview warn about ignored paths that changed since setup, but don't save them.
+Files Git ignores, such as `.env` or local test data, aren't in any commit, so copy out what you want to keep before a worktree goes. `discern accept` and its preview warn about ignored paths that changed since setup, but don't save them. The warning names an ignored file that changed, such as `.env`, and an ignored folder that appeared or disappeared. discern doesn't look inside an ignored folder, which often holds thousands of installed or built files, so it doesn't notice a file changing in one.
 
 ## A task on the desk looks wrong
 

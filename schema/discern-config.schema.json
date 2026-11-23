@@ -978,7 +978,7 @@
         },
         "track_ignored_drift": {
           "default": true,
-          "description": "Record the Git-ignored top-level paths, such as `node_modules`, when a worktree is set up, and list the ones that changed when its work lands, for information only.",
+          "description": "Record the Git-ignored paths when a worktree is set up, and list the ones that changed when its work lands, for information only. An ignored directory, such as `node_modules`, is listed only when it appears or disappears; discern never looks inside one.",
           "type": "boolean"
         },
         "resources": {

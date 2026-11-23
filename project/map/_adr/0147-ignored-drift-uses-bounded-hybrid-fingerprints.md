@@ -1,6 +1,6 @@
 # ADR 0147: Ignored-file drift uses bounded hybrid fingerprints
 
-**Status**: accepted
+**Status**: accepted; **amended by [ADR 0432](0432-ignored-directories-are-opaque-to-drift-fingerprints.md)** — an ignored directory is recorded by presence alone and never entered, so the metadata walk and the directory share of the content budget no longer exist.
 
 ## Context
 

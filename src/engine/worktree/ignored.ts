@@ -6,12 +6,16 @@ export type { IgnoredFileChangeSummary } from "../../shared/ignored_file_changes
  * Git cannot tell us whether ignored files were edited: ignored files are outside
  * the index by design. The signal is therefore a worktree-local baseline recorded
  * after discern finishes preparing the worktree, then a later comparison before
- * the worktree is removed. Inspection keeps Git's exact ignored roots and always
- * begins with metadata. A bounded budget upgrades small roots to content hashes so
- * harmless rematerialisation stays quiet; large roots remain metadata-only, making
- * their cost proportional to entries rather than bytes. Only the final changed
- * labels collapse to top-level directories, keeping the human report quiet without
- * broadening the filesystem scan.
+ * the worktree is removed. Inspection keeps Git's exact ignored roots, and its
+ * cost follows the number of roots Git reports, never what lies beneath them.
+ *
+ * A directory Git reports as ignored as a whole is opaque: only its presence is
+ * recorded, and nothing inside it is ever listed or read. A dependency or build
+ * tree therefore costs one entry however large it grows, on any filesystem.
+ * Individually ignored files carry the signal. Each begins with metadata, and a
+ * bounded budget upgrades the smallest to content hashes so a harmless rewrite
+ * stays quiet. Only the final changed labels collapse to top-level directories,
+ * keeping the human report quiet without broadening the inspection.
  */
 
 import { dirname, join } from "@std/path";
@@ -20,13 +24,7 @@ import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import {
-  lstatIfExists,
-  readBytesIfExists,
-  readDirIfExists,
-  readLinkIfExists,
-  readTextIfExists,
-} from "../../shared/fs_presence.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 import {
   inspectOnDiskJsonVersion,
   newerOnDiskFormatMessage,
@@ -38,23 +36,26 @@ const CHANGE_CAP = 20;
 const CONTENT_HASH_BUDGET_BYTES = 16 * 1024 * 1024;
 const CONTENT_HASH_BUDGET_FILES = 2_048;
 
-type FingerprintMode = "content" | "metadata";
+/**
+ * How one root was fingerprinted. `presence` records that an opaque directory
+ * exists; `metadata` records one entry's own size, time, and identity;
+ * `content` records a file's bytes.
+ */
+type FingerprintMode = "content" | "metadata" | "presence";
 
 interface IgnoredRootFingerprint {
   path: string;
   kind: "file" | "dir" | "symlink" | "other" | "missing";
   mode: FingerprintMode;
   digest: string;
-  files: number;
   bytes: number;
 }
 
 const ignoredRootFingerprintSchema = z.object({
   path: z.string(),
   kind: z.enum(["file", "dir", "symlink", "other", "missing"]),
-  mode: z.enum(["content", "metadata"]),
+  mode: z.enum(["content", "metadata", "presence"]),
   digest: z.string(),
-  files: z.number(),
   bytes: z.number(),
 });
 
@@ -96,7 +97,7 @@ export async function recordIgnoredFileBaseline(
     return;
   }
   // A valid baseline is immutable for the life of the worktree: re-entry must
-  // not pay to fingerprint the tree merely to discover the file already exists.
+  // not pay to fingerprint the roots merely to discover the file already exists.
   // An older/invalid schema is deliberately replaced so an upgrade cannot leave
   // a worktree permanently stuck with a baseline the inspector cannot read.
   const standing = await readBaseline(path);
@@ -230,7 +231,7 @@ async function readBaseline(
   }
 }
 
-/** Fingerprint Git's current ignored roots, promoting eligible roots to bounded content hashes. */
+/** Fingerprint Git's current ignored roots, promoting eligible files to bounded content hashes. */
 async function snapshotIgnoredRoots(
   cwd: string,
   baseline?: IgnoredBaseline,
@@ -246,7 +247,12 @@ async function snapshotIgnoredRoots(
   return await contentFingerprintWithinBudget(cwd, metadata, baseline);
 }
 
-/** Read Git's NUL-delimited ignored entries and return stable root labels. */
+/**
+ * Read Git's NUL-delimited ignored entries and return stable root labels. In
+ * `matching` mode Git names a directory that an ignore rule covers as one
+ * entry and does not descend into it, so the listing is the inspection
+ * boundary: one root per ignored directory, one per individually ignored file.
+ */
 async function listIgnoredRoots(cwd: string): Promise<string[] | undefined> {
   const run = await runGit([
     "status",
@@ -281,13 +287,16 @@ function collapseChangedRoot(raw: string): string {
   return cleaned;
 }
 
-/** Describe an ignored root by kind and either bounded content or stable metadata. */
+/**
+ * Describe one ignored root from its own directory entry. A directory is
+ * opaque: the fingerprint records that it exists and never opens it. A file is
+ * described by bounded content or by its own metadata.
+ */
 async function fingerprintRoot(
   cwd: string,
   label: string,
-  mode: FingerprintMode,
+  mode: "content" | "metadata",
   byteBudget = CONTENT_HASH_BUDGET_BYTES,
-  fileBudget = CONTENT_HASH_BUDGET_FILES,
 ): Promise<IgnoredRootFingerprint> {
   const rel = label.endsWith("/") ? label.slice(0, -1) : label;
   const abs = join(cwd, rel);
@@ -300,28 +309,18 @@ async function fingerprintRoot(
       kind: "missing",
       mode: "metadata",
       digest: await hashText(`missing\0${label}`),
-      files: 0,
       bytes: 0,
     };
   }
   if (stat.isDirectory) {
-    const tree = mode === "content"
-      ? await contentFingerprintDirectory(
-        abs,
-        rel,
-        byteBudget,
-        fileBudget,
-      )
-      : await metadataFingerprintDirectory(abs, rel);
-    if (tree !== undefined) {
-      return {
-        path: ensureDirLabel(label),
-        kind: "dir",
-        mode,
-        ...tree,
-      };
-    }
-    return await fingerprintRoot(cwd, label, "metadata");
+    const dirLabel = ensureDirLabel(label);
+    return {
+      path: dirLabel,
+      kind: "dir",
+      mode: "presence",
+      digest: await hashText(`dir\0${dirLabel}`),
+      bytes: 0,
+    };
   }
   if (stat.isSymlink) {
     let target = "";
@@ -336,13 +335,12 @@ async function fingerprintRoot(
       kind: "symlink",
       mode: "metadata",
       digest: await hashText(`symlink\0${label}\0${target}`),
-      files: 1,
       bytes: 0,
     };
   }
   if (stat.isFile) {
     if (mode === "content") {
-      if (stat.size > byteBudget || fileBudget < 1) {
+      if (stat.size > byteBudget) {
         return await fingerprintRoot(cwd, label, "metadata");
       }
       try {
@@ -352,7 +350,6 @@ async function fingerprintRoot(
           kind: "file",
           mode,
           digest: await hashBytes(bytes, `file\0${label}\0`),
-          files: 1,
           bytes: stat.size,
         };
       } catch {
@@ -364,7 +361,6 @@ async function fingerprintRoot(
       kind: "file",
       mode,
       digest: await hashText(fileMetadataPart(label, stat)),
-      files: 1,
       bytes: stat.size,
     };
   }
@@ -373,7 +369,6 @@ async function fingerprintRoot(
     kind: "other",
     mode: "metadata",
     digest: await hashText(`other\0${label}\0${stat.size}`),
-    files: 1,
     bytes: stat.size,
   };
 }
@@ -383,57 +378,6 @@ function ensureDirLabel(label: string): string {
   return label.endsWith("/") ? label : `${label}/`;
 }
 
-/** Hash a deterministic recursive inventory without reading file contents. */
-async function metadataFingerprintDirectory(
-  absRoot: string,
-  relRoot: string,
-): Promise<{ digest: string; files: number; bytes: number }> {
-  const parts: string[] = [];
-  let files = 0;
-  let bytes = 0;
-
-  /** Record a stable metadata entry for every descendant without reading contents. */
-  async function walk(abs: string, rel: string): Promise<void> {
-    const entries = await readDirIfExists(abs);
-    if (entries === undefined) {
-      parts.push(`missing-dir\0${rel}`);
-      return;
-    }
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-    for (const entry of entries) {
-      const childAbs = join(abs, entry.name);
-      const childRel = `${rel}/${entry.name}`;
-      const stat = await lstatIfExists(childAbs);
-      if (stat === undefined) {
-        parts.push(`missing\0${childRel}`);
-        continue;
-      }
-      if (stat.isDirectory) {
-        await walk(childAbs, childRel);
-      } else if (stat.isSymlink) {
-        const target = await readLinkIfExists(childAbs) ?? "<missing>";
-        files += 1;
-        parts.push(`symlink\0${childRel}\0${target}`);
-      } else if (stat.isFile) {
-        files += 1;
-        bytes += stat.size;
-        parts.push(fileMetadataPart(childRel, stat));
-      } else {
-        files += 1;
-        bytes += stat.size;
-        parts.push(`other\0${childRel}\0${stat.size}`);
-      }
-    }
-  }
-
-  await walk(absRoot, relRoot);
-  return {
-    digest: await hashText(parts.join("\n")),
-    files,
-    bytes,
-  };
-}
-
 /** Encode size, modification time, and inode into one deterministic file record. */
 function fileMetadataPart(path: string, stat: Deno.FileInfo): string {
   return `file\0${path}\0${stat.size}\0${stat.mtime?.getTime() ?? "unknown"}\0${
@@ -441,7 +385,7 @@ function fileMetadataPart(path: string, stat: Deno.FileInfo): string {
   }`;
 }
 
-/** Spend one global I/O budget on the smallest eligible ignored roots first. */
+/** Spend one global I/O budget on the smallest eligible ignored files first. */
 async function contentFingerprintWithinBudget(
   cwd: string,
   metadata: IgnoredRootFingerprint[],
@@ -452,39 +396,34 @@ async function contentFingerprintWithinBudget(
   );
   const candidates = metadata
     .filter((root) => {
-      if (root.kind !== "file" && root.kind !== "dir") {
+      if (root.kind !== "file") {
         return false;
       }
       if (baseline === undefined) {
         return true;
       }
-      const before = previous.get(root.path);
-      return before?.mode === "content" && before.kind === root.kind;
+      // Inspection honours the baseline's chosen mode, so a file cannot become
+      // a content read merely because it was compared by metadata at setup.
+      return previous.get(root.path)?.mode === "content";
     })
-    .sort((a, b) => {
-      const aRank = a.kind === "file" ? 0 : 1;
-      const bRank = b.kind === "file" ? 0 : 1;
-      return aRank - bRank || a.bytes - b.bytes || a.files - b.files ||
-        a.path.localeCompare(b.path);
-    });
+    .sort((a, b) => a.bytes - b.bytes || a.path.localeCompare(b.path));
   let bytesLeft = CONTENT_HASH_BUDGET_BYTES;
   let filesLeft = CONTENT_HASH_BUDGET_FILES;
   const content = new Map<string, IgnoredRootFingerprint>();
   for (const candidate of candidates) {
-    if (candidate.bytes > bytesLeft || candidate.files > filesLeft) {
+    if (candidate.bytes > bytesLeft || filesLeft < 1) {
       continue;
     }
-    // Reserve the candidate's whole observed cost before reading. A root that
-    // races, becomes unreadable, or aborts at its final member must not refund
-    // the budget and let later failures multiply the supposedly bounded I/O.
+    // Reserve the candidate's whole observed cost before reading. A file that
+    // races or becomes unreadable must not refund the budget and let later
+    // failures multiply the supposedly bounded I/O.
     bytesLeft -= candidate.bytes;
-    filesLeft -= candidate.files;
+    filesLeft -= 1;
     const fingerprint = await fingerprintRoot(
       cwd,
       candidate.path,
       "content",
       candidate.bytes,
-      candidate.files,
     );
     if (fingerprint.mode !== "content") {
       continue;
@@ -494,70 +433,6 @@ async function contentFingerprintWithinBudget(
   return metadata
     .map((root) => content.get(root.path) ?? root)
     .sort((a, b) => a.path.localeCompare(b.path));
-}
-
-/** Hash a directory's contents deterministically or abandon it when the budget or a read fails. */
-async function contentFingerprintDirectory(
-  absRoot: string,
-  relRoot: string,
-  byteBudget: number,
-  fileBudget: number,
-): Promise<{ digest: string; files: number; bytes: number } | undefined> {
-  const parts: string[] = [];
-  let files = 0;
-  let bytes = 0;
-
-  /** Read descendants within the reserved budget and abort on any unstable input. */
-  async function walk(abs: string, rel: string): Promise<boolean> {
-    const entries = await readDirIfExists(abs);
-    if (entries === undefined) return false;
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-    for (const entry of entries) {
-      const childAbs = join(abs, entry.name);
-      const childRel = `${rel}/${entry.name}`;
-      const stat = await lstatIfExists(childAbs);
-      if (stat === undefined) return false;
-      if (stat.isDirectory) {
-        if (!(await walk(childAbs, childRel))) {
-          return false;
-        }
-      } else if (stat.isSymlink) {
-        if (files + 1 > fileBudget) {
-          return false;
-        }
-        const target = await readLinkIfExists(childAbs);
-        if (target === undefined) return false;
-        files += 1;
-        parts.push(`symlink\0${childRel}\0${target}`);
-      } else if (stat.isFile) {
-        if (files + 1 > fileBudget || bytes + stat.size > byteBudget) {
-          return false;
-        }
-        const data = await readBytesIfExists(childAbs);
-        if (data === undefined) return false;
-        files += 1;
-        bytes += stat.size;
-        parts.push(`file\0${childRel}\0${await sha256Hex(data)}`);
-      } else {
-        if (files + 1 > fileBudget || bytes + stat.size > byteBudget) {
-          return false;
-        }
-        files += 1;
-        bytes += stat.size;
-        parts.push(`other\0${childRel}\0${stat.size}`);
-      }
-    }
-    return true;
-  }
-
-  if (!(await walk(absRoot, relRoot))) {
-    return undefined;
-  }
-  return {
-    digest: await hashText(parts.join("\n")),
-    files,
-    bytes,
-  };
 }
 
 /** Hash bytes with an optional domain-separating prefix. */

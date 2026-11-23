@@ -236,7 +236,10 @@ export const ON_DISK_FORMATS = {
   ignoredBaseline: {
     id: "ignored-baseline",
     location: { kind: "git-admin", keys: ["ignoredBaseline"] },
-    version: 1,
+    // Version 2 records an ignored directory by presence alone. A version-1
+    // baseline carries digests of everything beneath each directory, so it
+    // reads as missing here and the next setup replaces it.
+    version: 2,
     versionField: "version",
     reader: "src/engine/worktree/ignored.ts#inspectIgnoredFileChanges",
     writers: ["src/engine/worktree/ignored.ts"],

@@ -138,7 +138,7 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 
 - Every effectful lifecycle command supports `--dry-run`; inspect destructive plans before applying them ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)).
 - `accept` removes the worktree, so any tracked, untracked, or staged change there blocks landing. The main checkout blocks only on tracked changes.
-- Acceptance reports top-level ignored paths that changed since setup. Those paths stay outside git cleanliness.
+- Acceptance reports ignored paths that changed since setup, by top-level name: an individually ignored file that changed, or an ignored directory that appeared or disappeared. discern records an ignored directory by presence and never looks inside it, so a change beneath one goes unreported ([ADR 0432](../_adr/0432-ignored-directories-are-opaque-to-drift-fingerprints.md)). Those paths stay outside git cleanliness.
 - A Standard approval token becomes stale when its name, proposed value, reason, Proof, or live proposal record changes. Run `discern accept` again to retrieve the current decision.
 - Command-owned background children and Git hooks stop before teardown can succeed. A separate program that writes into a removed path later creates a [reappearance](reappeared-worktree-paths.md). Status reports it; confirmed prune is the cleanup path.
 - A Proof-note failure keeps the checkout and its acceptance journal until `discern accept` from that checkout records the note. The retry does not land again.
