@@ -132,7 +132,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)     | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `scripts/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                       | 3       | —                | node `licenses`             |
-| [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 31      | —                | node `interruption-safety`  |
+| [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 32      | —                | node `interruption-safety`  |
 | [`signal-listeners`](#signal-listeners--process-signal-listeners)                                                     | `tests/spawn_surfaces.ts#SIGNAL_LISTENER_CONTRACTS`                               | 5       | —                | node `interruption-safety`  |
 | [`checkout-mutation-surfaces`](#checkout-mutation-surfaces--checkout-mutation-boundaries)                             | `tests/checkout_mutation_surfaces.ts#CHECKOUT_MUTATION_BOUNDARIES`                | 17      | —                | node `worktrees`            |
 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries)                                  | `src/shared/process_boundaries.ts#PROCESS_OUTPUT_BOUNDARIES`                      | 6       | —                | —                           |
@@ -5503,7 +5503,7 @@ The generated third-party notice artifacts and their license cache.
 Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption, and shipped homes declare whether they run captured or own the terminal inside an operation.
 
 - Source: `tests/spawn_surfaces.ts` — `SUBPROCESS_SPAWN_BOUNDARIES`
-- Members: 31
+- Members: 32
   - `scripts/binary_size.ts#buildTarget`
   - `scripts/build.ts#compileTarget`
   - `scripts/build.ts#verifyDarwinSignature`
@@ -5527,6 +5527,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `src/shared/subprocess.ts#runGit`
   - `src/shared/subprocess.ts#runShell`
   - `src/shared/subprocess.ts#commandExists`
+  - `src/shared/subprocess.ts#readKernelFile`
   - `src/shared/discern_commit.ts#commitDiscernChanges`
   - `src/shared/deno_metadata.ts#denoMetadata`
   - `src/lib/pager.ts#pageThrough`
@@ -6336,6 +6337,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 - `tests/test_elapsed_guard_test.ts` — applies timer-ownership review across authored test duration measurements rather than guarding a closed member set
 - `tests/module_loading_guard_test.ts` — applies invocation-context isolation to every runtime lazy import and context owner rather than guarding a closed member set
 - `tests/fs_presence_enrolment_test.ts` — applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set
+- `tests/kernel_file_read_guard_test.ts` — holds every /proc and /sys path in the binary's source to the child-process reader rather than guarding a closed member set
 - `tests/terminal_boundary_guard_test.ts` — applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set
 - `tests/terminal_live_tail_guard_test.ts` — applies the live-tail bound to every runtime call site that hands streamed output to a repainting package view rather than guarding a closed member set
 - `tests/logger_ambient_guard_test.ts` — applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment

@@ -39,6 +39,8 @@ There is no native Windows release. On Windows, run the Linux binary inside WSL 
 
 A Windows drive mounted into WSL 2 is reached over 9P, where every file operation is a round trip to the host. A checkout there makes each Git call and each discern file read many times slower than on the Linux filesystem. `discern doctor` reads the Linux mount table and warns under `checkout filesystem` when the checkout sits on such a mount ([`checkout_filesystem.ts`](../../../src/engine/doctor/checkout_filesystem.ts)). The warning is advisory: it never fails the health check or setup.
 
+Deno refuses its own reads under `/proc` and `/sys` without all-access permission, on Linux only, and the binary carries a narrower set. The probe therefore reads the table through a child process, `readKernelFile` in [`subprocess.ts`](../../../src/shared/subprocess.ts). [`kernel_file_read_guard_test.ts`](../../../tests/kernel_file_read_guard_test.ts) holds every such path in `src/` to that reader, because a direct read passes on macOS and fails only on a Linux host.
+
 ## Required tools
 
 | Context                    | Requirement                                                                                                                    |
