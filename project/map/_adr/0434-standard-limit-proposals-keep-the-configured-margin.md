@@ -28,6 +28,8 @@ The breach diagnostic for a standard with a margin names the limit a proposal wo
 
 The record's new field is optional and omitted when the standard has no margin. Every existing proposal store, journal, Gate Proof, acceptance journal, completion record, and Proof note still reads, and a proposal without a margin keeps its earlier bytes. No format version changes. An older discern that meets a record carrying `margin` in a strict local format treats it as malformed, which authorizes nothing. Proof notes tolerate additive fields.
 
+A proposal that an earlier discern recorded for a standard with a margin reads as stale after the upgrade, because its limit no longer follows from its measurement and margin. The renewal refusal names the limit a replacement would record, and the owner decides that limit.
+
 ## Consequences
 
 - One owner decision covers a breach and the ordinary movement that follows it, for standards that declared they move.
