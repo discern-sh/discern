@@ -1135,7 +1135,7 @@ export function buildCli(
     )
     .option(
       "--margin <n:string>",
-      "Headroom `discern standards --pin` keeps when it tightens the limit. Default: 0.",
+      "Headroom discern keeps when a pin or an approved proposal sets the limit from a measured value. Default: 0.",
     )
     .option(
       "--timeout <seconds:string>",
