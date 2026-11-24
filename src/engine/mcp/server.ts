@@ -656,8 +656,9 @@ export const TOOLS: McpTool[] = orderTools([
       "Select action: propose only after owner agreement and after every required " +
       "preview, review, regeneration, edit, discern_prepare run, and ordinary commit. " +
       "Pass every simultaneous breach once in proposals; discern measures the same " +
-      "clean final HEAD through the shared planner, applies all limits in one " +
-      "config-only commit, and binds the set to that commit. Each reason is technical " +
+      "clean final HEAD through the shared planner, sets each limit to its measured " +
+      "value, keeping the standard's margin as headroom, in one config-only commit, " +
+      "and binds the set to that commit. Each reason is technical " +
       "justification only: never claim approval, consent, or landing authority. Keep " +
       "each reason within 500 characters; aim below 400. Repeat the same complete batch " +
       "to renew an unchanged descendant; a new batch refuses existing proposal state. " +

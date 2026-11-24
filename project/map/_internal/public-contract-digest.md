@@ -1269,7 +1269,7 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 | `<name>.toolchain`           | `string[]`           |         |              | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…     |
 | `<name>.per`                 | `string or object`   |         |              | Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command…       |
 | `<name>.scale`               | `number`             | `1`     |              | Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.                            |
-| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with…      |
+| `<name>.margin`              | `number`             | `0`     |              | Headroom discern keeps when it sets the limit from a measured value: `discern standards --pin` when it tightens the limit, and…            |
 | `<name>.timeout`             | `number`             |         |              | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                    |
 
 ### [checkpoints]
@@ -1423,7 +1423,7 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 | `<name>.toolchain`           | `string[]`           |         |              | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…     |
 | `<name>.per`                 | `string or object`   |         |              | Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command…       |
 | `<name>.scale`               | `number`             | `1`     |              | Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.                            |
-| `<name>.margin`              | `number`             | `0`     |              | Headroom `discern standards --pin` keeps when it tightens the limit to the measured value. Give a margin to a number that moves with…      |
+| `<name>.margin`              | `number`             | `0`     |              | Headroom discern keeps when it sets the limit from a measured value: `discern standards --pin` when it tightens the limit, and…            |
 | `<name>.timeout`             | `number`             |         |              | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                    |
 
 ### [checkpoints]

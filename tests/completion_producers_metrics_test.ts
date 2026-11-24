@@ -42,6 +42,57 @@ Deno.test("required consumers reject malformed, absent and non-finite measuremen
   );
 });
 
+Deno.test("a breach of a standard with a margin names the limit a proposal would set", () => {
+  const ceiling = compareValueToLimit(
+    {
+      name: "size",
+      metric: "bytes",
+      direction: "down",
+      limit: 1000,
+      margin: 50,
+    },
+    1040,
+    "1040",
+    "",
+  );
+  assertStringIncludes(
+    ceiling.reason ?? "",
+    "A proposal would set the ceiling to 1090: this reading plus the standard's margin of 50. Give the owner that limit.",
+  );
+  const floor = compareValueToLimit(
+    {
+      name: "coverage",
+      metric: "rate",
+      direction: "up",
+      limit: 90,
+      margin: 0.5,
+    },
+    88,
+    "88",
+    "",
+  );
+  assertStringIncludes(
+    floor.reason ?? "",
+    "A proposal would set the floor to 87.5: this reading less the standard's margin of 0.5.",
+  );
+  // No margin: the proposal is the reading already in the message.
+  for (const margin of [0, undefined]) {
+    const exact = compareValueToLimit(
+      {
+        name: "size",
+        metric: "bytes",
+        direction: "down",
+        limit: 1000,
+        ...(margin === undefined ? {} : { margin }),
+      },
+      1040,
+      "1040",
+      "",
+    );
+    assertEquals((exact.reason ?? "").includes("A proposal would set"), false);
+  }
+});
+
 Deno.test("every standard direction routes a breach through repair and informed owner agreement", () => {
   for (
     const direction of RECORD_ENTRY_SCHEMAS.standards.shape.direction.options
