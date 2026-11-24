@@ -4,6 +4,7 @@ import { parse as parseYaml } from "@std/yaml";
 import { join } from "@std/path";
 import type { EnvReader } from "../src/shared/env.ts";
 import { runReleaseCommand } from "./release_command.ts";
+import { POLICY_CHANGE_MODES } from "../src/shared/verbs.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 
 const SHA = z.string().regex(/^[a-f0-9]{40}$/u);
@@ -24,7 +25,18 @@ const NeedsSchema = z.record(
   z.string(),
   z.object({ result: z.string() }).passthrough(),
 );
-const EvidenceSchema = z.object({ sha: SHA, policy: SHA, needs: NeedsSchema });
+const EvidenceSchema = z.object({
+  sha: SHA,
+  policy: SHA,
+  // Evidence recorded before the gate named its mode came from a failing gate.
+  policy_changes: z.enum(POLICY_CHANGE_MODES).default("fail"),
+  needs: NeedsSchema,
+});
+/** What a verified gate run compared against, and how it treated moved policy. */
+export type VerifiedGatePolicy = Pick<
+  z.infer<typeof EvidenceSchema>,
+  "policy" | "policy_changes"
+>;
 const WorkflowSchema = z.object({ jobs: z.record(z.string(), z.unknown()) });
 
 export type ReleaseGateDecision =
@@ -54,7 +66,7 @@ export function verifyGateEvidence(
   input: unknown,
   sha: string,
   workflowSource: string,
-): string {
+): VerifiedGatePolicy {
   const evidence = EvidenceSchema.parse(input);
   if (evidence.sha !== sha) {
     throw new Error("Gate evidence names another commit.");
@@ -72,7 +84,7 @@ export function verifyGateEvidence(
       throw new Error(`Gate job ${job} did not succeed.`);
     }
   }
-  return evidence.policy;
+  return { policy: evidence.policy, policy_changes: evidence.policy_changes };
 }
 
 /** Run Git or GitHub with argument boundaries intact and retain actionable diagnostics. */
@@ -108,14 +120,14 @@ async function verifyRun(run: HostedGateRun, sha: string): Promise<void> {
       "--dir",
       root,
     ]);
-    const policy = verifyGateEvidence(
+    const { policy, policy_changes } = verifyGateEvidence(
       JSON.parse(await Deno.readTextFile(join(root, "gate-evidence.json"))),
       sha,
       await Deno.readTextFile(".github/workflows/gate.yml"),
     );
     await command("git", ["merge-base", "--is-ancestor", policy, sha]);
     console.log(
-      `Gate ${run.id}, attempt ${run.run_attempt}, passed for ${sha}; policy ${policy}.`,
+      `Gate ${run.id}, attempt ${run.run_attempt}, passed for ${sha}; policy ${policy}; policy changes: ${policy_changes}.`,
     );
   });
 }
@@ -170,6 +182,9 @@ async function requestRelease(
       tag,
       "-f",
       `policy_base=${policy}`,
+      // The tagged commit has landed, so its gate names moved policy.
+      "-f",
+      "policy_changes=report",
     ]);
     console.log(
       `Requested the complete gate for ${tag} at ${sha}. Publication resumes after success.`,

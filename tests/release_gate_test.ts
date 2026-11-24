@@ -127,7 +127,26 @@ Deno.test("a newer failure or in-flight attempt supersedes an older success", ()
 });
 
 Deno.test("evidence binds every current and future gate job to success", () => {
-  assertEquals(verifyGateEvidence(evidence(), SOURCE, workflowSource), POLICY);
+  // Evidence recorded before the gate named its mode came from a failing gate.
+  assertEquals(verifyGateEvidence(evidence(), SOURCE, workflowSource), {
+    policy: POLICY,
+    policy_changes: "fail",
+  });
+  assertEquals(
+    verifyGateEvidence(
+      { ...evidence(), policy_changes: "report" },
+      SOURCE,
+      workflowSource,
+    ).policy_changes,
+    "report",
+  );
+  assertThrows(() =>
+    verifyGateEvidence(
+      { ...evidence(), policy_changes: "ignore" },
+      SOURCE,
+      workflowSource,
+    )
+  );
   for (const job of Object.keys(evidence().needs)) {
     const missing = evidence();
     delete missing.needs[job];
@@ -153,7 +172,7 @@ Deno.test("evidence binds every current and future gate job to success", () => {
   assertThrows(() => verifyGateEvidence(evidence(), SOURCE, future));
   const complete = evidence();
   complete.needs["independent-check"] = { result: "success" };
-  assertEquals(verifyGateEvidence(complete, SOURCE, future), POLICY);
+  assertEquals(verifyGateEvidence(complete, SOURCE, future).policy, POLICY);
 });
 
 Deno.test("gate evidence waits for every lane and remains attempt-specific", () => {
@@ -314,7 +333,7 @@ esac
     assertEquals(started.output, "ready=false\n");
     assert(
       started.calls.includes(
-        `workflow run gate.yml --ref v1.2.3 -f policy_base=${POLICY}`,
+        `workflow run gate.yml --ref v1.2.3 -f policy_base=${POLICY} -f policy_changes=report`,
       ),
     );
     for (
