@@ -17,6 +17,7 @@ import { jsonObjects, type LocatedObject } from "./json_objects.ts";
 import { withTempDir } from "./temp_dir.ts";
 import { readMetrics } from "../src/engine/validation/metrics.ts";
 import { POLICY_CHANGE_MODES } from "../src/shared/verbs.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 
 const DISCERN_TOML = new URL("../discern.toml", import.meta.url);
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
@@ -607,6 +608,52 @@ Deno.test("the shared native macOS action runs the full clean-tree gate", () => 
   assertStringIncludes(macosGateActionSource, "run: deno task vale:sync");
   assertStringIncludes(macosGateActionSource, "run: deno task dev done");
   assertStringIncludes(macosGateActionSource, "run: git diff --exit-code");
+});
+
+/**
+ * How many gate commands each hosted lane starts at a time. The macOS runner
+ * and the WSL 2 machine hold less memory than the gate's commands use when
+ * they all start together; the Linux runner holds enough and sets no limit.
+ */
+const LANE_CONCURRENT_COMMANDS = { macos: "2", wsl: "2" } as const;
+
+Deno.test("the memory-constrained lanes limit concurrent gate commands and the Linux lane does not", () => {
+  const variable = DISCERN_ENVIRONMENT_VARIABLES.gateConcurrentCommands;
+  const fullGateStep = (source: string): Record<string, unknown> => {
+    const action = parseYaml(source) as {
+      runs: { steps: Record<string, unknown>[] };
+    };
+    const gate = action.runs.steps.find((step) => isFullGateCommand(step.run));
+    assert(gate !== undefined, "the action runs the full gate");
+    return gate;
+  };
+  const macos = fullGateStep(macosGateActionSource);
+  assertEquals(
+    (macos.env as Record<string, unknown>)[variable],
+    LANE_CONCURRENT_COMMANDS.macos,
+  );
+
+  // The WSL 2 lane sets the limit on the host, so it reaches the gate only if
+  // WSLENV carries it and the gate user's environment receives it.
+  const wsl = fullGateStep(wslGateActionSource);
+  const env = wsl.env as Record<string, unknown>;
+  assertEquals(env[variable], LANE_CONCURRENT_COMMANDS.wsl);
+  assert(String(env.WSLENV).split(":").includes(variable));
+  const run = String(wsl.run);
+  const forwarded = run.indexOf(`${variable}="\${${variable}}"`);
+  assert(
+    forwarded >= 0 && forwarded < run.indexOf("deno task dev done"),
+    "the gate user's environment receives the limit before the gate runs",
+  );
+
+  assert(
+    !gateSource.includes(variable),
+    "gate.yml sets no limit, so the Linux lane starts every ready command at once",
+  );
+  assertEquals(
+    Object.keys(LANE_CONCURRENT_COMMANDS).sort(),
+    REQUIRED_GATE_LANES.map((lane) => lane.job).sort(),
+  );
 });
 
 Deno.test("macOS release binaries are signed before smoke and notarized before checksum", () => {

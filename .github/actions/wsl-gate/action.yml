@@ -134,10 +134,13 @@ runs:
       shell: wsl-bash {0}
       env:
         DISCERN_GATE_TEST_REPORTER: junit
+        # The VM has less memory than the gate's commands use when they all
+        # start together, so this lane starts two at a time.
+        DISCERN_GATE_CONCURRENT_COMMANDS: "2"
         # Windows-side env crosses into WSL 2 only when WSLENV names it. The
         # hosted-runner markers travel with it so checks that key on them
         # behave inside the VM as they do on the native lanes.
-        WSLENV: DISCERN_GATE_TEST_REPORTER:CI:GITHUB_ACTIONS
+        WSLENV: DISCERN_GATE_TEST_REPORTER:DISCERN_GATE_CONCURRENT_COMMANDS:CI:GITHUB_ACTIONS
       run: |
         sampler=/home/gate/discern/.github/actions/wsl-gate/vm-samples.sh
         samples=/var/tmp/discern-vm-samples
@@ -145,6 +148,7 @@ runs:
         set +e
         runuser -u gate -- env HOME=/home/gate \
           DISCERN_GATE_TEST_REPORTER="${DISCERN_GATE_TEST_REPORTER}" \
+          DISCERN_GATE_CONCURRENT_COMMANDS="${DISCERN_GATE_CONCURRENT_COMMANDS}" \
           CI="${CI}" GITHUB_ACTIONS="${GITHUB_ACTIONS}" \
           bash -c 'cd /home/gate/discern && deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base --policy-changes ${{ inputs.policy-changes }}'
         gate_status=$?

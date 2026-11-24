@@ -50,4 +50,4 @@ The gate launches commands through the job runner and through validation, and ea
 
 [`engine_concurrent_commands_test.ts`](../../../tests/engine_concurrent_commands_test.ts) drives each launch path through the CLI with a limit of 1. The suite's fixture environment blanks the override, so a suite running under a limit starts its fixtures' commands as an unconfigured machine would.
 
-[ADR 0435](../_adr/0435-a-runtime-override-limits-concurrent-gate-commands.md) records the decision.
+[ADR 0435](../_adr/0435-a-runtime-override-limits-concurrent-gate-commands.md) records the decision. This repository's [hosted macOS and WSL 2 lanes](ci.md#limit-concurrent-commands-on-a-small-runner) set the limit.

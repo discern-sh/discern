@@ -21,6 +21,9 @@ runs:
       shell: bash
       env:
         DISCERN_GATE_TEST_REPORTER: junit
+        # The hosted Mac has less memory than the gate's commands use when they
+        # all start together, so this lane starts two at a time.
+        DISCERN_GATE_CONCURRENT_COMMANDS: "2"
       run: deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base --policy-changes ${{ inputs.policy-changes }}
 
     - name: Assert a clean tree (the fix stage must change nothing in CI)
