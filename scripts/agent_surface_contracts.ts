@@ -569,6 +569,111 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
     },
   ],
   [
+    "skill:release",
+    {
+      effectful: true,
+      cross_worktree: true,
+      authority_sensitive: true,
+      relay_bearing: true,
+      recoverable: true,
+      targets: [
+        target(
+          "root",
+          "the main checkout that git rev-parse --show-toplevel prints",
+          "The main checkout is the directory `git rev-parse --show-toplevel` prints where this session started.",
+        ),
+        target(
+          "root",
+          "the absolute candidate worktree path returned by discern start",
+          "The candidate worktree is the absolute `data.path` that `discern start` returns in step 2.",
+        ),
+        target(
+          "path",
+          "site/releases/records/<version>.md",
+          "Write `site/releases/records/<version>.md`",
+        ),
+        target(
+          "stable",
+          "the pushed commit and its v<version> tag",
+          "Tag exactly `$sha`: the hosted gate proves only the commit that was pushed.",
+        ),
+      ],
+      sequence: [
+        act("## 1. Read the state"),
+        act("## 2. Prepare the candidate"),
+        act("## 3. Ask once"),
+        act("## 4. Prove the candidate"),
+        act("## 5. Ship"),
+        act("## 6. Follow publication"),
+        verify("## 7. Verify what shipped"),
+      ],
+      stop_conditions: [
+        evidence("Stop and tell the maintainer what you found when:"),
+        evidence(
+          "When the maintainer declines, leave the candidate worktree as it is and stop.",
+        ),
+        evidence(
+          "For any other failure, stop and tell the maintainer what failed: the yes does not cover a candidate the maintainer has not seen.",
+        ),
+        evidence(
+          "Stop at the first failed check. Do not create, move, or reuse a tag to work around a refusal.",
+        ),
+      ],
+      recovery: [
+        evidence("Commit the fix and rerun the failed check."),
+        evidence(
+          "For a transient failure, run `gh run rerun <gate-run-id>`; publication resumes when that gate passes.",
+        ),
+        evidence(
+          "Never move or delete the tag. Stop and report; the fix ships as the next patch version through this skill.",
+        ),
+      ],
+      authority: {
+        boundary: evidence(
+          "Only the maintainer's answer to this question authorizes landing, pushing, or tagging.",
+        ),
+        command: "discern accept --confirmed --json",
+        recheck: evidence(
+          "Once `discern done` passes, run `discern accept --confirmed --json` in the candidate worktree. discern checks the Proof again and lands the candidate on `main`.",
+        ),
+      },
+      relay: {
+        message: evidence(
+          [
+            "Ready to release <title>.",
+            "",
+            "- Version: <version>, a <bump> release after <last_tag>, because <bump_reason>.",
+            "- Summary: <summary>",
+            "- Notes: <notes>",
+            "- Contains: <commit_count> commits since <last_tag>. Not included: <unlanded_work>.",
+            "- Checked so far: the release plan accepts the candidate, and the fast checks pass. The full gate has not run yet.",
+            "- Risks: <risks>",
+            "",
+            "To change the notes, edit <record_path> or tell me the wording.",
+            "",
+            "A yes runs the full gate and a binary smoke check on this candidate. When both pass, it lands <branch> on main, pushes main, the Proof notes, and the tag v<version> to origin, and starts publication on GitHub. I will download the published assets into a temporary directory to verify them. Once the GitHub release exists, the tag can never move.",
+            "",
+            "Release <title>?",
+          ].join("\n"),
+        ),
+        facts: [
+          "title",
+          "version",
+          "bump",
+          "last_tag",
+          "bump_reason",
+          "summary",
+          "notes",
+          "commit_count",
+          "unlanded_work",
+          "risks",
+          "record_path",
+          "branch",
+        ],
+      },
+    },
+  ],
+  [
     "setup:instructions",
     {
       effectful: true,

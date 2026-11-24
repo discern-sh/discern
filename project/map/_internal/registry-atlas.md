@@ -58,7 +58,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 17      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
-| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 13      | —                | —                           |
+| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 14      | —                | —                           |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
 | [`provider-trust-fact-kinds`](#provider-trust-fact-kinds--provider-trust-fact-kinds)                                  | `src/shared/provider_trust.ts#TRUST_FACT_KINDS`                                   | 5       | —                | node `providers`            |
 | [`provider-trust-action-kinds`](#provider-trust-action-kinds--provider-trust-action-kinds)                            | `src/shared/provider_trust.ts#TRUST_ACTION_KINDS`                                 | 5       | —                | node `providers`            |
@@ -2588,7 +2588,7 @@ The skills the binary ships and materializes into a project.
 The effective skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.
 
 - Source: `scripts/agent_surface_contracts.ts` — `operationalAgentSurfaces`
-- Members: 13
+- Members: 14
   - `setup:instructions`
   - `skill:discern-agent-voice`
   - `skill:discern-await-the-fleet`
@@ -2602,6 +2602,7 @@ The effective skills and setup briefs joined to repository-only classifications,
   - `skill:discern-teach-the-project`
   - `skill:discern-write-adr`
   - `skill:discern-write-it-once`
+  - `skill:release`
 - Guards: `tests/agent_surface_contracts_test.ts`
 - Glossary: not enrolled — the Skill and setup references define these existing agent-copy surfaces
 - Feature canon: not enrolled — the Skill and setup nodes describe the product behavior this maintainer-only corpus guard holds
