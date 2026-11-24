@@ -8,6 +8,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { Project, SyntaxKind } from "ts-morph";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import {
@@ -301,23 +302,43 @@ Deno.test("CLI, MCP, and composite done paths share one preamble implementation"
     "src/engine/gate/done_preamble.ts",
     "src/engine/gate/finish.ts",
   ]);
-  const sources = new Map<string, string>();
+  const project = new Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: { noLib: true },
+  });
   for (const path of files) {
-    sources.set(path, await Deno.readTextFile(path));
+    project.createSourceFile(path, await Deno.readTextFile(path));
   }
-  const calls = (path: string, pattern: RegExp): number =>
-    sources.get(path)?.match(pattern)?.length ?? 0;
-  const shared = "src/engine/gate/done_preamble.ts";
-  assertEquals(calls(shared, /await operations\.reusableGreenProof\(/gu), 1);
-  assertEquals(calls(shared, /await operations\.resolveCheckpointGate\(/gu), 1);
-  assertEquals(
-    calls(shared, /await operations\.unchangedTreeRerunRefusal\(/gu),
-    1,
-  );
-  assertEquals(
-    calls("src/engine/gate/finish.ts", /await resolveDonePreamble\(/gu),
-    3,
-  );
+  const callers = (path: string, callee: string): (string | undefined)[] =>
+    project.getSourceFileOrThrow(path).getDescendantsOfKind(
+      SyntaxKind.CallExpression,
+    )
+      .filter((call) => call.getExpression().getText() === callee)
+      .map((call) =>
+        call.getFirstAncestorByKind(SyntaxKind.FunctionDeclaration)?.getName()
+      )
+      .sort();
+  for (
+    const operation of [
+      "reusableGreenProof",
+      "resolveCheckpointGate",
+      "unchangedTreeRerunRefusal",
+    ]
+  ) {
+    assertEquals(
+      callers("src/engine/gate/done_preamble.ts", `operations.${operation}`),
+      ["resolveDonePreamble"],
+    );
+  }
+  const finish = "src/engine/gate/finish.ts";
+  assertEquals(callers(finish, "executeRequestedGate"), [
+    "finishResult",
+    "runFinish",
+  ]);
+  assertEquals(callers(finish, "resolveDonePreamble"), [
+    "executeRequestedGate",
+    "runGateBody",
+  ]);
 });
 Deno.test("buildGateResult: serializes plan+results into the DiscernResult envelope", async () => {
   const plan = buildGatePlan(FULL, ["widget"]);

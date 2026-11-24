@@ -329,7 +329,7 @@ export function attachEngineCommands(
           import("./gate/finish.ts")
         );
         return await runFinish(await requireRoot("done", json), {
-          ...(o.policyBase === undefined ? {} : { policyBase: o.policyBase }),
+          policyBase: o.policyBase,
           ...(o.standalone === undefined ? {} : { standalone: o.standalone }),
           json,
           cliModel,

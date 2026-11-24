@@ -593,9 +593,7 @@ export const TOOLS: McpTool[] = orderTools([
     },
     run: (root, args, signal, context) =>
       finishResult(root, {
-        ...(args.policy_base === undefined
-          ? {}
-          : { policyBase: args.policy_base }),
+        policyBase: args.policy_base,
         ...(args.standalone === undefined
           ? {}
           : { standalone: args.standalone }),

@@ -165,6 +165,7 @@ import {
 import { observeResult } from "../../shared/result_capture.ts";
 import {
   type CheckpointGateResolution,
+  type DonePreamble,
   type DonePreambleOperations,
   resolveDonePreamble,
 } from "./done_preamble.ts";
@@ -238,15 +239,14 @@ async function runGateBody(
   >(
     root,
     {
-      mode: presentation.checkpointRequest?.mode ??
-        presentation.checkpoints?.mode ?? "strict",
-      rerun: presentation.rerun ?? false,
-      ...(presentation.standalone === undefined
+      mode: presentation.checkpointRequest.mode,
+      rerun: presentation.options.rerun ?? false,
+      ...(presentation.options.standalone === undefined
         ? {}
-        : { standalone: presentation.standalone }),
-      ...(presentation.composition === undefined
+        : { standalone: presentation.options.standalone }),
+      ...(presentation.options.composition === undefined
         ? {}
-        : { composition: presentation.composition }),
+        : { composition: presentation.options.composition }),
       ...(signal === undefined ? {} : { signal }),
     },
     async (session) => {
@@ -259,27 +259,27 @@ async function runGateBody(
         );
         return { value: gate, passed: gate.result.ok };
       }
-      let checkpoints = presentation.checkpoints;
-      const request = presentation.checkpointRequest;
-      if (request !== undefined) {
-        const preamble = await resolveDonePreamble(root, request, {
+      const preamble = await resolveDonePreamble(
+        root,
+        presentation.checkpointRequest,
+        {
           ...donePreambleOperations(
             session.execution.candidate.predecessor,
           ),
           reusableGreenProof: () => Promise.resolve(undefined),
-        });
-        if (preamble.kind !== "proceed") {
-          return {
-            value: await unrunGateResult(root, surface, preamble.result),
-            passed: false,
-            blockers: [{
-              kind: "missing-judgment" as const,
-              subjects: [preamble.result.error ?? "candidate-checkpoints"],
-            }],
-          };
-        }
-        checkpoints = preamble.preflight;
+        },
+      );
+      if (preamble.kind !== "proceed") {
+        return {
+          value: await unrunGateResult(root, surface, preamble.result),
+          passed: false,
+          blockers: [{
+            kind: "missing-judgment" as const,
+            subjects: [preamble.result.error ?? "candidate-checkpoints"],
+          }],
+        };
       }
+      const checkpoints = preamble.preflight;
       const gate = await runCandidateGate(
         root,
         surface,
@@ -336,25 +336,18 @@ async function runCandidateGate(
   surface: GateOutputSurface,
   signal: AbortSignal | undefined,
   presentation: {
-    /** Live CLI model injected by the fully attached entry-point command tree. */
-    cliModel: CliModelProvider;
-    validationCaptureOptions?: ValidationCaptureOptions;
+    options: Omit<FinishResultOptions, "surface">;
     /** The already-settled checkpoint pre-flight (reconciliation ran before
      * the rerun guard); the gate carries its conclusions into the envelope,
      * the Proof, and the marker bindings. */
     checkpoints?: CheckpointPreflight;
-    checkpointRequest?: {
+    checkpointRequest: {
       mode: "strict" | "report";
       declarations: DeclarationRequest;
       rerunRequested: boolean;
       ciRecovery: boolean;
     };
     completion?: CompletionSession;
-    policyBase?: string;
-    standalone?: boolean;
-    rerun?: boolean;
-    /** Exact composed source revisions for an integrated landing's gate run. */
-    composition?: { readonly sources: readonly SourceRevision[] };
     /** Where this run registers its live completion-fact presenter. */
     presenterSlot?: GateProgressPresenterSlot;
   },
@@ -441,7 +434,7 @@ async function runCandidateGate(
   let mergeWarning: FiredHint | undefined;
   const merged = await assertMainMerged(
     root,
-    presentation.policyBase ?? mainBranch,
+    presentation.options.policyBase ?? mainBranch,
   );
   if (merged.kind === "behind") {
     failedStage = "merge";
@@ -463,7 +456,7 @@ async function runCandidateGate(
   //     product leads with. An unreadable local trunk and an invalid trunk
   //     config both fail closed; a remote-tracking ref never substitutes for
   //     the configured local ref.
-  const policyBase = presentation.policyBase ??
+  const policyBase = presentation.options.policyBase ??
     presentation.completion?.execution.candidate.predecessor ??
     mainBranch;
   const stdPlan = buildStandardPlan(cfg);
@@ -670,7 +663,7 @@ async function runCandidateGate(
     const findings = await checkDocsIntegrity(
       root,
       cfg,
-      presentation.cliModel(),
+      presentation.options.cliModel(),
     );
     if (findings.length > 0) {
       failedStage = "map_integrity";
@@ -718,7 +711,7 @@ async function runCandidateGate(
       cfg,
       VALIDATION_RUNS.done,
       plan.groups,
-      presentation.validationCaptureOptions ?? {},
+      presentation.options.validationCaptureOptions ?? {},
     );
   }
   let validationRun: PublicValidationRun | undefined;
@@ -758,7 +751,7 @@ async function runCandidateGate(
             cfg,
             VALIDATION_RUNS.done,
             plan.groups,
-            presentation.validationCaptureOptions ?? {},
+            presentation.options.validationCaptureOptions ?? {},
           );
           validation = await validationCapture;
         }
@@ -1483,17 +1476,16 @@ export function renderGateStageGapNote(
 }
 
 /**
- * Print the gate plan without running it (`--dry-run`): the leading fail-fast
- * preconditions (the merge check, tracked-artifacts guard, then the instructions/skills
- * and complete tracked-refresh currency checks), the wired job groups, and the scope-gates selected for the
- * changed scopes. Honest — it lists "what would run"; it cannot predict which jobs
- * fail-fast would skip.
+ * Plan the gate without running it: the leading fail-fast preconditions (the
+ * merge check, tracked-artifacts guard, then the instructions/skills and
+ * complete tracked-refresh currency checks), the wired job groups, and the
+ * scope-gates selected for the changed scopes. Honest — it lists "what would
+ * run"; it cannot predict which jobs fail-fast would skip.
  */
-async function dryRunGate(
+async function previewGate(
   root: string,
-  json: boolean,
-  mode: "strict" | "report" = "strict",
-): Promise<number> {
+  mode: "strict" | "report",
+): Promise<ReturnType<typeof gatePlanToEngine>> {
   const cfg = await loadConfig(root);
   const impact = await classifyScopeImpact(root, cfg);
   const plan = buildGatePlan(
@@ -1505,6 +1497,16 @@ async function dryRunGate(
   );
   const engine = gatePlanToEngine(plan);
   engine.details.push(...(await inspectCheckpointNotes(root, cfg, mode)));
+  return engine;
+}
+
+/** Render a read-only preview for the terminal or machine caller. */
+async function dryRunGate(
+  root: string,
+  json: boolean,
+  mode: "strict" | "report",
+): Promise<number> {
+  const engine = await previewGate(root, mode);
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
     emitResult(previewResult("done", engine));
@@ -1792,7 +1794,7 @@ export type FinishResultSurface =
 /** Options for an in-process full-gate run. The required surface prevents a new
  * composite command from inheriting machine silence while a person waits. */
 export interface FinishResultOptions {
-  policyBase?: string;
+  policyBase?: string | undefined;
   standalone?: boolean;
   surface: FinishResultSurface;
   /** Fully attached live command tree, owned and injected by the entry point. */
@@ -1815,18 +1817,51 @@ export interface FinishResultOptions {
   validationCaptureOptions?: ValidationCaptureOptions;
 }
 
-/** One refusal for `--policy-base` outside a standalone CI report, shared by
- * the CLI and MCP paths so their wording can't diverge. */
-function explicitPolicyBaseRefusal(opts: {
-  readonly policyBase?: string | undefined;
-  readonly ci?: boolean | undefined;
-  readonly standalone?: boolean | undefined;
-}): DiscernResult<GateData> | undefined {
+/** Resolve the public invocation once so every output surface runs the same policy. */
+async function executeRequestedGate(
+  root: string,
+  opts: Omit<FinishResultOptions, "surface">,
+  mode: "strict" | "report",
+  surface: GateOutputSurface,
+): Promise<
+  Exclude<DonePreamble, { kind: "proceed" }> | {
+    kind: "executed";
+    gate: Awaited<ReturnType<typeof runGate>>;
+  }
+> {
+  const checkpointRequest = {
+    mode,
+    declarations: {
+      met: opts.met ?? [],
+      ...(opts.unmet && { unmet: opts.unmet }),
+    },
+    rerunRequested: opts.rerun === true || opts.standalone === true,
+    ciRecovery: (surface.terminal ?? terminalContext()).ciRequestsStaticOutput,
+  };
+  const preamble = await resolveDonePreamble(root, {
+    ...checkpointRequest,
+    deferRerunGuard: !opts.standalone && (await pinValidatedTree(root)).clean,
+    ...(opts.signal && { signal: opts.signal }),
+  }, donePreambleOperations(opts.policyBase));
+  if (preamble.kind !== "proceed") return preamble;
+  const gate = await runGate(root, surface, opts.signal, {
+    options: opts,
+    ...(preamble.preflight && { checkpoints: preamble.preflight }),
+    checkpointRequest,
+  });
+  return { kind: "executed", gate };
+}
+
+/** Admission rules shared by the CLI and MCP before preview or execution. */
+async function finishInputRefusal(
+  root: string,
+  opts: Omit<FinishResultOptions, "surface">,
+): Promise<DiscernResult<GateData> | undefined> {
   if (
     opts.policyBase === undefined ||
     (opts.ci === true && opts.standalone === true)
   ) {
-    return undefined;
+    return await completionTreeRefusal(root, opts.standalone);
   }
   return {
     ok: false,
@@ -1866,11 +1901,9 @@ export async function finishResult(
         " This binary cannot issue ordinary Proof for this tree. Run `discern test` for the configured test stage.",
     };
   }
-  const treeRefusal = await completionTreeRefusal(root, opts.standalone);
-  if (treeRefusal !== undefined) return treeRefusal;
+  const refusal = await finishInputRefusal(root, opts);
+  if (refusal !== undefined) return refusal;
   const mode = opts.ci === true ? "report" as const : "strict" as const;
-  const policyBaseRefusal = explicitPolicyBaseRefusal(opts);
-  if (policyBaseRefusal !== undefined) return policyBaseRefusal;
   if (
     mode === "report" &&
     ((opts.met?.length ?? 0) > 0 || opts.unmet !== undefined)
@@ -1884,93 +1917,22 @@ export async function finishResult(
     };
   }
   if (opts.dryRun ?? false) {
-    const cfg = await loadConfig(root);
-    const impact = await classifyScopeImpact(root, cfg);
-    const engine = gatePlanToEngine(
-      buildGatePlan(
-        cfg,
-        impact.scopes,
-        dryRunStandardJobs(cfg),
-        mode,
-        impact.previewActions,
-      ),
-    );
-    engine.details.push(...(await inspectCheckpointNotes(root, cfg, mode)));
+    const engine = await previewGate(root, mode);
     return previewResult("done", engine);
   }
-  const declarations: DeclarationRequest = {
-    met: opts.met ?? [],
-    ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
-  };
-  const rerunRequested = opts.rerun === true || opts.standalone === true;
-  const terminal = terminalContext();
-  const preamble = await resolveDonePreamble(
+  const execution = await executeRequestedGate(
     root,
-    {
-      mode,
-      declarations,
-      rerunRequested,
-      ciRecovery: terminal.ciRequestsStaticOutput,
-      deferRerunGuard: !opts.standalone &&
-        (await pinValidatedTree(root)).clean,
-      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
-    },
-    donePreambleOperations(opts.policyBase),
-  );
-  if (preamble.kind !== "proceed") return preamble.result;
-  if (opts.surface.kind === "quiet") {
-    return (await runGate(root, { kind: "quiet-result" }, opts.signal, {
-      cliModel: opts.cliModel,
-      ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
-      ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
-      ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
-      ...(opts.composition === undefined
-        ? {}
-        : { composition: opts.composition }),
-      ...(preamble.preflight === undefined
-        ? {}
-        : { checkpoints: preamble.preflight }),
-      checkpointRequest: {
-        mode,
-        declarations,
-        rerunRequested,
-        ciRecovery: terminal.ciRequestsStaticOutput,
-      },
-      ...(opts.validationCaptureOptions !== undefined
-        ? { validationCaptureOptions: opts.validationCaptureOptions }
-        : {}),
-    })).result;
-  }
-  const gate = await runGate(
-    root,
-    {
+    opts,
+    mode,
+    opts.surface.kind === "quiet" ? { kind: "quiet-result" } : {
       kind: "human",
       plain: opts.surface.plain,
-      terminal,
-    },
-    opts.signal,
-    {
-      cliModel: opts.cliModel,
-      ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
-      ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
-      ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
-      ...(opts.composition === undefined
-        ? {}
-        : { composition: opts.composition }),
-      ...(preamble.preflight === undefined
-        ? {}
-        : { checkpoints: preamble.preflight }),
-      checkpointRequest: {
-        mode,
-        declarations,
-        rerunRequested,
-        ciRecovery: terminal.ciRequestsStaticOutput,
-      },
-      ...(opts.validationCaptureOptions !== undefined
-        ? { validationCaptureOptions: opts.validationCaptureOptions }
-        : {}),
+      terminal: terminalContext(),
     },
   );
+  if (execution.kind !== "executed") return execution.result;
+  const { gate } = execution;
+  if (opts.surface.kind === "quiet") return gate.result;
   const ttyWidth = gateOutputTtyWidth(gate.policy);
   if (
     gate.presentationWritable && ttyWidth !== undefined &&
@@ -2014,7 +1976,7 @@ export async function runFinish(
   opts: {
     json: boolean;
     standalone?: boolean;
-    policyBase?: string;
+    policyBase?: string | undefined;
     /** Fully attached live command tree, owned and injected by the entry point. */
     cliModel: CliModelProvider;
     dryRun?: boolean;
@@ -2025,54 +1987,39 @@ export async function runFinish(
     unmet?: { id: string; why: string };
   },
 ): Promise<number> {
-  const treeRefusal = await completionTreeRefusal(root, opts.standalone);
-  if (treeRefusal !== undefined) {
-    observeResult(treeRefusal);
-    emitResult(treeRefusal);
+  const refusal = await finishInputRefusal(root, opts);
+  if (refusal !== undefined) {
+    observeResult(refusal);
+    emitResult(refusal);
     return 1;
   }
   const mode = opts.ci === true ? "report" as const : "strict" as const;
-  const policyBaseRefusal = explicitPolicyBaseRefusal(opts);
-  if (policyBaseRefusal !== undefined) {
-    observeResult(policyBaseRefusal);
-    emitResult(policyBaseRefusal);
-    return 1;
-  }
   if (opts.dryRun ?? false) {
     return await dryRunGate(root, opts.json, mode);
   }
-  const declarations: DeclarationRequest = {
-    met: opts.met ?? [],
-    ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
-  };
-  const rerunRequested = opts.rerun === true || opts.standalone === true;
   const terminal = terminalContext();
-  const preamble = await resolveDonePreamble(
+  const execution = await executeRequestedGate(
     root,
-    {
-      mode,
-      declarations,
-      rerunRequested,
-      ciRecovery: terminal.ciRequestsStaticOutput,
-      deferRerunGuard: !opts.standalone &&
-        (await pinValidatedTree(root)).clean,
-    },
-    donePreambleOperations(opts.policyBase),
+    opts,
+    mode,
+    opts.json
+      ? { kind: "quiet-result", terminal }
+      : { kind: "human", plain: opts.plain ?? false, terminal },
   );
-  if (preamble.kind === "reuse") {
-    observeResult(preamble.result);
+  if (execution.kind === "reuse") {
+    observeResult(execution.result);
     if (opts.json) {
-      emitResult(preamble.result);
+      emitResult(execution.result);
     } else {
       makeOut(colorEnabled()).ok(
-        preamble.result.message ??
+        execution.result.message ??
           "Current green Proof reused; no gate job ran.",
       );
     }
     return 0;
   }
-  if (preamble.kind === "refuse") {
-    const refusal = preamble.result;
+  if (execution.kind === "refuse") {
+    const refusal = execution.result;
     observeResult(refusal); // the logbook records the refusal with its slug
     if (opts.json) {
       emitResult(refusal);
@@ -2081,33 +2028,7 @@ export async function runFinish(
     renderGateRefusal(makeOut(colorEnabled()), refusal);
     return 1;
   }
-  const preflight = preamble.preflight;
-  const gateRun = (): ReturnType<typeof runGate> =>
-    runGate(
-      root,
-      opts.json
-        ? { kind: "quiet-result", terminal }
-        : { kind: "human", plain: opts.plain ?? false, terminal },
-      undefined,
-      {
-        cliModel: opts.cliModel,
-        ...(opts.policyBase === undefined
-          ? {}
-          : { policyBase: opts.policyBase }),
-        ...(opts.standalone === undefined
-          ? {}
-          : { standalone: opts.standalone }),
-        ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
-        ...(preflight === undefined ? {} : { checkpoints: preflight }),
-        checkpointRequest: {
-          mode,
-          declarations,
-          rerunRequested,
-          ciRecovery: terminal.ciRequestsStaticOutput,
-        },
-      },
-    );
-  const gate = await gateRun();
+  const { gate } = execution;
   const {
     result,
     failedStage,
