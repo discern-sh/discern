@@ -1485,9 +1485,10 @@ export function renderGateStageGapNote(
 async function previewGate(
   root: string,
   mode: "strict" | "report",
+  policyBase: string | undefined,
 ): Promise<ReturnType<typeof gatePlanToEngine>> {
   const cfg = await loadConfig(root);
-  const impact = await classifyScopeImpact(root, cfg);
+  const impact = await classifyScopeImpact(root, cfg, policyBase);
   const plan = buildGatePlan(
     cfg,
     impact.scopes,
@@ -1496,7 +1497,9 @@ async function previewGate(
     impact.previewActions,
   );
   const engine = gatePlanToEngine(plan);
-  engine.details.push(...(await inspectCheckpointNotes(root, cfg, mode)));
+  engine.details.push(
+    ...(await inspectCheckpointNotes(root, cfg, mode, policyBase)),
+  );
   return engine;
 }
 
@@ -1505,8 +1508,9 @@ async function dryRunGate(
   root: string,
   json: boolean,
   mode: "strict" | "report",
+  policyBase: string | undefined,
 ): Promise<number> {
-  const engine = await previewGate(root, mode);
+  const engine = await previewGate(root, mode, policyBase);
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
     emitResult(previewResult("done", engine));
@@ -1917,7 +1921,7 @@ export async function finishResult(
     };
   }
   if (opts.dryRun ?? false) {
-    const engine = await previewGate(root, mode);
+    const engine = await previewGate(root, mode, opts.policyBase);
     return previewResult("done", engine);
   }
   const execution = await executeRequestedGate(
@@ -1995,7 +1999,7 @@ export async function runFinish(
   }
   const mode = opts.ci === true ? "report" as const : "strict" as const;
   if (opts.dryRun ?? false) {
-    return await dryRunGate(root, opts.json, mode);
+    return await dryRunGate(root, opts.json, mode, opts.policyBase);
   }
   const terminal = terminalContext();
   const execution = await executeRequestedGate(

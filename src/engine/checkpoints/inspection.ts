@@ -483,9 +483,14 @@ export async function inspectCheckpointNotes(
   root: string,
   config: DiscernConfig,
   mode: GateMode = "strict",
+  predecessor?: string,
 ): Promise<string[]> {
   return checkpointInspectionNotes(
-    await inspectCheckpointObligations(root, config),
+    await inspectCheckpointObligations(
+      root,
+      config,
+      predecessor === undefined ? {} : { predecessor },
+    ),
     mode,
   );
 }

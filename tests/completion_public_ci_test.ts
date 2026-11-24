@@ -48,6 +48,19 @@ Deno.test("a standalone CI report uses the pre-push policy even when current mai
     ]);
     assertEquals(report.code, 1, report.output);
     assert(report.output.includes("loosened"), report.output);
+    // The pushed checkout is the trunk tip, so only the policy base can show
+    // what the push changed.
+    const preview = await runAgent(root, [
+      "done",
+      "--ci",
+      "--standalone",
+      "--policy-base",
+      base,
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(preview.code, 0, preview.output);
+    assert(preview.output.includes("scopes changed: code"), preview.output);
     assertEquals(
       (await observedRecords(root)).filter((record) =>
         record.kind === "proof" || record.kind === "evidence" ||
