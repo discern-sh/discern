@@ -315,7 +315,7 @@ Cards appear under their cluster, in the order the wall shows them.
 - **Opened:** The command tightens the limit to the new value and saves that change as its own commit. A margin you set keeps ordinary ups and downs from failing the next change.
 - **Link:** `/docs/understand/standards#lock-in-a-gain`
 - **Expresses:** Human benefit · [Make today's improvement tomorrow's starting point](../feature-canon-human-benefits.md#make-todays-improvement-tomorrows-starting-point)
-- **Draws on:** Capturing a gain (`standards-pin`) · Pin headroom (`standards-margin`)
+- **Draws on:** Capturing a gain (`standards-pin`) · Limit headroom (`standards-margin`)
 
 #### Dead links get caught
 
@@ -695,7 +695,7 @@ Each feature node a card draws on, in the feature canon's order, with the cards 
 | Floors and ceilings (`standards-direction`)                         | Gains that stick                                                                                                                                                                                                                  |
 | One-line metric protocol (`standards-metric-protocol`)              | Limits for any metric                                                                                                                                                                                                             |
 | Rates, not raw counts (`standards-rates`)                           | Limits for any metric                                                                                                                                                                                                             |
-| Pin headroom (`standards-margin`)                                   | Raise the bar                                                                                                                                                                                                                     |
+| Limit headroom (`standards-margin`)                                 | Raise the bar                                                                                                                                                                                                                     |
 | Capturing a gain (`standards-pin`)                                  | Raise the bar · Your quality bar never drops without your say-so.                                                                                                                                                                 |
 | Isolated worktrees (`worktrees`)                                    | Start the big change you keep putting off. · Experiment freely · Main stays clean                                                                                                                                                 |
 | Start (`start`)                                                     | Run three tasks as easily as one.                                                                                                                                                                                                 |

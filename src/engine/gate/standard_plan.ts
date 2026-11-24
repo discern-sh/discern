@@ -58,8 +58,9 @@ export interface PlannedStandard {
   per?: PerSpec;
   /** Multiplier applied to the rate so the limit reads in human units (default 1). */
   scale: number;
-  /** Headroom `standards --pin` leaves when tightening this limit to the measured
-   * value (default 0 → pin to the exact measurement). Same units as `limit`. */
+  /** Headroom kept between a measured value and a limit discern sets from it:
+   * a pin that tightens, and a limit proposal the owner approves (default 0 →
+   * no headroom). Same units as `limit`. */
   margin: number;
   /** The paths the metric reads (scope-paths globs, with live source-path
    * references expanded) —
@@ -245,22 +246,51 @@ export type StandardPinEligibility =
   | { eligible: false };
 
 /**
+ * The limit that holds `value` while leaving `margin` of headroom: a floor at
+ * `value - margin`, a ceiling at `value + margin`, rounded to two decimals in
+ * the looser direction so the measurement still satisfies it. The one
+ * definition of a limit set from a measurement, shared by the pin target and
+ * by a limit proposal that keeps a margin.
+ */
+function standardLimitWithHeadroom(
+  direction: "up" | "down",
+  value: number,
+  margin: number,
+): number {
+  const target = direction === "up" ? value - margin : value + margin;
+  return direction === "up"
+    ? Math.floor(target * 100) / 100
+    : Math.ceil(target * 100) / 100;
+}
+
+/**
+ * The limit a proposal records for a measured breach. A standard with a margin
+ * keeps it as headroom, by the pin's own definition, so the approved limit is
+ * one a later pin leaves alone. A standard without one proposes the
+ * measurement itself, unrounded.
+ */
+export function proposedStandardLimit(
+  direction: "up" | "down",
+  measurement: number,
+  margin: number,
+): number {
+  return margin > 0
+    ? standardLimitWithHeadroom(direction, measurement, margin)
+    : measurement;
+}
+
+/**
  * Evaluate one Standard's mechanical pin eligibility. The target moves the
- * limit toward the measurement while leaving configured headroom: floor to
- * `value - margin`, ceiling to `value + margin`. Rounding goes in the looser
- * direction so the measurement still satisfies the target. Eligibility is
- * true only for a strictly tighter, measurement-satisfying result. Pure and
- * total over numeric inputs, including defensive rejection of a negative
- * margin.
+ * limit toward the measurement while leaving configured headroom
+ * ({@link standardLimitWithHeadroom}). Eligibility is true only for a strictly
+ * tighter, measurement-satisfying result. Pure and total over numeric inputs,
+ * including defensive rejection of a negative margin.
  */
 export function standardPinEligibility(
   input: StandardPinEligibilityInput,
 ): StandardPinEligibility {
   const { direction, value, margin, limit } = input;
-  const target = direction === "up" ? value - margin : value + margin;
-  const rounded = direction === "up"
-    ? Math.floor(target * 100) / 100
-    : Math.ceil(target * 100) / 100;
+  const rounded = standardLimitWithHeadroom(direction, value, margin);
   // Never pin a limit the measurement itself fails (the trap a negative margin
   // sets: a floor pinned above, or a ceiling below, the value just measured).
   const satisfiedByMeasurement = direction === "up"

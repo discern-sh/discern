@@ -213,6 +213,24 @@ Deno.test("Proof Markdown preserves fixed facts, stages, and Standards", () => {
           markdown,
           "`source_count`: 10 → 12 (measured 12; delta +2)",
         );
+        // A kept margin stands beside the measurement it was added to.
+        assertStringIncludes(
+          renderProofMarkdown(
+            {
+              ...facts,
+              standard_proposals: [{
+                ...GROWTH_PROPOSAL,
+                proposed_limit: 14,
+                margin: 2,
+                delta: 4,
+              }],
+            },
+            STEPS,
+            [HELD],
+            { status: "proposed", trunk: "main" },
+          ),
+          "`source_count`: 10 → 14 (measured 12; margin 2; delta +4)",
+        );
         assertStringIncludes(
           markdown,
           "Reason: The accepted feature adds two required sources.",

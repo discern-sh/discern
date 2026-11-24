@@ -1,4 +1,5 @@
 import { standardLimitApprovalToken } from "../../shared/standard_approval_token.ts";
+import { standardLimitProposalFigures } from "../../shared/standard_limit_proposal_text.ts";
 import type {
   StandardLimitApprovalRequestData,
   StandardLimitProposalData,
@@ -71,10 +72,7 @@ export function standardApprovalLines(
   approvals: readonly StandardLimitApprovalRequestData[],
 ): string {
   return approvals.map(({ proposal, token }) =>
-    `${proposal.standard}: ${proposal.trunk_limit} → ${proposal.proposed_limit} ` +
-    `(measured ${proposal.measurement}; delta ${
-      proposal.delta >= 0 ? "+" : ""
-    }${proposal.delta})\n` +
+    `${proposal.standard}: ${standardLimitProposalFigures(proposal)}\n` +
     `  Reason: ${proposal.reason}\n` +
     `  Responsible paths: ${proposal.evidence_paths.join(", ")}\n` +
     `  Approval token: ${token}`

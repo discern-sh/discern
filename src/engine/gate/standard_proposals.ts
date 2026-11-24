@@ -53,12 +53,14 @@ import { integrationBranch } from "../worktree/git.ts";
 import {
   buildStandardLimitProposalPlan,
   buildStandardLimitProposalRebindPlan,
+  proposedLimitRule,
   type StandardLimitProposalContext,
   type StandardLimitProposalPlan,
   type StandardLimitProposalRebindPlan,
   type StandardLimitProposalRefusal,
 } from "./standard_proposal_plan.ts";
 import { validateStandardLimitReason } from "../../shared/standard_limit_reason.ts";
+import { standardLimitProposalFigures } from "../../shared/standard_limit_proposal_text.ts";
 import { buildStandardPlan, type PlannedStandard } from "./standard_plan.ts";
 import { measureStandardEvidence } from "./standards.ts";
 import {
@@ -418,6 +420,7 @@ async function applyProposalPlans(
           trunkLimit: plan.proposal.trunk_limit,
           proposedLimit: plan.proposal.proposed_limit,
           measurement: plan.proposal.measurement,
+          margin: plan.proposal.margin,
           reason: plan.proposal.reason,
           evidencePaths: plan.proposal.evidence_paths,
         })),
@@ -758,7 +761,9 @@ function proposalMeasurementPreview(
           label: verbatimStepLabel(`propose-${standard.name}`),
           disposition: "run" as const,
           note:
-            "if the value breaches the trunk limit, create one config-only proposal commit",
+            `if the value breaches the trunk limit, create one config-only proposal commit at ${
+              proposedLimitRule(standard)
+            }`,
         }]
         : [{
           kind: "standard" as const,
@@ -810,7 +815,10 @@ function proposalBatchPreview(
         kind: "standard" as const,
         label: verbatimStepLabel(standard.name),
         disposition: "run" as const,
-        note: `measure ${standard.metric} on the same clean final HEAD`,
+        note:
+          `measure ${standard.metric} on the same clean final HEAD; a breach proposes ${
+            proposedLimitRule(standard)
+          }`,
       })),
       {
         kind: "git",
@@ -1590,7 +1598,9 @@ function renderStandardsProposeResult(result: DiscernResult): void {
   if (proposal !== undefined) {
     out.group("owner decision required");
     out.warn(
-      `${proposal.proposal.standard}: ${proposal.proposal.trunk_limit} → ${proposal.proposal.proposed_limit} (measured ${proposal.proposal.measurement})`,
+      `${proposal.proposal.standard}: ${
+        standardLimitProposalFigures(proposal.proposal)
+      }`,
     );
     out.info(`Reason: ${proposal.proposal.reason}`);
     out.info(

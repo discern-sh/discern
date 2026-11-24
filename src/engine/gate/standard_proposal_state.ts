@@ -13,6 +13,7 @@ import { runGit } from "../../shared/subprocess.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import { repoPathPrefix } from "../scopes/scopes.ts";
 import type { PlannedStandard } from "./standard_plan.ts";
+import { proposalFiguresHold } from "./standard_proposal_plan.ts";
 import {
   readTrunkConfig,
   standardDefinitionFingerprint,
@@ -58,7 +59,9 @@ export function cloneStandardLimitProposal(
   return { ...proposal, evidence_paths: [...proposal.evidence_paths] };
 }
 
-/** Canonical exact identity shared by Gate reuse and acceptance. */
+/** Canonical exact identity shared by Gate reuse and acceptance. A margin
+ * joins the identity only when the proposal keeps one, so a proposal without
+ * headroom keeps the identity it has always had. */
 export function standardLimitProposalIdentity(
   proposal: StandardLimitProposalData,
 ): string {
@@ -77,6 +80,7 @@ export function standardLimitProposalIdentity(
     proposal.delta,
     proposal.reason,
     proposal.evidence_paths,
+    ...(proposal.margin === undefined ? [] : [proposal.margin]),
   ]);
 }
 
@@ -249,10 +253,10 @@ async function proposalStaleness(
   if (
     standard.direction !== proposal.direction ||
     standard.limit !== proposal.proposed_limit ||
-    proposal.measurement !== proposal.proposed_limit ||
+    !proposalFiguresHold(proposal, standard) ||
     proposal.delta !== proposal.proposed_limit - proposal.trunk_limit
   ) {
-    return "the direction, proposed limit, measurement, or delta changed";
+    return "the direction, proposed limit, measurement, margin, or delta changed";
   }
   if (
     await standardDefinitionFingerprint(standard.name, config) !==
@@ -345,6 +349,29 @@ export async function inspectActiveStandardLimitProposals(
     }
   }
   return { active, stale };
+}
+
+/** A live proposal records the measurement its limit follows from, and that
+ * figure is what the owner decides on. Name every proposal whose standard this
+ * run read at another value, including a value the proposed limit still holds:
+ * headroom lets a moved reading pass the limit, never the proposal. */
+export function movedProposalDiagnostics(
+  proposals: ReadonlyMap<string, StandardLimitProposalData>,
+  readings: readonly {
+    readonly name: string;
+    readonly value?: number | undefined;
+  }[],
+): Diagnostic[] {
+  return readings.flatMap((reading) => {
+    const proposal = proposals.get(reading.name);
+    return proposal === undefined || reading.value === undefined ||
+        reading.value === proposal.measurement
+      ? []
+      : [staleProposalDiagnostic(
+        reading.name,
+        `this run measured ${reading.value}, not the recorded ${proposal.measurement}`,
+      )];
+  });
 }
 
 /** A stale proposal is focused only while its Standard needs the exception. */

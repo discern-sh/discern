@@ -1,6 +1,7 @@
 /** Finite readings are component evidence; protected limits are consumer decisions. */
 import {
   type PlannedStandard,
+  proposedStandardLimit,
   standardPinEligibility,
 } from "../gate/standard_plan.ts";
 import type { GateStandard } from "../../shared/result_schemas.ts";
@@ -46,19 +47,31 @@ export interface StandardVerdict {
  * carry the human rendering when the caller normalized a rate.
  */
 export function compareValueToLimit(
-  r: Pick<PlannedStandard, "name" | "metric" | "direction" | "limit" | "per">,
+  r:
+    & Pick<PlannedStandard, "name" | "metric" | "direction" | "limit" | "per">
+    & Partial<Pick<PlannedStandard, "margin">>,
   value: number,
   shown: string,
   breakdown: string,
 ): StandardVerdict {
   const { name, metric, direction, limit, per } = r;
+  const margin = r.margin ?? 0;
+  // A proposal keeps the margin as headroom, so the limit the owner would be
+  // asked to approve is not the reading above. Name it before they agree.
+  const proposed = margin > 0
+    ? ` A proposal would set the ${
+      direction === "up" ? "floor" : "ceiling"
+    } to ${proposedStandardLimit(direction, value, margin)}: this reading ${
+      direction === "up" ? "less" : "plus"
+    } the standard's margin of ${margin}. Give the owner that limit.`
+    : "";
   const recovery =
     "Investigate the measured change and try reasonable remedies within the authorized task. " +
     "If the requested outcome requires a different limit, explain the measured " +
     "tradeoff, supported alternatives, and your recommendation to the owner. " +
     "After owner agreement, complete every required review, regeneration, edit, " +
     "preparation run, and ordinary commit, then record all simultaneously approved " +
-    `breaches through the standards proposal action (scalar CLI: \`discern standards propose ${name} --reason "…"\`). ` +
+    `breaches through the standards proposal action (scalar CLI: \`discern standards propose ${name} --reason "…"\`).${proposed} ` +
     "Keep unrelated changes out of the remedy.";
   if (direction === "up") {
     if (value + 1e-9 < limit) {
@@ -133,7 +146,8 @@ export type MetricDefinition = Pick<
 >;
 export type StandardDefinition =
   & MetricDefinition
-  & Pick<PlannedStandard, "name" | "direction" | "limit">;
+  & Pick<PlannedStandard, "name" | "direction" | "limit">
+  & Partial<Pick<PlannedStandard, "margin">>;
 
 /** Parse the existing last-emission-wins protocol without accepting partial numbers. */
 export function readMetrics(output: string): Record<string, number> {

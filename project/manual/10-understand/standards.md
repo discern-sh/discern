@@ -40,13 +40,13 @@ Your agent **pins** the standard with `discern standards --pin`, which tightens 
 | Add a small feature.  | 960 kB        | 1,000 kB | Fits.                              |
 | Add a larger feature. | 1,040 kB      | 1,000 kB | Fails, and the agent investigates. |
 
-The margin applies only when you pin, so 1,040 kB still breaks the 1,000 kB ceiling. Once the pin lands, every later task has to meet the new limit.
+The margin applies only when a limit is set, so 1,040 kB still breaks the 1,000 kB ceiling. Once the pin lands, every later task has to meet the new limit.
 
 ## When a feature needs more room
 
 The larger feature might be worth its extra download if it lets people read recipes offline. The standard puts that cost in front of you while you can still choose.
 
-Your agent first tries to avoid the increase, without shrinking something unrelated to make the number pass. If the feature needs the room, you decide: change the feature, or approve a new limit. The Proof shows the proposed limit and why, and landing needs your approval of that exact proposal. Neither a general "go ahead" nor permission you set up in advance covers it. [Set and raise standards](../20-guides/set-and-raise-standards.md#respond-when-a-standard-fires) walks through the decision.
+Your agent first tries to avoid the increase, without shrinking something unrelated to make the number pass. If the feature needs the room, you decide: change the feature, or approve a new limit. An approved limit keeps the margin too, so the next small feature doesn't bring the same question back. The Proof shows the proposed limit and why, and landing needs your approval of that exact proposal. Neither a general "go ahead" nor permission you set up in advance covers it. [Set and raise standards](../20-guides/set-and-raise-standards.md#respond-when-a-standard-fires) walks through the decision.
 
 ## Pick a number that holds up as the project grows
 

@@ -128,7 +128,7 @@ function refuseAwaitingStandardApproval(
     : "This Proof contains a standard limit proposal that requires a separate, exact owner decision.";
   refusal(
     "awaiting_standard_approval",
-    `${opening}\n\n${detail}\n\nRelay every value and reason to the owner. ` +
+    `${opening}\n\n${detail}\n\nRelay every limit, measurement, margin, and reason to the owner. ` +
       `Only after they approve these exact tuples, re-run \`${command}\`. ` +
       `If they decline, leave acceptance stopped, restore the trunk limit in ` +
       `this branch, and run \`discern done\` under ordinary enforcement. ` +

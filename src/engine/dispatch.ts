@@ -545,7 +545,7 @@ export function attachEngineCommands(
     "propose",
     new Command()
       .description(
-        "Propose a looser limit for a standard this change breaks, for the owner to approve.\nRun it on the branch's final, clean commit. discern measures the standard and commits a proposal that changes only its limit, set to the measured value. Rerun after later commits, with the same reason, to carry an unchanged proposal forward without a new commit. Landing still needs the owner's explicit approval of the value and reason.",
+        "Propose a looser limit for a standard this change breaks, for the owner to approve.\nRun it on the branch's final, clean commit. discern measures the standard and commits a proposal that changes only its limit, set to the measured value, keeping its margin as headroom. Rerun after later commits, with the same reason, to carry an unchanged proposal forward without a new commit. Landing still needs the owner's explicit approval of the value and reason.",
       )
       .arguments("<name:string>")
       .option(

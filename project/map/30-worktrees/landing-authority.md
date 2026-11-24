@@ -60,7 +60,7 @@ A queue row keeps its submitted revision when the branch advances. If the clean 
 
 `discern accept` checks standard limit proposals before applying landing authority. The live worktree proposal record must equal the proposal set in the honored Proof. A mismatch, stale record, reason change, or revocation refuses without moving the trunk.
 
-The read-only refusal names each standard, old and proposed limits, measurement, delta, reason, responsible paths, and an approval token. The token is a 64-character lowercase hexadecimal digest of the exact standard, value, and reason. It prevents an approval command copied for one tuple from approving a changed tuple; it grants no authority by itself. Relay those facts to the owner. After the owner approves the current tuples in this conversation, run the complete command returned by discern:
+The read-only refusal names each standard, old and proposed limits, measurement, any margin kept as headroom, delta, reason, responsible paths, and an approval token. The token is a 64-character lowercase hexadecimal digest of the exact standard, proposed limit, and reason. It prevents an approval command copied for one tuple from approving a changed tuple; it grants no authority by itself. Relay those facts to the owner. After the owner approves the current tuples in this conversation, run the complete command returned by discern:
 
 ```sh
 discern accept --confirmed --approve-standard <token>

@@ -91,6 +91,7 @@ import type { PolicyChangeMode } from "../../shared/verbs.ts";
 import { verifyTrunkLimits } from "./standard_limits.ts";
 import {
   inspectActiveStandardLimitProposals,
+  movedProposalDiagnostics,
   staleProposalDiagnostic,
   standardLimitProposalIdentity,
 } from "./standard_proposal_state.ts";
@@ -829,6 +830,16 @@ async function runCandidateGate(
               result.cancelled !== true;
           })
         )?.stage ?? "check/test";
+      }
+      // Proof quotes each proposal's measurement to the owner, so this run's
+      // reading must be that figure even when the proposed limit still holds.
+      const movedProposals = movedProposalDiagnostics(
+        standardLimitProposals,
+        validationRun.standards,
+      );
+      if (movedProposals.length > 0) {
+        tier1Diagnostics = [...tier1Diagnostics, ...movedProposals];
+        failedStage ??= "standards";
       }
     }
     const strands = treeBoundary.strands();

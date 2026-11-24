@@ -2,6 +2,8 @@
 
 > **Amended by [ADR 0354](0354-standard-proposals-renew-descendant-evidence.md):** the proposal commit remains the immutable origin, while unchanged targeted measurement evidence can renew the live binding on an eligible descendant. Named Standard operations share one selection plan; pin narrows measurement only when current Gate Proof already validates the complete clean tree.
 
+> **Amended by [ADR 0434](0434-standard-limit-proposals-keep-the-configured-margin.md):** a proposal for a standard with a `margin` sets the limit to the measured value with that margin kept as headroom, and its record states the margin. The Gate's reading of a proposed standard must equal the recorded measurement even when the proposed limit still holds it.
+
 **Status**: accepted. Extends the breach escalation in [ADR 0161](0161-growth-proof-standards-and-breach-escalation.md) and shared Standard pipeline in [ADR 0155](0155-standalone-standards-share-the-gate-job-pipeline.md). It also extends normalized definitions in [ADR 0323](0323-standards-hold-normalized-enforcement-definitions.md), Proof-gated acceptance in [ADR 0067](0067-accept-validates-the-landed-tree.md), and conversation consent in [ADR 0134](0134-accept-attests-consent.md).
 
 ## Context

@@ -408,6 +408,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0431 — Wall cards name the feature nodes they draw on](0431-wall-cards-name-the-feature-nodes-they-draw-on.md)
 - [0432 — Ignored directories are opaque to drift fingerprints](0432-ignored-directories-are-opaque-to-drift-fingerprints.md)
 - [0433 — Post-landing reports name policy changes](0433-post-landing-reports-name-policy-changes.md)
+- [0434 — Standard limit proposals keep the configured margin](0434-standard-limit-proposals-keep-the-configured-margin.md)
 
 <!-- END GENERATED: current ADR records -->
 

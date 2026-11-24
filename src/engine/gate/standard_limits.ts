@@ -78,7 +78,7 @@ export const STANDARD_DEFINITION_POLICIES = {
   margin: {
     kind: "execution-or-pinning",
     reason:
-      "changes only a future pin target, not today's measurement or verdict",
+      "changes only the headroom a later pin or approved proposal keeps, not today's measurement or verdict",
   },
   inputs: {
     kind: "enforcement-meaning",

@@ -16,6 +16,7 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
+import { standardLimitProposalRecordFigures } from "./standard_limit_proposal_text.ts";
 import { renderProviderTrustMarkdown } from "./provider_trust.ts";
 import { AwaitDataSchema, ProviderTrustDataSchema } from "./result_schemas.ts";
 import { awaitContextLines } from "./await_prose.ts";
@@ -1358,13 +1359,11 @@ const presentGate: ResultMarkdownPresenter = (result) => {
       ...records(checkpoints?.drops).map(checkpointDropLine),
       ...standardProposals.map((proposal) => {
         const standard = text(proposal.standard) ?? "unknown";
-        const proposed = number(proposal.proposed_limit);
-        const delta = number(proposal.delta);
         const reason = text(proposal.reason) ?? "No reason recorded.";
         return `Standard limit proposal for ${
           code(standard)
-        }: exact owner approval is required for limit ${proposed ?? "unknown"}${
-          delta === undefined ? "" : ` (delta ${delta >= 0 ? "+" : ""}${delta})`
+        }: exact owner approval is required for ${
+          standardLimitProposalRecordFigures(proposal)
         }.\n\nReason: ${reason}`;
       }),
       gateProofFact(data.gate_proof),
@@ -1480,11 +1479,7 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         const name = text(entry.standard) ?? "standard";
         const reason = text(entry.reason);
         return [
-          `${code(name)}: ${number(entry.trunk_limit) ?? "unknown"} → ${
-            number(entry.proposed_limit) ?? "unknown"
-          }; measured ${number(entry.measurement) ?? "unknown"}; delta ${
-            number(entry.delta) ?? "unknown"
-          }.`,
+          `${code(name)}: ${standardLimitProposalRecordFigures(entry)}.`,
           reason === undefined ? undefined : `${code(name)} reason: ${reason}`,
           listFact(
             `${code(name)} responsible paths`,
@@ -2013,19 +2008,17 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ...records(data.standard_approvals).map((proposal) =>
         `Standard limit proposal approved by the owner: ${
           code(text(proposal.standard) ?? "standard")
-        } ${number(proposal.trunk_limit) ?? "unknown"} → ${
-          number(proposal.proposed_limit) ?? "unknown"
-        }; reason: ${text(proposal.reason) ?? "unknown"}.`
+        } ${standardLimitProposalRecordFigures(proposal)}; reason: ${
+          text(proposal.reason) ?? "unknown"
+        }.`
       ),
       ...records(data.standard_approvals_required).map((approval) => {
         const proposal = object(approval.proposal);
         return `Standard limit proposal awaiting exact owner approval: ${
           code(text(proposal?.standard) ?? "standard")
-        } ${number(proposal?.trunk_limit) ?? "unknown"} → ${
-          number(proposal?.proposed_limit) ?? "unknown"
-        }; reason: ${text(proposal?.reason) ?? "unknown"}; approval token: ${
-          code(text(approval.token) ?? "unavailable")
-        }.`;
+        } ${standardLimitProposalRecordFigures(proposal)}; reason: ${
+          text(proposal?.reason) ?? "unknown"
+        }; approval token: ${code(text(approval.token) ?? "unavailable")}.`;
       }),
       ...records(data.checkpoint_drops).map(checkpointDropLine),
     ]),

@@ -516,7 +516,7 @@ Usage: `discern config set-standard <name> [options]`
 | `--artifact <path>`        | A file the producer lists in its artifacts, passed to `--extract` on stdin.                                                                                 |
 | `--per <metric-or-extent>` | Hold a rate: divide by another metric, or by a count discern takes itself: `files=<glob>`, `lines=<glob>`, `words=<glob>`, or `bytes=<glob>`.               |
 | `--scale <n>`              | Multiply a `--per` rate into readable units: 1000 gives a rate per 1,000. Default: 1.                                                                       |
-| `--margin <n>`             | Headroom `discern standards --pin` keeps when it tightens the limit. Default: 0.                                                                            |
+| `--margin <n>`             | Headroom a pin or an approved proposal keeps beyond the measured value. Default: 0.                                                                         |
 | `--timeout <seconds>`      | Time limit for the measuring command, in seconds; 0 means no limit.                                                                                         |
 | `--inputs <value>`         | A file pattern the measurement reads. Repeat it until every input is listed; discern can then reuse an earlier measurement while those files are unchanged. |
 | `--needs <value>`          | A job, scope gate, or standard that must succeed before the measurement, such as `jobs.build`. Repeat it for each one.                                      |
@@ -624,7 +624,7 @@ Usage: `discern standards [names...] [options]`
 
 #### `discern standards propose`
 
-Propose a looser limit for a standard this change breaks, for the owner to approve. Run it on the branch's final, clean commit. discern measures the standard and commits a proposal that changes only its limit, set to the measured value. Rerun after later commits, with the same reason, to carry an unchanged proposal forward without a new commit. Landing still needs the owner's explicit approval of the value and reason.
+Propose a looser limit for a standard this change breaks, for the owner to approve. Run it on the branch's final, clean commit. discern measures the standard and commits a proposal that changes only its limit, set to the measured value, keeping its margin as headroom. Rerun after later commits, with the same reason, to carry an unchanged proposal forward without a new commit. Landing still needs the owner's explicit approval of the value and reason.
 
 Usage: `discern standards propose <name> [options]`
 

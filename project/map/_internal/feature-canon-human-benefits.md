@@ -195,7 +195,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** A measured gain can become the baseline every future branch inherits. Improvements stop being encouraging moments in a report and become part of the project's working conditions.
 - **Mechanism:** `discern standards --pin` tightens an improved limit to the measured value, applies the configured margin, and commits that limit change on its own.
-- **Product basis:** Capturing a gain · Pin headroom.
+- **Product basis:** Capturing a gain · Limit headroom.
 
 ### Use standards that stay useful as the project grows
 

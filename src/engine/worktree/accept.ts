@@ -39,6 +39,7 @@ import {
   type LandingConsent,
 } from "../../shared/consent.ts";
 import { targetExists } from "../../shared/fs_presence.ts";
+import { standardLimitProposalFigures } from "../../shared/standard_limit_proposal_text.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import {
   fire,
@@ -1276,7 +1277,9 @@ async function previewLanding(
       `Checkpoint advisory: ${advisory}`
     ),
     ...(subject.proof.standard_proposals ?? []).map((proposal) =>
-      `Standard owner decision: ${proposal.standard} ${proposal.trunk_limit} → ${proposal.proposed_limit}; reason: ${proposal.reason}`
+      `Standard owner decision: ${proposal.standard} ${
+        standardLimitProposalFigures(proposal)
+      }; reason: ${proposal.reason}`
     ),
   );
   const rows = await submissionRows(effort.mainRepo, effort.trunk);

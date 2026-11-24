@@ -2,6 +2,8 @@
 
 > **Launch-format amendment (2026-09-03):** current proposal stores, structured Proof, and acceptance journals require `bound_commit`. The short-lived pre-rebinding normalizer was retired before v1; missing binding evidence is malformed rather than rewritten to `commit`.
 
+> **Amended by [ADR 0434](0434-standard-limit-proposals-keep-the-configured-margin.md):** renewal requires the fresh measurement to equal the recorded measurement and the recorded margin to equal the configured one. The measurement no longer has to equal the proposed limit, which includes any margin.
+
 **Status**: accepted. Amends the exact-commit proposal and shared-measurement decision in [ADR 0339](0339-proposed-standard-limits-and-shared-measurements.md), the pin receipt in [ADR 0106](0106-standards-pin-carries-the-gate-receipt.md), and exact-tree Proof reuse in [ADR 0067](0067-accept-validates-the-landed-tree.md).
 
 ## Context

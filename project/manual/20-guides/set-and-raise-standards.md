@@ -49,7 +49,7 @@ inputs = ["src/**", "assets/**"]
 | Setting     | What it does                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------- |
 | `direction` | `down` makes the limit a ceiling. `up` would make it a floor.                               |
-| `margin`    | The headroom discern leaves when you later lock in a gain. It doesn't loosen today's limit. |
+| `margin`    | The headroom discern leaves when it sets a new limit. It doesn't loosen today's limit.      |
 | `inputs`    | Every file the measurement reads. discern reuses the last result while none of them change. |
 
 The measurement is now part of the **gate**: your project's own commands, such as its linter and tests, which must all pass before a change counts as finished. The gate fails if the script fails or prints no number.
@@ -106,6 +106,8 @@ If the measuring script is broken, the agent fixes it first. The limit stays put
 
 If the feature can't fit under the limit, you choose: ship a smaller version, put the feature off, or approve a new limit for this change. Is search worth an extra 40 kB for everyone who opens the app?
 
+Your agent tells you the limit you'd approve. A new limit keeps the margin, so it would be 1,140 kB.
+
 ### Approve a new limit
 
 Once you agree, the agent commits the finished feature and runs:
@@ -114,9 +116,9 @@ Once you agree, the agent commits the finished feature and runs:
 discern standards propose download_size --reason "The agreed search feature increases the initial download"
 ```
 
-This commits the measured value, 1,040 kB, as the new limit. There's no margin, so the next increase will trip it again. The agent runs `discern done`, and the Proof line shows the decision waiting for you:
+This commits 1,140 kB as the new limit, so a small increase after this one still fits. The agent runs `discern done`, and the Proof line shows the decision waiting for you:
 
-> **Proof:** Gate passed for `agent/search-5d2e81` at `8c41f7a02be9` · 5 files changed (+212 −9) vs `main` · Standards held · Standard proposal awaiting exact owner approval: `download_size` 1000 → 1040 · View the full Proof: `discern status --verbose`
+> **Proof:** Gate passed for `agent/search-5d2e81` at `8c41f7a02be9` · 5 files changed (+212 −9) vs `main` · Standards held · Standard proposal awaiting exact owner approval: `download_size` 1000 → 1140 · View the full Proof: `discern status --verbose`
 
 When the agent asks to land, `discern accept` stops and gives it an approval token for this exact proposal. Once you approve, the agent lands with:
 
@@ -124,7 +126,7 @@ When the agent asks to land, `discern accept` stops and gives it an approval tok
 discern accept --confirmed --approve-standard <token>
 ```
 
-The token covers one standard, one value, and one reason, so if any of them changes, you're asked again. Permission to land the feature doesn't approve the new limit, and no grant you set up in advance does either.
+The token covers one standard, one limit, and one reason, so if any of them changes, you're asked again. Permission to land the feature doesn't approve the new limit, and no grant you set up in advance does either.
 
 ## When it's done
 

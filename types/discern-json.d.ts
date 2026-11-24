@@ -759,6 +759,7 @@ export type DiscernProofSummary = {
     trunk_limit: number;
     proposed_limit: number;
     measurement: number;
+    margin?: number;
     delta: number;
     reason: string;
     evidence_paths: Array<string>;
@@ -4101,6 +4102,7 @@ export type DiscernStandardsResult = DiscernResultState & {
         trunk_limit: number;
         proposed_limit: number;
         measurement: number;
+        margin?: number;
         delta: number;
         reason: string;
         evidence_paths: Array<string>;
@@ -4120,6 +4122,7 @@ export type DiscernStandardsResult = DiscernResultState & {
         trunk_limit: number;
         proposed_limit: number;
         measurement: number;
+        margin?: number;
         delta: number;
         reason: string;
         evidence_paths: Array<string>;
@@ -4242,6 +4245,7 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
         trunk_limit: number;
         proposed_limit: number;
         measurement: number;
+        margin?: number;
         delta: number;
         reason: string;
         evidence_paths: Array<string>;
@@ -4261,6 +4265,7 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
         trunk_limit: number;
         proposed_limit: number;
         measurement: number;
+        margin?: number;
         delta: number;
         reason: string;
         evidence_paths: Array<string>;
@@ -6532,6 +6537,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         trunk_limit: number;
         proposed_limit: number;
         measurement: number;
+        margin?: number;
         delta: number;
         reason: string;
         evidence_paths: Array<string>;
@@ -6591,6 +6597,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       trunk_limit: number;
       proposed_limit: number;
       measurement: number;
+      margin?: number;
       delta: number;
       reason: string;
       evidence_paths: Array<string>;
@@ -6608,6 +6615,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         trunk_limit: number;
         proposed_limit: number;
         measurement: number;
+        margin?: number;
         delta: number;
         reason: string;
         evidence_paths: Array<string>;
