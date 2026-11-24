@@ -69,6 +69,14 @@ Your agent reproduces the failure, fixes the cause, commits, and runs `discern d
 
 If the report lists a checkpoint question, the task's agent answers it in its worktree. An unmet answer needs your decision before the change lands.
 
+## When commands time out on a small runner
+
+discern starts every command it can at once. On a runner with little memory they slow each other down, so a test that takes seconds on your computer can run out of time in CI. If that happens to the search tests, ask your agent:
+
+> "The search tests pass here but time out in CI. Check whether the runner is short of memory, and run fewer commands at once if it is."
+
+Your agent sets a limit in the workflow, and discern then starts only that many commands at a time. If memory was the cause, the search tests finish in time on the next run. The [environment variables reference](../30-reference/environment-variables.md) names the setting, `DISCERN_GATE_CONCURRENT_COMMANDS`, and the values it takes.
+
 ## Report limit changes after a push to trunk
 
 On a pull request, discern fails the report when a change loosens a measured limit, changes how it's measured, or removes it, so nobody merges a weaker limit unnoticed.

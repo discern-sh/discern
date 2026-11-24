@@ -31,6 +31,10 @@ import type {
 import type { JobResult } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
 import {
+  type CommandLimit,
+  commandLimitFromEnvironment,
+} from "../jobs/command_limit.ts";
+import {
   completionBlockerAccount,
   producerWorkSentence,
 } from "../completion/progress_prose.ts";
@@ -101,6 +105,8 @@ export interface PublicValidationRun {
   /** Each producer that ran or whose recorded evidence stood in, with the reason. */
   readonly producer_evidence: readonly ProducerEvidence[];
   readonly waited_ms: number;
+  /** The concurrent-commands limit this run's commands drew on, when one applied. */
+  readonly limit: CommandLimit | undefined;
 }
 
 /** Name every producer the plan executed or reused, and say why, from the plan's own facts. */
@@ -299,6 +305,11 @@ export async function executePublicValidation(input: {
   const progressObserver = createProducerProgressObserver({
     candidate_id: input.claimed.candidate_id,
   });
+  // A verb that carries its own run options brings the limit its other stages
+  // already draw on. A run without them asks the environment itself.
+  const ownLimit = input.capacity?.runner === undefined
+    ? commandLimitFromEnvironment(hostEnv)
+    : undefined;
   const presentation: RunOptions = input.capacity?.runner === undefined
     ? {
       cwd: root,
@@ -307,6 +318,7 @@ export async function executePublicValidation(input: {
       color: false,
       quiet: true,
       outputObserver: progressObserver,
+      ...(ownLimit === undefined ? {} : { limit: ownLimit }),
     }
     : {
       ...input.capacity.runner,
@@ -344,6 +356,27 @@ export async function executePublicValidation(input: {
       presentation,
       verifyConditions: () =>
         verifyValidationInputs(root, inputs, toolchain, selection),
+      declaredOrder: (selector) => {
+        const index = plan.producers.findIndex((producer) =>
+          producer.selector === selector
+        );
+        // An extraction follows the producers; its own arrival orders it.
+        return index === -1 ? plan.producers.length : index;
+      },
+      onAdmit: (selector) => {
+        if (selector.startsWith("extract:")) return;
+        input.onProgress?.({ producer: selector, state: "running" });
+        emitCompletionProgress({
+          phase: "producer",
+          state: "running",
+          candidate_id: input.claimed.candidate_id,
+          reason: `Running ${producerLabel(selector)}.`,
+          work: {
+            producer: producerLabel(selector),
+            state: "running",
+          },
+        });
+      },
       onStart: (selector) => {
         if (!selector.startsWith("extract:")) {
           counts[selector] = (counts[selector] ?? 0) + 1;
@@ -436,17 +469,6 @@ export async function executePublicValidation(input: {
         claimed,
         () => {
           claimed.signal.throwIfAborted();
-          input.onProgress?.({ producer: producer.selector, state: "running" });
-          emitCompletionProgress({
-            phase: "producer",
-            state: "running",
-            candidate_id: claimed.candidate_id,
-            reason: `Running ${producerLabel(producer.selector)}.`,
-            work: {
-              producer: producerLabel(producer.selector),
-              state: "running",
-            },
-          });
           return runtime.produce(producer, claimed);
         },
         producerLabel(producer.selector) === "test"
@@ -813,5 +835,6 @@ export async function executePublicValidation(input: {
     producer_executions: counts,
     producer_evidence: describeProducerEvidence(plan, observed, counts),
     waited_ms: slots?.waitedMs ?? 0,
+    limit: presentation.limit,
   };
 }

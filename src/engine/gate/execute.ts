@@ -20,6 +20,7 @@ import {
   type JobTimeout,
 } from "../jobs/types.ts";
 import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
+import { commandLimitFromEnvironment } from "../jobs/command_limit.ts";
 import { byteWriter, makeOut, type Out } from "../output.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import type { FailedStage } from "../../shared/result.ts";
@@ -310,6 +311,10 @@ export function gateTimeoutBudget(cfg: DiscernConfig): JobTimeout {
  * undefined when uncapped (the default). Building it here is what enrols every
  * gate verb: any run whose context comes from this one place carries the cap,
  * and {@link runGroup} decides per group whether to draw on it.
+ *
+ * The RunOptions also carry the run's concurrent-commands limit when the
+ * environment asks for one, so the stages a verb runs itself and the producers
+ * it hands to validation draw on the same places.
  */
 export function gateRunContext(
   root: string,
@@ -329,12 +334,14 @@ export function gateRunContext(
   const liveFrame = policy.output.kind === "live-frame";
   const deferred = liveFrame ? deferredHumanRun(color, terminal) : undefined;
   const out = makeOut(color, { quiet: quietResult, terminal });
+  const limit = commandLimitFromEnvironment();
   return {
     runOpts: {
       cwd: root,
       stream: policy.capture === "streamed-capped",
       failFast: cfg.gate.fail_fast,
       timeout: gateTimeoutBudget(cfg),
+      ...(limit !== undefined ? { limit } : {}),
       ...(signal !== undefined ? { signal } : {}),
       color,
       terminal,

@@ -584,6 +584,17 @@ Rendered example:
 
 > Checkpoint review was reported and was not enforced. Run `discern done` in a stateful worktree before `discern accept`.
 
+## `gate-commands-waited`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: The concurrent-commands runtime override limited a gate run and at least one command waited to start.
+
+Rendered example:
+
+> This run started at most 2 commands at a time (DISCERN_GATE_CONCURRENT_COMMANDS), so 19 commands waited to start. Each waiting command's time limit started when the command did.
+
 ## `gate-failure-adr-index`
 
 - Category: `next-step`

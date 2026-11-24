@@ -163,6 +163,15 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
         "Set it to `1` to add each step's and command's start and length to the logbook entry, to help explain a slow run.",
     },
   },
+  gateConcurrentCommands: {
+    name: "DISCERN_GATE_CONCURRENT_COMMANDS",
+    group: "runtime-overrides",
+    documentation: {
+      public: true,
+      description:
+        "Set it to a whole number, such as `2`, to have a gate run start at most that many commands at a time, for a machine without the memory to run them all at once. The waiting command with the longest time limit starts first, and its time limit starts when it does. Unset or empty, every ready command starts at once; any other value stops the run before a command starts.",
+    },
+  },
 
   projectSlug: {
     name: "DISCERN_PROJECT_SLUG",

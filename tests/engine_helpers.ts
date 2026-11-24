@@ -18,6 +18,7 @@
  * test-specific capabilities/checks/scopes/standards.
  */
 
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { assembleInitPlan } from "../src/commands/setup.ts";
@@ -250,7 +251,9 @@ export async function readLogbookEvents(dir: string): Promise<LogbookEvent[]> {
  * applies to a suite admitted through `discern queue`: each scaffolded fixture
  * models a separate invocation and must make its own slot decision. Blanking
  * both markers here keeps the suite deterministic; a test that needs either
- * marker sets it via `extra`.
+ * marker sets it via `extra`. The concurrent-commands limit is blanked for
+ * the same reason: a suite running under a limit must not pass it to fixtures
+ * whose commands are written to overlap.
  */
 export async function engineEnv(
   extra: Record<string, string> = {},
@@ -276,6 +279,9 @@ export async function engineEnv(
     ...withoutDeskSessionEnv(),
     [TEST_RUN_SLOT_ENV]: "",
     [DISCERN_NO_ATTRIBUTION]: "",
+    // A fixture's gate starts its commands as an unconfigured machine would,
+    // whatever limit the environment running the suite asks for.
+    [DISCERN_ENVIRONMENT_VARIABLES.gateConcurrentCommands]: "",
     ...Object.fromEntries(
       Object.values(EXPERIMENTAL_ENVIRONMENT_VARIABLES).map((name) => [
         name,

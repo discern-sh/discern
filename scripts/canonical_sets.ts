@@ -4519,6 +4519,8 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "applies invocation-context isolation to every runtime lazy import and context owner rather than guarding a closed member set",
   "tests/fs_presence_enrolment_test.ts":
     "applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set",
+  "tests/command_launch_limit_guard_test.ts":
+    "holds every call that starts a configured command to the concurrent-commands limit or a registered exception rather than guarding a closed member set",
   "tests/kernel_file_read_guard_test.ts":
     "holds every /proc and /sys path in the binary's source to the child-process reader rather than guarding a closed member set",
   "tests/terminal_boundary_guard_test.ts":

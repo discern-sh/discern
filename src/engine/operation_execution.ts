@@ -33,6 +33,7 @@ import {
   type CompletionObservationFact,
   withCompletionObserver,
 } from "./completion/events.ts";
+import { concurrentCommandsRequested } from "./jobs/command_limit.ts";
 import { withTrackedRun } from "./jobs/interrupt.ts";
 import {
   type OperationInvocation,
@@ -51,6 +52,14 @@ export async function executeOperation<T>(
   options: { resumeAfterInterrupt?: boolean } = {},
 ): Promise<T> {
   const policy = operationEffectPolicy(invocation.command, invocation);
+  // A concurrent-commands override that is not a limit stops an operation that
+  // runs project commands here, before its journal, its lock, or a command
+  // exists. A dry run starts no command and reads no limit.
+  if (
+    invocation.dryRun !== true && policy?.effects.includes("project-command")
+  ) {
+    concurrentCommandsRequested();
+  }
   // Refuse without journal effects, then recheck after acquiring exclusion: a
   // preceding operation may have adopted a newer version while this one waited.
   await assertOperationAdoption(root, invocation);

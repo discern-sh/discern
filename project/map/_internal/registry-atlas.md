@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 971     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 973     | —                | —                           |
 | [`wall-deck`](#wall-deck--homepage-wall-cards)                                                                        | `site/wall/deck.ts#WALL_DECK`                                                     | 68      | —                | —                           |
 | [`wall-lenses`](#wall-lenses--homepage-wall-lenses)                                                                   | `site/wall/deck.ts#WALL_LENSES`                                                   | 7       | —                | —                           |
 | [`wall-knobs`](#wall-knobs--homepage-wall-tuning-knobs)                                                               | `site/wall/tuning/knobs.ts#WALL_KNOBS`                                            | 18      | —                | —                           |
@@ -27,7 +27,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 26      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 19      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 37      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
 | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 18      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
@@ -78,7 +78,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 20      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 5       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 210     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 211     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 49      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -120,7 +120,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 423     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 424     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 31      | "File ownership" | node `ownership-buckets`    |
 | [`skill-dir-consumers`](#skill-dir-consumers--skills-directory-consumers)                                             | `tests/skill_dir_consumers.ts#SKILL_DIR_CONSUMERS`                                | 22      | —                | —                           |
 | [`agent-file-writers`](#agent-file-writers--agent-file-writers)                                                       | `tests/agent_file_writers.ts#AGENT_FILE_WRITE_USES`                               | 38      | —                | —                           |
@@ -503,7 +503,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 971
+- Members: 973
   - `/`
   - `/install`
   - `/llms.txt`
@@ -1409,6 +1409,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0433-post-landing-reports-name-policy-changes.md`
   - `/docs/decisions/0434-standard-limit-proposals-keep-the-configured-margin`
   - `/docs/decisions/0434-standard-limit-proposals-keep-the-configured-margin.md`
+  - `/docs/decisions/0435-a-runtime-override-limits-concurrent-gate-commands`
+  - `/docs/decisions/0435-a-runtime-override-limits-concurrent-gate-commands.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -1874,13 +1876,14 @@ The lifecycle sequence that leads schema-deferred clients through status, worktr
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
 - Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
-- Members: 37
+- Members: 38
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
   - `DISCERN_TRUNK`
   - `DISCERN_NO_ATTRIBUTION`
   - `DISCERN_ENGINE_TIMING`
+  - `DISCERN_GATE_CONCURRENT_COMMANDS`
   - `DISCERN_PROJECT_SLUG`
   - `DISCERN_WORKTREE_BRANCH_PREFIX`
   - `DISCERN_WORKTREE_ID`
@@ -3218,7 +3221,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 210
+- Members: 211
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -3302,6 +3305,7 @@ The advisory hint registry: every hint string enters results through it.
   - `test-job-not-configured`
   - `gate-test-run-queued`
   - `gate-test-slots-unavailable`
+  - `gate-commands-waited`
   - `gate-standards-limits-unverified`
   - `gate-policy-changes-reported`
   - `emergency-outstanding`
@@ -4787,7 +4791,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 423
+- Members: 424
   - `0003`
   - `0005`
   - `0006`
@@ -5179,6 +5183,7 @@ The numbered decision records in the map, including records later superseded.
   - `0432`
   - `0433`
   - `0434`
+  - `0435`
   - `0001`
   - `0002`
   - `0004`
@@ -6340,6 +6345,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 - `tests/test_elapsed_guard_test.ts` — applies timer-ownership review across authored test duration measurements rather than guarding a closed member set
 - `tests/module_loading_guard_test.ts` — applies invocation-context isolation to every runtime lazy import and context owner rather than guarding a closed member set
 - `tests/fs_presence_enrolment_test.ts` — applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set
+- `tests/command_launch_limit_guard_test.ts` — holds every call that starts a configured command to the concurrent-commands limit or a registered exception rather than guarding a closed member set
 - `tests/kernel_file_read_guard_test.ts` — holds every /proc and /sys path in the binary's source to the child-process reader rather than guarding a closed member set
 - `tests/terminal_boundary_guard_test.ts` — applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set
 - `tests/terminal_live_tail_guard_test.ts` — applies the live-tail bound to every runtime call site that hands streamed output to a repainting package view rather than guarding a closed member set

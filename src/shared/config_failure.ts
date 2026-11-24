@@ -1,4 +1,8 @@
-/** Normalize user-originated config load errors into the shared result envelope. */
+/**
+ * Normalize user-originated load errors into the shared result envelope: an
+ * unreadable `discern.toml`, or an environment variable whose value its reader
+ * cannot accept.
+ */
 
 import {
   ConfigMissingError,
@@ -8,6 +12,7 @@ import {
 import type { ConfigIssue } from "./config_issues.ts";
 import { unknownRootSections } from "./config_issues.ts";
 import { noProjectResult } from "./env.ts";
+import { EnvironmentValueError } from "./environment_value.ts";
 import { fire, HINTS, hintTexts, withFailureRecoveryHint } from "./hints.ts";
 import type { DiscernResult } from "./result.ts";
 
@@ -34,6 +39,14 @@ export function configFailureResult(
       ok: false,
       verb,
       error: "invalid_toml",
+      message: error.message,
+    });
+  }
+  if (error instanceof EnvironmentValueError) {
+    return withFailureRecoveryHint({
+      ok: false,
+      verb,
+      error: "invalid_value",
       message: error.message,
     });
   }

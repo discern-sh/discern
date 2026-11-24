@@ -409,6 +409,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0432 — Ignored directories are opaque to drift fingerprints](0432-ignored-directories-are-opaque-to-drift-fingerprints.md)
 - [0433 — Post-landing reports name policy changes](0433-post-landing-reports-name-policy-changes.md)
 - [0434 — Standard limit proposals keep the configured margin](0434-standard-limit-proposals-keep-the-configured-margin.md)
+- [0435 — A runtime override limits concurrent gate commands](0435-a-runtime-override-limits-concurrent-gate-commands.md)
 
 <!-- END GENERATED: current ADR records -->
 

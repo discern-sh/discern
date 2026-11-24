@@ -14,6 +14,7 @@ import {
   positional,
 } from "../command_reference.ts";
 import { productSentence } from "../product_sentence.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../environment_variables.ts";
 import {
   RELATED_CHECKPOINT_KIND_LABELS,
   RELATED_CHECKPOINT_KIND_VERBS,
@@ -145,6 +146,21 @@ export const GATE_HINTS = {
         )
       } ` +
       `The tests run uncapped.`,
+  }),
+
+  "gate-commands-waited": defineHint<{ limit: number; waited: number }>({
+    id: "gate-commands-waited",
+    category: "notice",
+    audience: "all",
+    when:
+      "The concurrent-commands runtime override limited a gate run and at least one command waited to start.",
+    example: { limit: 2, waited: 19 },
+    template: ({ limit, waited }): string =>
+      `This run started at most ${limit} ${
+        limit === 1 ? "command" : "commands"
+      } at a time (${DISCERN_ENVIRONMENT_VARIABLES.gateConcurrentCommands}), so ${waited} ${
+        waited === 1 ? "command" : "commands"
+      } waited to start. Each waiting command's time limit started when the command did.`,
   }),
 
   "gate-standards-limits-unverified": defineHint<{

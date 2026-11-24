@@ -14,6 +14,7 @@ import {
   runSerial,
 } from "../src/engine/jobs/runner.ts";
 import type { StageRunResult } from "../src/engine/jobs/types.ts";
+import { createCommandLimit } from "../src/engine/jobs/command_limit.ts";
 import {
   finalCode,
   JOB_CAPTURE_CAP_BYTES,
@@ -855,4 +856,94 @@ Deno.test("spawnJob attributes its exact scheduled budget even after scheduler s
       }
     });
   }
+});
+
+Deno.test("runParallel: under a limit, jobs take one place at a time, longest time limit first", async () => {
+  await withTempDir(async (dir) => {
+    const events: string[] = [];
+    const result = await runParallel([
+      {
+        label: "brief",
+        command: ":",
+        timeout: { seconds: 60, key: "[jobs.brief].timeout" },
+      },
+      {
+        label: "long",
+        command: ":",
+        timeout: { seconds: 10_800, key: "[jobs.long].timeout" },
+      },
+      { label: "default", command: ":" },
+      {
+        label: "unbounded",
+        command: ":",
+        timeout: { seconds: 0, key: "[jobs.unbounded].timeout" },
+      },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      quiet: true,
+      timeout: { seconds: 1_800, key: "[gate].timeout" },
+      limit: createCommandLimit(1),
+      observer: {
+        started: (job): void => {
+          events.push(`started:${job.label}`);
+        },
+        settled: (job): void => {
+          events.push(`settled:${job.label}`);
+        },
+      },
+    });
+
+    assertEquals(result.ok, true);
+    // Results keep declaration order whatever order the jobs ran in.
+    assertEquals(
+      result.results.map((r) => r.label),
+      ["brief", "long", "default", "unbounded"],
+    );
+    assertEquals(events, [
+      "started:unbounded",
+      "settled:unbounded",
+      "started:long",
+      "settled:long",
+      "started:default",
+      "settled:default",
+      "started:brief",
+      "settled:brief",
+    ]);
+  }, { prefix: "discern-job-limit-order-" });
+});
+
+Deno.test("runParallel: a job still waiting when the run stops never starts and has no result", async () => {
+  await withTempDir(async (dir) => {
+    const events: string[] = [];
+    const limit = createCommandLimit(1);
+    const result = await runParallel([
+      { label: "fails", command: "exit 3" },
+      { label: "never", command: "echo ran > ran.txt" },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      quiet: true,
+      limit,
+      observer: {
+        started: (job): void => {
+          events.push(`started:${job.label}`);
+        },
+        settled: (job): void => {
+          events.push(`settled:${job.label}`);
+        },
+      },
+    });
+
+    assertEquals(result.ok, false);
+    assertEquals(result.results.map((r) => r.label), ["fails"]);
+    assertEquals(result.results[0]?.code, 3);
+    assertEquals(events, ["started:fails", "settled:fails"]);
+    assertEquals(await targetExists(join(dir, "ran.txt")), false);
+    assertEquals(limit.waited, 1);
+  }, { prefix: "discern-job-limit-stop-" });
 });

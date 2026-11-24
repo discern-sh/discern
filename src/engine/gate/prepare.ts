@@ -20,6 +20,7 @@ import { retainResultDiagnostics } from "./diagnostic_output.ts";
  * it touches only `hints`, never prepare's pass/fail, and is skipped on a failed run.
  */
 
+import { commandLimitHints } from "../jobs/command_limit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
@@ -343,6 +344,7 @@ async function runPrepareGate(
       : []),
     ...checkpointHints,
     ...couplingHints,
+    ...commandLimitHints(runOpts.limit),
   ];
   const result: DiscernResult = {
     ok: failedStage === null,

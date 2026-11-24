@@ -1,4 +1,5 @@
 import { retainResultDiagnostics } from "./diagnostic_output.ts";
+import { type CommandLimit, commandLimitHints } from "../jobs/command_limit.ts";
 import { fmtRate, standardHeld } from "../validation/metrics.ts";
 import { measureDeclaredStandards } from "../validation/measurement.ts";
 import { observedGateOperation } from "./observed_operation.ts";
@@ -118,6 +119,8 @@ interface StandardExecution {
   producer_executions: Readonly<Record<string, number>>;
   producer_evidence: readonly ProducerEvidence[];
   waited_ms: number;
+  /** The concurrent-commands limit the measurements drew on, when one applied. */
+  limit: CommandLimit | undefined;
   ok: boolean;
   results: StepResult[];
   outcomes: StandardOutcome[];
@@ -367,6 +370,7 @@ async function executeStandardPlan(
     producer_executions: validation?.producer_executions ?? {},
     producer_evidence: validation?.producer_evidence ?? [],
     waited_ms: validation?.waited_ms ?? 0,
+    limit: validation?.limit,
   };
 }
 
@@ -901,7 +905,10 @@ async function pinStandardsResult(
       ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
     },
   );
-  const slotWaits = slots?.waits ?? [];
+  const slotWaits = [
+    ...(slots?.waits ?? []),
+    ...commandLimitHints(execution.limit),
+  ];
   const { ok, outcomes } = execution;
   const reusedCount =
     execution.readings.filter((reading) => reading.measurement === "replayed")
@@ -1202,7 +1209,10 @@ async function standardsResultBody(
               ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
             },
           );
-          firedHints.push(...(slots?.waits ?? []));
+          firedHints.push(
+            ...(slots?.waits ?? []),
+            ...commandLimitHints(execution.limit),
+          );
           const { outcomes } = execution;
           result = standardExecutionResult(execution);
           // The same rule the gate applies: a live proposal's recorded

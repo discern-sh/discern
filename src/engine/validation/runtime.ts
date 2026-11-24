@@ -46,6 +46,7 @@ import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { lstatIfExists } from "../../shared/fs_presence.ts";
 import { containedCheckoutFile } from "./inputs.ts";
 import { runCapturedCommands } from "../jobs/captured.ts";
+import { underCommandLimit } from "../jobs/command_limit.ts";
 import {
   commands,
   type ResolvedObligation,
@@ -246,6 +247,10 @@ export interface ValidationRuntimeOptions {
   /** Re-observe applicable toolchain, environment, resource and input identity at effects. */
   readonly verifyConditions: () => Promise<void>;
   readonly clock?: Clock;
+  /** A command's position in the gate's declared order, for commands waiting on a limit. */
+  readonly declaredOrder?: (label: string) => number;
+  /** The command has its place and is about to start. */
+  readonly onAdmit?: (label: string) => void;
   readonly onStart?: (label: string) => void;
   readonly onResult?: (label: string, result: JobResult) => void;
 }
@@ -287,47 +292,85 @@ function runtime(
     const role = label.startsWith("extract:") ? "extractor" : "producer";
     const publicLabel = options.jobLabel?.(label) ?? label;
     let started: { wall: number; monotonic: number } | undefined;
-    const result = await runCapturedCommands({
-      root: options.root,
-      label: publicLabel,
-      commands: runCommands,
-      onSpawn: (spawned) => {
-        started = { wall: clock.wallNow(), monotonic: clock.monotonicNow() };
-        emitCompletionEvent(
-          executionEvent(execution, `${executionId}:started`, started.wall, {
-            kind: "command-started",
-            execution_id: executionId,
-            producer: label,
-            role,
-          }),
-        );
-        options.onStart?.(label);
-        // Publish the transcript location the moment it exists, so an
-        // interrupted producer's output stays reachable through the journal.
-        if (role === "producer" && spawned.outputPath !== undefined) {
-          emitCompletionProgress({
-            phase: "producer",
-            state: "running",
-            candidate_id: execution.candidate_id,
-            reason:
-              `Running ${publicLabel}; its output is being captured at ${spawned.outputPath}.`,
-            work: {
-              producer: publicLabel,
-              state: "running",
-              output_path: spawned.outputPath,
+    let admitted = false;
+    let result: Awaited<ReturnType<typeof runCapturedCommands>>;
+    try {
+      result = await underCommandLimit(
+        options.presentation?.limit,
+        {
+          budgetSeconds: timeout.seconds,
+          order: options.declaredOrder?.(label) ?? 0,
+          signal: execution.signal,
+        },
+        () => {
+          admitted = true;
+          options.onAdmit?.(label);
+          return runCapturedCommands({
+            root: options.root,
+            label: publicLabel,
+            commands: runCommands,
+            onSpawn: (spawned) => {
+              started = {
+                wall: clock.wallNow(),
+                monotonic: clock.monotonicNow(),
+              };
+              emitCompletionEvent(
+                executionEvent(
+                  execution,
+                  `${executionId}:started`,
+                  started.wall,
+                  {
+                    kind: "command-started",
+                    execution_id: executionId,
+                    producer: label,
+                    role,
+                  },
+                ),
+              );
+              options.onStart?.(label);
+              // Publish the transcript location the moment it exists, so an
+              // interrupted producer's output stays reachable through the journal.
+              if (role === "producer" && spawned.outputPath !== undefined) {
+                emitCompletionProgress({
+                  phase: "producer",
+                  state: "running",
+                  candidate_id: execution.candidate_id,
+                  reason:
+                    `Running ${publicLabel}; its output is being captured at ${spawned.outputPath}.`,
+                  work: {
+                    producer: publicLabel,
+                    state: "running",
+                    output_path: spawned.outputPath,
+                  },
+                });
+              }
             },
+            ...(options.presentation === undefined
+              ? {}
+              : { presentation: options.presentation }),
+            timeout: timeout.seconds,
+            timeoutKey: timeout.key,
+            signal: execution.signal,
+            environment: options.commandEnvironment?.(label) ??
+              options.environment,
+            ...(stdin === undefined ? {} : { stdin }),
           });
-        }
-      },
-      ...(options.presentation === undefined
-        ? {}
-        : { presentation: options.presentation }),
-      timeout: timeout.seconds,
-      timeoutKey: timeout.key,
-      signal: execution.signal,
-      environment: options.commandEnvironment?.(label) ?? options.environment,
-      ...(stdin === undefined ? {} : { stdin }),
-    });
+        },
+      );
+    } catch (error) {
+      if (admitted || !execution.signal.aborted) throw error;
+      // The run stopped while this command waited for a place; it never started.
+      return {
+        outcome: "cancelled",
+        complete: false,
+        output: new Uint8Array(),
+        artifacts: [],
+        reason: cancellationReason(
+          execution.signal,
+          "validation was cancelled",
+        ),
+      };
+    }
     if (started !== undefined) {
       const finished = clock.wallNow();
       emitCompletionEvent(

@@ -1,4 +1,5 @@
 import { retainResultDiagnostics } from "./diagnostic_output.ts";
+import { commandLimitHints } from "../jobs/command_limit.ts";
 import {
   emergencyValidationStatus,
   resolveEmergencyValidation,
@@ -1132,6 +1133,7 @@ async function runCandidateGate(
     // The fleet test-run cap's wait notices (the same lines the human run
     // narrated live), so a --json/MCP caller sees why the run took longer.
     ...(slots?.waits ?? []),
+    ...commandLimitHints(runOpts.limit),
     ...reportHints,
     ...varianceHints,
     ...buildGateHints(

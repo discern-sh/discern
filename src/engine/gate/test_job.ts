@@ -11,6 +11,7 @@
  * gate treats an unwired stage.
  */
 
+import { commandLimitHints } from "../jobs/command_limit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
@@ -223,7 +224,10 @@ async function runTestGateBody(
     : [];
   // The fleet test-run cap's wait notices (the same lines the human run
   // narrated live), so a --json/MCP caller sees why the run took longer.
-  const slotWaits = slots?.waits ?? [];
+  const slotWaits = [
+    ...(slots?.waits ?? []),
+    ...commandLimitHints(runOpts.limit),
+  ];
   const result: DiscernResult = {
     ok: failedStage === null,
     verb: "test",

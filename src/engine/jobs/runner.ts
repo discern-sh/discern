@@ -26,6 +26,7 @@ import type {
   StageRunResult,
 } from "./types.ts";
 import { type SpawnedJob, spawnJob, type SpawnOptions } from "./command.ts";
+import { type CommandLimit, underCommandLimit } from "./command_limit.ts";
 import { trackRun } from "./interrupt.ts";
 import {
   type TerminalContext,
@@ -82,6 +83,12 @@ export interface RunOptions {
    * diagnostic. Forces buffered capture so `spawnJob` cannot stream-write either.
    */
   quiet?: boolean;
+  /**
+   * The run's opt-in bound on concurrently running commands. Present only when
+   * the environment asks for one; absent, every job of a parallel run starts
+   * at once. A serial run already starts one job at a time and ignores it.
+   */
+  limit?: CommandLimit;
   /** Optional lifecycle observer for an interactive progress projection. */
   observer?: JobRunObserver;
   /** Presentation-only child-text observer; capture strategy stays independent. */
@@ -207,10 +214,37 @@ export function presentJobResult(settled: SpawnedJob, opts: RunOptions): void {
 }
 
 /**
+ * The order in which a parallel run asks for its places. Without a limit that
+ * is declaration order. Under one, the jobs with the longest time limits ask
+ * first, so the first places go where the waiting order would send them.
+ */
+function startOrder(
+  jobs: readonly Job[],
+  opts: RunOptions,
+): { job: Job; index: number; budgetSeconds: number | undefined }[] {
+  const turns = jobs.map((job, index) => ({
+    job,
+    index,
+    budgetSeconds: (job.timeout ?? opts.timeout)?.seconds,
+  }));
+  if (opts.limit === undefined) return turns;
+  const length = (seconds: number | undefined): number =>
+    seconds === undefined || seconds === 0 ? Number.POSITIVE_INFINITY : seconds;
+  return turns.sort((a, b) =>
+    length(b.budgetSeconds) - length(a.budgetSeconds) || a.index - b.index
+  );
+}
+
+/**
  * Run labelled jobs concurrently. With fail-fast, the moment one job fails the
  * rest are cancelled (tree-killed). Their non-zero exit keeps the stage red,
  * while banners and envelope steps label them `cancelled` rather than genuine
  * failures. Buffered output prints in declaration order once every job settles.
+ *
+ * Under {@link RunOptions.limit}, a job starts when a place is free. A job
+ * still waiting when the run is aborted never starts and is absent from
+ * `results`, as a serial run's unreached jobs are, so finish reports it as
+ * "skipped".
  */
 export async function runParallel(
   jobs: Job[],
@@ -228,30 +262,46 @@ export async function runParallel(
   const detach = chainExternal(controller, opts.signal);
   const release = trackRun(controller);
   try {
-    const settled = await Promise.all(
-      jobs.map((job) => {
-        jobStarted(job, opts);
-        return spawnJob(
-          job,
-          spawnOptions(job, opts, controller.signal, stream, write),
-        )
-          .then(async (s) => {
-            const result = await evaluateResult(job, s.result);
-            if (opts.failFast && result.code !== 0) {
-              controller.abort();
-            }
-            jobSettled(result, opts);
-            return { ...s, result };
-          });
+    const outcomes: (SpawnedJob | undefined)[] = jobs.map(() => undefined);
+    await Promise.all(
+      startOrder(jobs, opts).map(async ({ job, index, budgetSeconds }) => {
+        let started = false;
+        try {
+          outcomes[index] = await underCommandLimit(
+            opts.limit,
+            { budgetSeconds, order: index, signal: controller.signal },
+            async () => {
+              started = true;
+              jobStarted(job, opts);
+              const s = await spawnJob(
+                job,
+                spawnOptions(job, opts, controller.signal, stream, write),
+              );
+              const result = await evaluateResult(job, s.result);
+              if (opts.failFast && result.code !== 0) {
+                controller.abort();
+              }
+              jobSettled(result, opts);
+              return { ...s, result };
+            },
+          );
+        } catch (error) {
+          // The run was aborted while this job waited for a place.
+          if (started || !controller.signal.aborted) throw error;
+        }
       }),
     );
+    const settled = outcomes.filter((s) => s !== undefined);
     if (!quiet) {
       for (const s of settled) {
         presentJobResult(s, opts);
       }
     }
     const results = settled.map((s) => s.result);
-    return { ok: results.every((r) => r.code === 0), results };
+    return {
+      ok: settled.length === jobs.length && results.every((r) => r.code === 0),
+      results,
+    };
   } finally {
     detach();
     // May re-raise a pending OS interrupt (dying with its conventional status)
