@@ -14,6 +14,7 @@ import {
   proposedLimitRule,
 } from "../src/engine/gate/standard_proposal_plan.ts";
 import {
+  movedProposalDiagnostics,
   sameStandardLimitProposalSet,
   standardLimitProposalIdentity,
 } from "../src/engine/gate/standard_proposal_state.ts";
@@ -460,6 +461,33 @@ Deno.test("standard limit proposal plan: contracts", () => {
       );
       assert(sameStandardLimitProposalSet([proposal], [{ ...proposal }]));
     },
+    "A proposal is stale when a run reads its standard at another value, even inside the headroom":
+      () => {
+        const proposal = recordedProposal({
+          standard: plannedStandard("down", '["src/**"]', 3),
+        });
+        assertEquals(proposal.proposed_limit, 15);
+        const live = new Map([[proposal.standard, proposal]]);
+        const moved = movedProposalDiagnostics(live, [
+          { name: "size", value: 13 },
+        ]);
+        assertEquals(moved.length, 1);
+        assertEquals(moved[0]?.tool, "standard:size");
+        assertStringIncludes(
+          moved[0]?.message ?? "",
+          "this run measured 13, not the recorded 12",
+        );
+        // The recorded reading, a standard without a proposal, and a standard
+        // this run did not read all leave the proposal alone.
+        assertEquals(
+          movedProposalDiagnostics(live, [
+            { name: "size", value: 12 },
+            { name: "other", value: 99 },
+            { name: "size" },
+          ]),
+          [],
+        );
+      },
     "Standard proposal authority includes a kept margin and leaves other identities alone":
       () => {
         const exact = recordedProposal();

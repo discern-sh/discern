@@ -360,6 +360,29 @@ export async function inspectActiveStandardLimitProposals(
   return { active, stale };
 }
 
+/** A live proposal records the measurement its limit follows from, and that
+ * figure is what the owner decides on. Name every proposal whose standard this
+ * run read at another value, including a value the proposed limit still holds:
+ * headroom lets a moved reading pass the limit, never the proposal. */
+export function movedProposalDiagnostics(
+  proposals: ReadonlyMap<string, StandardLimitProposalData>,
+  readings: readonly {
+    readonly name: string;
+    readonly value?: number | undefined;
+  }[],
+): Diagnostic[] {
+  return readings.flatMap((reading) => {
+    const proposal = proposals.get(reading.name);
+    return proposal === undefined || reading.value === undefined ||
+        reading.value === proposal.measurement
+      ? []
+      : [staleProposalDiagnostic(
+        reading.name,
+        `this run measured ${reading.value}, not the recorded ${proposal.measurement}`,
+      )];
+  });
+}
+
 /** A stale proposal is focused only while its Standard needs the exception. */
 export function staleProposalDiagnostic(
   standard: string,

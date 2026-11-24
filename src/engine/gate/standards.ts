@@ -86,6 +86,7 @@ import { assertMainMerged, integrationBranch } from "../worktree/git.ts";
 import { writeDiscernToml } from "../../lib/tidy_format.ts";
 import {
   inspectActiveStandardLimitProposals,
+  movedProposalDiagnostics,
   staleProposalDiagnostic,
 } from "./standard_proposal_state.ts";
 import {
@@ -1204,6 +1205,19 @@ async function standardsResultBody(
           firedHints.push(...(slots?.waits ?? []));
           const { outcomes } = execution;
           result = standardExecutionResult(execution);
+          // The same rule the gate applies: a live proposal's recorded
+          // measurement must be the reading this run just took.
+          const movedProposals = movedProposalDiagnostics(
+            verification.proposals,
+            execution.readings,
+          );
+          if (movedProposals.length > 0) {
+            result.ok = false;
+            result.diagnostics = [
+              ...movedProposals,
+              ...(result.diagnostics ?? []),
+            ];
+          }
           if (slots?.waitedMs !== undefined) {
             result.waitedMs = slots.waitedMs;
           }

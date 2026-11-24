@@ -1237,6 +1237,49 @@ Deno.test("a proposal keeps the standard's margin as headroom through renewal, P
   });
 });
 
+Deno.test("a reading that moves inside a proposal's headroom still stales the proposal", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      proposalConfig(
+        "echo DISCERN_METRIC sources $(git config --get test.metric)",
+        3,
+      ),
+    );
+    await Deno.mkdir(join(dir, "src"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
+    await gitInit(dir);
+    await git(dir, "config", "test.metric", "2");
+    const worktree = await addWorktree(dir, "moved-inside-headroom");
+    await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
+    await git(worktree, "add", "src/feature.ts");
+    await git(worktree, "commit", "-m", "Add feature source");
+    const reason = "The initial measured value is two.";
+    const proposed = await propose(worktree, reason);
+    assertEquals(proposed.code, 0, proposed.output);
+    assertEquals(proposalOf(proposed).proposal.proposed_limit, 5);
+    const proposalHead = await gitOut(worktree, "rev-parse", "HEAD");
+
+    // The reading rises to 3: still under the proposed ceiling 5, so the limit
+    // alone would pass it. The owner was shown "measured 2".
+    await git(worktree, "config", "test.metric", "3");
+    const gate = await runAgent(worktree, ["done", "--json"]);
+    assertEquals(gate.code, 1, gate.output);
+    assertTerminalTextIncludes(
+      gate.stdout,
+      "this run measured 3, not the recorded 2",
+    );
+    const standalone = await runAgent(worktree, ["standards", "--json"]);
+    assertEquals(standalone.code, 1, standalone.output);
+    assertTerminalTextIncludes(
+      standalone.stdout,
+      "this run measured 3, not the recorded 2",
+    );
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), proposalHead);
+  });
+});
+
 Deno.test("proposal state from a newer discern refuses replacement, and recovery unwinds a pre-commit edit and finalizes a post-commit record", async (t) => {
   await withTempDir(async (dir) => {
     const worktree = await proposalWorktree(dir);
