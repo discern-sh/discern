@@ -1,6 +1,11 @@
 name: Native macOS gate
 description: Run the repository gate on native macOS and verify a clean tree.
 
+inputs:
+  policy-changes:
+    description: Whether moved standards policy fails the report (fail) or is named by it (report).
+    required: true
+
 runs:
   using: composite
   steps:
@@ -16,7 +21,7 @@ runs:
       shell: bash
       env:
         DISCERN_GATE_TEST_REPORTER: junit
-      run: deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base
+      run: deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base --policy-changes ${{ inputs.policy-changes }}
 
     - name: Assert a clean tree (the fix stage must change nothing in CI)
       shell: bash

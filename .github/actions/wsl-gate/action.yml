@@ -1,6 +1,11 @@
 name: WSL 2 gate
 description: Run the repository gate inside WSL 2 Ubuntu and verify a clean tree.
 
+inputs:
+  policy-changes:
+    description: Whether moved standards policy fails the report (fail) or is named by it (report).
+    required: true
+
 # Windows support is WSL 2 only: users run the Linux binary inside WSL 2, so
 # this lane provisions WSL 2 on a hosted Windows runner and proves the gate
 # there. WSL 2 rides nested virtualization, which GitHub's Windows runners
@@ -141,7 +146,7 @@ runs:
         runuser -u gate -- env HOME=/home/gate \
           DISCERN_GATE_TEST_REPORTER="${DISCERN_GATE_TEST_REPORTER}" \
           CI="${CI}" GITHUB_ACTIONS="${GITHUB_ACTIONS}" \
-          bash -c 'cd /home/gate/discern && deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base'
+          bash -c 'cd /home/gate/discern && deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base --policy-changes ${{ inputs.policy-changes }}'
         gate_status=$?
         set -e
         bash "$sampler" stop "$samples"

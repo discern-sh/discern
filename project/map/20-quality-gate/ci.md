@@ -29,6 +29,8 @@ A missing policy ref is a refusal. A remote-tracking ref or the latest trunk doe
 
 A report fails by default when a standard's limit loosened, its definition changed, or it was deleted since the policy base. `--policy-changes report` runs the same comparison and names each change in the result and the job log. It then measures the checked-out configuration. The mode needs a clean tree. A base that cannot be read or compared still fails. Each project selects the mode per event in its own workflow. See [the trust decision](../_adr/0433-post-landing-reports-name-policy-changes.md).
 
+This repository's workflow selects `report` for pushes to `main`, and all three lanes receive that one choice. Pull requests fail on a change. A manual dispatch fails on one unless it asks for a report.
+
 ## Wrapped test tasks
 
 The configured test producer owns instrumentation, reporting, and child cleanup. The root recipe runs `deno task coverage` once; coverage consumers use its captured metrics. Hosted lanes select JUnit through the declared reporter environment variable. Test names and fixture output belong to the diagnostic report; only emissions outside it supply measurements. The evaluator counts physical producer executions independently of consumer results.
@@ -49,7 +51,7 @@ The hosted Linux, macOS, and WSL lanes report the same obligation set in report 
 
 The [release coordinator](../../../scripts/release_gate.ts) selects the newest trusted gate run for the tag's exact commit. Eligible runs come from a push to `main` or a manual dispatch in this repository. Pull-request runs cannot authorize publication. A queued or running gate delays publication; a failed or canceled gate blocks it.
 
-The gate publishes an attempt-specific artifact after every declared job succeeds. The artifact records the source commit, immutable policy commit, and job outcomes. Release validation requires every job in the tagged workflow and verifies that the policy is an ancestor of the source. Missing or expired artifacts require a new complete gate run. A rerun cannot reuse an earlier attempt's artifact.
+The gate publishes an attempt-specific artifact after every declared job succeeds. The artifact records the source commit, immutable policy commit, policy-change mode, and job outcomes. Release validation requires every job in the tagged workflow and verifies that the policy is an ancestor of the source. Missing or expired artifacts require a new complete gate run. A rerun cannot reuse an earlier attempt's artifact.
 
 When no eligible run exists, the release workflow dispatches the gate on the tag. The [completion workflow](../../../.github/workflows/release-resume.yml) dispatches publication after success for unpublished version tags on that commit. Publication rechecks the current evidence before building. This callback runs from the default branch and only dispatches the tagged workflow; it grants no landing authority. Both workflows must be on the default branch before using this release path. Release coordination and binary smoke checks use the same [captured command boundary](../../../scripts/release_command.ts), preserving explicit arguments and failure output.
 

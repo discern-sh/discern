@@ -16,6 +16,7 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { jsonObjects, type LocatedObject } from "./json_objects.ts";
 import { withTempDir } from "./temp_dir.ts";
 import { readMetrics } from "../src/engine/validation/metrics.ts";
+import { POLICY_CHANGE_MODES } from "../src/shared/verbs.ts";
 
 const DISCERN_TOML = new URL("../discern.toml", import.meta.url);
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
@@ -365,8 +366,23 @@ Deno.test("hosted workflow and action documents satisfy their toolchain and gate
     }
   }
 
-  // every hosted full gate declares its report scope and fetched policy base.
+  // every hosted full gate declares its report scope, its fetched policy base,
+  // and the one event-selected treatment of moved standards policy.
   {
+    const workflow = documents.find((document) =>
+      document.path === ".github/workflows/gate.yml"
+    );
+    assert(workflow);
+    const find = (path: string): Record<string, unknown> | undefined =>
+      workflow.mappings.find((mapping) => mapping.path === path)?.value;
+    // Only a landed push reports; a dispatch must ask, and a pull request fails.
+    assertEquals(
+      find("$.env")?.POLICY_CHANGES,
+      "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'report' || inputs.policy_changes || 'fail' }}",
+    );
+    const dispatch = find("$.on.workflow_dispatch.inputs.policy_changes");
+    assertEquals(dispatch?.options, [...POLICY_CHANGE_MODES]);
+    assertEquals(dispatch?.default, "fail");
     for (const document of documents) {
       for (
         const { path, value } of document.mappings.filter(({ value }) =>
@@ -379,8 +395,20 @@ Deno.test("hosted workflow and action documents satisfy their toolchain and gate
             "--ci",
             "--standalone",
             "--policy-base refs/discern/ci-policy-base",
+            document === workflow
+              ? '--policy-changes "$POLICY_CHANGES"'
+              : "--policy-changes ${{ inputs.policy-changes }}",
           ]
         ) assertStringIncludes(run, flag, `${document.path}:${path}`);
+      }
+      if (document !== workflow && document.path.includes("-gate/")) {
+        assertEquals(
+          document.mappings.find(({ path }) =>
+            path === "$.inputs.policy-changes"
+          )?.value.required,
+          true,
+          document.path,
+        );
       }
       if (!document.path.startsWith(".github/workflows/")) continue;
       for (const { path, value } of document.mappings) {
@@ -399,6 +427,17 @@ Deno.test("hosted workflow and action documents satisfy their toolchain and gate
               assertEquals(value.needs, "policy");
             }
             fetched = true;
+          }
+          if (
+            ["./.github/actions/macos-gate", "./.github/actions/wsl-gate"]
+              .includes(String(step.uses))
+          ) {
+            assertEquals(
+              (step.with as Record<string, unknown> | undefined)
+                ?.["policy-changes"],
+              "${{ env.POLICY_CHANGES }}",
+              `${document.path}:${path}`,
+            );
           }
           if (
             isFullGateCommand(step.run) ||

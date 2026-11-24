@@ -22,6 +22,12 @@ on:
         description: Immutable comparison commit for a release gate
         required: false
         type: string
+      policy_changes:
+        description: Whether standards policy that moved since the policy base fails the report or is named by it
+        required: false
+        type: choice
+        options: [fail, report]
+        default: fail
 
 # The gate only ever reads the repo; grant nothing more (least privilege).
 permissions:
@@ -32,6 +38,13 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# A push to main has already landed, so its report names any standard that
+# loosened, changed definition, or was deleted, then measures the pushed
+# configuration. Pull requests fail on those changes, as does a dispatch that
+# does not ask for a report.
+env:
+  POLICY_CHANGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'report' || inputs.policy_changes || 'fail' }}
 
 jobs:
   policy:
@@ -84,7 +97,7 @@ jobs:
       - name: Run the gate (discern done --ci, via the dev binary)
         env:
           DISCERN_GATE_TEST_REPORTER: junit
-        run: deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base
+        run: deno task dev done --ci --standalone --policy-base refs/discern/ci-policy-base --policy-changes "$POLICY_CHANGES"
 
       - name: Assert a clean tree (the fix stage must change nothing in CI)
         run: git diff --exit-code
@@ -113,6 +126,8 @@ jobs:
 
       - name: Run the native macOS gate
         uses: ./.github/actions/macos-gate
+        with:
+          policy-changes: ${{ env.POLICY_CHANGES }}
 
   wsl:
     needs: policy
@@ -137,6 +152,8 @@ jobs:
 
       - name: Run the gate inside WSL 2
         uses: ./.github/actions/wsl-gate
+        with:
+          policy-changes: ${{ env.POLICY_CHANGES }}
 
   evidence:
     needs: [policy, gate, macos, wsl]
@@ -148,8 +165,9 @@ jobs:
           POLICY_COMMIT: ${{ needs.policy.outputs.sha }}
         run: >-
           jq -n --arg sha "$GITHUB_SHA" --arg policy "$POLICY_COMMIT"
-          --argjson needs "$GATE_NEEDS"
-          '{sha: $sha, policy: $policy, needs: $needs}' > gate-evidence.json
+          --arg policy_changes "$POLICY_CHANGES" --argjson needs "$GATE_NEEDS"
+          '{sha: $sha, policy: $policy, policy_changes: $policy_changes, needs: $needs}'
+          > gate-evidence.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gate-evidence-${{ github.run_attempt }}
