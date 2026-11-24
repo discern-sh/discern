@@ -668,13 +668,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "standards-margin",
-        title: "Pin headroom",
+        title: "Limit headroom",
         what:
-          "`margin` is the headroom a pin leaves when tightening a limit, for metrics that drift on unrelated commits.",
+          "`margin` is the headroom a pin or an approved limit proposal leaves beyond the measured value, for metrics that drift on unrelated commits.",
         plain: {
           title: "Leaving a little breathing room",
           what:
-            "`margin` is the spare room a pin leaves when tightening a limit to a newly measured value, for measurements that drift a little on unrelated changes.",
+            "`margin` is the spare room left when a pin or an approved proposal sets a limit from a newly measured value, for measurements that drift a little on unrelated changes.",
         },
       },
       {
