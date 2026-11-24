@@ -441,14 +441,21 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
       stop_conditions: [evidence("**Never loosen the limit to pass.**")],
       recovery: [
         evidence(
-          "Stop and report the breach to the owner: the measured value, the delta, and why the growth is intrinsic to the work.",
+          "Stop and report the breach to the owner: the measured value, the delta, the limit a proposal would set, and why the growth is intrinsic to the work.",
         ),
       ],
       relay: {
         message: evidence(
-          "<standard> measured <value> with a <delta> change. <reason>. The next valid action is <next_action>.",
+          "<standard> measured <value> with a <delta> change; a proposal would set the limit to <proposed_limit>. <reason>. The next valid action is <next_action>.",
         ),
-        facts: ["standard", "value", "delta", "reason", "next_action"],
+        facts: [
+          "standard",
+          "value",
+          "delta",
+          "proposed_limit",
+          "reason",
+          "next_action",
+        ],
       },
     },
   ],
