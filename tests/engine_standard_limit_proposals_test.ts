@@ -61,8 +61,9 @@ const BATCH_RUN =
 
 /** Minimal falling ceiling whose metric grows with tracked source files, plus
  * an unrelated holding Standard over docs so a targeted measurement is
- * observable. `sourcesRun` swaps the measurement for a variant fixture. */
-function proposalConfig(sourcesRun = SOURCES_RUN): string {
+ * observable. `sourcesRun` swaps the measurement for a variant fixture, and
+ * `margin` gives the ceiling headroom. */
+function proposalConfig(sourcesRun = SOURCES_RUN, margin?: number): string {
   return [
     "[project]",
     'slug = "limit-proposal-test"',
@@ -73,6 +74,7 @@ function proposalConfig(sourcesRun = SOURCES_RUN): string {
     "[standards.sources]",
     'direction = "down"',
     "limit = 1",
+    ...(margin === undefined ? [] : [`margin = ${margin}`]),
     `run = "${sourcesRun}"`,
     'inputs = ["src/**"]',
     "",
@@ -133,9 +135,10 @@ async function batchProposalWorktree(
 async function proposalWorktree(
   dir: string,
   sourcesRun = SOURCES_RUN,
+  margin?: number,
 ): Promise<string> {
   await scaffoldEngine(dir);
-  await writeConfig(dir, proposalConfig(sourcesRun));
+  await writeConfig(dir, proposalConfig(sourcesRun, margin));
   await Deno.mkdir(join(dir, "src"), { recursive: true });
   await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
   await gitInit(dir);
@@ -207,6 +210,7 @@ interface ProposalResult {
     trunk_limit: number;
     proposed_limit: number;
     measurement: number;
+    margin?: number;
     delta: number;
     reason: string;
     evidence_paths: string[];
@@ -537,6 +541,9 @@ Deno.test("standards propose: one proposal's lifecycle — recorded, renewed, re
         assertEquals(proposalResult.proposal.proposed_limit, 2);
         assertEquals(proposalResult.proposal.measurement, 2);
         assertEquals(proposalResult.proposal.delta, 1);
+        // No configured margin: the limit is the measurement and the record
+        // carries no margin at all.
+        assertEquals("margin" in proposalResult.proposal, false);
         assertEquals(proposalResult.proposal.evidence_paths, [
           "src/base.ts",
           "src/feature.ts",
@@ -1111,13 +1118,121 @@ Deno.test("a changed fresh measurement stales a proposal", async () => {
       reproposed.stdout,
       "renewal cannot change the proposed value",
     );
-    assertTerminalTextIncludes(reproposed.stdout, "new value 3, delta 2");
+    assertTerminalTextIncludes(
+      reproposed.stdout,
+      "new limit 3 (measured 3), delta 2",
+    );
     assertTerminalTextIncludes(reproposed.stdout, "obtain fresh agreement");
     assertTerminalTextIncludes(reproposed.stdout, "Restore the main limit 1");
     assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), proposalHead);
     assertStringIncludes(
       await Deno.readTextFile(join(worktree, "discern.toml")),
       "limit = 2",
+    );
+  });
+});
+
+Deno.test("a proposal keeps the standard's margin as headroom through renewal, Proof and exact approval", async (t) => {
+  await withTempDir(async (dir) => {
+    // Ceiling 1, margin 3, and two tracked sources: the breach measures 2 and
+    // the proposed ceiling is 5.
+    const worktree = await proposalWorktree(dir, SOURCES_RUN, 3);
+    const reason = "The feature adds one source file required by the product.";
+    const figures = "1 → 5 (measured 2; margin 3; delta +4)";
+
+    const before = await gitOut(worktree, "rev-parse", "HEAD");
+    const proposed = await propose(worktree, reason);
+    assertEquals(proposed.code, 0, proposed.output);
+    const recorded = proposalOf(proposed);
+    const commit = await gitOut(worktree, "rev-parse", "HEAD");
+
+    await t.step(
+      "the proposal records the measurement, the margin, and the resulting limit separately",
+      async () => {
+        assertEquals(recorded.status, "recorded");
+        assertEquals(recorded.proposal.measured_commit, before);
+        assertEquals(recorded.proposal.trunk_limit, 1);
+        assertEquals(recorded.proposal.measurement, 2);
+        assertEquals(recorded.proposal.margin, 3);
+        assertEquals(recorded.proposal.proposed_limit, 5);
+        assertEquals(recorded.proposal.delta, 4);
+        assertStringIncludes(
+          await Deno.readTextFile(join(worktree, "discern.toml")),
+          "limit = 5",
+        );
+        assertStringIncludes(
+          await gitOut(worktree, "log", "-1", "--format=%B"),
+          "from 1 to 5 after measuring 2, keeping its margin of 3 as headroom.",
+        );
+      },
+    );
+
+    await t.step(
+      "an unchanged measurement renews the proposal on a descendant without a commit",
+      async () => {
+        await Deno.writeTextFile(
+          join(worktree, "src", "base.ts"),
+          "base grew\n",
+        );
+        await git(worktree, "add", "src/base.ts");
+        await git(worktree, "commit", "-m", "Finish the feature");
+        const descendant = await gitOut(worktree, "rev-parse", "HEAD");
+        const renewed = await propose(worktree, reason);
+        assertEquals(renewed.code, 0, renewed.output);
+        const rebound = proposalOf(renewed);
+        assertEquals(rebound.status, "rebound");
+        assertEquals(rebound.proposal.commit, commit);
+        assertEquals(rebound.proposal.bound_commit, descendant);
+        assertEquals(rebound.proposal.proposed_limit, 5);
+        assertEquals(rebound.proposal.measurement, 2);
+        assertEquals(rebound.proposal.margin, 3);
+        assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), descendant);
+      },
+    );
+
+    await t.step(
+      "Proof and the acceptance refusal show the owner each figure, and exact approval lands the limit",
+      async () => {
+        const done = await runAgent(worktree, ["done", "--markdown"]);
+        assertEquals(done.code, 0, done.output);
+        assertTerminalTextIncludes(
+          done.stdout,
+          `Standard limit proposal for \`sources\`: exact owner approval is required for ${figures}.`,
+        );
+
+        const awaiting = await runAgent(worktree, ["accept", "--json"]);
+        assertEquals(awaiting.code, 1, awaiting.output);
+        const refusal = decodeCliResult(awaiting, "accept");
+        assertEquals(refusal.error, "awaiting_standard_approval");
+        assertStringIncludes(refusal.message ?? "", `sources: ${figures}`);
+        assertStringIncludes(
+          refusal.message ?? "",
+          "Relay every limit, measurement, margin, and reason to the owner.",
+        );
+        const challenge = approvalChallenge(awaiting);
+        assertEquals(challenge.proposal.proposed_limit, 5);
+        assertEquals(
+          (challenge.proposal as { margin?: number }).margin,
+          3,
+        );
+
+        const accepted = await runAgent(worktree, [
+          "accept",
+          "--confirmed",
+          "--approve-standard",
+          challenge.token,
+          "--json",
+        ]);
+        assertEquals(accepted.code, 0, accepted.output);
+        const data = decodeCliResult(accepted, "accept").data;
+        assert(data !== undefined && "consent" in data);
+        assertEquals(data.landing?.trunk_landed, true, accepted.stdout);
+        assertEquals(data.standard_approvals?.[0]?.proposed_limit, 5);
+        assertStringIncludes(
+          await Deno.readTextFile(join(dir, "discern.toml")),
+          "limit = 5",
+        );
+      },
     );
   });
 });

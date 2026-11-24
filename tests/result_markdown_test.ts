@@ -1735,6 +1735,75 @@ Deno.test("queue rendering retains row identities and explicit overflow counts",
   });
 });
 
+Deno.test("every proposal surface states the measurement, the margin, and the limit separately", () => {
+  const proposal = {
+    standard: "size",
+    reason: "The feature requires one more tracked file.",
+    evidence_paths: ["src/feature.ts"],
+    trunk_limit: 1000,
+    proposed_limit: 1090,
+    measurement: 1040,
+    margin: 50,
+    delta: 90,
+  };
+  const figures = "1000 → 1090 (measured 1040; margin 50; delta +90)";
+  assertStringIncludes(
+    renderResultMarkdown(
+      {
+        ok: true,
+        verb: "standards propose",
+        data: { proposal: { status: "recorded", proposal } },
+      },
+      resultPresenterForVerb("standards propose"),
+    ),
+    `\`size\`: ${figures}.`,
+  );
+  assertStringIncludes(
+    renderResultMarkdown(
+      {
+        ok: true,
+        verb: "done",
+        data: { proof: { standard_proposals: [proposal] } },
+      },
+      resultPresenterForVerb("done"),
+    ),
+    `Standard limit proposal for \`size\`: exact owner approval is required for ${figures}.`,
+  );
+  const accept = renderResultMarkdown(
+    {
+      ok: false,
+      verb: "accept",
+      error: "awaiting_standard_approval",
+      data: {
+        standard_approvals_required: [{ proposal, token: "a".repeat(64) }],
+        standard_approvals: [proposal],
+      },
+    },
+    resultPresenterForVerb("accept"),
+  );
+  assertStringIncludes(
+    accept,
+    `Standard limit proposal awaiting exact owner approval: \`size\` ${figures}; reason:`,
+  );
+  assertStringIncludes(
+    accept,
+    `Standard limit proposal approved by the owner: \`size\` ${figures}; reason:`,
+  );
+  // A record missing a figure names the move and guesses nothing.
+  const { measurement: _measurement, ...partial } = proposal;
+  assertStringIncludes(
+    renderResultMarkdown(
+      {
+        ok: true,
+        verb: "standards propose",
+        data: { proposal: { status: "recorded", proposal: partial } },
+      },
+      resultPresenterForVerb("standards propose"),
+    ),
+    "`size`: 1000 → 1090.",
+  );
+});
+
 Deno.test("a proposal batch renders every tuple the owner must approve", () => {
   // Two breaches from one commit share a reason and a responsible path. The
   // approval is per standard, so neither may be deduplicated away.
@@ -1763,6 +1832,7 @@ Deno.test("a proposal batch renders every tuple the owner must approve", () => {
     resultPresenterForVerb("standards"),
   );
   assertStringIncludes(rendered, "Recorded 2 proposed limits.");
+  assertStringIncludes(rendered, "`sources`: 1 → 2 (measured 2; delta +1).");
   for (const name of ["sources", "docs"]) {
     assertStringIncludes(rendered, `\`${name}\` reason: ${shared.reason}`);
     assertStringIncludes(

@@ -49,6 +49,8 @@ export interface DiscernStandardLimitProposalCommitValues {
     readonly trunkLimit: number;
     readonly proposedLimit: number;
     readonly measurement: number;
+    /** The margin kept as headroom; absent when the standard has none. */
+    readonly margin?: number | undefined;
     readonly reason: string;
     readonly evidencePaths: readonly string[];
   }[];
@@ -119,7 +121,10 @@ export const DISCERN_AUTHORED_COMMIT_SITES = {
         subject,
         body: proposals.map((proposal) => {
           const bound = proposal.direction === "up" ? "floor" : "ceiling";
-          return `Move ${proposal.standard}'s ${bound} from ${proposal.trunkLimit} to ${proposal.proposedLimit} after measuring ${proposal.measurement}.\n\n` +
+          const headroom = proposal.margin === undefined
+            ? ""
+            : `, keeping its margin of ${proposal.margin} as headroom`;
+          return `Move ${proposal.standard}'s ${bound} from ${proposal.trunkLimit} to ${proposal.proposedLimit} after measuring ${proposal.measurement}${headroom}.\n\n` +
             `Reason: ${proposal.reason}\n\n` +
             `Responsible paths:\n${
               proposal.evidencePaths.map((path) => `- ${path}`).join("\n")

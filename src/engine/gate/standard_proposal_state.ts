@@ -10,9 +10,13 @@ import type { Diagnostic } from "../../shared/result.ts";
 import type { StandardLimitProposalData } from "../../shared/result_schemas.ts";
 import { StandardLimitProposalSchema } from "../../shared/landing_decision_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { standardLimitProposalMargin } from "../../shared/standard_limit_proposal_text.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import { repoPathPrefix } from "../scopes/scopes.ts";
-import type { PlannedStandard } from "./standard_plan.ts";
+import {
+  type PlannedStandard,
+  proposedStandardLimit,
+} from "./standard_plan.ts";
 import {
   readTrunkConfig,
   standardDefinitionFingerprint,
@@ -58,7 +62,9 @@ export function cloneStandardLimitProposal(
   return { ...proposal, evidence_paths: [...proposal.evidence_paths] };
 }
 
-/** Canonical exact identity shared by Gate reuse and acceptance. */
+/** Canonical exact identity shared by Gate reuse and acceptance. A margin
+ * joins the identity only when the proposal keeps one, so a proposal without
+ * headroom keeps the identity it has always had. */
 export function standardLimitProposalIdentity(
   proposal: StandardLimitProposalData,
 ): string {
@@ -77,6 +83,7 @@ export function standardLimitProposalIdentity(
     proposal.delta,
     proposal.reason,
     proposal.evidence_paths,
+    ...(proposal.margin === undefined ? [] : [proposal.margin]),
   ]);
 }
 
@@ -249,10 +256,16 @@ async function proposalStaleness(
   if (
     standard.direction !== proposal.direction ||
     standard.limit !== proposal.proposed_limit ||
-    proposal.measurement !== proposal.proposed_limit ||
+    standardLimitProposalMargin(proposal) !== standard.margin ||
+    proposal.proposed_limit !==
+      proposedStandardLimit(
+        proposal.direction,
+        proposal.measurement,
+        standard.margin,
+      ) ||
     proposal.delta !== proposal.proposed_limit - proposal.trunk_limit
   ) {
-    return "the direction, proposed limit, measurement, or delta changed";
+    return "the direction, proposed limit, measurement, margin, or delta changed";
   }
   if (
     await standardDefinitionFingerprint(standard.name, config) !==

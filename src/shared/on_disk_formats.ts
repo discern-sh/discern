@@ -54,11 +54,14 @@ export const ON_DISK_FORMATS = {
     // exception claim's owner-reviewed disclosures are optional and omitted
     // when empty, so a claim without them keeps its version-1 bytes. Every
     // version-1 record therefore remains readable.
+    // Reviewed 2026-11-24: a standard limit proposal's margin is optional and
+    // omitted when the standard keeps none. A record whose proposals keep no
+    // margin has its version-1 bytes, and every version-1 record still reads.
     schemaContract: {
       module: "src/engine/completion/records.ts",
       export: "CompletionRecordSchema",
       sha256:
-        "d31ea9f27f7bd91bc9dfac187629c6070d27d9c61f61429555d0581fd08ef700",
+        "004cbf3b2a138eb0784f65c39dbc210d47c7fe531fc2b72cc324263d68ba8795",
     },
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",
@@ -376,6 +379,10 @@ export const ON_DISK_FORMATS = {
   standardLimitProposalStore: {
     id: "standard-limit-proposal-store",
     location: { kind: "git-admin", keys: ["standardLimitProposals"] },
+    // A proposal's margin is optional and omitted when the standard keeps
+    // none, so every version-2 record still reads and a proposal without
+    // headroom keeps its version-2 bytes. The transaction journal, Gate Proof,
+    // and acceptance journal embed the same record on the same terms.
     version: 2,
     versionField: "version",
     reader: "src/engine/gate/standard_proposal_state.ts#readProposalStore",

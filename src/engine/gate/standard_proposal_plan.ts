@@ -13,8 +13,12 @@ import {
 } from "../../shared/result.ts";
 import type { StandardLimitProposalData } from "../../shared/result_schemas.ts";
 import { validateStandardLimitReason } from "../../shared/standard_limit_reason.ts";
+import { standardLimitProposalMargin } from "../../shared/standard_limit_proposal_text.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
-import type { PlannedStandard } from "./standard_plan.ts";
+import {
+  type PlannedStandard,
+  proposedStandardLimit,
+} from "./standard_plan.ts";
 
 /** Read-only facts gathered by the effectful shell before pure planning. */
 export interface StandardLimitProposalContext {
@@ -90,6 +94,25 @@ function breached(
     : measurement - 1e-9 > limit;
 }
 
+/** How a proposal's limit follows from a measurement: the measured value
+ * alone, or with the margin it keeps as headroom named beside it. */
+function measuredBasis(measurement: number, margin: number): string {
+  return margin > 0
+    ? `measured ${measurement} with margin ${margin} kept as headroom`
+    : `measured ${measurement}`;
+}
+
+/** The limit a breach of this standard would propose, stated before any
+ * measurement exists: the measured value, moved by its margin when it has one. */
+export function proposedLimitRule(
+  standard: Pick<PlannedStandard, "direction" | "margin">,
+): string {
+  if (standard.margin <= 0) return "the measured value";
+  return standard.direction === "up"
+    ? `the measured value less its margin ${standard.margin}`
+    : `the measured value plus its margin ${standard.margin}`;
+}
+
 /** Changed input paths that can account for one proposal measurement. */
 function responsiblePaths(
   standard: PlannedStandard,
@@ -161,7 +184,11 @@ export function buildStandardLimitProposalPlan(
         `standard '${standard.name}' breached, but no changed path matches its configured inputs. A proposal cannot attribute the breach; change the responsible input in this effort or investigate measurement drift.`,
     };
   }
-  const proposedLimit = context.measurement;
+  const proposedLimit = proposedStandardLimit(
+    standard.direction,
+    context.measurement,
+    standard.margin,
+  );
   const proposal: PlannedStandardLimitProposal = {
     standard: standard.name,
     measured_commit: context.head,
@@ -172,6 +199,7 @@ export function buildStandardLimitProposalPlan(
     trunk_limit: context.trunkLimit,
     proposed_limit: proposedLimit,
     measurement: context.measurement,
+    ...(standard.margin > 0 ? { margin: standard.margin } : {}),
     delta: proposedLimit - context.trunkLimit,
     reason: reason.reason,
     evidence_paths: evidencePaths,
@@ -191,8 +219,9 @@ export function buildStandardLimitProposalPlan(
       kind: "git",
       label: verbatimStepLabel(`propose-${standard.name}`),
       disposition: "run",
-      note:
-        `move ${bound} ${context.trunkLimit} → ${proposedLimit} in a config-only commit and record the exact owner decision`,
+      note: `move ${bound} ${context.trunkLimit} → ${proposedLimit} (${
+        measuredBasis(context.measurement, standard.margin)
+      }) in a config-only commit and record the exact owner decision`,
     },
   ];
   return {
@@ -226,8 +255,17 @@ export function buildStandardLimitProposalRebindPlan(
   const { proposal, standard } = context;
   const restore =
     `Restore the ${context.trunk} limit ${proposal.trunk_limit}, commit the final tree, then run \`discern standards propose ${standard.name} --reason "…"\` once to create a new proposal.`;
-  const freshDecision = `Present the new value ${context.measurement}, delta ${
-    context.measurement - proposal.trunk_limit
+  // What a replacement proposal would record, so the owner is asked about the
+  // limit that would land and not only the reading behind it.
+  const freshLimit = proposedStandardLimit(
+    standard.direction,
+    context.measurement,
+    standard.margin,
+  );
+  const freshDecision = `Present the new limit ${freshLimit} (${
+    measuredBasis(context.measurement, standard.margin)
+  }), delta ${
+    freshLimit - proposal.trunk_limit
   }, and technical reason "${reason.reason}" to the owner and obtain fresh agreement before recording a replacement proposal.`;
   if (context.originShapeError !== undefined) {
     return {
@@ -258,6 +296,13 @@ export function buildStandardLimitProposalRebindPlan(
     proposal.direction !== standard.direction ||
     proposal.trunk_limit !== context.trunkLimit ||
     proposal.proposed_limit !== standard.limit ||
+    standardLimitProposalMargin(proposal) !== standard.margin ||
+    proposal.proposed_limit !==
+      proposedStandardLimit(
+        proposal.direction,
+        proposal.measurement,
+        standard.margin,
+      ) ||
     proposal.definition_fingerprint !== context.definitionFingerprint ||
     proposal.reason !== reason.reason ||
     proposal.delta !== proposal.proposed_limit - proposal.trunk_limit
@@ -269,15 +314,14 @@ export function buildStandardLimitProposalRebindPlan(
         `standard '${standard.name}' changed its proposal tuple, definition, reason, or trunk baseline. An evidence renewal cannot authorize a different decision. ${freshDecision} ${restore}`,
     };
   }
-  if (
-    context.measurement !== proposal.measurement ||
-    context.measurement !== proposal.proposed_limit
-  ) {
+  // The recorded limit already follows from the recorded measurement and
+  // margin, so an unchanged reading is the whole renewal condition.
+  if (context.measurement !== proposal.measurement) {
     return {
       ok: false,
       error: "proposal_stale",
       message:
-        `standard '${standard.name}' now measures ${context.measurement}; the recorded proposal is ${proposal.proposed_limit}. An evidence renewal cannot change the proposed value. ${freshDecision} ${restore}`,
+        `standard '${standard.name}' now measures ${context.measurement}; the recorded proposal measured ${proposal.measurement} for its limit ${proposal.proposed_limit}. An evidence renewal cannot change the proposed value. ${freshDecision} ${restore}`,
     };
   }
   const evidencePaths = responsiblePaths(standard, context.changedPaths);

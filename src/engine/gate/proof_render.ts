@@ -27,6 +27,7 @@
 import type { CompleteProofEvidence } from "../../shared/completion_proof.ts";
 import { candidateAuthor } from "../completion/candidate.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { standardLimitProposalFigures } from "../../shared/standard_limit_proposal_text.ts";
 import {
   type GitCount,
   gitCountFrom,
@@ -215,11 +216,7 @@ function standardProposalsSection(
   ];
   for (const proposal of proposals) {
     lines.push(
-      `- ${
-        code(proposal.standard)
-      }: ${proposal.trunk_limit} → ${proposal.proposed_limit} (measured ${proposal.measurement}; delta ${
-        proposal.delta >= 0 ? "+" : ""
-      }${proposal.delta})`,
+      `- ${code(proposal.standard)}: ${standardLimitProposalFigures(proposal)}`,
       `  - Reason: ${proposal.reason}`,
       `  - Evidence: ${proposal.evidence_paths.map(code).join(", ")}`,
       `  - Bound to ${

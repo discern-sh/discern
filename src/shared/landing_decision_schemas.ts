@@ -22,8 +22,13 @@ export const StandardLimitProposalSchema = z.strictObject({
   trunk_commit: z.string(),
   direction: decisionVocabulary("x-discern-proposal-directions"),
   trunk_limit: z.number(),
+  /** The limit the owner decides on: the measurement, plus any `margin`. */
   proposed_limit: z.number(),
   measurement: z.number(),
+  /** The standard's configured margin, kept as headroom between the
+   * measurement and the proposed limit. Absent when the standard has none, so
+   * the proposed limit is the measurement itself. */
+  margin: z.number().positive().optional(),
   delta: z.number(),
   reason: z.string().superRefine((reason, context) => {
     const validated = validateStandardLimitReason(reason);

@@ -1115,6 +1115,10 @@
               "measurement": {
                 "type": "number"
               },
+              "margin": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
               "delta": {
                 "type": "number"
               },
@@ -1247,6 +1251,10 @@
               },
               "measurement": {
                 "type": "number"
+              },
+              "margin": {
+                "type": "number",
+                "exclusiveMinimum": 0
               },
               "delta": {
                 "type": "number"
@@ -1564,6 +1572,10 @@
                   },
                   "measurement": {
                     "type": "number"
+                  },
+                  "margin": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
                   },
                   "delta": {
                     "type": "number"
