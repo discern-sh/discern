@@ -40,3 +40,39 @@ export function standardLimitProposalFigures(
       proposal.delta >= 0 ? "+" : ""
     }${proposal.delta})`;
 }
+
+/** A figure read from an untyped result record, or nothing when it is absent. */
+function figure(
+  record: Record<string, unknown> | undefined,
+  key: keyof StandardLimitProposalFigures,
+): number | undefined {
+  const value = record?.[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+/**
+ * The same rendering for a proposal read back from a result envelope, where
+ * no schema has typed the record. A record missing a figure names the move
+ * alone and guesses nothing.
+ */
+export function standardLimitProposalRecordFigures(
+  record: Record<string, unknown> | undefined,
+): string {
+  const trunkLimit = figure(record, "trunk_limit");
+  const proposedLimit = figure(record, "proposed_limit");
+  const measurement = figure(record, "measurement");
+  const delta = figure(record, "delta");
+  if (
+    trunkLimit === undefined || proposedLimit === undefined ||
+    measurement === undefined || delta === undefined
+  ) {
+    return `${trunkLimit ?? "unknown"} → ${proposedLimit ?? "unknown"}`;
+  }
+  return standardLimitProposalFigures({
+    trunk_limit: trunkLimit,
+    proposed_limit: proposedLimit,
+    measurement,
+    margin: figure(record, "margin"),
+    delta,
+  });
+}

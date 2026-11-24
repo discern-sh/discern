@@ -16,7 +16,7 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
-import { standardLimitProposalFigures } from "./standard_limit_proposal_text.ts";
+import { standardLimitProposalRecordFigures } from "./standard_limit_proposal_text.ts";
 import { renderProviderTrustMarkdown } from "./provider_trust.ts";
 import { AwaitDataSchema, ProviderTrustDataSchema } from "./result_schemas.ts";
 import { awaitContextLines } from "./await_prose.ts";
@@ -1298,30 +1298,6 @@ function producerEvidenceFacts(data: Record<string, unknown>): string[] {
   ].filter((fact): fact is string => fact !== undefined);
 }
 
-/** One proposal's move and what it rests on, from an untyped result record.
- * A record missing any figure names the move alone, never a guessed number. */
-function proposalFigures(
-  proposal: Record<string, unknown> | undefined,
-): string {
-  const trunkLimit = number(proposal?.trunk_limit);
-  const proposedLimit = number(proposal?.proposed_limit);
-  const measurement = number(proposal?.measurement);
-  const delta = number(proposal?.delta);
-  if (
-    trunkLimit === undefined || proposedLimit === undefined ||
-    measurement === undefined || delta === undefined
-  ) {
-    return `${trunkLimit ?? "unknown"} → ${proposedLimit ?? "unknown"}`;
-  }
-  return standardLimitProposalFigures({
-    trunk_limit: trunkLimit,
-    proposed_limit: proposedLimit,
-    measurement,
-    margin: number(proposal?.margin),
-    delta,
-  });
-}
-
 const presentGate: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const checkpoints = object(data.checkpoints);
@@ -1387,7 +1363,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         return `Standard limit proposal for ${
           code(standard)
         }: exact owner approval is required for ${
-          proposalFigures(proposal)
+          standardLimitProposalRecordFigures(proposal)
         }.\n\nReason: ${reason}`;
       }),
       gateProofFact(data.gate_proof),
@@ -1503,7 +1479,7 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         const name = text(entry.standard) ?? "standard";
         const reason = text(entry.reason);
         return [
-          `${code(name)}: ${proposalFigures(entry)}.`,
+          `${code(name)}: ${standardLimitProposalRecordFigures(entry)}.`,
           reason === undefined ? undefined : `${code(name)} reason: ${reason}`,
           listFact(
             `${code(name)} responsible paths`,
@@ -2032,7 +2008,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ...records(data.standard_approvals).map((proposal) =>
         `Standard limit proposal approved by the owner: ${
           code(text(proposal.standard) ?? "standard")
-        } ${proposalFigures(proposal)}; reason: ${
+        } ${standardLimitProposalRecordFigures(proposal)}; reason: ${
           text(proposal.reason) ?? "unknown"
         }.`
       ),
@@ -2040,7 +2016,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
         const proposal = object(approval.proposal);
         return `Standard limit proposal awaiting exact owner approval: ${
           code(text(proposal?.standard) ?? "standard")
-        } ${proposalFigures(proposal)}; reason: ${
+        } ${standardLimitProposalRecordFigures(proposal)}; reason: ${
           text(proposal?.reason) ?? "unknown"
         }; approval token: ${code(text(approval.token) ?? "unavailable")}.`;
       }),
