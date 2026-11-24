@@ -249,7 +249,7 @@ Implicit flags: root `-V`, `--version`; every command `-h`, `--help`.
 | `--artifact`    | `<path:string>`             |         | A file the producer lists in its artifacts, passed to `--extract` on stdin.                                                                                 |
 | `--per`         | `<metric-or-extent:string>` |         | Hold a rate: divide by another metric, or by a count discern takes itself: `files=<glob>`, `lines=<glob>`, `words=<glob>`, or `bytes=<glob>`.               |
 | `--scale`       | `<n:string>`                |         | Multiply a `--per` rate into readable units: 1000 gives a rate per 1,000. Default: 1.                                                                       |
-| `--margin`      | `<n:string>`                |         | Headroom discern keeps when a pin or an approved proposal sets the limit from a measured value. Default: 0.                                                 |
+| `--margin`      | `<n:string>`                |         | Headroom a pin or an approved proposal keeps beyond the measured value. Default: 0.                                                                         |
 | `--timeout`     | `<seconds:string>`          |         | Time limit for the measuring command, in seconds; 0 means no limit.                                                                                         |
 | `--inputs`      | `<value:string>`            |         | A file pattern the measurement reads. Repeat it until every input is listed; discern can then reuse an earlier measurement while those files are unchanged. |
 | `--needs`       | `<value:string>`            |         | A job, scope gate, or standard that must succeed before the measurement, such as `jobs.build`. Repeat it for each one.                                      |
@@ -1269,7 +1269,7 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 | `<name>.toolchain`           | `string[]`           |         |              | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…     |
 | `<name>.per`                 | `string or object`   |         |              | Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command…       |
 | `<name>.scale`               | `number`             | `1`     |              | Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.                            |
-| `<name>.margin`              | `number`             | `0`     |              | Headroom discern keeps when it sets the limit from a measured value: `discern standards --pin` when it tightens the limit, and…            |
+| `<name>.margin`              | `number`             | `0`     |              | Headroom discern keeps when a pin or an approved proposal sets the limit from a measured value. Give a margin to a number that moves with… |
 | `<name>.timeout`             | `number`             |         |              | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                    |
 
 ### [checkpoints]
@@ -1423,7 +1423,7 @@ Same-major releases may add optional keys, sections, and enum members. Existing 
 | `<name>.toolchain`           | `string[]`           |         |              | Files that pin your tool versions, such as a lockfile, relative to the project root. A change to one stops discern reusing an earlier…     |
 | `<name>.per`                 | `string or object`   |         |              | Hold a rate instead of a raw count, so the number doesn't rise only because the project grew. Divide by a second metric the command…       |
 | `<name>.scale`               | `number`             | `1`     |              | Multiply a `per` rate into readable units: scale = 1000 gives a rate per 1,000. It has no effect without `per`.                            |
-| `<name>.margin`              | `number`             | `0`     |              | Headroom discern keeps when it sets the limit from a measured value: `discern standards --pin` when it tightens the limit, and…            |
+| `<name>.margin`              | `number`             | `0`     |              | Headroom discern keeps when a pin or an approved proposal sets the limit from a measured value. Give a margin to a number that moves with… |
 | `<name>.timeout`             | `number`             |         |              | Time limit in seconds for this job, replacing `[gate].timeout`; 0 means no limit. Leave it out to use `[gate].timeout`.                    |
 
 ### [checkpoints]

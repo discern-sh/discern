@@ -516,7 +516,7 @@ Usage: `discern config set-standard <name> [options]`
 | `--artifact <path>`        | A file the producer lists in its artifacts, passed to `--extract` on stdin.                                                                                 |
 | `--per <metric-or-extent>` | Hold a rate: divide by another metric, or by a count discern takes itself: `files=<glob>`, `lines=<glob>`, `words=<glob>`, or `bytes=<glob>`.               |
 | `--scale <n>`              | Multiply a `--per` rate into readable units: 1000 gives a rate per 1,000. Default: 1.                                                                       |
-| `--margin <n>`             | Headroom discern keeps when a pin or an approved proposal sets the limit from a measured value. Default: 0.                                                 |
+| `--margin <n>`             | Headroom a pin or an approved proposal keeps beyond the measured value. Default: 0.                                                                         |
 | `--timeout <seconds>`      | Time limit for the measuring command, in seconds; 0 means no limit.                                                                                         |
 | `--inputs <value>`         | A file pattern the measurement reads. Repeat it until every input is listed; discern can then reuse an earlier measurement while those files are unchanged. |
 | `--needs <value>`          | A job, scope gate, or standard that must succeed before the measurement, such as `jobs.build`. Repeat it for each one.                                      |
