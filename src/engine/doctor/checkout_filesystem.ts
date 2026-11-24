@@ -10,10 +10,8 @@
  * without a mount table.
  */
 
-import {
-  readTextIfExists,
-  realPathIfExists,
-} from "../../shared/fs_presence.ts";
+import { realPathIfExists } from "../../shared/fs_presence.ts";
+import { readKernelFile } from "../../shared/subprocess.ts";
 import type { DoctorDraftCheck } from "./completion_checks.ts";
 
 /**
@@ -40,7 +38,7 @@ export interface CheckoutFilesystemHost {
 
 const SYSTEM_HOST: CheckoutFilesystemHost = {
   os: Deno.build.os,
-  readMountTable: () => readTextIfExists("/proc/self/mountinfo"),
+  readMountTable: () => readKernelFile("/proc/self/mountinfo"),
   realPath: realPathIfExists,
 };
 

@@ -7,13 +7,22 @@
  * remembered directory.
  */
 
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
+import { join } from "@std/path";
 import {
   type CheckoutFilesystemHost,
   inspectCheckoutFilesystem,
   mountServing,
   parseMountTable,
 } from "../src/engine/doctor/checkout_filesystem.ts";
+import { readKernelFile } from "../src/shared/subprocess.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { withTempDir } from "./temp_dir.ts";
 
 const MOUNT_TABLE = [
   "25 1 8:32 / / rw,relatime - ext4 /dev/sdc rw,discard,errors=remount-ro",
@@ -125,4 +134,40 @@ Deno.test("hosts without a mount table report nothing", async () => {
     ),
     undefined,
   );
+});
+
+Deno.test("the kernel-file reader returns a file's text and nothing for an absent file", async () => {
+  await withTempDir(async (dir) => {
+    // A name with a space proves the path travels as one argument.
+    const file = join(dir, "mount table");
+    await Deno.writeTextFile(file, MOUNT_TABLE);
+    assertEquals(await readKernelFile(file), MOUNT_TABLE);
+    assertEquals(await readKernelFile(join(dir, "absent")), undefined);
+  });
+});
+
+Deno.test("the kernel-file reader names a file it cannot read", async () => {
+  await withTempDir(async (dir) => {
+    await assertRejects(
+      () => readKernelFile(dir),
+      Error,
+      `cannot read ${dir}`,
+    );
+  });
+});
+
+Deno.test({
+  name: "the system host reads the real mount table without all-access",
+  // Only Linux serves a mount table, and only there does Deno guard it.
+  ignore: Deno.build.os !== "linux",
+  async fn(): Promise<void> {
+    const table = await readKernelFile("/proc/self/mountinfo");
+    assert(table !== undefined, "Linux serves /proc/self/mountinfo");
+    assert(
+      parseMountTable(table).some((mount) => mount.mountPoint === "/"),
+      "the real mount table names the root mount",
+    );
+    // The default host answers for a real directory instead of throwing.
+    await inspectCheckoutFilesystem(REPO_ROOT);
+  },
 });

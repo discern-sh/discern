@@ -270,6 +270,16 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
     role: "shared-capability",
   },
   {
+    path: "src/shared/subprocess.ts",
+    enclosingFunction: "readKernelFile",
+    publication: "bounded-helper",
+    operation: "read one file the kernel serves under /proc or /sys",
+    reason:
+      "this constructor is the shared kernel-file capability: Deno refuses its own reads of those paths without all-access, so a child reads them",
+    may: ["sh"],
+    role: "shared-capability",
+  },
+  {
     path: "src/shared/discern_commit.ts",
     enclosingFunction: "commitDiscernChanges",
     publication: "forbidden",
@@ -361,7 +371,7 @@ export type SpawnInterruptContract =
 export const SPAWN_INTERRUPT_CONTRACTS = {
   "src/shared/subprocess.ts": {
     exempt:
-      "runGit drives engine-authored Git operations; lifecycle callers opt into descendant quiescence, while runShell and commandExists are buffered probes without an operator-owned lifecycle caller",
+      "runGit drives engine-authored Git operations; lifecycle callers opt into descendant quiescence, while runShell, commandExists, and readKernelFile are buffered probes without an operator-owned lifecycle caller",
   },
   "src/shared/discern_commit.ts": {
     exempt:
@@ -440,6 +450,7 @@ export const SPAWN_SESSION_CONTRACTS = {
   "src/shared/subprocess.ts#runGit": { captured: true },
   "src/shared/subprocess.ts#runShell": { captured: true },
   "src/shared/subprocess.ts#commandExists": { captured: true },
+  "src/shared/subprocess.ts#readKernelFile": { captured: true },
   "src/shared/discern_commit.ts#commitDiscernChanges": { captured: true },
   "src/shared/deno_metadata.ts#denoMetadata": { captured: true },
   "src/lib/pager.ts#pageThrough": {

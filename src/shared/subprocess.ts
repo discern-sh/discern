@@ -1100,3 +1100,39 @@ export async function commandExists(
     return false;
   }
 }
+
+/** The exit status the kernel-file script reports for an absent file. */
+const KERNEL_FILE_ABSENT = 3;
+
+/**
+ * Read a file the kernel serves under `/proc` or `/sys`, or `undefined` when it
+ * is absent. Deno grants its own reads of those paths only under all-access
+ * permission, which the compiled binary does not carry, so a child process
+ * reads the file. `path` is a positional argument, never interpolated into the
+ * script. Every failure other than absence throws with the child's own
+ * account, so a reader that cannot run is never mistaken for a host with
+ * nothing to report.
+ */
+export async function readKernelFile(
+  path: string,
+): Promise<string | undefined> {
+  const output = await new Deno.Command("sh", {
+    args: [
+      "-c",
+      `[ -e "$1" ] || exit ${KERNEL_FILE_ABSENT}; cat "$1"`,
+      "sh",
+      path,
+    ],
+    env: { ...spawnedByEnv() },
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+    detached: childLeadsOwnGroup(false),
+  }).output();
+  if (output.success) return new TextDecoder().decode(output.stdout);
+  if (output.code === KERNEL_FILE_ABSENT) return undefined;
+  const reason = new TextDecoder().decode(output.stderr).trim();
+  throw new Error(
+    `cannot read ${path}: ${reason === "" ? `exit ${output.code}` : reason}`,
+  );
+}
