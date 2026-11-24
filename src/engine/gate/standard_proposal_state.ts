@@ -10,13 +10,10 @@ import type { Diagnostic } from "../../shared/result.ts";
 import type { StandardLimitProposalData } from "../../shared/result_schemas.ts";
 import { StandardLimitProposalSchema } from "../../shared/landing_decision_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { standardLimitProposalMargin } from "../../shared/standard_limit_proposal_text.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import { repoPathPrefix } from "../scopes/scopes.ts";
-import {
-  type PlannedStandard,
-  proposedStandardLimit,
-} from "./standard_plan.ts";
+import type { PlannedStandard } from "./standard_plan.ts";
+import { proposalFiguresHold } from "./standard_proposal_plan.ts";
 import {
   readTrunkConfig,
   standardDefinitionFingerprint,
@@ -256,13 +253,7 @@ async function proposalStaleness(
   if (
     standard.direction !== proposal.direction ||
     standard.limit !== proposal.proposed_limit ||
-    standardLimitProposalMargin(proposal) !== standard.margin ||
-    proposal.proposed_limit !==
-      proposedStandardLimit(
-        proposal.direction,
-        proposal.measurement,
-        standard.margin,
-      ) ||
+    !proposalFiguresHold(proposal, standard) ||
     proposal.delta !== proposal.proposed_limit - proposal.trunk_limit
   ) {
     return "the direction, proposed limit, measurement, margin, or delta changed";

@@ -166,6 +166,7 @@ interface ApprovalChallenge {
   readonly proposal: {
     readonly standard: string;
     readonly proposed_limit: number;
+    readonly margin?: number | undefined;
     readonly reason: string;
   };
 }
@@ -1211,10 +1212,7 @@ Deno.test("a proposal keeps the standard's margin as headroom through renewal, P
         );
         const challenge = approvalChallenge(awaiting);
         assertEquals(challenge.proposal.proposed_limit, 5);
-        assertEquals(
-          (challenge.proposal as { margin?: number }).margin,
-          3,
-        );
+        assertEquals(challenge.proposal.margin, 3);
 
         const accepted = await runAgent(worktree, [
           "accept",

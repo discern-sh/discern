@@ -113,6 +113,26 @@ export function proposedLimitRule(
     : `the measured value plus its margin ${standard.margin}`;
 }
 
+/** Whether a recorded proposal's limit still follows from its own figures
+ * under the standard as configured now: the same margin, and the limit that
+ * margin gives the recorded measurement. The one integrity rule that staleness
+ * and renewal both apply. */
+export function proposalFiguresHold(
+  proposal: Pick<
+    StandardLimitProposalData,
+    "direction" | "measurement" | "margin" | "proposed_limit"
+  >,
+  standard: Pick<PlannedStandard, "margin">,
+): boolean {
+  return standardLimitProposalMargin(proposal) === standard.margin &&
+    proposal.proposed_limit ===
+      proposedStandardLimit(
+        proposal.direction,
+        proposal.measurement,
+        standard.margin,
+      );
+}
+
 /** Changed input paths that can account for one proposal measurement. */
 function responsiblePaths(
   standard: PlannedStandard,
@@ -296,13 +316,7 @@ export function buildStandardLimitProposalRebindPlan(
     proposal.direction !== standard.direction ||
     proposal.trunk_limit !== context.trunkLimit ||
     proposal.proposed_limit !== standard.limit ||
-    standardLimitProposalMargin(proposal) !== standard.margin ||
-    proposal.proposed_limit !==
-      proposedStandardLimit(
-        proposal.direction,
-        proposal.measurement,
-        standard.margin,
-      ) ||
+    !proposalFiguresHold(proposal, standard) ||
     proposal.definition_fingerprint !== context.definitionFingerprint ||
     proposal.reason !== reason.reason ||
     proposal.delta !== proposal.proposed_limit - proposal.trunk_limit

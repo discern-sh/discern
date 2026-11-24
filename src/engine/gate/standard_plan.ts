@@ -252,7 +252,7 @@ export type StandardPinEligibility =
  * definition of a limit set from a measurement, shared by the pin target and
  * by a limit proposal that keeps a margin.
  */
-export function standardLimitWithHeadroom(
+function standardLimitWithHeadroom(
   direction: "up" | "down",
   value: number,
   margin: number,
