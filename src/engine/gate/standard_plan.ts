@@ -192,19 +192,20 @@ export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
 /**
  * The monotonic-bound comparison, pure: the branch's `limit` against the
  * trunk's recorded value after both sides' directions agree. Returns the
- * failure reason — the words every surface narrates — or undefined when the
- * limit is not comparable or not loosened (tightened, unchanged, or new on the
- * branch: `mainValue` undefined). The ONE numeric comparison behind the shared
- * Tier-1 verification both gate and standalone execution consume.
+ * words every surface narrates — the neutral change, and the rule it breaks —
+ * or undefined when the limit is not comparable or not loosened (tightened,
+ * unchanged, or new on the branch: `mainValue` undefined). The ONE numeric
+ * comparison behind the shared Tier-1 verification both gate and standalone
+ * execution consume.
  */
-export function loosenedLimitReason(
+export function loosenedLimit(
   name: string,
   direction: "up" | "down",
   limit: number,
   mainDirection: "up" | "down",
   mainValue: number | undefined,
   mainBranch: string,
-): string | undefined {
+): { change: string; rule: string } | undefined {
   if (mainValue === undefined) {
     return undefined;
   }
@@ -215,13 +216,18 @@ export function loosenedLimitReason(
   if (direction !== mainDirection) {
     return undefined;
   }
-  if (direction === "up" && limit < mainValue) {
-    return `standard '${name}': floor ${mainValue} -> ${limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`;
+  const up = direction === "up";
+  if (up ? limit >= mainValue : limit <= mainValue) {
+    return undefined;
   }
-  if (direction === "down" && limit > mainValue) {
-    return `standard '${name}': ceiling ${mainValue} -> ${limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`;
-  }
-  return undefined;
+  return {
+    change: `standard '${name}': ${
+      up ? "floor" : "ceiling"
+    } ${mainValue} -> ${limit} vs ${mainBranch}`,
+    rule: up
+      ? "the floor only rises. Raise the metric, don't loosen the gate."
+      : "the ceiling only falls. Lower the metric, don't loosen the gate.",
+  };
 }
 
 /** Inputs to the mechanical Standard-pin decision. */

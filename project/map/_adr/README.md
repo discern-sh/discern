@@ -407,6 +407,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0430 — The homepage ships one hydrated React island](0430-the-homepage-ships-one-hydrated-react-island.md)
 - [0431 — Wall cards name the feature nodes they draw on](0431-wall-cards-name-the-feature-nodes-they-draw-on.md)
 - [0432 — Ignored directories are opaque to drift fingerprints](0432-ignored-directories-are-opaque-to-drift-fingerprints.md)
+- [0433 — Post-landing reports name policy changes](0433-post-landing-reports-name-policy-changes.md)
 
 <!-- END GENERATED: current ADR records -->
 

@@ -876,6 +876,17 @@ Rendered example:
 
 > The clean HEAD named by Proof is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with its Proof line afterward.
 
+## `gate-policy-changes-reported`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A CI report names moved standards policy.
+
+Rendered example:
+
+> Standards policy changed and was reported, not enforced: standard 'size': ceiling 100 -> 105 vs main
+
 ## `gate-previewable-change`
 
 - Category: `next-step`

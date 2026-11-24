@@ -132,6 +132,12 @@ function standardsSection(
     lines.push(
       `Standards (limits verified against ${code(limits?.trunk ?? "")}):`,
     );
+  } else if (limits.status === "reported") {
+    lines.push(
+      `Standards (policy changes since ${
+        code(limits.trunk)
+      } reported, not enforced):`,
+    );
   } else if (limits.status === "unverified") {
     lines.push(
       `Standards (limits UNVERIFIED — trunk config unavailable: ${

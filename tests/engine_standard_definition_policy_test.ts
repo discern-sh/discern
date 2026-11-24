@@ -18,6 +18,7 @@ import {
   parseConfigOrThrow,
   type StandardConfig,
 } from "../src/shared/config_schema.ts";
+import type { PolicyChangeMode } from "../src/shared/verbs.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -62,6 +63,8 @@ async function withVerification(
   inspect: (
     verification: Awaited<ReturnType<typeof verifyTrunkLimits>>,
   ) => void,
+  policyChanges?: PolicyChangeMode,
+  base = "main",
 ): Promise<void> {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "discern.toml"), trunkConfig);
@@ -71,11 +74,31 @@ async function withVerification(
     inspect(
       await verifyTrunkLimits(
         dir,
-        "main",
+        base,
         buildStandardPlan(branch).standards,
+        new Map(),
+        undefined,
+        policyChanges,
       ),
     );
   });
+}
+
+/** A report names the movement in its summary and blocks no measurement. */
+function assertReported(
+  verification: Awaited<ReturnType<typeof verifyTrunkLimits>>,
+  ...named: readonly string[]
+): void {
+  assertEquals(verification.blocking, false);
+  assertEquals(verification.diagnostics, []);
+  assertEquals([...verification.blockedStandards], []);
+  assertEquals(verification.summary.status, "reported");
+  for (const text of named) {
+    assertStringIncludes(verification.summary.reason ?? "", text);
+  }
+  // The owner route belongs to a refusal; a report only states what moved.
+  assert(!verification.summary.reason?.includes("discern update"));
+  assert(!verification.summary.reason?.includes("don't loosen the gate"));
 }
 
 const DEFINITION_CHANGES: readonly {
@@ -131,7 +154,59 @@ for (const change of DEFINITION_CHANGES) {
       }
     });
   });
+  Deno.test(`Standard definition: a report names a changed ${change.field} without blocking`, async () => {
+    const trunk = qualityStandard(change.trunkExtra ?? []);
+    await withVerification(
+      config(trunk),
+      config(replaceFields(trunk, change.branchExtra)),
+      (verification) =>
+        assertReported(
+          verification,
+          "standard 'quality' changes its enforcement definition versus main",
+          change.field,
+        ),
+      "report",
+    );
+  });
 }
+
+Deno.test("Standard definition: a report names a loosened limit and a deletion together", async () => {
+  const kept = [
+    "[standards.kept]",
+    'direction = "down"',
+    "limit = 5",
+    'run = "true"',
+  ];
+  await withVerification(
+    config([...qualityStandard(), ...kept]),
+    config(replaceFields(qualityStandard(), ["limit = 39"])),
+    (verification) =>
+      assertReported(
+        verification,
+        "standard 'quality': floor 40 -> 39 vs main",
+        "standard 'kept' was deleted on this branch (main holds its ceiling at 5)",
+      ),
+    "report",
+  );
+});
+
+Deno.test("Standard definition: a report with nothing moved stays verified, and an unreadable base still blocks", async () => {
+  const same = config(qualityStandard());
+  await withVerification(same, same, (verification) => {
+    assertEquals(verification.summary.status, "verified");
+    assertEquals(verification.blocking, false);
+  }, "report");
+  await withVerification(
+    same,
+    same,
+    (verification) => {
+      assertEquals(verification.summary.status, "unverified");
+      assertEquals(verification.blocking, true);
+    },
+    "report",
+    "no-such-base",
+  );
+});
 
 Deno.test("Standard definition: schema-default and command spellings compare equivalent", async () => {
   const branch = replaceFields(qualityStandard(), [

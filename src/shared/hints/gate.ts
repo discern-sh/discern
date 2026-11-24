@@ -164,6 +164,16 @@ export const GATE_HINTS = {
       `not read the trunk (${reason}).`,
   }),
 
+  "gate-policy-changes-reported": defineHint<{ changes: string }>({
+    id: "gate-policy-changes-reported",
+    category: "notice",
+    audience: "all",
+    when: "A CI report names moved standards policy.",
+    example: { changes: "standard 'size': ceiling 100 -> 105 vs main" },
+    template: ({ changes }): string =>
+      `Standards policy changed and was reported, not enforced: ${changes}`,
+  }),
+
   "emergency-outstanding": defineHint<{ commit: string }>({
     id: "emergency-outstanding",
     category: "notice",

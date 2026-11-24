@@ -265,6 +265,7 @@ export type DiscernKnownStandardVerdict = "improved" | "held" | "regressed";
 
 export type DiscernKnownStandardsLimitsStatus =
   | "verified"
+  | "reported"
   | "proposed"
   | "loosened"
   | "unverified"

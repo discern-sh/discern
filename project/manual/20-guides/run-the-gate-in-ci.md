@@ -69,6 +69,12 @@ Your agent reproduces the failure, fixes the cause, commits, and runs `discern d
 
 If the report lists a checkpoint question, the task's agent answers it in its worktree. An unmet answer needs your decision before the change lands.
 
+## Report limit changes after a push to trunk
+
+On a pull request, discern fails the report when a change loosens a measured limit, changes how it's measured, or removes it, so nobody merges a weaker limit unnoticed.
+
+A push to trunk has already landed. Say you approved a larger download size for recipe search: failing that push would only keep CI from running the tests on Linux. Have your agent add `--policy-changes report` to the runs for pushes to trunk. discern then names each limit that changed and checks the code against the limits now on trunk. Leave the option off wherever CI should reject a weaker limit.
+
 ## Require the check before merging
 
 On GitHub, a branch protection rule can require the CI job to pass before a pull request merges. Your agent can name the job, and you may need to turn the rule on yourself.

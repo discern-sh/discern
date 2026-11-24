@@ -67,7 +67,7 @@ The `detached_promise_boundaries` Standard follows the same validate-then-measur
 
 ## What the Gate does
 
-The gate checks protected definitions and limits against the trunk's committed policy, then assembles all required evidence. Reuse verifies the complete applicability tuple, including policy, producer dependencies, inputs, toolchain, environment and seed. A newer failed attempt for the same subject blocks an older success. Every standard is required; measurement deferrals are refused. `discern prepare` requests no measurement. See [Complete evidence](complete-evidence.md).
+The gate checks protected definitions and limits against the trunk's committed policy, then assembles all required evidence. A [post-landing CI report](ci.md#standards-policy-after-landing) can name those changes instead of failing on them. Reuse verifies the complete applicability tuple, including policy, producer dependencies, inputs, toolchain, environment and seed. A newer failed attempt for the same subject blocks an older success. Every standard is required; measurement deferrals are refused. `discern prepare` requests no measurement. See [Complete evidence](complete-evidence.md).
 
 Package StandardMeter views retain each reading, limit, headroom, trajectory, measurement source, margin, and pin eligibility. Deferred and skipped facts invent no value. [`presentation.ts`](../../../src/engine/gate/presentation.ts) only maps `GateStandard` facts; the gate still decides comparisons and pin eligibility.
 

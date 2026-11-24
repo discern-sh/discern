@@ -152,3 +152,7 @@ export const ACCEPT_ACTIONS = [
   EMERGENCY_ACCEPT_ACTION,
   QUEUE_ACCEPT_ACTION,
 ] as const;
+
+/** How a standalone CI report treats standards policy that moved since its base. */
+export const POLICY_CHANGE_MODES = ["fail", "report"] as const;
+export type PolicyChangeMode = (typeof POLICY_CHANGE_MODES)[number];

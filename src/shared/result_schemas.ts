@@ -952,6 +952,8 @@ export type StandardsData = z.infer<typeof StandardsDataSchema>;
 /** How the gate's protection of existing `[standards]` definitions and limits
  * against the trunk went: `verified` (definitions match and no bound loosened —
  * vacuously so for Standards new on the branch or a trunk with no config yet),
+ * `reported` (a CI report asked to name such changes rather than fail on them —
+ * `reason` lists each one and the gate measures the checked-out policy),
  * `loosened` (a definition changed, a bound loosened, or an entry was deleted —
  * the gate fails and per-Standard diagnostics carry the details), `unverified`
  * (the trunk cannot be read — an unborn repo or an unfetched CI clone; the gate

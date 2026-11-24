@@ -654,7 +654,14 @@ export const RESULT_OPEN_VOCABULARIES = {
   },
   "x-discern-standards-limits-statuses": {
     name: "StandardsLimitsStatus",
-    values: ["verified", "proposed", "loosened", "unverified", "parse_failed"],
+    values: [
+      "verified",
+      "reported",
+      "proposed",
+      "loosened",
+      "unverified",
+      "parse_failed",
+    ],
   },
   "x-discern-proposal-statuses": {
     name: "ProposalStatus",

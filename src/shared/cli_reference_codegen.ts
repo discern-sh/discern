@@ -217,7 +217,7 @@ export function commandHeadingLabel(node: CliCommand): string {
 /** A flag's value spec with Cliffy's `:type` annotations dropped:
  * `<name:string>` → `<name>`. */
 function valueSpec(typeDefinition: string): string {
-  return typeDefinition.replace(/:[a-zA-Z]+([>\]])/g, "$1");
+  return typeDefinition.replace(/:[a-zA-Z-]+([>\]])/g, "$1");
 }
 
 /** The full usage line for one command, e.g. `discern map [target] [options]`. */

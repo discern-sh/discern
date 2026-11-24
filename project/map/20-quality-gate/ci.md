@@ -25,6 +25,10 @@ discern done --ci --standalone --policy-base refs/discern/ci-policy-base --json
 
 A missing policy ref is a refusal. A remote-tracking ref or the latest trunk does not replace the requested base.
 
+## Standards policy after landing
+
+A report fails by default when a standard's limit loosened, its definition changed, or it was deleted since the policy base. `--policy-changes report` runs the same comparison and names each change in the result and the job log. It then measures the checked-out configuration. The mode needs a clean tree. A base that cannot be read or compared still fails. Each project selects the mode per event in its own workflow. See [the trust decision](../_adr/0433-post-landing-reports-name-policy-changes.md).
+
 ## Wrapped test tasks
 
 The configured test producer owns instrumentation, reporting, and child cleanup. The root recipe runs `deno task coverage` once; coverage consumers use its captured metrics. Hosted lanes select JUnit through the declared reporter environment variable. Test names and fixture output belong to the diagnostic report; only emissions outside it supply measurements. The evaluator counts physical producer executions independently of consumer results.

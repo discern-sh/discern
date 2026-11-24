@@ -94,7 +94,7 @@ import {
   MCP_STRICT_TOOL_CALLS_FLAG,
 } from "../shared/mcp_timeout_policy.ts";
 import { LOGBOOK_LIFECYCLE_ACTIONS } from "../shared/logbook_lifecycle.ts";
-import { ACCEPT_ACTIONS } from "../shared/verbs.ts";
+import { ACCEPT_ACTIONS, POLICY_CHANGE_MODES } from "../shared/verbs.ts";
 
 export { reportUnknownCommand } from "./unknown_command.ts";
 export {
@@ -246,12 +246,17 @@ export function attachEngineCommands(
   const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
   root
     .command("done")
+    .type("policy-changes", new EnumType(POLICY_CHANGE_MODES))
     .description(
       "Run the gate on a clean, committed tree and record Proof when it passes. The gate is your project's full quality check: the jobs it configures, such as format, lint, type-check, and tests.\nUncommitted or untracked files stop it before anything runs. Its fixers may change files, and a change to a committed file fails the run without committing anything, so run `discern prepare` and commit first. discern asks any checkpoint questions before the checks run. If current Proof already covers this commit, `done` returns it without running the checks again.",
     )
     .option(
       "--dry-run",
       "Show which checks, jobs, and scope gates would run, without running them. It still needs a committed tree.",
+    )
+    .option(
+      "--policy-changes <mode:policy-changes>",
+      "With `--ci`, `--standalone` and `--policy-base`: `fail` (the default) stops on a standard that loosened, was redefined, or was deleted since that base. `report` names it, keeps measuring, and needs a clean tree.",
     )
     .option(
       "--policy-base <ref:string>",
@@ -330,6 +335,7 @@ export function attachEngineCommands(
         );
         return await runFinish(await requireRoot("done", json), {
           policyBase: o.policyBase,
+          policyChanges: o.policyChanges,
           ...(o.standalone === undefined ? {} : { standalone: o.standalone }),
           json,
           cliModel,

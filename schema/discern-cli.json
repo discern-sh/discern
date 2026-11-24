@@ -3701,6 +3701,24 @@
         },
         {
           "spellings": [
+            "--policy-changes"
+          ],
+          "description": "With `--ci`, `--standalone` and `--policy-base`: `fail` (the default) stops on a standard that loosened, was redefined, or was deleted since that base. `report` names it, keeps measuring, and needs a clean tree.",
+          "type_definition": "<mode:policy-changes>",
+          "arity": 1,
+          "value_types": [
+            "policy-changes"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false,
+          "choices": [
+            "fail",
+            "report"
+          ]
+        },
+        {
+          "spellings": [
             "--policy-base"
           ],
           "description": "For a CI report, with `--ci` and `--standalone`: judge the change against the settings in this fetched commit instead of the trunk's current tip.",

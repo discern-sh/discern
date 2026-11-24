@@ -29,10 +29,11 @@ import type {
   StandardLimitProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
+import type { PolicyChangeMode } from "../../shared/verbs.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import {
-  loosenedLimitReason,
+  loosenedLimit,
   type PlannedStandard,
   standardJobLabel,
 } from "./standard_plan.ts";
@@ -382,8 +383,8 @@ const REDEFINITION_NEXT_STEP =
   "change on the trunk, then run `discern update` in this worktree. A measured-" +
   "breach override is a separate flow and cannot waive a definition change.";
 
-/** Explain one redefinition with every changed field and the owner route. */
-function redefinedStandardReason(
+/** Name one redefinition with every changed field. */
+function redefinedStandardChange(
   name: string,
   mainBranch: string,
   changes: readonly StandardDefinitionChange[],
@@ -393,8 +394,7 @@ function redefinedStandardReason(
       boundedDefinitionValue(change.branch)
     }`
   ).join("; ");
-  return `standard '${name}' changes its enforcement definition versus ${mainBranch} (${fields}). ` +
-    `A held limit keeps its meaning only while these fields stay equivalent. ${REDEFINITION_NEXT_STEP}`;
+  return `standard '${name}' changes its enforcement definition versus ${mainBranch} (${fields}).`;
 }
 
 /** How reading the trunk's committed config went — the evidence Tier 1
@@ -505,7 +505,9 @@ const LOOSENING_NEXT_STEP =
  * Verify every configured Standard's normalized enforcement definition and
  * monotonic limit against one read of the trunk's committed config, then walk
  * the trunk table for standards deleted on this branch. A new branch standard
- * passes vacuously, as does a trunk with no config at all.
+ * passes vacuously, as does a trunk with no config at all. `report` names each
+ * redefinition, loosening, and deletion in the summary instead of blocking on
+ * it; a base that cannot be read or compared still blocks.
  */
 export async function verifyTrunkLimits(
   root: string,
@@ -513,6 +515,7 @@ export async function verifyTrunkLimits(
   standards: PlannedStandard[],
   proposals: ReadonlyMap<string, StandardLimitProposalData> = new Map(),
   branchConfig?: DiscernConfig,
+  policyChanges: PolicyChangeMode = "fail",
 ): Promise<TrunkLimitsVerification> {
   const trunk = await readTrunkConfig(root, mainBranch);
   if (trunk.kind === "unreadable") {
@@ -571,6 +574,26 @@ export async function verifyTrunkLimits(
   const diagnostics: Diagnostic[] = [];
   const blockedStandards = new Set<string>();
   const acceptedProposals = new Map<string, StandardLimitProposalData>();
+  const reported: string[] = [];
+  /** One moved Standard: named by a report, a blocking diagnostic otherwise. */
+  const moved = (
+    name: string,
+    change: string,
+    remedy: string,
+    reproduce_cmd = "discern standards --dry-run",
+  ): void => {
+    if (policyChanges === "report") {
+      reported.push(change);
+      return;
+    }
+    blockedStandards.add(name);
+    diagnostics.push({
+      tool: standardJobLabel(name),
+      severity: "error",
+      message: change + remedy,
+      reproduce_cmd,
+    });
+  };
   const branchNames = new Set(standards.map((standard) => standard.name));
   const branch = branchConfig ?? await loadConfig(root);
   const governingTrunk = parseGoverningConfig(trunk.text);
@@ -614,17 +637,11 @@ export async function verifyTrunkLimits(
       branchDefinition,
     );
     if (definitionChanges.length > 0) {
-      blockedStandards.add(standard.name);
-      diagnostics.push({
-        tool: standardJobLabel(standard.name),
-        severity: "error",
-        message: redefinedStandardReason(
-          standard.name,
-          mainBranch,
-          definitionChanges,
-        ),
-        reproduce_cmd: "discern standards --dry-run",
-      });
+      moved(
+        standard.name,
+        redefinedStandardChange(standard.name, mainBranch, definitionChanges),
+        ` A held limit keeps its meaning only while these fields stay equivalent. ${REDEFINITION_NEXT_STEP}`,
+      );
       // Once meanings differ, their numbers are not comparable. In particular,
       // never use the branch direction to reinterpret the trunk bound.
       continue;
@@ -635,7 +652,7 @@ export async function verifyTrunkLimits(
       // but retain the tolerant trunk boundary if a future normalizer changes.
       continue;
     }
-    const loosened = loosenedLimitReason(
+    const loosened = loosenedLimit(
       standard.name,
       standard.direction,
       standard.limit,
@@ -655,13 +672,11 @@ export async function verifyTrunkLimits(
       acceptedProposals.set(standard.name, proposal);
       continue;
     }
-    blockedStandards.add(standard.name);
-    diagnostics.push({
-      tool: standardJobLabel(standard.name),
-      severity: "error",
-      message: `${loosened} ${LOOSENING_NEXT_STEP}`,
-      reproduce_cmd: "discern standards --dry-run",
-    });
+    moved(
+      standard.name,
+      loosened.change,
+      ` — ${loosened.rule} ${LOOSENING_NEXT_STEP}`,
+    );
   }
 
   for (const name of trunk.config.subsections("standards")) {
@@ -676,54 +691,39 @@ export async function verifyTrunkLimits(
         "down"
       ? "ceiling"
       : "floor";
-    blockedStandards.add(name);
-    diagnostics.push({
-      tool: standardJobLabel(name),
-      severity: "error",
-      message:
-        `standard '${name}' was deleted on this branch (${mainBranch} holds its ${bound} at ${limit}) — ` +
-        `deletion is the ultimate loosening. Restore the [standards.${name}] table. ${LOOSENING_NEXT_STEP}`,
-      reproduce_cmd: `git show ${mainBranch}:./discern.toml`,
-    });
+    moved(
+      name,
+      `standard '${name}' was deleted on this branch (${mainBranch} holds its ${bound} at ${limit})`,
+      ` — deletion is the ultimate loosening. Restore the [standards.${name}] table. ${LOOSENING_NEXT_STEP}`,
+      `git show ${mainBranch}:./discern.toml`,
+    );
   }
 
-  if (diagnostics.length > 0) {
-    return {
-      summary: {
-        status: "loosened",
-        trunk: mainBranch,
-        reason:
-          `${blockedStandards.size} Standard(s) redefined, loosened, or deleted versus ${mainBranch}`,
-      },
-      diagnostics,
-      blocking: true,
-      blockedStandards,
-      proposals: acceptedProposals,
-      ignoredConfigKeys: governingTrunk.ignoredKeyPaths,
-    };
-  }
-  if (acceptedProposals.size > 0) {
-    return {
-      summary: {
-        status: "proposed",
-        trunk: mainBranch,
-        reason: `${acceptedProposals.size} ${
-          acceptedProposals.size === 1
-            ? "Standard limit proposal explains"
-            : "Standard limit proposals explain"
-        } otherwise-forbidden limit changes`,
-      },
-      diagnostics: [],
-      blocking: false,
-      blockedStandards,
-      proposals: acceptedProposals,
-      ignoredConfigKeys: governingTrunk.ignoredKeyPaths,
-    };
-  }
+  const blocking = diagnostics.length > 0;
+  const summary: StandardsLimitsData = blocking
+    ? {
+      status: "loosened",
+      trunk: mainBranch,
+      reason:
+        `${blockedStandards.size} Standard(s) redefined, loosened, or deleted versus ${mainBranch}`,
+    }
+    : reported.length > 0
+    ? { status: "reported", trunk: mainBranch, reason: reported.join("; ") }
+    : acceptedProposals.size > 0
+    ? {
+      status: "proposed",
+      trunk: mainBranch,
+      reason: `${acceptedProposals.size} ${
+        acceptedProposals.size === 1
+          ? "Standard limit proposal explains"
+          : "Standard limit proposals explain"
+      } otherwise-forbidden limit changes`,
+    }
+    : { status: "verified", trunk: mainBranch };
   return {
-    summary: { status: "verified", trunk: mainBranch },
-    diagnostics: [],
-    blocking: false,
+    summary,
+    diagnostics,
+    blocking,
     blockedStandards,
     proposals: acceptedProposals,
     ignoredConfigKeys: governingTrunk.ignoredKeyPaths,

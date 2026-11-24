@@ -87,6 +87,7 @@ import { createGateTtyProgress, renderGateTtyTable } from "./gate_tty.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
 import { fmtRate } from "../validation/metrics.ts";
+import type { PolicyChangeMode } from "../../shared/verbs.ts";
 import { verifyTrunkLimits } from "./standard_limits.ts";
 import {
   inspectActiveStandardLimitProposals,
@@ -481,6 +482,7 @@ async function runCandidateGate(
       stdPlan.standards,
       proposalInspection.active,
       cfg,
+      presentation.options.policyChanges,
     );
     standardLimitProposals = verification.proposals;
     standardsIgnoredConfigKeys = verification.ignoredConfigKeys;
@@ -500,10 +502,7 @@ async function runCandidateGate(
     // result stays byte-identical to before.
     if (
       stdPlan.standards.length > 0 ||
-      verification.summary.status === "loosened" ||
-      verification.summary.status === "proposed" ||
-      verification.summary.status === "parse_failed" ||
-      verification.summary.status === "unverified"
+      verification.summary.status !== "verified"
     ) {
       standardsLimits = verification.summary;
     }
@@ -512,6 +511,12 @@ async function runCandidateGate(
         reason: standardsLimits.reason ?? "unknown",
         trunk: mainBranch,
       });
+    } else if (standardsLimits?.status === "reported") {
+      limitsWarning = fire(HINTS["gate-policy-changes-reported"], {
+        changes: standardsLimits.reason ?? "",
+      });
+    }
+    if (limitsWarning !== undefined) {
       runOut.warn(limitsWarning.text);
     }
   }
@@ -1485,10 +1490,10 @@ export function renderGateStageGapNote(
 async function previewGate(
   root: string,
   mode: "strict" | "report",
-  policyBase: string | undefined,
+  opts: Pick<FinishResultOptions, "policyBase" | "policyChanges">,
 ): Promise<ReturnType<typeof gatePlanToEngine>> {
   const cfg = await loadConfig(root);
-  const impact = await classifyScopeImpact(root, cfg, policyBase);
+  const impact = await classifyScopeImpact(root, cfg, opts.policyBase);
   const plan = buildGatePlan(
     cfg,
     impact.scopes,
@@ -1496,9 +1501,9 @@ async function previewGate(
     mode,
     impact.previewActions,
   );
-  const engine = gatePlanToEngine(plan);
+  const engine = gatePlanToEngine(plan, opts.policyChanges);
   engine.details.push(
-    ...(await inspectCheckpointNotes(root, cfg, mode, policyBase)),
+    ...(await inspectCheckpointNotes(root, cfg, mode, opts.policyBase)),
   );
   return engine;
 }
@@ -1508,9 +1513,9 @@ async function dryRunGate(
   root: string,
   json: boolean,
   mode: "strict" | "report",
-  policyBase: string | undefined,
+  opts: Pick<FinishResultOptions, "policyBase" | "policyChanges">,
 ): Promise<number> {
-  const engine = await previewGate(root, mode, policyBase);
+  const engine = await previewGate(root, mode, opts);
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
     emitResult(previewResult("done", engine));
@@ -1799,6 +1804,8 @@ export type FinishResultSurface =
  * composite command from inheriting machine silence while a person waits. */
 export interface FinishResultOptions {
   policyBase?: string | undefined;
+  /** `report` names moved standards policy in a standalone CI report. */
+  policyChanges?: PolicyChangeMode | undefined;
   standalone?: boolean;
   surface: FinishResultSurface;
   /** Fully attached live command tree, owned and injected by the entry point. */
@@ -1861,11 +1868,22 @@ async function finishInputRefusal(
   root: string,
   opts: Omit<FinishResultOptions, "surface">,
 ): Promise<DiscernResult<GateData> | undefined> {
+  const report = opts.policyChanges === "report";
+  if (report && !(opts.policyBase && opts.ci && opts.standalone)) {
+    return {
+      ok: false,
+      verb: "done",
+      error: "invalid_arguments",
+      message:
+        "`--policy-changes report` needs --ci, --standalone and --policy-base.",
+    };
+  }
   if (
     opts.policyBase === undefined ||
     (opts.ci === true && opts.standalone === true)
   ) {
-    return await completionTreeRefusal(root, opts.standalone);
+    // A report trusts the committed policy, so its tree must hold nothing else.
+    return await completionTreeRefusal(root, opts.standalone && !report);
   }
   return {
     ok: false,
@@ -1921,7 +1939,7 @@ export async function finishResult(
     };
   }
   if (opts.dryRun ?? false) {
-    const engine = await previewGate(root, mode, opts.policyBase);
+    const engine = await previewGate(root, mode, opts);
     return previewResult("done", engine);
   }
   const execution = await executeRequestedGate(
@@ -1981,6 +1999,7 @@ export async function runFinish(
     json: boolean;
     standalone?: boolean;
     policyBase?: string | undefined;
+    policyChanges?: PolicyChangeMode | undefined;
     /** Fully attached live command tree, owned and injected by the entry point. */
     cliModel: CliModelProvider;
     dryRun?: boolean;
@@ -1999,7 +2018,7 @@ export async function runFinish(
   }
   const mode = opts.ci === true ? "report" as const : "strict" as const;
   if (opts.dryRun ?? false) {
-    return await dryRunGate(root, opts.json, mode, opts.policyBase);
+    return await dryRunGate(root, opts.json, mode, opts);
   }
   const terminal = terminalContext();
   const execution = await executeRequestedGate(

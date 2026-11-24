@@ -25,6 +25,7 @@ import type {
   GateData,
   PreviewActionData,
 } from "../../shared/result_schemas.ts";
+import type { PolicyChangeMode } from "../../shared/verbs.ts";
 import type { GateMode } from "../../shared/checkpoint_drops.ts";
 import type { JobResult, JobTimeout } from "../jobs/types.ts";
 import {
@@ -779,7 +780,10 @@ export async function buildGateResultWithHints(
  * declared jobs render as "run" — fail-fast may still skip some, which a
  * plan cannot predict.
  */
-export function gatePlanToEngine(plan: GatePlan): EnginePlan {
+export function gatePlanToEngine(
+  plan: GatePlan,
+  policyChanges: PolicyChangeMode = "fail",
+): EnginePlan {
   if (plan.unavailable !== undefined) {
     return {
       title: "Gate Proof unavailable",
@@ -805,8 +809,9 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       kind: "standards-limits-check",
       label: BUILT_IN_STEP_LABELS.standardsLimitsCheck,
       disposition: "gate",
-      note:
-        "verify no [standards] limit loosened or vanished versus the trunk (vacuous when none are configured)",
+      note: policyChanges === "report"
+        ? "name [standards] changes versus the policy base without failing on them"
+        : "verify no [standards] limit loosened or vanished versus the trunk (vacuous when none are configured)",
     });
   }
   if (plan.trackedArtifactsCheck) {

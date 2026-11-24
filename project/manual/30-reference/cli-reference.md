@@ -155,16 +155,17 @@ Run the gate on a clean, committed tree and record Proof when it passes. The gat
 
 Usage: `discern done [options]`
 
-| Option                | Description                                                                                                                                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`           | Show which checks, jobs, and scope gates would run, without running them. It still needs a committed tree.                                                                                                          |
-| `--policy-base <ref>` | For a CI report, with `--ci` and `--standalone`: judge the change against the settings in this fetched commit instead of the trunk's current tip.                                                                   |
-| `--standalone`        | Run every check for feedback, even with uncommitted changes. discern records no Proof and no results it can reuse.                                                                                                  |
-| `--rerun`             | Run the checks again even when current passing Proof covers this commit, or retry a failure on unchanged code. discern records the rerun, and the newest result wins.                                               |
-| `--ci`                | For continuous integration: run the checks and list any checkpoint questions, without waiting for or recording answers. Its Proof can't be used to land.                                                            |
-| `--met <id>`          | Answer a checkpoint question as met, as your recorded judgment (repeatable). It applies only to a question this worktree is waiting on. Once every waiting question has an answer, the checks run in the same call. |
-| `--unmet <id>`        | Answer one checkpoint question as unmet, with `--why`. The checks still run, but landing then needs the owner to approve a variance.                                                                                |
-| `--why <rationale>`   | Why the question isn't met, for `--unmet`: one paragraph of 1–500 characters, without line breaks or control characters. The Proof keeps it, as written, for the owner's landing decision.                          |
+| Option                    | Description                                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`               | Show which checks, jobs, and scope gates would run, without running them. It still needs a committed tree.                                                                                                          |
+| `--policy-changes <mode>` | With `--ci`, `--standalone` and `--policy-base`: `fail` (the default) stops on a standard that loosened, was redefined, or was deleted since that base. `report` names it, keeps measuring, and needs a clean tree. |
+| `--policy-base <ref>`     | For a CI report, with `--ci` and `--standalone`: judge the change against the settings in this fetched commit instead of the trunk's current tip.                                                                   |
+| `--standalone`            | Run every check for feedback, even with uncommitted changes. discern records no Proof and no results it can reuse.                                                                                                  |
+| `--rerun`                 | Run the checks again even when current passing Proof covers this commit, or retry a failure on unchanged code. discern records the rerun, and the newest result wins.                                               |
+| `--ci`                    | For continuous integration: run the checks and list any checkpoint questions, without waiting for or recording answers. Its Proof can't be used to land.                                                            |
+| `--met <id>`              | Answer a checkpoint question as met, as your recorded judgment (repeatable). It applies only to a question this worktree is waiting on. Once every waiting question has an answer, the checks run in the same call. |
+| `--unmet <id>`            | Answer one checkpoint question as unmet, with `--why`. The checks still run, but landing then needs the owner to approve a variance.                                                                                |
+| `--why <rationale>`       | Why the question isn't met, for `--unmet`: one paragraph of 1–500 characters, without line breaks or control characters. The Proof keeps it, as written, for the owner's landing decision.                          |
 
 ### `discern test`
 
