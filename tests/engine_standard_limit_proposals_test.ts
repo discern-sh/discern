@@ -53,6 +53,11 @@ const SOURCES_RUN =
   "printf x >> $(git rev-parse --git-common-dir)/proposal-target-runs; " +
   "count=$(git ls-files 'src/**' | wc -l); echo DISCERN_METRIC sources $count";
 
+/** A `sources` reading taken from `git config test.metric`, so a test can
+ * move the reading without moving the commit. */
+const CONFIGURED_METRIC_RUN =
+  "echo DISCERN_METRIC sources $(git config --get test.metric)";
+
 const BATCH_RUN =
   "printf x >> $(git rev-parse --git-common-dir)/proposal-batch-runs; " +
   "sources=$(git ls-files 'src/**' | wc -l); " +
@@ -1071,21 +1076,8 @@ Deno.test("an unproposed simultaneous breach remains an ordinary failure", async
 
 Deno.test("a changed fresh measurement stales a proposal", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      proposalConfig(
-        "echo DISCERN_METRIC sources $(git config --get test.metric)",
-      ),
-    );
-    await Deno.mkdir(join(dir, "src"), { recursive: true });
-    await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
-    await gitInit(dir);
+    const worktree = await proposalWorktree(dir, CONFIGURED_METRIC_RUN);
     await git(dir, "config", "test.metric", "2");
-    const worktree = await addWorktree(dir, "changed-measurement");
-    await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
-    await git(worktree, "add", "src/feature.ts");
-    await git(worktree, "commit", "-m", "Add feature source");
     assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
     const proposed = await propose(
       worktree,
@@ -1237,22 +1229,8 @@ Deno.test("a proposal keeps the standard's margin as headroom through renewal, P
 
 Deno.test("a reading that moves inside a proposal's headroom still stales the proposal", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      proposalConfig(
-        "echo DISCERN_METRIC sources $(git config --get test.metric)",
-        3,
-      ),
-    );
-    await Deno.mkdir(join(dir, "src"), { recursive: true });
-    await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
-    await gitInit(dir);
+    const worktree = await proposalWorktree(dir, CONFIGURED_METRIC_RUN, 3);
     await git(dir, "config", "test.metric", "2");
-    const worktree = await addWorktree(dir, "moved-inside-headroom");
-    await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
-    await git(worktree, "add", "src/feature.ts");
-    await git(worktree, "commit", "-m", "Add feature source");
     const reason = "The initial measured value is two.";
     const proposed = await propose(worktree, reason);
     assertEquals(proposed.code, 0, proposed.output);
