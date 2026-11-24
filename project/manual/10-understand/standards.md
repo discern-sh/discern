@@ -40,7 +40,7 @@ Your agent **pins** the standard with `discern standards --pin`, which tightens 
 | Add a small feature.  | 960 kB        | 1,000 kB | Fits.                              |
 | Add a larger feature. | 1,040 kB      | 1,000 kB | Fails, and the agent investigates. |
 
-The margin only places a new limit, so 1,040 kB still breaks the 1,000 kB ceiling. Once the pin lands, every later task has to meet the new limit.
+The margin applies only when a limit is set, so 1,040 kB still breaks the 1,000 kB ceiling. Once the pin lands, every later task has to meet the new limit.
 
 ## When a feature needs more room
 
