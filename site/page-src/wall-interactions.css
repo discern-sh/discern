@@ -14,41 +14,117 @@
 
 @layer discern.components {
   /* The lens: one row of toggle chips, never two. Where the row fits it sits
-   * centered. Where it does not, it is a strip that scrolls sideways, from
-   * edge to edge of the room: it fades at both ends, and a chip cut by the
-   * far fade says there is more. Choosing a chip brings it to the middle.
+   * centered. Where it does not, its strip scrolls sideways, from edge to
+   * edge of the room. A side with more past it fades, and a chip cut by the
+   * fade says there is more. A side with nothing past it does not fade. The
+   * active chip comes to the middle.
    *
-   * The strip is as wide as the screen whatever its container's width, and
-   * its own padding puts the first chip back in line with the cards and
-   * leaves the focus ring room. */
+   * The group keeps the bar's width and holds the strip, the step controls,
+   * and the status. The strip is as wide as the screen whatever the group's
+   * width, and its own padding puts the first chip back in line with the
+   * cards and leaves the focus ring room. Its scroll padding is the width of
+   * its fade: a chip inside it is fully in view. */
   .wall-lens {
-    display: flex;
+    position: relative;
     flex: none;
+    inline-size: 100%;
+  }
+
+  .wall-lens-strip {
+    --wall-lens-fade: 1rem;
+    --wall-lens-fade-start: 0px;
+    --wall-lens-fade-end: 0px;
+
+    display: flex;
     gap: 0.5rem;
     inline-size: 100vw;
     margin: -0.5rem calc(50% - 50vw);
     padding: 0.5rem calc(50vw - 50%);
     overflow-x: auto;
     overscroll-behavior-x: contain;
-    scroll-padding-inline: calc(50vw - 50%);
+    scroll-padding-inline: var(--wall-lens-fade);
     scrollbar-width: none;
+  }
+
+  .wall-lens-strip[data-more-start] {
+    --wall-lens-fade-start: var(--wall-lens-fade);
+  }
+
+  .wall-lens-strip[data-more-end] {
+    --wall-lens-fade-end: var(--wall-lens-fade);
+  }
+
+  .wall-lens-strip[data-more-start],
+  .wall-lens-strip[data-more-end] {
     mask-image: linear-gradient(
       90deg,
       transparent,
-      oklch(0% 0 0) 1rem,
-      oklch(0% 0 0) calc(100% - 1rem),
+      oklch(0% 0 0) var(--wall-lens-fade-start),
+      oklch(0% 0 0) calc(100% - var(--wall-lens-fade-end)),
       transparent
     );
   }
 
-  .wall-lens::-webkit-scrollbar {
+  .wall-lens-strip::-webkit-scrollbar {
     display: none;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .wall-lens {
+    .wall-lens-strip {
       scroll-behavior: smooth;
     }
+  }
+
+  /* A pointer steps the strip with a control at each side that has more past
+   * it, set in line with the cards' edge, over the strip's fade. The fade
+   * reaches past the control, so no chip shows beside it. The controls take
+   * no room in the row, and appear without moving a chip. A touch screen
+   * swipes the strip and gets none. */
+  .wall-lens-step {
+    display: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .wall-lens-strip {
+      --wall-lens-fade: calc(var(--wall-gutter) + 3rem);
+    }
+
+    .wall-lens-step:not([hidden]) {
+      position: absolute;
+      inset-block: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      aspect-ratio: 1;
+      padding: 0;
+    }
+
+    .wall-lens-step[data-side="start"] {
+      inset-inline-start: 0;
+    }
+
+    .wall-lens-step[data-side="end"] {
+      inset-inline-end: 0;
+    }
+  }
+
+  /* The step control's mark: a chevron toward its side, in its own ink. */
+  .wall-lens-step::before {
+    inline-size: 0.4375rem;
+    block-size: 0.4375rem;
+    border-block-start: 1.5px solid currentColor;
+    border-inline-end: 1.5px solid currentColor;
+    content: "";
+  }
+
+  .wall-lens-step[data-side="start"]::before {
+    rotate: -135deg;
+    translate: 0.125rem 0;
+  }
+
+  .wall-lens-step[data-side="end"]::before {
+    rotate: 45deg;
+    translate: -0.125rem 0;
   }
 
   /* The bar arrives whole when the controls come alive, and so does what it
@@ -58,15 +134,17 @@
    * then appear a frame after the one above it. The room's stylesheet stills
    * the bar, and nothing named here has a transition of its own. */
   .wall-lens,
+  .wall-lens-strip,
   .wall-lens-status,
   .wall-chip-hues,
-  .wall-chip::after {
+  .wall-chip::after,
+  .wall-lens-step::before {
     transition: none;
   }
 
   /* Free space goes outside the first and last chip: a row that fits is
    * centered, and a row that does not starts at its first chip. The chips
-   * are the row's only buttons; its status is not drawn. */
+   * are the strip's only children. */
   .wall-chip:first-of-type {
     margin-inline-start: auto;
   }
@@ -76,13 +154,15 @@
   }
 
   /* A chip is a small opaque object, like a card: the wall passes under the
-   * lens bar and must not show through it. The pause control is one too. */
+   * lens bar and must not show through it. The pause control and the step
+   * controls are too, and are drawn only where they have a side to step to,
+   * so they take no display from this rule. */
   .wall-chip,
-  .wall-pause {
+  .wall-pause,
+  .wall-lens-step {
     --wall-chip-surface: var(--wall-face-foot);
 
     position: relative;
-    display: inline-flex;
     flex: none;
     align-items: center;
     gap: 0.5rem;
@@ -104,9 +184,15 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  .wall-chip,
+  .wall-pause {
+    display: inline-flex;
+  }
+
   @media (hover: hover) {
     .wall-chip:hover,
-    .wall-pause:hover {
+    .wall-pause:hover,
+    .wall-lens-step:hover {
       --wall-chip-surface: var(--wall-face-head);
 
       border-color: oklch(100% 0 0 / 0.24);
@@ -115,7 +201,8 @@
   }
 
   .wall-chip:active,
-  .wall-pause:active {
+  .wall-pause:active,
+  .wall-lens-step:active {
     --wall-chip-surface: oklch(23% 0.008 265);
 
     border-color: oklch(100% 0 0 / 0.3);
@@ -188,7 +275,7 @@
   /* A little under the width where the row fits, the chips close up, so the
    * row still fits a common laptop instead of losing its last few pixels. */
   @media (max-width: 82.5rem) {
-    .wall-lens {
+    .wall-lens-strip {
       gap: 0.375rem;
     }
 
@@ -865,6 +952,7 @@
   @media (prefers-contrast: more) {
     .wall-chip,
     .wall-pause,
+    .wall-lens-step,
     .wall-open-close,
     .wall-rest {
       border-color: oklch(100% 0 0 / 0.5);

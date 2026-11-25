@@ -15,11 +15,16 @@ import {
 import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
 import { type LinkLabels, linkRoute } from "../site/wall/host.ts";
 import {
+  centeredScroll,
   Lens,
   LENS_REST,
   lensGroups,
   lensRecedes,
   lensStatus,
+  type RowStretch,
+  steppedScroll,
+  stripEdges,
+  type StripView,
 } from "../site/wall/Lens.tsx";
 import { OpenCard } from "../site/wall/OpenCard.tsx";
 import type { WallCard, WallLens } from "../site/wall/types.ts";
@@ -384,8 +389,20 @@ Deno.test("the lens is one pressed chip among toggles, each keyed to its cluster
     assertEquals(group.getAttribute("role"), "group");
     assert((group.getAttribute("aria-label") ?? "").length > 0);
 
+    const strip = group.querySelector(".wall-lens-strip");
+    assert(strip !== null);
     const chips = [...group.querySelectorAll("button.wall-chip")];
     assertEquals(chips.length, WALL_LENSES.length + 1);
+    assertEquals(
+      [...strip.children],
+      chips,
+      "the strip holds the chips, and nothing else",
+    );
+    assertEquals(
+      strip.getAttributeNames().filter((name) => name.startsWith("data-")),
+      [],
+      "the server's strip fades at neither side, as the browser's first render",
+    );
 
     // The status is a live region inside the group. It is there with no
     // lens, empty, so assistive technology hears the first lens fill it.
@@ -397,12 +414,25 @@ Deno.test("the lens is one pressed chip among toggles, each keyed to its cluster
       null,
       "assistive technology can read the status",
     );
+    // A step control is a pointer's way along the strip. The server draws
+    // none, since only the browser can measure a side with more past it.
+    const steps = [...group.querySelectorAll("button.wall-lens-step")];
+    assertEquals(
+      steps.map((control) => control.getAttribute("data-side")),
+      ["start", "end"],
+    );
+    for (const control of steps) {
+      assertEquals(control.getAttribute("type"), "button");
+      assert((control.getAttribute("aria-label") ?? "").length > 0);
+      assertEquals(control.getAttribute("tabindex"), "-1");
+      assert(control.hasAttribute("hidden"), "no step before measurement");
+    }
     assertEquals(
       [...group.children].filter((child) =>
-        !chips.includes(child) && !regions.includes(child)
+        child !== strip && !steps.includes(child) && !regions.includes(child)
       ),
       [],
-      "the group holds chips and its status, and nothing else",
+      "the group holds the strip, its step controls, and its status, and nothing else",
     );
     assertEquals(
       chips.map((chip) => chip.getAttribute("data-lens")),
@@ -432,6 +462,155 @@ Deno.test("the lens is one pressed chip among toggles, each keyed to its cluster
           "a hue dot is decoration",
         );
       }
+    }
+  }
+});
+
+/** A row of chips of these widths, laid out as the strip lays them. */
+function chipRow(
+  widths: readonly number[],
+  { gap = 6, inset = 16 } = {},
+): { chips: RowStretch[]; extent: number } {
+  const chips: RowStretch[] = [];
+  let at = inset;
+  for (const width of widths) {
+    chips.push({ start: at, end: at + width });
+    at += width + gap;
+  }
+  return { chips, extent: at - gap + inset };
+}
+
+/** Chip widths like the lens bar's: "Everything", then seven lenses. */
+const ROW_WIDTHS = [96, 128, 116, 150, 132, 138, 120, 140];
+
+/** Whether a chip lies wholly in the part of the strip no fade covers. */
+function unfaded(view: StripView, chip: RowStretch): boolean {
+  const edges = stripEdges(view);
+  return chip.start >= view.scroll + (edges.start ? view.clear : 0) - 0.5 &&
+    chip.end <= view.scroll + view.client - (edges.end ? view.clear : 0) + 0.5;
+}
+
+Deno.test("the strip fades only at a side with more past it", () => {
+  const view = { client: 400, extent: 1000, clear: 64 };
+  assertEquals(stripEdges({ ...view, scroll: 0 }), {
+    start: false,
+    end: true,
+  });
+  assertEquals(stripEdges({ ...view, scroll: 300 }), {
+    start: true,
+    end: true,
+  });
+  assertEquals(stripEdges({ ...view, scroll: 600 }), {
+    start: true,
+    end: false,
+  });
+  assertEquals(
+    stripEdges({ ...view, scroll: 599.5 }),
+    { start: true, end: false },
+    "a scroll that stops a fraction short of the end is at the end",
+  );
+  assertEquals(
+    stripEdges({ ...view, scroll: 0, extent: 400 }),
+    { start: false, end: false },
+    "a row that fits fades nowhere",
+  );
+});
+
+Deno.test("an active chip comes wholly into view, wherever the strip stood and however wide it is", () => {
+  const { chips, extent } = chipRow(ROW_WIDTHS);
+  for (const client of [320, 375, 600, 900, 1024, extent]) {
+    for (const clear of [16, 64]) {
+      for (const from of [0, (extent - client) / 2, extent - client]) {
+        for (const chip of chips) {
+          const view = { client, extent, clear, scroll: Math.max(from, 0) };
+          const scroll = centeredScroll(view, chip);
+          assert(scroll >= 0 && scroll <= Math.max(extent - client, 0));
+          assert(
+            unfaded({ ...view, scroll }, chip),
+            `chip at ${chip.start} is clear at ${client}px with a ${clear}px fade`,
+          );
+        }
+      }
+    }
+  }
+});
+
+Deno.test("a chip wider than the strip's clear span shows from its start", () => {
+  const { chips, extent } = chipRow([80, 500, 80]);
+  const wide = chips[1];
+  assert(wide !== undefined);
+  const view = { client: 400, extent, clear: 64, scroll: 0 };
+  assertEquals(centeredScroll(view, wide), wide.start - 64);
+});
+
+Deno.test("each step reaches the chip a side cut, and steps reach every chip from either end", () => {
+  const { chips, extent } = chipRow(ROW_WIDTHS);
+  for (const client of [320, 375, 600, 1024]) {
+    for (const clear of [16, 64]) {
+      const max = extent - client;
+      for (const side of ["end", "start"] as const) {
+        let view: StripView = {
+          client,
+          extent,
+          clear,
+          scroll: side === "end" ? 0 : max,
+        };
+        const seen = new Set<RowStretch>();
+        for (let steps = 0; stripEdges(view)[side]; steps++) {
+          assert(steps < chips.length, `stepping ${side} at ${client}px ends`);
+          for (const chip of chips) if (unfaded(view, chip)) seen.add(chip);
+          const scroll = steppedScroll(view, chips, side);
+          assert(
+            side === "end" ? scroll > view.scroll : scroll < view.scroll,
+            `a step ${side} moves the strip at ${client}px`,
+          );
+          view = { ...view, scroll };
+        }
+        for (const chip of chips) if (unfaded(view, chip)) seen.add(chip);
+        assertEquals(
+          seen.size,
+          chips.length,
+          `stepping ${side} at ${client}px with a ${clear}px fade shows every chip`,
+        );
+      }
+    }
+  }
+});
+
+Deno.test("a step past a chip wider than the clear span still moves the strip", () => {
+  const { chips, extent } = chipRow([80, 900, 80]);
+  const view = { client: 400, extent, clear: 64 };
+  const forward = steppedScroll({ ...view, scroll: 50 }, chips, "end");
+  assert(forward > 50);
+  const back = steppedScroll({ ...view, scroll: 600 }, chips, "start");
+  assert(back < 600);
+});
+
+Deno.test("the strip fades, and a step control shows, only once the browser has found more past that side", async () => {
+  const rules = styleRules(await readWallSheet("wall-interactions.css"));
+  const fades = rules.filter((rule) =>
+    rule.declarations.some(([property]) => property === "mask-image") &&
+    rule.selectors.some((selector) => selector.includes("wall-lens-strip"))
+  );
+  assert(fades.length > 0, "the strip has a fade");
+  for (const rule of fades) {
+    assert(
+      rule.selectors.every((selector) =>
+        /\[data-more-(start|end)\]/.test(selector)
+      ),
+      `a fade needs a measured side: ${rule.prelude}`,
+    );
+  }
+  for (const rule of rules) {
+    const shows = rule.declarations.some(([property, value]) =>
+      property === "display" && value !== "none"
+    );
+    for (const selector of rule.selectors) {
+      if (!shows || !selector.includes(".wall-lens-step")) continue;
+      assert(
+        selector.includes(":not([hidden])"),
+        `a step control is drawn only while it has a side to step to: ${selector}`,
+      );
     }
   }
 });

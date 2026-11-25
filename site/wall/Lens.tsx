@@ -15,6 +15,7 @@ import {
   beginTransition,
   deliverClick,
   transitionEnded,
+  transitionRunning,
   useClickSequence,
 } from "./use_open_card.ts";
 
@@ -189,21 +190,123 @@ export function useLens(lenses: readonly WallLens[]): LensState {
   };
 }
 
+/** A stretch of the chip row along its line, in pixels from the row's start. */
+export interface RowStretch {
+  readonly start: number;
+  readonly end: number;
+}
+
+/** Where the chip row's strip stands, in pixels. */
+export interface StripView {
+  /** How far the strip has scrolled from the row's start. */
+  readonly scroll: number;
+  /** How much of the row the strip shows at once. */
+  readonly client: number;
+  /** How long the whole row is. */
+  readonly extent: number;
+  /**
+   * How far in from each side of the strip a chip is clear of its fade. A
+   * chip inside that is fully in view.
+   */
+  readonly clear: number;
+}
+
+/** Which sides of the strip have more of the row past them. */
+export interface StripEdges {
+  readonly start: boolean;
+  readonly end: boolean;
+}
+
+/** A scroll the strip can reach: from the row's start to its end. */
+function withinStrip(view: StripView, scroll: number): number {
+  return Math.min(Math.max(scroll, 0), Math.max(view.extent - view.client, 0));
+}
+
 /**
- * Bring a chip to the middle of the strip it scrolls in. Where the chips do
- * not fit one row they are a strip wider than the screen, and a chip at its
- * edge would otherwise stay half out of view. Only the strip scrolls, never
- * the page, and a strip that fits does not scroll at all.
+ * Which sides of the strip have more to scroll to. A strip less than a pixel
+ * from its end counts as at its end: a scroll can stop a fraction short.
  */
-function centerChip(chip: HTMLElement): void {
-  const strip = chip.parentElement;
-  if (strip === null || strip.scrollWidth <= strip.clientWidth) return;
-  const chipBox = chip.getBoundingClientRect();
-  const stripBox = strip.getBoundingClientRect();
-  strip.scrollTo({
-    left: strip.scrollLeft + chipBox.left - stripBox.left -
-      (stripBox.width - chipBox.width) / 2,
-  });
+export function stripEdges(view: StripView): StripEdges {
+  return {
+    start: view.scroll >= 1,
+    end: view.scroll + view.client <= view.extent - 1,
+  };
+}
+
+/**
+ * The scroll that brings a chip to the middle of the strip. A chip wider than
+ * the strip's clear span lines its start up with that span's start instead,
+ * so it is shown as fully as it can be.
+ */
+export function centeredScroll(view: StripView, chip: RowStretch): number {
+  const span = view.client - 2 * view.clear;
+  const target = chip.end - chip.start > span
+    ? chip.start - view.clear
+    : (chip.start + chip.end - view.client) / 2;
+  return withinStrip(view, target);
+}
+
+/**
+ * The scroll one step toward a side brings. The first chip that side cuts
+ * comes to the opposite side of the clear span, so each step shows a fresh
+ * run of chips and the chip that was cut is whole. A chip wider than the
+ * clear span shows its far end instead, so a step always moves the strip.
+ */
+export function steppedScroll(
+  view: StripView,
+  chips: readonly RowStretch[],
+  side: keyof StripEdges,
+): number {
+  const clearStart = view.scroll + view.clear;
+  const clearEnd = view.scroll + view.client - view.clear;
+  if (side === "end") {
+    const cut = chips.find((chip) => chip.end > clearEnd + 1);
+    if (cut === undefined) return withinStrip(view, view.extent);
+    const leading = cut.start - view.clear;
+    return withinStrip(
+      view,
+      leading > view.scroll ? leading : cut.end - view.client + view.clear,
+    );
+  }
+  const cut = chips.findLast((chip) => chip.start < clearStart - 1);
+  if (cut === undefined) return 0;
+  const trailing = cut.end - view.client + view.clear;
+  return withinStrip(
+    view,
+    trailing < view.scroll ? trailing : cut.start - view.clear,
+  );
+}
+
+/** Where a strip stands now. Its scroll padding is the width of its fade. */
+function viewOf(strip: HTMLElement): StripView {
+  return {
+    scroll: strip.scrollLeft,
+    client: strip.clientWidth,
+    extent: strip.scrollWidth,
+    clear: parseFloat(getComputedStyle(strip).scrollPaddingInlineStart) || 0,
+  };
+}
+
+/** Where a chip lies along its strip's row. */
+function stretchOf(strip: HTMLElement, chip: Element): RowStretch {
+  const box = chip.getBoundingClientRect();
+  const from = strip.getBoundingClientRect().left - strip.scrollLeft;
+  return { start: box.left - from, end: box.right - from };
+}
+
+/**
+ * Scroll the strip alone, never the page. While a cross-fade shows a change,
+ * the strip jumps, so the fade's new picture already shows it where it ends.
+ * Otherwise the stylesheet decides: a glide, or a jump under reduced motion.
+ */
+function scrollStrip(strip: HTMLElement, left: number): void {
+  if (Math.abs(left - strip.scrollLeft) < 1) return;
+  strip.scrollTo({ left, behavior: transitionRunning() ? "instant" : "auto" });
+}
+
+/** Bring a chip to the middle of its strip. */
+function centerChip(strip: HTMLElement, chip: Element): void {
+  scrollStrip(strip, centeredScroll(viewOf(strip), stretchOf(strip, chip)));
 }
 
 /**
@@ -212,19 +315,38 @@ function centerChip(chip: HTMLElement): void {
  * so a chip focused by pointer stays put until it is chosen.
  */
 function centerOnKeyboardFocus(event: FocusEvent<HTMLButtonElement>): void {
-  if (event.currentTarget.matches(":focus-visible")) {
-    centerChip(event.currentTarget);
-  }
+  const chip = event.currentTarget;
+  const strip = chip.parentElement;
+  if (strip !== null && chip.matches(":focus-visible")) centerChip(strip, chip);
 }
+
+/** No edge has more to show: how the strip renders before it is measured. */
+const NO_EDGES: StripEdges = { start: false, end: false };
+
+/** The words that name each step control. */
+const STEP_NAMES: Readonly<Record<keyof StripEdges, string>> = {
+  start: "Scroll back through the lenses",
+  end: "Scroll on through the lenses",
+};
 
 /**
  * One chip per lens after "Everything", and the lens's status. Each chip is a
  * toggle button whose `aria-pressed` states whether its lens is the active
  * one; choosing a chip only reports the choice through `onSelect`. A lens chip
  * carries one dot per cluster it gathers, in that cluster's hue, so the chips
- * read as a key to the colors on the wall. A chip that is chosen, or reached
- * by keyboard, comes to the middle of the row when the row is too long to
- * show whole.
+ * read as a key to the colors on the wall.
+ *
+ * Where the row is too long to show whole, its strip scrolls sideways. The
+ * active chip, however it became active, and a chip the keyboard reaches come
+ * to the middle of the strip. A side with more past it fades, and carries a
+ * step control for a pointer, which has no other way to scroll a strip whose
+ * scrollbar is not drawn. The edges are measured once the page is live and
+ * whenever the strip scrolls or changes size, so the server's markup and the
+ * browser's first render agree: neither fades nor steps.
+ *
+ * The step controls are for the pointer alone. The keyboard reaches every
+ * chip by moving the focus, so they are out of the tab order, and a press on
+ * one leaves the focus where it was.
  *
  * The status is a live region that is never drawn. It is in the server's
  * markup, empty, so assistive technology is already listening when a lens
@@ -233,49 +355,100 @@ function centerOnKeyboardFocus(event: FocusEvent<HTMLButtonElement>): void {
 export function Lens(
   { lenses, active, status, onSelect }: LensProps,
 ): ReactElement {
+  const strip = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState<StripEdges>(NO_EDGES);
+
+  const measure = (): void => {
+    if (strip.current === null) return;
+    const next = stripEdges(viewOf(strip.current));
+    setEdges((was) =>
+      was.start === next.start && was.end === next.end ? was : next
+    );
+  };
+
+  useEffect(() => {
+    const row = strip.current;
+    if (row === null) return;
+    measure();
+    const resized = new ResizeObserver(measure);
+    resized.observe(row);
+    for (const chip of row.children) resized.observe(chip);
+    return () => resized.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const row = strip.current;
+    const chip = row?.querySelector('[aria-pressed="true"]');
+    if (row && chip) centerChip(row, chip);
+  }, [active]);
+
+  const step = (side: keyof StripEdges): void => {
+    const row = strip.current;
+    if (row === null) return;
+    const chips = [...row.children].map((chip) => stretchOf(row, chip));
+    scrollStrip(row, steppedScroll(viewOf(row), chips, side));
+  };
+
+  const stepControl = (side: keyof StripEdges): ReactElement => (
+    <button
+      type="button"
+      className="wall-lens-step"
+      data-side={side}
+      aria-label={STEP_NAMES[side]}
+      tabIndex={-1}
+      hidden={!edges[side]}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => step(side)}
+    />
+  );
+
   return (
     <div
       className="wall-lens"
       role="group"
       aria-label="Show the cards that matter to you"
     >
-      <button
-        type="button"
-        className="wall-chip"
-        aria-pressed={active === null}
-        onFocus={centerOnKeyboardFocus}
-        onClick={(event) => {
-          centerChip(event.currentTarget);
-          onSelect(null);
-        }}
+      <div
+        ref={strip}
+        className="wall-lens-strip"
+        data-more-start={edges.start ? "" : undefined}
+        data-more-end={edges.end ? "" : undefined}
+        onScroll={measure}
       >
-        Everything
-      </button>
-      {lenses.map((lens) => (
         <button
-          key={lens.id}
           type="button"
           className="wall-chip"
-          data-lens={lens.id}
-          aria-pressed={active === lens.id}
+          aria-pressed={active === null}
           onFocus={centerOnKeyboardFocus}
-          onClick={(event) => {
-            centerChip(event.currentTarget);
-            onSelect(lens.id);
-          }}
+          onClick={() => onSelect(null)}
         >
-          <span className="wall-chip-hues" aria-hidden="true">
-            {lens.clusters.map((cluster) => (
-              <span
-                key={cluster}
-                className="wall-chip-hue"
-                style={clusterHueStyle(cluster)}
-              />
-            ))}
-          </span>
-          {lens.label}
+          Everything
         </button>
-      ))}
+        {lenses.map((lens) => (
+          <button
+            key={lens.id}
+            type="button"
+            className="wall-chip"
+            data-lens={lens.id}
+            aria-pressed={active === lens.id}
+            onFocus={centerOnKeyboardFocus}
+            onClick={() => onSelect(lens.id)}
+          >
+            <span className="wall-chip-hues" aria-hidden="true">
+              {lens.clusters.map((cluster) => (
+                <span
+                  key={cluster}
+                  className="wall-chip-hue"
+                  style={clusterHueStyle(cluster)}
+                />
+              ))}
+            </span>
+            {lens.label}
+          </button>
+        ))}
+      </div>
+      {stepControl("start")}
+      {stepControl("end")}
       <p className="wall-lens-status" role="status">{status}</p>
     </div>
   );
