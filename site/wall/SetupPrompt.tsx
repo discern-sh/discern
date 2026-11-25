@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 import {
-  type Scheduler,
   SYSTEM_SCHEDULER,
   type TimeoutHandle,
 } from "../../src/shared/scheduler.ts";
@@ -71,13 +70,10 @@ export interface SetupPromptState extends Copy {
  * browser does so outside a secure page, without the visitor's leave, or by
  * having no clipboard at all. One that never answers counts as refusing.
  */
-async function writeToClipboard(
-  text: string,
-  scheduler: Scheduler,
-): Promise<void> {
+async function writeToClipboard(text: string): Promise<void> {
   let watchdog: TimeoutHandle | undefined;
   const unanswered = new Promise<never>((_, refuse) => {
-    watchdog = scheduler.scheduleTimeout(
+    watchdog = SYSTEM_SCHEDULER.scheduleTimeout(
       () => refuse(new Error("the clipboard did not answer")),
       CLIPBOARD_WAIT_MS,
     );
@@ -85,7 +81,7 @@ async function writeToClipboard(
   try {
     await Promise.race([navigator.clipboard.writeText(text), unanswered]);
   } finally {
-    if (watchdog !== undefined) scheduler.cancelTimeout(watchdog);
+    if (watchdog !== undefined) SYSTEM_SCHEDULER.cancelTimeout(watchdog);
   }
 }
 
@@ -117,20 +113,20 @@ function selectPrompt(): void {
  * copy. Each request clears the last outcome first, so the status line speaks
  * again when the same outcome follows itself.
  */
-export function useSetupPrompt(
-  scheduler: Scheduler = SYSTEM_SCHEDULER,
-): SetupPromptState {
+export function useSetupPrompt(): SetupPromptState {
   const [last, setLast] = useState<Copy>(NO_COPY);
   const settling = useRef<TimeoutHandle | null>(null);
   const request = useRef(0);
 
   useEffect(() => () => {
-    if (settling.current !== null) scheduler.cancelTimeout(settling.current);
-  }, [scheduler]);
+    if (settling.current !== null) {
+      SYSTEM_SCHEDULER.cancelTimeout(settling.current);
+    }
+  }, []);
 
   const copied = (control: CopyControl): void => {
     setLast({ outcome: "copied", copiedBy: control });
-    settling.current = scheduler.scheduleTimeout(() => {
+    settling.current = SYSTEM_SCHEDULER.scheduleTimeout(() => {
       settling.current = null;
       setLast(NO_COPY);
     }, COPIED_HOLD_MS);
@@ -141,12 +137,14 @@ export function useSetupPrompt(
   };
   const copy = (control: CopyControl): Promise<void> => {
     const mine = ++request.current;
-    if (settling.current !== null) scheduler.cancelTimeout(settling.current);
+    if (settling.current !== null) {
+      SYSTEM_SCHEDULER.cancelTimeout(settling.current);
+    }
     settling.current = null;
     setLast(NO_COPY);
     // A later request has the page by the time an earlier one settles, and
     // says how it went itself.
-    return writeToClipboard(SETUP_PROMPT, scheduler).then(
+    return writeToClipboard(SETUP_PROMPT).then(
       () => {
         if (mine === request.current) copied(control);
       },

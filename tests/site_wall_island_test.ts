@@ -316,7 +316,7 @@ Deno.test("the setup prompt has one source, and the homepage shows its words onc
     ROOT,
     await structuralGuardScope({
       guard: "tests/site_wall_island_test.ts#setup-prompt-source",
-      universe: "authored-ts",
+      universe: "authored-deno",
     }),
   )).filter(({ source }) =>
     sentences.some((sentence) => source.includes(sentence))

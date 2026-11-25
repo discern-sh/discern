@@ -141,6 +141,26 @@ Deno.test("the island hydrates the page and lenses regroup cards without losing 
         .textContent() ?? "").includes(lens.label),
     );
     await chooseLens(page);
+    // A script's click scrolls nothing itself, so only the strip's own
+    // reveal can bring a chip past the strip's end into view.
+    const last = WALL_LENSES.at(-1);
+    assert(last !== undefined);
+    const chip = page.getByRole("button", { name: last.label, exact: true });
+    await chip.evaluate((button) => (button as HTMLElement).click());
+    await eventually(
+      page,
+      () =>
+        chip.evaluate((button) => {
+          const strip = button.closest(".wall-lens-strip");
+          if (strip === null) return false;
+          const shown = strip.getBoundingClientRect();
+          const box = button.getBoundingClientRect();
+          return button.getAttribute("aria-pressed") === "true" &&
+            box.left >= shown.left && box.right <= shown.right;
+        }),
+      `${size.name}: the strip brings a chosen chip wholly into view`,
+    );
+    await chooseLens(page);
     assertEquals(faults, [], size.name);
   });
 });
@@ -331,6 +351,11 @@ Deno.test("a refused copy selects the prompt for the visitor, says so, and raise
     },
     "no clipboard at all": (): void => {
       Object.defineProperty(navigator, "clipboard", { value: undefined });
+    },
+    "a clipboard that never answers": (): void => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: () => new Promise<void>(() => {}) },
+      });
     },
   };
   for (const [refusal, refuse] of Object.entries(refusals)) {
