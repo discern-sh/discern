@@ -2,7 +2,13 @@
  * The setup prompt: the instruction a visitor hands their coding agent, the
  * control that copies it, and the status line that says how a copy went.
  */
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   type Scheduler,
   SYSTEM_SCHEDULER,
@@ -92,7 +98,10 @@ function selectPrompt(): void {
   const words = document.getElementById(SETUP_PROMPT_ID);
   if (words === null) return;
   words.focus({ preventScroll: true });
-  words.scrollIntoView({ block: "center", behavior: "instant" });
+  const box = words.getBoundingClientRect();
+  if (box.top < 0 || box.bottom > globalThis.innerHeight) {
+    words.scrollIntoView({ block: "center", behavior: "instant" });
+  }
   const selection = globalThis.getSelection();
   if (selection === null) return;
   const range = document.createRange();
@@ -150,40 +159,45 @@ export function useSetupPrompt(
   return { ...last, copy };
 }
 
-/** Two sheets of paper, one over the other: the mark of a copy. */
-function CopyMark(): ReactElement {
+/** A small line drawing beside a control's words, in the words' own ink. */
+function Mark(
+  { weight, children }: {
+    readonly weight: string;
+    readonly children: ReactNode;
+  },
+): ReactElement {
   return (
     <svg
       className="wall-copy-mark"
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      strokeWidth={weight}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
+      {children}
+    </svg>
+  );
+}
+
+/** Two sheets of paper, one over the other: the mark of a copy. */
+function CopyMark(): ReactElement {
+  return (
+    <Mark weight="1.5">
       <rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1.5" />
       <path d="M10.25 5.75v-1.5a1.5 1.5 0 0 0-1.5-1.5h-4.5a1.5 1.5 0 0 0-1.5 1.5v4.5a1.5 1.5 0 0 0 1.5 1.5h1.5" />
-    </svg>
+    </Mark>
   );
 }
 
 /** A tick: the mark of a copy that worked. */
 function CopiedMark(): ReactElement {
   return (
-    <svg
-      className="wall-copy-mark"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <Mark weight="1.75">
       <path d="M3.25 8.5l3 3 6.5-7" />
-    </svg>
+    </Mark>
   );
 }
 
@@ -220,7 +234,7 @@ export function CopyPrompt(
       </span>
       {copied
         ? (
-          <span className="wall-copy-words wall-copy-done">
+          <span className="wall-copy-words">
             <CopiedMark />
             {COPIED_LABEL}
           </span>

@@ -364,11 +364,6 @@
     transition: color 0.2s, background-color 0.2s, border-color 0.2s;
   }
 
-  .wall-cta:hover,
-  .wall-copy:hover {
-    background: oklch(100% 0 0);
-  }
-
   /* A section's second action is quiet: an outline on the room's own dark,
    * in the room's ink. */
   .wall-quiet {
@@ -379,11 +374,26 @@
     box-shadow: none;
   }
 
-  .wall-quiet:hover,
   .wall-quiet[data-copied] {
     border-color: oklch(100% 0 0 / 0.3);
     color: var(--wall-ink);
     background: oklch(100% 0 0 / 0.08);
+  }
+
+  /* A touch screen keeps a tapped control's hover look until the next tap
+   * elsewhere, and a quiet control's hover look is the one it wears while it
+   * says that it copied. Only a pointer that can hover gets either. */
+  @media (hover: hover) {
+    .wall-cta:hover,
+    .wall-copy:hover {
+      background: oklch(100% 0 0);
+    }
+
+    .wall-quiet:hover {
+      border-color: oklch(100% 0 0 / 0.3);
+      color: var(--wall-ink);
+      background: oklch(100% 0 0 / 0.08);
+    }
   }
 
   /* A copy control keeps the width of its label while it says that it
@@ -420,6 +430,15 @@
    * action is centered alone. */
   .wall:not([data-wall-live]) .wall-copy {
     visibility: hidden;
+  }
+
+  /* What a control holds arrives with it. Under reduced motion the design
+   * system gives every transition a token duration, and a box shown through
+   * its parent's visibility would then appear a frame after the control. */
+  .wall-copy-words,
+  .wall-copy-mark,
+  .wall-copy-mark * {
+    transition: none;
   }
 
   @media (scripting: none) {
@@ -463,6 +482,7 @@
     inline-size: 1.25rem;
     block-size: 1.25rem;
     background: currentcolor;
+    -webkit-mask: var(--wall-agent-mark) center / contain no-repeat;
     mask: var(--wall-agent-mark) center / contain no-repeat;
   }
 
@@ -660,6 +680,7 @@
       var(--wall-face-foot)
     );
     box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.04);
+    -webkit-user-select: all;
     user-select: all;
   }
 

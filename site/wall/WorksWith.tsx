@@ -29,9 +29,7 @@ export function WorksWith(
 ): ReactElement {
   return (
     <div className="wall-agents">
-      <p id={WORKS_WITH_LABEL_ID} className="wall-agents-label">
-        {WORKS_WITH_LABEL}
-      </p>
+      <p id={WORKS_WITH_LABEL_ID}>{WORKS_WITH_LABEL}</p>
       <ul
         className="wall-agents-list"
         role="list"
