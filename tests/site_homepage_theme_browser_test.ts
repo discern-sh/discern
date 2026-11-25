@@ -8,6 +8,7 @@ import { assert, assertEquals } from "@std/assert";
 import type { Page } from "playwright-core";
 import { DOCUMENT_ROUTES } from "../site/routes.ts";
 import { THEME_STORAGE_KEY } from "../site/theme.ts";
+import { SETUP_PROMPT_ID } from "../site/wall/SetupPrompt.tsx";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import {
   motionSettled,
@@ -172,7 +173,7 @@ Deno.test("on paper every word of the homepage is in dark ink", async () => {
     const { page, faults } = await openLiveWall(context);
     await page.emulateMedia({ media: "print" });
     await motionSettled(page);
-    const paper = await page.evaluate(() => {
+    const paper = await page.evaluate((promptId) => {
       const pen = document.createElement("canvas").getContext("2d", {
         willReadFrequently: true,
       });
@@ -219,9 +220,13 @@ Deno.test("on paper every word of the homepage is in dark ink", async () => {
           }`
         ),
         marks,
+        prompt: document.getElementById(promptId)?.getClientRects().length,
+        copyControls: [...document.querySelectorAll(".wall-copy")].map((
+          control,
+        ) => control.getClientRects().length),
         scheme: getComputedStyle(document.documentElement).colorScheme,
       };
-    });
+    }, SETUP_PROMPT_ID);
     assert(paper.worded > 100, "the page goes to paper with its words");
     assertEquals(paper.faint, [], "these words would not read on paper");
     assertEquals(paper.marks.length, AGENT_NAMES.length);
@@ -231,6 +236,12 @@ Deno.test("on paper every word of the homepage is in dark ink", async () => {
       ),
       [],
       "these agents' marks would not show on paper",
+    );
+    assert(paper.prompt, "the setup prompt's words go to paper");
+    assertEquals(
+      paper.copyControls,
+      [0, 0],
+      "a control that copies has no use on paper, so neither is drawn there",
     );
     assertEquals(paper.scheme, "light", "paper takes the light system colors");
     assertEquals(faults, []);

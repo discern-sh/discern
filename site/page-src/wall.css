@@ -1,5 +1,5 @@
 /* The homepage wall: the dark room, the pool, the stage and its approach, and
- * the closing call to action. */
+ * the closing call to action with the setup prompt. */
 
 /* The pointer light's place and how far it has come up, which script writes
  * on the wall root on every frame the light moves. Registered so that they
@@ -231,9 +231,11 @@
     outline-offset: 3px;
   }
 
-  /* Read by assistive technology and never drawn: the lens's status, and
-   * the link past the cards until it holds the focus. */
+  /* Read by assistive technology and never drawn: the lens's status, the
+   * copy controls' status unless a copy was refused, and the link past the
+   * cards until it holds the focus. */
   .wall-lens-status,
+  .wall-copy-status:not([data-refused]),
   .wall-skip:not(:focus) {
     position: absolute;
     inset: 0 auto auto 0;
@@ -314,11 +316,35 @@
     text-wrap: balance;
   }
 
+  /* A section's two actions, centered as a pair. Where the room is too
+   * narrow to hold them side by side, they stack. */
   .wall-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
     margin-block-start: clamp(1.4rem, 3.4vh, 2.1rem);
   }
 
-  .wall-cta {
+  /* A room too narrow for the pair stacks them at one width, the wider
+   * action's, so the two read as one block. */
+  @media (max-width: 30rem) {
+    .wall-actions {
+      display: grid;
+      justify-items: stretch;
+    }
+
+    .wall-cta {
+      justify-content: center;
+    }
+  }
+
+  /* An action is a link into the manual or a control that copies the setup
+   * prompt, and the two share one shape. This is the look of a section's
+   * first action: the one light object in its section. */
+  .wall-cta,
+  .wall-copy {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -335,10 +361,71 @@
     box-shadow:
       0 0 0 1px oklch(100% 0 0 / 0.14),
       0 0.75rem 2.5rem -0.75rem oklch(78% 0.12 258 / 0.55);
+    transition: color 0.2s, background-color 0.2s, border-color 0.2s;
   }
 
-  .wall-cta:hover {
+  .wall-cta:hover,
+  .wall-copy:hover {
     background: oklch(100% 0 0);
+  }
+
+  /* A section's second action is quiet: an outline on the room's own dark,
+   * in the room's ink. */
+  .wall-quiet {
+    border-color: oklch(100% 0 0 / 0.16);
+    font-weight: 500;
+    color: oklch(100% 0 0 / 0.86);
+    background: oklch(100% 0 0 / 0.04);
+    box-shadow: none;
+  }
+
+  .wall-quiet:hover,
+  .wall-quiet[data-copied] {
+    border-color: oklch(100% 0 0 / 0.3);
+    color: var(--wall-ink);
+    background: oklch(100% 0 0 / 0.08);
+  }
+
+  /* A copy control keeps the width of its label while it says that it
+   * copied. Both sets of words lie in its one cell, and the label is hidden,
+   * not removed, so the control's neighbor does not move. */
+  .wall-copy {
+    display: inline-grid;
+    justify-items: center;
+    cursor: pointer;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wall-copy-words {
+    display: inline-flex;
+    grid-area: 1 / 1;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .wall-copy-words[aria-hidden] {
+    visibility: hidden;
+  }
+
+  .wall-copy-mark {
+    flex: none;
+    inline-size: 1rem;
+    block-size: 1rem;
+  }
+
+  /* The copy controls need script. Each keeps its place until the wall is
+   * live, so the action beside it does not move when the control appears. A
+   * browser that runs no script gives the place up as well, and the other
+   * action is centered alone. */
+  .wall:not([data-wall-live]) .wall-copy {
+    visibility: hidden;
+  }
+
+  @media (scripting: none) {
+    .wall-copy {
+      display: none;
+    }
   }
 
   .wall-facts {
@@ -549,6 +636,38 @@
   .wall-closing-line {
     margin-block-start: 1rem;
     font-size: clamp(1rem, 1.2vw, 1.15rem);
+    color: var(--wall-ink-muted);
+  }
+
+  /* The setup prompt's words, on a face of the room like a card's, in the
+   * type a visitor's agent will read them in. One press selects them all,
+   * so they are easy to take by hand where no control can copy them. */
+  .wall-prompt {
+    max-inline-size: 43rem;
+    margin-block-start: clamp(1.5rem, 3.6vh, 2.25rem);
+    padding: 1.1rem 1.4rem;
+    border: 1px solid oklch(100% 0 0 / 0.1);
+    border-radius: 1rem;
+    font-family: var(--discern-font-mono);
+    font-size: 0.875rem;
+    line-height: 1.65;
+    text-align: start;
+    overflow-wrap: anywhere;
+    color: oklch(100% 0 0 / 0.86);
+    background: linear-gradient(
+      180deg,
+      var(--wall-face-head),
+      var(--wall-face-foot)
+    );
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.04);
+    user-select: all;
+  }
+
+  /* A refused copy is the one outcome a control cannot show on its own
+   * face, so the status line is drawn for it, under the actions. */
+  .wall-copy-status[data-refused] {
+    margin-block-start: 1rem;
+    font-size: 0.875rem;
     color: var(--wall-ink-muted);
   }
 
@@ -861,6 +980,12 @@
       --wall-ink-muted: oklch(100% 0 0 / 0.86);
       --wall-ink-faint: oklch(100% 0 0 / 0.8);
     }
+
+    .wall-quiet,
+    .wall-prompt {
+      border-color: oklch(100% 0 0 / 0.45);
+      color: var(--wall-ink);
+    }
   }
 
   /* On paper the page is the room alone, as a plain sheet: dark ink, no
@@ -901,7 +1026,9 @@
     .wall::before,
     .wall::after,
     .wall-skip,
-    .wall-controls {
+    .wall-controls,
+    .wall-copy,
+    .wall-copy-status {
       display: none;
     }
 
@@ -920,7 +1047,8 @@
     }
 
     .wall-eyebrow,
-    .wall-cta {
+    .wall-cta,
+    .wall-prompt {
       border-color: CanvasText;
       color: CanvasText;
       background: none;

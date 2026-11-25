@@ -50,6 +50,7 @@ import {
   WALL_PROPS_ATTRIBUTE,
   type WallPageProps,
 } from "../site/wall/host.ts";
+import { SETUP_PROMPT, SETUP_PROMPT_ID } from "../site/wall/SetupPrompt.tsx";
 import { WALL_KNOBS, wallKnobStyle } from "../site/wall/tuning/knobs.ts";
 import { WallPage } from "../site/wall/WallPage.tsx";
 import { WORKS_WITH_LABEL } from "../site/wall/WorksWith.tsx";
@@ -288,6 +289,39 @@ Deno.test("the pool's row shows exactly the registry's providers, each by name a
     );
     await response.body?.cancel();
   }
+});
+
+Deno.test("the setup prompt has one source, and the homepage shows its words once", async () => {
+  const html = await (await get("/")).text();
+  const dom = new JSDOM(html);
+  const words = dom.window.document.getElementById(SETUP_PROMPT_ID);
+  assertEquals(words?.textContent, SETUP_PROMPT);
+  assert(
+    words?.closest(".wall-closing") !== null,
+    "the closing section shows the prompt, with or without script",
+  );
+  dom.window.close();
+  assertEquals(
+    html.split(SETUP_PROMPT).length - 1,
+    1,
+    "the page carries the prompt's words once: the copy controls take them from the island, not from a second copy in the markup",
+  );
+
+  // Every copy control and every test reads the one constant. A module that
+  // spelled a sentence of the prompt itself would be a second source, free
+  // to drift from what the page shows and copies.
+  const sentences = SETUP_PROMPT.split(/(?<=\.)\s+/);
+  assert(sentences.length > 1 && sentences.every((each) => each.length > 20));
+  const spelled = (await readScopedSources(
+    ROOT,
+    await structuralGuardScope({
+      guard: "tests/site_wall_island_test.ts#setup-prompt-source",
+      universe: "authored-ts",
+    }),
+  )).filter(({ source }) =>
+    sentences.some((sentence) => source.includes(sentence))
+  ).map(({ path }) => path);
+  assertEquals(spelled, ["site/wall/SetupPrompt.tsx"]);
 });
 
 Deno.test("every tuning knob reaches the wall root as its own custom property", async () => {

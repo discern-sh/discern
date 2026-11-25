@@ -10,12 +10,20 @@ import {
 } from "../site/wall/assets.ts";
 import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
 import { lensGroups } from "../site/wall/Lens.tsx";
+import {
+  COPIED_LABEL,
+  COPY_LABEL,
+  COPY_STATUS,
+  SETUP_PROMPT,
+  SETUP_PROMPT_ID,
+} from "../site/wall/SetupPrompt.tsx";
 import { WALL_KNOBS, wallKnobProperty } from "../site/wall/tuning/knobs.ts";
 import type { WallLens } from "../site/wall/types.ts";
 import { MANUAL_START } from "../site/wall/WallPage.tsx";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import {
   atEachViewport,
+  eventually,
   LIVE_WALL,
   motionSettled,
   NEAR_WALL,
@@ -29,6 +37,12 @@ import {
   sheetName,
   withBrowser,
 } from "./site_wall_browser.ts";
+
+/** The element that shows the setup prompt's words. */
+const PROMPT_WORDS = `#${SETUP_PROMPT_ID}`;
+
+/** The copy controls a visitor can see. */
+const SHOWN_COPY_CONTROLS = ".wall-copy:visible";
 
 /** Select a lens and wait for the list's change, independent of transition timing. */
 async function chooseLens(page: Page, lens?: WallLens): Promise<void> {
@@ -76,6 +90,11 @@ Deno.test("without JavaScript the homepage is readable and its links lead to the
       await page.locator(".wall-pool .wall-cta").getAttribute("href"),
       MANUAL_START,
     );
+    // Copying needs script. Without it the page shows no copy control, and
+    // the prompt's words are there to select by hand.
+    assertEquals(await page.locator(SHOWN_COPY_CONTROLS).count(), 0);
+    assert(await page.locator(PROMPT_WORDS).isVisible());
+    assertEquals(await page.locator(PROMPT_WORDS).textContent(), SETUP_PROMPT);
     assertEquals(
       await page.locator(".wall-pool .wall-agent:visible").count(),
       AGENT_NAMES.length,
@@ -107,13 +126,19 @@ Deno.test("the island hydrates the page and lenses regroup cards without losing 
       "hydration adopts the server element",
     );
     await assertUsableWidth(page);
+    assertEquals(
+      await page.locator(SHOWN_COPY_CONTROLS).count(),
+      2,
+      "the live page shows a copy control in the pool and in the closing section",
+    );
     assertEquals(await page.locator(".wall-tune").count(), 0);
     await scrollToWall(page);
     const lens = WALL_LENSES[0];
     assert(lens !== undefined);
     await chooseLens(page, lens);
     assert(
-      (await page.getByRole("status").textContent() ?? "").includes(lens.label),
+      (await page.locator(".wall-controls").getByRole("status")
+        .textContent() ?? "").includes(lens.label),
     );
     await chooseLens(page);
     assertEquals(faults, [], size.name);
@@ -213,6 +238,13 @@ Deno.test("keyboard visitors can skip the cards or open one and return to it", a
     const { page, faults } = await openLiveWall(context);
     await page.locator(".wall-pool .wall-cta").focus();
     await page.keyboard.press("Tab");
+    assert(
+      await page.locator(".wall-pool .wall-copy").evaluate((element) =>
+        element === document.activeElement
+      ),
+      "the pool's copy control follows its link",
+    );
+    await page.keyboard.press("Tab");
     const skip = page.getByRole("link", {
       name: "Skip the cards",
       exact: true,
@@ -243,6 +275,96 @@ Deno.test("keyboard visitors can skip the cards or open one and return to it", a
     await page.locator(NEAR_WALL).waitFor();
     assertEquals(faults, []);
   });
+});
+
+Deno.test("each copy control puts the setup prompt on the clipboard, says so, and returns to its label", async () => {
+  await withBrowser(async (browser) => {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+    });
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const { page, faults } = await openLiveWall(context);
+    const status = page.locator(".wall-copy-status");
+    const labelled = page.getByRole("button", {
+      name: COPY_LABEL,
+      exact: true,
+    });
+    assertEquals(await labelled.count(), 2);
+    for (const section of [".wall-pool", ".wall-closing"]) {
+      await page.evaluate(() => navigator.clipboard.writeText(""));
+      const control = page.locator(`${section} .wall-copy`);
+      const place = await control.boundingBox();
+      await control.click();
+      await page.getByRole("button", { name: COPIED_LABEL, exact: true })
+        .waitFor();
+      assertEquals(
+        await page.evaluate(() => navigator.clipboard.readText()),
+        SETUP_PROMPT,
+        section,
+      );
+      assertEquals(await status.textContent(), COPY_STATUS.copied, section);
+      assertEquals(
+        (await control.boundingBox())?.width,
+        place?.width,
+        `${section}: the control keeps its width while it says that it copied`,
+      );
+      await eventually(
+        page,
+        async () => await labelled.count() === 2,
+        `${section}: the control never returns to its label`,
+      );
+      assertEquals(await status.textContent(), "", section);
+    }
+    assertEquals(faults, []);
+  });
+});
+
+Deno.test("a refused copy selects the prompt for the visitor, says so, and raises no fault", async () => {
+  const refusals = {
+    "a clipboard that refuses": (): void => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: () =>
+            Promise.reject(new DOMException("refused", "NotAllowedError")),
+        },
+      });
+    },
+    "no clipboard at all": (): void => {
+      Object.defineProperty(navigator, "clipboard", { value: undefined });
+    },
+  };
+  for (const [refusal, refuse] of Object.entries(refusals)) {
+    await withBrowser(async (browser) => {
+      const context = await browser.newContext({
+        viewport: { width: 1440, height: 900 },
+      });
+      await context.addInitScript(refuse);
+      const { page, faults } = await openLiveWall(context);
+      // The pool's control is a whole wall away from the prompt's words.
+      await page.locator(".wall-pool .wall-copy").click();
+      await page.getByText(COPY_STATUS.refused, { exact: true }).waitFor();
+      assertEquals(
+        await page.evaluate(() => getSelection()?.toString()),
+        SETUP_PROMPT,
+        `${refusal}: the prompt is selected, ready to copy by hand`,
+      );
+      assert(
+        await page.locator(PROMPT_WORDS).evaluate((words) => {
+          const box = words.getBoundingClientRect();
+          return words === document.activeElement && box.top >= 0 &&
+            box.bottom <= innerHeight;
+        }),
+        `${refusal}: the prompt's words hold the focus, in view`,
+      );
+      assertEquals(
+        await page.getByRole("button", { name: COPY_LABEL, exact: true })
+          .count(),
+        2,
+        `${refusal}: no control says that it copied`,
+      );
+      assertEquals(faults, [], refusal);
+    });
+  }
 });
 
 Deno.test("the requested tuning panel changes a knob and can reset it", async () => {

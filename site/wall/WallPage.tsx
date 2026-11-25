@@ -18,6 +18,12 @@ import type { WallPageProps } from "./host.ts";
 import { Lens, LENS_REST, lensGroups, lensStatus, useLens } from "./Lens.tsx";
 import { OpenCard } from "./OpenCard.tsx";
 import {
+  CopyPrompt,
+  CopyStatus,
+  SetupPromptWords,
+  useSetupPrompt,
+} from "./SetupPrompt.tsx";
+import {
   wallKnobDefaults,
   type WallKnobName,
   wallKnobStyle,
@@ -36,14 +42,20 @@ export const MANUAL_START = "/docs/start";
 /** The closing section's heading, which the link past the cards leads to. */
 const CLOSING_TITLE_ID = "wall-closing-title";
 
-/** The link that starts a visitor on the manual. */
-function StartLink(): ReactElement {
+/**
+ * The link that starts a visitor on the manual. It is a section's first
+ * action, or with `quiet` its second.
+ */
+function StartLink(
+  { quiet = false }: { readonly quiet?: boolean },
+): ReactElement {
   return (
-    <p className="wall-actions">
-      <a className="wall-cta" href={MANUAL_START}>
-        Get started <span aria-hidden="true">→</span>
-      </a>
-    </p>
+    <a
+      className={quiet ? "wall-cta wall-quiet" : "wall-cta"}
+      href={MANUAL_START}
+    >
+      Get started <span aria-hidden="true">→</span>
+    </a>
   );
 }
 
@@ -53,7 +65,8 @@ function StartLink(): ReactElement {
  * data attributes for the stylesheets:
  *
  * - `data-wall-live` once the island has hydrated. Controls that need script
- *   stay hidden until then, so a page without script shows no dead controls.
+ *   stay hidden until then, so a page without script shows no dead controls:
+ *   the lens bar, and the two controls that copy the setup prompt.
  * - `data-wall-drift` while the drift knob is above zero, which is the only
  *   time anything on the wall moves by itself.
  * - `data-wall-paused` while the visitor has paused that drift.
@@ -64,6 +77,12 @@ function StartLink(): ReactElement {
  * it kept, then one divider, then the rest. A card keeps its element when the
  * order changes, so the list's order is the only thing a lens moves. With no
  * lens the list is the deck and holds no divider.
+ *
+ * Each of the pool and the closing section offers the same two actions, and
+ * leads with a different one. The pool leads with the manual and keeps the
+ * copy control quiet beside it. The closing section shows the setup prompt's
+ * words and leads with the control that copies them. One status line, in the
+ * closing section, speaks for both copy controls.
  */
 export function WallPage(
   { mark, version, headline, categoryLine, linkLabels, agents }: WallPageProps,
@@ -72,6 +91,7 @@ export function WallPage(
   const focusedCard = useRef<HTMLElement | null>(null);
   const { lens, select: selectLens } = useLens(WALL_LENSES);
   const opened = useOpenCard(WALL_DECK);
+  const prompt = useSetupPrompt();
   const [paused, setPaused] = useState(false);
   const [live, setLive] = useState(false);
   const [tuning, setTuning] = useState(false);
@@ -134,7 +154,14 @@ export function WallPage(
         </p>
         <h1 id="wall-headline" className="wall-headline">{headline}</h1>
         <p className="wall-category">{categoryLine}</p>
-        <StartLink />
+        <div className="wall-actions">
+          <StartLink />
+          <CopyPrompt
+            quiet
+            copied={prompt.copiedBy === "pool"}
+            onCopy={() => prompt.copy("pool")}
+          />
+        </div>
         <p className="wall-facts">Any stack. Runs offline. No API key.</p>
         <WorksWith agents={agents} />
       </section>
@@ -187,7 +214,15 @@ export function WallPage(
         <p className="wall-closing-line">
           Ask your coding agent to set up discern in your project.
         </p>
-        <StartLink />
+        <SetupPromptWords />
+        <div className="wall-actions">
+          <CopyPrompt
+            copied={prompt.copiedBy === "closing"}
+            onCopy={() => prompt.copy("closing")}
+          />
+          <StartLink quiet />
+        </div>
+        <CopyStatus outcome={prompt.outcome} />
       </section>
 
       <OpenCard
