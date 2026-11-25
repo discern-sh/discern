@@ -39,9 +39,9 @@ export type GlyphPivot = readonly [degrees: number, px: number, py: number];
 
 /**
  * The least distance a pose carries a moving primitive, in grid units. A card
- * draws its glyph about 35 pixels wide, so a unit is under three quarters of
- * a pixel. A shorter move covers too few pixels for its ease to show, and
- * reads as a twitch.
+ * draws its glyph about as many pixels wide as the grid has units, so a unit
+ * is about a pixel. A shorter move covers too few pixels for its ease to
+ * show, and reads as a twitch.
  */
 export const GLYPH_TRAVEL_MIN = 5;
 

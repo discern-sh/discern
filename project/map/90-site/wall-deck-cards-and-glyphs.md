@@ -85,14 +85,14 @@ A percentage of the grid is a share of the drawing's own side. One value therefo
 - **The ease runs on three registered values and never on the move.** `translate` reads `--wall-glyph-x` and `--wall-glyph-y`, and `rotate` reads `--wall-glyph-a`. Each is a registered property that does not inherit, and `transition-property` names those three. A transition on `translate`, `rotate`, or `transform` makes the box a layer for as long as it runs, and a layer in the middle of the wall makes the browser redraw every later card. A lit rule sets where the three values go and the pace of the way there, and never what is eased.
 - **The way back ends before the card's face steps back down.** The resting rule's ease is the way back, because a transition takes its pace from the state it is going to. `wall-card.css` keeps a lit face raised for a moment after it rests, and the way back is shorter than that hold. The way in belongs to the lit rules. It runs longer and goes a little past the pose before it settles. The face is raised for as long as the card is lit, so the way in may outlast the hold.
 
-A pose is judged by how far it carries its primitive. `poseTravel` measures that in grid units: the longest way any telling point of the primitive goes, such as a corner, an end, or a center. A card draws its glyph about 35 pixels wide, so a unit is under three quarters of a pixel. The grammar exports the bounds:
+A pose is judged by how far it carries its primitive. `poseTravel` measures that in grid units: the longest way any telling point of the primitive goes, such as a corner, an end, or a center. A card draws its glyph about as many pixels wide as the grid has units, so a unit is about a pixel. [`glyph_grammar.ts`](../../../site/wall/glyph_grammar.ts) exports the bounds and holds their values:
 
-| Constant           | Value | Meaning                                                              |
-| ------------------ | ----- | -------------------------------------------------------------------- |
-| `GLYPH_TRAVEL_MIN` | 5     | The least travel that reads on a card. Less is a twitch with no ease |
-| `GLYPH_SLIDE_MAX`  | 12    | The farthest slide: a quarter of the grid                            |
-| `GLYPH_TURN_MAX`   | 180   | The widest turn, in degrees either way                               |
-| `GLYPH_MOVING_MAX` | 4     | The most moving drawings in one glyph                                |
+| Constant           | Meaning                                                              |
+| ------------------ | -------------------------------------------------------------------- |
+| `GLYPH_TRAVEL_MIN` | The least travel that reads on a card. Less is a twitch with no ease |
+| `GLYPH_SLIDE_MAX`  | The farthest slide: a quarter of the grid                            |
+| `GLYPH_TURN_MAX`   | The widest turn, in degrees either way: half a turn                  |
+| `GLYPH_MOVING_MAX` | The most moving drawings in one glyph                                |
 
 The glyph test rejects an authored glyph with no move. It also rejects a slide or a turn past its bound, too many moving drawings, a pose that travels less than `GLYPH_TRAVEL_MIN`, and a pose that shows nothing. A circle turned about its own center is one: its center, the only telling point it has, stays put.
 
