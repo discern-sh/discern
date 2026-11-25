@@ -11,6 +11,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
 import { fleetEntry, mainFleetEntry, statusData } from "./status_fleet.ts";
@@ -355,9 +356,9 @@ Deno.test("selectTip follows applicability, arrival, curriculum, and rotation pr
     {
       name:
         "a fresh state baselines at the current version, so nothing renders as new",
-      tips: [tipOf("shipped", { since: "1.4.0" }), tipOf("older")],
+      tips: [tipOf("shipped", { since: DISCERN_VERSION }), tipOf("older")],
       context: contextOf(),
-      state: freshTipSeenState("1.4.0"),
+      state: freshTipSeenState(DISCERN_VERSION),
       expected: {
         id: "shipped",
         newIn: undefined,

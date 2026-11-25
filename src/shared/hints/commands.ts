@@ -139,7 +139,7 @@ export const COMMAND_HINTS = {
     when:
       "The running Model Context Protocol server version differs from the installed build.",
     family: "restart-session",
-    example: { serverVersion: "1.4.0", installedVersion: "1.5.0" },
+    example: { serverVersion: "1.2.0", installedVersion: "1.3.0" },
     template: ({ serverVersion, installedVersion }): string =>
       restartSessionHint(
         `Restart your agent session or reload its MCP servers to replace MCP ` +
