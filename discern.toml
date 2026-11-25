@@ -1602,7 +1602,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [meta]
-  managed_version = "1.3.0"
+  managed_version = "1.4.0"
   # The install schema version. `discern upgrade` bumps it; never edit it by
   # hand.
   schema_version = 1
