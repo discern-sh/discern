@@ -18,7 +18,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`wall-deck`](#wall-deck--homepage-wall-cards)                                                                        | `site/wall/deck.ts#WALL_DECK`                                                     | 68      | —                | —                           |
 | [`wall-lenses`](#wall-lenses--homepage-wall-lenses)                                                                   | `site/wall/deck.ts#WALL_LENSES`                                                   | 7       | —                | —                           |
 | [`wall-knobs`](#wall-knobs--homepage-wall-tuning-knobs)                                                               | `site/wall/tuning/knobs.ts#WALL_KNOBS`                                            | 18      | —                | —                           |
-| [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 4       | —                | —                           |
+| [`release-records`](#release-records--release-records)                                                                | `site/releases/records.ts#loadReleaseRecords`                                     | 5       | —                | —                           |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 36      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
 | [`managed-version-states`](#managed-version-states--managed-version-comparison-states)                                | `src/shared/managed_version.ts#MANAGED_VERSION_STATES`                            | 4       | —                | —                           |
@@ -1609,7 +1609,8 @@ Every tunable value on the homepage wall: each knob's custom property, range, an
 Authored Markdown release notes, family names, and the records enrolled in every release projection.
 
 - Source: `site/releases/records.ts` — `loadReleaseRecords`
-- Members: 4
+- Members: 5
+  - `1.4.0`
   - `1.3.0`
   - `1.2.0`
   - `1.1.0`
