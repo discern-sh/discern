@@ -50,7 +50,6 @@ export const GENERATED_SITE_OUTPUTS = [
 export const COPIED_PAGE_ASSETS = [
   "agents.css",
   "agents.js",
-  "copy-prompt.js",
   "map.css",
   "releases.css",
   ...WALL_STYLESHEETS,
