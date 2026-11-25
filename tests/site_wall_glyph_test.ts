@@ -155,9 +155,14 @@ function unposable(primitive: GlyphPrimitive): string | undefined {
   if (turn !== undefined && Math.abs(turn[0]) > GLYPH_TURN_MAX) {
     return `it turns farther than ${GLYPH_TURN_MAX} degrees`;
   }
-  return poseTravel(primitive) > 0
+  const travel = poseTravel(primitive);
+  if (travel === 0) {
+    return "its pose shows nothing: no telling point of it moves";
+  }
+  return travel >= GLYPH_TRAVEL_MIN
     ? undefined
-    : "its pose shows nothing: no telling point of it moves";
+    : `its pose travels ${travel} units, under the ${GLYPH_TRAVEL_MIN} a ` +
+      `card can show: slide it farther, or turn it about a point farther away`;
 }
 
 /**
@@ -202,6 +207,17 @@ Deno.test("every authored glyph has valid drawing data", () => {
   assertEquals(
     AUTHORED.flatMap(([name, drawing]) => drawingProblems(name, drawing)),
     [],
+  );
+});
+
+Deno.test("every authored glyph makes a move while its card is lit", () => {
+  assertEquals(
+    AUTHORED.filter(([, drawing]) =>
+      glyphLayers(drawing).every((layer) => layer.pose === undefined)
+    ).map(([name]) => name),
+    [],
+    "a lit card's glyph makes one gesture: mark a primitive with shift() or " +
+      "pivot() so the drawing enacts its card",
   );
 });
 
@@ -361,11 +377,13 @@ Deno.test("a pose's travel is the longest way a telling point of the primitive g
   assert(GLYPH_TRAVEL_MIN > 0 && GLYPH_TRAVEL_MIN < GLYPH_SLIDE_MAX);
 });
 
-Deno.test("a pose the stylesheet cannot hold, or that shows nothing, is a drawing problem", () => {
+Deno.test("a pose the stylesheet cannot hold, or too small to read on a card, is a drawing problem", () => {
   const far = GLYPH_SLIDE_MAX + 1;
   const flaws: readonly (readonly [GlyphDrawing, RegExp])[] = [
     [[shift(dot(24, 24, 4), far, 0)], /slides farther/],
     [[shift(dot(24, 24, 4), 0, 0)], /shows nothing/],
+    [[shift(dot(24, 24, 4), GLYPH_TRAVEL_MIN - 1, 0)], /under the/],
+    [[pivot(dot(24, 22, 4), 30, 24, 24)], /under the/],
     [[pivot(dot(24, 8, 4), GLYPH_TURN_MAX + 1, 24, 24)], /turns farther/],
     [[pivot(ring(24, 24, 10), 90, 24, 24)], /shows nothing/],
     [

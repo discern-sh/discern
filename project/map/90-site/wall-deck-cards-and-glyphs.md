@@ -65,7 +65,7 @@ The split triangle of the discern mark is a rare accent. The recursive triangle 
 
 ### The traveling primitive
 
-A drawing may mark primitives to move while its card is lit. `shift` slides a primitive by grid units. `pivot` turns it clockwise about a grid point. A primitive marked with both turns first, and the slide carries it as it stands. The lit pose is held, and nothing loops.
+Every authored drawing marks at least one primitive to move while its card is lit, and that move enacts the card's idea. The rest drawing still carries the idea alone, because a reader who asks for reduced motion, a phone with no hover, and the social card see only the rest drawing. A seeded drawing stays still. `shift` slides a primitive by grid units. `pivot` turns it clockwise about a grid point. A primitive marked with both turns first, and the slide carries it as it stands. The lit pose is held, and nothing loops.
 
 `glyphLayers` divides a drawing into layers in paint order. Each run of still primitives is one layer. Each run of moving primitives that share a pose is one layer, so neighbors in the list that are posed alike move as one. The renderer draws a glyph as a square box, `span.wall-glyph`, with one drawing of the same grid per layer. The first, `svg.wall-glyph-art`, is still and gives the box its picture. Every later drawing lies over it, corner to corner: a still one adds the class `wall-glyph-over`, and a moving one is `svg.wall-glyph-move`. A primitive therefore paints where its drawing lists it, whether it moves or not, and the wall at rest matches what the social card draws from the same list.
 
@@ -94,7 +94,7 @@ A pose is judged by how far it carries its primitive. `poseTravel` measures that
 | `GLYPH_TURN_MAX`   | 180   | The widest turn, in degrees either way                               |
 | `GLYPH_MOVING_MAX` | 4     | The most moving drawings in one glyph                                |
 
-The glyph test rejects a slide or a turn past its bound, a glyph with too many moving drawings, and a pose that shows nothing. A circle turned about its own center is one: its center, the only telling point it has, stays put.
+The glyph test rejects an authored glyph with no move. It also rejects a slide or a turn past its bound, too many moving drawings, a pose that travels less than `GLYPH_TRAVEL_MIN`, and a pose that shows nothing. A circle turned about its own center is one: its center, the only telling point it has, stays put.
 
 Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. [A marked card holds still](wall-opened-card.md#what-a-transition-costs), so its glyph takes the pose at once, and eases back to rest when the mark goes.
 
