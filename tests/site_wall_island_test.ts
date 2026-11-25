@@ -52,7 +52,10 @@ import {
 } from "../site/wall/host.ts";
 import { WALL_KNOBS, wallKnobStyle } from "../site/wall/tuning/knobs.ts";
 import { WallPage } from "../site/wall/WallPage.tsx";
+import { WORKS_WITH_LABEL } from "../site/wall/WorksWith.tsx";
+import { providerBrandSilhouette, PROVIDERS } from "../src/lib/providers.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import {
   moduleSpecifiers,
   reactRuntimeModules,
@@ -89,6 +92,13 @@ const LINKED_CARDS = WALL_DECK.flatMap((card) =>
     : [{ id: card.id, href: card.href, route: linkRoute(card.href) }]
 );
 
+/**
+ * Every provider in the live registry, in the registry's own order. The
+ * pool's row of agents is held to this list, so a provider added to the
+ * registry is expected on the page with no change here.
+ */
+const REGISTERED_PROVIDERS = AGENT_NAMES.map((name) => PROVIDERS[name]);
+
 const SERVER_PROPS: WallPageProps = {
   mark: DISCERN_MARK,
   version: DISCERN_VERSION,
@@ -97,6 +107,10 @@ const SERVER_PROPS: WallPageProps = {
   linkLabels: Object.fromEntries(
     LINKED_CARDS.map(({ route }) => [route, MANUAL_TITLES.get(route) ?? ""]),
   ),
+  agents: REGISTERED_PROVIDERS.map((provider) => ({
+    label: provider.label,
+    mark: providerBrandSilhouette(provider.brand).path,
+  })),
 };
 
 /** The leading hex digits of the SHA-256 digest of `bytes`, as a file name carries them. */
@@ -153,6 +167,7 @@ Deno.test("the homepage serves the wall exactly as the island renders it", async
 Deno.test("the island reads back the props the server wrote, and refuses anything else", () => {
   assertEquals(decodeWallProps(encodeWallProps(SERVER_PROPS)), SERVER_PROPS);
   const { linkLabels: _, ...withoutLabels } = SERVER_PROPS;
+  const { agents: __, ...withoutAgents } = SERVER_PROPS;
   for (
     const malformed of [
       null,
@@ -164,6 +179,14 @@ Deno.test("the island reads back the props the server wrote, and refuses anythin
       JSON.stringify({ ...SERVER_PROPS, linkLabels: null }),
       JSON.stringify({ ...SERVER_PROPS, linkLabels: ["A page"] }),
       JSON.stringify({ ...SERVER_PROPS, linkLabels: { "/docs": 1 } }),
+      JSON.stringify(withoutAgents),
+      JSON.stringify({ ...SERVER_PROPS, agents: { label: "An agent" } }),
+      JSON.stringify({ ...SERVER_PROPS, agents: ["An agent"] }),
+      JSON.stringify({ ...SERVER_PROPS, agents: [{ label: "An agent" }] }),
+      JSON.stringify({
+        ...SERVER_PROPS,
+        agents: [{ label: "An agent", mark: 1 }],
+      }),
     ]
   ) {
     assertThrows(() => decodeWallProps(malformed), Error);
@@ -206,6 +229,65 @@ Deno.test("every card link has a label, and the label is the title of the manual
     [...new Set(LINKED_CARDS.map(({ route }) => route))].toSorted(),
     "the island is handed a label for every page the deck links to, and for no other",
   );
+});
+
+Deno.test("the pool's row shows exactly the registry's providers, each by name and by its own silhouette", async () => {
+  const dom = new JSDOM(await (await get("/")).text());
+  const document = dom.window.document;
+  const list = document.querySelector(".wall-pool .wall-agents-list");
+  assert(list !== null, "the pool carries the row of agents");
+  assertEquals(
+    document.getElementById(list.getAttribute("aria-labelledby") ?? "")
+      ?.textContent,
+    WORKS_WITH_LABEL,
+    "the row's words name its list",
+  );
+  const shown = [...list.querySelectorAll("[role='img']")].map((mark) => ({
+    name: mark.getAttribute("aria-label"),
+    style: mark.getAttribute("style") ?? "",
+  }));
+  assertEquals(
+    list.children.length,
+    shown.length,
+    "the list holds one mark per item and nothing else",
+  );
+  dom.window.close();
+
+  // The registry is the list, in its own order. A mark is a picture with no
+  // words beside it, so the agent's name is the only thing that says whose
+  // it is.
+  assert(REGISTERED_PROVIDERS.length > 0);
+  assertEquals(
+    Object.keys(PROVIDERS).toSorted(),
+    REGISTERED_PROVIDERS.map((provider) => provider.name).toSorted(),
+  );
+  assertEquals(
+    shown.map((mark) => mark.name),
+    REGISTERED_PROVIDERS.map((provider) => provider.label),
+  );
+  assertEquals(
+    new Set(shown.map((mark) => mark.name)).size,
+    shown.length,
+    "no two marks share a name",
+  );
+  for (const [at, provider] of REGISTERED_PROVIDERS.entries()) {
+    // The stylesheet tints the vendor's own backgroundless drawing through
+    // a mask, so the page must name that file and the site must serve it.
+    const silhouette = providerBrandSilhouette(provider.brand).path;
+    assertStringIncludes(
+      shown[at]?.style ?? "",
+      `url("${silhouette}")`,
+      provider.label,
+    );
+    const response = await get(silhouette);
+    assertEquals(response.status, 200, silhouette);
+    assertStringIncludes(
+      response.headers.get("content-type") ?? "",
+      "image/svg+xml",
+      silhouette,
+    );
+    await response.body?.cancel();
+  }
 });
 
 Deno.test("every tuning knob reaches the wall root as its own custom property", async () => {

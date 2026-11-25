@@ -28,6 +28,7 @@ import type { WallCard } from "./types.ts";
 import { useLight } from "./use_light.ts";
 import { useOpenCard } from "./use_open_card.ts";
 import { useStage } from "./use_stage.ts";
+import { WorksWith } from "./WorksWith.tsx";
 
 /** Where both calls to action lead. */
 export const MANUAL_START = "/docs/start";
@@ -65,7 +66,7 @@ function StartLink(): ReactElement {
  * lens the list is the deck and holds no divider.
  */
 export function WallPage(
-  { mark, version, headline, categoryLine, linkLabels }: WallPageProps,
+  { mark, version, headline, categoryLine, linkLabels, agents }: WallPageProps,
 ): ReactElement {
   const root = useRef<HTMLDivElement>(null);
   const focusedCard = useRef<HTMLElement | null>(null);
@@ -135,6 +136,7 @@ export function WallPage(
         <p className="wall-category">{categoryLine}</p>
         <StartLink />
         <p className="wall-facts">Any stack. Runs offline. No API key.</p>
+        <WorksWith agents={agents} />
       </section>
 
       <section className="wall-stage" aria-label="What discern does">

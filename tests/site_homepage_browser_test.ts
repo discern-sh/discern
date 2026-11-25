@@ -13,6 +13,7 @@ import { lensGroups } from "../site/wall/Lens.tsx";
 import { WALL_KNOBS, wallKnobProperty } from "../site/wall/tuning/knobs.ts";
 import type { WallLens } from "../site/wall/types.ts";
 import { MANUAL_START } from "../site/wall/WallPage.tsx";
+import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import {
   atEachViewport,
   LIVE_WALL,
@@ -74,6 +75,10 @@ Deno.test("without JavaScript the homepage is readable and its links lead to the
     assertEquals(
       await page.locator(".wall-pool .wall-cta").getAttribute("href"),
       MANUAL_START,
+    );
+    assertEquals(
+      await page.locator(".wall-pool .wall-agent:visible").count(),
+      AGENT_NAMES.length,
     );
     const link = page.locator(openerOf(linked.id));
     assertEquals(await link.getAttribute("href"), linked.href);

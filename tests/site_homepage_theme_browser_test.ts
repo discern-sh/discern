@@ -8,6 +8,7 @@ import { assert, assertEquals } from "@std/assert";
 import type { Page } from "playwright-core";
 import { DOCUMENT_ROUTES } from "../site/routes.ts";
 import { THEME_STORAGE_KEY } from "../site/theme.ts";
+import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import {
   motionSettled,
   openLiveWall,
@@ -195,6 +196,19 @@ Deno.test("on paper every word of the homepage is in dark ink", async () => {
             (node.textContent ?? "").trim() !== ""
           ),
       );
+      // An agent's mark is a background drawn through a mask, and paper
+      // drops backgrounds unless the element asks to keep its own.
+      const marks = [...document.querySelectorAll(".wall-agent")].map(
+        (mark) => {
+          const style = getComputedStyle(mark);
+          return {
+            name: mark.getAttribute("aria-label"),
+            drawn: mark.getClientRects().length > 0,
+            faint: faintness(style.backgroundColor) > 0.5,
+            kept: style.printColorAdjust,
+          };
+        },
+      );
       return {
         worded: worded.length,
         faint: worded.filter((element) =>
@@ -204,11 +218,20 @@ Deno.test("on paper every word of the homepage is in dark ink", async () => {
             (element.textContent ?? "").trim().slice(0, 24)
           }`
         ),
+        marks,
         scheme: getComputedStyle(document.documentElement).colorScheme,
       };
     });
     assert(paper.worded > 100, "the page goes to paper with its words");
     assertEquals(paper.faint, [], "these words would not read on paper");
+    assertEquals(paper.marks.length, AGENT_NAMES.length);
+    assertEquals(
+      paper.marks.filter((mark) =>
+        !mark.drawn || mark.faint || mark.kept !== "exact"
+      ),
+      [],
+      "these agents' marks would not show on paper",
+    );
     assertEquals(paper.scheme, "light", "paper takes the light system colors");
     assertEquals(faults, []);
   });

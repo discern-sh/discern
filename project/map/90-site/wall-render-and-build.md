@@ -13,9 +13,9 @@ How [the homepage wall](the-homepage-wall.md) is rendered on the server, hydrate
 
 [`renderLanding`](../../../site/ui/pages/HomePage.tsx) renders `WallPage` to markup inside the host element `#wall-island` and writes the props it used to that element's `data-wall-props` attribute. The island reads them back through `decodeWallProps`, which refuses a malformed value, and hydrates the host with the same component.
 
-The props are plain text and one table of text: the mark, the version, the headline, the category line, and `linkLabels`. That table gives the title of each manual page a card links to, by route. [`host.ts`](../../../site/wall/host.ts) defines the props and imports nothing, so the server and the build read the seam without loading the wall. The deck, lenses, and knob table are modules the component imports on both sides.
+The props are plain text, one table of text, and one list of text: the mark, the version, the headline, the category line, `linkLabels`, and `agents`. The table gives the title of each manual page a card links to, by route. The list gives the name and the mark of each agent in [the pool's row](the-homepage-wall.md#the-row-of-agents). [`host.ts`](../../../site/wall/host.ts) defines the props and imports nothing, so the server and the build read the seam without loading the wall. The deck, lenses, and knob table are modules the component imports on both sides.
 
-Only the server can read the manual. `HomePage.tsx` loads it once as the module loads and takes each linked page's title from it. A card that links to a page the manual does not publish stops the render.
+Only the server can read the manual and the provider registry. `HomePage.tsx` loads the manual once as the module loads and takes each linked page's title from it. A card that links to a page the manual does not publish stops the render. The same module reads the registry for the agents.
 
 Hydration has nothing to reconcile only while both renders produce the same markup. These rules keep them equal:
 
@@ -25,7 +25,7 @@ Hydration has nothing to reconcile only while both renders produce the same mark
 
 The island test proves the result: the served homepage contains the bytes that `renderToString` produces from the props on the host. The built island carries the production build of React, which keeps the server's attributes without a word when the browser's first render disagrees with them. The browser test therefore hydrates the served page once more with a bundle made with minification off, which carries the development build. That case fails on any console message other than a log or an info message, through hydration, a lens, and an opened card.
 
-The page works before script runs. Every card's front, the headline, and the call to action are server markup. A card with a manual page renders its heading as a link to that page; a card without one renders a plain heading. The first browser render matches that markup. Once the island sets `data-wall-live`, each heading becomes the button that opens its card. Links, plain headings, and buttons share their typography and box styles, so the change preserves the page's layout and appearance. A focused link keeps focus on its replacement button. The lens bar stays hidden until that same live state.
+The page works before script runs. Every card's front, the headline, the call to action, and the row of agents are server markup. A card with a manual page renders its heading as a link to that page; a card without one renders a plain heading. The first browser render matches that markup. Once the island sets `data-wall-live`, each heading becomes the button that opens its card. Links, plain headings, and buttons share their typography and box styles, so the change preserves the page's layout and appearance. A focused link keeps focus on its replacement button. The lens bar stays hidden until that same live state.
 
 A card's second paragraph appears in its opened dialog. The opened card and tuning panel never appear in server markup: `OpenCard` renders nothing until a card is open, and the wall reads the tuning parameter only after it mounts.
 
