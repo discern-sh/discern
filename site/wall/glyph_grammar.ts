@@ -9,6 +9,11 @@
  *
  * Angles are in degrees, clockwise from twelve o'clock.
  *
+ * A primitive may also be marked to move: while its card is lit it holds a
+ * pose, slid by `shift`, turned by `pivot`, or both. `glyphLayers` divides a
+ * drawing into the still and the moving drawings the renderer lays over each
+ * other, and `poseTravel` measures how far a pose carries a primitive.
+ *
  * The page is hydrated, so the server and every browser must serialize a glyph
  * to the same markup. `Math.sin`, `Math.cos`, and `Math.sqrt` may differ in
  * their last bit between engines, so angles and lengths go through arithmetic
@@ -29,9 +34,34 @@ export type GlyphStrokeTone = Exclude<GlyphTone, "solid">;
 
 export type GlyphPoint = readonly [x: number, y: number];
 
+/** A turn in degrees clockwise, about a point on the grid. */
+export type GlyphPivot = readonly [degrees: number, px: number, py: number];
+
+/**
+ * The least distance a pose carries a moving primitive, in grid units. A card
+ * draws its glyph about 35 pixels wide, so a unit is under three quarters of
+ * a pixel. A shorter move covers too few pixels for its ease to show, and
+ * reads as a twitch.
+ */
+export const GLYPH_TRAVEL_MIN = 5;
+
+/**
+ * The farthest a primitive slides, in grid units: a quarter of the grid.
+ * Past it the primitive leaves the picture it belongs to.
+ */
+export const GLYPH_SLIDE_MAX = 12;
+
+/** The widest a primitive turns, in degrees either way: half a turn. */
+export const GLYPH_TURN_MAX = 180;
+
+/** The most moving drawings one glyph is rendered as. */
+export const GLYPH_MOVING_MAX = 4;
+
 interface Movable {
-  /** How far the primitive travels while its card is lit, in grid units. */
+  /** How far the primitive slides while its card is lit, in grid units. */
   readonly shift?: GlyphPoint;
+  /** How far the primitive turns while its card is lit, and about which point. */
+  readonly pivot?: GlyphPivot;
 }
 
 interface Dashable {
@@ -307,13 +337,27 @@ export function dashed<
   return { ...primitive, dashed: true };
 }
 
-/** The same primitive, travelling `dx`, `dy` grid units while its card is lit. */
+/** The same primitive, sliding `dx`, `dy` grid units while its card is lit. */
 export function shift<Primitive extends GlyphPrimitive>(
   primitive: Primitive,
   dx: number,
   dy: number,
 ): Primitive {
   return { ...primitive, shift: [dx, dy] };
+}
+
+/**
+ * The same primitive, turning `degrees` clockwise about the grid point `px`,
+ * `py` while its card is lit. A primitive that also slides turns about the
+ * point first, and then slides as it stands.
+ */
+export function pivot<Primitive extends GlyphPrimitive>(
+  primitive: Primitive,
+  degrees: number,
+  px: number,
+  py: number,
+): Primitive {
+  return { ...primitive, pivot: [degrees, px, py] };
 }
 
 /** How a drawn shape is painted: one of the tones, or `faint`, a tinted stroke. */
@@ -365,7 +409,7 @@ function round(value: number): number {
  * draws the grid at any size moves its drawing that many units when it moves
  * by this share of its own side.
  */
-export function gridShare(units: number): number {
+function gridShare(units: number): number {
   return round(units / GLYPH_GRID * 100);
 }
 
@@ -731,6 +775,158 @@ export function drawPrimitive(
       ];
     }
   }
+}
+
+/**
+ * The pose a moving drawing holds while its card is lit, in the units the
+ * stylesheet reads.
+ */
+export interface GlyphPose {
+  /** The slide on each axis, as a percentage of the grid's side. */
+  readonly slide?: GlyphPoint;
+  /**
+   * The turn in degrees clockwise, and the point it is about on each axis as
+   * a percentage of the grid's side.
+   */
+  readonly turn?: GlyphPivot;
+}
+
+/** One drawing of the grid: primitives in paint order, and the pose they share. */
+export interface GlyphLayer {
+  readonly primitives: readonly GlyphPrimitive[];
+  /** The pose the drawing holds while its card is lit. A still drawing has none. */
+  readonly pose?: GlyphPose;
+}
+
+/** The pose a primitive is marked with, or none when it stays still. */
+function poseOf(primitive: GlyphPrimitive): GlyphPose | undefined {
+  const { shift: slide, pivot: turn } = primitive;
+  if (slide === undefined && turn === undefined) return undefined;
+  return {
+    ...(slide === undefined
+      ? {}
+      : { slide: [gridShare(slide[0]), gridShare(slide[1])] as const }),
+    ...(turn === undefined ? {} : {
+      turn: [
+        round(turn[0]),
+        gridShare(turn[1]),
+        gridShare(turn[2]),
+      ] as const,
+    }),
+  };
+}
+
+/** A pose as one string, equal for two poses that move a drawing alike. */
+function poseKey(pose: GlyphPose | undefined): string {
+  if (pose === undefined) return "still";
+  return `${pose.slide?.join(" ") ?? ""}|${pose.turn?.join(" ") ?? ""}`;
+}
+
+/**
+ * A drawing divided into the drawings it is rendered as, in paint order, so
+ * a primitive paints where its drawing lists it whether it moves or not. The
+ * first is still, and is empty when the drawing opens on a moving primitive.
+ * Each run of still primitives after it is one drawing, and so is each run of
+ * moving primitives that share a pose.
+ */
+export function glyphLayers(drawing: GlyphDrawing): readonly GlyphLayer[] {
+  const layers: {
+    readonly primitives: GlyphPrimitive[];
+    readonly pose?: GlyphPose;
+  }[] = [{ primitives: [] }];
+  let key = poseKey(undefined);
+  for (const primitive of drawing) {
+    const pose = poseOf(primitive);
+    const last = layers.at(-1);
+    if (last !== undefined && poseKey(pose) === key) {
+      last.primitives.push(primitive);
+      continue;
+    }
+    key = poseKey(pose);
+    layers.push(
+      pose === undefined
+        ? { primitives: [primitive] }
+        : { primitives: [primitive], pose },
+    );
+  }
+  return layers;
+}
+
+/** A point turned `degrees` clockwise about another. */
+function turned(
+  point: GlyphPoint,
+  degrees: number,
+  px: number,
+  py: number,
+): GlyphPoint {
+  const [sin, cos] = sinCos(degrees);
+  const x = point[0] - px;
+  const y = point[1] - py;
+  return [px + x * cos - y * sin, py + x * sin + y * cos];
+}
+
+/**
+ * The points whose travel shows that a primitive has moved: a circle's
+ * center, a rectangle's or a triangle's corners, a stroke's or a closed
+ * shape's points, and the ends and middle of a part of a circle. A circle
+ * turned about its own center shows nothing, and its center stays put.
+ */
+function anchors(primitive: GlyphPrimitive): readonly GlyphPoint[] {
+  switch (primitive.kind) {
+    case "dot":
+    case "ring":
+      return [[primitive.cx, primitive.cy]];
+    case "bar":
+    case "frame": {
+      const { x, y, w, h } = primitive;
+      const [cx, cy] = center(primitive);
+      const corners: readonly GlyphPoint[] = [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ];
+      return corners.map((corner) => turned(corner, primitive.turn, cx, cy));
+    }
+    case "trail":
+    case "poly":
+      return primitive.points;
+    case "arc":
+    case "band":
+    case "sector": {
+      const { cx, cy, r, from, sweep } = primitive;
+      const middle: GlyphPoint = [cx, cy];
+      if (Math.abs(sweep) >= 360) return [middle];
+      const along = [from, from + sweep / 2, from + sweep].map((degrees) =>
+        onCircle(cx, cy, r, degrees)
+      );
+      return primitive.kind === "sector" ? [middle, ...along] : along;
+    }
+    case "split":
+      return splitCorners(primitive).map((corner) =>
+        turned(corner, primitive.turn, primitive.cx, primitive.cy)
+      );
+  }
+}
+
+/**
+ * How far a primitive's pose carries it, in grid units: the longest way any
+ * of its telling points goes from rest to pose. A slide carries every point
+ * as far as the slide is long. A turn carries a point farther the farther it
+ * lies from the pivot, and a point on the pivot not at all. A primitive that
+ * is not marked to move travels nothing.
+ */
+export function poseTravel(primitive: GlyphPrimitive): number {
+  const [dx, dy] = primitive.shift ?? [0, 0];
+  const turn = primitive.pivot;
+  let travel = 0;
+  for (const anchor of anchors(primitive)) {
+    const [x, y] = turn === undefined
+      ? anchor
+      : turned(anchor, turn[0], turn[1], turn[2]);
+    travel = Math.max(travel, distance(anchor, [x + dx, y + dy]));
+  }
+  return round(travel);
 }
 
 /** A 32-bit FNV-1a hash of a name, as an unsigned integer. */

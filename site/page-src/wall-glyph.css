@@ -1,9 +1,10 @@
-/* Wall glyphs: the three tones, the one stroke, and the hover move. */
+/* Wall glyphs: the three tones, the one stroke, and the pose a lit card's
+ * glyph holds. */
 
-/* How far a glyph's travelling drawing has come, on each axis, as a share of
- * its own side. Registered so that the browser can ease a length it would
- * otherwise only switch, and so that the value stays on the drawing and is
- * not handed down to the shapes inside it. */
+/* How far a glyph's moving drawing has come toward its pose: its slide on
+ * each axis, as a share of its own side, and its turn. Registered so that the
+ * browser can ease a value it would otherwise only switch, and so that the
+ * value stays on the drawing and is not handed down to the shapes inside it. */
 @property --wall-glyph-x {
   syntax: "<percentage>";
   inherits: false;
@@ -16,11 +17,18 @@
   initial-value: 0%;
 }
 
+@property --wall-glyph-a {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
 @layer discern.components {
-  /* A glyph is a square box. It holds one drawing of the primitives that stay
-   * still and, for a glyph with a primitive that travels, a second drawing of
-   * that primitive alone, laid exactly over the first. A drawing fills the
-   * box, and a primitive that travels may cross the box's edge. */
+  /* A glyph is a square box. It holds one drawing of the grid for each layer
+   * of the glyph, in paint order: a still drawing for each run of primitives
+   * that stay put, and a moving drawing for each run that shares a pose. The
+   * first drawing fills the box and every later one lies exactly over it. A
+   * primitive that moves may cross the box's edge. */
   .wall-glyph {
     position: relative;
     display: block;
@@ -35,6 +43,7 @@
     fill: none;
   }
 
+  .wall-glyph-over,
   .wall-glyph-move {
     position: absolute;
     inset: 0;
@@ -69,46 +78,63 @@
     stroke-width: calc(var(--wall-glyph-weight) * 1.5);
   }
 
-  /* One primitive of a glyph may travel a few grid units. It holds that pose
-   * for as long as its card is lit: with keyboard focus, or under a pointer
-   * that can hover. Where a pointer can hover, a card is lit when it is
-   * opened, so the pose carries through the opening: the card keeps it while
-   * it is the opened sheet's source, and the sheet draws its own glyph in the
-   * same pose. The two pictures of the glyph agree as one grows into the
-   * other. Nothing else about the glyph changes.
+  /* A glyph's moving drawings hold a pose for as long as its card is lit:
+   * with keyboard focus, or under a pointer that can hover. Where a pointer
+   * can hover, a card is lit when it is opened, so the pose carries through
+   * the opening: the card keeps it while it is the opened sheet's source, and
+   * the sheet draws its own glyph in the same pose. The two pictures of the
+   * glyph agree as one grows into the other. Nothing else about the glyph
+   * changes, and nothing moves by itself.
    *
-   * The primitive's whole drawing moves, by a share of its own side, so the
-   * same distance in grid units serves a glyph of any size. Three things keep
-   * that move from costing anything beyond the drawing itself:
+   * A whole drawing moves. It slides by a share of its own side and turns
+   * about a point placed by a share of its own side, so the same pose in grid
+   * units serves a glyph of any size. The turn comes first and the slide
+   * carries the turned drawing as it stands. Three things keep the move from
+   * costing anything beyond the drawing itself:
    *
-   * - The drawing always carries a move, of nothing at rest. A box that goes
-   *   from no move to some move is laid out again, and so is everything laid
-   *   out with it. A box whose move only changes length is not.
-   * - The ease is on the two lengths and never on the move itself. A box
-   *   with a transition running on its own move becomes a layer for as long
-   *   as the transition runs. A layer in the middle of the wall makes the
-   *   browser redraw every card after it, and their edges shimmer.
-   * - The move ends with the card's face, which the card stylesheet brings to
-   *   rest and then steps back down among the other cards. */
+   * - The drawing always carries its slide and its turn, of nothing at rest.
+   *   A box that goes from no move to some move is laid out again, and so is
+   *   everything laid out with it. A box whose move only changes size is not.
+   * - The ease is on the three registered values and never on the slide or
+   *   the turn themselves. A box with a transition running on its own move
+   *   becomes a layer for as long as the transition runs. A layer in the
+   *   middle of the wall makes the browser redraw every card after it, and
+   *   their edges shimmer. A lit rule may set the pace of the ease, and never
+   *   names what is eased.
+   * - The way back ends with the card's face, which the card stylesheet
+   *   brings to rest and then steps back down among the other cards. The ease
+   *   in the resting rule is the way back, and is shorter than that hold.
+   *
+   * The way in belongs to the lit rules: longer, soft on arrival, and a
+   * little past the pose before it settles. The face is raised for as long as
+   * the card is lit, so the way in may outlast the hold. */
   @media (prefers-reduced-motion: no-preference) {
     .wall-glyph-move {
+      transform-origin: var(--wall-glyph-px, 50%) var(--wall-glyph-py, 50%);
       translate: var(--wall-glyph-x) var(--wall-glyph-y);
-      transition:
-        --wall-glyph-x 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-        --wall-glyph-y 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      rotate: var(--wall-glyph-a);
+      transition-property: --wall-glyph-x, --wall-glyph-y, --wall-glyph-a;
+      transition-duration: 0.4s;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .wall-card:has(.wall-card-open:focus-visible) .wall-glyph-move {
-      --wall-glyph-x: var(--wall-glyph-dx);
-      --wall-glyph-y: var(--wall-glyph-dy);
+      --wall-glyph-x: var(--wall-glyph-dx, 0%);
+      --wall-glyph-y: var(--wall-glyph-dy, 0%);
+      --wall-glyph-a: var(--wall-glyph-da, 0deg);
+      transition-duration: 0.6s;
+      transition-timing-function: cubic-bezier(0.3, 1.5, 0.5, 1);
     }
 
     @media (hover: hover) {
       .wall-card:hover .wall-glyph-move,
       .wall-card[data-wall-opening] .wall-glyph-move,
       .wall-open .wall-glyph-move {
-        --wall-glyph-x: var(--wall-glyph-dx);
-        --wall-glyph-y: var(--wall-glyph-dy);
+        --wall-glyph-x: var(--wall-glyph-dx, 0%);
+        --wall-glyph-y: var(--wall-glyph-dy, 0%);
+        --wall-glyph-a: var(--wall-glyph-da, 0deg);
+        transition-duration: 0.6s;
+        transition-timing-function: cubic-bezier(0.3, 1.5, 0.5, 1);
       }
     }
   }

@@ -3,16 +3,49 @@ import type { CSSProperties, ReactElement } from "react";
 import {
   drawPrimitive,
   GLYPH_GRID,
-  type GlyphPoint,
-  type GlyphPrimitive,
+  type GlyphDrawing,
+  type GlyphLayer,
+  glyphLayers,
+  type GlyphPose,
   type GlyphShape,
-  gridShare,
 } from "./glyph_grammar.ts";
 import { glyphDrawing } from "./glyphs.ts";
 
-type ShiftStyle =
+/**
+ * The custom properties a moving drawing hands the stylesheet: its slide on
+ * each axis, its turn, and the point the turn is about. The stylesheet reads
+ * each with the value that moves nothing as its fallback, so a drawing
+ * carries only the ones its pose sets.
+ */
+export const GLYPH_POSE_PROPERTIES = [
+  "--wall-glyph-dx",
+  "--wall-glyph-dy",
+  "--wall-glyph-da",
+  "--wall-glyph-px",
+  "--wall-glyph-py",
+] as const;
+
+type PoseStyle =
   & CSSProperties
-  & Record<"--wall-glyph-dx" | "--wall-glyph-dy", string>;
+  & Partial<Record<(typeof GLYPH_POSE_PROPERTIES)[number], string>>;
+
+/**
+ * A pose as the stylesheet reads it. Lengths are shares of the drawing's own
+ * side, so one value serves a glyph at any size.
+ */
+function poseStyle(pose: GlyphPose): PoseStyle {
+  const style: PoseStyle = {};
+  if (pose.slide !== undefined) {
+    style["--wall-glyph-dx"] = `${pose.slide[0]}%`;
+    style["--wall-glyph-dy"] = `${pose.slide[1]}%`;
+  }
+  if (pose.turn !== undefined) {
+    style["--wall-glyph-da"] = `${pose.turn[0]}deg`;
+    style["--wall-glyph-px"] = `${pose.turn[1]}%`;
+    style["--wall-glyph-py"] = `${pose.turn[2]}%`;
+  }
+  return style;
+}
 
 /** One drawn element, painted by its tone's class, and marked when its stroke is dashed. */
 function Shape({ shape }: { readonly shape: GlyphShape }): ReactElement {
@@ -44,33 +77,29 @@ function Shape({ shape }: { readonly shape: GlyphShape }): ReactElement {
 }
 
 /**
- * One drawing of the grid: the given primitives, in paint order. A drawing
- * that travels carries its distance for the stylesheet as a share of its own
- * side, so one value serves a glyph at any size.
+ * One drawing of the grid: a layer's primitives, in paint order. The first
+ * drawing gives the box its picture at rest. Every later one lies over it,
+ * corner to corner, and a moving one carries its pose for the stylesheet.
  */
 function Layer(
-  props: {
-    readonly className: string;
-    readonly primitives: readonly GlyphPrimitive[];
-    readonly shift?: GlyphPoint;
-  },
+  props: { readonly layer: GlyphLayer; readonly first: boolean },
 ): ReactElement {
-  const style: ShiftStyle | undefined = props.shift === undefined
-    ? undefined
-    : {
-      "--wall-glyph-dx": `${gridShare(props.shift[0])}%`,
-      "--wall-glyph-dy": `${gridShare(props.shift[1])}%`,
-    };
+  const { pose, primitives } = props.layer;
+  const className = pose !== undefined
+    ? "wall-glyph-move"
+    : props.first
+    ? "wall-glyph-art"
+    : "wall-glyph-art wall-glyph-over";
   return (
     <svg
-      className={props.className}
-      style={style}
+      className={className}
+      style={pose === undefined ? undefined : poseStyle(pose)}
       viewBox={`0 0 ${GLYPH_GRID} ${GLYPH_GRID}`}
       width={GLYPH_GRID}
       height={GLYPH_GRID}
       focusable="false"
     >
-      {props.primitives.flatMap(drawPrimitive).map((shape, index) => (
+      {primitives.flatMap(drawPrimitive).map((shape, index) => (
         <Shape key={index} shape={shape} />
       ))}
     </svg>
@@ -78,41 +107,41 @@ function Layer(
 }
 
 /**
- * Render the named glyph as a decorative square box. A name with no authored
- * glyph draws a seeded one, decided by the name alone, so the server and the
- * browser always agree and no card is ever blank.
+ * Render a drawing as a decorative square box.
  *
- * The box holds one drawing of the primitives that stay still. A primitive
- * that travels is a second drawing of the same grid, laid over the first, and
- * the stylesheet moves that whole drawing. The browser moves a box as one
- * piece and lays nothing out again. A shape that moves inside a drawing has
- * the browser lay out every drawing on the wall on each frame.
+ * The box holds one drawing of the grid for each layer `glyphLayers` divides
+ * the glyph into, laid over each other in paint order. A still layer never
+ * changes. The stylesheet slides and turns a moving layer as one whole
+ * drawing: the browser moves a box as one piece and lays nothing out again,
+ * where a shape that moves inside a drawing has it lay out every drawing on
+ * the wall on each frame.
  */
-export function Glyph(
-  props: { readonly name: string; readonly className?: string },
+export function DrawnGlyph(
+  props: {
+    readonly name: string;
+    readonly drawing: GlyphDrawing;
+    readonly className?: string;
+  },
 ): ReactElement {
   const className = props.className === undefined
     ? "wall-glyph"
     : `wall-glyph ${props.className}`;
-  const drawing = glyphDrawing(props.name);
   return (
     <span className={className} aria-hidden="true" data-glyph={props.name}>
-      <Layer
-        className="wall-glyph-art"
-        primitives={drawing.filter((primitive) =>
-          primitive.shift === undefined
-        )}
-      />
-      {drawing.map((primitive, index) =>
-        primitive.shift === undefined ? null : (
-          <Layer
-            key={index}
-            className="wall-glyph-move"
-            primitives={[primitive]}
-            shift={primitive.shift}
-          />
-        )
-      )}
+      {glyphLayers(props.drawing).map((layer, index) => (
+        <Layer key={index} layer={layer} first={index === 0} />
+      ))}
     </span>
   );
+}
+
+/**
+ * Render the named glyph. A name with no authored glyph draws a seeded one,
+ * decided by the name alone, so the server and the browser always agree and
+ * no card is ever blank.
+ */
+export function Glyph(
+  props: { readonly name: string; readonly className?: string },
+): ReactElement {
+  return <DrawnGlyph {...props} drawing={glyphDrawing(props.name)} />;
 }
