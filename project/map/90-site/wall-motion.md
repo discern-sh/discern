@@ -24,10 +24,11 @@ The tuning panel is a development aid. It appears only when the address carries 
 Calm motion is a requirement of the page:
 
 - Pointer travel changes the light; only the hovered card lifts and tilts.
+- A lit card's glyph eases into [a pose](wall-deck-cards-and-glyphs.md#the-traveling-primitive) and holds it. It eases back when the card is no longer lit. Nothing in a glyph loops or moves by itself.
 - Scroll moves the wall as one plane. Keyboard focus brings that plane flat for reading and navigation.
 - A lens changes the list's order through a cross-fade, without cards traveling across the screen.
 - An opened card grows from a flat source, or fades in place when the source is far away. Its glyph or numeral crosses with it.
-- Phones, reduced motion, and forced colors get the flat wall. Reduced motion removes the light's fade and ease, and card and lens changes use a cut.
+- Phones, reduced motion, and forced colors get the flat wall. Reduced motion removes the light's fade and ease, card and lens changes use a cut, and every glyph stays at rest.
 - Hover and the light apply only to a pointer that can hover.
 - The shipped defaults have no ambient drift. Enabling drift in the tuning panel exposes a pause control.
 

@@ -65,21 +65,40 @@ The split triangle of the discern mark is a rare accent. The recursive triangle 
 
 ### The traveling primitive
 
-A drawing may mark one primitive to travel a few units while its card is lit. The renderer draws a glyph as a square box, `span.wall-glyph`, that holds two drawings of the same grid. The first, `svg.wall-glyph-art`, holds the primitives that stay still. The second, `svg.wall-glyph-move`, holds the traveling primitive alone and lies over the first, corner to corner. A glyph with no traveling primitive has the first drawing only.
+A drawing may mark primitives to move while its card is lit. `shift` slides a primitive by grid units. `pivot` turns it clockwise about a grid point. A primitive marked with both turns first, and the slide carries it as it stands. The lit pose is held, and nothing loops.
 
-The stylesheet moves the second drawing with `translate` on its box. The browser moves a box as one piece and lays nothing out again. A shape that moves inside a drawing has the browser lay out every drawing on the wall on each frame.
+`glyphLayers` divides a drawing into layers in paint order. Each run of still primitives is one layer. Each run of moving primitives that share a pose is one layer, so neighbors in the list that are posed alike move as one. The renderer draws a glyph as a square box, `span.wall-glyph`, with one drawing of the same grid per layer. The first, `svg.wall-glyph-art`, is still and gives the box its picture. Every later drawing lies over it, corner to corner: a still one adds the class `wall-glyph-over`, and a moving one is `svg.wall-glyph-move`. A primitive therefore paints where its drawing lists it, whether it moves or not, and the wall at rest matches what the social card draws from the same list.
 
-The renderer hands the distance to the stylesheet as `--wall-glyph-dx` and `--wall-glyph-dy`, each a percentage of the grid from `gridShare`. One value therefore serves the glyph on a card and the larger glyph in the sheet. `wall-glyph.css` keeps the move from costing anything beyond the drawing itself:
+The stylesheet moves a moving drawing with `translate` and `rotate` on its box. The browser moves a box as one piece and lays nothing out again. A shape that moves inside a drawing has the browser lay out every drawing on the wall on each frame.
 
-- **The second drawing always carries a move, of nothing at rest.** A box that goes from no `translate` to some `translate` gets a new layout, and so does everything laid out with it.
-- **The ease runs on two lengths and never on the move.** `translate` reads `--wall-glyph-x` and `--wall-glyph-y`, two registered percentage properties that do not inherit, and the transition names those. A transition on `translate` itself makes the box a layer for as long as it runs, and a layer in the middle of the wall makes the browser redraw every later card.
-- **The ease ends before the card's face steps back down.** `wall-card.css` keeps a lit face raised for a moment after it rests, and the ease is shorter than that hold.
+The renderer hands the pose to the stylesheet as custom properties on the drawing, and writes only the ones its pose sets. `GLYPH_POSE_PROPERTIES` in `Glyph.tsx` lists them:
 
-The second drawing paints over the first, so a traveling primitive paints last wherever its drawing lists it. A drawing therefore lists nothing after a traveling primitive that crosses the box it sweeps.
+| Property                             | Holds                                                   |
+| ------------------------------------ | ------------------------------------------------------- |
+| `--wall-glyph-dx`, `--wall-glyph-dy` | The slide on each axis, as a percentage of the grid     |
+| `--wall-glyph-da`                    | The turn, in degrees clockwise                          |
+| `--wall-glyph-px`, `--wall-glyph-py` | The point the turn is about, as percentages of the grid |
+
+A percentage of the grid is a share of the drawing's own side. One value therefore serves the glyph on a card and the larger glyph in the sheet. `wall-glyph.css` keeps the move from costing anything beyond the drawing itself, and the glyph test reads the stylesheet to hold each rule:
+
+- **A moving drawing always carries its slide and its turn, of nothing at rest.** A box that goes from no `translate` to some `translate` gets a new layout, and so does everything laid out with it.
+- **The ease runs on three registered values and never on the move.** `translate` reads `--wall-glyph-x` and `--wall-glyph-y`, and `rotate` reads `--wall-glyph-a`. Each is a registered property that does not inherit, and `transition-property` names those three. A transition on `translate`, `rotate`, or `transform` makes the box a layer for as long as it runs, and a layer in the middle of the wall makes the browser redraw every later card. A lit rule sets where the three values go and the pace of the way there, and never what is eased.
+- **The way back ends before the card's face steps back down.** The resting rule's ease is the way back, because a transition takes its pace from the state it is going to. `wall-card.css` keeps a lit face raised for a moment after it rests, and the way back is shorter than that hold. The way in belongs to the lit rules. It runs longer and goes a little past the pose before it settles. The face is raised for as long as the card is lit, so the way in may outlast the hold.
+
+A pose is judged by how far it carries its primitive. `poseTravel` measures that in grid units: the longest way any telling point of the primitive goes, such as a corner, an end, or a center. A card draws its glyph about 35 pixels wide, so a unit is under three quarters of a pixel. The grammar exports the bounds:
+
+| Constant           | Value | Meaning                                                              |
+| ------------------ | ----- | -------------------------------------------------------------------- |
+| `GLYPH_TRAVEL_MIN` | 5     | The least travel that reads on a card. Less is a twitch with no ease |
+| `GLYPH_SLIDE_MAX`  | 12    | The farthest slide: a quarter of the grid                            |
+| `GLYPH_TURN_MAX`   | 180   | The widest turn, in degrees either way                               |
+| `GLYPH_MOVING_MAX` | 4     | The most moving drawings in one glyph                                |
+
+The glyph test rejects a slide or a turn past its bound, a glyph with too many moving drawings, and a pose that shows nothing. A circle turned about its own center is one: its center, the only telling point it has, stays put.
 
 Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. [A marked card holds still](wall-opened-card.md#what-a-transition-costs), so its glyph takes the pose at once, and eases back to rest when the mark goes.
 
-The renderer keeps traveling primitives separate from the still drawing.
+A reader who asks for reduced motion gets every glyph at rest: the stylesheet poses a drawing only where motion is allowed.
 
 ### The set
 
