@@ -90,7 +90,14 @@ In the main checkout, run `discern start --name release-<version> --json`. Run e
 4. Commit as `Prepare the v<version> release`. The body says why the version is a patch, minor, or major.
 5. Run `discern upgrade --json`, which moves `[meta].managed_version` in `discern.toml`. Commit the result as `Adopt discern <version> in this repository`.
 
-Write the notes for people who use discern, in the product voice. Match the summary shape of the earlier records. Keep the notes short: the release's one theme, the few changes a person will notice, and a link to a guide when one exists. Fold internal changes into one closing line. Never paste a commit list.
+### Write the release notes
+
+Read the latest published record in `site/releases/records/` before drafting. For examples of a short release and one with several secondary changes, see `1.3.0.md` and `1.4.0.md` in that directory. Write for people who use discern, in the product voice.
+
+- **Summary.** For a new minor release, start with `◮ discern v<major>.<minor>:`. Follow it with a short list of the changes readers will notice, leading with the main theme. End the sentence with a period.
+- **Opening.** For a named family, use `"**<Codename>**" is discern's v<version> release, focused on <theme>.` Give the full version and describe the theme in one sentence.
+- **Highlights.** Give the main theme a sentence-case `##` heading. Use short bullets that say what changed and what the reader can now do. Link a relevant guide after the bullets when it explains the feature.
+- **Other changes.** Group secondary items under `## Other fixes and changes` when several are worth naming. A short release can close with a sentence instead. Include internal work when you can say how it affects the reader.
 
 ### Check the candidate quickly
 
