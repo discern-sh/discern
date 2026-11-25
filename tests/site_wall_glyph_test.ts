@@ -1,4 +1,4 @@
-/** Glyph data, deterministic rendering, decorative accessibility, and reduced motion. */
+/** Glyph data, poses, deterministic rendering, decorative accessibility, and reduced motion. */
 import { assert, assertEquals, assertStrictEquals } from "@std/assert";
 import { fromFileUrl } from "@std/path";
 // @ts-types="@types/jsdom"
@@ -8,32 +8,50 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Project, SyntaxKind } from "ts-morph";
 import { cardGlyph } from "../site/wall/Card.tsx";
 import { WALL_DECK } from "../site/wall/deck.ts";
-import { Glyph } from "../site/wall/Glyph.tsx";
+import {
+  DrawnGlyph,
+  Glyph,
+  GLYPH_POSE_PROPERTIES,
+} from "../site/wall/Glyph.tsx";
 import {
   arc,
+  band,
   bar,
   dashed,
+  dot,
   drawPrimitive,
+  GLYPH_MOVING_MAX,
   GLYPH_PAINTS,
   GLYPH_PRIMITIVE_KINDS,
+  GLYPH_SLIDE_MAX,
+  GLYPH_TRAVEL_MIN,
+  GLYPH_TURN_MAX,
   type GlyphDrawing,
+  glyphLayers,
   type GlyphPoint,
   type GlyphPrimitive,
   type GlyphShape,
+  pivot,
+  poseTravel,
   ring,
   sector,
   seededGlyph,
+  shift,
   split,
 } from "../site/wall/glyph_grammar.ts";
 import { glyphDrawing, GLYPHS } from "../site/wall/glyphs.ts";
+import { WALL_KNOBS } from "../site/wall/tuning/knobs.ts";
 import {
   readScopedSources,
   structuralGuardScope,
 } from "./structural_guard_scope.ts";
 import {
+  declared,
   MOTION_PROPERTY,
   movesByChoice,
   readWallSheet,
+  splitOutside,
+  type StyleRule,
   styleRules,
 } from "./wall_stylesheets.ts";
 
@@ -125,12 +143,41 @@ function finite(value: unknown): boolean {
   return true;
 }
 
-/** Unknown primitives, unusable dimensions, or non-finite drawing data. */
+/** Why the pose a primitive is marked with cannot be held, if it cannot. */
+function unposable(primitive: GlyphPrimitive): string | undefined {
+  const { shift: slide, pivot: turn } = primitive;
+  if (slide === undefined && turn === undefined) return undefined;
+  if (
+    slide !== undefined && Math.hypot(slide[0], slide[1]) > GLYPH_SLIDE_MAX
+  ) {
+    return `it slides farther than ${GLYPH_SLIDE_MAX} units`;
+  }
+  if (turn !== undefined && Math.abs(turn[0]) > GLYPH_TURN_MAX) {
+    return `it turns farther than ${GLYPH_TURN_MAX} degrees`;
+  }
+  return poseTravel(primitive) > 0
+    ? undefined
+    : "its pose shows nothing: no telling point of it moves";
+}
+
+/**
+ * Unknown primitives, unusable dimensions, non-finite drawing data, or a pose
+ * the renderer and the stylesheet do not hold.
+ */
 function drawingProblems(name: string, drawing: GlyphDrawing): string[] {
   const problems: string[] = [];
   const kinds: readonly string[] = GLYPH_PRIMITIVE_KINDS;
   const paints: readonly string[] = GLYPH_PAINTS;
   if (drawing.length === 0) problems.push(`${name}: no drawing`);
+  const moving =
+    glyphLayers(drawing).filter((layer) => layer.pose !== undefined).length;
+  if (moving > GLYPH_MOVING_MAX) {
+    problems.push(
+      `${name}: ${moving} moving drawings, where a glyph has at most ` +
+        `${GLYPH_MOVING_MAX}: give neighbors in the list the same pose, and ` +
+        `they move as one drawing`,
+    );
+  }
   drawing.forEach((primitive, index) => {
     const where = `${name}[${index}] ${primitive.kind}`;
     const shapes = shapesOf(primitive);
@@ -144,7 +191,7 @@ function drawingProblems(name: string, drawing: GlyphDrawing): string[] {
     if (shapes.some((shape) => !paints.includes(shape.paint))) {
       problems.push(`${where}: an unknown glyph paint`);
     }
-    const flaw = malformed(primitive);
+    const flaw = malformed(primitive) ?? unposable(primitive);
     if (flaw !== undefined) problems.push(`${where}: ${flaw}`);
   });
   return problems;
@@ -254,6 +301,288 @@ Deno.test("the grammar serializes primitives exactly", () => {
     { el: "path", d: "M24 32 L34 32 L24 16 Z", paint: "solid" },
     { el: "path", d: "M14 32 L34 32 L24 16 Z", paint: "outline" },
   ]);
+});
+
+Deno.test("a drawing's layers keep its paint order, and neighbors that share a pose share a drawing", () => {
+  const still = dot(24, 24, 4);
+  const slid = shift(dot(10, 10, 4), 6, 0);
+  const alike = shift(bar(4, 30, 10, 6), 6, 0);
+  const swung = pivot(bar(22, 4, 4, 20), 90, 24, 24);
+  const both = shift(pivot(dot(24, 8, 4), 90, 24, 24), 0, 6);
+
+  assertEquals(glyphLayers([still]), [{ primitives: [still] }]);
+  // A drawing that opens on a moving primitive still opens on a still layer.
+  assertEquals(glyphLayers([slid, alike, still, swung, both, still]), [
+    { primitives: [] },
+    { primitives: [slid, alike], pose: { slide: [12.5, 0] } },
+    { primitives: [still] },
+    { primitives: [swung], pose: { turn: [90, 50, 50] } },
+    {
+      primitives: [both],
+      pose: { slide: [0, 12.5], turn: [90, 50, 50] },
+    },
+    { primitives: [still] },
+  ]);
+  // Two primitives posed alike with a still one between them do not merge:
+  // the still one paints between them.
+  assertEquals(glyphLayers([slid, still, alike]).length, 4);
+
+  for (const [name, drawing] of AUTHORED) {
+    const layers = glyphLayers(drawing);
+    assertEquals(
+      layers.flatMap((layer) => layer.primitives),
+      [...drawing],
+      `${name}: the layers hold the drawing in its own order`,
+    );
+    assert(layers[0]?.pose === undefined, `${name}: the first layer is still`);
+  }
+});
+
+Deno.test("a pose's travel is the longest way a telling point of the primitive goes", () => {
+  assertEquals(poseTravel(dot(24, 24, 4)), 0, "an unmarked primitive");
+  assertEquals(poseTravel(shift(dot(24, 24, 4), 3, 4)), 5);
+  assertEquals(poseTravel(shift(bar(4, 4, 30, 8, "solid", 30), 0, -7)), 7);
+  // A quarter turn carries a point 16 units from the pivot along a chord.
+  assertEquals(poseTravel(pivot(dot(24, 8, 4), 90, 24, 24)), 22.63);
+  assertEquals(poseTravel(pivot(dot(24, 8, 4), -90, 24, 24)), 22.63);
+  // Half a turn carries an arc's end to the far side of its circle.
+  assertEquals(poseTravel(pivot(band(24, 24, 16, 8, 0, 90), 180, 24, 24)), 32);
+  // The turn comes first, and the slide carries what it turned.
+  assertEquals(
+    poseTravel(shift(pivot(dot(24, 8, 4), 180, 24, 24), 0, -8)),
+    24,
+  );
+  // A circle turned about its own center shows nothing.
+  assertEquals(poseTravel(pivot(ring(24, 24, 10), 90, 24, 24)), 0);
+  assertEquals(
+    poseTravel(pivot(band(24, 24, 16, 6, 0, 360), 120, 24, 24)),
+    0,
+  );
+  assert(GLYPH_TRAVEL_MIN > 0 && GLYPH_TRAVEL_MIN < GLYPH_SLIDE_MAX);
+});
+
+Deno.test("a pose the stylesheet cannot hold, or that shows nothing, is a drawing problem", () => {
+  const far = GLYPH_SLIDE_MAX + 1;
+  const flaws: readonly (readonly [GlyphDrawing, RegExp])[] = [
+    [[shift(dot(24, 24, 4), far, 0)], /slides farther/],
+    [[shift(dot(24, 24, 4), 0, 0)], /shows nothing/],
+    [[pivot(dot(24, 8, 4), GLYPH_TURN_MAX + 1, 24, 24)], /turns farther/],
+    [[pivot(ring(24, 24, 10), 90, 24, 24)], /shows nothing/],
+    [
+      Array.from(
+        { length: GLYPH_MOVING_MAX + 1 },
+        (_, index) => shift(dot(24, 24, 4), 5 + index, 0),
+      ),
+      /moving drawings/,
+    ],
+  ];
+  for (const [drawing, flaw] of flaws) {
+    const problems = drawingProblems("flawed", drawing);
+    assertEquals(problems.length, 1, problems.join("; "));
+    assert(flaw.test(problems[0] ?? ""), problems[0]);
+  }
+  assertEquals(
+    drawingProblems("sound", [
+      shift(dot(24, 24, 4), GLYPH_SLIDE_MAX, 0),
+      pivot(bar(22, 4, 4, 20), -GLYPH_TURN_MAX, 24, 24),
+      shift(pivot(dot(24, 8, 4), 90, 24, 24), 0, GLYPH_TRAVEL_MIN),
+    ]),
+    [],
+  );
+});
+
+Deno.test("the renderer lays a glyph's layers over each other in paint order, each moving one with its pose", () => {
+  const drawing: GlyphDrawing = [
+    dot(24, 24, 20, "tint"),
+    pivot(bar(22, 6, 4, 18), 90, 24, 24),
+    shift(dot(10, 10, 4), 6, -3),
+    shift(pivot(dot(24, 8, 4), -45, 12, 36), 0, 6),
+    dot(24, 24, 4),
+  ];
+  const svg = renderToStaticMarkup(
+    createElement(DrawnGlyph, { name: "posed", drawing }),
+  );
+  const dom = new JSDOM(svg);
+  try {
+    const layers = [...dom.window.document.querySelectorAll("svg")];
+    assertEquals(
+      layers.map((layer) => [
+        layer.getAttribute("class"),
+        layer.getAttribute("style"),
+      ]),
+      [
+        ["wall-glyph-art", null],
+        [
+          "wall-glyph-move",
+          "--wall-glyph-da:90deg;--wall-glyph-px:50%;--wall-glyph-py:50%",
+        ],
+        ["wall-glyph-move", "--wall-glyph-dx:12.5%;--wall-glyph-dy:-6.25%"],
+        [
+          "wall-glyph-move",
+          "--wall-glyph-dx:0%;--wall-glyph-dy:12.5%;--wall-glyph-da:-45deg;" +
+          "--wall-glyph-px:25%;--wall-glyph-py:75%",
+        ],
+        ["wall-glyph-art wall-glyph-over", null],
+      ],
+    );
+    // Read in order, the layers are the drawing a still renderer draws.
+    assertEquals(
+      layers.map((layer) => layer.children.length),
+      drawing.map((primitive) => drawPrimitive(primitive).length),
+    );
+  } finally {
+    dom.window.close();
+  }
+});
+
+/** Every rule of the glyph sheet. */
+const GLYPH_RULES = styleRules(GLYPH_SHEET);
+
+/** The glyph sheet's rules that style a moving drawing, where motion is allowed. */
+const MOVE_RULES = GLYPH_RULES.filter((rule) =>
+  movesByChoice(rule) &&
+  rule.selectors.every((selector) => selector.endsWith(".wall-glyph-move"))
+);
+
+/** The rule a moving drawing takes at rest: the one that names it alone. */
+function restRule(): StyleRule {
+  const rest = MOVE_RULES.filter((rule) =>
+    rule.selectors.length === 1 && rule.selectors[0] === ".wall-glyph-move"
+  );
+  assertEquals(rest.length, 1, "one rule styles a moving drawing at rest");
+  const [rule] = rest;
+  assert(rule !== undefined);
+  return rule;
+}
+
+/** The custom properties the glyph sheet registers, and whether each inherits. */
+function registered(): Map<string, string | undefined> {
+  return new Map(
+    GLYPH_RULES.flatMap((rule) => {
+      const name = /^@property\s+(--[\w-]+)$/.exec(rule.prelude)?.[1];
+      return name === undefined
+        ? []
+        : [[name, declared(rule, "inherits")] as const];
+    }),
+  );
+}
+
+/** Every custom property a value reads. */
+function reads(value: string): string[] {
+  return [...value.matchAll(/var\(\s*(--[\w-]+)/g)].flatMap((match) =>
+    match[1] === undefined ? [] : [match[1]]
+  );
+}
+
+/** A CSS time in seconds. */
+function seconds(time: string): number {
+  const match = /^(\d*\.?\d+)(ms|s)$/.exec(time);
+  assert(match !== null, `"${time}" is a time`);
+  return Number(match[1]) / (match[2] === "ms" ? 1000 : 1);
+}
+
+Deno.test("the stylesheet reads exactly the pose the renderer writes", () => {
+  const knobs = new Set(WALL_KNOBS.map((knob) => `--wall-${knob.name}`));
+  const eased = registered();
+  const handed = new Set(
+    GLYPH_RULES.flatMap((rule) =>
+      rule.declarations.flatMap(([, value]) => reads(value))
+    ).filter((name) => !knobs.has(name) && !eased.has(name)),
+  );
+  assertEquals([...handed].sort(), [...GLYPH_POSE_PROPERTIES].sort());
+});
+
+Deno.test("a moving drawing always carries its move, and only registered values are eased", () => {
+  const eased = registered();
+  assert(eased.size > 0, "the sheet registers the values it eases");
+  for (const [name, inherits] of eased) {
+    assertEquals(
+      inherits,
+      "false",
+      `${name} stays on the drawing: an inherited value restyles every ` +
+        `shape inside it on each frame`,
+    );
+  }
+
+  // At rest the drawing already slides and turns, by nothing, so lighting
+  // its card changes no box's layout.
+  const rest = restRule();
+  for (const move of ["translate", "rotate"]) {
+    const value = declared(rest, move);
+    assert(value !== undefined, `a moving drawing has a ${move} at rest`);
+    assertEquals(
+      reads(value).filter((name) => !eased.has(name)),
+      [],
+      `${move} reads registered values alone`,
+    );
+    assert(reads(value).length > 0, `${move} reads the value that is eased`);
+  }
+  assertEquals(
+    splitOutside(declared(rest, "transition-property") ?? "", ",").sort(),
+    [...eased.keys()].sort(),
+    "the ease names each registered value, and never a move itself: a " +
+      "transition on translate, rotate, or transform makes the box a layer",
+  );
+
+  // A lit rule sets where the registered values go and how the way there is
+  // paced. It leaves the moves, and what is eased, to the resting rule.
+  const lit = MOVE_RULES.filter((rule) => rule !== rest);
+  assert(lit.length > 0, "a lit card poses its glyph");
+  const pace = new Set(["transition-duration", "transition-timing-function"]);
+  for (const rule of lit) {
+    assertEquals(
+      rule.declarations.map(([property]) => property).filter((property) =>
+        !eased.has(property) && !pace.has(property)
+      ),
+      [],
+      rule.selectors.join(", "),
+    );
+    assertEquals(
+      [...eased.keys()].filter((name) => declared(rule, name) === undefined),
+      [],
+      `${rule.selectors.join(", ")} takes every eased value to its pose`,
+    );
+  }
+
+  // Nothing else in the sheet moves a box or eases anything.
+  assertEquals(
+    GLYPH_RULES.filter((rule) => !MOVE_RULES.includes(rule))
+      .flatMap((rule) =>
+        rule.declarations.filter(([property]) => MOTION_PROPERTY.test(property))
+          .map(([property]) => `${rule.prelude} { ${property} }`)
+      ),
+    [],
+  );
+});
+
+Deno.test("a glyph's way back to rest ends before its card's face steps down", async () => {
+  const back = Math.max(
+    ...splitOutside(declared(restRule(), "transition-duration") ?? "", ",")
+      .map(seconds),
+  );
+  assert(back > 0, "the way back is eased");
+
+  const faces = styleRules(await readWallSheet("wall-card.css")).filter((
+    rule,
+  ) =>
+    movesByChoice(rule) && rule.selectors.length === 1 &&
+    rule.selectors[0] === ".wall-card-face"
+  );
+  assertEquals(faces.length, 1, "one rule eases a card's face to rest");
+  const [face] = faces;
+  assert(face !== undefined);
+  const step = splitOutside(declared(face, "transition") ?? "", ",").find((
+    part,
+  ) => part.startsWith("z-index "));
+  assert(step !== undefined, "the face steps down in the stack after a hold");
+  const [, , hold] = step.split(" ");
+  assert(hold !== undefined, "the step down waits");
+  assert(
+    back < seconds(hold),
+    `the glyph eases back for ${back}s and the face is held for ${hold}: ` +
+      `shorten the way back in wall-glyph.css, or lengthen the hold in ` +
+      `wall-card.css`,
+  );
 });
 
 /** The `Math` members whose results the language specifies exactly. */
