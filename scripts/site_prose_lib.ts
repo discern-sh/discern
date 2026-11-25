@@ -16,6 +16,7 @@ import {
 import { renderMarketingPage } from "../site/renderers.ts";
 import { WALL_DECK, WALL_LENSES } from "../site/wall/deck.ts";
 import { LENS_REST, lensGroups, lensStatus } from "../site/wall/Lens.tsx";
+import { COPIED_LABEL, COPY_STATUS } from "../site/wall/SetupPrompt.tsx";
 import {
   countProse,
   fleschKincaidGrade,
@@ -60,7 +61,9 @@ const CONTAINER_BLOCK_SELECTOR = [
  * The prose each route shows only after its script runs, which the rendered
  * markup therefore lacks. The homepage's wall shows a card's second paragraph
  * when a visitor opens the card. A lens puts its divider's words between the
- * cards it kept and the rest, and says what it did in its status sentence.
+ * cards it kept and the rest, and says what it did in its status sentence. A
+ * control that copies the setup prompt says that it copied, and its status
+ * line says how each copy went.
  */
 const SCRIPT_SHOWN_PROSE: Readonly<
   Partial<Record<MarketingRoute, () => readonly string[]>>
@@ -69,6 +72,8 @@ const SCRIPT_SHOWN_PROSE: Readonly<
     ...WALL_DECK.flatMap((card) => card.more ?? []),
     LENS_REST,
     ...WALL_LENSES.map((lens) => lensStatus(lens, lensGroups(lens, WALL_DECK))),
+    COPIED_LABEL,
+    ...Object.values(COPY_STATUS),
   ],
 };
 
@@ -120,8 +125,7 @@ function ownsDistinctBlock(element: Element): boolean {
 
 /**
  * Project the authored prose a visitor can read from one rendered page.
- * Script-enhanced controls are included even when their no-JavaScript state is
- * hidden; repeated prompts and CTA labels are measured once as authored copy.
+ * Repeated prompts and CTA labels are measured once as authored copy.
  * `scriptShown` is prose the page shows only after its script runs: it follows
  * the rendered blocks, one block per entry.
  */
@@ -134,9 +138,6 @@ export function visibleSiteProse(
 } {
   const dom = new JSDOM(html);
   const document = dom.window.document;
-  for (const control of document.querySelectorAll("[data-copy-prompt]")) {
-    control.removeAttribute("hidden");
-  }
   for (
     const excluded of document.querySelectorAll(
       "script,style,template,noscript,svg,code,pre,[aria-hidden='true'],[data-site-prose-exclude]",

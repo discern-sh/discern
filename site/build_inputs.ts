@@ -29,6 +29,7 @@ export const SITE_BUILD_INPUTS = [
   "src/lib/providers.ts",
   "src/shared/agent_catalogue.ts",
   "src/shared/brand.ts",
+  "src/shared/scheduler.ts",
 ] as const;
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
