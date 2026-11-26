@@ -55,11 +55,11 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(10.5, 17.75, 27, 12.5, "tint"),
     shift(bar(18, 5, 27, 12.5), -7.5, 0),
   ],
-  // Two streams curve into one trunk; lit, they fold together into a single
-  // stream feeding it.
+  // Two streams curve into one trunk. Lit, the tinted stream slides along the
+  // trunk and joins it further on, after the solid one.
   "land-finished-work-as-the-project-moves": [
-    shift(pivot(band(24, 6, 18, 7.5, 180, 90, "tint"), -25, 24, 24), 4, 0),
-    shift(pivot(band(24, 42, 18, 7.5, 270, 90), 25, 24, 24), 4, 0),
+    shift(band(24, 6, 18, 7.5, 180, 90, "tint"), 12, 0),
+    band(24, 42, 18, 7.5, 270, 90),
     bar(22, 20.25, 23, 7.5),
   ],
   // A line pauses, then carries on: lit, the pause lies down into the line.
@@ -122,28 +122,34 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     line(21, 24, 27, 24),
     shift(dashed(frame(28, 8, 17, 32, 4.5)), 0, -7),
   ],
-  // A field of checks, only a few of them needed. While lit, the needed
-  // checks step out of the field together.
+  // A field of checks, only a few of them needed. Lit, the lower right four
+  // turn a quarter about their middle, and the needed checks stand in one line
+  // across the field.
   "run-relevant-checks": [
     dot(24, 8.5, 5.4, "tint"),
     dot(39.5, 8.5, 5.4, "tint"),
     dot(8.5, 24, 5.4, "tint"),
-    dot(24, 24, 5.4, "tint"),
     dot(8.5, 39.5, 5.4, "tint"),
-    dot(39.5, 39.5, 5.4, "tint"),
-    shift(dot(8.5, 8.5, 5.4), 4, -4),
-    shift(dot(39.5, 24, 5.4), 4, -4),
-    shift(dot(24, 39.5, 5.4), 4, -4),
+    dot(8.5, 8.5, 5.4),
+    pivot(dot(24, 24, 5.4, "tint"), 90, 31.75, 31.75),
+    pivot(dot(39.5, 39.5, 5.4, "tint"), 90, 31.75, 31.75),
+    pivot(dot(39.5, 24, 5.4), 90, 31.75, 31.75),
+    pivot(dot(24, 39.5, 5.4), 90, 31.75, 31.75),
   ],
   // A small thing in a wide, calm room, stepping into the middle of it.
   "context-for-the-task": [
     bar(3, 3, 42, 42, "tint"),
     shift(bar(9, 28, 11, 11), 8, -8),
   ],
-  // A ring closed by its last segment, turning until that segment crowns it.
+  // A ring closed by its last segment. Lit, three more segments turn out from
+  // under it along the ring, and the ring is whole: four parts, every one
+  // solid. The three are a hair slimmer than the segment that hides them.
   "project-defined-completion": [
-    pivot(band(24, 24, 16.5, 8.5, 16, 234, "tint"), 47, 24, 24),
-    pivot(band(24, 24, 16.5, 8.5, 286, 54), 47, 24, 24),
+    band(24, 24, 16.5, 8.5, 16, 234, "tint"),
+    pivot(band(24, 24, 16.5, 8, 286, 54), -90, 24, 24),
+    pivot(band(24, 24, 16.5, 8, 286, 54), 90, 24, 24),
+    pivot(band(24, 24, 16.5, 8, 286, 54), 180, 24, 24),
+    band(24, 24, 16.5, 8.5, 286, 54),
   ],
   // A seal on the corner of a written sheet, pressed onto the sheet it vouches for.
   "evidence-for-this-change": [
@@ -160,12 +166,13 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     ring(24, 24, 20.1),
     shift(dot(24, 24, 7), 0, -10),
   ],
-  // A pinwheel: a thing made to be spun, again and again. It turns a quarter.
+  // A pinwheel: a thing made to be spun, again and again. Lit, it turns 17
+  // degrees and holds there, caught in its spin.
   "explicit-release-decision": [
-    pivot(sector(24, 3.5, 20.5, 90, 90), 90, 24, 24),
-    pivot(sector(44.5, 24, 20.5, 180, 90, "tint"), 90, 24, 24),
-    pivot(sector(24, 44.5, 20.5, 270, 90), 90, 24, 24),
-    pivot(sector(3.5, 24, 20.5, 0, 90, "tint"), 90, 24, 24),
+    pivot(sector(24, 3.5, 20.5, 90, 90), 17, 24, 24),
+    pivot(sector(44.5, 24, 20.5, 180, 90, "tint"), 17, 24, 24),
+    pivot(sector(24, 44.5, 20.5, 270, 90), 17, 24, 24),
+    pivot(sector(3.5, 24, 20.5, 0, 90, "tint"), 17, 24, 24),
   ],
   // A wall with one lane left open. Lit, the change rolls through the gap in the
   // wall without stopping.
@@ -187,10 +194,13 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     bar(3, 35, 42, 9),
   ],
   // A dashed outline of what is about to happen, ahead of what is. Lit, the
-  // outline draws in over the project to show where it will land.
+  // outline draws back over the project, and a tinted copy slides out from
+  // under the project to fill it: the change, shown in place before it is
+  // made.
   "recover-interrupted-operations": [
+    shift(bar(4, 20, 24, 24, "tint"), 8.25, -8.25),
     bar(3, 19, 26, 26),
-    shift(dashed(frame(18.5, 3.5, 26, 26, 5)), -7, 7),
+    shift(dashed(frame(18.5, 3.5, 26, 26, 5)), -7.25, 7.25),
   ],
   // Two halves that face each other: one settled, one open. They slide apart
   // along their seam, so the judged half no longer lines up with the tested one.
@@ -198,11 +208,12 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     shift(sector(22, 24, 19, 180, 180), -2, -5),
     shift(sector(26, 24, 19, 0, 180, "outline"), 1, 5),
   ],
-  // A gauge holding the level it has reached. Lit, a limit mark rises from the
-  // head of the level and stands on the rim there.
+  // A gauge holding the level it has reached. Lit, the level runs an eighth of
+  // a turn further along its track and holds the gain. The length it gains is
+  // a hair slimmer than the level, which hides it at rest.
   "retain-measured-gains": [
     band(24, 28, 17.5, 8, 240, 240, "tint"),
-    shift(bar(34.9, 12.1, 3, 7, "solid", 45), 5.3, -5.3),
+    pivot(band(24, 28, 17.5, 7.5, 0, 45), 45, 24, 28),
     band(24, 28, 17.5, 8, 240, 165),
     dot(24, 28, 5),
   ],
@@ -426,11 +437,12 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     ring(30, 30, 15),
     shift(dot(24, 24, 5), 6, 6),
   ],
-  // A whole shell with nothing fitted inside it; lit, the empty place drops loose to the
-  // shell's floor.
+  // A whole shell with nothing fitted inside it. Lit, its two halves turn apart
+  // at the top, and the shell stands open on the empty place.
   "local-without-another-model": [
-    band(24, 24, 17.5, 7, 0, 360),
-    shift(dashed(ring(24, 24, 7)), 0, 6),
+    pivot(band(24, 24, 17.5, 7, 180, 180), -45, 24, 24),
+    pivot(band(24, 24, 17.5, 7, 0, 180), 45, 24, 24),
+    dashed(ring(24, 24, 7)),
   ],
   // Two lines, and the one thing that travels between them, sliding along its lane.
   "explicit-write-authority": [
