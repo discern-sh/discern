@@ -1447,6 +1447,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/agent_parity_test.ts",
       "tests/feature_canon_enrolment_test.ts",
       "tests/provider_brand_provenance_codegen_test.ts",
+      "tests/site_wall_island_test.ts",
     ],
     artifacts: [
       {
