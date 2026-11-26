@@ -16,7 +16,7 @@ The cards are the items of one list, `ul.wall-list`. [`wall.css`](../../../site/
 
 [`wall-card.css`](../../../site/page-src/wall-card.css) makes a card an inline block as wide as its column. Each card is then one line of the list, and its top margin is the gap. A column breaks between lines and never inside one. Every card therefore stays whole, and Chrome and WebKit each report one box for it. [The hover tilt](wall-deck-cards-and-glyphs.md#cards) and [the flatness measure](wall-opened-card.md) both read that box.
 
-The line of the card that heads a column starts at the column's top. The card's own box starts one gap below it. Whatever a card draws outside its box ends within the gap: its shadows, its lit layers, its lift, and its focus ring. A card's ink therefore lies wholly inside its column.
+The line of the card that heads a column starts at the column's top. The card's own box starts one gap below it. Whatever a card draws outside its box ends within the gap: its shadows, its lit layers, its lean, and its focus ring. A card's ink therefore lies wholly inside its column.
 
 Smaller rules follow from the gap's place:
 
@@ -34,7 +34,7 @@ WebKit draws a box of a multi-column list wrongly once that box paints through a
 - **No card's ink starts higher than its column.** WebKit draws a lifted card in the column before when its ink starts higher than its own column's top. That column clips the card away, or shows it among other cards. A hovered or pressed face is a layer too. The gap inside the card's line keeps every card clear.
 - **A card with a layer of its own contains its paint.** [The opened card's source](wall-opened-card.md) carries the sheet's view-transition name while the two morph, and has no opacity while the sheet is open. Either gives the list item a layer, and WebKit then leaves the cards after it in the list out of the page's picture. `.wall-card[data-wall-opening]` therefore sets `contain: paint`. It takes the face's radius too, so the box that clips it has the card's shape.
 
-A receded card also paints through a layer, because a lens lowers its opacity and removes its color. It carries no containment. It draws its light, its lift, and its focus ring outside its box, and containment would cut them off. WebKit draws a receded card, and the cards after it, in place.
+A receded card also paints through a layer, because a lens lowers its opacity and removes its color. It carries no containment. It draws its light, its lean, and its focus ring outside its box, and containment would cut them off. WebKit draws a receded card, and the cards after it, in place.
 
 ## Reviewing the columns
 

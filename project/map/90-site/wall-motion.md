@@ -23,7 +23,7 @@ The tuning panel is a development aid. It appears only when the address carries 
 
 Calm motion is a requirement of the page:
 
-- Pointer travel changes the light; only the hovered card lifts and tilts.
+- Pointer travel changes the light; only the hovered card tilts, and it stays where it lies.
 - A lit card's glyph eases into [a pose](wall-deck-cards-and-glyphs.md#the-traveling-primitive) and holds it. It eases back when the card is no longer lit. Nothing in a glyph loops or moves by itself.
 - Scroll moves the wall as one plane. Keyboard focus brings that plane flat for reading and navigation.
 - A lens changes the list's order through a cross-fade, without cards traveling across the screen.

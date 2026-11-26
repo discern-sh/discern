@@ -30,7 +30,7 @@ No pointer handler, scroll handler, or frame of the light reads layout or a comp
 
 - where the wall root is on the page, and how far the page has scrolled;
 - the computed reach;
-- each card's box, from layout offsets, which ignore transforms, so a lifted face reads the same as one at rest.
+- each card's box, from layout offsets, which ignore transforms, so a leaning face reads the same as one at rest.
 
 The observer watches the document, the wall root, and every light box, and it reports by itself when one of them changes size. A change that moves the wall or its cards and resizes nothing needs the hook to ask for a report. The hook asks, by observing a box afresh, when:
 

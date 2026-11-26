@@ -41,7 +41,7 @@
    * with the gap above it as its own top margin. A column breaks between
    * lines and never inside one, so no card is cut in two, and the card that
    * heads a column starts one gap below the column's top. Whatever a card
-   * draws outside its box, lit or lifted, ends within that gap, so all of it
+   * draws outside its box, lit or leaning, ends within that gap, so all of it
    * lies inside the column. Once a card has a layer of its own, WebKit draws
    * it in the column before when its ink starts above its own. */
   .wall-card {
@@ -117,7 +117,7 @@
    * one-pixel ring. It is dark at rest, and the light writes its place and
    * how far it has come up on each card within its reach. The place is
    * measured from the card's own corner, so the light stays where it is on a
-   * face that lifts or tilts, and following the pointer changes brightness
+   * face that tilts, and following the pointer changes brightness
    * only. The box has nothing inside it, so a new place restyles it alone:
    * written on the face, the same value would cost every child of the face
    * a second look each frame.
@@ -153,7 +153,7 @@
 
   /* Two layers sit between the surface and the words, and only their opacity
    * ever changes. The first is the face as it looks in the light. The second
-   * is the deeper shadow of a lifted card. */
+   * is the deeper shadow of a lit card. */
   .wall-card-face::before,
   .wall-card-face::after {
     position: absolute;
@@ -332,7 +332,7 @@
     }
   }
 
-  /* Pressed, the card settles back onto the wall: less light, no lift. */
+  /* Pressed, the card settles onto the wall: less light, no deeper shadow. */
   .wall-card:active .wall-card-face::before {
     opacity: 0.6;
   }
@@ -364,9 +364,10 @@
   }
 
   /* Motion belongs to the face, never to the list item, so a moving card
-   * keeps its place in the masonry and no neighbor shifts. The lift is two
-   * pixels. The tilt leans toward the pointer by at most --wall-hover-tilt,
-   * reached only at the card's edge.
+   * keeps its place in the masonry and no neighbor shifts. A hovered face
+   * stays where it lies and leans toward the pointer by at most
+   * --wall-hover-tilt, reached only at the card's edge. Its light, its hue,
+   * and its glyph's pose already say which card the pointer is on.
    *
    * A face has its own layer only while it moves. For as long as it does, it
    * is drawn above the other cards: a layer in the middle of the wall would
@@ -393,7 +394,7 @@
     @media (hover: hover) {
       .wall-card:hover .wall-card-face {
         z-index: 1;
-        transform: perspective(60rem) translate3d(0, -2px, 0)
+        transform: perspective(60rem) translate3d(0, 0, 0)
           rotateX(calc(var(--wall-pointer-y) * var(--wall-hover-tilt) * -1))
           rotateY(calc(var(--wall-pointer-x) * var(--wall-hover-tilt)))
           scale(1);
