@@ -74,7 +74,7 @@ Each kind of movement has one element. Hover transforms belong to `.wall-card-fa
 
 ## The headline pool
 
-The pool is the upright first screen of the room: the eyebrow, the headline, the category line beneath it, the two actions, a line of facts, and [the row of agents](#the-row-of-agents). The headline takes the pool's whole width at every size and breaks only where it must, into lines of like length. The category line follows it. Under a wrapped headline it wraps as well and is never the wider of the two. From the width at which the pool holds the headline on one line, it takes one line too.
+The pool is the upright first screen of the room: a badge of three facts, the headline, the category line beneath it, the two actions, and [the row of agents](#the-row-of-agents). The headline takes the pool's whole width at every size and breaks only where it must, into lines of like length. The category line follows it. Under a wrapped headline it wraps as well and is never the wider of the two. From the width at which the pool holds the headline on one line, it takes one line too.
 
 That width is one media query in `wall.css`, which also deepens the fade down a one-line headline. Review the headline's balance in the browser. The browser test checks usable page width at phone and laptop sizes; exact wrapping and line-length ratios are not test contracts.
 
@@ -107,7 +107,7 @@ A copy control goes off the page on paper. The prompt's words print on a plain o
 
 ## The row of agents
 
-Under the pool's facts, one row names the coding agents discern works with: the words "Works with your coding agent", then one mark for each agent.
+Under the pool's actions, one row names the coding agents discern works with: the words "Works with your coding agent", then one mark for each agent.
 
 The list is the live provider registry, `PROVIDERS` in [`src/lib/providers.ts`](../../../src/lib/providers.ts), in the order of `AGENT_NAMES`. That module is server code. `HomePage.tsx` reads it and hands the island each agent's name and the address of its silhouette as the `agents` prop. A provider added to the registry joins the row with no change to the wall, and the island test holds the row to the registry.
 

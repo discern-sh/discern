@@ -1,0 +1,13 @@
+/* The parts the site places in the shared header's slots. The header's own
+ * layout belongs to the design-system package. */
+
+@layer discern.components {
+  /* The released version, beside the product name and quieter than it. */
+  .site-header-version {
+    margin-inline-start: 0.15em;
+    font-size: 0.66em;
+    font-weight: var(--discern-font-weight-body);
+    letter-spacing: 0;
+    color: var(--discern-color-ink-faint);
+  }
+}

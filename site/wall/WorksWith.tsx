@@ -1,4 +1,4 @@
-/** The row of coding agents discern works with, under the pool's facts. */
+/** The row of coding agents discern works with, at the foot of the pool. */
 import type { CSSProperties, ReactElement } from "react";
 import type { WallAgent } from "./host.ts";
 

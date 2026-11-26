@@ -20,11 +20,7 @@ import { fromFileUrl, join } from "@std/path";
 import { JSDOM } from "jsdom";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
-import {
-  DISCERN_CATEGORY_LINE,
-  DISCERN_MARK,
-  LANDING_HEADLINE,
-} from "../site/brand.ts";
+import { DISCERN_CATEGORY_LINE, LANDING_HEADLINE } from "../site/brand.ts";
 import {
   DESIGN_SYSTEM_BUNDLES,
   designSystemAssetPath,
@@ -55,7 +51,6 @@ import { WALL_KNOBS, wallKnobStyle } from "../site/wall/tuning/knobs.ts";
 import { WallPage } from "../site/wall/WallPage.tsx";
 import { WORKS_WITH_LABEL } from "../site/wall/WorksWith.tsx";
 import { providerBrandSilhouette, PROVIDERS } from "../src/lib/providers.ts";
-import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import {
   moduleSpecifiers,
@@ -101,8 +96,6 @@ const LINKED_CARDS = WALL_DECK.flatMap((card) =>
 const REGISTERED_PROVIDERS = AGENT_NAMES.map((name) => PROVIDERS[name]);
 
 const SERVER_PROPS: WallPageProps = {
-  mark: DISCERN_MARK,
-  version: DISCERN_VERSION,
   headline: LANDING_HEADLINE,
   categoryLine: DISCERN_CATEGORY_LINE,
   linkLabels: Object.fromEntries(
@@ -175,7 +168,7 @@ Deno.test("the island reads back the props the server wrote, and refuses anythin
       "null",
       '"text"',
       "{}",
-      JSON.stringify({ ...SERVER_PROPS, version: 1 }),
+      JSON.stringify({ ...SERVER_PROPS, headline: 1 }),
       JSON.stringify(withoutLabels),
       JSON.stringify({ ...SERVER_PROPS, linkLabels: null }),
       JSON.stringify({ ...SERVER_PROPS, linkLabels: ["A page"] }),

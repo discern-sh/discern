@@ -30,6 +30,7 @@ import {
   formatGeneratedText,
 } from "./page-src/format-generated.ts";
 import { renderMarketingPage } from "./renderers.ts";
+import { SITE_HEADER_STYLESHEET } from "./ui/components/SiteHeader.tsx";
 import {
   WALL_ISLAND_ENTRY,
   WALL_STYLESHEETS,
@@ -52,6 +53,7 @@ export const COPIED_PAGE_ASSETS = [
   "agents.js",
   "map.css",
   "releases.css",
+  SITE_HEADER_STYLESHEET,
   ...WALL_STYLESHEETS,
 ] as const;
 

@@ -447,12 +447,6 @@
     }
   }
 
-  .wall-facts {
-    margin-block-start: 1rem;
-    font-size: 0.82rem;
-    color: var(--wall-ink-faint);
-  }
-
   /* The agents discern works with: the row's words, then one mark for each
    * agent. On a narrow room the marks take a line of their own. */
   .wall-agents {

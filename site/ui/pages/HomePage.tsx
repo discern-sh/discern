@@ -5,11 +5,9 @@ import {
   providerBrandSilhouette,
   PROVIDERS,
 } from "../../../src/lib/providers.ts";
-import { DISCERN_VERSION } from "../../../src/lib/version.ts";
 import { AGENT_NAMES } from "../../../src/shared/agent_catalogue.ts";
 import {
   DISCERN_CATEGORY_LINE,
-  DISCERN_MARK,
   LANDING_DESCRIPTION,
   LANDING_HEADLINE,
   LANDING_TITLE,
@@ -28,6 +26,7 @@ import {
 } from "../../wall/host.ts";
 import { WallPage } from "../../wall/WallPage.tsx";
 import { HtmlFragment } from "../components/HtmlFragment.tsx";
+import { SITE_HEADER_STYLESHEET } from "../components/SiteHeader.tsx";
 import { renderDocument } from "../Document.tsx";
 import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
 
@@ -95,7 +94,12 @@ export function renderLanding(built: BuiltAssets = {}): string {
     description: LANDING_DESCRIPTION,
     appearance: "mono",
     theme: "dark",
-    styles: ["fonts.css", "discern.css", ...WALL_STYLESHEETS],
+    styles: [
+      "fonts.css",
+      "discern.css",
+      SITE_HEADER_STYLESHEET,
+      ...WALL_STYLESHEETS,
+    ],
     scripts: island === undefined ? ["discern.js"] : ["discern.js", island],
     children: <HomePage />,
   });
@@ -108,8 +112,6 @@ export function renderLanding(built: BuiltAssets = {}): string {
  */
 function wallIslandMarkup(): string {
   const props: WallPageProps = {
-    mark: DISCERN_MARK,
-    version: DISCERN_VERSION,
     headline: LANDING_HEADLINE,
     categoryLine: DISCERN_CATEGORY_LINE,
     linkLabels: manualLinkLabels(),

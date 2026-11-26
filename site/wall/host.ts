@@ -31,10 +31,6 @@ export interface WallAgent {
  * the island on the host element.
  */
 export interface WallPageProps {
-  /** The brand mark shown beside the product name. */
-  readonly mark: string;
-  /** The released version in the eyebrow, without its "v". */
-  readonly version: string;
   /** The page's one headline. */
   readonly headline: string;
   /** The category line under the headline. */
@@ -47,8 +43,8 @@ export interface WallPageProps {
   readonly linkLabels: LinkLabels;
   /**
    * The coding agents discern works with, in the provider registry's order.
-   * Only the server can read that registry, so the row of marks under the
-   * pool's facts takes each agent's name and mark from here.
+   * Only the server can read that registry, so the pool's row of marks takes
+   * each agent's name and mark from here.
    */
   readonly agents: readonly WallAgent[];
 }
@@ -121,8 +117,6 @@ export function decodeWallProps(encoded: string | null): WallPageProps {
     throw new Error(`${WALL_PROPS_ATTRIBUTE} has no list of agents`);
   }
   return {
-    mark: text("mark"),
-    version: text("version"),
     headline: text("headline"),
     categoryLine: text("categoryLine"),
     linkLabels,
