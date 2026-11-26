@@ -13,7 +13,8 @@
  * pose, slid by `shift`, turned by `pivot`, or both. `lands` marks a move
  * that arrives against something. `glyphLayers` divides a
  * drawing into the still and the moving drawings the renderer lays over each
- * other, and `poseTravel` measures how far a pose carries a primitive.
+ * other, `poseTravel` measures how far a pose carries a primitive, and
+ * `glyphBox` measures where on the grid it ends up.
  *
  * The page is hydrated, so the server and every browser must serialize a glyph
  * to the same markup. `Math.sin`, `Math.cos`, and `Math.sqrt` may differ in
@@ -946,6 +947,119 @@ export function poseTravel(primitive: GlyphPrimitive): number {
     travel = Math.max(travel, distance(anchor, [x + dx, y + dy]));
   }
   return round(travel);
+}
+
+/** A box on the grid, by its edges. */
+export type GlyphBox = readonly [
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+];
+
+/** A point carried to where a primitive's pose takes it. */
+function posed(point: GlyphPoint, primitive: GlyphPrimitive): GlyphPoint {
+  const turn = primitive.pivot;
+  const [dx, dy] = primitive.shift ?? [0, 0];
+  const [x, y] = turn === undefined
+    ? point
+    : turned(point, turn[0], turn[1], turn[2]);
+  return [x + dx, y + dy];
+}
+
+/**
+ * The points a primitive's edge is measured from, and how far beyond them
+ * the edge lies. A circle is its center and its radius. A rectangle with
+ * round corners is the corners of the rectangle inside it and the corner's
+ * radius. A stroke counts as its own line, without its weight, which the
+ * stylesheet sets.
+ */
+function reach(
+  primitive: GlyphPrimitive,
+  inPose: boolean,
+): { readonly points: readonly GlyphPoint[]; readonly beyond: number } {
+  const place = (point: GlyphPoint): GlyphPoint =>
+    inPose ? posed(point, primitive) : point;
+  switch (primitive.kind) {
+    case "dot":
+    case "ring":
+      return {
+        points: [place([primitive.cx, primitive.cy])],
+        beyond: primitive.r,
+      };
+    case "bar":
+    case "frame": {
+      const { x, y, w, h } = primitive;
+      const corner = primitive.kind === "bar"
+        ? barCorner(w, h)
+        : Math.min(primitive.corner, w / 2, h / 2);
+      const [cx, cy] = center(primitive);
+      const inner: readonly GlyphPoint[] = [
+        [x + corner, y + corner],
+        [x + w - corner, y + corner],
+        [x + w - corner, y + h - corner],
+        [x + corner, y + h - corner],
+      ];
+      return {
+        points: inner.map((point) =>
+          place(turned(point, primitive.turn, cx, cy))
+        ),
+        beyond: corner,
+      };
+    }
+    case "trail":
+    case "poly":
+      return { points: primitive.points.map(place), beyond: 0 };
+    case "arc":
+    case "band":
+    case "sector": {
+      const { r, sweep } = primitive;
+      const [cx, cy] = place([primitive.cx, primitive.cy]);
+      const from = primitive.from + (inPose ? primitive.pivot?.[0] ?? 0 : 0);
+      const low = Math.min(from, from + sweep);
+      const high = Math.max(from, from + sweep);
+      // A part of a circle reaches farthest at its ends and wherever it
+      // passes twelve, three, six, or nine o'clock.
+      const angles = [low, high];
+      for (
+        let quarter = Math.ceil(low / 90);
+        quarter <= Math.floor(high / 90);
+        quarter++
+      ) angles.push(quarter * 90);
+      const along = angles.map((degrees) => onCircle(cx, cy, r, degrees));
+      return {
+        points: primitive.kind === "sector" ? [[cx, cy], ...along] : along,
+        beyond: primitive.kind === "band" ? primitive.width / 2 : 0,
+      };
+    }
+    case "split":
+      return {
+        points: splitCorners(primitive).map((corner) =>
+          place(turned(corner, primitive.turn, primitive.cx, primitive.cy))
+        ),
+        beyond: 0,
+      };
+  }
+}
+
+/**
+ * The box a primitive fills on the grid: at rest, or in the pose it holds
+ * while its card is lit. A primitive that is not marked to move fills the
+ * same box either way.
+ */
+export function glyphBox(
+  primitive: GlyphPrimitive,
+  when: "rest" | "pose",
+): GlyphBox {
+  const { points, beyond } = reach(primitive, when === "pose");
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  return [
+    round(Math.min(...xs) - beyond),
+    round(Math.min(...ys) - beyond),
+    round(Math.max(...xs) + beyond),
+    round(Math.max(...ys) + beyond),
+  ];
 }
 
 /** A 32-bit FNV-1a hash of a name, as an unsigned integer. */

@@ -87,7 +87,7 @@ A percentage of the grid is a share of the drawing's own side. One value therefo
 - **The way back ends before the card's face steps back down.** The resting rule's ease is the way back, because a transition takes its pace from the state it is going to. `wall-card.css` keeps a lit face raised for a moment after it rests, and the way back is shorter than that hold. The way in belongs to the lit rules, and runs longer. The face is raised for as long as the card is lit, so the way in may outlast the hold.
 - **A free move settles from past its pose, and a move that lands stops at it.** A lit rule's own pace carries a drawing a little past its pose before it settles, which suits a hop, a swing, or a turn. The same pace pushes a piece through whatever it arrives against. A drawing whose move lands therefore hands over `--wall-glyph-ease`, and the lit rule takes that pace in place of its own. The drawing names the pace and the stylesheet holds its curve: `wall-glyph.css` declares it as `--wall-glyph-lands` on the box that holds the glyph.
 
-A pose is judged by how far it carries its primitive. `poseTravel` measures that in grid units: the longest way any telling point of the primitive goes, such as a corner, an end, or a center. On a card, a grid unit is about 1 pixel. [`glyph_grammar.ts`](../../../site/wall/glyph_grammar.ts) exports the bounds and holds their values:
+A pose is judged by how far it carries its primitive, and by where it ends. `poseTravel` measures the first in grid units: the longest way any telling point of the primitive goes, such as a corner, an end, or a center. On a card, a grid unit is about 1 pixel. [`glyph_grammar.ts`](../../../site/wall/glyph_grammar.ts) exports the bounds and holds their values:
 
 | Constant           | Meaning                                                              |
 | ------------------ | -------------------------------------------------------------------- |
@@ -97,6 +97,15 @@ A pose is judged by how far it carries its primitive. `poseTravel` measures that
 | `GLYPH_MOVING_MAX` | The most moving drawings in one glyph                                |
 
 The glyph test rejects an authored glyph with no move. It also rejects a slide or a turn past its bound, too many moving drawings, a pose that travels less than `GLYPH_TRAVEL_MIN`, a primitive that lands with no move to carry it, and a pose that shows nothing. A circle turned about its own center is one: its center, the only telling point it has, stays put.
+
+`glyphBox` gives the box a primitive fills on the grid, at rest or in its pose. The glyph test rejects a primitive that reaches past the grid either way, because a lit glyph is a finished picture inside its own box.
+
+The bounds say that a glyph moves, and how far. They cannot say that the move is worth making, and a short slide toward nothing meets every one of them. The rest of a pose is editorial, and is reviewed with the drawings:
+
+- **The lit frame stands alone.** Shown without the rest frame, it is a glyph someone would draw on purpose. Nothing ends half across something else, and nothing sits off center where the picture wants it centered.
+- **The move belongs to the thing pictured.** A gauge fills along its track, a chosen day hops to the next day, and a seal comes down onto its sheet.
+- **The move ends in order, and agrees with its card.** The lit frame is at least as ordered as the rest frame: a gap closes, a piece seats, things line up. The direction of the move matches the card's claim, so a card about something that lasts keeps that thing still.
+- **The way there is clean.** Parts that travel together, or along one path, read as one gesture. Parts that turn and slide their own ways tangle between the rest frame and the lit one, where neither frame shows it, so a pose is reviewed at several points along its move. A move that arrives against something lands.
 
 Where a pointer can hover, the pose carries through the opening. The source card keeps the pose while the hook marks it, and the opened card draws its own glyph in the same pose. [A marked card holds still](wall-opened-card.md#what-a-transition-costs), so its glyph takes the pose at once, and eases back to rest when the mark goes.
 

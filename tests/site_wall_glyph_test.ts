@@ -21,12 +21,14 @@ import {
   dashed,
   dot,
   drawPrimitive,
+  GLYPH_GRID,
   GLYPH_MOVING_MAX,
   GLYPH_PAINTS,
   GLYPH_PRIMITIVE_KINDS,
   GLYPH_SLIDE_MAX,
   GLYPH_TRAVEL_MIN,
   GLYPH_TURN_MAX,
+  glyphBox,
   type GlyphDrawing,
   glyphLayers,
   type GlyphPoint,
@@ -172,9 +174,29 @@ function unposable(primitive: GlyphPrimitive): string | undefined {
       `card can show: slide it farther, or turn it about a point farther away`;
 }
 
+/** The grid's edges, in the order a box lists them. */
+const GRID_EDGES = ["left", "top", "right", "bottom"] as const;
+
+/** Why a primitive does not stay inside the grid, at rest or in its pose, if it does not. */
+function outside(primitive: GlyphPrimitive): string | undefined {
+  const moves = primitive.shift !== undefined || primitive.pivot !== undefined;
+  for (const when of moves ? ["rest", "pose"] as const : ["rest"] as const) {
+    const [left, top, right, bottom] = glyphBox(primitive, when);
+    const past = [-left, -top, right - GLYPH_GRID, bottom - GLYPH_GRID];
+    const worst = Math.max(...past);
+    if (worst <= 0) continue;
+    const edge = GRID_EDGES[past.indexOf(worst)];
+    return `${when === "rest" ? "at rest" : "in its pose"} it reaches ` +
+      `${Math.round(worst * 100) / 100} units past the grid's ${edge} edge: ` +
+      `a glyph is a finished picture inside its own box, lit or not`;
+  }
+  return undefined;
+}
+
 /**
- * Unknown primitives, unusable dimensions, non-finite drawing data, or a pose
- * the renderer and the stylesheet do not hold.
+ * Unknown primitives, unusable dimensions, non-finite drawing data, a pose
+ * the renderer and the stylesheet do not hold, or a primitive that leaves the
+ * grid.
  */
 function drawingProblems(name: string, drawing: GlyphDrawing): string[] {
   const problems: string[] = [];
@@ -203,7 +225,8 @@ function drawingProblems(name: string, drawing: GlyphDrawing): string[] {
     if (shapes.some((shape) => !paints.includes(shape.paint))) {
       problems.push(`${where}: an unknown glyph paint`);
     }
-    const flaw = malformed(primitive) ?? unposable(primitive);
+    const flaw = malformed(primitive) ?? unposable(primitive) ??
+      outside(primitive);
     if (flaw !== undefined) problems.push(`${where}: ${flaw}`);
   });
   return problems;
@@ -392,6 +415,40 @@ Deno.test("a pose's travel is the longest way a telling point of the primitive g
   assert(GLYPH_TRAVEL_MIN > 0 && GLYPH_TRAVEL_MIN < GLYPH_SLIDE_MAX);
 });
 
+Deno.test("a primitive's box is where its edge reaches, at rest and in its pose", () => {
+  assertEquals(glyphBox(dot(24, 24, 5), "rest"), [19, 19, 29, 29]);
+  // A bar's soft corners pull its box in when it is turned.
+  assertEquals(
+    glyphBox(bar(14, 20, 20, 8, "solid", 45), "rest"),
+    [15.48, 15.48, 32.52, 32.52],
+  );
+  // A part of a circle reaches farthest where it passes twelve and three
+  // o'clock, and a band reaches half its width beyond its center line.
+  assertEquals(glyphBox(band(24, 24, 16, 6, 0, 90), "rest"), [21, 5, 43, 27]);
+  assertEquals(glyphBox(arc(24, 24, 16, 315, 90), "rest"), [
+    12.69,
+    8,
+    35.31,
+    12.69,
+  ]);
+
+  const slid = shift(dot(10, 10, 4), 6, -3);
+  assertEquals(glyphBox(slid, "rest"), [6, 6, 14, 14]);
+  assertEquals(glyphBox(slid, "pose"), [12, 3, 20, 11]);
+  // A turn carries the whole primitive round, and the slide then moves it.
+  const swung = pivot(band(24, 24, 16, 6, 0, 90), 90, 24, 24);
+  assertEquals(glyphBox(swung, "rest"), [21, 5, 43, 27]);
+  assertEquals(glyphBox(swung, "pose"), [21, 21, 43, 43]);
+  assertEquals(
+    glyphBox(shift(pivot(bar(22, 4, 4, 20), 90, 24, 24), 0, 6), "pose"),
+    [24, 28, 44, 32],
+  );
+  // A still primitive fills one box either way.
+  const still = sector(24, 24, 20, 0, 90);
+  assertEquals(glyphBox(still, "pose"), glyphBox(still, "rest"));
+  assertEquals(glyphBox(still, "rest"), [24, 4, 44, 24]);
+});
+
 Deno.test("a pose the stylesheet cannot hold, or too small to read on a card, is a drawing problem", () => {
   const far = GLYPH_SLIDE_MAX + 1;
   const flaws: readonly (readonly [GlyphDrawing, RegExp])[] = [
@@ -402,6 +459,15 @@ Deno.test("a pose the stylesheet cannot hold, or too small to read on a card, is
     [[pivot(dot(24, 8, 4), GLYPH_TURN_MAX + 1, 24, 24)], /turns farther/],
     [[pivot(ring(24, 24, 10), 90, 24, 24)], /shows nothing/],
     [[lands(dot(24, 24, 4))], /no move carries it/],
+    [[dot(45, 24, 4)], /at rest it reaches 1 units past the grid's right edge/],
+    [
+      [shift(dot(24, 9, 4), 0, -6)],
+      /in its pose it reaches 1 units past the grid's top edge/,
+    ],
+    [
+      [pivot(bar(30, 22, 14, 4), 180, 40, 24)],
+      /in its pose it reaches 2 units past the grid's right edge/,
+    ],
     [
       Array.from(
         { length: GLYPH_MOVING_MAX + 1 },
