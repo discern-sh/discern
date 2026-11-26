@@ -668,6 +668,7 @@
     font-size: 0.875rem;
     line-height: 1.65;
     text-align: start;
+    text-wrap: pretty;
     overflow-wrap: anywhere;
     color: oklch(100% 0 0 / 0.86);
     background: linear-gradient(
