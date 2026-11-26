@@ -26,9 +26,11 @@ import {
 } from "../../wall/host.ts";
 import { WallPage } from "../../wall/WallPage.tsx";
 import { HtmlFragment } from "../components/HtmlFragment.tsx";
-import { SITE_HEADER_STYLESHEET } from "../components/SiteHeader.tsx";
 import { renderDocument } from "../Document.tsx";
-import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
+import {
+  MARKETING_STYLES,
+  MarketingLayout,
+} from "../layouts/MarketingLayout.tsx";
 
 /**
  * Hydration needs the island's markup byte for byte as React rendered it, and
@@ -94,12 +96,7 @@ export function renderLanding(built: BuiltAssets = {}): string {
     description: LANDING_DESCRIPTION,
     appearance: "mono",
     theme: "dark",
-    styles: [
-      "fonts.css",
-      "discern.css",
-      SITE_HEADER_STYLESHEET,
-      ...WALL_STYLESHEETS,
-    ],
+    styles: [...MARKETING_STYLES, ...WALL_STYLESHEETS],
     scripts: island === undefined ? ["discern.js"] : ["discern.js", island],
     children: <HomePage />,
   });

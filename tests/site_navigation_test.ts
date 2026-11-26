@@ -2,14 +2,19 @@
 import { assert, assertEquals } from "@std/assert";
 import { JSDOM } from "jsdom";
 import { loadDocsSite } from "../site/docs.tsx";
-import { PUBLISHED_MARKETING_PAGES } from "../site/marketing_pages.ts";
+import {
+  MARKETING_PAGES,
+  PUBLISHED_MARKETING_PAGES,
+} from "../site/marketing_pages.ts";
+import { renderMarketingPage } from "../site/renderers.ts";
 import { SITE_ENDPOINTS } from "../site/routes.ts";
 import {
   navigationCurrent,
   SITE_FOOTER_GROUPS,
   SITE_NAVIGATION,
 } from "../site/navigation.ts";
-import { handler } from "../site/serve.ts";
+import { handler, liveHtmlRoutes } from "../site/serve.ts";
+import { SITE_HEADER_STYLESHEET } from "../site/ui/components/SiteHeader.tsx";
 
 /** The package renders the current state from aria-current alone. */
 const RENDERED_CURRENT = { page: "page", section: "true" } as const;
@@ -84,6 +89,37 @@ Deno.test("public React pages share the complete header and footer", async () =>
     assertEquals(pageFooter.outerHTML, footer, route);
     dom.window.close();
   }
+});
+
+Deno.test("every page that renders the site header loads the header's stylesheet", async () => {
+  // Every marketing renderer, published or not, then every live route. The
+  // header's site-owned parts are found by their class prefix, so a page
+  // enrolls by rendering the header, whatever layout it reached it through.
+  const pages: [route: string, html: string][] = MARKETING_PAGES.map((
+    page,
+  ) => [page.route, renderMarketingPage(page.route)]);
+  for (const route of liveHtmlRoutes(await loadDocsSite())) {
+    const response = await handler(
+      new Request(`https://discern.sh${route}`, {
+        headers: { accept: "text/html", "user-agent": "Mozilla/5.0" },
+      }),
+    );
+    pages.push([route, await response.text()]);
+  }
+  const unstyled: string[] = [];
+  let withHeader = 0;
+  for (const [route, html] of pages) {
+    const document = new JSDOM(html).window.document;
+    if (document.querySelector('[class^="site-header-"]') === null) continue;
+    withHeader++;
+    if (
+      document.querySelector(
+        `link[rel="stylesheet"][href$="/${SITE_HEADER_STYLESHEET}"]`,
+      ) === null
+    ) unstyled.push(route);
+  }
+  assert(withHeader > 1, "the header's own parts are on more than one page");
+  assertEquals(unstyled, []);
 });
 
 Deno.test("navigation states the exact page apart from the branch containing it", () => {

@@ -3,7 +3,10 @@ import type { ReactElement } from "react";
 import { Card, Heading, Kicker, Paragraph } from "discern-design-system/react";
 import { PUBLIC_MAP_ROUTE, type PublicMapSite } from "../../docs.tsx";
 import { renderDocument } from "../Document.tsx";
-import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
+import {
+  MARKETING_STYLES,
+  MarketingLayout,
+} from "../layouts/MarketingLayout.tsx";
 
 /** The directory has no document rails; the repository hosts individual entries. */
 export function MapPage(
@@ -67,7 +70,7 @@ export function renderMapPage(map: PublicMapSite): string {
   return renderDocument({
     title: `${map.landing.entry.title} · discern.sh Map`,
     description: map.landing.entry.description,
-    styles: ["fonts.css", "discern.css", "map.css"],
+    styles: [...MARKETING_STYLES, "map.css"],
     scripts: ["discern.js"],
     children: <MapPage map={map} />,
   });

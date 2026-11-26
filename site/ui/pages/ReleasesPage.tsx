@@ -28,7 +28,10 @@ import {
   releaseSections,
 } from "../../releases/presentation.ts";
 import { renderDocument } from "../Document.tsx";
-import { MarketingLayout } from "../layouts/MarketingLayout.tsx";
+import {
+  MARKETING_STYLES,
+  MarketingLayout,
+} from "../layouts/MarketingLayout.tsx";
 
 const RESULT_HEADINGS: Record<ReleaseComparison["status"], string> = {
   index: "discern releases",
@@ -361,7 +364,7 @@ function ReleasesPage(
 
 const RELEASE_DOCUMENT = {
   appearance: "mono",
-  styles: ["fonts.css", "discern.css", "releases.css"],
+  styles: [...MARKETING_STYLES, "releases.css"],
   scripts: ["discern.js"],
   bodyClassName: "releases-page",
 } as const;
