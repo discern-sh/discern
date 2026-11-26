@@ -20,7 +20,7 @@ import {
  * every copy control puts this same text on the clipboard.
  */
 export const SETUP_PROMPT =
-  "Read https://discern.sh/llms.txt and set up discern in this project. Follow the setup process, study the repository before changing it, and bring me every decision or consent point that requires my input.";
+  "Read https://discern.sh/llms.txt to understand what discern does, explain the benefits, then begin the setup process to configure it in this project. If there's a decision only I can make or a setup step needs my consent, ask me.";
 
 /** The id of the element that shows the prompt, which a refused copy selects. */
 export const SETUP_PROMPT_ID = "wall-setup-prompt";
