@@ -6,6 +6,7 @@
  * the browser before an effect runs.
  */
 import {
+  type MutableRefObject,
   type ReactElement,
   useEffect,
   useLayoutEffect,
@@ -60,6 +61,23 @@ function StartLink(
 }
 
 /**
+ * Moves focus from a card's server link to the button that takes its place. A
+ * keyboard visitor may already be on that link when script arrives. The wall
+ * renders this only once it is live, so it never renders on the server, and
+ * its effect runs before the browser paints the buttons.
+ */
+function FocusHandover(
+  { card }: { readonly card: MutableRefObject<HTMLElement | null> },
+): null {
+  useLayoutEffect(() => {
+    card.current?.querySelector<HTMLButtonElement>("button.wall-card-open")
+      ?.focus({ preventScroll: true });
+    card.current = null;
+  }, [card]);
+  return null;
+}
+
+/**
  * The whole homepage body under one root, `.wall`. The root carries every
  * tuning knob as a `--wall-<name>` custom property and the page's state as
  * data attributes for the stylesheets:
@@ -109,15 +127,6 @@ export function WallPage(
     setLive(true);
     setTuning(tuningRequested(globalThis.location.search));
   }, []);
-  useLayoutEffect(() => {
-    if (!live) return;
-    // A keyboard visitor may already be on a server link when script arrives.
-    focusedCard.current?.querySelector<HTMLButtonElement>(
-      "button.wall-card-open",
-    )
-      ?.focus({ preventScroll: true });
-    focusedCard.current = null;
-  }, [live]);
 
   const setKnob = (name: WallKnobName, value: number): void =>
     setKnobs((was) => ({ ...was, [name]: value }));
@@ -225,6 +234,7 @@ export function WallPage(
         <CopyStatus outcome={prompt.outcome} />
       </section>
 
+      {live ? <FocusHandover card={focusedCard} /> : null}
       <OpenCard
         card={opened.card}
         linkLabels={linkLabels}
