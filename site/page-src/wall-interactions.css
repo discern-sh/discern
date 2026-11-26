@@ -107,45 +107,41 @@
   }
 
   /* A pointer steps the strip with a control at each side that has more past
-   * it, set in line with the cards' edge. At rest the bar shows the fade
-   * alone, cutting a chip as it does for a finger. The controls come up
-   * while the pointer is over the bar, take no room in the row, and move no
-   * chip. A touch screen swipes the strip and gets none.
+   * it, set in line with the cards' edge. A control and the fade beside it
+   * stay put: neither waits for the pointer, and nothing moves when the
+   * pointer arrives. They come and go together, eased, only as a side gains
+   * or runs out of chips. A control takes no room in the row and moves no
+   * chip. A touch screen swipes the strip and gets none, and so does a
+   * window as narrow as a phone, where two controls and their fades would
+   * leave no room for a chip.
    *
-   * For a pointer the strip ends at the bar's edges, with room for a focus
-   * ring, so its fade is measured from where a control sits. As the controls
-   * come up, each fading side steps back to clear them: the chips are gone
-   * before they reach a control and whole again well inside it. The whole
-   * fade shows beside the control at every width, and no chip comes out from
-   * under one. A chip brought into view always lands clear of where a
-   * control can be, so the strip's scroll padding is the wider measure. */
+   * Where the controls are, the strip ends at the bar's edges, with room for
+   * a focus ring, so its fade is measured from where a control sits. The
+   * chips are gone before they reach a control and whole again well inside
+   * it: the fade shows beside the control at every width, and no chip comes
+   * out from under one.
+   *
+   * The strip's two marks say which sides have more, and the controls follow
+   * them as its later siblings. A control with no side to step to is hidden
+   * from the pointer and from assistive technology alike. */
   .wall-lens-step {
     display: none;
   }
 
-  @media (hover: hover) and (pointer: fine) {
+  @media (hover: hover) and (pointer: fine) and (min-width: 40rem) {
     .wall-lens-strip {
       --wall-lens-ring: 0.375rem;
-      --wall-lens-ramp: clamp(1.5rem, 5vw, 3rem);
-      --wall-lens-step-clear: calc(var(--wall-lens-ring) + 2.5rem);
-      --wall-lens-fade: calc(var(--wall-lens-ring) + var(--wall-lens-ramp));
+      --wall-lens-clear: calc(var(--wall-lens-ring) + 2.5rem);
+      --wall-lens-fade: calc(
+        var(--wall-lens-clear) + clamp(1.5rem, 5vw, 3rem)
+      );
 
       inline-size: calc(100% + 2 * var(--wall-lens-ring));
       margin-inline: calc(var(--wall-lens-ring) * -1);
       padding-inline: var(--wall-lens-ring);
-      scroll-padding-inline: calc(
-        var(--wall-lens-step-clear) + var(--wall-lens-ramp)
-      );
     }
 
-    .wall-lens:hover .wall-lens-strip {
-      --wall-lens-clear: var(--wall-lens-step-clear);
-      --wall-lens-fade: calc(
-        var(--wall-lens-step-clear) + var(--wall-lens-ramp)
-      );
-    }
-
-    .wall-lens-step:not([hidden]) {
+    .wall-lens .wall-lens-step {
       position: absolute;
       inset-block: 0;
       display: inline-flex;
@@ -154,17 +150,13 @@
       aspect-ratio: 1;
       padding: 0;
       opacity: 0;
-      pointer-events: none;
-      transition:
-        opacity 0.2s,
-        color 0.2s,
-        background-color 0.2s,
-        border-color 0.2s;
+      visibility: hidden;
     }
 
-    .wall-lens:hover .wall-lens-step {
+    .wall-lens-strip[data-more-start] ~ .wall-lens-step[data-side="start"],
+    .wall-lens-strip[data-more-end] ~ .wall-lens-step[data-side="end"] {
       opacity: 1;
-      pointer-events: auto;
+      visibility: visible;
     }
 
     .wall-lens-step[data-side="start"] {
@@ -210,16 +202,36 @@
     transition: none;
   }
 
-  /* The fade alone eases, on its own registered lengths, as a step control
-   * comes up or a side gains more to show. */
-  @media (hover: hover) and (pointer: fine) and
+  /* A side's fade and its control ease in and out as one, over one span of
+   * time. The fade eases on its registered lengths. A control leaving keeps
+   * its place in the accessibility tree until it has gone. */
+  @media (hover: hover) and (pointer: fine) and (min-width: 40rem) and
     (prefers-reduced-motion: no-preference) {
     .wall-lens-strip {
       transition:
-        --wall-lens-clear-start 0.2s,
-        --wall-lens-clear-end 0.2s,
-        --wall-lens-fade-start 0.2s,
-        --wall-lens-fade-end 0.2s;
+        --wall-lens-clear-start 0.3s,
+        --wall-lens-clear-end 0.3s,
+        --wall-lens-fade-start 0.3s,
+        --wall-lens-fade-end 0.3s;
+    }
+
+    .wall-lens .wall-lens-step {
+      transition:
+        opacity 0.3s,
+        visibility 0s 0.3s,
+        color 0.2s,
+        background-color 0.2s,
+        border-color 0.2s;
+    }
+
+    .wall-lens-strip[data-more-start] ~ .wall-lens-step[data-side="start"],
+    .wall-lens-strip[data-more-end] ~ .wall-lens-step[data-side="end"] {
+      transition:
+        opacity 0.3s,
+        visibility 0s,
+        color 0.2s,
+        background-color 0.2s,
+        border-color 0.2s;
     }
   }
 

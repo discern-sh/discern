@@ -130,7 +130,6 @@ Deno.test("without JavaScript the homepage is readable and its links lead to the
 });
 
 Deno.test("the island hydrates the page and lenses regroup cards without losing them", async () => {
-  let stepped = 0;
   await atEachViewport({ javaScriptEnabled: true }, async (context, size) => {
     await context.addInitScript(() => {
       document.addEventListener("readystatechange", () => {
@@ -183,25 +182,37 @@ Deno.test("the island hydrates the page and lenses regroup cards without losing 
         }),
       `${size.name}: the strip brings a chosen chip wholly into view`,
     );
-    // Where that left chips behind the strip's start, a pointer over the bar
-    // brings up the control that steps back, and a press on it moves the
-    // strip.
-    const strip = page.locator(".wall-lens-strip");
-    const reached = await strip.evaluate((row) => row.scrollLeft);
-    if (reached >= 1) {
-      await page.locator(".wall-lens").hover();
-      await page.getByRole("button", { name: STEP_NAMES.start }).click();
+    // A window between a phone's and a laptop's is where the row is too long
+    // to show whole and a pointer has controls to step it with. A press on
+    // the control of a side with more moves the strip.
+    if (size.name === "laptop") {
+      await page.setViewportSize({ width: 900, height: size.height });
+      const strip = page.locator(".wall-lens-strip");
+      const marked = (row: Element): "start" | "end" | null =>
+        row.hasAttribute("data-more-start")
+          ? "start"
+          : row.hasAttribute("data-more-end")
+          ? "end"
+          : null;
       await eventually(
         page,
-        () => strip.evaluate((row, was) => row.scrollLeft < was, reached),
-        `${size.name}: the step control moves the strip back`,
+        async () => await strip.evaluate(marked) !== null,
+        "a strip too long for its window marks a side with more",
       );
-      stepped++;
+      const side = await strip.evaluate(marked);
+      assert(side !== null);
+      const from = await strip.evaluate((row) => row.scrollLeft);
+      await page.getByRole("button", { name: STEP_NAMES[side] }).click();
+      await eventually(
+        page,
+        () => strip.evaluate((row, was) => row.scrollLeft !== was, from),
+        "the step control moves the strip",
+      );
+      await page.setViewportSize({ width: size.width, height: size.height });
     }
     await chooseLens(page);
     assertEquals(faults, [], size.name);
   });
-  assert(stepped > 0, "a viewport whose strip scrolls steps it back");
 });
 
 Deno.test("development React hydrates without mismatches and keeps focus on the live card", async () => {

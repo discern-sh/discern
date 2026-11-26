@@ -346,7 +346,9 @@ export const STEP_NAMES: Readonly<Record<keyof StripEdges, string>> = {
  *
  * The step controls are for the pointer alone. The keyboard reaches every
  * chip by moving the focus, so they are out of the tab order, and a press on
- * one leaves the focus where it was.
+ * one leaves the focus where it was. They carry no state of their own: the
+ * stylesheet shows each one from the strip's mark for its side, and eases it
+ * in and out with that side's fade.
  *
  * The status is a live region that is never drawn. It is in the server's
  * markup, empty, so assistive technology is already listening when a lens
@@ -396,7 +398,6 @@ export function Lens(
       data-side={side}
       aria-label={STEP_NAMES[side]}
       tabIndex={-1}
-      hidden={!edges[side]}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => step(side)}
     />

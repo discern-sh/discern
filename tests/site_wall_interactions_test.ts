@@ -414,8 +414,10 @@ Deno.test("the lens is one pressed chip among toggles, each keyed to its cluster
       null,
       "assistive technology can read the status",
     );
-    // A step control is a pointer's way along the strip. The server draws
-    // none, since only the browser can measure a side with more past it.
+    // A step control is a pointer's way along the strip. Each is in the
+    // markup and carries no state of its own: the strip's marks show it, and
+    // the server's strip has none, since only the browser can measure a side
+    // with more past it.
     const steps = [...group.querySelectorAll("button.wall-lens-step")];
     assertEquals(
       steps.map((control) => control.getAttribute("data-side")),
@@ -425,7 +427,11 @@ Deno.test("the lens is one pressed chip among toggles, each keyed to its cluster
       assertEquals(control.getAttribute("type"), "button");
       assert((control.getAttribute("aria-label") ?? "").length > 0);
       assertEquals(control.getAttribute("tabindex"), "-1");
-      assert(control.hasAttribute("hidden"), "no step before measurement");
+      assert(
+        strip.compareDocumentPosition(control) &
+          control.DOCUMENT_POSITION_FOLLOWING,
+        "a control follows the strip, whose marks reach it as a later sibling",
+      );
     }
     assertEquals(
       [...group.children].filter((child) =>
@@ -601,15 +607,40 @@ Deno.test("the strip fades, and a step control shows, only once the browser has 
       `a fade needs a measured side: ${rule.prelude}`,
     );
   }
-  for (const rule of rules) {
-    const shows = rule.declarations.some(([property, value]) =>
-      property === "display" && value !== "none"
+  // A control is laid out wherever a pointer steps the strip, and is hidden
+  // there until the strip marks its own side as having more.
+  const ofStep = (rule: (typeof rules)[number]): boolean =>
+    rule.selectors.some((selector) => selector.includes(".wall-lens-step"));
+  const sets = (
+    rule: (typeof rules)[number],
+    name: string,
+    wanted: (value: string) => boolean,
+  ): boolean =>
+    rule.declarations.some(([property, value]) =>
+      property === name && wanted(value)
     );
+  const laidOut = rules.filter((rule) =>
+    ofStep(rule) && sets(rule, "display", (value) => value !== "none")
+  );
+  assert(laidOut.length > 0, "a pointer has step controls");
+  for (const rule of laidOut) {
+    assert(
+      sets(rule, "visibility", (value) => value === "hidden"),
+      `a step control is hidden until its side has more: ${rule.prelude}`,
+    );
+  }
+  const shown = rules.filter((rule) =>
+    ofStep(rule) && sets(rule, "visibility", (value) => value === "visible")
+  );
+  assert(shown.length > 0, "a side with more shows its control");
+  for (const rule of shown) {
     for (const selector of rule.selectors) {
-      if (!shows || !selector.includes(".wall-lens-step")) continue;
+      const side = /\.wall-lens-step\[data-side="(start|end)"\]/.exec(selector)
+        ?.[1];
       assert(
-        selector.includes(":not([hidden])"),
-        `a step control is drawn only while it has a side to step to: ${selector}`,
+        side !== undefined &&
+          selector.includes(`.wall-lens-strip[data-more-${side}] ~`),
+        `a step control shows only for its own measured side: ${selector}`,
       );
     }
   }
