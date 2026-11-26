@@ -56,6 +56,18 @@ export interface DiscernStandardLimitProposalCommitValues {
   }[];
 }
 
+export interface DiscernProjectUpgradeCommitValues {
+  /** The version recorded before this upgrade; null on a first adoption. */
+  readonly previous: string | null;
+  /** The version the project records after this upgrade. */
+  readonly adopted: string;
+  readonly migrations: readonly {
+    readonly from: number;
+    readonly to: number;
+    readonly describe: string;
+  }[];
+}
+
 export interface DiscernAuthoredCommitSiteDefinition<Values> {
   readonly id: string;
   /** Shipped module allowed to import the commit capability for this site. */
@@ -141,6 +153,32 @@ export const DISCERN_AUTHORED_COMMIT_SITES = {
       body:
         "Re-derive declared artifacts from the merged sources so their committed bytes match the integrated tree.",
     }),
+  },
+  projectUpgrade: {
+    id: "project-upgrade",
+    callerModule: "src/commands/upgrade_commit.ts",
+    message: (
+      values: DiscernProjectUpgradeCommitValues,
+    ): DiscernCommitMessage => {
+      const advanced = values.previous !== values.adopted;
+      const summary = !advanced
+        ? `\`discern upgrade\` brought the files discern manages back in line with\ndiscern ${values.adopted}.`
+        : values.previous === null
+        ? `\`discern upgrade\` recorded discern ${values.adopted} as the version managing this\nproject and brought the files discern manages in line with it.`
+        : `\`discern upgrade\` moved this project from discern ${values.previous} to\n${values.adopted} and brought the files discern manages in line with it.`;
+      const migrations = values.migrations.length === 0
+        ? ""
+        : "\n\nConfig migrations applied:\n" +
+          values.migrations.map((step) =>
+            `- ${step.from}→${step.to}: ${step.describe}`
+          ).join("\n");
+      return {
+        subject: advanced
+          ? `Upgrade discern's managed files to ${values.adopted}`
+          : `Refresh discern's managed files for ${values.adopted}`,
+        body: summary + migrations,
+      };
+    },
   },
 } as const;
 

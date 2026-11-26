@@ -388,6 +388,12 @@ export type DiscernKnownManagedVersionState =
   | "running-newer"
   | "project-managed-by-newer";
 
+export type DiscernKnownUpgradeCommitState =
+  | "committed"
+  | "unchanged"
+  | "uncommitted"
+  | "failed";
+
 export type DiscernKnownTitleSource =
   | "recorded"
   | "identity-fallback"
@@ -2007,6 +2013,12 @@ export type DiscernUpgradeResult = DiscernResultState & {
         command: "discern refresh";
         safe_to_retry: true;
       };
+    };
+    commit?: {
+      state: string;
+      head?: string;
+      paths?: Array<string>;
+      reason?: string;
     };
   } | {
     issues: Array<{

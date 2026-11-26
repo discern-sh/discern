@@ -642,7 +642,7 @@ export function buildCli(
   root
     .command("upgrade")
     .description(
-      "Bring this project up to date with the discern you have installed. To bring the trunk into a task branch, use `discern update`; to regenerate agent files only, use `discern refresh`.\nIt runs any pending config migrations and restores discern's sections, keys, and comment banners in `discern.toml` without touching your values. It updates discern's blocks in `.gitignore` and `.gitattributes`, and refreshes agent files, skills, and integrations. Run it from the project root. It never installs a newer discern, uses no network, and doesn't commit.",
+      "Bring this project up to date with the discern you have installed. To bring the trunk into a task branch, use `discern update`; to regenerate agent files only, use `discern refresh`.\nIt runs any pending config migrations and restores discern's sections, keys, and comment banners in `discern.toml` without touching your values. It updates discern's blocks in `.gitignore` and `.gitattributes`, and refreshes agent files, skills, and integrations. Run it from the project root. It commits its own changes, never installs a newer discern, and uses no network.",
     )
     .option(
       "--dry-run",
@@ -654,7 +654,7 @@ export function buildCli(
     )
     .option(
       "--allow-dirty",
-      "Upgrade even when tracked files have uncommitted changes.",
+      "Upgrade even when tracked files have uncommitted changes, and leave the result uncommitted.",
     )
     .action(recordedExit("upgrade", async (options) => {
       const { runUpgrade } = await loadModule(() =>

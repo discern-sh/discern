@@ -3433,6 +3433,16 @@ export const UpgradeDataSchema = z.strictObject({
   worktree_app_wired: z.array(z.string()).optional(),
   project_rules_wired: z.array(z.string()).optional(),
   instruction_refresh: InstructionRefreshDataSchema.optional(),
+  /** What became of an applied upgrade's changes in Git. */
+  commit: z.strictObject({
+    state: openVocabulary("x-discern-upgrade-commit-states"),
+    /** The commit discern created. */
+    head: z.string().optional(),
+    /** The paths the upgrade changed: committed, or left after a refused commit. */
+    paths: z.array(z.string()).optional(),
+    /** Why the changes are uncommitted, or why Git refused the commit. */
+    reason: z.string().optional(),
+  }).optional(),
 });
 export type UpgradeData = z.infer<typeof UpgradeDataSchema>;
 

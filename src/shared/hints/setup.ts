@@ -327,6 +327,17 @@ export const SETUP_HINTS = {
       } to apply pending migrations and reconcile this install.`,
   }),
 
+  /** A commit Git refused leaves the upgraded files for the owner to commit. */
+  "upgrade-commit-pending": defineHint({
+    id: "upgrade-commit-pending",
+    category: "next-step",
+    audience: "all",
+    when: "`upgrade` changes files and Git refuses the commit of them.",
+    example: undefined,
+    template: (): string =>
+      "The upgraded files are in the working tree, uncommitted. Review and commit them: a worktree started before that commit begins without the upgrade.",
+  }),
+
   /** Post-upgrade lead-in to the shared restart-session lifecycle fact. */
   "upgrade-restart-session": defineHint({
     id: "upgrade-restart-session",

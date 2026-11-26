@@ -793,6 +793,10 @@ export const RESULT_OPEN_VOCABULARIES = {
     name: "ManagedVersionState",
     values: ["unknown", "equal", "running-newer", "project-managed-by-newer"],
   },
+  "x-discern-upgrade-commit-states": {
+    name: "UpgradeCommitState",
+    values: ["committed", "unchanged", "uncommitted", "failed"],
+  },
   "x-discern-title-sources": {
     name: "TitleSource",
     values: ["recorded", "identity-fallback", "unavailable-fallback"],

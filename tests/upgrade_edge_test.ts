@@ -277,6 +277,9 @@ Deno.test("upgrade --json reports a partial refresh as top-level not-ok while ke
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
     assertEquals((await inspectReleaseCheck(dir)).status, "missing");
+    // An incomplete upgrade is never committed; its partial effects stay in the tree.
+    assertResultDataKey(res, "commit");
+    assertEquals(res.data.commit?.state, "uncommitted");
     assertResultDataKey(res, "instruction_refresh");
     const refresh = res.data.instruction_refresh;
     assertExists(refresh);

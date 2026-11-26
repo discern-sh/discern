@@ -383,17 +383,9 @@ Deno.test("every captured installation upgraded by this build converges with a f
           }`,
         );
 
-        // A reviewed upgrade is committed before the next one runs; the
-        // second upgrade then finds nothing to change.
-        await git(upgraded, "add", "-A");
-        await git(
-          upgraded,
-          "commit",
-          "-q",
-          "-m",
-          "upgrade discern",
-          "--no-gpg-sign",
-        );
+        // The upgrade commits its own changes, so the next one starts from
+        // a clean tree and finds nothing to change.
+        assertEquals(result.data.commit?.state, "committed", upgrade.output);
         const again = await runAgent(upgraded, ["upgrade", "--json"]);
         assertEquals(again.code, 0, again.output);
         assertEquals(

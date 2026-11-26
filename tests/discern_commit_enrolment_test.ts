@@ -120,7 +120,7 @@ Deno.test("every discern-authored commit site has one real typed caller and no a
   }
 });
 
-Deno.test("the commit-message registry renders the five settled subjects and exact attribution", () => {
+Deno.test("the commit-message registry renders the six settled subjects and exact attribution", () => {
   const messages = [
     discernCommitMessage({
       site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
@@ -160,6 +160,10 @@ Deno.test("the commit-message registry renders the five settled subjects and exa
         }],
       },
     }, fakeEnv()),
+    discernCommitMessage({
+      site: DISCERN_AUTHORED_COMMIT_SITES.projectUpgrade,
+      values: { previous: "7.1.0", adopted: "7.2.0", migrations: [] },
+    }, fakeEnv()),
   ];
   assertEquals(
     messages.map((message) => message.split("\n", 1)[0]),
@@ -169,6 +173,7 @@ Deno.test("the commit-message registry renders the five settled subjects and exa
       "Regenerate artifacts after discern update",
       "Pin standard baseline: coverage 80 → 85",
       "Propose standard limit: bundle_size",
+      "Upgrade discern's managed files to 7.2.0",
     ],
   );
   for (const message of messages) {
@@ -177,6 +182,38 @@ Deno.test("the commit-message registry renders the five settled subjects and exa
       `missing exact attribution trailer:\n${message}`,
     );
   }
+});
+
+Deno.test("the upgrade commit message says which adoption it records", () => {
+  const render = (
+    previous: string | null,
+    migrations: { from: number; to: number; describe: string }[] = [],
+  ): string =>
+    discernCommitMessage({
+      site: DISCERN_AUTHORED_COMMIT_SITES.projectUpgrade,
+      values: { previous, adopted: "7.2.0", migrations },
+    }, fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }));
+
+  assertEquals(
+    render("7.1.0"),
+    "Upgrade discern's managed files to 7.2.0\n\n" +
+      "`discern upgrade` moved this project from discern 7.1.0 to\n" +
+      "7.2.0 and brought the files discern manages in line with it.",
+  );
+  assertEquals(
+    render(null),
+    "Upgrade discern's managed files to 7.2.0\n\n" +
+      "`discern upgrade` recorded discern 7.2.0 as the version managing this\n" +
+      "project and brought the files discern manages in line with it.",
+  );
+  // The same version again means drift was repaired, not a version adopted.
+  assertEquals(
+    render("7.2.0", [{ from: 1, to: 2, describe: "rename a key" }]),
+    "Refresh discern's managed files for 7.2.0\n\n" +
+      "`discern upgrade` brought the files discern manages back in line with\n" +
+      "discern 7.2.0.\n\n" +
+      "Config migrations applied:\n- 1→2: rename a key",
+  );
 });
 
 Deno.test("the generic git runner refuses commit through aliases and wrappers", async () => {

@@ -2357,6 +2357,17 @@ Rendered example:
 
 > Run `discern upgrade` to apply pending migrations and reconcile this install.
 
+## `upgrade-commit-pending`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: `upgrade` changes files and Git refuses the commit of them.
+
+Rendered example:
+
+> The upgraded files are in the working tree, uncommitted. Review and commit them: a worktree started before that commit begins without the upgrade.
+
 ## `upgrade-newer-discern`
 
 - Category: `notice`

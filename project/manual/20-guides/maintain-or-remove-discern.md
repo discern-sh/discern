@@ -94,7 +94,7 @@ discern upgrade --dry-run
 
 ### 3. Apply, check, and land
 
-The agent runs `discern upgrade`, which changes only discern's own settings and files. If upgrade can't finish, its result says what's left and how to recover. Then the agent runs the gate and brings the upgrade back for review, as in [Finish and land a change](finish-and-land-a-change.md). If your project runs discern in CI, raise the version CI installs in the same change, as [Run the gate in CI](run-the-gate-in-ci.md) explains.
+The agent runs `discern upgrade`, which changes only discern's own settings and files and commits them itself. If upgrade can't finish, its result says what's left and how to recover. Then the agent runs the gate and brings the upgrade back for review, as in [Finish and land a change](finish-and-land-a-change.md). If your project runs discern in CI, raise the version CI installs in the same change, as [Run the gate in CI](run-the-gate-in-ci.md) explains.
 
 After it lands, restart your coding-agent sessions. The upgrade is done when `discern doctor` passes, `discern upgrade --check` lists nothing, and a new session can reach discern.
 

@@ -47,6 +47,7 @@ import {
   statusFleetRowFact,
 } from "./result_markdown_fleet.ts";
 import { skillsListLines } from "./skills_list_presentation.ts";
+import { upgradeCommitSentence } from "./upgrade_commit_presentation.ts";
 import {
   CompletionAssuranceSchema,
   describeCompletionAssurance,
@@ -1021,6 +1022,7 @@ const presentUpgrade: ResultMarkdownPresenter = (result) => {
       text(instructionRefresh?.status) === undefined
         ? undefined
         : `Instruction refresh: ${code(instructionRefresh?.status)}.`,
+      upgradeCommitSentence(object(data.commit)),
     ]),
   };
 };

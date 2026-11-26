@@ -14,10 +14,12 @@
  *   5. reconcile the config-derived `.gitattributes` block;
  *   6. recompile the instructions — which re-materializes the bundled skills into
  *      `.claude/skills/` and writes the per-provider agent files;
- *   7. atomically stamp the schema and, after complete refresh, managed adoption.
+ *   7. atomically stamp the schema and, after complete refresh, managed adoption;
+ *   8. commit the result, when the tree was clean before the upgrade wrote.
  *
  * Your config values, instruction sources, authored skills, and project scripts are never
- * rewritten. The clean-tree git guard keeps the upgrade revertible.
+ * rewritten. The clean-tree git guard makes the upgrade's diff wholly its own,
+ * so the commit is one unit to review or revert.
  */
 
 import { writeReleaseCheck } from "../shared/release_check.ts";
@@ -86,6 +88,12 @@ import {
   mergeHintTexts,
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
+import { upgradeCommitSentence } from "../shared/upgrade_commit_presentation.ts";
+import {
+  planUpgradeCommit,
+  settleUpgradeCommit,
+  type UpgradeCommitOutcome,
+} from "./upgrade_commit.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import {
   instructionRefreshData,
@@ -177,6 +185,11 @@ async function recordedCompletionRefusal(
     };
   }
   return undefined;
+}
+
+/** Fire the advisory that the upgraded files still need the owner's commit. */
+function commitPendingHint(): FiredHint {
+  return fire(HINTS["upgrade-commit-pending"]);
 }
 
 /** Fire the advisory that running agents still hold pre-upgrade instructions. */
@@ -462,6 +475,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.info(
         "Would recompile the agent instructions and re-materialize the bundled skills.",
       );
+      log.group("commit");
+      log.info(
+        "Would commit the result when the tree is clean. `--allow-dirty` leaves that commit to you.",
+      );
       log.group("dry-run-verdict");
       log.info("No files were written (--dry-run).");
     }
@@ -486,15 +503,15 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     }
   }
 
-  // Clean-tree guard (ADR 0014): an upgrade must stay revertible with
-  // `git checkout`, so refuse a tree carrying uncommitted *tracked* changes
+  // Clean-tree guard (ADR 0014): an upgrade must stay one reviewable,
+  // revertible unit, so refuse a tree carrying uncommitted *tracked* changes
   // unless --allow-dirty. Only the mutating path reaches here — `--check` and
   // `--dry-run` returned above, so neither is ever blocked. A non-repo cannot
   // offer the net, so it proceeds with a note rather than failing.
   if (!options.allowDirty) {
     if (state.kind === "dirty") {
       const message =
-        "working tree has uncommitted changes; commit or stash them so the upgrade stays revertible, or re-run with --allow-dirty.";
+        "working tree has uncommitted changes; commit or stash them so discern can commit the upgrade on its own, or re-run with --allow-dirty and commit the result yourself.";
       if (options.json) {
         log.result({
           ok: false,
@@ -520,6 +537,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       );
     }
   }
+  const commitPlan = await planUpgradeCommit(
+    destDir,
+    state,
+    options.allowDirty,
+  );
 
   // 1. Run the migration chain. Steps are idempotent.
   let applied: Awaited<ReturnType<typeof applyMigrations>>;
@@ -709,11 +731,27 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     fullyCompiled ? adoption : undefined,
   );
 
+  // 4. Commit the result. Git refusing the commit never undoes the upgrade:
+  // the files stay upgraded and the outcome names what is left to commit.
+  const commit = await settleUpgradeCommit(commitPlan, fullyCompiled, {
+    previous: adoption.previous,
+    adopted: adoption.adopted,
+    migrations: applied.map((m) => ({
+      from: m.from,
+      to: m.from + 1,
+      describe: m.describe,
+    })),
+  });
+
   const resultFields = {
     verb: "upgrade" as const,
     hints: mergeHintTexts(
       instructions?.hints ?? [],
-      hintTexts([newerDiscernHint(), restartAgentsHint()]),
+      hintTexts([
+        ...(commit.state === "failed" ? [commitPendingHint()] : []),
+        newerDiscernHint(),
+        restartAgentsHint(),
+      ]),
     ),
     data: {
       discern_version: DISCERN_VERSION,
@@ -751,6 +789,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       hooks_wired: instructions?.hooksWired ?? [],
       worktree_app_wired: instructions?.worktreeAppWired ?? [],
       project_rules_wired: instructions?.projectRulesWired ?? [],
+      commit,
     } satisfies UpgradeData,
   };
   const result: DiscernResult<UpgradeData> = fullyCompiled
@@ -791,6 +830,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     gitattributesReconciliation.operations,
     currentSchema,
     instructionsErrors,
+    commit,
   );
   return result.ok ? 0 : 1;
 }
@@ -891,6 +931,7 @@ function renderUpgradeSummary(
   gitattributesReconciliation: GitattributesReconcileOperation[],
   currentSchema: number,
   instructionErrors: readonly string[],
+  commit: UpgradeCommitOutcome,
 ): void {
   log.heading("Upgrade summary");
   if (migrationCount > 0) {
@@ -941,6 +982,7 @@ function renderUpgradeSummary(
     );
   }
   log.ok(`install stamped at schema ${currentSchema}`);
+  renderUpgradeCommit(log, commit);
   // R6: keep the two upgrade axes distinct — `discern upgrade` refreshed THIS
   // project to match the installed binary; getting a NEWER binary is separate.
   log.group("upgrade-next-steps");
@@ -948,6 +990,20 @@ function renderUpgradeSummary(
     `This command uses the installed discern (${DISCERN_VERSION}). ${newerDiscernHint().text}`,
   );
   log.info(restartAgentsHint().text);
+}
+
+/** Say what became of the upgrade's changes in Git; an unchanged tree needs no line. */
+function renderUpgradeCommit(log: Logger, commit: UpgradeCommitOutcome): void {
+  const sentence = upgradeCommitSentence(commit);
+  if (sentence === undefined) return;
+  if (commit.state === "committed") {
+    log.ok(sentence);
+  } else if (commit.state === "failed") {
+    log.warn(sentence);
+    log.info(commitPendingHint().text);
+  } else {
+    log.info(sentence);
+  }
 }
 
 /** Complete the schema and optional successful adoption in one atomic write. */

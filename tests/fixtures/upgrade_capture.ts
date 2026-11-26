@@ -2,7 +2,9 @@
 import { runUpgrade, type UpgradeOptions } from "../../src/commands/upgrade.ts";
 import { SCHEMA_VERSION } from "../../src/lib/version.ts";
 
-type CaptureOptions = Partial<Pick<UpgradeOptions, "registry" | "json" | "check" | "dryRun">>;
+type CaptureOptions = Partial<
+  Pick<UpgradeOptions, "registry" | "json" | "check" | "dryRun" | "allowDirty">
+>;
 
 /** Keep apply, check, preview, and human output on one process-capture boundary. */
 export async function captureUpgrade(

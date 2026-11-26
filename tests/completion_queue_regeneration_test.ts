@@ -30,6 +30,10 @@ const selections = {
     },
   },
   updateRegeneration: { site: sites.updateRegeneration, values: undefined },
+  projectUpgrade: {
+    site: sites.projectUpgrade,
+    values: { previous: null, adopted: "1.0.0", migrations: [] },
+  },
 } satisfies {
   [Key in keyof typeof sites]: Extract<DiscernCommitMessageSelection, {
     site: typeof sites[Key];

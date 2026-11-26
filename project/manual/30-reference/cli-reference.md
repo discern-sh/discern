@@ -433,7 +433,7 @@ Usage: `discern setup accept [options]`
 
 ### `discern upgrade`
 
-Bring this project up to date with the discern you have installed. To bring the trunk into a task branch, use `discern update`; to regenerate agent files only, use `discern refresh`. It runs any pending config migrations and restores discern's sections, keys, and comment banners in `discern.toml` without touching your values. It updates discern's blocks in `.gitignore` and `.gitattributes`, and refreshes agent files, skills, and integrations. Run it from the project root. It never installs a newer discern, uses no network, and doesn't commit.
+Bring this project up to date with the discern you have installed. To bring the trunk into a task branch, use `discern update`; to regenerate agent files only, use `discern refresh`. It runs any pending config migrations and restores discern's sections, keys, and comment banners in `discern.toml` without touching your values. It updates discern's blocks in `.gitignore` and `.gitattributes`, and refreshes agent files, skills, and integrations. Run it from the project root. It commits its own changes, never installs a newer discern, and uses no network.
 
 Usage: `discern upgrade [options]`
 
@@ -441,7 +441,7 @@ Usage: `discern upgrade [options]`
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--dry-run`     | Show the pending migrations and changes without writing anything.                                                                                                                                                                                                                                                                                                                      |
 | `--check`       | Check whether this project needs an upgrade, without writing anything or using the network. It exits non-zero when config migrations are pending, when the project hasn't adopted this discern version, when `discern.toml` is missing a section or key discern ships or has an outdated comment banner, or when discern's blocks in `.gitignore` or `.gitattributes` are out of date. |
-| `--allow-dirty` | Upgrade even when tracked files have uncommitted changes.                                                                                                                                                                                                                                                                                                                              |
+| `--allow-dirty` | Upgrade even when tracked files have uncommitted changes, and leave the result uncommitted.                                                                                                                                                                                                                                                                                            |
 
 ### `discern doctor`
 

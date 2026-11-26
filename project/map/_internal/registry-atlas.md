@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`site-marketing-pages`](#site-marketing-pages--marketing-pages)                                                      | `site/marketing_pages.ts#MARKETING_PAGES`                                         | 2       | —                | —                           |
 | [`site-endpoints`](#site-endpoints--fixed-public-site-endpoints)                                                      | `site/routes.ts#SITE_ENDPOINTS`                                                   | 18      | —                | —                           |
-| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 973     | —                | —                           |
+| [`public-site-routes`](#public-site-routes--public-site-routes)                                                       | `site/routes.ts#loadSiteRouteInventory`                                           | 975     | —                | —                           |
 | [`wall-deck`](#wall-deck--homepage-wall-cards)                                                                        | `site/wall/deck.ts#WALL_DECK`                                                     | 68      | —                | —                           |
 | [`wall-lenses`](#wall-lenses--homepage-wall-lenses)                                                                   | `site/wall/deck.ts#WALL_LENSES`                                                   | 7       | —                | —                           |
 | [`wall-knobs`](#wall-knobs--homepage-wall-tuning-knobs)                                                               | `site/wall/tuning/knobs.ts#WALL_KNOBS`                                            | 18      | —                | —                           |
@@ -73,12 +73,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`consequence-canon`](#consequence-canon--consequence-canon)                                                          | `scripts/brand/consequences.ts#CONSEQUENCE_CANON`                                 | 37      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
 | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 18      | —                | node `setup`                |
-| [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
+| [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 6       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 6       | —                | —                           |
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 20      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 5       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 211     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 212     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 49      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -120,7 +120,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 424     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 425     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 31      | "File ownership" | node `ownership-buckets`    |
 | [`skill-dir-consumers`](#skill-dir-consumers--skills-directory-consumers)                                             | `tests/skill_dir_consumers.ts#SKILL_DIR_CONSUMERS`                                | 22      | —                | —                           |
 | [`agent-file-writers`](#agent-file-writers--agent-file-writers)                                                       | `tests/agent_file_writers.ts#AGENT_FILE_WRITE_USES`                               | 38      | —                | —                           |
@@ -503,7 +503,7 @@ Each fixed endpoint's format and exhaustive handler, with release and schema add
 Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset namespace, derived from the live content models.
 
 - Source: `site/routes.ts` — `loadSiteRouteInventory`
-- Members: 973
+- Members: 975
   - `/`
   - `/install`
   - `/llms.txt`
@@ -1411,6 +1411,8 @@ Every canonical HTML page, explicit raw edition, fixed endpoint, and the asset n
   - `/docs/decisions/0434-standard-limit-proposals-keep-the-configured-margin.md`
   - `/docs/decisions/0435-a-runtime-override-limits-concurrent-gate-commands`
   - `/docs/decisions/0435-a-runtime-override-limits-concurrent-gate-commands.md`
+  - `/docs/decisions/0436-upgrade-commits-the-diff-it-composes`
+  - `/docs/decisions/0436-upgrade-commits-the-diff-it-composes.md`
   - `/docs/decisions/0001-project-owned-recipes`
   - `/docs/decisions/0001-project-owned-recipes.md`
   - `/docs/decisions/0002-first-class-side-gates`
@@ -3129,12 +3131,13 @@ The semantic contracts for setup's first-use explanations, owner decisions, prog
 The workflows whose diffs discern composes and commits. Every member must route through the attributed, pathspec-limited commit boundary.
 
 - Source: `src/shared/discern_commit.ts` — `DISCERN_AUTHORED_COMMIT_SITES`
-- Members: 5
+- Members: 6
   - `scaffold-wiring`
   - `setup-completion`
   - `standards-pin`
   - `standards-limit-proposal`
   - `update-regeneration`
+  - `project-upgrade`
 - Guards: `tests/discern_commit_enrolment_test.ts`, `tests/writer_boundary_enrolment_test.ts`
 - Glossary: not enrolled — the commit-boundary reference owns this internal provenance vocabulary for existing commands
 - Feature canon: not enrolled — the setup and Standards nodes own the workflows that carry this commit metadata
@@ -3222,7 +3225,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 211
+- Members: 212
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -3422,6 +3425,7 @@ The advisory hint registry: every hint string enters results through it.
   - `doctor-execution-model-verbose`
   - `upgrade-newer-discern`
   - `upgrade-check-pending`
+  - `upgrade-commit-pending`
   - `upgrade-restart-session`
   - `config-unknown-root-sections`
   - `config-correct-validation`
@@ -4792,7 +4796,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 424
+- Members: 425
   - `0003`
   - `0005`
   - `0006`
@@ -5185,6 +5189,7 @@ The numbered decision records in the map, including records later superseded.
   - `0433`
   - `0434`
   - `0435`
+  - `0436`
   - `0001`
   - `0002`
   - `0004`

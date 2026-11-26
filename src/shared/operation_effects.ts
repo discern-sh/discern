@@ -378,7 +378,12 @@ export const OPERATION_EFFECTS = {
     "required",
   ),
   upgrade: policy(
-    ["managed-artifact-write", "discern-checkout-mutation", "external-setup"],
+    [
+      "managed-artifact-write",
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "external-setup",
+    ],
     "checkout",
     "required",
     { lockWhen: { unlessFlags: ["check"] } },
