@@ -11,6 +11,7 @@ import { WALL_DECK } from "../site/wall/deck.ts";
 import {
   DrawnGlyph,
   Glyph,
+  GLYPH_LANDING_PACE,
   GLYPH_POSE_PROPERTIES,
 } from "../site/wall/Glyph.tsx";
 import {
@@ -31,6 +32,7 @@ import {
   type GlyphPoint,
   type GlyphPrimitive,
   type GlyphShape,
+  lands,
   pivot,
   poseTravel,
   ring,
@@ -146,7 +148,12 @@ function finite(value: unknown): boolean {
 /** Why the pose a primitive is marked with cannot be held, if it cannot. */
 function unposable(primitive: GlyphPrimitive): string | undefined {
   const { shift: slide, pivot: turn } = primitive;
-  if (slide === undefined && turn === undefined) return undefined;
+  if (slide === undefined && turn === undefined) {
+    return primitive.lands === true
+      ? "it lands, and no move carries it there: mark it with shift() or " +
+        "pivot(), or take lands() off"
+      : undefined;
+  }
   if (
     slide !== undefined && Math.hypot(slide[0], slide[1]) > GLYPH_SLIDE_MAX
   ) {
@@ -342,6 +349,14 @@ Deno.test("a drawing's layers keep its paint order, and neighbors that share a p
   // Two primitives posed alike with a still one between them do not merge:
   // the still one paints between them.
   assertEquals(glyphLayers([slid, still, alike]).length, 4);
+  // A move that lands is paced apart from one that swings free, so the two
+  // are two drawings even when they go the same way.
+  const landed = lands(shift(dot(10, 30, 4), 6, 0));
+  assertEquals(glyphLayers([slid, landed]), [
+    { primitives: [] },
+    { primitives: [slid], pose: { slide: [12.5, 0] } },
+    { primitives: [landed], pose: { slide: [12.5, 0], lands: true } },
+  ]);
 
   for (const [name, drawing] of AUTHORED) {
     const layers = glyphLayers(drawing);
@@ -386,6 +401,7 @@ Deno.test("a pose the stylesheet cannot hold, or too small to read on a card, is
     [[pivot(dot(24, 22, 4), 30, 24, 24)], /under the/],
     [[pivot(dot(24, 8, 4), GLYPH_TURN_MAX + 1, 24, 24)], /turns farther/],
     [[pivot(ring(24, 24, 10), 90, 24, 24)], /shows nothing/],
+    [[lands(dot(24, 24, 4))], /no move carries it/],
     [
       Array.from(
         { length: GLYPH_MOVING_MAX + 1 },
@@ -404,6 +420,7 @@ Deno.test("a pose the stylesheet cannot hold, or too small to read on a card, is
       shift(dot(24, 24, 4), GLYPH_SLIDE_MAX, 0),
       pivot(bar(22, 4, 4, 20), -GLYPH_TURN_MAX, 24, 24),
       shift(pivot(dot(24, 8, 4), 90, 24, 24), 0, GLYPH_TRAVEL_MIN),
+      lands(shift(dot(24, 24, 4), 0, GLYPH_TRAVEL_MIN)),
     ]),
     [],
   );
@@ -415,6 +432,7 @@ Deno.test("the renderer lays a glyph's layers over each other in paint order, ea
     pivot(bar(22, 6, 4, 18), 90, 24, 24),
     shift(dot(10, 10, 4), 6, -3),
     shift(pivot(dot(24, 8, 4), -45, 12, 36), 0, 6),
+    lands(shift(dot(36, 10, 4), 0, 6)),
     dot(24, 24, 4),
   ];
   const svg = renderToStaticMarkup(
@@ -439,6 +457,10 @@ Deno.test("the renderer lays a glyph's layers over each other in paint order, ea
           "wall-glyph-move",
           "--wall-glyph-dx:0%;--wall-glyph-dy:12.5%;--wall-glyph-da:-45deg;" +
           "--wall-glyph-px:25%;--wall-glyph-py:75%",
+        ],
+        [
+          "wall-glyph-move",
+          `--wall-glyph-dx:0%;--wall-glyph-dy:12.5%;--wall-glyph-ease:var(${GLYPH_LANDING_PACE})`,
         ],
         ["wall-glyph-art wall-glyph-over", null],
       ],
@@ -571,6 +593,62 @@ Deno.test("a moving drawing always carries its move, and only registered values 
       ),
     [],
   );
+});
+
+/** The two heights that shape a cubic-bezier pace, or none when a value names no such pace. */
+function paceHeights(
+  value: string,
+): readonly [number, number] | undefined {
+  const match =
+    /cubic-bezier\(\s*[\d.]+\s*,\s*(-?[\d.]+)\s*,\s*[\d.]+\s*,\s*(-?[\d.]+)\s*\)/
+      .exec(value);
+  return match === null ? undefined : [Number(match[1]), Number(match[2])];
+}
+
+/** Whether a pace stays between its start and its end the whole way. */
+function staysWithin(heights: readonly [number, number]): boolean {
+  return heights.every((height) => height >= 0 && height <= 1);
+}
+
+Deno.test("a move that lands stops at its pose, and a free move goes past it first", () => {
+  const boxes = GLYPH_RULES.filter((rule) =>
+    rule.selectors.length === 1 && rule.selectors[0] === ".wall-glyph"
+  );
+  assertEquals(boxes.length, 1, "one rule styles a glyph's box");
+  const [box] = boxes;
+  assert(box !== undefined);
+  const landing = paceHeights(declared(box, GLYPH_LANDING_PACE) ?? "");
+  assert(
+    landing !== undefined,
+    `the glyph's box declares ${GLYPH_LANDING_PACE}, the pace a drawing ` +
+      `that lands asks for`,
+  );
+  assert(
+    staysWithin(landing),
+    `${GLYPH_LANDING_PACE} carries a piece past the thing it lands ` +
+      `against: keep both of its heights between 0 and 1`,
+  );
+
+  const rest = restRule();
+  assertEquals(
+    reads(declared(rest, "transition-timing-function") ?? ""),
+    [],
+    "the way back has one pace for every move",
+  );
+  for (const rule of MOVE_RULES.filter((rule) => rule !== rest)) {
+    const pace = declared(rule, "transition-timing-function") ?? "";
+    assertEquals(
+      reads(pace),
+      ["--wall-glyph-ease"],
+      `${rule.selectors.join(", ")} takes the pace its drawing hands over`,
+    );
+    const free = paceHeights(pace);
+    assert(
+      free !== undefined && !staysWithin(free),
+      `${rule.selectors.join(", ")}: a free move settles from a little ` +
+        `past its pose`,
+    );
+  }
 });
 
 Deno.test("a glyph's way back to rest ends before its card's face steps down", async () => {

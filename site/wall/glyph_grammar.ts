@@ -10,7 +10,8 @@
  * Angles are in degrees, clockwise from twelve o'clock.
  *
  * A primitive may also be marked to move: while its card is lit it holds a
- * pose, slid by `shift`, turned by `pivot`, or both. `glyphLayers` divides a
+ * pose, slid by `shift`, turned by `pivot`, or both. `lands` marks a move
+ * that arrives against something. `glyphLayers` divides a
  * drawing into the still and the moving drawings the renderer lays over each
  * other, and `poseTravel` measures how far a pose carries a primitive.
  *
@@ -62,6 +63,8 @@ interface Movable {
   readonly shift?: GlyphPoint;
   /** How far the primitive turns while its card is lit, and about which point. */
   readonly pivot?: GlyphPivot;
+  /** The move arrives against something, and stops there without going past it. */
+  readonly lands?: true;
 }
 
 interface Dashable {
@@ -358,6 +361,17 @@ export function pivot<Primitive extends GlyphPrimitive>(
   py: number,
 ): Primitive {
   return { ...primitive, pivot: [degrees, px, py] };
+}
+
+/**
+ * The same moving primitive, arriving against something: a seat, a slot's
+ * edge, a surface it comes to rest on. A move that swings free goes a little
+ * past its pose before it settles. One that lands stops at its pose.
+ */
+export function lands<Primitive extends GlyphPrimitive>(
+  primitive: Primitive,
+): Primitive {
+  return { ...primitive, lands: true };
 }
 
 /** How a drawn shape is painted: one of the tones, or `faint`, a tinted stroke. */
@@ -789,6 +803,8 @@ export interface GlyphPose {
    * a percentage of the grid's side.
    */
   readonly turn?: GlyphPivot;
+  /** The move stops at the pose without going past it. */
+  readonly lands?: true;
 }
 
 /** One drawing of the grid: primitives in paint order, and the pose they share. */
@@ -813,13 +829,16 @@ function poseOf(primitive: GlyphPrimitive): GlyphPose | undefined {
         gridShare(turn[2]),
       ] as const,
     }),
+    ...(primitive.lands === true ? { lands: true as const } : {}),
   };
 }
 
 /** A pose as one string, equal for two poses that move a drawing alike. */
 function poseKey(pose: GlyphPose | undefined): string {
   if (pose === undefined) return "still";
-  return `${pose.slide?.join(" ") ?? ""}|${pose.turn?.join(" ") ?? ""}`;
+  return `${pose.slide?.join(" ") ?? ""}|${pose.turn?.join(" ") ?? ""}|${
+    pose.lands === true ? "lands" : ""
+  }`;
 }
 
 /**

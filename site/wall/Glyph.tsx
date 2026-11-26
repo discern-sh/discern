@@ -13,9 +13,10 @@ import { glyphDrawing } from "./glyphs.ts";
 
 /**
  * The custom properties a moving drawing hands the stylesheet: its slide on
- * each axis, its turn, and the point the turn is about. The stylesheet reads
- * each with the value that moves nothing as its fallback, so a drawing
- * carries only the ones its pose sets.
+ * each axis, its turn, the point the turn is about, and the pace of a move
+ * that lands. The stylesheet reads each with a fallback, the value that moves
+ * nothing or the pace of a free move, so a drawing carries only the ones its
+ * pose sets.
  */
 export const GLYPH_POSE_PROPERTIES = [
   "--wall-glyph-dx",
@@ -23,7 +24,14 @@ export const GLYPH_POSE_PROPERTIES = [
   "--wall-glyph-da",
   "--wall-glyph-px",
   "--wall-glyph-py",
+  "--wall-glyph-ease",
 ] as const;
+
+/**
+ * The pace of a move that lands. The stylesheet declares it on the glyph's
+ * box, and a drawing whose move lands asks for it by name.
+ */
+export const GLYPH_LANDING_PACE = "--wall-glyph-lands";
 
 type PoseStyle =
   & CSSProperties
@@ -43,6 +51,9 @@ function poseStyle(pose: GlyphPose): PoseStyle {
     style["--wall-glyph-da"] = `${pose.turn[0]}deg`;
     style["--wall-glyph-px"] = `${pose.turn[1]}%`;
     style["--wall-glyph-py"] = `${pose.turn[2]}%`;
+  }
+  if (pose.lands === true) {
+    style["--wall-glyph-ease"] = `var(${GLYPH_LANDING_PACE})`;
   }
   return style;
 }

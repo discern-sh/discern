@@ -27,11 +27,14 @@
   /* A glyph is a square box. It holds one drawing of the grid for each layer
    * of the glyph, in paint order: a still drawing for each run of primitives
    * that stay put, and a moving drawing for each run that shares a pose. The
-   * first drawing fills the box and every later one lies exactly over it. A
-   * primitive that moves may cross the box's edge. */
+   * first drawing fills the box and every later one lies exactly over it.
+   *
+   * The box also names the pace of a move that lands. A drawing whose move
+   * arrives against something asks for that pace, and stops at its pose. */
   .wall-glyph {
     position: relative;
     display: block;
+    --wall-glyph-lands: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   .wall-glyph-art,
@@ -105,9 +108,10 @@
    *   brings to rest and then steps back down among the other cards. The ease
    *   in the resting rule is the way back, and is shorter than that hold.
    *
-   * The way in belongs to the lit rules: longer, soft on arrival, and a
-   * little past the pose before it settles. The face is raised for as long as
-   * the card is lit, so the way in may outlast the hold. */
+   * The way in belongs to the lit rules: longer, and soft on arrival. A free
+   * move goes a little past the pose before it settles. A move that lands
+   * hands over its own pace, and stops at the pose. The face is raised for as
+   * long as the card is lit, so the way in may outlast the hold. */
   @media (prefers-reduced-motion: no-preference) {
     .wall-glyph-move {
       transform-origin: var(--wall-glyph-px, 50%) var(--wall-glyph-py, 50%);
@@ -123,7 +127,10 @@
       --wall-glyph-y: var(--wall-glyph-dy, 0%);
       --wall-glyph-a: var(--wall-glyph-da, 0deg);
       transition-duration: 0.6s;
-      transition-timing-function: cubic-bezier(0.3, 1.5, 0.5, 1);
+      transition-timing-function: var(
+        --wall-glyph-ease,
+        cubic-bezier(0.3, 1.5, 0.5, 1)
+      );
     }
 
     @media (hover: hover) {
@@ -134,7 +141,10 @@
         --wall-glyph-y: var(--wall-glyph-dy, 0%);
         --wall-glyph-a: var(--wall-glyph-da, 0deg);
         transition-duration: 0.6s;
-        transition-timing-function: cubic-bezier(0.3, 1.5, 0.5, 1);
+        transition-timing-function: var(
+          --wall-glyph-ease,
+          cubic-bezier(0.3, 1.5, 0.5, 1)
+        );
       }
     }
   }
