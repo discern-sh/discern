@@ -49,6 +49,7 @@ import {
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import {
   gitPathRecord,
+  literalPathspec,
   parsePorcelainZ,
   type PorcelainEntry,
   splitNulRecords,
@@ -1137,11 +1138,6 @@ export async function updateMain(
     before: anchors.before,
     main: anchors.main,
   };
-}
-
-/** A path as a literal Git pathspec, so punctuation can never become pathspec magic. */
-function literalPathspec(path: string): string {
-  return `:(literal)${path}`;
 }
 
 /** Whether an unmerged path has a stage-3 (incoming/theirs) blob. */

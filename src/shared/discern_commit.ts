@@ -14,7 +14,7 @@ import { DISCERN_MACHINE } from "./brand.ts";
 import { spawnedByEnv } from "./invocation_context.ts";
 import { gitCallStarted } from "./invocation_timing.ts";
 import { discernAttributionEnabled, type EnvReader } from "./env.ts";
-import { splitNulRecords } from "./git_paths.ts";
+import { literalPathspec, splitNulRecords } from "./git_paths.ts";
 import {
   describeSpawnError,
   gitBin,
@@ -392,11 +392,6 @@ async function changedPaths(
 interface GitTreeEntry {
   readonly mode: string;
   readonly oid: string;
-}
-
-/** Force Git to interpret an arbitrary repository path without pathspec magic. */
-function literalPathspec(path: string): string {
-  return `:(literal)${path}`;
 }
 
 /** Decode one NUL-delimited `ls-tree` record and validate its path, mode, and OID. */

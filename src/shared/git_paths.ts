@@ -18,6 +18,11 @@ export function splitNulRecords(stdout: string): string[] {
   return stdout.split("\0").filter((r) => r !== "");
 }
 
+/** A path as a literal Git pathspec, so punctuation can never become pathspec magic. */
+export function literalPathspec(path: string): string {
+  return `:(literal)${path}`;
+}
+
 /** Git's directory suffix is record metadata; it is never an empty filename component. */
 export function gitPathRecord(
   label: string,
