@@ -88,7 +88,7 @@ In the main checkout, run `discern start --name release-<version> --json`. Run e
 2. Write `site/releases/records/<version>.md`: YAML metadata with a `summary` of at most 240 characters, then Markdown notes. Add `codename` only to the first record of a family. Omit `date`.
 3. Run `deno task codegen`, then `deno task site:build`.
 4. Commit as `Prepare the v<version> release`. The body says why the version is a patch, minor, or major.
-5. Run `discern upgrade --json`, which moves `[meta].managed_version` in `discern.toml`. Commit the result as `Adopt discern <version> in this repository`.
+5. Run `discern upgrade --json`, which moves `[meta].managed_version` in `discern.toml` and commits the change itself as `Upgrade discern's managed files to <version>`. Confirm `data.commit.state` is `committed`. If it is `failed`, fix the reason it names and commit the listed paths under that same subject.
 
 ### Write the release notes
 
