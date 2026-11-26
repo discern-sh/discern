@@ -10,4 +10,55 @@
     letter-spacing: 0;
     color: var(--discern-color-ink-faint);
   }
+
+  /* The destinations as a short row in the header's actions slot. The
+   * package header hides its own navigation where it is 30rem wide or
+   * narrower, and these links take its place there and nowhere else. The
+   * package header is the nearest size container, so the query measures it. */
+  .site-header-compact {
+    display: none;
+  }
+
+  @container (max-width: 30rem) {
+    .site-header-compact {
+      display: flex;
+      align-items: center;
+    }
+
+    .site-header-compact a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: var(--discern-control-size-sm);
+      padding-inline: var(--discern-space-2);
+      border-radius: var(--discern-radius-sm);
+      font-family: var(--discern-font-ui);
+      font-size: var(--discern-font-size-sm);
+      font-weight: var(--discern-font-weight-medium);
+      color: var(--discern-color-ink-muted);
+      text-decoration: none;
+    }
+
+    .site-header-compact a:is(:hover, :focus-visible, [aria-current]) {
+      color: var(--discern-color-ink);
+    }
+  }
+
+  /* A room too narrow for the version beside the destinations drops it, and
+   * draws the destinations closer. A header that also holds the theme
+   * control runs out of room sooner. */
+  @container (max-width: 25rem) {
+    .site-header-version--beside-control {
+      display: none;
+    }
+  }
+
+  @container (max-width: 21rem) {
+    .site-header-version {
+      display: none;
+    }
+
+    .site-header-compact a {
+      padding-inline: var(--discern-space-1);
+    }
+  }
 }

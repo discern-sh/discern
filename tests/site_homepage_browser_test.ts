@@ -87,6 +87,11 @@ Deno.test("without JavaScript the homepage is readable and its links lead to the
       await page.getByText(`discern is ${DISCERN_CATEGORY}.`).first()
         .isVisible(),
     );
+    assertEquals(
+      await page.getByRole("navigation", { name: "Site" }).count(),
+      1,
+      `${size.name}: the header shows its destinations once`,
+    );
     assertEquals(await page.locator(".wall-card").count(), WALL_DECK.length);
     await assertUsableWidth(page);
     assertEquals(
