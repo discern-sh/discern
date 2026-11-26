@@ -358,8 +358,10 @@ Deno.test("a refused copy selects the prompt for the visitor, says so, and raise
       });
     },
   };
-  for (const [refusal, refuse] of Object.entries(refusals)) {
-    await withBrowser(async (browser) => {
+  // One browser serves every refusal. Each gets a context of its own, because
+  // an init script stays with its context for good.
+  await withBrowser(async (browser) => {
+    for (const [refusal, refuse] of Object.entries(refusals)) {
       const context = await browser.newContext({
         viewport: { width: 1440, height: 900 },
       });
@@ -388,8 +390,9 @@ Deno.test("a refused copy selects the prompt for the visitor, says so, and raise
         `${refusal}: no control says that it copied`,
       );
       assertEquals(faults, [], refusal);
-    });
-  }
+      await context.close();
+    }
+  });
 });
 
 Deno.test("the requested tuning panel changes a knob and can reset it", async () => {
