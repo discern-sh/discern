@@ -203,7 +203,7 @@ export const GLYPHS: Readonly<Record<string, GlyphDrawing>> = {
     shift(dashed(frame(18.5, 3.5, 26, 26, 5)), -7.25, 7.25),
   ],
   // Two halves that face each other: one settled, one open. They slide apart
-  // along their seam, so the judged half no longer lines up with the tested one.
+  // along their seam, so the judged half stands out of line with the tested one.
   "agent-carry-judgment-as-judgment": [
     shift(sector(22, 24, 19, 180, 180), -2, -5),
     shift(sector(26, 24, 19, 0, 180, "outline"), 1, 5),
