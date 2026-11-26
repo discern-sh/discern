@@ -156,17 +156,20 @@ Deno.test("every page that renders the site header loads the header's stylesheet
     );
     pages.push([route, await response.text()]);
   }
+  // Each page is read as text: the walk covers every route, and parsing
+  // each one would cost seconds for two facts a pattern finds.
+  const ownPart = /\sclass="site-header-/;
+  const stylesheet = new RegExp(
+    `<link\\b[^>]*\\shref="[^"]*/${
+      SITE_HEADER_STYLESHEET.replaceAll(".", "\\.")
+    }"`,
+  );
   const unstyled: string[] = [];
   let withHeader = 0;
   for (const [route, html] of pages) {
-    const document = new JSDOM(html).window.document;
-    if (document.querySelector('[class^="site-header-"]') === null) continue;
+    if (!ownPart.test(html)) continue;
     withHeader++;
-    if (
-      document.querySelector(
-        `link[rel="stylesheet"][href$="/${SITE_HEADER_STYLESHEET}"]`,
-      ) === null
-    ) unstyled.push(route);
+    if (!stylesheet.test(html)) unstyled.push(route);
   }
   assert(withHeader > 1, "the header's own parts are on more than one page");
   assertEquals(unstyled, []);
