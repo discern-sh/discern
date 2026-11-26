@@ -2,7 +2,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import type { Page } from "playwright-core";
-import { DISCERN_CATEGORY_LINE, LANDING_HEADLINE } from "../site/brand.ts";
+import { DISCERN_CATEGORY, LANDING_HEADLINE } from "../site/brand.ts";
 import { bundleBrowserModule } from "../site/page-src/format-generated.ts";
 import {
   WALL_ISLAND_ENTRY,
@@ -83,7 +83,10 @@ Deno.test("without JavaScript the homepage is readable and its links lead to the
     assertEquals(await page.locator("h1").allTextContents(), [
       LANDING_HEADLINE,
     ]);
-    assert(await page.getByText(DISCERN_CATEGORY_LINE).first().isVisible());
+    assert(
+      await page.getByText(`discern is ${DISCERN_CATEGORY}.`).first()
+        .isVisible(),
+    );
     assertEquals(await page.locator(".wall-card").count(), WALL_DECK.length);
     await assertUsableWidth(page);
     assertEquals(

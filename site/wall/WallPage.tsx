@@ -106,7 +106,7 @@ function FocusHandover(
  * closing section, speaks for both copy controls.
  */
 export function WallPage(
-  { headline, categoryLine, linkLabels, agents }: WallPageProps,
+  { headline, category, linkLabels, agents }: WallPageProps,
 ): ReactElement {
   const root = useRef<HTMLDivElement>(null);
   const focusedCard = useRef<HTMLElement | null>(null);
@@ -161,7 +161,10 @@ export function WallPage(
       <section className="wall-pool" aria-labelledby="wall-headline">
         <p className="wall-eyebrow">{WALL_FACTS}</p>
         <h1 id="wall-headline" className="wall-headline">{headline}</h1>
-        <p className="wall-category">{categoryLine}</p>
+        <p className="wall-category">
+          <span className="wall-name">discern</span>
+          {` is ${category}.`}
+        </p>
         <div className="wall-actions">
           <StartLink />
           <CopyPrompt

@@ -33,8 +33,11 @@ export interface WallAgent {
 export interface WallPageProps {
   /** The page's one headline. */
   readonly headline: string;
-  /** The category line under the headline. */
-  readonly categoryLine: string;
+  /**
+   * What discern is, as the words that complete "discern is" in the line
+   * under the headline.
+   */
+  readonly category: string;
   /**
    * The title of each manual page a card links to, by that page's route. Only
    * the server can read the manual, and the deck names a page by its address
@@ -118,7 +121,7 @@ export function decodeWallProps(encoded: string | null): WallPageProps {
   }
   return {
     headline: text("headline"),
-    categoryLine: text("categoryLine"),
+    category: text("category"),
     linkLabels,
     agents,
   };

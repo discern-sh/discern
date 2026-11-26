@@ -20,7 +20,7 @@ import { fromFileUrl, join } from "@std/path";
 import { JSDOM } from "jsdom";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
-import { DISCERN_CATEGORY_LINE, LANDING_HEADLINE } from "../site/brand.ts";
+import { DISCERN_CATEGORY, LANDING_HEADLINE } from "../site/brand.ts";
 import {
   DESIGN_SYSTEM_BUNDLES,
   designSystemAssetPath,
@@ -98,7 +98,7 @@ const REGISTERED_PROVIDERS = AGENT_NAMES.map((name) => PROVIDERS[name]);
 
 const SERVER_PROPS: WallPageProps = {
   headline: LANDING_HEADLINE,
-  categoryLine: DISCERN_CATEGORY_LINE,
+  category: DISCERN_CATEGORY,
   linkLabels: Object.fromEntries(
     LINKED_CARDS.map(({ route }) => [route, MANUAL_TITLES.get(route) ?? ""]),
   ),

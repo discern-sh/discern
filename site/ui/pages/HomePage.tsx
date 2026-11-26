@@ -7,7 +7,7 @@ import {
 } from "../../../src/lib/providers.ts";
 import { AGENT_NAMES } from "../../../src/shared/agent_catalogue.ts";
 import {
-  DISCERN_CATEGORY_LINE,
+  DISCERN_CATEGORY,
   LANDING_DESCRIPTION,
   LANDING_HEADLINE,
   LANDING_TITLE,
@@ -113,7 +113,7 @@ export function renderLanding(built: BuiltAssets = {}): string {
 function wallIslandMarkup(): string {
   const props: WallPageProps = {
     headline: LANDING_HEADLINE,
-    categoryLine: DISCERN_CATEGORY_LINE,
+    category: DISCERN_CATEGORY,
     linkLabels: manualLinkLabels(),
     agents: supportedAgents(),
   };

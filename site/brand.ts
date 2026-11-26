@@ -15,9 +15,16 @@ export const RELEASE_TITLE = "discern releases";
 export const LANDING_TITLE = "discern";
 /** The homepage hero's headline, which its social card repeats. */
 export const LANDING_HEADLINE = "Intelligence In Practice.";
-/** The one-line category claim under the footer brand and on the homepage card. */
-export const DISCERN_CATEGORY_LINE =
-  "An engineering practice for agent-built software.";
+/**
+ * What discern is, as the words that complete "discern is": no capital and
+ * no full stop. The homepage's hero says the whole sentence.
+ */
+export const DISCERN_CATEGORY =
+  "an engineering practice for agent-built software";
+/** The category claim as a line of its own, under the footer brand and on the homepage card. */
+export const DISCERN_CATEGORY_LINE = `${
+  DISCERN_CATEGORY.charAt(0).toUpperCase()
+}${DISCERN_CATEGORY.slice(1)}.`;
 /** What the product does, for a search result or a shared link to the homepage. */
 export const LANDING_DESCRIPTION =
   "Run coding agents in separate copies of your project. Finished means your tests pass, and nothing merges through discern without your approval.";
