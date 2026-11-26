@@ -107,7 +107,7 @@ A copy control goes off the page on paper. The prompt's words print on a plain o
 
 ## The row of agents
 
-Under the pool's actions, one row names the coding agents discern works with: the words "Works with your coding agent", then one mark for each agent.
+Under the pool's actions, a centered row holds one mark for each coding agent discern works with, over the words "Works with your coding agent".
 
 The list is the live provider registry, `PROVIDERS` in [`src/lib/providers.ts`](../../../src/lib/providers.ts), in the order of `AGENT_NAMES`. That module is server code. `HomePage.tsx` reads it and hands the island each agent's name and the address of its silhouette as the `agents` prop. A provider added to the registry joins the row with no change to the wall, and the island test holds the row to the registry.
 

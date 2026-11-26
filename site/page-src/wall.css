@@ -451,15 +451,13 @@
     }
   }
 
-  /* The agents discern works with: the row's words, then one mark for each
-   * agent. On a narrow room the marks take a line of their own. */
+  /* The agents discern works with: one mark for each agent in a centered
+   * row, over the words that name the row. */
   .wall-agents {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0.625rem 1rem;
-    margin-block-start: clamp(1.25rem, 3vh, 1.75rem);
+    display: grid;
+    justify-items: center;
+    gap: 0.7rem;
+    margin-block-start: clamp(1.5rem, 3.6vh, 2.25rem);
     font-size: 0.82rem;
     color: var(--wall-ink-faint);
   }
@@ -467,7 +465,7 @@
   .wall-agents-list {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.5rem;
     padding: 0;
     list-style: none;
     color: var(--wall-ink-muted);
@@ -477,8 +475,8 @@
    * every mark is one light color, and no vendor's file is recolored. */
   .wall-agent {
     display: block;
-    inline-size: 1.25rem;
-    block-size: 1.25rem;
+    inline-size: 1.625rem;
+    block-size: 1.625rem;
     background: currentcolor;
     -webkit-mask: var(--wall-agent-mark) center / contain no-repeat;
     mask: var(--wall-agent-mark) center / contain no-repeat;

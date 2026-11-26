@@ -2,7 +2,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { WallAgent } from "./host.ts";
 
-/** The words that label the row. */
+/** The words under the marks, which name them. */
 export const WORKS_WITH_LABEL = "Works with your coding agent";
 
 /** The id of those words, which name the list of marks. */
@@ -20,16 +20,15 @@ function agentMarkStyle(
 }
 
 /**
- * One mark per agent, in the order the server gave. A mark is a picture with
- * no words beside it, so each carries its agent's name for assistive
- * technology and as its tooltip.
+ * One mark per agent, in the order the server gave, over the words that name
+ * the row. A mark is a picture with no words beside it, so each carries its
+ * agent's name for assistive technology and as its tooltip.
  */
 export function WorksWith(
   { agents }: { readonly agents: readonly WallAgent[] },
 ): ReactElement {
   return (
     <div className="wall-agents">
-      <p id={WORKS_WITH_LABEL_ID}>{WORKS_WITH_LABEL}</p>
       <ul
         className="wall-agents-list"
         role="list"
@@ -47,6 +46,7 @@ export function WorksWith(
           </li>
         ))}
       </ul>
+      <p id={WORKS_WITH_LABEL_ID}>{WORKS_WITH_LABEL}</p>
     </div>
   );
 }
