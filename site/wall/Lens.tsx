@@ -324,7 +324,7 @@ function centerOnKeyboardFocus(event: FocusEvent<HTMLButtonElement>): void {
 const NO_EDGES: StripEdges = { start: false, end: false };
 
 /** The words that name each step control. */
-const STEP_NAMES: Readonly<Record<keyof StripEdges, string>> = {
+export const STEP_NAMES: Readonly<Record<keyof StripEdges, string>> = {
   start: "Scroll back through the lenses",
   end: "Scroll on through the lenses",
 };

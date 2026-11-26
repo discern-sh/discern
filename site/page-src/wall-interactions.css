@@ -12,6 +12,34 @@
   initial-value: 0px;
 }
 
+/* Where each fading side of the lens strip is clear glass, and where its
+ * chips are whole again. Registered as lengths so that a side can ease as a
+ * step control comes up beside it, and not to inherit: the strip alone reads
+ * them. */
+@property --wall-lens-clear-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wall-lens-clear-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wall-lens-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wall-lens-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 @layer discern.components {
   /* The lens: one row of toggle chips, never two. Where the row fits it sits
    * centered. Where it does not, its strip scrolls sideways, from edge to
@@ -31,9 +59,10 @@
   }
 
   .wall-lens-strip {
+    /* A fading side is clear glass for --wall-lens-clear from its edge, and
+     * the chips are whole again --wall-lens-fade from it. */
     --wall-lens-fade: 1rem;
-    --wall-lens-fade-start: 0px;
-    --wall-lens-fade-end: 0px;
+    --wall-lens-clear: 0px;
 
     display: flex;
     gap: 0.5rem;
@@ -48,20 +77,22 @@
 
   .wall-lens-strip[data-more-start] {
     --wall-lens-fade-start: var(--wall-lens-fade);
+    --wall-lens-clear-start: var(--wall-lens-clear);
   }
 
   .wall-lens-strip[data-more-end] {
     --wall-lens-fade-end: var(--wall-lens-fade);
+    --wall-lens-clear-end: var(--wall-lens-clear);
   }
 
   .wall-lens-strip[data-more-start],
   .wall-lens-strip[data-more-end] {
     mask-image: linear-gradient(
       90deg,
-      transparent,
+      transparent var(--wall-lens-clear-start),
       oklch(0% 0 0) var(--wall-lens-fade-start),
       oklch(0% 0 0) calc(100% - var(--wall-lens-fade-end)),
-      transparent
+      transparent calc(100% - var(--wall-lens-clear-end))
     );
   }
 
@@ -76,17 +107,42 @@
   }
 
   /* A pointer steps the strip with a control at each side that has more past
-   * it, set in line with the cards' edge, over the strip's fade. The fade
-   * reaches past the control, so no chip shows beside it. The controls take
-   * no room in the row, and appear without moving a chip. A touch screen
-   * swipes the strip and gets none. */
+   * it, set in line with the cards' edge. At rest the bar shows the fade
+   * alone, cutting a chip as it does for a finger. The controls come up
+   * while the pointer is over the bar, take no room in the row, and move no
+   * chip. A touch screen swipes the strip and gets none.
+   *
+   * For a pointer the strip ends at the bar's edges, with room for a focus
+   * ring, so its fade is measured from where a control sits. As the controls
+   * come up, each fading side steps back to clear them: the chips are gone
+   * before they reach a control and whole again well inside it. The whole
+   * fade shows beside the control at every width, and no chip comes out from
+   * under one. A chip brought into view always lands clear of where a
+   * control can be, so the strip's scroll padding is the wider measure. */
   .wall-lens-step {
     display: none;
   }
 
   @media (hover: hover) and (pointer: fine) {
     .wall-lens-strip {
-      --wall-lens-fade: calc(var(--wall-gutter) + 3rem);
+      --wall-lens-ring: 0.375rem;
+      --wall-lens-ramp: clamp(1.5rem, 5vw, 3rem);
+      --wall-lens-step-clear: calc(var(--wall-lens-ring) + 2.5rem);
+      --wall-lens-fade: calc(var(--wall-lens-ring) + var(--wall-lens-ramp));
+
+      inline-size: calc(100% + 2 * var(--wall-lens-ring));
+      margin-inline: calc(var(--wall-lens-ring) * -1);
+      padding-inline: var(--wall-lens-ring);
+      scroll-padding-inline: calc(
+        var(--wall-lens-step-clear) + var(--wall-lens-ramp)
+      );
+    }
+
+    .wall-lens:hover .wall-lens-strip {
+      --wall-lens-clear: var(--wall-lens-step-clear);
+      --wall-lens-fade: calc(
+        var(--wall-lens-step-clear) + var(--wall-lens-ramp)
+      );
     }
 
     .wall-lens-step:not([hidden]) {
@@ -97,6 +153,18 @@
       justify-content: center;
       aspect-ratio: 1;
       padding: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        opacity 0.2s,
+        color 0.2s,
+        background-color 0.2s,
+        border-color 0.2s;
+    }
+
+    .wall-lens:hover .wall-lens-step {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .wall-lens-step[data-side="start"] {
@@ -140,6 +208,19 @@
   .wall-chip::after,
   .wall-lens-step::before {
     transition: none;
+  }
+
+  /* The fade alone eases, on its own registered lengths, as a step control
+   * comes up or a side gains more to show. */
+  @media (hover: hover) and (pointer: fine) and
+    (prefers-reduced-motion: no-preference) {
+    .wall-lens-strip {
+      transition:
+        --wall-lens-clear-start 0.2s,
+        --wall-lens-clear-end 0.2s,
+        --wall-lens-fade-start 0.2s,
+        --wall-lens-fade-end 0.2s;
+    }
   }
 
   /* Free space goes outside the first and last chip: a row that fits is
