@@ -50,6 +50,7 @@ import { SETUP_PROMPT, SETUP_PROMPT_ID } from "../site/wall/SetupPrompt.tsx";
 import { WALL_KNOBS, wallKnobStyle } from "../site/wall/tuning/knobs.ts";
 import { WallPage } from "../site/wall/WallPage.tsx";
 import { WORKS_WITH_LABEL } from "../site/wall/WorksWith.tsx";
+import { unescapeHtml } from "../src/lib/markdown.ts";
 import { providerBrandSilhouette, PROVIDERS } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import {
@@ -294,8 +295,9 @@ Deno.test("the setup prompt has one source, and the homepage shows its words onc
     "the closing section shows the prompt, with or without script",
   );
   dom.window.close();
+  // The serializer may spell a character of the prompt as a reference.
   assertEquals(
-    html.split(SETUP_PROMPT).length - 1,
+    unescapeHtml(html).split(SETUP_PROMPT).length - 1,
     1,
     "the page carries the prompt's words once: the copy controls take them from the island, not from a second copy in the markup",
   );
