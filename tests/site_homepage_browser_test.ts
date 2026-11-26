@@ -87,11 +87,25 @@ Deno.test("without JavaScript the homepage is readable and its links lead to the
       await page.getByText(`discern is ${DISCERN_CATEGORY}.`).first()
         .isVisible(),
     );
-    assertEquals(
-      await page.getByRole("navigation", { name: "Site" }).count(),
-      1,
-      `${size.name}: the header shows its destinations once`,
-    );
+    // The header's two destinations fit beside the brand at every width,
+    // the widths between a phone and a laptop included.
+    for (const width of new Set([size.width, 520, 640, 760])) {
+      await page.setViewportSize({ width, height: size.height });
+      assert(
+        await page.getByRole("navigation", { name: "Site" }).evaluate(
+          (navigation) => {
+            const brand = navigation.closest("header")?.querySelector("a");
+            if (!brand) return false;
+            const links = navigation.getBoundingClientRect();
+            const name = brand.getBoundingClientRect();
+            return links.width > 0 && links.top < name.bottom &&
+              links.bottom > name.top && links.left >= name.right;
+          },
+        ),
+        `${size.name} at ${width}px: the destinations share the brand's row`,
+      );
+    }
+    await page.setViewportSize({ width: size.width, height: size.height });
     assertEquals(await page.locator(".wall-card").count(), WALL_DECK.length);
     await assertUsableWidth(page);
     assertEquals(

@@ -1,7 +1,6 @@
 /** Every public React composition inherits the shared site navigation. */
 import { assert, assertEquals } from "@std/assert";
 import { JSDOM } from "jsdom";
-import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
 import { loadDocsSite } from "../site/docs.tsx";
 import {
   MARKETING_PAGES,
@@ -29,23 +28,16 @@ function withoutCurrentState(header: string): string {
 }
 
 /**
- * Take the theme control out of a header, with the mark the version carries
- * beside one. A document whose theme is fixed renders neither, and
+ * Take the theme control's slot out of a header, with the mark the version
+ * carries beside one. A document whose theme is fixed renders neither, and
  * `site_theme_test.ts` holds which routes those are.
  */
 function dropThemeControl(header: Element): void {
-  header.querySelector("button[data-discern-theme-toggle]")?.remove();
+  header.querySelector("button[data-discern-theme-toggle]")?.parentElement
+    ?.remove();
   header.querySelector(`.${VERSION_BESIDE_CONTROL_CLASS}`)?.classList.remove(
     VERSION_BESIDE_CONTROL_CLASS,
   );
-}
-
-/** The width at or under which a stylesheet's rule for `selector` applies. */
-function narrowLimit(css: string, selector: string): string | undefined {
-  const escaped = selector.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(
-    `@container \\(max-width:\\s*([^)]+)\\)\\s*\\{\\s*${escaped}[\\s,{]`,
-  ).exec(css)?.[1]?.trim();
 }
 
 Deno.test("public React pages share the complete header and footer", async () => {
@@ -72,13 +64,10 @@ Deno.test("public React pages share the complete header and footer", async () =>
       ?.closest("header");
     const pageFooter = document.querySelector("main + footer");
     assert(pageHeader && pageFooter, route);
-    // The header holds the destinations twice: the package's navigation, and
-    // the short row that stands in for it in a narrow room. A stylesheet
-    // shows one at a time, so both carry every destination and its state.
     const navigations = [
       ...pageHeader.querySelectorAll('nav[aria-label="Site"]'),
     ];
-    assertEquals(navigations.length, 2, route);
+    assertEquals(navigations.length, 1, `${route}: one set of destinations`);
     for (const group of SITE_FOOTER_GROUPS) {
       for (const link of group.links) {
         assert(
@@ -112,33 +101,6 @@ Deno.test("public React pages share the complete header and footer", async () =>
     assertEquals(pageFooter.outerHTML, footer, route);
     dom.window.close();
   }
-});
-
-Deno.test("the short row of destinations shows exactly where the package header hides its own", async () => {
-  const packageLimit = narrowLimit(
-    await Deno.readTextFile(
-      new URL(
-        `../site/${DESIGN_SYSTEM_BUNDLES.compositions.output}discern.css`,
-        import.meta.url,
-      ),
-    ),
-    ".discern-site-header--collapse-nav",
-  );
-  const siteLimit = narrowLimit(
-    await Deno.readTextFile(
-      new URL(
-        `../site/page-src/${SITE_HEADER_STYLESHEET}`,
-        import.meta.url,
-      ),
-    ),
-    ".site-header-compact",
-  );
-  assert(packageLimit !== undefined, "the package header hides its navigation");
-  assertEquals(
-    siteLimit,
-    packageLimit,
-    "a different width would show both sets of destinations, or neither",
-  );
 });
 
 Deno.test("every page that renders the site header loads the header's stylesheet", async () => {
